@@ -826,6 +826,11 @@ test('R5 send time and working days: approved at 9:30 waits for a 10:00 send; wo
   t.at('2026-10-23', 10, 0); t.ctx.cueResume(); assert.ok(t.log.sent.length >= 1);
   assert.strictEqual(chase(t).filter(x => x[0] === 'award:1')[0][6], '2026-10-30', 'Friday + 5 working days = next Friday');
 });
+test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 1 working day', () => {
+  const t = sweepBox({ items: [{ key: 'rfq:dddddddddddddddd', project: 'Soon', who: 'S', to: 's@x.example', why: 'event in 3 days', every: 1 }] });
+  t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(chase(t)[0][6], '2026-10-22');
+});
 test('R6 moving the build time moves the 07:00 trigger', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
   assert.strictEqual(t.log.triggers.filter(h => h === 'cueSweep').length, 1); deq(t.log.triggerTz.cueSweep, [6, 'Asia/Manila']);

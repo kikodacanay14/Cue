@@ -510,7 +510,7 @@
     var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:#fff">' + esc(r.day) + '</b>'
       + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
-    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>9:00</b>. Until then they wait in your Gmail Drafts.</div>';
+    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
     kinds.forEach(function (k) {
       h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
       by[k].forEach(function (it) {
