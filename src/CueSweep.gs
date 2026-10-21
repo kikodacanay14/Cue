@@ -351,7 +351,7 @@ function cueSweepApprove_(id, edits) {
   if (toSend.length && ph.hour < sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, sendHour);
   if (toSend.length && b.send_at && cueNow_() < b.send_at) {
     s.status = 'Scheduled';
-    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at 9:00. They are in your Gmail Drafts until then; tap Cancel on the batch to keep them as drafts.', s.id);
+    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at ' + String(sendHour).padStart(2, '0') + ':00. Nothing has gone out yet; tap Cancel on the batch to stop it.', s.id);
   } else cueSweepSend_(s);
   if (s.status === 'Making drafts') s.status = cueSweepBad_(s) ? 'Done, drafts incomplete' : 'Done';
   delete s.lease_until;
@@ -398,7 +398,7 @@ function cueSweepCancel(id) {
     });
     L.s.batch.cancelled_at = new Date(cueNow_()).toISOString(); L.s.batch.send = false; L.s.status = 'Done'; cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  cueChat_('Cue', 'Cancelled. Nothing was sent; the emails are in your Gmail Drafts.', s.id);
+  cueChat_('Cue', 'Cancelled. Nothing was sent.' + (s.batch.items.some(it => it.selected && it.draft_id) ? ' The drafts made for it are still in Drafts.' : ''), s.id);
   return cueView_(s);
 }
 
