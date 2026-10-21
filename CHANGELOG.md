@@ -10,7 +10,11 @@ Kiko 19:04Z-19:10Z, specs/bid-opportunities.md, Route B (ChatGPT through the API
 - The card shows only new opportunities, plus an "Updated" line for an earlier one whose deadline or amendments changed. It also shows the 9-point process check and the sources list. There is no Pursue button: "do intake for <reference>" starts the normal intake with that notice and sets Intake?? = Yes.
 - New rows go to the "Web bid findings" tab of Kiko's bid sheet, and one row per source to "Web source scan log" (Script Property CUE_BIDS_SHEET_ID; the default is the BSE Inbox RFP & Bid History sheet). Nothing is emailed, written to Canvas, registered or submitted.
 - Limit: the API has no browser and no sign-in, so the new PhilGEPS signed-in search and locked files show as Blocked or "not opened".
-- Tests: 241 of 241 pass (new BD1 to BD6; S1 now expects the 08:00 trigger).
+- Tests: 242 of 242 pass with 1.21.1 merged in (new BD1 to BD6; S1 now expects the 08:00 trigger).
+
+## Cue 1.21.1: a thread keeps the name of its first task (not deployed)
+
+Kiko 19:20Z picked "First task names it". A thread's title comes from its first named task (a Morning batch never names it), so a later task filed into it, like an expense, no longer renames the LED wall thread "Expense · AMI Group".
 
 ## Cue 1.20.3: page fixes from the 1.20.2 PC test (not deployed)
 

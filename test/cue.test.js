@@ -3399,6 +3399,13 @@ test('BD6 page: the bid card shows new and updated notices, links only https, th
   assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱500,000/.test(h) && /For verification/.test(h) && /\(not opened\)/.test(h));
 });
 
+test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense filed into it does not rename it', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const fn = page.match(/function threadTitle\(th\) \{[\s\S]*?\n  \}\n/)[0], box = { personalName: () => '', kindName: r => r.kind };
+  vm.runInNewContext(fn + 'out = threadTitle({ reqs: [{ kind: "sweep", day: "2026-10-22" }, { kind: "intake", proposal: { client: { company: "AMI Group" } } }, { kind: "expense", expense: { project: { name: "AMI Group" } } }] });', box);
+  deq(box.out, 'AMI Group');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
