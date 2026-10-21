@@ -134,8 +134,11 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         const width = Math.max(360, w.width + by), { cueShift = 0 } = await chrome.storage.session.get('cueShift');
         let left = w.left;
         if (by > 0 && Number.isFinite(msg.right) && w.left + width > msg.right) left = Math.max(Number.isFinite(msg.left) ? msg.left : 0, msg.right - width);   // no room on the right: grow to the left
-        if (by < 0) left = w.left + cueShift;                                                                                                              // shrinking puts the chat back where it was
-        await chrome.storage.session.set({ cueShift: by > 0 ? w.left - left : 0 });
+        // 1.4.0 (Kiko 21 Oct 14:54Z): the threads pane and the file viewer each ask for room, so shifts add up and give back in turn.
+        let shift = cueShift;
+        if (by > 0) shift += w.left - left;
+        else { const back = Math.min(shift, -by); left = w.left + back; shift -= back; }                                                                  // shrinking puts the chat back where it was
+        await chrome.storage.session.set({ cueShift: Math.max(0, shift) });
         await chrome.windows.update(w.id, { width, left: Math.round(left) });
       } catch (e) { /* gone */ }
     });
