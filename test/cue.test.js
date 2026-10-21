@@ -1278,8 +1278,10 @@ test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
     [[3, 3, 2, 'working'], [3, 5, 3, 'working'], [7, 7, 3, 'days'], [3, 3, 3, 'days'], [1, 2, 3, 'days']]);
   deq(r.general, { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 });
 });
+// A test stub replaces a real chaser kind of the same name (payment, award, ...) once those kind files load.
+function stubKind(t, def) { const ks = t.ctx.cueKinds_(); const i = ks.findIndex(k => k.kind === def.kind); if (i >= 0) ks.splice(i, 1); t.ctx.cueKind_(def); }
 test('R2 Kiko saves a change: checked, kept in the Rules tab, noted in the chat, used by the next batch', () => {
-  const t = sweepBox(); t.ctx.cueKind_({ kind: 'payment', label: 'Payment chasers', template: it => ({ body: 'Pay ' + it.who }),
+  const t = sweepBox(); stubKind(t, { kind: 'payment', label: 'Payment chasers', template: it => ({ body: 'Pay ' + it.who }),
     find: ctx => [{ key: 'pay:1', project: 'P', who: 'Client', to: 'c@x.example', why: 'Unpaid ' + ctx.rule('payment').first + 'd' }] });
   const r = t.ctx.cueRulesSave({ 'payment.every': 5, 'payment.first': '10', 'rfq.on': false });
   assert.strictEqual(r.kinds.payment.every, 5); assert.strictEqual(r.kinds.payment.first, 10); assert.strictEqual(r.kinds.rfq.on, false);
@@ -1302,12 +1304,17 @@ test('R4 a broken value typed into the Rules tab falls back to the default and t
   t.ctx.cueSweep(); const b = batchOf(t); assert.strictEqual(b.status, 'Needs you'); assert.ok(b.notes.some(n => /nudge\.every = "soon" is not valid/.test(n)));
 });
 test('R5 send time and working days: approved at 9:30 waits for a 10:00 send; working-day rules skip the weekend', () => {
-  const t = sweepBox(); t.ctx.cueRulesSave({ 'general.send': 10 }); t.ctx.cueKind_({ kind: 'award', label: 'CE award chasers', template: () => ({ body: 'Any news?' }),
+  const t = sweepBox(); t.ctx.cueRulesSave({ 'general.send': 10 }); stubKind(t, { kind: 'award', label: 'CE award chasers', template: () => ({ body: 'Any news?' }),
     find: () => [{ key: 'award:1', project: 'Acme', who: 'Ana', to: 'ana@acme.example', why: 'CE sent' }] });
   t.at('2026-10-23', 7, 0); t.ctx.cueSweep(); t.at('2026-10-23', 9, 30);
   assert.strictEqual(t.ctx.cueApprove(batchOf(t).id, { send: true }).status, 'Scheduled');
   t.at('2026-10-23', 10, 0); t.ctx.cueResume(); assert.ok(t.log.sent.length >= 1);
   assert.strictEqual(chase(t).filter(x => x[0] === 'award:1')[0][6], '2026-10-30', 'Friday + 5 working days = next Friday');
+});
+test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 1 working day', () => {
+  const t = sweepBox({ items: [{ key: 'rfq:dddddddddddddddd', project: 'Soon', who: 'S', to: 's@x.example', why: 'event in 3 days', every: 1 }] });
+  t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(chase(t)[0][6], '2026-10-22');
 });
 test('R6 moving the build time moves the 07:00 trigger', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
