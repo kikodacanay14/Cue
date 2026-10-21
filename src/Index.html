@@ -146,11 +146,12 @@
     <div class="actions" style="justify-content:flex-end"><button class="btn ghost" value="cancel">Cancel</button><button class="btn bad" id="ask-ok" value="ok">OK</button></div>
   </form>
 </dialog>
-<div class="composer" id="composer">
+<div class="composer" id="composer" data-cue-app="1">
   <div class="in">
     <div class="files" id="files" aria-live="polite"></div>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
+      <button class="btn ghost attach" id="snap" hidden title="Snap the page you were looking at (Alt+Shift+S works too)" aria-label="Snap the page you were looking at">📷</button>
       <input type="file" id="picker" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.eml,.txt,.csv">
       <textarea id="box" placeholder="Ask Cue, or paste an inquiry. 📎 adds briefs, photos and plans." aria-label="Message"></textarea>
       <button class="btn" id="send">Send</button>
@@ -160,6 +161,7 @@
       <button class="chip" id="chip-need">What needs me?</button>
       <button class="chip" data-fill="Who owes us money, and what do we owe suppliers?">Money check</button>
       <button class="chip" data-fill="Clean up HubSpot">Clean up HubSpot</button>
+      <button class="chip" id="chip-area" hidden>Snap an area</button>
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
@@ -279,6 +281,31 @@
   ['dragenter', 'dragover'].forEach(function (n) { $('composer').addEventListener(n, function (e) { e.preventDefault(); $('composer').classList.add('drop'); }); });
   ['dragleave', 'drop'].forEach(function (n) { $('composer').addEventListener(n, function (e) { e.preventDefault(); $('composer').classList.remove('drop'); }); });
   $('composer').addEventListener('drop', function (e) { addFiles(e.dataTransfer && e.dataTransfer.files); });
+
+  // Snapshots (spec screen-snapshot.md, Kiko 08:17Z): the Cue bubble 1.2 captures the Chrome tab Kiko was on and drops it here.
+  // 📷 and "Snap an area" show only when the bubble answers. A snapshot or "Send to Cue" text only fills the box; Enter sends.
+  window.addEventListener('message', function (e) {
+    if (e.source !== window || !e.data) return;
+    if (e.data.cueBubble) { $('snap').hidden = false; $('chip-area').hidden = false; }
+    var d = e.data.cueDrop; if (!d) return;
+    if (d.error) return addLocal('Cue', String(d.error));
+    var from = (d.title || d.url) ? String(d.title || 'a page') + (d.url ? ' (' + String(d.url) + ')' : '') : '';
+    if (d.file && d.file.data) {
+      var bin = atob(String(d.file.data)), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      addFiles([new File([bytes], String(d.file.name || 'Cue snapshot.jpg'), { type: String(d.file.type || 'image/jpeg') })]);
+      fillBox(from ? 'Snapshot of ' + from + '.' : '');
+    } else if (d.text) fillBox((from ? 'From ' + from + ':' : 'Selected text:') + '\n' + String(d.text));
+    window.focus(); $('box').focus();
+  });
+  function fillBox(line) {
+    var b = $('box'), v = b.value.trim();
+    if (line && v.indexOf(line) >= 0) line = '';                  // a second snap of the same page adds no second line
+    b.value = v ? v + (line ? '\n' + line : '') : 'New project intake.' + (line ? '\n' + line : '');
+  }
+  $('snap').onclick = function () { window.postMessage({ cueSnapAsk: 'page' }, '*'); };
+  $('chip-area').onclick = function () { window.postMessage({ cueSnapAsk: 'area' }, '*'); };
+  window.postMessage({ cueBubbleAsk: 1 }, '*'); setTimeout(function () { window.postMessage({ cueBubbleAsk: 1 }, '*'); }, 2500);
 
   $('send').onclick = function () {
     var t = $('box').value.trim(); if (!t && !pending.length) return;

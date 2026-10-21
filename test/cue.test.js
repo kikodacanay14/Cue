@@ -1934,6 +1934,31 @@ test('A9 Gmail access missing is a note on the batch, not a crash; the kind file
   const files = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort();
   assert.ok(files.indexOf('CueSweepAward.gs') > files.indexOf('CueSweep.gs'));
 });
+test('SN1 snapshots (Kiko 08:17Z): a Cue bubble screen snapshot goes with the brief, not Designs & Visuals; a photo still goes to Designs & Visuals', () => {
+  const w = sandbox(), snap = 'Cue snapshot 21 Oct 08-20-01.jpg';
+  const iw = w.ctx.cueSend('New project intake.\nSnapshot of Inbox (https://mail.google.com/mail/u/0/#inbox).',
+    [{ name: snap, type: 'image/jpeg', data: PNG }, { name: 'venue.png', type: 'image/png', data: PNG }]).request_id;
+  w.ctx.cueRun(iw); assert.ok(!w.log.saved, 'nothing saved before Kiko approves');
+  w.ctx.cueApprove(iw, {});
+  deq(w.log.saved.map(x => [x.name, x.type]), [[snap, 'Brief & Planning'], ['venue.png', 'Designs & Visuals']]);
+});
+
+test('SN2 Cue bubble 1.2: manifest asks only for what snapshots need; scripts parse; the page only fills the box', () => {
+  const ext = path.join(__dirname, '..', 'extension'), m = JSON.parse(fs.readFileSync(path.join(ext, 'manifest.json'), 'utf8'));
+  assert.strictEqual(m.version, '1.2.0');
+  deq(m.permissions.slice().sort(), ['activeTab', 'contextMenus', 'storage']); deq(m.host_permissions, ['<all_urls>']);
+  assert.strictEqual(m.commands['cue-snap'].suggested_key.default, 'Alt+Shift+S');
+  const drop = m.content_scripts.find(c => c.js.indexOf('cue-drop.js') >= 0);
+  deq(drop.matches, ['https://*.googleusercontent.com/*']); assert.ok(drop.all_frames);
+  ['background.js', 'content.js', 'cue-drop.js', 'options.js'].forEach(f => new vm.Script(fs.readFileSync(path.join(ext, f), 'utf8'), { filename: f }));
+  const bg = fs.readFileSync(path.join(ext, 'background.js'), 'utf8');
+  assert.ok(/isCueTab\(sender\.tab\)\.then\(ok => \{ if \(ok\) snap/.test(bg), 'only Cue\'s own page can ask for a snapshot');
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const h = page.slice(page.indexOf('// Snapshots (spec screen-snapshot.md'), page.indexOf("$('snap').onclick"));
+  assert.ok(h.length > 200 && /e\.source !== window/.test(h), 'listens to its own window only');
+  assert.ok(!/\bsend\(|call\(/.test(h), 'a snapshot never sends or calls the server by itself');
+  assert.ok(/data-cue-app="1"/.test(page));
+});
 
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

@@ -52,7 +52,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `CueVendor.gs`: supplier search (find, compare or assess suppliers). One Canvas read (supplier_lookup), GPT web search only when the Supplier DB is thin, Claude's comparison with Preferred first, and optional RFQs. Writes the Vendor runs and Prospects tabs in the Cue sheet; never Canvas.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
-- `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page.
+- `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page. Bubble 1.2.0 also snaps the Chrome tab into Cue's message box (📷 in Cue, Alt+Shift+S, or right-click "Cue: snap this page / an area"); `cue-drop.js` runs only in Cue's page frame and fills the box, it never sends.
 - `test/cue.test.js`: 42 local tests (`node test/cue.test.js`). Bridge calls are checked against the schema in `test/fixtures/ZapBridge.gs`, a copy of the Canvas bridge as of main V186 plus `get_readiness` (CanvasWorkspace branch claude/project-thread-fd2fwb). Refresh that copy whenever a Canvas release changes the bridge.
 
 ## Setup (Kiko, in your personal Google account)
