@@ -474,9 +474,9 @@
   var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
   var cvWait = 0, cvGone = 0, cvReady = false;
   function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
-  function cvLink(l, primary) {
+  function cvLink(l, primary, hand) {
     if (!l || !CV_URL.test(l.url || '')) return '';
-    return '<a class="btn' + (primary ? '' : ' ghost') + '" data-canvas="1" data-name="' + esc(l.title) + '" href="' + esc(l.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas · ' + esc(l.title) + '</a>';
+    return '<a class="btn' + (primary ? '' : ' ghost') + '" data-canvas="1"' + (hand ? ' data-hand="' + esc(hand) + '"' : '') + ' data-name="' + esc(l.title) + '" href="' + esc(l.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas · ' + esc(l.title) + '</a>';
   }
   function canvasOpen(l) {
     if (!l || !CV_URL.test(l.url || '')) return;
@@ -502,13 +502,32 @@
   }
   function cvUnload() { var n = $('v-stage').querySelector('.cvload'); if (n) n.remove(); }
   window.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement && document.activeElement.id === 'v-cv') cvUnload(); }, 0); });
+  // Canvas 194 says "saved" after a save. A supplier saved from a supplier card's link moves that card on by itself
+  // (the same as tapping Saved in Canvas); any other save shows a short line on the pane.
+  var cvFrom = '';
   window.addEventListener('message', function (e) {
-    var d = e.data, fr = $('v-cv'); if (!d || d.canvasWs !== 'ready' || !fr) return;
-    for (var w = e.source, i = 0; w && i < 4; i++, w = w.parent) if (w === fr.contentWindow) { cvReady = true; var n = $('v-stage').querySelector('.cvnote:not(.cvload)'); if (n) n.remove(); return; }
+    var d = e.data, fr = $('v-cv'); if (!d || (d.canvasWs !== 'ready' && d.canvasWs !== 'saved') || !fr) return;
+    for (var w = e.source, i = 0; w && i < 6; i++, w = w.parent) if (w === fr.contentWindow) {
+      if (d.canvasWs === 'ready') { cvReady = true; var n = $('v-stage').querySelector('.cvnote:not(.cvload)'); if (n) n.remove(); return; }
+      var b = d.what === 'supplier' && d.added && cvFrom && document.querySelector('[data-act="saved-supplier"][data-id="' + cvFrom + '"]');
+      if (b && !b.disabled) { cvFrom = ''; b.click(); }
+      cvUnload(); var o = $('v-stage').querySelector('.cvsaved'); if (o) o.remove();
+      $('v-stage').insertAdjacentHTML('afterbegin', '<div class="cvnote cvload cvsaved" role="status">Saved in Canvas' + (b ? '. Cue is filing the documents.' : '.') + '</div>');
+      setTimeout(function () { var x = $('v-stage').querySelector('.cvsaved'); if (x) x.remove(); }, 6000);
+      return;
+    }
   });
   document.addEventListener('click', function (e) {
-    var a = e.target.closest && e.target.closest('a[data-canvas]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button || PHONE) return;
-    e.preventDefault(); canvasOpen({ url: a.href, title: a.getAttribute('data-name') || 'Canvas' });
+    var a = e.target.closest && e.target.closest('a[data-canvas]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    var hand = a.getAttribute('data-hand'), title = a.getAttribute('data-name') || 'Canvas';
+    var card = a.closest('.card'), sb = card && card.querySelector('[data-act="saved-supplier"]'); cvFrom = sb ? sb.getAttribute('data-id') : '';
+    if (!hand) { if (PHONE) return; e.preventDefault(); return canvasOpen({ url: a.href, title: title }); }
+    // A supplier card with bank details: Canvas keeps them for 10 minutes under a one-time code, and only the code is in the link.
+    e.preventDefault(); var tab = PHONE ? window.open('', '_blank') : null;
+    call('cueSupplierCanvas', [hand], function (l) { l = l || { url: a.href, title: title };
+      if (l.note) addLocal('Cue', l.note);
+      if (tab) tab.location.href = l.url; else canvasOpen({ url: l.url, title: l.title || title }); },
+      function (err) { if (tab) tab.close(); alertErr(err); });
   });
   // Kiko 14:54Z: a Drive or Docs link opens in the viewer, the third pane. Its "1 of N" steps through the files in the same
   // thread (or the main chat) it was opened from.
@@ -1501,9 +1520,9 @@
     // CUE-CANVAS (Kiko 18:57Z): the supplier is added in Canvas's own form, filled from this card. Bank details are not in the link
     // (Kiko 19:20Z): copy them from above. Saved in Canvas then files the documents and the request. Adding from here stays as the fallback.
     var dupe = (x.duplicates || []).length && !x.not_duplicate, bank = rec.Bank || rec['Account Name'] || rec.AccountNumber;
-    if (r.open) h += '<div class="label">In Canvas</div><div class="cvrow" style="margin-top:4px">' + cvLink(r.open, true) + '</div>'
-      + '<div class="small muted" style="margin-top:4px">' + (dupe ? 'Opens the supplier Canvas already has. ' : 'Opens Add supplier with the name, contact, type, city, service and TIN filled in. '
-      + (bank ? 'Bank details are not sent in the link: copy them from Bank details above. ' : '')) + 'Save there, then tap Saved in Canvas so Cue files the documents' + (em ? ' and the request' : '') + '.</div>'
+    if (r.open) h += '<div class="label">In Canvas</div><div class="cvrow" style="margin-top:4px">' + cvLink(r.open, true, bank && !dupe ? r.id : '') + '</div>'
+      + '<div class="small muted" style="margin-top:4px">' + (dupe ? 'Opens the supplier Canvas already has. ' : 'Opens Add supplier with everything on this card filled in. '
+      + (bank ? 'Bank details never go in the link: Canvas gets them by a one-time code that lasts 10 minutes. If they don\'t show, copy them from Bank details above. ' : '')) + 'Save there, then tap Saved in Canvas so Cue files the documents' + (em ? ' and the request' : '') + '.</div>'
       + '<div class="actions"><button class="btn" data-act="saved-supplier" data-id="' + esc(r.id) + '">Saved in Canvas</button></div>';
     return h + '<div class="actions">' + (em ? '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="send-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here and send' : 'Approve and send') + '</button><button class="btn ghost" data-act="approve-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here, request as a draft' : 'Approve, request as a draft') + '</button>'
         : '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="approve-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here instead' : 'Approve and add') + '</button>') + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'

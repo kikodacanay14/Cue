@@ -23,6 +23,9 @@ const CUE_CANVAS_PAGES_ = {
   suppliers: ['support', 'tab=suppliers', 'Suppliers'], 'supplier database': ['support', 'tab=suppliers', 'Suppliers'], freelancers: ['support', 'tab=freelancers', 'Freelancers'],
   'fsa generator': ['support', 'tool=FSA', 'FSA Generator'], 'ar generator': ['support', 'tool=AR', 'AR Generator']
 };
+// Supplier Database columns a Cue link may fill (the bridge's ZB_SUP_FIELDS_ less the bank three: those go by one-time code).
+const CUE_CANVAS_SUPCOLS_ = ['Common / Display Name', 'Address', 'City', 'Province', 'Owner/Manager', 'Website/Social Media', 'Main Service',
+  'Secondary Service', 'Supplier Type', 'Business Type', 'TIN', 'TIN Status', 'Company Email'];
 const CUE_CANVAS_TABWORDS_ = { main: 'Main', scope: 'Scope', scopes: 'Scope', expenses: 'Expenses', expense: 'Expenses', rm: 'RM', resources: 'RM', timeline: 'Timeline',
   'food count': 'Food Count', inrush: 'Inrush', history: 'History', checklist: 'Checklist', readiness: 'Checklist' };
 
@@ -35,16 +38,28 @@ function cueCanvasBase_() {
 function cueCanvasB64_(o) { return Utilities.base64EncodeWebSafe(Utilities.newBlob(JSON.stringify(o)).getBytes()).replace(/=+$/, ''); }
 const cueCanvasQ_ = o => Object.keys(o).filter(k => o[k] !== '' && o[k] != null).map(k => k + '=' + encodeURIComponent(String(o[k]))).join('&');
 
-/** One Canvas link. o.what: project | newscope | task | pay | supplier | addsupplier | pricewatch | page. Returns { title, url }. */
+/** One Canvas link. o.what: project | newscope | task | pay | supplier | addsupplier | pricewatch | finance | accounts | cedesk | page.
+ * Returns { title, url }. Canvas 194 (CUE-LINKS) reads: project action=ar|fsa (+payee), pay qc, addsupplier fields + h (bank code),
+ * finance view/client, accounts q, cedesk project. An older Canvas ignores what it doesn't know and opens the page unfilled. */
 function cueCanvasLink_(o) {
   const base = cueCanvasBase_(), t = (s, n) => cueStr_(s, n || 120).replace(/[|\]\r\n]+/g, ' ').trim();
   const pid = String(o.project_id || '');
   if (['project', 'newscope', 'task', 'pay'].indexOf(o.what) >= 0 && !CUE_PID_RE_.test(pid)) throw new Error('No Canvas project id to open.');
   const nm = t(o.name || pid);
   switch (o.what) {
-    case 'project': { const tab = CUE_CANVAS_TABS_.indexOf(o.tab) >= 0 ? o.tab : 'Main';
-      return { title: nm + (tab === 'Main' ? '' : ' · ' + tab), url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab }) }; }
-    case 'pay': return { title: 'Request payment · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Scope', action: 'pay' }) };
+    case 'project': { const tab = CUE_CANVAS_TABS_.indexOf(o.tab) >= 0 ? o.tab : 'Main', act = ['ar', 'fsa'].indexOf(o.action) >= 0 ? o.action : '';
+      return { title: (act ? (act === 'ar' ? 'ARs' : 'FSAs') + ' · ' : '') + nm + (tab === 'Main' ? '' : ' · ' + tab),
+        url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab, action: act, payee: act ? cueStr_(o.payee, 120) : '' }) }; }
+    case 'pay': { const f = o.fill || {}, qc = {};
+      if (f.scope) qc.scope = cueStr_(f.scope, 60); if (Number(f.amount) > 0) qc.amount = Math.round(Number(f.amount) * 100) / 100;
+      if (f.supplier) qc.supplier = cueStr_(f.supplier, 200); if (f.cost) qc.cost = cueStr_(f.cost, 200);
+      if (/^https:\/\//.test(f.quote || '')) qc.quote = cueStr_(f.quote, 300); if (/^\d{4}-\d{2}-\d{2}$/.test(f.due || '')) qc.due = f.due;
+      return { title: 'Request payment · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Scope', action: 'pay', qc: Object.keys(qc).length ? cueCanvasB64_(qc) : '' }) }; }
+    case 'finance': { const view = ['ar', 'pay', 'proj', 'att'].indexOf(o.view) >= 0 ? o.view : '';
+      return { title: 'Finance' + (view ? ' · ' + { ar: 'Sales', pay: 'Payables', proj: 'Projects', att: 'Needs attention' }[view] : '') + (o.client ? ' · ' + t(o.client) : ''),
+        url: base + '?' + cueCanvasQ_({ page: 'playbook', view, client: cueStr_(o.client, 120), q: cueStr_(o.q, 120) }) }; }
+    case 'accounts': return { title: 'Accounts · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'clientdesk', q: cueStr_(o.q, 120) }) };
+    case 'cedesk': return { title: 'Cost Estimates · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'cedesk', q: cueStr_(o.q, 120) }) };
     // New scope: Canvas picks the Requirement whose name matches req, else puts req in Scope; desc fills Description.
     // scope is for the Canvas release (Scope filled even when a Requirement matched); today's Canvas ignores it.
     case 'newscope': return { title: 'New scope · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, action: 'newscope',
@@ -55,7 +70,10 @@ function cueCanvasLink_(o) {
       const d = o.details || {}, details = {};
       ['person', 'phone', 'email', 'location', 'service', 'tin'].forEach(k => { if (d[k]) details[k] = cueStr_(d[k], 200); });
       if ((d.types || []).length) details.types = d.types.slice(0, 5).map(x => cueStr_(x, 80));
-      return { title: 'Add supplier · ' + t(o.name), url: base + '?' + cueCanvasQ_({ page: 'support', tab: 'suppliers', qcadd: cueCanvasB64_({ name: cueStr_(o.name, 200), details }) }) }; }
+      const fields = {};   // other Supplier Database columns, by header; never a bank column (Canvas skips them too)
+      Object.keys(o.fields || {}).forEach(h => { if (CUE_CANVAS_SUPCOLS_.indexOf(h) >= 0 && String(o.fields[h] || '').trim()) fields[h] = cueStr_(o.fields[h], h === 'Address' ? 500 : 200); });
+      const qc = { name: cueStr_(o.name, 200), details }; if (Object.keys(fields).length) qc.fields = fields;
+      return { title: 'Add supplier · ' + t(o.name), url: base + '?' + cueCanvasQ_({ page: 'support', tab: 'suppliers', qcadd: cueCanvasB64_(qc), h: /^[0-9a-f]{40}$/.test(o.h || '') ? o.h : '' }) }; }
     case 'pricewatch': return { title: 'Price Watch · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'pricewatch', q: cueStr_(o.q, 120) }) };
     case 'page': { const p = CUE_CANVAS_PAGES_[o.key]; if (!p) throw new Error('No such Canvas page.');
       return { title: p[2], url: base + (p[0] === 'workspace' ? '' : '?page=' + p[0] + (p[1] ? '&' + p[1] : '')) }; }
@@ -76,11 +94,15 @@ function cueCanvasParse_(text) {
   if ((m = /^(?:add|new|create)\s+(?:a\s+)?scope\s*[:,-]?\s*(.+)\s+(?:to|in|for|on|under)\s+(?:project\s+)?(.+)$/i.exec(t))) return { what: 'newscope', desc: m[1].trim(), project: m[2] };
   if ((m = /^(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task\s+(.+)\s+(?:in|on|for|under)\s+(?:project\s+)?(.+?)(?:\s+as\s+(?:done|complete|completed|closed))?$/i.exec(t))) return { what: 'task', q: m[1].trim(), project: m[2] };
   if ((m = /^(?:price ?watch|past prices?|price history|check (?:the\s+)?(?:past\s+)?prices?)\s*(?:of|for|on)?\s*[:,-]?\s*(.{2,})$/i.exec(t))) return { what: 'pricewatch', q: m[1].trim() };
-  if ((m = /^(?:make|generate|prepare|create|do)\s+(?:the\s+)?fsas?(?:\s+(?:for|in|on)\s+(?:project\s+)?(.+))?$/i.exec(t))) return m[1] ? { what: 'project', project: m[1], tab: 'Main', why: 'fsa' } : { what: 'page', key: 'fsa generator' };
+  if ((m = /^(?:make|generate|prepare|create|do)\s+(?:the\s+)?fsas?(?:\s+(?:for|in|on)\s+(?:project\s+)?(.+))?$/i.exec(t))) return m[1] ? { what: 'project', project: m[1], tab: 'Main', why: 'fsa', action: 'fsa' } : { what: 'page', key: 'fsa generator' };
   if (!(m = open.exec(t))) return null;
   const rest = t.slice(m[0].length).trim(), low = rest.toLowerCase().replace(/\s+page$/, '').replace(/\s+tab$/, '');
   if ((m = /^(?:supplier|vendor)\s+(?!for\b)(.{2,})$/i.exec(rest))) return { what: 'supplier', q: m[1].trim() };
   if (CUE_CANVAS_PAGES_[low]) return { what: 'page', key: low };
+  if ((m = /^(?:finance|receivables|sales|billings?|invoices|payables)\s+(?:for|of)\s+(.{2,})$/i.exec(rest)))
+    return { what: 'finance', view: /^payables/i.test(rest) ? 'pay' : 'ar', client: m[1].trim() };
+  if ((m = /^(?:account|client|company|contact)\s+(?!for\b)(.{2,})$/i.exec(rest))) return { what: 'accounts', q: m[1].trim() };
+  if ((m = /^(?:ces?|cost estimates?|ce desk)\s+(?:for|of)\s+(?:project\s+)?(.{2,})$/i.exec(rest))) return { what: 'cedesk', q: m[1].trim() };
   if (/^(?:suppliers?|vendors?)\b/i.test(rest)) return null;   // "open suppliers for LED walls" is a supplier search, not a page
   if ((m = /^(main|scopes?|expenses?|rm|resources|timeline|food count|inrush|history|checklist|readiness)(?:\s+tab)?\s+(?:of|for|in)\s+(?:project\s+)?(.+)$/i.exec(rest)))
     return { what: 'project', project: m[2], tab: CUE_CANVAS_TABWORDS_[m[1].toLowerCase()] };
@@ -118,7 +140,9 @@ function cueCanvasSaid_(text, ref) {
   if (picks.length) { cueChat_('Cue', 'Canvas has ' + picks.length + ' projects like that. Which one?\n' + picks.map(cueCanvasTok_).join('\n'), ref || ''); return { chat: true, task: ref || '' }; }
   const say = { pay: 'Request payment is open in Canvas. Pick the scope and fill in the payment there.', newscope: 'New scope is open in Canvas with "' + cueStr_(c.desc, 120) + '" filled in. Canvas picks the requirement when one matches; check Requirement and Scope, then save.',
     task: 'Canvas found the task and set it to Closed. Check it and save.', pricewatch: 'Price Watch is open in Canvas.', supplier: 'Opened the supplier in Canvas.',
-    page: 'Opened in Canvas.', project: c.why === 'fsa' ? 'The project is open in Canvas. Tap Generate FSAs in its FSA row.' : 'Opened in Canvas.' }[c.what] || 'Opened in Canvas.';
+    page: 'Opened in Canvas.', project: c.why === 'fsa' ? 'The FSA generator is open in Canvas on the project. Tick who gets one and tap Generate.' : 'Opened in Canvas.',
+    finance: 'Finance is open in Canvas' + (c.client ? ', filtered to ' + cueStr_(c.client, 80) : '') + '.', accounts: 'Accounts is open in Canvas, searched for "' + cueStr_(c.q, 80) + '".',
+    cedesk: 'Cost Estimates is open in Canvas, searched for "' + cueStr_(c.q, 80) + '".' }[c.what] || 'Opened in Canvas.';
   cueChat_('Cue', say + '\n' + cueCanvasTok_(link), ref || '');
   return { chat: true, task: ref || '', canvas: link };
 }
@@ -127,9 +151,13 @@ function cueCanvasSaid_(text, ref) {
 function cueCanvasFor_(s) {
   try {
     const k = s.kind || 'intake';
-    if (k === 'ar' && s.ar && s.ar.project_id) return cueCanvasLink_({ what: 'project', project_id: s.ar.project_id, name: s.ar.project, tab: 'Main' });
+    if (k === 'ar' && s.ar && s.ar.project_id) return cueCanvasLink_({ what: 'project', project_id: s.ar.project_id, name: s.ar.project, tab: 'Main', action: 'ar' });
     if (k === 'readiness' && s.ready && s.ready.match && CUE_PID_RE_.test(s.ready.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.ready.match.project_id, name: s.ready.match.name, tab: 'Checklist' });
-    if (k === 'expense' && s.expense && s.expense.project && CUE_PID_RE_.test(s.expense.project.id || '')) return cueCanvasLink_({ what: 'pay', project_id: s.expense.project.id, name: s.expense.project.name });
+    if (k === 'expense' && s.expense && s.expense.project && CUE_PID_RE_.test(s.expense.project.id || '')) { const p = s.expense.plan || {}, r = s.read || {};
+      return cueCanvasLink_({ what: 'pay', project_id: s.expense.project.id, name: s.expense.project.name,
+        fill: { scope: p.scope_id, amount: p.amount || r.amount, supplier: (p.new_entry && p.new_entry.supplier) || r.supplier || p.payee, cost: p.item || r.item } }); }
+    if (k === 'finance') return cueCanvasLink_({ what: 'finance' });
+    if (k === 'payment') return cueCanvasLink_({ what: 'finance', view: 'ar' });
     if (k === 'change' && s.change && s.change.match && CUE_PID_RE_.test(s.change.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.change.match.project_id, name: s.change.match.name, tab: 'Scope' });
     if (k === 'vendor' && s.vendor && s.vendor.item) return cueCanvasLink_({ what: 'pricewatch', q: s.vendor.item });
     if (k === 'supplier' && s.sup) return cueSupCanvas_(s);

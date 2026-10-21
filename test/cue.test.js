@@ -1,6 +1,6 @@
 // Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs, CueChange.gs, CueTriage.gs). Apps Script services, GPT, Claude, the Canvas bridge
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
-// schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-xzc68a: V185 + expense_evidence / record_expense). Run: node test/cue.test.js
+// schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-f9ie51: live V193 + canvas_link / handoff_put). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
 const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');   // Apps Script's own load order
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
@@ -211,6 +211,8 @@ function sandbox(o = {}) {
       if (body.action === 'send_payment_chasers') { log.paySends = log.paySends || []; log.paySends.push(body.args);
         if (o.payRefuse) return resp(200, { ok: false, status: 'Rejected', error: o.payRefuse });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, id: (body.args.mode === 'send' ? 'info-sent-' : 'info-draft-') + log.paySends.length, threaded: !!body.args.thread_id, mode: body.args.mode, to: body.args.to, cc: 'kikodacanay@blankspaceevent.com' } }); }
+      if (body.action === 'handoff_put') { (log.handoff = log.handoff || []).push(body.args); return o.handoffFail ? resp(200, { ok: false, status: 'Rejected', error: 'unknown action' })
+        : resp(200, { ok: true, status: 'Completed', result: { code: 'c0ffee'.repeat(6) + 'beef', expires_in: 600 } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
       if (body.action === 'search_projects') { log.search = (log.search || []).concat(body.args.query); if (o.searchFail) return resp(200, { ok: false, status: 'Blocked', error: 'boom' }); return resp(200, { ok: true, status: 'Completed', result: (o.search || {})[body.args.query.toLowerCase()] || { projects: [], total: 0 } }); }
       if (body.action === 'list_project_files') {
@@ -3437,7 +3439,7 @@ test('CV1 Canvas commands are read in code: the right page, project words, tab a
   deq(P('past prices of LED wall'), { what: 'pricewatch', q: 'LED wall' });
   deq(P('open supplier Sonic Pro'), { what: 'supplier', q: 'Sonic Pro' });
   deq(P('open finance'), { what: 'page', key: 'finance' });
-  deq(P('make FSAs for Globe party'), { what: 'project', project: 'Globe party', tab: 'Main', why: 'fsa' });
+  deq(P('make FSAs for Globe party'), { what: 'project', project: 'Globe party', tab: 'Main', why: 'fsa', action: 'fsa' });
   deq(P('make FSAs'), { what: 'page', key: 'fsa generator' });
   deq(P('show Globe party in canvas'), { what: 'project', project: 'Globe party', tab: 'Main' });
   ['show me the pipeline', 'find suppliers for LED wall in Cebu', 'prepare ARs for Globe party', 'how are we doing on Globe?', 'open supplier for LED walls', 'record expense 450 duct tape']
@@ -3504,11 +3506,12 @@ test('CV6 Saved in Canvas: Cue finds the supplier Canvas saved, files the docume
 test('CV7 cards open their Canvas page: ARs on the project, readiness on Checklist, an expense on Request payment', () => {
   const t = sandbox({ similar: [GLOBE], talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Globe year-end party' } });
   const v = t.ctx.cueRun(t.ctx.cueSend('prepare ARs for the Globe year-end party', [], '').request_id);
-  deq(cvQ(v.open.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  deq(cvQ(v.open.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', action: 'ar' }, 'Canvas 194 opens the AR generator');
   const s = { id: 'x', kind: 'readiness', ready: { match: { project_id: 'S-31628060SP', name: 'Globe' } } };
   deq(cvQ(t.ctx.cueCanvasFor_(s).url), { page: 'canvas', project: 'S-31628060SP', tab: 'Checklist' });
   deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'expense', expense: { project: { id: 'S-25506500TR', name: 'Trick or Treat' } } }).url), { page: 'canvas', project: 'S-25506500TR', tab: 'Scope', action: 'pay' });
-  assert.strictEqual(t.ctx.cueCanvasFor_({ kind: 'finance' }), null);
+  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'finance' }).url), { page: 'playbook' });
+  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'payment' }).url), { page: 'playbook', view: 'ar' });
   assert.strictEqual(t.ctx.cueCanvasFor_({ kind: 'ar', ar: { project_id: 'not-an-id' } }), null, 'a bad id never makes a link');
 });
 test('CV9 qcadd never carries bank, account, IBAN or SWIFT, whatever the supplier has (Kiko 19:20Z)', () => {
@@ -3530,6 +3533,34 @@ test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable lab
   assert.ok(/\.card a \{ color:var\(--act\); \}/.test(html) && /\.card a\.btn \{ color:#0b1320; \} \.card a\.btn\.ghost \{ color:var\(--text\); \}/.test(html), 'label not the button colour');
   assert.ok(html.indexOf('class="cvnote cvload"') > 0 && /cvGone = setTimeout\(cvUnload, 30000\)/.test(html), 'loading line, gone by 30 s');
   assert.ok(/querySelector\('\.cvnote:not\(\.cvload\)'\)/.test(html), '"ready" removes only the sign-in note');
+});
+test('CV11 Canvas 194 links (Kiko "Go" 19:46Z): FSA generator, Request payment filled, Finance by client, Accounts, Cost Estimates', () => {
+  const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
+  deq(cvQ(t.ctx.cueSend('make FSAs for Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', action: 'fsa' });
+  deq(cvQ(t.ctx.cueSend('open receivables for Telus', [], '').canvas.url), { page: 'playbook', view: 'ar', client: 'Telus' });
+  deq(cvQ(t.ctx.cueSend('open payables for Sonic Pro', [], '').canvas.url), { page: 'playbook', view: 'pay', client: 'Sonic Pro' });
+  deq(cvQ(t.ctx.cueSend('open account Unilever', [], '').canvas.url), { page: 'clientdesk', q: 'Unilever' });
+  deq(cvQ(t.ctx.cueSend('open CE for Globe party', [], '').canvas.url), { page: 'cedesk', q: 'Globe party' });
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call');
+  const ex = { kind: 'expense', expense: { project: { id: 'S-25506500TR', name: 'Trick or Treat' }, plan: { scope_id: 'SC-0004', amount: 1250.5, item: 'Duct tape', payee: 'Ace Hardware' } }, read: { supplier: 'Ace Hardware' } };
+  const q = cvQ(t.ctx.cueCanvasFor_(ex).url);
+  deq([q.action, q.tab], ['pay', 'Scope']); deq(cvDec(q.qc), { scope: 'SC-0004', amount: 1250.5, supplier: 'Ace Hardware', cost: 'Duct tape' });
+  const l = t.ctx.cueCanvasLink_({ what: 'addsupplier', name: 'Bright Stage', details: {}, h: 'a'.repeat(40),
+    fields: { 'Address': '12 Ayala Ave', 'Business Type': 'Corporation', 'Bank': 'BDO', 'AccountNumber': '001234567890', 'Nope': 'x' } });
+  const a = cvQ(l.url); assert.strictEqual(a.h, 'a'.repeat(40), 'bank details go by one-time code');
+  deq(cvDec(a.qcadd).fields, { 'Address': '12 Ayala Ave', 'Business Type': 'Corporation' }, 'only allowed columns, never bank');
+  assert.ok(!cvQ(t.ctx.cueCanvasLink_({ what: 'addsupplier', name: 'X', details: {}, h: 'not-a-code' }).url).h, 'a bad code is dropped');
+});
+test('CV12 supplier card Open in Canvas (Canvas 194): every column filled, bank details by one-time code only, never in the link', () => {
+  const t = supToCard(), u = t.ctx.cueSupplierCanvas(t.id), q = cvQ(u.url), d = cvDec(q.qcadd);
+  assert.strictEqual(q.h, 'c0ffee'.repeat(6) + 'beef', 'the code rides in the link');
+  deq(t.log.handoff, [{ bank: 'BDO', acctName: t.v.supplier.record['Account Name'], acctNo: '001234567890' }], 'bank details go by bridge, once');
+  deq([d.fields['Address'], d.fields['Province'], d.fields['Business Type'], d.fields['TIN Status']], ['12 Jupiter St', 'Metro Manila', 'Corporation', 'VAT Not Registered'], 'other columns filled');
+  ['001234567890', 'BDO', 'Account Name', 'AccountNumber', '"Bank"'].forEach(k => assert.ok(u.url.indexOf(encodeURIComponent(k)) < 0 && JSON.stringify(d).indexOf(k) < 0, k + ' kept out of the link'));
+  const f = supToCard({ handoffFail: true }), v = f.ctx.cueSupplierCanvas(f.id);
+  assert.ok(!cvQ(v.url).h && /Copy them from the card/.test(v.note), 'Canvas without handoff: the plain link and a note');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/call\('cueSupplierCanvas', \[hand\]/.test(html) && /d\.canvasWs !== 'saved'/.test(html), 'page asks for the code on tap and hears "saved"');
 });
 test('CV8 the page sends every Canvas command to the server, never to the expense shortcut (CV_SAY mirrors cueCanvasParse_)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), m = /var CV_SAY = (\/.+\/i);/.exec(html);

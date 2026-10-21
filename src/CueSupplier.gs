@@ -386,14 +386,25 @@ function cueSupDraftMail_(to, cc, subject, body) {
  * The card opens Canvas's Add supplier form with what GPT read, or the existing supplier when Canvas has one. Bank details stay
  * out of the link (Kiko 19:20Z); the card shows them to copy. After Kiko saves in Canvas, "Saved in Canvas" finds the supplier
  * there (supplier_check, a read), then files the documents and makes the documents request, as Approve does. */
-function cueSupCanvas_(s) {
+function cueSupCanvas_(s, h) {
   const p = s.sup, r = p.record || {};
   if (s.canvas && s.canvas.supplier_id) return cueCanvasLink_({ what: 'supplier', q: r['Supplier'] || s.canvas.supplier_id });
   if (p.duplicates.length && !p.not_duplicate) return cueCanvasLink_({ what: 'supplier', q: p.duplicates[0].name });
   if (!r['Supplier']) return null;
   const c = p.contacts[0] || {};
   return cueCanvasLink_({ what: 'addsupplier', name: r['Supplier'], details: { person: c.person, phone: c.number, email: c.email || r['Company Email'],
-    location: r['City'], service: r['Main Service'], tin: r['TIN'], types: String(r['Supplier Type'] || '').split(/\s*,\s*/).filter(Boolean) } });
+    location: r['City'], service: r['Main Service'], tin: r['TIN'], types: String(r['Supplier Type'] || '').split(/\s*,\s*/).filter(Boolean) },
+    fields: r, h: h || '' });   // Canvas 194: every other column the card has; bank details only by one-time code (cueSupCanvasOpen_)
+}
+/** Open in Canvas on a supplier card (Canvas 194): the card's bank details go to Canvas by bridge (handoff_put, 10 minutes, once)
+ * and the link carries only the code. No bank details on the card: the plain link. */
+function cueSupCanvasOpen_(id) {
+  const L = cueLoad_(id), s = L.s, r = (s.sup && s.sup.record) || {};
+  const plain = cueSupCanvas_(s); if (!plain || plain.url.indexOf('qcadd=') < 0) return plain;
+  const bank = { bank: cueStr_(r['Bank'], 200), acctName: cueStr_(r['Account Name'], 200), acctNo: cueStr_(r['AccountNumber'], 60) };
+  if (!bank.bank && !bank.acctName && !bank.acctNo) return plain;
+  try { const h = (cueBridge_(s, 'handoff_put', bank) || {}).code; return cueSupCanvas_(s, h) || plain; }
+  catch (e) { console.warn('handoff_put: ' + e); return Object.assign({}, plain, { note: 'Canvas couldn\'t take the bank details just now. Copy them from the card.' }); }
 }
 function cueSupplierSaved_(id, edits) {
   edits = edits || {};
