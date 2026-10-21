@@ -149,6 +149,22 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] } },
     run: (r) => zbReadiness_(r.project_id, r.args.gate || 'auto')
   },
+  accreditation_gaps: {
+    // CUE-2026-10-21 (Kiko approved specs/accreditation-chasers.md 08:22Z). Supplier Accreditation rows that still miss
+    // something (awarded or newly registered), for Cue's morning chaser. Read only (AiAccr.gs accrGaps_).
+    kind: 'read', needsProject: false, schema: {},
+    run: () => accrGaps_()
+  },
+  log_accreditation_reminder: {
+    // CUE-2026-10-21 (same spec; Kiko 07:31Z: "Accreditation emails should be sent from my email"). Cue sends from Kiko's
+    // Gmail after Kiko approves; 'check' first (still missing anything?), then 'sent' records it on the supplier's row.
+    // Writes only the Supplier Accreditation tab and the activity log. Never sends email, never touches supplier records.
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      supplier: { type: 'string', required: true, nonBlank: true, max: 200 }, stage: { type: 'string', required: true, oneOf: ['check', 'sent'] },
+      to: { type: 'string', max: 500 }, thread_id: { type: 'string', max: 100, re: /^[A-Za-z0-9_-]{1,100}$/ } },
+    run: (r) => accrLogReminder_(r.args)
+  },
   save_project_file: {
     // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
     // One file Kiko attached in Cue, into <project folder>/<type> through saveProjectFile_ (the Files tab's own save).

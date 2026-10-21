@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs', 'CueSweepAccr.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -72,6 +72,10 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      if (body.action === 'accreditation_gaps') { log.accrGaps = (log.accrGaps || 0) + 1; return o.accrFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
+        : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
+      if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
+        return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
       if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
@@ -122,10 +126,11 @@ function sandbox(o = {}) {
     if (u.indexOf('oauth2.googleapis.com/tokeninfo') >= 0) { log.tokeninfo = req.payload; return resp(200, { scope: (o.scopes || ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file']).map(x => /^https/.test(x) ? x : 'https://www.googleapis.com/auth/' + x).join(' ') }); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
       if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
-      if (u.indexOf('/messages?') >= 0) { log.gmailQ = decodeURIComponent(u.split('q=')[1]); return resp(200, { messages: (o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) }); }
-      const m = (o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
+      if (u.indexOf('/messages?') >= 0) { log.gmailQ = decodeURIComponent(u.split('q=')[1]); (log.gmailQs = log.gmailQs || []).push(log.gmailQ);
+        return resp(200, { messages: (o.gmailList ? o.gmailList(log.gmailQ) : (o.sent || SENT)).map(m => ({ id: m.id, threadId: m.thread })) }); }
+      const m = (o.msgs || []).concat(o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(m.ms), snippet: m.snippet,
-        payload: { headers: [{ name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
+        payload: { headers: [{ name: 'To', value: m.to }, { name: 'From', value: m.from || 'Kiko <kiko@example.com>' }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
     }
     if (u.indexOf('upload/gmail/v1/users/me/drafts') >= 0) {
       log.replies = log.replies || []; log.replies.push({ type: req.contentType, payload: req.payload });
@@ -757,6 +762,86 @@ test('R5 send time and working days: approved at 9:30 waits for a 10:00 send; wo
 test('R6 moving the build time moves the 07:00 trigger', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
   assert.strictEqual(t.log.triggers.filter(h => h === 'cueSweep').length, 1); deq(t.log.triggerTz.cueSweep, [6, 'Asia/Manila']);
+});
+
+/* ---------- accreditation chasers (spec specs/accreditation-chasers.md, Kiko 08:22Z) ---------- */
+const ACCR = { today: '2026-10-21', form_url: 'https://docs.google.com/forms/d/VAF/viewform', subject: 'Supplier accreditation · Blank Space Events', rows: [
+  { supplier: 'Sonic Pro', kind: 'Corporation', missing: ['Business Permit', 'Bank details'], status: 'Form sent', opened: '2026-10-14', form_sent: '2026-10-15',
+    sent_to: ['ben@sonic.example'], contact: { name: 'Ben Cruz', phone: '0917 111 2222' }, reminders: 0, last_reminder: '', replied_since: '', replied_by: '',
+    project_id: 'S-1', project: 'Acme Gala', event_date: '2026-10-24', project_status: 'For Production Start', asks: [['Please have these ready', ['Your TIN']]] },
+  { supplier: 'Build Co', kind: '', missing: ['TIN', 'Bank details'], status: 'Open', opened: '2026-10-20', form_sent: '', sent_to: ['hello@build.example'],
+    contact: { name: '', phone: '' }, reminders: 0, last_reminder: '', replied_since: '', replied_by: '', project_id: '', project: '', event_date: '', asks: [['Everyone', ['Your TIN', 'Bank details']]] },
+  { supplier: 'Fresh Co', missing: ['TIN'], status: 'Form sent', form_sent: '2026-10-20', sent_to: ['a@fresh.example'], contact: {}, reminders: 0, last_reminder: '', replied_since: '', project: 'Acme Gala', event_date: '2026-12-01', asks: [] },
+  { supplier: 'Answered Co', missing: ['TIN'], status: 'Form sent', form_sent: '2026-10-10', sent_to: ['x@answered.example'], contact: {}, reminders: 1, last_reminder: '2026-10-14', replied_since: '2026-10-16', replied_by: 'form', project: '', event_date: '', asks: [] },
+  { supplier: 'No Mail Co', missing: ['TIN'], status: 'Open', form_sent: '', sent_to: [], contact: { name: 'Ana', phone: '0918' }, reminders: 0, project: '', event_date: '', asks: [] }] };
+const ACCR_MSGS = [{ id: 'acc1', thread: 'thr-sonic', ms: Date.parse('2026-10-15T03:00:00Z'), subject: 'Supplier accreditation · Blank Space Events · Acme Gala', from: 'BSE Suppliers <suppliers@blankspaceevent.com>', snippet: '' }];
+const accrBox = (o = {}) => sweepBox(Object.assign({ accr: ACCR, msgs: ACCR_MSGS, gmailList: q => (/sonic/.test(q) ? ACCR_MSGS : []) }, o), null);
+const accrItems = b => b.batch.items.filter(i => i.kind === 'accreditation');
+
+test('AC1 accreditation: one line per open supplier; the form when never sent, a reminder 3 days after; urgent near the event; answered and no-email lines send nothing', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const b = batchOf(t), it = accrItems(b);
+  deq(it.map(i => [i.key, i.who, i.priority, !!i.no_email]).sort(), [['accr-form:buildco', 'Build Co', 'normal', false], ['accr-form:nomailco', 'No Mail Co', 'normal', true],
+    ['accr:answeredco', 'Answered Co', 'normal', true], ['accr:sonicpro', 'Sonic Pro', 'urgent', false]]);
+  assert.ok(!it.some(i => i.who === 'Fresh Co'), 'form sent yesterday: not due until 3 days after');
+  const sonic = t.state(b.id).batch.items.find(i => i.who === 'Sonic Pro');   // the card view leaves thread ids out
+  deq([sonic.thread_id, sonic.message_id, sonic.to], ['thr-sonic', '<acc1@mail>', 'ben@sonic.example']);
+  assert.ok(/0917 111 2222/.test(sonic.why) && /Event on 2026-10-24/.test(sonic.why));
+  assert.ok(/answered on 2026-10-16 \(accreditation form\)/.test(it.find(i => i.who === 'Answered Co').why));
+  assert.ok(/No email address on file/.test(it.find(i => i.who === 'No Mail Co').why));
+  deq(it.filter(i => i.selected).map(i => i.who).sort(), ['Build Co', 'Sonic Pro'], 'only the sendable lines are ticked');
+  assert.strictEqual(t.log.accrGaps, 1, 'one Canvas read');
+  assert.ok(t.log.gmailQs.some(q => /subject:"Supplier accreditation".*from:ben@sonic\.example/.test(q)), 'looks for the thread in Kiko\'s Gmail');
+});
+
+test('AC2 a supplier reply in Kiko\'s Gmail after the last email turns the reminder into "read their documents"', () => {
+  const reply = [{ id: 'acc2', thread: 'thr-sonic', ms: Date.parse('2026-10-17T03:00:00Z'), subject: 'Re: Supplier accreditation', from: 'Ben <ben@sonic.example>', snippet: '' }];
+  const t = accrBox({ msgs: reply, gmailList: q => (/sonic/.test(q) ? reply : []) }); t.ctx.cueSweep();
+  const s = accrItems(batchOf(t)).find(i => i.who === 'Sonic Pro');
+  assert.ok(s.no_email && /They answered on 2026-10-17/.test(s.why));
+});
+
+test('AC3 drafts only: Kiko\'s Gmail draft replies in the accreditation thread, suppliers@ in CC; nothing is logged in Canvas', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
+  const raws = t.log.gmail; assert.strictEqual(raws.length, 2);
+  const sonic = raws.find(r => /ben@sonic/.test(r)), body = Buffer.from(sonic.split('\r\n\r\n')[1], 'base64').toString('utf8');
+  assert.ok(/^To: ben@sonic\.example\r\nCc: suppliers@blankspaceevent\.com\r\n/.test(sonic) && /In-Reply-To: <acc1@mail>/.test(sonic));
+  assert.ok(body.indexOf('https://docs.google.com/forms/d/VAF/viewform') >= 0, 'the form link is always in');
+  assert.ok(!t.log.accrLog, 'drafts are not logged in Canvas');
+  assert.ok(!(t.log.sent || []).length, 'nothing sent');
+});
+
+test('AC4 approve and send at 9:00: Canvas re-checks, the email goes from Kiko\'s Gmail, Canvas logs it; a row closed since is not sent', () => {
+  const t = accrBox({ accrClosed: ['Build Co'] }); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: true });
+  assert.ok(!(t.log.sent || []).length, 'before 9:00 nothing goes');
+  t.at('2026-10-21', 9, 5); t.ctx.cueSweepTick_();
+  const b = batchOf(t), it = accrItems(b);
+  deq(t.log.accrLog.map(a => [a.supplier, a.stage]), [['Sonic Pro', 'check'], ['Sonic Pro', 'sent'], ['Build Co', 'check']]);
+  deq(t.log.accrLog[1].thread_id, 'thr-sonic');
+  assert.strictEqual(t.log.sent.length, 1);
+  assert.ok(/no longer missing anything/.test(it.find(i => i.who === 'Build Co').error));
+  assert.ok(t.log.accrLog.every(a => !bridgeCheck('log_accreditation_reminder', a)), 'arguments fit the real bridge schema');
+});
+
+test('AC5 ChatGPT drops the form link: Cue puts it back; ChatGPT down: the template is used', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
+  assert.ok(t.log.gmail.every(r => Buffer.from(r.split('\r\n\r\n')[1], 'base64').toString('utf8').indexOf('/forms/d/VAF/viewform') >= 0));
+  const u = accrBox({ fail: { chasers: () => resp(500, {}) } }); u.ctx.cueSweep();
+  const f = accrItems(batchOf(u)).find(i => i.who === 'Build Co');
+  assert.ok(f.drafted_by === 'template' && /Vendor Accreditation Form/.test(f.body) && /- Bank details/.test(f.body));
+});
+
+test('AC7 a form Kiko sent by hand from a Drafts-only batch counts as sent: no second form, a reminder 3 days later', () => {
+  const mine = [{ id: 'acc3', thread: 'thr-build', ms: Date.parse('2026-10-21T02:00:00Z'), subject: 'Supplier accreditation · Blank Space Events', from: 'Kiko <kiko@example.com>', snippet: '' }];
+  const box = () => accrBox({ msgs: mine, gmailList: q => (/build/.test(q) ? mine : []) });
+  const t = box(); t.at('2026-10-22', 7, 0); t.ctx.cueSweep();
+  assert.ok(!accrItems(batchOf(t)).some(i => i.who === 'Build Co'), 'sent yesterday by hand: nothing today');
+  const u = box(); u.at('2026-10-24', 7, 0); u.ctx.cueSweep();
+  deq(accrItems(batchOf(u)).filter(i => i.who === 'Build Co').map(i => i.key), ['accr:buildco']);
+});
+
+test('AC6 Canvas down: the other kinds still run and the batch says accreditation could not be checked', () => {
+  const t = sweepBox({ accrFail: true }); t.ctx.cueSweep(); const b = batchOf(t);
+  assert.ok(b.batch.items.length > 0 && b.notes.some(n => /Accreditation chasers: could not check/.test(n)));
 });
 
 let pass = 0;
