@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.24';
+const CUE_VERSION_ = 'Cue 1.24.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -83,9 +83,10 @@ function cueTriggers_() {
   const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   if (have.indexOf('cueResume') < 0) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
   if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(cueRules_().general.build).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-  // Kiko 19:05Z: the bid opportunity check every day at 08:00 Manila (CueBids.gs).
+  // Kiko 19:50Z: the bid opportunity check every day at 07:00 Manila (CueBids.gs; was 08:00). Version 3 installed it at 08:00, so it is made again.
+  if (cueProp_('CUE_TRIGGERS_V', '') === '3') ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'cueBidsDaily').forEach(t => { ScriptApp.deleteTrigger(t); have.splice(have.indexOf('cueBidsDaily'), 1); });
   if (have.indexOf('cueBidsDaily') < 0) ScriptApp.newTrigger('cueBidsDaily').timeBased().atHour(CUE_BIDS_RULES_.hour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '3');
+  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '4');
 }
 
 /* ---------- Google access (Kiko 05:32Z: "think of another way") ----------
@@ -828,7 +829,7 @@ function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
 function cueState() {
   cueOwner_();
-  if (cueProp_('CUE_TRIGGERS_V', '') !== '3') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
+  if (cueProp_('CUE_TRIGGERS_V', '') !== '4') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;

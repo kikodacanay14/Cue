@@ -963,7 +963,7 @@ const batchOf = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0
 
 test('S1 the 07:00 PH sweep trigger is installed by setup and when Cue opens; the resume trigger stays', () => {
   const t = sandbox(); t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [8, 'Asia/Manila'], 'bid check at 08:00 (Kiko 19:05Z)');
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila'], 'bid check at 07:00 (Kiko 19:50Z)');
   t.ctx.cueSetup(); deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep'], 'not installed twice (setup also adds the Monday HubSpot check)');
 });
 test('S2 nothing to chase: no card, one chat line, no AI call, no Canvas read when no kind asks', () => {
@@ -3383,7 +3383,7 @@ test('BD4 "do intake for <reference>": the notice becomes an intake and Intake??
 });
 test('BD5 daily 08:00 run happens once a Manila day and posts in its own thread', () => {
   const t = bidBox(); const a = t.ctx.cueBidsDaily(); assert.strictEqual(a.kind, 'bids'); assert.ok(/^Bid opportunities/.test(a.bids.title));
-  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^8:00 bid check/.test(r[2])));
+  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^7:00 bid check/.test(r[2])));
   assert.ok(!t.tabs.Chat.rows.some(r => r[1] === 'Kiko'), 'no fake Kiko line for the daily run');
 });
 
@@ -3610,6 +3610,12 @@ test('UG5 Settings page: AI usage and cost section loads only when opened, shows
   assert.ok(html.indexOf('<button data-s="usage">AI usage and cost</button>') > 0 && html.indexOf('data-sec="usage"') > 0);
   assert.ok(/if \(sec === 'usage'\) loadUsage\(\);/.test(html) && /call\('cueUsage', \[\]/.test(html) && /call\('cueUsagePrices', \[p\]/.test(html));
   ['ESTIMATE', 'Likely by month end', 'platform.openai.com', 'console.anthropic.com', 'rough: under 7 days of data'].forEach(x => assert.ok(html.indexOf(x) > 0, x));
+});
+
+test('BD9 Kiko 19:50Z: the bid check moves to 07:00; the 08:00 trigger from version 3 is replaced once, other triggers stay', () => {
+  const t = sandbox({ props: { CUE_TRIGGERS_V: '3' } }); t.log.triggers = ['cueResume', 'cueSweep', 'cueBidsDaily']; t.ctx.cueState();
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila']);
+  assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
