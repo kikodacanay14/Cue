@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs', 'CueSweepPay.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -61,7 +61,8 @@ function sandbox(o = {}) {
       if (n === 'chasers') {
         if ((o.fail || {}).chasers) return o.fail.chasers();
         const items = JSON.parse(body.input.split('<items>\n')[1].split('\n</items>')[0]);
-        return gptOk({ drafts: items.map(x => ({ key: x.key, subject: 'Follow-up: ' + x.project, body: 'GPT nudge for ' + x.to + ' about ' + x.project + ' (' + x.chased_before + ')' })) });
+        log.chaserItems = items;
+        return gptOk({ drafts: items.map(x => ({ key: x.key, subject: 'Follow-up: ' + x.project, body: o.chaserBody ? o.chaserBody(x) : 'GPT nudge for ' + x.to + ' about ' + x.project + ' (' + x.chased_before + ')' })) });
       }
       if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
@@ -74,6 +75,10 @@ function sandbox(o = {}) {
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
       if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
+      if (body.action === 'overdue_billings') { log.overdue = (log.overdue || 0) + 1; if (o.overdueFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.overdue || { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [], bis: [] } }); }
+      if (body.action === 'send_payment_chasers') { log.paySends = log.paySends || []; log.paySends.push(body.args);
+        if (o.payRefuse) return resp(200, { ok: false, status: 'Rejected', error: o.payRefuse });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, id: (body.args.mode === 'send' ? 'info-sent-' : 'info-draft-') + log.paySends.length, threaded: !!body.args.thread_id, mode: body.args.mode, to: body.args.to, cc: 'kikodacanay@blankspaceevent.com' } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
       if (body.action === 'list_project_files') {
         if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
@@ -713,6 +718,71 @@ test('S13 an older batch never approved is closed when the next one is built; Ap
   t.at('2026-10-22', 7, 0); t.ctx.cueSweep();
   assert.strictEqual(t.state(old).status, 'Closed'); assert.throws(() => t.ctx.cueApprove(old, { send: true }), /closed/);
   assert.strictEqual(batchOf(t).batch.items.length, 3, 'its lines come back today');
+});
+
+/* ---------- payment chasers (spec specs/payment-chasers.md, Kiko approved 08:16Z) ---------- */
+const OVERDUE = { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [{ no: '1045', project: 'Gamma Gala', why: 'The BI has no total, so the amount owed is unknown.' }], bis: [
+  { no: '1041', project_id: 'S-31628060SP', project: 'Synthetic Expo', company: 'Acme Corp', client: 'Ana Reyes', total: 120000, collected: 40000, balance: 80000,
+    total_text: 'PHP 120,000.00', balance_text: 'PHP 80,000.00', due: '2026-10-01', days_late: 20, to: 'ap@acme.example', to_name: 'Fe Santos', to_source: 'billing contact (Client Desk)',
+    thread: { thread_id: 'th1041abcd', message_id: '<a1@mail>', subject: 'Billing Invoice BI 1041', sent_on: '2026-09-01', to: ['ana@acme.example'], cc: [], last_from_bse: '2026-09-01', client_replied: null } },
+  { no: '1047', project_id: 'S-31628061SP', project: 'Acme Roadshow', company: 'Acme Corp', client: 'Ana Reyes', total: 25000, collected: 0, balance: 25000,
+    total_text: 'PHP 25,000.00', balance_text: 'PHP 25,000.00', due: '2026-10-10', days_late: 11, to: 'ap@acme.example', to_name: 'Fe Santos', to_source: 'billing contact (Client Desk)', thread: null },
+  { no: '1043', project_id: 'S-40000001AA', project: 'Beta Launch', company: 'Beta Inc', client: 'Ben Cruz', total: 80000, collected: 0, balance: 80000,
+    total_text: 'PHP 80,000.00', balance_text: 'PHP 80,000.00', due: '2026-09-16', days_late: 35, to: 'ben@beta.example', to_name: 'Ben Cruz', to_source: 'invoice contact',
+    thread: { thread_id: 'th1043abcd', subject: 'BI 1043', client_replied: { on: '2026-10-15', from: 'ben@beta.example', snippet: 'We are processing it this week.' } } },
+  { no: '1050', project_id: 'S-40000009ZZ', project: 'Zeta Fair', company: 'Zeta', client: 'Zed', total: 5000, collected: 0, balance: 5000,
+    total_text: 'PHP 5,000.00', balance_text: 'PHP 5,000.00', due: '2026-10-05', days_late: 16, to: '', to_name: 'Zed', to_source: '', thread: null }] };
+const GOODPAY = x => 'Dear Fe, a gentle reminder on ' + x.facts.bis.map(b => 'BI ' + b.no + ' (' + b.balance_text + ')').join(' and ') + ', total ' + x.facts.total_balance_text + '. When can we expect payment?';
+function payBox(o = {}) { const t = sweepBox(Object.assign({ overdue: OVERDUE, chaserBody: GOODPAY }, o), null); return t; }
+const payItems = t => batchOf(t).batch.items.filter(i => i.kind === 'payment');
+
+test('PY1 find: one Canvas read, one email per client (BIs grouped, oldest first), replied and no-email lines need Kiko, notes for skipped BIs', () => {
+  const t = payBox(); t.ctx.cueSweep(); const b = batchOf(t), it = payItems(t);
+  assert.strictEqual(t.log.overdue, 1); assert.strictEqual(t.log.gpt.length, 1, 'the sweep\'s one ChatGPT call'); assert.ok(!t.log.paySends, 'nothing sent at build');
+  deq(it.map(i => [i.who, i.to, i.no_email, i.selected, i.in_thread]).sort(), [['Ben Cruz', 'ben@beta.example', true, false, true], ['Fe Santos', 'ap@acme.example', false, true, true], ['Zed', '', true, false, false]]);
+  const acme = it.filter(i => i.who === 'Fe Santos')[0];
+  assert.ok(/BI 1041, BI 1047: PHP 105,000.00 owed, 20 days overdue \(due 2026-10-01\)\. From info@, CC you/.test(acme.why), acme.why);
+  assert.ok(/BI 1041 \(PHP 80,000.00\) and BI 1047 \(PHP 25,000.00\)/.test(acme.body)); assert.strictEqual(acme.drafted_by, 'ChatGPT');
+  assert.ok(/client replied on 2026-10-15/i.test(it.filter(i => i.who === 'Ben Cruz')[0].why)); assert.ok(/No billing email found/.test(it.filter(i => i.who === 'Zed')[0].why));
+  deq(t.log.chaserItems.map(x => x.key), ['payment:bi:1041'], 'only the line with an email goes to ChatGPT');
+  assert.strictEqual(t.log.chaserItems[0].facts.total_balance_text, 'PHP 105,000.00');
+  assert.ok(b.notes.some(n => /BI 1045 \(Gamma Gala\): The BI has no total/.test(n)));
+});
+test('PY2 check: a ChatGPT draft that leaves out a BI or the amount is replaced by the fixed wording, with a note', () => {
+  const t = payBox({ chaserBody: () => 'Dear Fe, kindly settle your balance soon.' }); t.ctx.cueSweep();
+  const acme = payItems(t).filter(i => i.who === 'Fe Santos')[0];
+  assert.strictEqual(acme.drafted_by, 'template');
+  assert.ok(/- BI 1041, Synthetic Expo: PHP 80,000.00 balance, due 2026-10-01 \(we received PHP 40,000.00, thank you\)/.test(acme.body), acme.body);
+  assert.ok(/Total balance: PHP 105,000.00/.test(acme.body)); assert.ok(batchOf(t).notes.some(n => /left out a required detail/.test(n)));
+});
+test('PY3 Approve and send before 9:00: nothing in Kiko\'s Gmail; at 9:00 Canvas sends from info@ in the BI thread; chased again in 7 days', () => {
+  const t = payBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.at('2026-10-21', 7, 30);
+  const v = t.ctx.cueApprove(id, { send: true }); assert.strictEqual(v.status, 'Scheduled'); assert.ok(!t.log.paySends && !t.log.gmail.length && !t.log.replies);
+  assert.ok(t.tabs.Chat.rows.some(r => /go out at 9:00\. Tap Cancel on the batch before then to stop them\. Payment chasers go from info@ with you on CC\./.test(r[2])));
+  t.at('2026-10-21', 9, 0); t.ctx.cueResume();
+  assert.strictEqual(t.log.paySends.length, 1); const a = t.log.paySends[0];
+  deq([a.key, a.mode, a.bis, a.balance, a.to, a.thread_id], ['payment:bi:1041:c1', 'send', ['1041', '1047'], 105000, 'ap@acme.example', 'th1041abcd']);
+  assert.ok(bridgeCheck('send_payment_chasers', a) === '', 'matches the Canvas bridge schema');
+  assert.strictEqual(batchOf(t).status, 'Done'); deq(chase(t).filter(r => r[1] === 'payment').map(r => [r[0], r[5], r[6], r[8]]), [['payment:bi:1041', 1, '2026-10-28', 'sent']]);
+  t.at('2026-10-28', 7, 0); t.ctx.cueSweep(); t.at('2026-10-28', 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(t.log.paySends[1].key, 'payment:bi:1041:c2', 'second chaser has its own once-only key');
+});
+test('PY4 Drafts only saves an info@ draft through Canvas; Kiko\'s edit that drops the amount is refused before Canvas; a Canvas refusal shows on the line', () => {
+  const t = payBox(); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: false });
+  deq(t.log.paySends.map(a => a.mode), ['draft']); assert.ok(!t.log.gmail.length); assert.ok(t.tabs.Chat.rows.some(r => /1 in info@'s Drafts/.test(r[2])));
+  const u = payBox(); u.ctx.cueSweep(); u.at('2026-10-21', 10, 0);
+  u.ctx.cueApprove(batchOf(u).id, { send: true, bodies: { 'payment:bi:1041': 'Hi Fe, BI 1041 and BI 1047 are overdue, please pay.' } });
+  const e = payItems(u).filter(i => i.who === 'Fe Santos')[0]; assert.ok(!u.log.paySends); assert.ok(/must name BI 1041, BI 1047 and state the balance \(PHP 105,000.00\)/.test(e.error));
+  const w = payBox({ payRefuse: 'The balance changed from PHP 105,000.00 to PHP 25,000.00 since the batch was built. Nothing was sent; run the sweep again.' });
+  w.ctx.cueSweep(); w.at('2026-10-21', 10, 0); w.ctx.cueApprove(batchOf(w).id, { send: true });
+  assert.ok(/balance changed/.test(payItems(w).filter(i => i.who === 'Fe Santos')[0].error)); assert.strictEqual(batchOf(w).status, 'Done, drafts incomplete');
+  assert.strictEqual(chase(w).filter(r => r[1] === 'payment').length, 0, 'not logged as chased');
+});
+test('PY5 at most 3 chasers, then the engine flags it to Kiko; Canvas down is a note, not a failed batch', () => {
+  const t = payBox(); ['2026-10-21', '2026-10-28', '2026-11-04'].forEach(d => { t.at(d, 7, 0); t.ctx.cueSweep(); t.at(d, 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true }); });
+  assert.strictEqual(t.log.paySends.length, 3); t.at('2026-11-11', 7, 0); t.ctx.cueSweep();
+  const b = batchOf(t); assert.ok(b.batch.stopped.some(i => i.key === 'payment:bi:1041')); assert.strictEqual(payItems(t).filter(i => i.key === 'payment:bi:1041').length, 0);
+  const u = sweepBox({ overdueFail: true }, null); u.ctx.cueSweep(); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
 });
 
 let pass = 0;

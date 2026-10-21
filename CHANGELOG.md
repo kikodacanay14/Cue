@@ -11,6 +11,15 @@ The chasing sweep engine and task basics (backlog task 1; spec `canvas-integrati
 - **Task basics.** Every task has a due date, a priority (High, Normal or Low) and a reminder. Kiko can set them on the bar at the top of the thread, or by saying so in chat; that uses the same chat call, with no extra AI call. Needs you sorts by priority, then due date. A reminder posts in the thread and the main chat and puts the task in Needs you. Reminders that fall due in quiet hours (21:00 to 07:00) wait until 07:00. **Close** works on any task that isn't running. **Archive** hides a closed task, and **See archived** brings it back.
 - **No new Google scopes.** The 07:00 trigger is installed the next time Cue opens (`CUE_TRIGGERS_V=2`), so a deploy needs no setup step.
 - Tests: 13 new (S1 to S13), 50 of 50 pass.
+
+**Payment chasers** (backlog task 4; spec `canvas-integration/specs/payment-chasers.md`, approved by Kiko 21 Oct 08:16Z). Needs Canvas with the bridge actions `overdue_billings` and `send_payment_chasers` (CanvasWorkspace branch `claude/project-thread-r3ta54`); until that Canvas release is live, the kind shows a "could not check" note and the rest of the batch is unaffected.
+
+- **Find (no AI).** One Canvas read lists every open billing invoice at least 7 days past due, with the balance worked out the way Finance Desk does (BI minus collections, Date filed + terms). A client's BIs become one email, anchored on its oldest BI. The contact is the billing contact in Client Desk when there is one, otherwise the invoice's contact (Kiko 08:16Z).
+- **Draft.** The sweep's one ChatGPT call writes the words. A new engine hook, `check(item)`, makes sure every BI number and the balance are in the draft, exactly as Canvas has them; otherwise the fixed wording is used and the batch says so.
+- **Send (Kiko 08:08-08:09Z).** From info@ with Kiko on CC, as a reply in the BI's own thread, only after Kiko approves the line; never automatic. Approved before 09:00 = sent at 09:00. Drafts only saves an info@ draft. Canvas re-checks each BI is still open and the balance unchanged, refuses an email that leaves out a BI or the balance, and never sends the same chaser twice.
+- **Timing.** 7 days after due, then every 7 days, at most 3 chasers; then the line is flagged to Kiko. A client who replied after BSE's last email, or a BI with no billing email, shows as a line for Kiko with no draft.
+- Engine: the approve and done lines now say when emails go from info@ instead of Kiko's Gmail Drafts.
+- Tests: 5 new (PY1 to PY5), 57 of 57 pass.
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".

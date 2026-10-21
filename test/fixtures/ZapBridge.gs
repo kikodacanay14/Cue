@@ -160,6 +160,27 @@ const ZB_ACTIONS_ = {
       data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } },
     run: (r) => zbSaveFile_(r)
   },
+  overdue_billings: {
+    // CUE-2026-10-21 (Kiko 08:16Z approved specs/payment-chasers.md). Client billing invoices past due and not fully
+    // collected, worked out the way Finance Desk does (BI and PA tabs of the 2026 Project Tracker), with the contact to
+    // chase (billing contact first, then the invoice's contact) and the info@ thread that sent the BI. Read only.
+    kind: 'read', needsProject: false, schema: { min_days_late: { type: 'number', min: 0 } },
+    run: (r) => zbOverdueBillings_(r.args.min_days_late == null ? 7 : r.args.min_days_late)
+  },
+  send_payment_chasers: {
+    // CUE-2026-10-21 (Kiko 08:08-08:09Z): payment chasers go FROM info@ with Kiko on CC, one email per approved line, only
+    // after Kiko approves it in Cue (Cue holds it until 09:00 PH). Canvas re-checks that every BI is still open and that the
+    // balance is the one the email states, then sends (or saves an info@ draft) as a reply in the BI's own thread.
+    // The key makes it once-only: a repeat returns the first outcome, and a try whose outcome is unknown is never resent.
+    // Never changes a BI, a collection or any other finance record.
+    kind: 'queue', needsProject: false,
+    schema: { key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{6,160}$/ }, mode: { type: 'string', required: true, oneOf: ['send', 'draft'] },
+      bis: { type: 'array', required: true, minItems: 1, maxItems: 10 }, balance: { type: 'number', required: true, positive: true },
+      to: { type: 'string', required: true, max: 200, re: /^[^\s@,;<>"]{1,64}@[^\s@,;<>"]{1,190}\.[a-z]{2,}$/i },
+      subject: { type: 'string', required: true, nonBlank: true, max: 200 }, body: { type: 'string', required: true, nonBlank: true, max: 6000 },
+      thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ } },
+    run: (r) => zbPaySend_(r.args)
+  },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
     run: () => getProjectBoard()
@@ -382,6 +403,200 @@ function zbReadiness_(pid, want) {
     ready: !!ev.ready, unchecked_items: (ev.uncheckedItems || []).slice(0, 20).map(x => t(x, 300)),
     auto: (ev.auto || []).map(a => ({ key: t(a.key, 30), label: t(a.label, 120), open: (a.ids || []).length, items: (a.ids || []).slice(0, 10).map(x => t(x, 80)), error: t(a.error, 300) })),
     items: open };
+}
+
+/* ---------- payment chasers (CUE-2026-10-21, specs/payment-chasers.md) ---------- */
+// Same rules as Finance Desk (Playbook.html derive): a PA row counts against the BI whose number is its Invoice reference
+// (same project first; a project with one BI takes its unmatched PA rows); collected = received + WHT; the due date is
+// Date filed + terms, else the BI tab's TARGET PAYMENT DATE. A BI whose Status starts with Paid, or says Cancelled/Void, is closed.
+const ZB_PAY_CC_ = 'kikodacanay@blankspaceevent.com';      // Kiko 08:08Z: "copy me". Script Property PAY_CHASER_CC overrides it.
+const ZB_PAY_OWN_RE_ = /@blankspaceevent\.com$/i;
+const ZB_PAY_BILL_RE_ = /bill|financ|accounts? payable|\bap\b|accounting|treasur|disburs|payable|collection/i;
+const ZB_PAY_TAB_ = '_Payment Chasers';
+const ZB_PAY_MAX_ = 20;                                    // most BIs per read (the most overdue first; each one is a Gmail search); Cue shows 15 a day
+const ZB_PAY_EMAIL_RE_ = /^[^\s@,;<>"]{1,64}@[^\s@,;<>"]{1,190}\.[a-z]{2,}$/i;
+
+function zbPayTxt_(v) { const s = String(v == null ? '' : v).trim(); return /^#(REF!|N\/A|VALUE!|DIV\/0!|NAME\?|ERROR!|NUM!|NULL!)/.test(s) ? '' : s; }
+function zbPayNum_(v) { const m = zbPayTxt_(v).replace(/[,₱\s]|PHP/gi, '').match(/^-?\d+(\.\d+)?$/); return m ? Number(m[0]) : null; }
+function zbPayDay_(v) {
+  if (v instanceof Date) return isNaN(v) ? '' : Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const s = zbPayTxt_(v); if (!s) return '';
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0];
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return y + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2); }
+  const d = new Date(s); return isNaN(d) ? '' : d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+const zbPayPlus_ = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const zbPayDiff_ = (a, b) => Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 864e5);
+const zbPayRef_ = v => { const s = zbPayTxt_(v); return /^\d+$/.test(s) ? String(Number(s)) : s.toUpperCase(); };
+const zbPayTerm_ = t => { const s = String(t || ''), m = s.match(/\d+/); return m ? +m[0] : /receipt|immediate|\bcod\b|cash/i.test(s) ? 0 : null; };
+const zbPayMoney_ = n => 'PHP ' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/** Every open BI with what is still owed: [{ no, pid, project, company, ..., total, collected, balance, due, days_late }]. */
+function zbPayBills_(today) {
+  const B = table_(TRACKER_ID, 'BI'), A = table_(TRACKER_ID, 'PA');
+  if (B.missing || !B.head.length) throw new Error('The BI tab was not found in the 2026 Project Tracker.');
+  const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
+  const bis = B.rows.filter(r => g(B, r, 'bi number')).map((r, i) => ({ row: B.rowNums ? B.rowNums[i] : 0, no: g(B, r, 'bi number'), pid: g(B, r, 'project id'),
+    project: g(B, r, 'project name'), company: g(B, r, 'billed legal name') || g(B, r, 'company name'), account: g(B, r, 'account'), client: g(B, r, 'client'),
+    total: zbPayNum_(g(B, r, 'total bi')), term: g(B, r, 'term'), submitted: zbPayDay_(g(B, r, 'date submitted')), filed: zbPayDay_(g(B, r, 'date filed')),
+    sheet_due: zbPayDay_(g(B, r, 'target payment date')), status: g(B, r, 'status'), sent: g(B, r, 'sent to client'), pas: [] }));
+  const byNo = {}; bis.forEach(b => { (byNo[zbPayRef_(b.no)] = byNo[zbPayRef_(b.no)] || []).push(b); });
+  (A.missing ? [] : A.rows).forEach(r => {
+    const pid = g(A, r, 'project id'), ref = g(A, r, 'invoice reference'); if (!pid && !ref) return;
+    const gross = zbPayNum_(g(A, r, 'gross amount')), net = zbPayNum_(g(A, r, 'net amount paid')), wht = zbPayNum_(g(A, r, 'wht')) || 0;
+    const got = (gross != null && net != null ? Math.min(gross, net) : (net != null ? net : (gross || 0))) + wht;
+    const noBi = /^(no\s*(bi|invoice)|soa\b.*)$/i.test(ref), c = noBi ? [] : byNo[zbPayRef_(ref)] || [];
+    let bi = c.filter(b => b.pid === pid)[0] || (c.length === 1 ? c[0] : null);
+    if (!bi && !noBi) { const same = bis.filter(b => b.pid === pid); if (same.length === 1) bi = same[0]; }
+    if (bi) bi.pas.push(got);
+  });
+  return bis.filter(b => !/^paid/i.test(b.status) && !/cancel|void/i.test(b.status)).map(b => {
+    const collected = Math.round(b.pas.reduce((s, x) => s + x, 0) * 100) / 100, n = zbPayTerm_(b.term);
+    const due = b.filed && n != null ? zbPayPlus_(b.filed, n) : b.sheet_due;
+    const balance = b.total == null ? null : Math.max(Math.round((b.total - collected) * 100) / 100, 0);
+    return Object.assign(b, { collected, balance, due, days_late: due ? zbPayDiff_(today, due) : null });
+  });
+}
+
+/** The people to chase per BI: billing contact first (Client Desk P0 Contacts, then project contacts), then the invoice's own contact. */
+function zbPayContacts_() {
+  const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
+  const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
+  const proj = (P.missing ? [] : P.rows).map(r => ({ pid: g(P, r, 'project id'), name: g(P, r, 'contact name'), role: g(P, r, 'role / title'), email: g(P, r, 'email').toLowerCase() }));
+  const co = (K.missing ? [] : K.rows).map(r => ({ company: norm_(g(K, r, 'company')), name: g(K, r, 'contact name'), email: g(K, r, 'email address').toLowerCase(),
+    role: [g(K, r, 'position / title'), g(K, r, 'department / function'), g(K, r, 'relationship'), g(K, r, 'role group')].join(' '),
+    gone: !!g(K, r, 'exception date') || g(K, r, 'email / contact status') === CD.bounced }))
+    .filter(c => !c.gone);
+  const ok = c => ZB_PAY_EMAIL_RE_.test(c.email) && !ZB_PAY_OWN_RE_.test(c.email);
+  return b => {
+    const names = [b.company, b.account].filter(String).map(norm_), mine = co.filter(c => names.indexOf(c.company) >= 0 && ok(c)), pc = proj.filter(c => c.pid === b.pid && ok(c));
+    const pick = (c, how) => ({ to: c.email, to_name: c.name, to_source: how });
+    const bill = mine.filter(c => ZB_PAY_BILL_RE_.test(c.role))[0]; if (bill) return pick(bill, 'billing contact (Client Desk)');
+    const pbill = pc.filter(c => ZB_PAY_BILL_RE_.test(c.role))[0]; if (pbill) return pick(pbill, 'billing contact (project contacts)');
+    const who = norm_(String(b.client || '').split(/\r?\n/)[0]);
+    const inv = who && (pc.concat(mine).filter(c => norm_(c.name) === who)[0]); if (inv) return pick(inv, 'invoice contact');
+    return { to: '', to_name: String(b.client || '').split(/\r?\n/)[0].slice(0, 120), to_source: '' };
+  };
+}
+
+/** The info@ thread that sent this BI to the client, and whether the client wrote back after BSE's last message. */
+function zbPayThread_(b) {
+  const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(), own = a => a === me || ZB_PAY_OWN_RE_.test(a);
+  const addrs = s => (String(s || '').match(/[^\s<>,;"']+@[^\s<>,;"']+/g) || []).map(x => x.toLowerCase());
+  const word = new RegExp('(^|[^0-9A-Za-z])' + b.no.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^0-9A-Za-z]|$)');
+  const threads = GmailApp.search('in:sent "' + b.no.replace(/"/g, '') + '" newer_than:400d', 0, 10);
+  for (const t of threads) {
+    const msgs = t.getMessages();
+    const first = msgs.filter(m => own(addrs(m.getFrom())[0] || '') && addrs(m.getTo() + ',' + m.getCc()).some(a => !own(a))
+      && word.test(m.getSubject() + '\n' + m.getPlainBody().slice(0, 20000)) && /\b(BI|billing|invoice|SOA|statement)\b/i.test(m.getSubject() + ' ' + m.getPlainBody().slice(0, 4000)))[0];
+    if (!first) continue;
+    const i = msgs.indexOf(first), later = msgs.slice(i), lastOwn = later.filter(m => own(addrs(m.getFrom())[0] || '')).pop();
+    const reply = later.filter(m => m.getDate() > lastOwn.getDate() && !own(addrs(m.getFrom())[0] || '')).pop();
+    return { thread_id: t.getId(), message_id: String(first.getHeader('Message-ID') || ''), subject: String(first.getSubject() || '').slice(0, 200),
+      sent_on: zbPayDay_(first.getDate()), to: addrs(first.getTo()).filter(a => !own(a)), cc: addrs(first.getCc()).filter(a => !own(a)),
+      last_from_bse: zbPayDay_(lastOwn.getDate()),
+      client_replied: reply ? { on: zbPayDay_(reply.getDate()), from: addrs(reply.getFrom())[0] || '', snippet: String(reply.getPlainBody() || '').replace(/\s+/g, ' ').slice(0, 240) } : null };
+  }
+  return null;
+}
+
+function zbOverdueBillings_(minLate) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const open = zbPayBills_(today), skipped = [];
+  const late = open.filter(b => b.days_late != null && b.days_late >= minLate && (b.balance == null || b.balance > 0.005));
+  late.forEach(b => { if (b.balance == null) skipped.push({ no: b.no, project: b.project, why: 'The BI has no total, so the amount owed is unknown.' }); });
+  const list = late.filter(b => b.balance != null).sort((a, b) => b.days_late - a.days_late), use = list.slice(0, ZB_PAY_MAX_);
+  let who = null; try { who = zbPayContacts_(); } catch (e) { who = null; skipped.push({ no: '', project: '', why: 'Contacts could not be read: ' + zbErr_(e) }); }
+  return { today, min_days_late: minLate, more: list.length - use.length, skipped: skipped.slice(0, 20), bis: use.map(b => {
+    let th = null, thErr = ''; try { th = zbPayThread_(b); } catch (e) { thErr = zbErr_(e); }
+    const c = who ? who(b) : { to: '', to_name: '', to_source: '' };
+    if (!c.to && th && th.to.length) Object.assign(c, { to: th.to[0], to_source: 'original BI email' });
+    return { no: b.no, project_id: b.pid, project: b.project.slice(0, 200), company: (b.company || b.account).slice(0, 200), client: String(b.client || '').split(/\r?\n/)[0].slice(0, 120),
+      total: b.total, collected: b.collected, balance: b.balance, total_text: zbPayMoney_(b.total), balance_text: zbPayMoney_(b.balance),
+      submitted: b.submitted, filed: b.filed, terms: b.term.slice(0, 60), due: b.due, days_late: b.days_late, sent_to_client: b.sent.slice(0, 60),
+      to: c.to, to_name: c.to_name, to_source: c.to_source, thread: th, thread_error: thErr };
+  }) };
+}
+
+/** Sends (or drafts) one approved payment chaser from info@, CC Kiko. Once only per key. */
+function zbPaySend_(a) {
+  const bis = a.bis.map(String), bad = bis.filter(x => !/^[A-Za-z0-9-]{1,30}$/.test(x));
+  if (bad.length) return { ok: false, error: 'BI number not in the expected format: ' + bad[0] };
+  if (ZB_PAY_OWN_RE_.test(a.to)) return { ok: false, error: 'A payment chaser goes to the client, not to a BSE address.' };
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const open = zbPayBills_(today), by = {}; open.forEach(b => { by[zbPayRef_(b.no)] = b; });
+  let owed = 0;
+  for (const no of bis) {
+    const b = by[zbPayRef_(no)];
+    if (!b || b.balance == null || b.balance <= 0.005) return { ok: false, error: 'BI ' + no + ' is no longer open (paid, cancelled or fully collected). Nothing was sent.' };
+    owed += b.balance;
+  }
+  owed = Math.round(owed * 100) / 100;
+  if (Math.abs(owed - a.balance) > 0.005) return { ok: false, error: 'The balance changed from ' + zbPayMoney_(a.balance) + ' to ' + zbPayMoney_(owed) + ' since the batch was built. Nothing was sent; run the sweep again.' };
+  // Code, not ChatGPT, guarantees the figures: the email must name every BI and state the balance (in total, or per BI).
+  const flat = String(a.body).replace(/,/g, '');
+  const says = n => flat.indexOf(Number(n).toFixed(2)) >= 0 || (Math.round(n) === n && new RegExp('(^|[^0-9.])' + n + '([^0-9]|$)').test(flat));
+  const missing = bis.filter(no => !new RegExp('(^|[^0-9A-Za-z])' + no + '([^0-9A-Za-z]|$)').test(a.body));
+  if (missing.length) return { ok: false, error: 'The email does not mention BI ' + missing.join(', ') + '. Nothing was sent.' };
+  if (!says(owed) && !bis.every(no => says(by[zbPayRef_(no)].balance))) return { ok: false, error: 'The email must state the balance (' + zbPayMoney_(owed) + '). Nothing was sent.' };
+  const cc = String(PropertiesService.getScriptProperties().getProperty('PAY_CHASER_CC') || ZB_PAY_CC_).trim();
+  // Once only: the key's row is claimed under the lock before anything goes out.
+  const L = zbPayLedger_();
+  const was = locked_(() => { const row = L.get(a.key, a.mode); if (!row) L.put(a, 'Sending', '', ''); return row; });
+  if (was && (was.status === 'Sent' || was.status === 'Drafted')) return { ok: true, replayed: true, id: was.id, mode: a.mode, to: a.to, cc };
+  if (was && was.status === 'Sending') return { ok: false, error: 'An earlier try of this chaser may have gone out. Check info@\'s Sent mail; nothing was sent now.' };
+  let th = null;
+  if (a.thread_id) {
+    try { th = GmailApp.getThreadById(a.thread_id); } catch (e) { th = null; }
+    // Only a thread that is about one of these BIs: Cue can't point Canvas at any other info@ thread.
+    if (th && !th.getMessages().some(m => bis.some(no => new RegExp('(^|[^0-9A-Za-z])' + no + '([^0-9A-Za-z]|$)').test(m.getSubject() + '\n' + m.getPlainBody().slice(0, 20000))))) th = null;
+  }
+  try {
+    const out = zbPayMail_(a, cc, th);
+    L.put(a, a.mode === 'send' ? 'Sent' : 'Drafted', out.id, '');
+    try { logEvent(a.mode === 'send' ? 'Sent payment chaser' : 'Drafted payment chaser', 'Cue', 'BI ' + bis.join(', ') + ' to ' + a.to + ' (' + zbPayMoney_(owed) + ')'); } catch (e) { /* logging never blocks */ }
+    return { ok: true, id: out.id, threaded: out.threaded, mode: a.mode, to: a.to, cc, balance: owed };
+  } catch (e) {
+    // Gmail answered with an error, so nothing went out: the key may be tried again.
+    L.put(a, 'Failed', '', zbErr_(e));
+    return { ok: false, error: 'Gmail did not ' + (a.mode === 'send' ? 'send' : 'save') + ' it: ' + zbErr_(e) };
+  }
+}
+
+/** A reply in the BI's own thread when there is one (Gmail advanced service keeps it threaded for the client too). */
+function zbPayMail_(a, cc, th) {
+  const last = th ? th.getMessages().pop() : null, ref = last ? String(last.getHeader('Message-ID') || '') : '';
+  const subj = th ? (/^re:/i.test(th.getFirstMessageSubject()) ? '' : 'Re: ') + th.getFirstMessageSubject() : String(a.subject).replace(/[\r\n]+/g, ' ');
+  if (typeof Gmail !== 'undefined' && Gmail.Users) {
+    const enc = s => /^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + Utilities.base64Encode(s, Utilities.Charset.UTF_8) + '?=';
+    const head = ['To: ' + a.to, 'Cc: ' + cc, 'Subject: ' + enc(subj.slice(0, 250)), 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64']
+      .concat(ref ? ['In-Reply-To: ' + ref, 'References: ' + ref] : []);
+    const raw = Utilities.base64EncodeWebSafe(head.join('\r\n') + '\r\n\r\n' + Utilities.base64Encode(String(a.body), Utilities.Charset.UTF_8), Utilities.Charset.UTF_8);
+    const msg = th ? { raw, threadId: th.getId() } : { raw };
+    if (a.mode === 'send') return { id: Gmail.Users.Messages.send(msg, 'me').id, threaded: !!th };
+    return { id: Gmail.Users.Drafts.create({ message: msg }, 'me').id, threaded: !!th };
+  }
+  // No advanced service: same subject, so it threads in info@ and usually for the client.
+  if (a.mode === 'send') { GmailApp.sendEmail(a.to, subj, String(a.body), { cc }); return { id: 'sent', threaded: false }; }
+  return { id: GmailApp.createDraft(a.to, subj, String(a.body), { cc }).getId(), threaded: false };
+}
+
+function zbPayLedger_() {
+  const id = PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID');
+  if (!id) throw new Error('ledger not configured');
+  const ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(ZB_PAY_TAB_) || ss.insertSheet(ZB_PAY_TAB_);
+  const HEAD = ['key', 'mode', 'bis', 'to', 'balance', 'status', 'id', 'error', 'updated'];
+  if (sh.getLastRow() === 0) sh.appendRow(HEAD);
+  const all = () => sh.getLastRow() < 2 ? [] : sh.getRange(2, 1, sh.getLastRow() - 1, HEAD.length).getValues();
+  return {
+    get: (key, mode) => { const v = all().filter(x => String(x[0]) === key && String(x[1]) === mode && String(x[5]) !== 'Failed')[0]; return v ? { status: String(v[5]), id: String(v[6]) } : null; },
+    put: (a, status, mid, err) => {
+      const rows = all(), i = rows.findIndex(x => String(x[0]) === a.key && String(x[1]) === a.mode);
+      const vals = [a.key, a.mode, a.bis.join(', '), a.to, a.balance, status, mid, String(err || '').slice(0, 300), new Date().toISOString()];
+      if (i >= 0) sh.getRange(i + 2, 1, 1, vals.length).setValues([vals]); else sh.appendRow(vals);
+    }
+  };
 }
 
 function zbSaveFile_(r) {
