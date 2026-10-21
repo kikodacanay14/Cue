@@ -45,7 +45,7 @@ function cueFilesSave_(files, id) {
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
 const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';
 
-/** Kiko 06:45Z: the files he attaches belong in the Canvas project folder ("a critical part of the intake"). Cue sends each
+/** Kiko 06:45Z: the files Kiko attaches belong in the Canvas project folder ("a critical part of the intake"). Cue sends each
  * one through the bridge (save_project_file) after Kiko approves. Photos go to Designs & Visuals, the rest to `other`.
  * A file already saved is skipped, and a repeat on Canvas's side returns the same file. A failure is a note, not a stop. */
 function cueSaveToProject_(s, pid, files, other) {

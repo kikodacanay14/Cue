@@ -1,8 +1,17 @@
 # Changelog
 
+## Unreleased (C1 intake fixes; needs the Canvas release that carries the C1 bridge changes)
+
+- Approved spec (Kiko 07:41-07:46Z). GPT's read now keeps every client contact (role, email, phone), the proposal deadline, and ingress, event hours and egress apart from the event date. Each line is included, optional or not needed.
+- No event date no longer stops an intake. The card shows "Date TBC" and Canvas holds a stand-in date until Kiko sets the real one.
+- Optional lines are costed and marked, and totalled apart. Lines the client doesn't need are listed but never costed or written.
+- Selling price: BSE's packages and price list first, then past CE prices Canvas shows (Claude cites them and Canvas re-checks). Otherwise the price stays blank and the line is flagged "No selling price: set it". Kiko can type a price on the card.
+- RFQs ask for quotes back at least a day before the client's proposal deadline.
+- After the write, the done card lists every project folder Canvas read back. A missing one is flagged with "Make folders again".
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
-- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
+- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for Kiko. Cards show "Cue worked N s".
 - Project folder honesty: Canvas V186 says when a project has no Drive folder yet (usually no event date). Cue then says the files went to Canvas Files for that project (shown in Canvas's Files tab) instead of claiming the project folder. Before V186, Cue keeps the old wording.
 
 ## Cue 1.8.1 (not deployed yet)
@@ -11,7 +20,7 @@
 
 ## Cue 1.8 (deployed as Version 18, with Canvas main V185 / Client V43)
 
-- Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file he attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
+- Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file Kiko attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
 - Reply box on every widget card (Kiko 06:48Z), with Cue's latest line in that thread above it. It posts into the task's thread; Enter sends; typed text survives refreshes.
 - Threads hold everything (Kiko 06:50Z): the request and its files, the conversation, and the full card for every run, also after it is done. Finished requotes are one line per supplier with sent / in Drafts, and expand in place to the whole email with an Open in Gmail link. Links open in a new tab.
 - The progress tracker sits at the top of the thread (Kiko 06:51Z).
@@ -22,7 +31,7 @@
 
 ## Cue 1.7 (deployed as Version 17)
 
-- Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; his message and Cue's answer go in that thread. A redo started this way joins the same thread.
+- Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; Kiko's message and Cue's answer go in that thread. A redo started this way joins the same thread.
 
 ## Cue 1.6.2 (shipped in Version 17)
 
