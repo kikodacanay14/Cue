@@ -375,7 +375,9 @@
       + '<div class="small" style="margin-top:6px">' + esc(c.what_changed) + '</div>'
       + filesHtml(c)
       + attachHtml(r, again || r.status !== 'Needs you')
-      + '<div class="small muted" style="margin-top:6px">Found ' + esc(c.found) + ' RFQ thread(s) in your sent mail. ' + esc(c.note || '') + '</div>';
+      + '<div class="small muted" style="margin-top:6px">Found ' + esc(c.found) + ' RFQ thread(s) in your sent mail. ' + esc(c.note || '') + '</div>'
+      // Kiko 06:02Z read the previews as the drafts themselves. Say plainly they only live in Cue until saved.
+      + ((c.drafts || []).length && waiting ? '<div class="label">Preview only. Not in Gmail yet</div>' : '');
     c.drafts.forEach(function (d) {
       h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
         + (again || d.made ? '<span>' + (d.made ? '✓' : '•') + '</span>' : '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>')
@@ -383,8 +385,8 @@
         + '<pre style="margin-top:8px">' + esc(d.body) + '</pre>' + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
     });
     var has = (c.drafts || []).length;
-    h += (has ? '<div class="small muted" style="margin-top:8px">Approve makes Gmail drafts in your account, in each original thread. Nothing is sent, and Canvas is not touched.</div>' : '')
-      + '<div class="actions">' + (has && (waiting || again) ? '<button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (again ? 'Make the missing drafts' : 'Approve and make drafts') + '</button>' : '')
+    h += (has ? '<div class="small muted" style="margin-top:8px">These are previews inside Cue. Save puts them in your Gmail Drafts, as replies in each original thread. Nothing is sent, and Canvas is not touched.</div>' : '')
+      + '<div class="actions">' + (has && (waiting || again) ? '<button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (again ? 'Save the missing ones to Gmail' : 'Save to Gmail drafts') + '</button>' : '')
       + (waiting && c.can_run_new ? '<button class="btn ghost" data-act="as-new" data-id="' + esc(r.id) + '">Not this project: run as new</button>' : '')
       + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">' + (has ? 'Reject' : 'Close') + '</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;

@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.4.2 (not deployed yet)
+
+- Change request card (Kiko 06:02Z): the requote texts are labelled "Preview only. Not in Gmail yet", and the button is now "Save to Gmail drafts", so it no longer reads as making the drafts twice.
+
 ## Cue 1.4.1 (deployed as Version 13)
 
 - Sending never blocks (Kiko 05:59Z): your message shows at once and stays through refreshes; Enter works while Cue is still busy with the last message; the box and the reply bar clear on send.
