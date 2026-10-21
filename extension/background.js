@@ -124,6 +124,22 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     chrome.storage.local.get('cueWin').then(({ cueWin = null }) => reply(!!(sender.tab && cueWin && sender.tab.windowId === cueWin)));
     return true;
   }
+  // 1.3.0 (Kiko 21 Oct 13:58Z): Cue's side pane opens beside the chat, so Cue's own window grows by its width, and shrinks back on close.
+  if (msg && msg.type === 'cue-resize' && sender.tab && Number.isFinite(msg.by)) {
+    isCueTab(sender.tab).then(async ok => {
+      if (!ok) return;
+      const by = Math.max(-1200, Math.min(1200, Math.round(msg.by)));
+      try {
+        const w = await chrome.windows.get(sender.tab.windowId); if (w.state !== 'normal') return;
+        const width = Math.max(360, w.width + by), { cueShift = 0 } = await chrome.storage.session.get('cueShift');
+        let left = w.left;
+        if (by > 0 && Number.isFinite(msg.right) && w.left + width > msg.right) left = Math.max(Number.isFinite(msg.left) ? msg.left : 0, msg.right - width);   // no room on the right: grow to the left
+        if (by < 0) left = w.left + cueShift;                                                                                                              // shrinking puts the chat back where it was
+        await chrome.storage.session.set({ cueShift: by > 0 ? w.left - left : 0 });
+        await chrome.windows.update(w.id, { width, left: Math.round(left) });
+      } catch (e) { /* gone */ }
+    });
+  }
   // 📷 in Cue: only Cue's own page may ask, and the picture goes back to that tab.
   if (msg && msg.type === 'cue-snap' && sender.tab && (msg.mode === 'page' || msg.mode === 'area')) {
     isCueTab(sender.tab).then(ok => { if (ok) snap(msg.mode, null, sender.tab.id); });

@@ -1,5 +1,14 @@
 # Changelog
 
+## Side pane in a narrow window, Cue bubble 1.3.0 (not deployed)
+
+Kiko 21 Oct 13:58Z: in the narrow Cue window, Threads and Widgets must slide in on the right without covering the chat.
+
+- The left side is always the main chat. **Threads** and **Widgets** at the top open the right pane. Widgets is now a fixed tab in the pane, next to Threads, so the old Chat/Widgets switch on the left is gone.
+- At 900 px or narrower, the pane stays shut until Kiko taps Threads, Widgets, a thread name or a file. It then sits beside the chat, never over it. With **Cue bubble 1.3.0**, the window grows by 440 px to make room. If there is no room on the right, it grows to the left. **✕** shuts the pane and puts the window back to its old size and place. Without the bubble, the pane takes half of a narrow window, and it covers the chat only on a real phone-width screen (640 px or less).
+- Bubble 1.3.0 adds one message, `cue-resize`, which only Cue's own page can send (the same `isCueTab` check as 📷). It needs no new Chrome permission. Kiko reloads the extension once.
+- Tests: 180 of 180 pass, with SN2 now expecting bubble 1.3.0. Checked in Chromium at 440 px (the pane opens, the window grows to 880, and it shuts back to 440) and at 1440 px.
+
 ## Cue 1.12 (Kiko 13:53Z "lets deploy everything that can be deployed already")
 
 ### Two-pane layout (Kiko approved the mockup 13:01Z and the build 13:05Z)
