@@ -342,10 +342,10 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    var nm = function (r) { return (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
-    return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
+    return r ? (r.kind === 'change' ? 'Change request' : r.kind === 'workflow' ? 'Workflow map' : 'Project intake') : 'Earlier task';
   }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
@@ -402,7 +402,7 @@
     t.reqs.forEach(function (r) {
       if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || (r.kind === 'workflow' && r.workflow && r.workflow.map)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -419,14 +419,14 @@
   }
   function doneHtml(r, reopen) {
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
   }
   function reopenedHtml(r) {
     var p = r.proposal || {}, c = p.client || {};
-    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
       + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
       + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
   }
@@ -477,12 +477,14 @@
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
+  var WORKFLOW = [['GPT reading', 'GPT', 'GPT reads the screenshots or files'], ['Claude mapping', 'Claude', 'Claude maps the steps and who handles each'],
+    ['Claude revising', 'Claude', 'Claude changes the map as you asked'], ['GPT checking', 'GPT', 'ChatGPT gives a second opinion'], ['Needs you', 'Kiko', 'Waiting for your approval']];
   function workHtmlOf(r) {
-    var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'workflow' ? WORKFLOW : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
-      + '<b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<b>' + (r.kind === 'change' ? 'Change request' : r.kind === 'workflow' ? 'Workflow map' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
       + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
       + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
           return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
@@ -549,7 +551,40 @@
       + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
         + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
   }
+  // Workflow map (Kiko 08:07Z, specs/process-mapper.md): each step's block and owner, Cue's rule flags, then Approve to save it.
+  var WHO_COLOR = { Claude: '#d97757', ChatGPT: '#10a37f', Code: 'var(--muted)', Canvas: '#559fef', Zapier: '#ff4f00', Kiko: '#b00c98' };
+  function workflowCardHtml(r) {
+    var W = r.workflow || {}, m = W.map, waiting = r.status === 'Needs you';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Workflow map</div><b style="font-size:17px;color:#fff">' + esc((m && m.name) || W.name || 'Workflow') + '</b>';
+    if (r.status === 'Failed' || !m) return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
+    var ai = m.steps.filter(function (x) { return x.who === 'Claude' || x.who === 'ChatGPT'; }).length, byStep = {};
+    (W.flags || []).forEach(function (f) { (byStep[f.step] = byStep[f.step] || []).push(f.text); });
+    h += (m.goal ? '<div style="margin-top:4px">' + esc(m.goal) + '</div>' : '')
+      + '<div class="small muted" style="margin-top:4px">Runs in ' + esc(m.target) + ' · Starts: ' + esc(m.trigger || 'not set') + ' · ' + esc(m.steps.length) + ' steps, ' + ai + ' AI call' + (ai === 1 ? '' : 's')
+      + (m.est_seconds ? ', about ' + esc(m.est_seconds) + ' s' : '') + '</div>'
+      + (W.updates ? '<div class="small muted">Updates the saved ' + esc(W.updates.name) + ' (version ' + esc(W.updates.version) + ').</div>' : '');
+    h += '<ol class="small" style="margin:8px 0 0;padding-left:20px">' + m.steps.map(function (x) {
+      return '<li style="margin-bottom:6px"><b>' + esc(x.title) + '</b> <span class="tag" style="border:1px solid ' + (WHO_COLOR[x.who] || 'var(--muted)') + ';color:' + (WHO_COLOR[x.who] || 'var(--muted)') + '">' + esc(x.who) + '</span>'
+        + '<span class="tag' + ((W.blocks || []).indexOf(x.block) < 0 ? ' flag' : '') + '" style="background:var(--input)">' + esc(x.block) + '</span>'
+        + (x.writes ? '<span class="tag new">writes ' + esc(x.writes) + '</span>' : '') + (x.sends ? '<span class="tag new">sends</span>' : '')
+        + '<br><span class="muted">' + esc(x.input) + ' → ' + esc(x.output) + (x.why_owner ? ' · ' + esc(x.why_owner) : '') + '</span>'
+        + (byStep[x.n] || []).map(function (t) { return '<div><span class="tag flag">flag</span> ' + esc(t) + '</div>'; }).join('') + '</li>'; }).join('') + '</ol>';
+    (byStep[0] || []).forEach(function (t) { h += '<div class="small"><span class="tag flag">flag</span> ' + esc(t) + '</div>'; });
+    if (!(W.flags || []).length) h += '<div class="small"><span class="tag pref">no rule flags</span></div>';
+    if ((m.questions || []).length) h += '<div class="small" style="margin-top:6px"><b>Questions from Claude:</b><ul style="margin:2px 0 0;padding-left:18px">' + m.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul></div>';
+    if (W.check) h += '<div class="small" style="margin-top:6px"><b>ChatGPT\'s second opinion:</b> ' + esc(W.check.verdict) + ((W.check.concerns || []).length ? '<ul style="margin:2px 0 0;padding-left:18px">' + W.check.concerns.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    if ((m.zap_steps || []).length) h += '<details style="margin-top:6px"><summary class="small"><b>How to build it in Zapier</b> (' + m.zap_steps.length + ' steps)</summary><ol class="small" style="margin:4px 0 0;padding-left:20px">'
+      + m.zap_steps.map(function (z) { return '<li>' + esc(z) + '</li>'; }).join('') + '</ol></details>';
+    (r.notes || []).forEach(function (x) { h += '<div class="small muted" style="margin-top:4px">' + esc(x) + '</div>'; });
+    if (W.saved) h += '<div class="small" style="margin-top:6px"><span class="tag pref">saved</span> Version ' + esc(W.saved.version) + ' in the Workflows tab of the Cue sheet.</div>';
+    h += '<div class="actions">' + (waiting ? '<button class="btn" data-act="approve-workflow" data-id="' + esc(r.id) + '">Approve and save</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>'
+      + (waiting ? '<div class="small muted">Reply in this thread to change it, or say "check with GPT" for a second opinion. Approving only saves the map; nothing is built or switched on.</div>' : '')
+      + metricLine(r) + '</div>';
+    return h;
+  }
   function cardHtml(r) {
+    if (r.kind === 'workflow') return workflowCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
@@ -677,6 +712,7 @@
         }
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
+        if (act === 'approve-workflow') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);

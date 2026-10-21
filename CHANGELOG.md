@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (workflow maps; no Canvas release needed)
+
+- Map a workflow (Kiko approved specs/process-mapper.md, 21 Oct 08:07Z). Ask in the chat, e.g. "map how we chase suppliers who haven't quoted, as a Zap", or attach a Zap screenshot with the word "map" or "zap". The chat call recognises the ask (no extra call); with files, GPT reads them first. Claude maps it: trigger, steps, each step's Cue block and owner (Claude, ChatGPT, Code, Canvas, Zapier, Kiko), inputs and outputs, and for Zapier the click-by-click build steps.
+- Cue checks Kiko's rules in code and flags (never fixes) what breaks them: a write or send with no Wait for Kiko before it (stronger wording for money, contracts, signatures and clients), ChatGPT writing to Canvas, Canvas writes not via Canvas or not read back, unapproved blocks or wrong owners, more than 5 AI steps or over 3 minutes, a scheduled job that depends on ChatGPT.
+- Approved blocks now include Read Canvas, Send email, Save file and Schedule (Kiko said yes).
+- In the map's thread: any reply is a revision (one Claude call); "check with GPT" or "second opinion" asks ChatGPT (only when asked). Approve and save writes one row to a new Workflows tab (name, version, target, status, trigger, steps, flags, Zap steps, steps JSON). A map with the same name as a saved one updates it as the next version. Kiko can change Status there (Live in Zapier, Live in Cue).
+- Never builds, changes or switches on a Zap, and writes nothing to Canvas, HubSpot or Gmail. Budget: 2 AI calls (chat + Claude), 3 with a screenshot, +1 per revision or second opinion.
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
