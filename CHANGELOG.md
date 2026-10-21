@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.13.1 (intake never joins a project on a "similar name" alone; Kiko 14:22Z; not deployed)
+
+- Cause: Canvas's duplicate check called "UNILEVER YEAR END PARTY 2026" similar to "Exilara Year End Party" (they share only "year end party"), and Cue turned any similar name into a change.
+- Now Cue checks each Canvas hint itself (`cueSameProject_`). It is the same project only when Kiko's message has its Project ID, or the clients match and the distinctive name words (not client words, event-type words like year, end, party, launch, or years) mostly match. A different client, or a date more than 90 days away, is never the same project.
+- No real match: the intake runs as new, with a note naming the near names. A change request Kiko asked for still goes to the change function.
+- Tests: N1 (this case); C24 and C25 now use a read whose names really match. 181 of 181 pass.
+
 ## Cue 1.13: side pane in a narrow window, no Widgets page, Cue bubble 1.3.0 (Kiko said deploy 14:18Z)
 
 Kiko 21 Oct 13:58Z: in the narrow Cue window, the pane must slide in on the right without covering the chat.
