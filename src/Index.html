@@ -1963,6 +1963,10 @@
     var saving = !!running[r.id];   // live 15:43Z: the poll redraws the card, so the tapped button must stay off until Canvas answers
     var btn = function (act, label, cls, extra) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '"' + (extra || '') + (saving ? ' disabled' : '') + '>' + (saving && act === 'approve' ? 'Saving…' : label) + '</button>'; };
     var editBtn = ed ? btn('cancel-edit', 'Cancel edits', 'ghost') : btn('edit', 'Edit', 'ghost');
+    // Kiko 18:42Z: no explaining text under the buttons; all of them on one row, Cancel intake set apart at the end. The old text is the tooltip.
+    var tip = function (t) { return ' title="' + esc(t) + '"'; };
+    var canCancel = !!(cv.project_id && !cv.removed && !busy), inRow = waiting && [1, 2, 3].indexOf(ph) >= 0;
+    var cancelBtn = canCancel ? btn('ph-cancel', 'Cancel intake', 'bad', ' style="margin-left:auto"' + tip('Removes everything this intake saved in Canvas, after one confirm.')) : '';
     if (waiting && ph === 1) {
       var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
       var sc = e.schedule || {}, sched = [sc.ingress && 'In ' + sc.ingress, sc.hours && 'Event ' + sc.hours, sc.egress && 'Out ' + sc.egress].filter(Boolean).join(' · ');
@@ -1976,8 +1980,7 @@
         ['Pax', ed ? inp('event.pax', e.pax || '', 0) : esc(e.pax || 'Not given')], ['Budget', ed ? inp('event.budget', e.budget, 1) : esc(e.budget || 'Not given')]];
       h += '<table class="facts" style="margin-top:8px">' + f.map(function (y) { return '<tr><td>' + y[0] + '</td><td>' + y[1] + '</td></tr>'; }).join('') + '</table>';
       if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
-      h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas') + editBtn + btn('reject', 'Reject', 'bad') + '</div>'
-        + '<div class="small muted" style="margin-top:6px">Approve adds the project only (client, contacts, schedule, folders). No lines yet.</div>';
+      h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas', '', tip('Adds the project only (client, contacts, schedule, folders). No lines yet.')) + editBtn + btn('reject', 'Reject', 'bad') + cancelBtn + '</div>';
     }
     if (waiting && ph === 2) {
       var rows = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Item</th><th>Spec</th><th>Qty</th><th>Days</th></tr>';
@@ -1992,8 +1995,8 @@
       h += rows + '</table></div>' + ((P.excluded || []).length ? '<div class="small muted">Not needed: ' + P.excluded.map(esc).join('; ') + '</div>' : '');
       if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
       h += '<input class="wide" style="width:100%;margin-top:10px" data-ph-note="' + esc(r.id) + '" placeholder="Note for Rescan (optional), e.g. you missed the stage">'
-        + '<div class="actions">' + btn('approve', 'Approve, add lines to Canvas') + editBtn + (ed ? btn('ph-add-row', 'Add row', 'ghost') : '') + btn('ph-rescan', 'Rescan', 'ghost') + btn('reject', 'Reject', 'bad') + '</div>'
-        + '<div class="small muted" style="margin-top:6px">Approve adds these lines to ' + esc(cv.project_number || 'the project') + ' with no costs. Reject keeps the project in Canvas with no lines.</div>';
+        + '<div class="actions">' + btn('approve', 'Approve, add lines to Canvas', '', tip('Adds these lines to ' + (cv.project_number || 'the project') + ' with no costs.')) + editBtn + (ed ? btn('ph-add-row', 'Add row', 'ghost') : '') + btn('ph-rescan', 'Rescan', 'ghost')
+        + btn('reject', 'Reject', 'bad', tip('Keeps the project in Canvas with no lines.')) + cancelBtn + '</div>';
     }
     if (waiting && ph === 3) {
       var t = P.totals || {}, lh = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Item</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>Unit price</th></tr>';
@@ -2012,7 +2015,8 @@
       h += '<div class="small" style="margin-top:8px">Known cost ' + peso(t.known_cost) + (t.known_price ? ' · price ' + peso(t.known_price) : '') + ' · ' + esc(t.lines_without_cost || 0) + ' blank cost, ' + esc(t.lines_without_price || 0) + ' blank price'
         + (t.optional ? ' · ' + esc(t.optional) + ' optional not in totals' : '') + '</div>' + lh + '</table></div>';
       if ((P.risks || []).length) h += secHtml(r.id + '|risks', 'Risks (' + P.risks.length + ')', '<ul class="small">' + P.risks.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
-      h += '<div class="actions">' + btn('approve', 'Save prices') + editBtn + btn('reject', 'Reject', 'bad') + '</div><div class="small muted" style="margin-top:6px">Save prices writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Leave blank saves that line with no cost and no price. Reject keeps the project and its lines in Canvas with no costs. Tap an item to see why.</div>';
+      h += '<div class="actions">' + btn('approve', 'Save prices', '', tip('Writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Leave blank saves that line with no cost and no price.'))
+        + editBtn + btn('reject', 'Reject', 'bad', tip('Keeps the project and its lines in Canvas with no costs.')) + cancelBtn + '</div>';
     }
     if ((waiting && ph === 4) || (end && P.rfqs.length)) {
       h += '<div style="margin-top:8px">';
@@ -2024,15 +2028,15 @@
           + (edq ? '<input class="wide" style="width:100%;margin-top:8px" data-rq-to value="' + esc(q.email) + '" placeholder="Supplier email" aria-label="To">'
               + '<input class="wide" style="width:100%;margin-top:8px" data-rq-subj value="' + esc(q.subject) + '" aria-label="Subject"><textarea class="mail" data-rq-body aria-label="RFQ text">' + esc(q.body) + '</textarea>'
             : '<details><summary class="small">' + esc(q.subject) + '</summary><pre>' + esc(q.body) + '</pre></details>')
-          + (open ? '<div class="actions">' + btn('rfq-send', 'Send RFQ', '', ' data-i="' + q.i + '"') + btn('rfq-draft', 'Save as draft', 'ghost', ' data-i="' + q.i + '"')
+          + (open ? '<div class="actions">' + btn('rfq-send', 'Send RFQ', '', ' data-i="' + q.i + '"' + tip('Goes out from your Gmail. Canvas records it.')) + btn('rfq-draft', 'Save as draft', 'ghost', ' data-i="' + q.i + '"' + tip('Puts it in your Gmail Drafts. Canvas records it.'))
               + (edq ? '' : btn('rfq-edit', 'Edit email', 'ghost', ' data-i="' + q.i + '"')) + btn('rfq-cancel', 'Cancel', 'bad', ' data-i="' + q.i + '"') + '</div>'
             : q.state === 'draft' && waiting ? '<div class="actions">' + btn('rfq-send', 'Send RFQ', '', ' data-i="' + q.i + '"') + '</div>' : '') + '</div>';
       });
-      h += '</div>' + (waiting ? '<div class="small muted" style="margin-top:6px">Send RFQ goes out from your Gmail. Save as draft puts it in your Gmail Drafts. Canvas records each one.</div>' : '');
+      h += '</div>';
     }
     // CUE-UNDO (Kiko 16:53Z): cancelling the whole intake takes back what it saved in Canvas, after one confirm.
     if (cv.removed) h += '<div class="small muted" style="margin-top:8px">Removed from Canvas.</div>';
-    else if (cv.project_id && !busy) h += '<div class="actions">' + btn('ph-cancel', 'Cancel intake', 'bad') + '</div>';
+    else if (canCancel && !inRow) h += '<div class="actions">' + cancelBtn + '</div>';
     if (end || waiting) h += '<div class="small muted" style="margin-top:8px">' + metricLine(r) + '</div>';
     return h + '</div>';
   }
