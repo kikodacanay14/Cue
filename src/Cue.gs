@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.3';
+const CUE_VERSION_ = 'Cue 1.3.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -46,9 +46,32 @@ function cueSetup() {
   Object.keys(CUE_TABS_).forEach(n => { if (!ss.getSheetByName(n)) { const sh = ss.insertSheet(n); sh.appendRow(CUE_TABS_[n]); sh.setFrozenRows(1); } });
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
   const missing = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ZAD_SECRET', 'CUE_BRIDGE_URL'].filter(k => !props.getProperty(k));
-  const msg = 'Cue is set up (sheet ' + ss.getId() + '). ' + (missing.length ? 'Still missing in Script Properties: ' + missing.join(', ') + '.' : 'All keys are present.');
+  let acc = null; try { acc = cueAccess_(); } catch (e) { acc = null; }
+  const msg = 'Cue is set up (sheet ' + ss.getId() + '). ' + (missing.length ? 'Still missing in Script Properties: ' + missing.join(', ') + '.' : 'All keys are present.')
+    + (acc && acc.checked ? (acc.missing.length ? ' Google access still missing: ' + acc.missing.join(', ') + '.' : ' Google access: all granted.') : '');
   console.log(msg);
   return msg;
+}
+
+/* ---------- Google access (Kiko 05:32Z: "think of another way") ----------
+ * Running cueSetup did not bring up Google's Allow screen for the newer scopes, so Gmail said "insufficient authentication
+ * scopes". cueFixAccess asks Google which scopes Cue's token really has and, when some are missing, resets Cue's
+ * authorization (ScriptApp.invalidateAuth) so the next open of Cue asks for all of them. Keys in Script Properties stay. */
+const CUE_NEEDS_ = ['gmail.readonly', 'gmail.compose', 'drive.file'];
+function cueAccess_() {
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { method: 'post', payload: { access_token: ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  let have = []; try { have = String(JSON.parse(res.getContentText()).scope || '').split(/\s+/).filter(String); } catch (e) { have = []; }
+  const full = have.indexOf('https://mail.google.com/') >= 0;
+  return { checked: res.getResponseCode() === 200, have: have.map(s => s.replace('https://www.googleapis.com/auth/', '')),
+    missing: CUE_NEEDS_.filter(n => have.indexOf('https://www.googleapis.com/auth/' + n) < 0 && !(full && /^gmail\./.test(n))) };
+}
+/** The "Fix Google access" button. Resets Cue's authorization only when Google says a scope is missing. */
+function cueFixAccess() {
+  cueOwner_();
+  const a = cueAccess_();
+  if (!a.checked) throw new Error('Google did not say which access Cue has. Try again in a minute.');
+  if (a.missing.length) ScriptApp.invalidateAuth();
+  return { missing: a.missing, reset: a.missing.length > 0, url: ScriptApp.getService().getUrl() };
 }
 
 /* ---------- store ---------- */

@@ -107,7 +107,9 @@ function sandbox(o = {}) {
       if (/^f\d+$/.test(fileId || '') || fileId === 'not-ours') return resp(404, {});
       return resp(200, { id: fileId, trashed: !!(o.folderTrashed) });
     }
+    if (u.indexOf('oauth2.googleapis.com/tokeninfo') >= 0) { log.tokeninfo = req.payload; return resp(200, { scope: (o.scopes || ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file']).map(x => /^https/.test(x) ? x : 'https://www.googleapis.com/auth/' + x).join(' ') }); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
+      if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
       if (u.indexOf('/messages?') >= 0) { log.gmailQ = decodeURIComponent(u.split('q=')[1]); return resp(200, { messages: (o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) }); }
       const m = (o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(m.ms), snippet: m.snippet,
@@ -129,7 +131,8 @@ function sandbox(o = {}) {
     SpreadsheetApp: { openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
-    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [] },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [], newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => ({}) }) }) }), invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; },
+      getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
       newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
@@ -406,6 +409,17 @@ test('C25 change without a Canvas match or past emails still shows a card; a fol
   const b = sandbox({ similar: JBL, filesFail: true }), ib = b.ctx.cueSend('New project intake. JBL wants new mats').request_id;
   const vb = b.ctx.cueRun(ib);
   assert.strictEqual(vb.status, 'Needs you', vb.error); deq(vb.change.project_files, []); assert.ok(vb.notes.some(x => /could not list the project folder/.test(x)));
+});
+
+test('C26 missing Gmail access: a plain message, and Fix Google access resets only when Google says a scope is missing', () => {
+  const t = sandbox({ read: CHANGE_READ, gmailScope: true, scopes: ['spreadsheets', 'gmail.compose', 'drive.file'] });
+  const v = t.ctx.cueRun(t.ctx.cueSend('JBL mats changed, requote please', [], 'intake').request_id);
+  assert.strictEqual(v.status, 'Failed'); assert.ok(/does not have Gmail access yet/.test(v.error), v.error);
+  const a = t.ctx.cueFixAccess(); deq(a.missing, ['gmail.readonly']); assert.strictEqual(a.reset, true); assert.strictEqual(t.log.invalidated, 1);
+  assert.strictEqual(a.url, 'https://script.google.com/macros/s/CUE/exec'); assert.ok(/access_token/.test(JSON.stringify(t.log.tokeninfo)));
+  const ok = sandbox({ scopes: ['spreadsheets', 'https://mail.google.com/', 'drive.file'] }).ctx.cueFixAccess();
+  assert.strictEqual(ok.reset, false, 'full Gmail scope covers readonly and compose'); deq(ok.missing, []);
+  assert.ok(/Google access still missing: gmail.readonly/.test(sandbox({ scopes: ['gmail.compose', 'drive.file'] }).ctx.cueSetup()));
 });
 
 let pass = 0;

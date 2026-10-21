@@ -49,6 +49,7 @@ function cueDrive_(method, url, o) {
   delete opt.raw;
   const res = UrlFetchApp.fetch(url, opt);
   const code = res.getResponseCode();
+  if (code === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Drive access yet. Tap Fix Google access in Widgets.');
   if (code !== 200) throw new Error('Drive said HTTP ' + code + ' (' + method.toUpperCase() + ' ' + url.split('?')[0].split('/').slice(-1)[0] + ')' + cueGoogleWhy_(res));
   return o && o.raw ? res : JSON.parse(res.getContentText() || '{}');
 }

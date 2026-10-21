@@ -158,7 +158,16 @@
     d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
     d.returnValue = ''; d.showModal(); $('ask-in').focus();
   }
-  function alertErr(e) { addLocal('Cue', 'Something went wrong: ' + ((e && e.message) || e)); }
+  function alertErr(e) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m); }
+  // Google access (Kiko 05:32Z): one button that checks Cue's access and, if some is missing, resets it so Google asks again.
+  var ACCESS_RE = /access yet|insufficient authentication scopes/i, accessNeeded = false, accessUrl = '';
+  function accessHtml() {
+    if (accessUrl) return '<div class="card need"><b>Google access reset</b><div class="small">Open Cue again and click <b>Allow</b> on every Google screen. Your keys and requests are kept.</div>'
+      + '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none;color:#0b1320" href="' + esc(accessUrl) + '" target="_top">Open Cue again</a></div></div>';
+    if (!accessNeeded) return '';
+    return '<div class="card need"><b>Cue needs Google access</b><div class="small muted">Google has not given Cue all the access it needs (Gmail or Drive). This checks and fixes it.</div>'
+      + '<div class="actions"><button class="btn" data-act="fix-access" data-id="">Fix Google access</button></div></div>';
+  }
   function addLocal(who, text) { state.chat.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
 
   function show(tab) {
@@ -283,7 +292,8 @@
     var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
     var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; }).slice(0, 5);
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
-    var needHtml = need.map(cardHtml).join('') || '<div class="card muted">Nothing needs you right now.</div>';
+    if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
+    var needHtml = (accessHtml() + need.map(cardHtml).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
     var workHtml = work.map(workHtmlOf).join('') || '<div class="card muted">Nothing running.</div>';
     $('w-need').innerHTML = needHtml; $('w-work').innerHTML = workHtml;
     $('p-need').innerHTML = need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open Widgets to review.</div></div>' : '';
@@ -437,6 +447,10 @@
         if (act === 'cancel-edit') { delete editing[id]; return renderWidgets(); }
         var done = function () { delete running[id]; delete editing[id]; refresh(); }, fail = function (e) { delete running[id]; alertErr(e); refresh(); };
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
+        if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
+          if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
+          else { accessNeeded = false; addLocal('Cue', 'Google says Cue has all the access it needs now. Tap Try again on the stopped card.'); }
+          renderWidgets(); }, function (e) { b.disabled = false; alertErr(e); }); }
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change') {
