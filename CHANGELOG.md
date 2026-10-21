@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.20.3: page fixes from the 1.20.2 PC test (not deployed)
+
+- Thread ✕ closes the pane and forgets the threads opened before it, so it never steps back to an earlier thread or keeps its title. The narrow-window ✕ does the same.
+- A workflow map thread ("Map: Supplier payments") shows its card again instead of "undefined". The card function had lost its return line.
+- Kiko's sent line shows once when a poll brings it back from the server before the send returns.
+- Learn my memory: Claude's summary names saved facts by their words, not by their number (no more "fact 77's neighbor (fact 68)").
+
 ## Cue 1.20.2: tutor mode fixes from the PC test (not deployed)
 
 PC test of 1.20 on /dev, 21 Oct 18:15Z.

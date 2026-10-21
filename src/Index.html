@@ -397,6 +397,13 @@
     outbox.push({ who: who, text: text, request_id: ref || '', time: new Date().toISOString() }); renderChat(); }
   var hintT = 0;
   function hint(text) { var h = $('hint'); h.textContent = text; h.hidden = false; clearTimeout(hintT); hintT = setTimeout(function () { h.hidden = true; }, 12000); }
+  // PC test 18:30Z: a poll can bring Kiko's line from the server before the send returns; show it once, not twice.
+  function allLines() {
+    var recent = state.chat.slice(-12);
+    return state.chat.concat(outbox.filter(function (m) {
+      return !(m.sent && recent.some(function (x) { return x.who === m.who && x.request_id === m.request_id && x.text === m.text && Date.parse(x.time) >= m.sent - 30000; }));
+    }));
+  }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
   // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, each opened thread
@@ -424,6 +431,11 @@
     ptabs.splice(i, 1);
     if (pactive === key) pactive = ptabs[i] ? ptabs[i].key : ptabs[i - 1] ? ptabs[i - 1].key : 'list';
     paneShow();
+  }
+  // PC test 18:30Z: ✕ closes the pane and forgets the threads opened before, so it never steps back to one or keeps its title.
+  function paneClose() {
+    ptabs = []; pactive = 'list'; $('tmsgs').innerHTML = ''; $('tmsgs')._h = null; setHtml($('tdock'), '');
+    paneShow(); paneOpen(false);
   }
   function paneShow() {
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
@@ -562,9 +574,9 @@
   $('ptabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     var p = b.getAttribute('data-p');
-    if (p === 'pane') return paneOpen(false);
+    if (p === 'pane') return paneClose();
     if (p === 'list') { pactive = 'list'; return paneShow(); }
-    if (p === 'close') { closeTab(pactive); pactive = 'list'; paneShow(); return paneOpen(false); }   // PC test 17:30Z: ✕ closes the pane; "Threads ›" goes back
+    if (p === 'close') return paneClose();   // PC test 17:30Z: ✕ closes the pane; "Threads ›" goes back
     if (p === 'search') { searching = !searching; $('tsearch').hidden = !searching; if (searching) $('tsearch').focus(); else if (tq) { $('tsearch').value = tq = ''; } return renderChat(); }
     if (p === 'archived') { showArchived = !showArchived; dirty(); return renderChat(); }
     if (p === 'rules') return settingsOpen('rules');
@@ -733,7 +745,7 @@
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
-      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box };
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box, sent: Date.now() };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
@@ -870,7 +882,7 @@
   function threads() {
     var by = byId(), t = {};
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
-    state.chat.concat(outbox).forEach(function (m) {
+    allLines().forEach(function (m) {
       var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
       if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
@@ -964,7 +976,7 @@
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     var prev = null;
-    state.chat.concat(outbox).forEach(function (m) { one(m); prev = m; });
+    allLines().forEach(function (m) { one(m); prev = m; });
     function one(m) {
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
@@ -1799,6 +1811,7 @@
     h += '<div class="actions">' + (waiting ? '<button class="btn" data-act="approve-workflow" data-id="' + esc(r.id) + '">Approve and save</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>'
       + (waiting ? '<div class="small muted">Reply in this thread to change it, or say "check with GPT" for a second opinion. Approving only saves the map; nothing is built or switched on.</div>' : '')
       + metricLine(r) + '</div>';
+    return h;   // PC test 18:30Z: without it a map thread showed "undefined" where its card goes
   }
 
   // Personal expense card: one row per payment GPT read. Edit and untick before saving; nothing is saved until you approve.

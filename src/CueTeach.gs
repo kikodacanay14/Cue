@@ -43,7 +43,7 @@ const CUE_TEACH_SECRET_RE_ = /\b(password|passcode|api[ _-]?key|secret key|token
 
 const CUE_MEM_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['summary', 'facts'],
   properties: {
-    summary: { type: 'string', description: 'One short sentence for Kiko: what you found, and what you left out and why.' },
+    summary: { type: 'string', description: 'One short sentence for Kiko: what you found, and what you left out and why. Name saved facts by their words, never by their number n.' },
     facts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['text', 'topic', 'always', 'replaces'],
       properties: { text: { type: 'string', description: 'One fact in one short sentence about Kiko, e.g. "Kiko prefers short replies."' },
         topic: { type: 'string', enum: CUE_MEM_TOPICS_ },
