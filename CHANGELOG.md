@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.8 (not deployed yet; needs Canvas V185)
+## Cue 1.8 (deployed as Version 18, with Canvas main V185 / Client V43)
 
 - Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file he attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
 - Reply box on every widget card (Kiko 06:48Z), with Cue's latest line in that thread above it. It posts into the task's thread; Enter sends; typed text survives refreshes.
