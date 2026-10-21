@@ -1,5 +1,14 @@
 # Changelog
 
+## File names open in the viewer; version label (not deployed)
+
+Kiko's live check of 1.15 at 15:35Z: tapping image.jpg in a chat bubble, or on the Project intake card, did nothing.
+
+- Cause: the "📎 a.jpg, b.pdf" line under Kiko's message, and the 📎 line on the intake card, were plain text, not links. Only the file cards in a thread were links.
+- Each file name that matches a saved Drive file of the task is now a link, and tapping it opens the viewer (third pane). Tapping a file name in the main chat opens the file, not the thread. A name with no saved file yet (still uploading) stays plain text.
+- The header now shows the version the page runs, for example "· Cue 1.15", next to "One chat. Each task gets its own thread." Kiko can confirm after a reload that /exec serves the new version.
+- Tests: 189 of 189 pass. Playwright checked the chat bubble chip (opens floorplan.jpg, 1 of 2) and the intake card chip (opens brief.pdf, 2 of 3).
+
 ## Cue 1.15: Project intake in four phases (not deployed; needs the Canvas release with it)
 
 Kiko 21 Oct 14:53Z asked for this, and said "build" at 14:57Z. Spec: specs/phased-intake.md.

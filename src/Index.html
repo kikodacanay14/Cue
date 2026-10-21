@@ -157,6 +157,7 @@
   .say .row input { flex:1; min-width:0; min-height:40px; } .say .btn { min-height:40px; }
   .say-last { margin-bottom:6px; }
   .tap { cursor:pointer; } .tap > .card { transition:border-color .15s; } .tap:hover > .card { border-color:var(--line2); }
+  .flink { color:inherit; text-decoration:underline; text-underline-offset:2px; } .flink:hover { color:var(--white); }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
   .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
   .composer .in { max-width:828px; margin:0 auto; }
@@ -220,7 +221,7 @@
 <body>
 <header>
   <div class="logo" aria-hidden="true"></div>
-  <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread.</div></div>
+  <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread. <span id="ver" title="The Cue version this page is running"></span></div></div>
   <span class="dot" id="dot" title="Connected"></span>
 </header>
 <div class="split">
@@ -721,7 +722,7 @@
   function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
-  function render() { renderChat(); renderWidgets(); }
+  function render() { renderChat(); renderWidgets(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
   function setHtml(el, h) {
     if (el._h === h) return;
     var keep = {}, f = document.activeElement, fk = f && f.getAttribute && f.getAttribute('data-say');
@@ -765,8 +766,19 @@
     return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
   }
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + '</div>';
   }
+  // 1.15 fix (Kiko's live check 15:35Z): the "📎 a.jpg, b.pdf" line under Kiko's message was plain text, so tapping a file did
+  // nothing. Each name that matches a saved file of the message's task is now a link that opens in the viewer.
+  function fileText(m) {
+    var t = String(m.text || ''), at = t.lastIndexOf('\n📎 '), r = m.request_id && byId()[String(m.request_id).replace(/^>/, '')];
+    if (at < 0 || !r || !(r.files || []).length) return esc(t);
+    return esc(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
+      var f = r.files.filter(function (x) { return x.name === n && /^[\w-]{10,}$/.test(x.id || ''); })[0];
+      return f ? fileLink(f) : esc(n);
+    }).join(', ');
+  }
+  function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
   function renderChat() {
@@ -836,6 +848,7 @@
     bind();
   }
   $('msgs').addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a[href]')) return;   // a file link opens the viewer, not the thread
     var b = e.target.closest && e.target.closest('[data-thread]'); if (b) goThread(b.getAttribute('data-thread'));
   });
   // Kiko 14:38Z: when Kiko's message is already in the thread, the request shows only its files, as cards like Claude's.
@@ -1715,7 +1728,7 @@
     if (ed) secOpen[r.id + '|lines'] = true;   // Edit lines opens the Lines section
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake</div>'
       + '<b style="font-size:17px;color:#fff">' + esc(c.company || 'Unknown client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>';
-    if ((r.files || []).length) h += '<div class="small muted">📎 ' + r.files.map(function (f) { return esc(f.name); }).join(', ') + '</div>';
+    if ((r.files || []).length) h += '<div class="small muted">📎 ' + r.files.map(function (f) { return /^[\w-]{10,}$/.test(f.id || '') ? fileLink(f) : esc(f.name); }).join(', ') + '</div>';
     (r.similar || []).forEach(function (s) { h += '<div class="warn">Possible duplicate: ' + esc(s.name) + ', ' + esc(s.account) + ', ' + esc(s.date) + ' (' + esc(s.why) + ')</div>'; });
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
