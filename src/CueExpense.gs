@@ -27,7 +27,7 @@ const CUE_EX_SCHEMA_ = { type: 'object', additionalProperties: false,
     project_hint: { type: 'string', description: 'Project or event name as Kiko wrote it, e.g. "Telus Trick or Treat Manila"' },
     category: { type: 'string', description: 'The scope category Kiko named, e.g. "Venue Styling"; "" when not said' },
     item: { type: 'string', description: 'What was bought, from the document, e.g. "Duct tapes"' },
-    quantity: { type: 'number', description: '0 when not shown' }, unit: { type: 'string' },
+    quantity: { type: 'number', description: 'How many units. 1 when only a total amount is shown; never the amount' }, unit: { type: 'string' },
     supplier: { type: 'string', description: 'The store or supplier that sold it' },
     payee: { type: 'string', description: 'Who received the money (may differ from the supplier); "" when not shown' },
     amount: { type: 'number', description: 'Total paid or due in PHP; 0 when not shown' },
@@ -138,6 +138,8 @@ function cueExpenseRun_(s, fs, save) {
   // 1.25.1 (PC test 20:33Z): "Record project expense 979 ... for <project>" with no file read as PHP 0. Kiko's typed amount counts.
   if (!s.read.amount) { const m = String(s.text).replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ').match(/(?:₱|php|p)?\s*\b(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\b/i);
     if (m && Number((m[1] + (m[2] || '')).replace(/,/g, '')) > 0) s.read.amount = cueR2_(Number((m[1] + (m[2] || '')).replace(/,/g, ''))); }
+  // 1.25.2 (PC test 20:41Z): "979" came back as quantity 979 too. Only an amount given means one unit.
+  if (s.read.amount > 0 && (!s.read.quantity || s.read.quantity === s.read.amount)) s.read.quantity = 1;
   if (!s.read.project_hint) s.read.project_hint = cueStr_(((/\b(?:for|in|on|under)\s+(?:project\s+)?(.{3,})$/i.exec(s.text)) || [])[1], 200);
   // Canvas, in code: the project and its records. A reply in an expense thread keeps that thread's project.
   s.stage = 'Checking Canvas'; save();
@@ -190,7 +192,7 @@ function cueExpClean_(p, s) {
     const n = p.new_scope || {};
     if (!has(e.requirements, n.requirement_id)) doubts.push('Pick the CE category (requirement) for the new scope.');
     out.new_scope = { requirement_id: has(e.requirements, n.requirement_id) ? n.requirement_id : '', category: cueStr_(n.category || s.read.category, 200),
-      description: cueStr_(n.description || s.read.item, 500), quantity: Math.max(0, Number(n.quantity) || s.read.quantity || 0), occurrence: Math.max(0, Number(n.occurrence) || 1),
+      description: cueStr_(n.description || s.read.item, 500), quantity: Number(n.quantity) > 0 && Number(n.quantity) !== s.read.amount ? Number(n.quantity) : s.read.quantity || 0, occurrence: Math.max(0, Number(n.occurrence) || 1),
       expense_type: out.expense_type };
   }
   if (out.route === 'existing_scope' || out.route === 'new_scope') {

@@ -39,7 +39,7 @@ function cueCanvasB64_(o) { return Utilities.base64EncodeWebSafe(Utilities.newBl
 const cueCanvasQ_ = o => Object.keys(o).filter(k => o[k] !== '' && o[k] != null).map(k => k + '=' + encodeURIComponent(String(o[k]))).join('&');
 
 /** One Canvas link. o.what: project | newscope | task | pay | supplier | addsupplier | pricewatch | finance | accounts | cedesk | page.
- * Returns { title, url }. Canvas 194 (CUE-LINKS) reads: project action=ar|fsa (+payee), pay qc, addsupplier fields + h (bank code),
+ * Returns { title, url }. Canvas 194 (CUE-LINKS) reads: project action=ar|fsa (+payee), pay qc (etype from 1.25.2 needs Canvas CUE-LINKS etype), addsupplier fields + h (bank code),
  * finance view/client, accounts q, cedesk project. An older Canvas ignores what it doesn't know and opens the page unfilled. */
 function cueCanvasLink_(o) {
   const base = cueCanvasBase_(), t = (s, n) => cueStr_(s, n || 120).replace(/[|\]\r\n]+/g, ' ').trim();
@@ -52,7 +52,7 @@ function cueCanvasLink_(o) {
         url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab, action: act, payee: act ? cueStr_(o.payee, 120) : '' }) }; }
     case 'pay': { const f = o.fill || {}, qc = {};
       if (f.scope) qc.scope = cueStr_(f.scope, 60); if (Number(f.amount) > 0) qc.amount = Math.round(Number(f.amount) * 100) / 100;
-      if (f.supplier) qc.supplier = cueStr_(f.supplier, 200); if (f.cost) qc.cost = cueStr_(f.cost, 200);
+      if (f.supplier) qc.supplier = cueStr_(f.supplier, 200); if (f.cost) qc.cost = cueStr_(f.cost, 200); if (f.etype) qc.etype = cueStr_(f.etype, 120);
       if (/^https:\/\//.test(f.quote || '')) qc.quote = cueStr_(f.quote, 300); if (/^\d{4}-\d{2}-\d{2}$/.test(f.due || '')) qc.due = f.due;
       return { title: 'Request payment · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Scope', action: 'pay', qc: Object.keys(qc).length ? cueCanvasB64_(qc) : '' }) }; }
     case 'finance': { const view = ['ar', 'pay', 'proj', 'att'].indexOf(o.view) >= 0 ? o.view : '';
@@ -155,8 +155,14 @@ function cueCanvasFor_(s) {
     if (k === 'ar' && s.ar && s.ar.project_id) return cueCanvasLink_({ what: 'project', project_id: s.ar.project_id, name: s.ar.project, tab: 'Main', action: 'ar' });
     if (k === 'readiness' && s.ready && s.ready.match && CUE_PID_RE_.test(s.ready.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.ready.match.project_id, name: s.ready.match.name, tab: 'Checklist' });
     if (k === 'expense' && s.expense && s.expense.project && CUE_PID_RE_.test(s.expense.project.id || '')) { const p = s.expense.plan || {}, r = s.read || {};
-      return cueCanvasLink_({ what: 'pay', project_id: s.expense.project.id, name: s.expense.project.name,
-        fill: { scope: p.scope_id, amount: p.amount || r.amount, supplier: (p.new_entry && p.new_entry.supplier) || r.supplier || p.payee, cost: p.item || r.item } }); }
+      const l = cueCanvasLink_({ what: 'pay', project_id: s.expense.project.id, name: s.expense.project.name,
+        fill: { scope: p.scope_id, amount: p.amount || r.amount, supplier: (p.new_entry && p.new_entry.supplier) || r.supplier || p.payee, cost: p.item || r.item,
+          etype: p.expense_type || (p.new_scope && p.new_scope.expense_type) } });
+      // Canvas's Request payment lists only scope cards marked For Payment Request, so say so before Kiko opens it.
+      const sc = p.scope_id && (s.expense.scopes || []).find(x => x.id === p.scope_id), st = sc ? String(sc.status || '').trim() : '';
+      if (l && st && st.toLowerCase() !== 'for payment request')
+        l.note = p.scope_id + ' is "' + st + '" in Canvas. Request payment lists only scope cards marked For Payment Request, so set that on Scope first.';
+      return l; }
     if (k === 'finance') return cueCanvasLink_({ what: 'finance' });
     if (k === 'payment') return cueCanvasLink_({ what: 'finance', view: 'ar' });
     if (k === 'change' && s.change && s.change.match && CUE_PID_RE_.test(s.change.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.change.match.project_id, name: s.change.match.name, tab: 'Scope' });
