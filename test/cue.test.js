@@ -3045,6 +3045,16 @@ test('TC14 PC test 17:42Z + Personality: a vague message that GPT only answered 
   assert.throws(() => t.ctx.cueFileData('../x'), /No such file/);
 });
 
+test('SK3 a long written plan reaches the chat whole (no cut at 3,000), with room to finish (4,000 output tokens on plan asks only)', () => {
+  const plan = 'Plan for onboarding a new freelancer.\n' + Array.from({ length: 60 }, (_, i) => (i + 1) + '. Step ' + (i + 1) + ': I\'ll make Gmail drafts and a checklist for this part.').join('\n');
+  const t = sandbox({ talk: { reply: plan, looks_like_inquiry: false } });
+  t.ctx.cueSend('write a plan for onboarding a new freelancer', [], '');
+  assert.ok(plan.length > 3000); deq(t.tabs.Chat.rows.pop()[2], plan);
+  deq(t.log.gpt[0].max_output_tokens, 4000);
+  t.ctx.cueSend('how are you?', [], ''); deq(t.log.gpt[1].max_output_tokens, 1500, 'small talk keeps the small limit');
+  const cut = t.ctx.cueReplyCut_('One. Two. ' + 'x'.repeat(50), 14); deq(cut, 'One. Two.\n(cut short)');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

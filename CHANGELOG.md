@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.19.4: long chat replies are not cut (not deployed)
+
+PC retest of 1.19.3 (17:52Z): the "Write a plan" reply stopped mid-sentence ("I'll make Gmail drafts and a").
+
+- Cause: Cue cut every chat reply at 3,000 characters (and the chat log at 5,000).
+- Chat replies now keep up to 8,000 characters, and the chat log up to 9,000. Anything longer ends at the last full sentence with "(cut short)", never mid-word.
+- Plan, checklist, brainstorm and analysis asks get up to 4,000 output tokens, so the model can finish. Other chat stays at 1,500.
+- Tests: 218 of 218 pass (new SK3).
+
 ## Cue 1.19.3: PC regression fixes, Personality, Settings page, card minimize (not deployed)
 
 PC test of 1.19.1 (21 Oct 17:42Z), and Kiko's asks at 17:29Z, 17:42Z and 17:44Z.
