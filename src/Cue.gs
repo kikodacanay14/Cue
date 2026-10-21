@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.17';
+const CUE_VERSION_ = 'Cue 1.18';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -332,7 +332,9 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'pasted after those words); Cue then reads Kiko\'s sent emails, Claude drafts a guide, and Kiko approves it on a card before it is saved '
   + 'to the Style tab of the Cue sheet. Cue also learns Kiko\'s memory and processes: when Kiko asks Cue to learn what ChatGPT knows, '
   + 'Kiko\'s memories, custom instructions, skills or a process, say to type "learn my memory" or "learn my process" followed by the pasted '
-  + 'list or text; Claude splits it on a card and nothing is saved until Kiko approves. Cue also drafts single emails: when Kiko asks to email, write to, '
+  + 'list or text; Claude splits it on a card and nothing is saved until Kiko approves. To learn from old ChatGPT or Claude chats, Kiko '
+  + 'exports them (ChatGPT: Settings > Data controls > Export data) and types "learn from chats"; Cue then asks for the zip. Cue cannot read '
+  + 'Kiko\'s ChatGPT history by itself. Cue also drafts single emails: when Kiko asks to email, write to, '
   + 'message or reply to someone, fill email (new or reply, who, what to say, audience, project) and reply in one short line that you are '
   + 'drafting it in its own thread; the draft waits on a card for Kiko to edit and send. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
