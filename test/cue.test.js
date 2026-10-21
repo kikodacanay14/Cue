@@ -1,6 +1,6 @@
 // Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs). Apps Script services, GPT, Claude, the Canvas bridge
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
-// schema in fixtures/ZapBridge.gs (copied from Canvas V183). Run: node test/cue.test.js
+// schema in fixtures/ZapBridge.gs (copied from Canvas V184). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
 const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
@@ -68,6 +68,13 @@ function sandbox(o = {}) {
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
+      if (body.action === 'list_project_files') {
+        if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
+        log.filesFor = body.project_id;
+        return resp(200, { ok: true, status: 'Completed', result: { folder_url: 'https://drive.google.com/drive/folders/PF1', own: true, more: false,
+          files: [{ name: 'JBL mats v2.pdf', url: 'https://drive.google.com/file/d/x1/view', mime: 'application/pdf', size: 5, modified: '2026-10-20T01:00:00Z', folder: 'Project folder › Visual Materials' },
+            { name: 'evil.pdf', url: 'javascript:alert(1)', mime: 'application/pdf', size: 5, modified: '2026-10-19', folder: 'Project folder' }] } });
+      }
       if (body.action === 'intake_evidence') return resp(200, { ok: true, status: 'Completed', result: o.evidence || EVIDENCE });
       if (body.action === 'submit_intake') {
         const L = body.args.proposal.lines, price = { 'PKG-7': 25000 };
@@ -339,7 +346,7 @@ test('C22 change request: 2 AI calls, finds the sent RFQ threads, one reply per 
   const id = t.ctx.cueSend('this for JBL new mats that needs to resent to suppliers. find the emails sent before and ask for a requote', [{ id: up.id }]).request_id;
   const v = t.ctx.cueRun(id);
   assert.strictEqual(v.status, "Needs you", v.error); assert.strictEqual(v.kind, "change"); assert.strictEqual(v.metrics.ai_calls, 2);
-  assert.strictEqual(t.log.bridge.length + t.log.claude.length, 0, 'no Canvas, no Claude');
+  deq(t.log.bridge.map(b => b.action), ['find_similar_projects'], 'only the duplicate check (no requirements to look up)'); assert.strictEqual(t.log.claude.length, 0, 'no Claude');
   assert.ok(/^in:sent newer_than:1y .*"JBL" OR "mats"/.test(t.log.gmailQ), t.log.gmailQ);
   deq(v.change.drafts.map(d => [d.k, d.to]), [['T1', 'sales@matsco.example'], ['T3', 'hello@printhub.example']], 'own address dropped, dup and unknown keys dropped');
   assert.strictEqual(v.change.found, 3, 'internal-only thread dropped; th1 kept once');
@@ -357,14 +364,48 @@ test('C22 change request: 2 AI calls, finds the sent RFQ threads, one reply per 
 });
 test('C23 change request edge cases: nothing found, nothing matched, all unticked, a failed draft retries only the missing one, upload ids are checked', () => {
   const a = sandbox({ read: CHANGE_READ, sent: [] }), ia = a.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id;
-  const va = a.ctx.cueRun(ia); assert.strictEqual(va.status, 'Failed', JSON.stringify(va.error)); assert.ok(/found no RFQ emails/.test(va.error));
+  const va = a.ctx.cueRun(ia); assert.strictEqual(va.status, 'Needs you', JSON.stringify(va.error)); assert.ok(/found no RFQ emails/.test(va.change.note));
   const b = sandbox({ read: CHANGE_READ, requotes: { requotes: [], note: 'none match' } }), ib = b.ctx.cueSend('New project intake. JBL mats changed, requote please').request_id;
-  assert.ok(/matched this change/.test(b.ctx.cueRun(ib).error));
+  assert.ok(/matched this change/.test(b.ctx.cueRun(ib).change.note));
   const c = sandbox({ read: CHANGE_READ, replyFail: true }), ic = c.ctx.cueSend('New project intake. JBL mats changed, requote please').request_id; c.ctx.cueRun(ic);
   assert.throws(() => c.ctx.cueApprove(ic, { skip: ['T1', 'T3'] }), /Tick at least one/);
   const v1 = c.ctx.cueApprove(ic, {}); assert.strictEqual(v1.status, 'Done, drafts incomplete'); assert.strictEqual(c.log.replies.length, 2);
   const v2 = c.ctx.cueApprove(ic, {}); assert.strictEqual(v2.status, 'Done'); assert.strictEqual(c.log.replies.length, 3, 'only the failed one again');
   assert.throws(() => c.ctx.cueSend('x', [{ id: 'not-ours' }]), /did not finish uploading|not one Cue uploaded/);
+});
+
+const JBL = [{ project_id: 'S-31628060SP', name: 'JBL Launch', account: 'JBL', date: '2026-11-05', status: 'For Client Awarding', why: 'similar name' },
+  { project_id: 'S-31628061SP', name: 'JBL Roadshow', account: 'JBL', date: '2026-11-20', status: 'Lead', why: 'similar name' }];
+test('C24 intake steps first: a Canvas duplicate switches a "new project" read to the change function, with the project folder files', () => {
+  const t = sandbox({ similar: JBL });   // GPT read it as new_project (READ); Canvas says it already exists
+  const id = t.ctx.cueSend('New project intake. JBL wants new mats, 3m x 2m, please get quotes').request_id;
+  const v = t.ctx.cueRun(id);
+  assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'change'); assert.strictEqual(v.metrics.ai_calls, 2, 'read + requotes, no costing');
+  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'intake_evidence', 'list_project_files']);
+  assert.strictEqual(t.log.filesFor, 'S-31628060SP'); assert.strictEqual(t.log.claude.length, 0, 'no Claude costing');
+  assert.strictEqual(v.change.project, 'JBL Launch'); assert.strictEqual(v.change.match.why, 'similar name'); deq(v.change.others, ['JBL Roadshow (similar name)']);
+  assert.strictEqual(v.change.project_files.length, 2); assert.strictEqual(v.change.project_files[1].url, '', 'non-Drive link dropped');
+  assert.strictEqual(v.change.folder_url, 'https://drive.google.com/drive/folders/PF1');
+  assert.ok(/"JBL Launch"/.test(t.log.gmailQ), t.log.gmailQ);
+  assert.ok(JSON.parse(t.log.gpt[1].input).project_folder_files[0].indexOf('JBL mats v2.pdf') > 0, 'GPT sees the folder file names');
+  assert.ok(t.tabs.Chat.rows.some(r => /Canvas already has this project: JBL Launch/.test(r[2])));
+  assert.strictEqual(v.change.can_run_new, true);
+  // Kiko: not this project. It runs as a new intake: costing, RFQs, no second duplicate switch.
+  const n = t.ctx.cueAsNew(id);
+  assert.strictEqual(n.kind, 'intake'); assert.strictEqual(n.status, 'Needs you', n.error); assert.ok(n.proposal, 'costed proposal'); assert.strictEqual(n.change, null);
+  assert.strictEqual(t.log.claude.length, 1); assert.throws(() => t.ctx.cueAsNew(id), /Only a change request/);
+});
+test('C25 change without a Canvas match or past emails still shows a card; a folder error is a note', () => {
+  const a = sandbox({ read: CHANGE_READ, sent: [] }), ia = a.ctx.cueSend('JBL mats changed, requote please', [], 'intake').request_id;
+  const va = a.ctx.cueRun(ia);
+  assert.strictEqual(va.status, 'Needs you', va.error); assert.strictEqual(va.metrics.ai_calls, 1, 'no requote call when nothing was found');
+  assert.strictEqual(va.change.match, null); assert.ok(/found no RFQ emails/.test(va.change.note)); deq(va.change.drafts, []);
+  assert.strictEqual(va.change.can_run_new, false, 'nothing to cost');
+  assert.throws(() => a.ctx.cueAsNew(ia), /no requirements/);
+  assert.strictEqual(a.ctx.cueReject(ia, '').status, 'Rejected');
+  const b = sandbox({ similar: JBL, filesFail: true }), ib = b.ctx.cueSend('New project intake. JBL wants new mats').request_id;
+  const vb = b.ctx.cueRun(ib);
+  assert.strictEqual(vb.status, 'Needs you', vb.error); deq(vb.change.project_files, []); assert.ok(vb.notes.some(x => /could not list the project folder/.test(x)));
 });
 
 let pass = 0;

@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.3 (not yet deployed)
+
+- Every request takes the intake steps first (Kiko 21 Oct 04:45Z). GPT reads, then Canvas runs the duplicate check. When Canvas finds the same project, or Kiko says it is a change, Cue switches to the change function. Otherwise it goes on to costing.
+- The change card shows the Canvas match and the matched project's folder files, newest first, each linking to Drive (needs Canvas V184's `list_project_files`; until then the card notes that the folder could not be listed). GPT sees the file names when drafting requotes.
+- "Not this project: run as new" sends a wrong match down the new-project path. The possible-duplicate warning stays on that card.
+- When no past RFQ emails are found, Cue still shows the project card with its files and makes no requote call, instead of stopping.
+- Version 6 also covered up to 10 attachments (20 MB) and switched on the Drive and Gmail advanced services.
+
 ## Cue 1.2 (deployed as Version 5)
 
 - Change requests (Kiko 21 Oct): "this project changed, requote with the same suppliers". GPT spots it in the read call, Cue finds the RFQ emails Kiko sent (Gmail, read only), GPT drafts one reply per supplier, Kiko ticks and approves, and the drafts land in the original threads with the files attached. 2 AI calls. Nothing sent, Canvas untouched.

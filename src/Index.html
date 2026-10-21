@@ -44,6 +44,7 @@
   textarea, input, select { background:var(--input); color:var(--text); border:1px solid var(--line2); border-radius:6px; font:500 14px var(--font); padding:8px 10px; }
   textarea { flex:1; min-height:44px; max-height:200px; resize:vertical; }
   textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
+  .card a { color:var(--act); }
   .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px var(--font); cursor:pointer; background:var(--act); color:#0b1320; }
   .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
   .btn.bad { background:transparent; color:#ff9b7a; border:1px solid #6a3a2c; }
@@ -293,7 +294,7 @@
       + '<tr><td>Over budget</td><td>' + esc(m.over_budget || 0) + '</td></tr></table></div>';
     $('w-done').innerHTML = done.map(function (r) {
       var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-      return '<div class="card"><b>' + esc(c.company || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
         + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
         + metricLine(r) + '</div>';
     }).join('') || '<div class="card muted">Nothing yet.</div>';
@@ -304,7 +305,8 @@
     return '<div class="small muted">' + esc(m.ai_calls) + ' AI calls' + (m.seconds_to_card != null ? ', card in ' + esc(m.seconds_to_card) + ' s' : '')
       + (m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
   }
-  var CHANGE = [['GPT reading', 'GPT', 'GPT reads the change and the files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
+  var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
+    ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
   function workHtmlOf(r) {
     var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
@@ -317,9 +319,12 @@
 
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
-    var c = r.change, again = r.status === 'Done, drafts incomplete';
+    var c = r.change, again = r.status === 'Done, drafts incomplete', waiting = r.status === 'Needs you', m = c.match;
     var h = '<div class="card need"><div class="label" style="margin-top:0">Change request</div><b style="font-size:17px;color:#fff">' + esc(c.project || 'Existing project') + '</b>'
+      + (m ? '<div class="small muted">Canvas match: ' + esc(m.name) + (m.date ? ' · ' + esc(m.date) : '') + (m.status ? ' · ' + esc(m.status) : '') + ' (' + esc(m.why) + ')'
+        + ((c.others || []).length ? '. Also close: ' + c.others.map(esc).join(', ') : '') + '</div>' : '<div class="small muted">Canvas found no matching project.</div>')
       + '<div class="small" style="margin-top:6px">' + esc(c.what_changed) + '</div>'
+      + filesHtml(c)
       + ((r.files || []).length ? '<div class="small muted">📎 ' + r.files.map(function (f) { return esc(f.name); }).join(', ') + ' (attached to every reply)</div>' : '')
       + '<div class="small muted" style="margin-top:6px">Found ' + esc(c.found) + ' RFQ thread(s) in your sent mail. ' + esc(c.note || '') + '</div>';
     c.drafts.forEach(function (d) {
@@ -328,13 +333,25 @@
         + '<span><b>' + esc(d.supplier) + '</b> <span class="small muted">' + esc(d.to) + '</span><br><span class="small muted">Re: ' + esc(d.subject) + ' · ' + esc(d.date) + '</span></span></label>'
         + '<pre style="margin-top:8px">' + esc(d.body) + '</pre>' + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
     });
-    h += '<div class="small muted" style="margin-top:8px">Approve makes Gmail drafts in your account, in each original thread. Nothing is sent, and Canvas is not touched.</div>'
-      + '<div class="actions"><button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (again ? 'Make the missing drafts' : 'Approve and make drafts') + '</button>'
-      + (again ? '' : '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button>') + '</div>' + metricLine(r) + '</div>';
+    var has = (c.drafts || []).length;
+    h += (has ? '<div class="small muted" style="margin-top:8px">Approve makes Gmail drafts in your account, in each original thread. Nothing is sent, and Canvas is not touched.</div>' : '')
+      + '<div class="actions">' + (has && (waiting || again) ? '<button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (again ? 'Make the missing drafts' : 'Approve and make drafts') + '</button>' : '')
+      + (waiting && c.can_run_new ? '<button class="btn ghost" data-act="as-new" data-id="' + esc(r.id) + '">Not this project: run as new</button>' : '')
+      + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">' + (has ? 'Reject' : 'Close') + '</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;
   }
+  // The matched project's folder (from Canvas): newest first, each a link that opens in Drive.
+  function filesHtml(c) {
+    var f = c.project_files || [];
+    if (!c.match) return '';
+    if (!f.length) return '<div class="small muted" style="margin-top:6px">📁 ' + (c.folder_url ? '<a href="' + esc(c.folder_url) + '" target="_blank" rel="noopener">Project folder</a>: no files yet.' : 'No project folder files found.') + '</div>';
+    return '<details open style="margin-top:8px"><summary class="small">📁 Project folder: ' + f.length + (c.files_more ? '+' : '') + ' file' + (f.length === 1 ? '' : 's')
+      + (c.folder_url ? ' · <a href="' + esc(c.folder_url) + '" target="_blank" rel="noopener">open folder</a>' : '') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
+        + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
+  }
   function cardHtml(r) {
-    if (r.kind === 'change' && r.change && (r.change.drafts || []).length) return changeCardHtml(r);
+    if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
@@ -428,6 +445,7 @@
         }
         if (act === 'approve-edits') return call('cueApprove', [id, collect(id)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
+        if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
       };
     });

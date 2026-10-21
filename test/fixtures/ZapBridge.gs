@@ -131,6 +131,13 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: true, schema: { parts: { type: 'array', maxItems: 10 } },
     run: (r) => getProject(r.project_id, r.args.parts || ['admin'])
   },
+  list_project_files: {
+    // CUE-2026-10-21 (Kiko 04:48Z: "i want to see the files in the project folders"). The matched project's folder and its
+    // first level of subfolders, newest first, for Cue's change card. Read only; names and links, never file contents.
+    kind: 'read', needsProject: true, schema: {},
+    run: (r) => { const o = listProjectFiles(r.project_id); return { folder_url: o.folderUrl || '', own: !!o.own, more: !!o.more || (o.files || []).length > 60,
+      files: (o.files || []).slice(0, 60).map(f => ({ name: f.name, url: f.url, mime: f.mime, size: f.size, modified: f.modified, folder: f.folder })) }; }
+  },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
     run: () => getProjectBoard()

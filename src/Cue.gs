@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.2';
+const CUE_VERSION_ = 'Cue 1.3';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -196,6 +196,20 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
+/** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
+function cueAsNew(id) {
+  cueOwner_();
+  cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    if (L.s.kind !== 'change' || L.s.status !== 'Needs you') throw new Error('Only a change request waiting for you can be run as a new project.');
+    if (!(L.s.reqs || []).length) throw new Error('GPT found no requirements to cost in this message. Send it again with what the client needs.');
+    Object.assign(L.s, { kind: 'intake', as_new: true, status: 'Working', stage: 'Checking Canvas', error: '' });
+    delete L.s.card_at; cueSave_(L.sh, L.row, L.s);
+  });
+  cueChat_('Cue', 'Running it as a new project instead.', id);
+  return cueView_(cueRunLeased_(id));
+}
 /** Kiko rejects. Nothing goes to Canvas. */
 function cueReject(id, why) { cueOwner_(); return cueView_(cueIntakeReject_(id, why)); }
 /** Retries only the Gmail drafts that did not get made. */
@@ -220,7 +234,9 @@ function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   return { id: s.id, kind: s.kind || 'intake', created: s.created, status: s.status, stage: s.stage,
-    change: ch && { project: ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
+    change: !(ch && s.kind === 'change') ? null : { project: (ch.match && ch.match.name) || ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
+      match: ch.match || null, others: ch.others || [], folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
+      can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, error: d.error || '' })) }, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',
     notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
