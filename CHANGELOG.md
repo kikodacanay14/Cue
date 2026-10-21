@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: Write Like Me, step 2 "Draft an email" (not deployed)
+
+- Ask in the chat, e.g. "email Lights Inc asking if they can deliver a day early" or "reply to Marco about the LED wall". The chat call that reads every message picks it (new field email: new or reply, who, what to say, audience, project), so routing costs no extra AI call.
+- Code finds your newest email with that person in Gmail (read only; an email address is matched exactly, a name in From/To) and reads its last message. Canvas matches come from the chat's own project lookup. Your own domain makes it a team email.
+- One GPT call drafts it with your style guide for that audience and the guide's sign-off. Missing facts come back as [brackets] and a note.
+- The card shows To, subject and text to edit. Approve and send (one confirm) replies in the thread, or sends a new email. Save to Gmail drafts never sends. Close saves nothing. No thread and no address: a new email with To blank, and sending waits until you type the address.
+- Budget: 1 AI call for the run, plus the chat call. Well under a minute.
+
 ## Unreleased: Write Like Me, step 1 (Kiko said deploy 21 Oct 13:02Z; ships with the next Cue release)
 
 - Kiko approved specs/write-like-me.md (21 Oct 08:21Z: the old skill lives in ChatGPT; yes to reading sent emails; Claude writes the guide, ChatGPT keeps drafting).
