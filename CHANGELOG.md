@@ -6,7 +6,8 @@ Kiko 21 Oct 14:24Z: "remove the Threads with a rounded border... the Threads wit
 
 - The rounded Threads button is gone. **☰ Threads**, with its needs-you badge, now sits at the right of the chat's top bar, styled like the pane's tabs, and opens the Threads list.
 - The pane's tab bar now holds only the threads and files Kiko opened. On a wide screen it hides when nothing is open.
-- Tests: 180 of 180 pass. Checked in Chromium at 440 px and 1440 px.
+- Tests: 181 of 181 pass. Checked in Chromium at 440 px and 1440 px.
+
 ## Cue 1.13.1 (intake never joins a project on a "similar name" alone; Kiko 14:22Z; not deployed)
 
 - Cause: Canvas's duplicate check called "UNILEVER YEAR END PARTY 2026" similar to "Exilara Year End Party" (they share only "year end party"), and Cue turned any similar name into a change.
