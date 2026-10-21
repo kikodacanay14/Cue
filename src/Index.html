@@ -101,6 +101,11 @@
   .vstage img { margin:auto; display:block; transition:transform .15s; transform-origin:center; image-orientation:from-image; }
   .vstage img.fit { max-width:100%; max-height:100%; object-fit:contain; }
   .vstage iframe { flex:1; width:100%; border:0; background:#0e0f11; }
+  /* CUE-CANVAS (Kiko 18:59Z): a Canvas page in the viewer. The note shows when Canvas sends no "ready" (not signed in, or blocked). */
+  .vstage.cv { position:relative; background:#fff; }
+  .cvnote { position:absolute; left:12px; right:12px; top:12px; z-index:2; padding:12px 14px; border:1px solid var(--line2); border-radius:8px; background:var(--panel); color:var(--text); font-size:14px; }
+  .cvnote a { color:var(--act); font-weight:600; }
+  .cvrow { margin-top:10px; }
   .vstage .vmsg { margin:auto; color:var(--muted); padding:20px; text-align:center; }
   .vfoot { flex:none; display:flex; align-items:center; gap:8px; padding:10px 16px; color:var(--text); font-size:14px; }
   .vfoot #v-pos { min-width:54px; text-align:center; }
@@ -454,6 +459,45 @@
     var id = m[m.length - 1], kind = /\/(document|spreadsheets|presentation)\/d\//.exec(u);
     return kind ? 'https://docs.google.com/' + kind[1] + '/d/' + id + '/preview' : 'https://drive.google.com/file/d/' + id + '/preview';
   }
+  /* CUE-CANVAS (Kiko 18:59Z "opens the page and populates the details and show me the screen in Canvas"; specs/open-in-canvas.md).
+     A Canvas link opens Canvas in the viewer pane on a PC; on a phone, where Google blocks the sign-in inside a frame, in a new tab.
+     Canvas pages post {canvasWs:'ready'} up to every window above them when they load; with no ready in 12 s the pane says so and
+     offers a new tab instead. Links come as [[canvas|title|url]] in a chat line, or as a card's r.open. */
+  var PHONE = !!(window.matchMedia && (matchMedia('(pointer:coarse)').matches || matchMedia('(max-width: 900px)').matches));
+  // Mirrors cueCanvasParse_ (CueCanvas.gs): these go to the server as Canvas commands, never to the expense shortcut ("open Globe expenses").
+  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
+  var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
+  var cvWait = 0, cvReady = false;
+  function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
+  function cvLink(l, primary) {
+    if (!l || !CV_URL.test(l.url || '')) return '';
+    return '<a class="btn' + (primary ? '' : ' ghost') + '" data-canvas="1" data-name="' + esc(l.title) + '" href="' + esc(l.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas · ' + esc(l.title) + '</a>';
+  }
+  function canvasOpen(l) {
+    if (!l || !CV_URL.test(l.url || '')) return;
+    if (PHONE) return void window.open(l.url, '_blank', 'noopener');
+    viewOpen([{ canvas: true, url: l.url, preview: l.url, name: l.title || 'Canvas' }], 0);
+  }
+  function canvasShow(f) {
+    $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
+    $('v-name').textContent = f.name; $('v-name').title = f.name; $('v-ic').textContent = '🗂'; $('v-open').href = f.url;
+    $('v-type').textContent = 'Canvas · save there'; $('v-pos').textContent = ''; $('v-prev').disabled = true; $('v-next').disabled = true; $('v-pct').textContent = '';
+    cvReady = false;
+    $('v-stage').innerHTML = '<iframe id="v-cv" title="' + esc(f.name) + '" allow="clipboard-read; clipboard-write" src="' + esc(f.url) + '"></iframe>';
+    cvWait = setTimeout(function () {
+      if (cvReady || !$('v-cv')) return;
+      $('v-stage').insertAdjacentHTML('afterbegin', '<div class="cvnote" role="status">Canvas hasn\'t shown up here yet. It may need you to sign in, which Google only allows in its own tab. '
+        + '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in a new tab</a></div>');
+    }, 12000);
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data, fr = $('v-cv'); if (!d || d.canvasWs !== 'ready' || !fr) return;
+    for (var w = e.source, i = 0; w && i < 4; i++, w = w.parent) if (w === fr.contentWindow) { cvReady = true; var n = $('v-stage').querySelector('.cvnote'); if (n) n.remove(); return; }
+  });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-canvas]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button || PHONE) return;
+    e.preventDefault(); canvasOpen({ url: a.href, title: a.getAttribute('data-name') || 'Canvas' });
+  });
   // Kiko 14:54Z: a Drive or Docs link opens in the viewer, the third pane. Its "1 of N" steps through the files in the same
   // thread (or the main chat) it was opened from.
   document.addEventListener('click', function (e) {
@@ -489,6 +533,8 @@
   }
   function viewShow() {
     var f = vlist[vat]; if (!f) return viewClose();
+    $('v-dl').hidden = !!f.canvas; $('v-zoom').hidden = !!f.canvas; $('v-stage').classList.toggle('cv', !!f.canvas); clearTimeout(cvWait);
+    if (f.canvas) return canvasShow(f);
     var k = fileKind(f), id = fileId(f);
     vz = 0; vrot = 0; $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
     $('v-name').textContent = f.name; $('v-name').title = f.name; $('v-ic').textContent = k.img ? '🖼' : k.docs ? '📄' : '📎';
@@ -621,7 +667,7 @@
       var failed = lastReq.status === 'Failed';
       G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
-        line: failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text });
+        line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
     // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
     var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
@@ -749,12 +795,13 @@
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && EXP_RE.test(t) && !memPaste(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (mode !== 'intake' && EXP_RE.test(t) && !memPaste(t) && !CV_SAY.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
+      if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
       if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(swap); }
       refresh(swap);
       running[r.request_id] = 1;
@@ -948,11 +995,18 @@
     // PC test 17:42Z: a main-chat line has no task id, so its file names were plain text. Find the task that has those files.
     if (at >= 0 && !r) { var nm = t.slice(at + 4).split(', '); r = state.requests.filter(function (x) { return (x.files || []).some(function (f) { return nm.indexOf(f.name) >= 0; }); })
       .sort(function (a, b) { return Math.abs(Date.parse(a.created) - Date.parse(m.time)) - Math.abs(Date.parse(b.created) - Date.parse(m.time)); })[0]; }
-    if (at < 0 || !r || !(r.files || []).length) return esc(t).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; });   // the connect ticktick link
-    return esc(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
+    if (at < 0 || !r || !(r.files || []).length) return richText(t);
+    return richText(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
       var f = r.files.filter(function (x) { return x.name === n && /^[\w-]{10,}$/.test(x.id || ''); })[0];
       return f ? fileLink(f) : esc(n);
     }).join(', ');
+  }
+  // A chat line's text: the connect ticktick link, and CUE-CANVAS tokens drawn as "Open in Canvas" buttons.
+  function richText(t) {
+    var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
+    var out = '', last = 0, m; CV_TOK.lastIndex = 0;
+    while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
+    return out + plain(t.slice(last));
   }
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
@@ -1349,7 +1403,7 @@
         + (m.sent_id ? '<div class="small">Documents request sent to ' + esc(m.to) + '.</div>' : m.draft_id ? '<div class="small">Documents request is in your Gmail Drafts.</div>' : m.error ? '<div class="small err">Documents request: ' + esc(m.error) + '</div>' : '')
         + '<div class="small ' + (v.ok ? 'muted' : 'err') + '">' + (v.ok ? 'Every cell read back correctly.' : 'Read back: ' + esc((v.problems || []).join(' '))) + '</div>'
         + (r.notes || []).map(function (n) { return '<div class="small muted">' + esc(n) + '</div>'; }).join('');
-      return h + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + metricLine(r) + '</div>';
+      return h + (r.open ? '<div class="cvrow">' + cvLink(r.open) + '</div>' : '') + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + metricLine(r) + '</div>';
     }
     if (!waiting) return h + (r.status === 'Failed' ? '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>' : '') + metricLine(r) + '</div>';
     (x.duplicates || []).forEach(function (d) {
@@ -1384,9 +1438,16 @@
     if (em) h += '<div class="label">Request for the missing documents</div><input data-sem="to" value="' + esc(em.to) + '" aria-label="To" style="width:100%">'
       + '<input data-sem="subject" value="' + esc(em.subject) + '" aria-label="Subject" style="width:100%;margin-top:6px"><textarea class="mail" data-sem="body" aria-label="Email">' + esc(em.body) + '</textarea>'
       + '<div class="small muted">From your Gmail, with suppliers@ in CC.</div>';
-    return h + '<div class="actions">' + (em ? '<button class="btn" data-act="send-supplier" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-supplier" data-id="' + esc(r.id) + '">Approve, request as a draft</button>'
-        : '<button class="btn" data-act="approve-supplier" data-id="' + esc(r.id) + '">Approve and add</button>') + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
-      + '<div class="small muted" style="margin-top:6px">Approve adds the supplier and its contacts to the Canvas Supplier Database and files the documents in its folder.</div>' + metricLine(r) + '</div>';
+    // CUE-CANVAS (Kiko 18:57Z): the supplier is added in Canvas's own form, filled from this card. Bank details are not in the link
+    // (Kiko 19:20Z): copy them from above. Saved in Canvas then files the documents and the request. Adding from here stays as the fallback.
+    var dupe = (x.duplicates || []).length && !x.not_duplicate, bank = rec.Bank || rec['Account Name'] || rec.AccountNumber;
+    if (r.open) h += '<div class="label">In Canvas</div><div class="cvrow" style="margin-top:4px">' + cvLink(r.open, true) + '</div>'
+      + '<div class="small muted" style="margin-top:4px">' + (dupe ? 'Opens the supplier Canvas already has. ' : 'Opens Add supplier with the name, contact, type, city, service and TIN filled in. '
+      + (bank ? 'Bank details are not sent in the link: copy them from Bank details above. ' : '')) + 'Save there, then tap Saved in Canvas so Cue files the documents' + (em ? ' and the request' : '') + '.</div>'
+      + '<div class="actions"><button class="btn" data-act="saved-supplier" data-id="' + esc(r.id) + '">Saved in Canvas</button></div>';
+    return h + '<div class="actions">' + (em ? '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="send-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here and send' : 'Approve and send') + '</button><button class="btn ghost" data-act="approve-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here, request as a draft' : 'Approve, request as a draft') + '</button>'
+        : '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="approve-supplier" data-id="' + esc(r.id) + '">' + (r.open ? 'Add from here instead' : 'Approve and add') + '</button>') + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
+      + '<div class="small muted" style="margin-top:6px">' + (r.open ? 'Adding from here puts' : 'Approve adds') + ' the supplier and its contacts in the Canvas Supplier Database and files the documents in its folder.</div>' + metricLine(r) + '</div>';
   }
   function collectSupplier(id, scope, send) {
     var card = (scope || document).querySelector('[data-scard="' + id + '"]') || document.createElement('div'), e = { record: {}, contacts: [], docs: {}, found: {}, email: {}, send: send };
@@ -1653,9 +1714,11 @@
     if (blocked.length) h += '<div class="label">Can\'t make yet</div>' + blocked.map(function (x) { return row(x); }).join('');
     if (!a.items.length) h += '<div class="small muted" style="margin-top:6px">Canvas shows no paid suppliers, talents or freelancers on this project yet.</div>';
     if (a.more) h += '<div class="small muted">Canvas has more than 200 on this project; open it in Canvas for the rest.</div>';
-    if (waiting) h += '<div class="small muted" style="margin-top:8px">Canvas saves each PDF in the project\'s Acknowledgement Receipts folder and logs it on the AR Receipts tab. '
+    // CUE-CANVAS (Kiko 18:57Z): ARs are made in Canvas. The project opens there; tap Generate ARs in its ARs row. Making them here stays as the fallback.
+    if (r.open) h += '<div class="cvrow">' + cvLink(r.open, waiting) + '</div>' + (waiting ? '<div class="small muted" style="margin-top:4px">' + (ready.length ? ready.length + ' ready for an AR. ' : '') + 'In Canvas, tap Generate ARs in the project\'s ARs row.</div>' : '');
+    if (waiting) h += '<div class="small muted" style="margin-top:8px">Or make them from here: Canvas saves each PDF in the project\'s Acknowledgement Receipts folder and logs it on the AR Receipts tab. '
       + 'Freelancers sign theirs in Canvas Client. Up to ' + esc(a.max) + ' per run. Nothing is emailed until you say so.</div>'
-      + '<div class="actions">' + (ready.length || have.length ? '<button class="btn" data-act="ar-make" data-id="' + esc(r.id) + '">Make ticked receipts</button>' : '')
+      + '<div class="actions">' + (ready.length || have.length ? '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="ar-make" data-id="' + esc(r.id) + '">' + (r.open ? 'Make ticked here instead' : 'Make ticked receipts') + '</button>' : '')
       + (made ? '<button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish</button>' : '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
@@ -2128,7 +2191,15 @@
     var box = (scope || document).querySelector('[data-rfq="' + id + '|' + i + '"]'); if (!box || !box.querySelector('[data-rq-body]')) return null;
     return { to: box.querySelector('[data-rq-to]').value, subject: box.querySelector('[data-rq-subj]').value, body: box.querySelector('[data-rq-body]').value };
   }
+  // CUE-CANVAS: every card with a Canvas page gets "Open in Canvas" above its buttons. AR and supplier cards place their own.
   function cardHtml(r) {
+    var h = cardBody(r);
+    if (!r.open || r.kind === 'ar' || r.kind === 'supplier') return h;
+    var b = '<div class="cvrow">' + cvLink(r.open) + '</div>', at = h.indexOf('<div class="actions">');
+    if (at < 0) at = h.lastIndexOf('</div>');
+    return at < 0 ? h + b : h.slice(0, at) + b + h.slice(at);
+  }
+  function cardBody(r) {
     if (r.same && r.same.length) return sameCardHtml(r);
     if (r.phased && r.ph) return phCardHtml(r);
     if (r.kind === 'email') return mailCardHtml(r);
@@ -2421,6 +2492,7 @@
         }
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve-supplier') { var sd = collectSupplier(id, scope, 'draft'); delete supExtra[id]; return call('cueApprove', [id, sd], done, fail); }
+        if (act === 'saved-supplier') { var sv = collectSupplier(id, scope, 'draft'); delete supExtra[id]; return call('cueSupplierSaved', [id, sv], done, fail); }   // CUE-CANVAS
         if (act === 'approve') { var rq0 = state.requests.filter(function (x) { return x.id === id; })[0] || {};
           return call('cueApprove', [id, rq0.phased && rq0.ph ? collectPh(id, scope) : collect(id, scope)], function () { delete phAdd[id]; done(); }, fail); }
         if (act === 'pick-save' || act === 'pick-skip') return call('cueRfqPick', [id, act === 'pick-skip' ? { mode: 'line', lines: [] } : collectPick(id, scope)], function () { delete pickMode[id]; done(); }, fail);

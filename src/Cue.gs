@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.22.1';
+const CUE_VERSION_ = 'Cue 1.23';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -161,6 +161,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
   // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
+  // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
+  // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
+  if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
   // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
   if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
   // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
@@ -728,6 +731,8 @@ function cueApprove(id, edits) {
 }
 /** CUE-PHASED: Rescan (phase 2) and one RFQ's Send / Save as draft / Cancel (phase 4). */
 /** CUE-UNDO: Cancel intake removes what it wrote in Canvas (Kiko confirms first on the card). pid: the Same project? choice "remove it and add this". */
+/** CUE-CANVAS: Kiko saved the supplier in Canvas's own form; Cue finds it there, then files the documents and the request. */
+function cueSupplierSaved(id, edits) { cueOwner_(); return cueView_(cueSupplierSaved_(id, edits || {})); }
 function cueCancelIntake(id, pid) { cueOwner_(); return cueView_(cuePhCancel_(id, pid || '')); }
 function cueRescan(id, note) { cueOwner_(); return cueView_(cuePhRescan_(id, note)); }
 function cueRfqPick(id, sel) { cueOwner_(); return cueView_(cuePhPickSave_(id, sel || {})); }
@@ -941,6 +946,7 @@ function cueView_(s) {
     style: s.kind === 'style' ? cueStyleView_(s) : null,
     teach: s.kind === 'memory' || s.kind === 'process' ? cueTeachView_(s) : null, can_redo: cueRouteCan_(s),
     mail: s.kind === 'email' ? cueMailView_(s) : null,
+    open: cueCanvasFor_(s),   // CUE-CANVAS: the Canvas page for this card's "Open in Canvas"
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
     name: (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
