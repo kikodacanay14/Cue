@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.3.4 (deployed as Version 11) and bubble 1.1.0
+
+- Cue icon (Kiko 05:42Z): the Cue orb as the window favicon (saved once to Kiko's Drive as "Cue icon.png") and new extension icons (orb at small sizes, ring with "Cue" at 128 px).
+- The bubble no longer shows on Cue's own page or inside the Cue window.
+
 ## Cue 1.3.3 (deployed as Version 10)
 
 - Working on cards are collapsible (Kiko 05:39Z): collapsed shows the title, the current step and the bar; tap to see the full request, every step and the AI-call count.

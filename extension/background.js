@@ -14,8 +14,13 @@ async function openCue(near) {
   await chrome.storage.local.set({ cueWin: win.id });
 }
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg && msg.type === 'cue-open' && sender.tab) openCue(msg.near);
+  // Is this page inside the Cue window? Then the bubble stays hidden there (Kiko 21 Oct 05:42Z).
+  if (msg && msg.type === 'cue-is-cue-window') {
+    chrome.storage.local.get('cueWin').then(({ cueWin = null }) => reply(!!(sender.tab && cueWin && sender.tab.windowId === cueWin)));
+    return true;
+  }
 });
 chrome.action.onClicked.addListener(() => openCue(null));
 chrome.windows.onRemoved.addListener(async id => {

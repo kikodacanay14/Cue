@@ -3,7 +3,9 @@
 (async () => {
   if (window.top !== window) return;
   const { cueUrl = '', cueHidden = {}, cuePos = null } = await chrome.storage.local.get(['cueUrl', 'cueHidden', 'cuePos']);
-  if (cueUrl && location.href.split('?')[0] === cueUrl) return;           // not inside Cue itself
+  const dep = (cueUrl.match(/\/s\/([A-Za-z0-9_-]+)\/exec/) || [])[1];
+  if (dep && location.hostname === 'script.google.com' && location.pathname.indexOf('/s/' + dep + '/') >= 0) return;   // not on Cue itself
+  try { if (await chrome.runtime.sendMessage({ type: 'cue-is-cue-window' })) return; } catch (e) { /* background asleep: show it */ }
   if (cueHidden[location.hostname]) return;                                // Kiko hid it on this site
 
   const host = document.createElement('div');
