@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (supplier search; needs Canvas with supplier_lookup)
+
+- Find, compare or assess suppliers (Kiko approved specs/vendor-management.md, 21 Oct 07:54Z). Ask in the chat, e.g. "find LED wall suppliers in Cebu", "compare Sonic Pro and Brightwave", "how reliable is Sonic Pro?" or "compare the quotes on JBL Booth". The chat call reads the ask (no extra call). Canvas returns the Supplier Database matches, past quotes for the item (count, median, low to high, awarded), named suppliers' history and a project's logged quotes (new bridge read supplier_lookup).
+- Preferred first (Kiko 07:51Z): Preferred suppliers are listed first, every Preferred supplier that offers the item is shown even past 5, and Claude's pick is a Preferred one unless Claude says why not (the card shows the reason, or that Cue switched the pick to the Preferred supplier).
+- Web search only when needed: GPT searches when Find has fewer than 3 matches, you ask for new options, or a supplier you named isn't in the Supplier DB. New finds are labelled "New, not in Supplier DB, not accredited", never ranked above an accredited DB supplier on Find, and remembered in a new Prospects tab so the next search shows them instead of searching again.
+- Draft RFQs from the card: tick suppliers (Claude's pick is ticked), GPT drafts one RFQ each, then Approve and send, Drafts only, or Close RFQs. A supplier with no email stays a draft.
+- Read only: nothing is written to Canvas. Each search is logged in a new Vendor runs tab. Budget: 1 AI call (Claude) when the DB is enough, 2 with web search, plus 1 for RFQs.
+
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).
