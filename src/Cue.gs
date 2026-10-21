@@ -136,22 +136,26 @@ function cueSend(text, files, mode, ref) {
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
   let asked = '', reopened = '';
-  if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
+  // A supplier to register (CueSupplier.gs) skips the chat call: Kiko's own words say what it is.
+  let sup = mode !== 'intake' && mode !== 'chat' && cueIsSupplier_(text);
+  if (!sup && mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
   }
+  if (asked && cueIsSupplier_(asked)) sup = true;
   const t = asked || String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
-  if (t.length < 20 && !has) throw new Error('Paste the client\'s inquiry, describe the event (at least a sentence), or attach the brief.');
+  if (sup && !has && t.replace(CUE_SUP_RE_, '').replace(/\b(this|the|a|an|new|please|pls)\b/gi, '').replace(/[^\p{L}\p{N}]+/gu, '').length < 3) throw new Error('Name the supplier, or attach their documents (BIR 2303, DTI or SEC, permit, business card).');
+  if (!sup && t.length < 20 && !has) throw new Error('Paste the client\'s inquiry, describe the event (at least a sentence), or attach the brief.');
   if (t.length > 12000) throw new Error('That is too long for one intake (12,000 characters at most).');
   // Kiko 06:57Z task rules: a new message about a task from the last 7 days reopens that task's thread instead of starting a new one.
   // First guess from the project or client name in the message (no AI call); Canvas's project match confirms or moves it later.
-  if (!ref) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
+  if (!ref && !sup) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const saved = cueFilesSave_(files, id);
-  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
+  const s = { id, version: CUE_VERSION_, kind: sup ? 'supplier' : 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   if (reopened) s.ref_by = reopened;
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
@@ -162,7 +166,7 @@ function cueSend(text, files, mode, ref) {
   if (!inThread && !asked && !(ref && !reopened)) { cueChat_('Kiko', line, ''); cueChat_('Cue', back ? 'On it. ' + back : 'On it. I started a thread for this, and GPT is reading it first.', '>' + id); }
   if (!inThread && asked && (!ref || reopened)) cueChat_('Cue', back || 'Started a thread for it.', '>' + id);
   if (!asked) cueChat_('Kiko', line, id);
-  cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
+  cueChat_('Cue', sup ? 'Registering a supplier. GPT is reading it first; nothing is saved until you approve.' : 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id, task: ref };
 }
 
@@ -179,7 +183,8 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
   + 'needs Kiko in the Widgets tab. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
-  + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Facts: Cue sends email only when Kiko '
+  + 'that project in the last day are attached to every draft (Kiko can untick any on the card). "Register a supplier" (with their '
+  + 'documents attached) adds a new supplier to the Canvas Supplier Database with every contact person, after Kiko approves the card. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
   + 'and never ask Kiko to give access "to send". Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
@@ -222,6 +227,7 @@ function cueTalk_(t, ref) {
 /** A task's display name: the matched project, the client and event, or what it is. */
 function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
+  if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -284,8 +290,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
-  try { cueIntakeRun_(s, () => cueSave_(got.sh, got.row, s)); }
-  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', 'The intake stopped: ' + s.error, s.id); }
+  try { (s.kind === 'supplier' ? cueSupplierRun_ : cueIntakeRun_)(s, () => cueSave_(got.sh, got.row, s)); }
+  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', (s.kind === 'supplier' ? 'The supplier registration' : 'The intake') + ' stopped: ' + s.error, s.id); }
   delete s.lease_until;
   cueMetrics_(s);
   cueSave_(got.sh, got.row, s);
@@ -325,6 +331,7 @@ function cueApprove(id, edits) {
   cueOwner_();
   const L = cueLoad_(id);
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
+  if (L && L.s.kind === 'supplier') return cueView_(cueSupplierApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -404,10 +411,18 @@ function cueState() {
 function cueSummary_(s) {
   try {
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
-    const name = s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
+    else if (s.kind === 'supplier') {
+      const sp = s.sup || {}, a = cv.accreditation || {}, v = cv.verify || {}, f = (sp.saved || []).filter(x => x.url).length, m = sp.email || {};
+      if (cv.supplier_id) out.push('added to the Supplier Database as ' + cv.supplier_id + ' with ' + (cv.contacts || []).length + ' contact' + ((cv.contacts || []).length === 1 ? '' : 's'));
+      out.push(v.ok ? 'every cell read back correctly' : 'read back found a problem: ' + (v.problems || []).join(' '));
+      if (f) out.push(f + ' document' + (f === 1 ? '' : 's') + ' filed in the supplier folder');
+      out.push((a.missing || []).length ? 'still missing for accreditation: ' + a.missing.join(', ') : 'nothing missing for accreditation');
+      if (m.sent_id) out.push('documents request sent to ' + m.to); else if (m.draft_id) out.push('documents request in your Gmail Drafts');
+    }
     else if (s.kind === 'change') {
       const sel = (c.drafts || []).filter(d => d.selected), sent = sel.filter(d => d.sent_id), drafts = sel.filter(d => d.draft_id && !d.sent_id), bad = sel.filter(d => d.error);
       if (sent.length) out.push('sent ' + sent.length + ' requote' + (sent.length === 1 ? '' : 's') + ' (' + list(sent.map(d => d.supplier)) + ')');
@@ -440,6 +455,7 @@ function cueView_(s) {
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
+    supplier: s.kind === 'supplier' ? cueSupView_(s) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

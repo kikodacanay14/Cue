@@ -41,10 +41,11 @@ function cueGptParse_(code, msg) {
     web: (msg.output || []).filter(x => x && x.type === 'web_search_call').length };
 }
 
-/** o = { step, system, user, schema, effort?, maxTokens? } -> a call for cueAiAll_. */
+/** o = { step, system, user, schema, effort?, maxTokens?, parts? } -> a call for cueAiAll_. parts = Messages API content blocks (documents, images). */
 function cueClaude_(o) {
   const model = cueProp_('CUE_CLAUDE_MODEL', 'claude-sonnet-5-5');
-  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system), messages: [{ role: 'user', content: String(o.user) }],
+  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system),
+    messages: [{ role: 'user', content: o.parts && o.parts.length ? [{ type: 'text', text: String(o.user) }].concat(o.parts) : String(o.user) }],
     output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };
   return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_,
     req: { url: CUE_CLAUDE_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),

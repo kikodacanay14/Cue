@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (supplier registration)
+
+Register a supplier (command C5; spec `canvas-integration/specs/supplier-registration.md`, approved by Kiko 21 Oct 07:55Z). Needs the Canvas release with `supplier_check`, `register_supplier` and `save_supplier_file` (CanvasWorkspace branch `claude/project-thread-amreua`).
+
+- **Start it in chat.** "Register this supplier" (or "add this supplier", "supplier registration for ...") with their documents attached. Kiko's own words decide, so it skips the chat call and never becomes a project intake.
+- **Who does what. 1 to 3 AI calls.** GPT reads the message and the documents: details, every contact person, and bank details only when a document shows them. Canvas checks duplicates (name, aliases, TIN, email), the Supplier Database's own dropdowns, the documents the business type needs, and old payment requests and quotes for a supplier that was never registered. Cue's code searches every shared drive for old files of this supplier. Claude runs only when a value doesn't fit a dropdown or something old was found: it fits the values, fills gaps from the top 5 old files and adds contacts it finds there, and never touches bank details. GPT drafts the request for missing documents only when something is missing and there is an email to send it to; if GPT fails, a plain template is used.
+- **The card.** Fields grouped like the Canvas supplier form, each editable (dropdown columns only take the sheet's values); every contact person, with Add and Remove; attached documents with what each one is; "Found in shared drives" with a tick and a document type per file; "Old supplier, never registered" when Canvas has old payments or quotes; what is still missing; the request email. A duplicate blocks Approve until Kiko ticks "Not the same supplier".
+- **Approve.** Canvas adds the supplier once (a repeat resumes where it stopped), saves every contact in Supplier Contacts, opens its Supplier Accreditation row when something is missing (so the accreditation chaser follows up), and reads every cell back. The attached documents go in the supplier folder, and ticked old files are added there as shortcuts. **Approve and send** sends the request from Kiko's Gmail with suppliers@ in CC, after one confirm; **Approve, request as a draft** leaves it in Gmail Drafts.
+- **Never.** Supplier ID, Accreditation Status, the four verification columns, the folder link, existing suppliers, deletes.
+- **Shared-drive search needs Drive read access.** Cue has only drive.file today, so until the full Drive access for the Google files command ships, the card says the search was skipped. No new scopes in this change.
+- **Not yet wired:** logging the first request through the accreditation chaser's `log_accreditation_reminder`, which arrives with that kind.
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".

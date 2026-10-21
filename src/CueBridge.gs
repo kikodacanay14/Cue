@@ -2,7 +2,8 @@
  * through the Client app's doPost at CUE_BRIDGE_URL. Each request is signed HMAC-SHA256(ZAD_SECRET, ts + "." + body), the
  * same as every other bridge caller. Cue uses six actions only: find_similar_projects, intake_evidence and list_project_files (read),
  * submit_intake (Canvas re-checks and stores the proposal "Waiting for Kiko"), apply_intake (Canvas writes it once) and
- * make_rfq_drafts (only when CUE_DRAFTS_IN=canvas: Canvas makes the RFQ drafts in info@, never sent). */
+ * make_rfq_drafts (only when CUE_DRAFTS_IN=canvas: Canvas makes the RFQ drafts in info@, never sent).
+ * Supplier registration (CueSupplier.gs) adds supplier_check (read), register_supplier and save_supplier_file. */
 
 function cueBridgeReq_(s, action, args, pid) {
   const url = cueKey_('CUE_BRIDGE_URL'), secret = cueKey_('ZAD_SECRET');

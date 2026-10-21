@@ -12,6 +12,8 @@
  *   the address a sheet row with no Google account behind it, so nobody can sign in as it.
  * - Only the actions in ZB_ACTIONS_ run, with strict arguments. Nothing sets project status, files a CE, changes the
  *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas (it drives HubSpot stages).
+ *   CUE-SUPPLIER-2026-10-21: register_supplier adds one NEW supplier Kiko approved on Cue's card (row, contacts, accreditation
+ *   row); it never edits or deletes an existing supplier and never sets Accreditation Status or a verification column.
  * - A durable ledger (sheet in ZAD_LEDGER_ID, tab "_Zap Commands") keyed by command_id. Replays return the stored
  *   answer. add_project is also keyed by intake_key, so one inquiry arriving by Gmail and by HubSpot makes one project.
  * - A write whose outcome is unknown is recorded Uncertain. Retries reconcile first; non-idempotent writes
@@ -56,6 +58,12 @@ const ZB_FORBIDDEN_ = {
 // Files Cue may put in a project folder: what Cue accepts as attachments, into a Files-tab type folder.
 const ZB_FILE_MIMES_ = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/csv', 'message/rfc822'];
 const ZB_FILE_TYPES_ = ['Brief & Planning', 'Client Documents', 'Designs & Visuals', 'Visual Materials', 'Other Documents'];
+// Supplier Database columns Cue may fill on a new supplier (AIS_FIELDS_ in canvas-ai/AiSupplier.gs) and the accreditation documents (ACCR_DOC_ labels).
+const ZB_SUP_FIELDS_ = ['Supplier', 'Common / Display Name', 'Address', 'City', 'Province', 'Owner/Manager', 'Website/Social Media', 'Main Service',
+  'Secondary Service', 'Supplier Type', 'Business Type', 'TIN', 'TIN Status', 'Company Email', 'Bank', 'Account Name', 'AccountNumber']
+  .reduce((o, h) => { o[h] = { type: 'string', max: h === 'Address' ? 500 : 200 }; return o; }, {});
+ZB_SUP_FIELDS_['Supplier'] = { type: 'string', required: true, nonBlank: true, max: 200 };
+const ZB_SUP_DOCS_ = ['DTI permit', 'SEC certificate', 'Business Permit', 'Sample invoice', 'Government ID 1', 'Government ID 2'];
 const ZB_ACTIONS_ = {
   claim_plan: {
     // Review 05:36Z: an atomic claim of one task's plan, under the app's lock. The first plan for a task wins; a second,
@@ -159,6 +167,36 @@ const ZB_ACTIONS_ = {
       mime: { type: 'string', required: true, oneOf: ZB_FILE_MIMES_ }, type: { type: 'string', required: true, oneOf: ZB_FILE_TYPES_ },
       data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } },
     run: (r) => zbSaveFile_(r)
+  },
+  /* CUE-SUPPLIER-2026-10-21 (Kiko 07:55Z approved specs/supplier-registration.md). supplier_check reads; register_supplier adds
+   * one new supplier through saveRecord_ (canvas-ai/AiSupplier.gs); save_supplier_file puts one document, or a shortcut to a
+   * shared-drive file, into that supplier's folder. Values are text only, and AiSupplier.gs keeps them from becoming formulas. */
+  supplier_check: {
+    kind: 'read', needsProject: false,
+    schema: { name: { type: 'string', required: true, nonBlank: true, max: 200 }, display_name: { type: 'string', max: 200 },
+      tin: { type: 'string', max: 40 }, emails: { type: 'array', maxItems: 10, items: { email: { type: 'string', required: true, max: 200 } } },
+      business_type: { type: 'string', max: 100 } },
+    run: (r) => aiSupplierCheck_(Object.assign({}, r.args, { emails: (r.args.emails || []).map(e => e.email) }))
+  },
+  register_supplier: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      record: { type: 'object', required: true, fields: ZB_SUP_FIELDS_ },
+      contacts: { type: 'array', maxItems: 10, items: { person: { type: 'string', required: true, nonBlank: true, max: 200 },
+        number: { type: 'string', max: 60 }, email: { type: 'string', max: 200 }, position: { type: 'string', max: 120 } } },
+      docs: { type: 'array', maxItems: 10, items: { label: { type: 'string', required: true, oneOf: ZB_SUP_DOCS_ } } } },
+    run: (r) => aiSupplierRegister_(r.args.request_id, r.args.record, r.args.contacts || [], r.args.docs || [])
+  },
+  save_supplier_file: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      supplier_id: { type: 'string', required: true, nonBlank: true, max: 40, re: /^[A-Za-z0-9#._-]+$/ },
+      name: { type: 'string', max: 150 }, mime: { type: 'string', oneOf: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'] },
+      data: { type: 'string', nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ },
+      drive_id: { type: 'string', re: /^[A-Za-z0-9_-]{15,80}$/ } },
+    run: (r) => { const a = r.args;
+      if (a.drive_id ? (a.data || a.name || a.mime) : !(a.data && a.name && a.mime)) return { ok: false, error: 'send a file (name, mime, data) or a drive_id, not both' };
+      return aiSupplierFile_(a.supplier_id, a.drive_id ? { drive_id: a.drive_id } : { name: a.name, mime: a.mime, data: a.data, request_id: a.request_id }); }
   },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
