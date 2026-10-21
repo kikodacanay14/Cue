@@ -1,0 +1,39 @@
+name: Deploy Cue
+# Ships src/ onto Cue's web app (same /exec address) with clasp, signed in as deploy.json's account (see tools/deploy.mjs).
+# mode=check only reads and shows what would change. mode=deploy runs the tests first and stops if any fail.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: check or deploy
+        required: true
+        default: check
+permissions:
+  contents: read
+concurrency: deploy-cue
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests
+        run: node test/cue.test.js
+      - run: npm install -g @google/clasp@3.4.1
+      - name: Load the saved Google sign-in
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          [ -f .deploy/clasprc.enc ] || { echo "Not connected yet: run Connect Google first"; exit 1; }
+          umask 077
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:DEPLOY_KEY -a -in .deploy/clasprc.enc -out ~/.clasprc.json
+      - name: Run
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          case "$MODE" in check|deploy) ;; *) echo "mode must be check or deploy"; exit 1;; esac
+          node tools/deploy.mjs "$MODE"
+      - if: always()
+        run: rm -f ~/.clasprc.json

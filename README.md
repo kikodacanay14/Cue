@@ -73,3 +73,15 @@ Cue talks to Canvas only through the signed bridge. That is in place: main **V18
 - **Timing.** These are estimates, not measurements: about 20 to 60 s for most intakes, longer with web research or 20+ lines. The flag shows the real numbers.
 - **GPT details.** Whether the configured GPT model supports `web_search` together with strict JSON output, and the exact model name.
 - **UrlFetch timeout.** Whether it holds for a long Claude call. If it doesn't, lower `CUE_CLAUDE_EFFORT` to `low`.
+
+## Deploying (after the first manual setup)
+
+No more copy and paste. The **Deploy Cue** Action replaces every file in the Cue Apps Script project with `src/`, makes a new version and points the same `/exec` address at it. It runs the tests first and reads the files back afterwards. `mode=check` only shows what would change.
+
+One-time setup:
+1. Fill in `account` and `scriptId` in `deploy.json`.
+2. Add a repo secret `DEPLOY_KEY` (any long random password; Settings → Secrets and variables → Actions).
+3. Turn on the Apps Script API for that account at https://script.google.com/home/usersettings.
+4. Run **Connect Google** once. It opens an issue with a sign-in link; sign in, then paste the address of the page that fails to load as a comment. The sign-in is stored only encrypted (`.deploy/clasprc.enc`).
+
+Script Properties (the keys) are never touched by a deploy.

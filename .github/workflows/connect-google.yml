@@ -1,0 +1,70 @@
+name: Connect Google (one-time sign-in for Cue deploys)
+# clasp signs in as the account in deploy.json (the one that owns the Cue Apps Script project).
+# 1. This run opens an issue with the Google sign-in link.
+# 2. Kiko opens it, signs in as that account, allows, and pastes the address of the page that fails to load as a comment.
+# 3. clasp finishes the sign-in. Its saved sign-in is kept only encrypted (.deploy/clasprc.enc) with the DEPLOY_KEY secret.
+# The pasted address is useless to anyone else: clasp's one-time check (PKCE) lives only inside this run.
+on: workflow_dispatch
+permissions:
+  contents: write
+  issues: write
+concurrency: deploy-cue
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @google/clasp@3.4.1
+      - name: Sign in
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -n "$DEPLOY_KEY" ] || { echo "Add the DEPLOY_KEY secret first"; exit 1; }
+          ACCOUNT=$(jq -r .account deploy.json)
+          case "$ACCOUNT" in *@*) ;; *) echo "Fill in account in deploy.json first"; exit 1;; esac
+          mkfifo /tmp/in; exec 3<>/tmp/in
+          script -qfec "clasp login --no-localhost" /dev/null <&3 > /tmp/out 2>&1 &
+          PID=$!
+          URL=""
+          for i in $(seq 60); do
+            URL=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' /tmp/out | grep -oE 'https://accounts\.google\.com/[^[:space:]]+' | head -1 || true)
+            [ -n "$URL" ] && break; sleep 2
+          done
+          [ -n "$URL" ] || { cat /tmp/out; echo "clasp did not give a sign-in link"; exit 1; }
+          echo "Sign-in link: $URL"
+          ISSUE=$(gh issue create -R "$REPO" --title "Google sign-in for cloud deploys" --body "1. Open this link and sign in as **$ACCOUNT**, then press Allow:
+          $URL
+
+          2. You land on a page that won't load (localhost). Copy that page's whole address and paste it as a comment here.
+
+          This link only works while the Connect Google run is waiting (30 minutes).")
+          N=${ISSUE##*/}; echo "Issue: $ISSUE"
+          C=""
+          for i in $(seq 180); do
+            C=$(gh api "repos/$REPO/issues/$N/comments" --jq '[.[] | select(.user.login=="kikodacanay14") | .body | select(test("code="))] | last // empty')
+            [ -n "$C" ] && break; sleep 10
+          done
+          [ -n "$C" ] || { gh issue close -R "$REPO" "$N" -c "Timed out. Ask Claude to start the sign-in again."; exit 1; }
+          C=$(printf %s "$C" | grep -oE 'https?://localhost[^[:space:]`]*' | head -1)
+          echo "::add-mask::$C"
+          printf '%s\r' "$C" >&3
+          wait $PID || { cat /tmp/out | grep -v localhost; gh issue close -R "$REPO" "$N" -c "Google did not accept the sign-in. Ask Claude to start it again."; exit 1; }
+          EMAIL=$(clasp show-authorized-user --json | jq -r '.email // empty')
+          echo "Signed in as $EMAIL"
+          if [ "$EMAIL" != "$ACCOUNT" ]; then
+            gh issue close -R "$REPO" "$N" -c "That was $EMAIL. Please use $ACCOUNT; ask Claude to start again."; exit 1
+          fi
+          mkdir -p .deploy
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:DEPLOY_KEY -a -in ~/.clasprc.json -out .deploy/clasprc.enc
+          rm -f ~/.clasprc.json
+          git config user.name "cue-deploy"; git config user.email "cue-deploy@users.noreply.github.com"
+          git add .deploy/clasprc.enc
+          git commit -m "Save encrypted Cue deploy sign-in" && git push
+          for id in $(gh api "repos/$REPO/issues/$N/comments" --jq '.[] | select(.body | test("code=")) | .id'); do
+            gh api -X DELETE "repos/$REPO/issues/comments/$id"
+          done
+          gh issue close -R "$REPO" "$N" -c "Connected as $ACCOUNT. Cue cloud deploys are ready."
