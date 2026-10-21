@@ -362,6 +362,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
+  // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
+  if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
   const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_ }[s.kind] || cueIntakeRun_;
   const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
@@ -395,6 +397,7 @@ function cueRetry(id) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (L.s.status !== 'Failed' || (L.s.canvas && L.s.canvas.submitted)) throw new Error('Only a request that stopped before Canvas can be tried again here.');
+    if (L.s.kind === 'expense') throw new Error('Send the expense again with its files; Cue does not keep them.');
     L.s.status = 'Working'; L.s.error = ''; cueSave_(L.sh, L.row, L.s);
   });
   return cueView_(cueRunLeased_(id));
@@ -409,6 +412,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'readiness') return cueView_(cueReadyApprove_(id, edits || {}));
   if (L && L.s.kind === 'pipeline') return cueView_(cuePipeApprove_(id, edits || {}));
   if (L && L.s.kind === 'ar') return cueView_(cueArApprove_(id, edits || {}));
+  if (L && L.s.kind === 'expense') return cueView_(cueExpenseApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -502,6 +506,16 @@ function cueSummary_(s) {
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
+    else if (s.kind === 'expense') {
+      const e = s.expense || {}, v = cv.verify || {}, st = cv.steps || {};
+      if (cv.request_id) out.push('recorded in Canvas as ' + cv.request_id + (st.scope && st.scope.id ? ' on new scope ' + st.scope.id : '')
+        + (st.transfer || (st.request && st.request.transfer) || st.proof ? ', paid' : ', not marked paid'));
+      out.push(v.ok ? 'every row read back correctly' : 'read back found a problem: ' + (v.problems || []).join(' '));
+      const fl = ['proof', 'receipt'].filter(k => st[k] || (k === 'proof' && st.request && st.request.transfer)); if (fl.length) out.push(fl.join(' and ') + ' filed in the project\'s Admin folder');
+      const line = 'Summary for ' + cueExpLine_(s) + ': ' + out.join('; ') + '.';
+      cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+      return;
+    }
     else if (s.kind === 'ar') out.push.apply(out, cueArSummary_(s));
     else if (s.kind === 'pipeline') {
       const P = s.pipe || {}, k = P.counts || {}, d = P.drafts || [], sent = d.filter(x => x.sent_id), wait = d.filter(x => x.draft_id && !x.sent_id), bad = d.filter(x => x.selected && x.error);
@@ -555,6 +569,7 @@ function cueView_(s) {
     ar: s.kind === 'ar' && s.ar ? { project: s.ar.project || s.ar.asked || '', project_id: s.ar.project_id || '', others: s.ar.others || [], more: !!s.ar.more, max: CUE_AR_MAX_,
       items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
         has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
+    expense: s.kind === 'expense' ? cueExpView_(s) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

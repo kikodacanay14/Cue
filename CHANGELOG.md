@@ -29,6 +29,11 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - Read only: nothing is written to Canvas. Marking Ready, verifying and gate approval stay on the Checklist tab.
 - Budget: 1 AI call per check (Claude), 2 with follow-ups, plus the chat call that reads the ask.
 
+## Unreleased (Project expenses; needs the Canvas release with expense_evidence / record_expense)
+
+- Record project expense / payment (Kiko 07:34Z approved specs/c3-project-expense.md). A message like "Receipt for Telus Trick or Treat Manila > Venue Styling, duct tapes" (matched in code, no AI call) starts an expense thread. GPT reads the line and the files (call 1); Canvas finds the project and its CE categories, scopes, quotes, requests and transfers, and checks for duplicates (expense_evidence); Claude proposes the plan by the Finance Admin rules (call 2). The card shows every field to edit and each doubt to tick. Approve records it in Canvas through Canvas's own functions (scope, quote, award, payment request, Paid transfer or cash, proof and receipt in the project's Admin folder) and reads every row back (record_expense). A stop at a step comes back to the card; approving again carries on and never records twice.
+- Expense files stay in the page (Kiko 07:27Z): nothing goes to Cue uploads. Cue keeps names, sizes and SHA-256 only; Approve sends the same files to Canvas. A reloaded page asks for them again and checks they match.
+
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).

@@ -2,7 +2,8 @@
  * through the Client app's doPost at CUE_BRIDGE_URL. Each request is signed HMAC-SHA256(ZAD_SECRET, ts + "." + body), the
  * same as every other bridge caller. Cue uses find_similar_projects, intake_evidence, list_project_files and get_project_board (read),
  * submit_intake (Canvas re-checks and stores the proposal "Waiting for Kiko"), apply_intake (Canvas writes it once) and save_project_file.
- * RFQs are never made in info@ (Kiko 07:45Z), so make_rfq_drafts is not used. */
+ * RFQs are never made in info@ (Kiko 07:45Z), so make_rfq_drafts is not used.
+ * The expense pair: expense_evidence (read) and record_expense (one expense Kiko approved; CueExpense.gs). */
 
 function cueBridgeReq_(s, action, args, pid) {
   const url = cueKey_('CUE_BRIDGE_URL'), secret = cueKey_('ZAD_SECRET');

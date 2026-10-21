@@ -165,6 +165,10 @@
 <script>
 (function () {
   var state = { requests: [], chat: [], metrics: {} }, editing = {}, polling = null, running = {};
+  // Expenses (Kiko 07:27Z): their files stay here, never in Cue uploads, until Approve sends them to the project's Admin folder.
+  var held = {}, expRoute = {}, EXP_RE = /\b(record (an? |this |the )?(expense|payment)|expenses?|receipts?|official receipt|proof of (payment|transfer)|liquidat\w*|reimburs\w*|paid (to|for|via|in cash|cash|by))\b/i;
+  var EXPENSE = [['GPT reading', 'GPT', 'GPT reads your line and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the project and its records'],
+    ['Claude matching', 'Claude', 'Claude matches it to a request or a scope'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Writing to Canvas', 'Canvas', 'Canvas records it and reads it back']];
   var STEPS = [['GPT reading', 'GPT', 'GPT reads the request'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates, prices and history'],
     ['Claude costing', 'Claude + GPT', 'Claude costs the CE while GPT researches the gaps'], ['GPT drafting RFQs', 'GPT', 'GPT drafts one RFQ per supplier'],
     ['Needs you', 'Kiko', 'Waiting for your approval']];
@@ -287,6 +291,7 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
       outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
     }
+    if (mode !== 'intake' && EXP_RE.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
@@ -297,6 +302,14 @@
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
     }, function (e) { unbox(mine, dots); if (!$('box').value) $('box').value = t; alertErr(e); });
+  }
+  // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
+  function expense(t, files, ref, mine) {
+    var bad = files.filter(function (f) { return !/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/.test(f.type); });
+    if (bad.length) { unbox(mine); if (!$('box').value) $('box').value = t; return addLocal('Cue', bad[0].name + ': for an expense, attach photos or PDFs.'); }
+    var dots = { who: 'Cue', text: 'Reading the expense…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueExpense', [t, files, ref], function (r) { held[r.id] = files; refresh(function () { unbox(mine, dots); }); },
+      function (e) { unbox(mine, dots); if (!$('box').value) $('box').value = t; alertErr(e); });
   }
   // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
   function upload(t, files, mode, ref, mine) {
@@ -336,7 +349,7 @@
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
-  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
+  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
   function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
   var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
   function threadState(th) {
@@ -347,12 +360,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || ''; };
+    var nm = function (r) { return (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -409,7 +422,7 @@
       if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar)) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense') h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -425,6 +438,7 @@
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
   function doneHtml(r, reopen) {
+    if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas;
     return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
@@ -499,7 +513,7 @@
   var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading receipts from Canvas', 'Canvas', 'Canvas lists who was paid'],
     ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Making receipts', 'Canvas', 'Canvas makes the ticked receipts'], ['Emailing receipts', 'Canvas', 'Canvas emails them from AccountsPayables@']];
   function workHtmlOf(r) {
-    var list = r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -643,6 +657,69 @@
       + (waiting && c.can_run_new ? '<button class="btn ghost" data-act="as-new" data-id="' + esc(r.id) + '">Not this project: run as new</button>' : '')
       + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">' + (has ? 'Reject' : 'Close') + '</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;
+  }
+  // Expense card (CueExpense.gs): what GPT read, what Canvas has, Claude's plan as editable fields, each doubt to tick, then Approve.
+  function sel(name, v, opts, lab) { return '<select data-x="' + name + '"' + (lab ? ' aria-label="' + esc(lab) + '"' : '') + '>' + opts.map(function (o) { o = Array.isArray(o) ? o : [o, o];
+    return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(v) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; }
+  function xin(name, v, lab, type) { return '<label class="small" style="display:block;margin-top:6px">' + esc(lab) + '<input data-x="' + name + '" type="' + (type || 'text') + '" value="' + esc(v == null ? '' : v) + '" style="width:100%"></label>'; }
+  function xrow(lab, h) { return '<label class="small" style="display:block;margin-top:6px">' + esc(lab) + h + '</label>'; }
+  function expenseCardHtml(r, reopen) {
+    var x = r.expense || {}, p = x.plan, rd = x.read || {}, cv = x.canvas || r.canvas || {}, waiting = r.status === 'Needs you', pj = x.project;
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-xcard="' + esc(r.id) + '"><div class="label" style="margin-top:0">Expense</div>'
+      + '<b style="font-size:17px;color:#fff">' + peso((p && p.amount) || rd.amount) + ' · ' + esc((p && p.item) || rd.item || 'Expense') + '</b>'
+      + '<div class="small muted">' + (pj ? 'Canvas project: ' + esc(pj.name) + (pj.number ? ' (' + esc(pj.number) + ')' : '') + (x.guessed ? ' <span class="tag flag">best guess</span>' : '') : 'Project not found in Canvas')
+      + ((x.candidates || []).length > 1 ? '. Also close: ' + x.candidates.slice(1).map(function (c) { return esc(c.name); }).join(', ') : '') + '</div>'
+      + '<div class="small" style="margin-top:4px">Read: ' + esc([rd.supplier && 'from ' + rd.supplier, rd.payee && rd.payee !== rd.supplier && 'paid to ' + rd.payee, rd.date, rd.ref && rd.ref + ' (' + (rd.ref_type || '').replace('_', ' ') + ')'].filter(Boolean).join(' · ') || 'nothing clear') + '</div>'
+      + (rd.notes ? '<div class="small muted">' + esc(rd.notes) + '</div>' : '') + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + (r.notes || []).map(function (n) { return '<div class="small muted">' + esc(n) + '</div>'; }).join('');
+    if (cv.request_id || r.status === 'Done' || r.status === 'Done, check Canvas') {
+      var v = cv.verify || {}, st = cv.steps || {};
+      h += '<div class="small" style="margin-top:6px">Recorded in Canvas as <b>' + esc(cv.request_id || '?') + '</b>' + (v.scope ? ' on ' + esc(v.scope.id) + ' (' + esc(v.scope.status) + ')' : '')
+        + (v.entry ? ', quote ' + esc(v.entry.id) + ' ' + esc(v.entry.supplier) + (v.entry.awarded ? ' (awarded)' : '') : '') + '.</div>'
+        + '<div class="small">' + ((v.transfers || []).length ? v.transfers.map(function (t) { return esc(t.status) + ' ' + peso(t.amount) + ' on ' + esc(String(t.date).slice(0, 10)) + (t.proof ? ', proof linked' : '') + (t.receipt ? ', receipt linked' : ''); }).join('; ') : 'No transfer yet: it waits for the payment proof.')
+        + (st.receipt && !st.receipt.linked ? ' Receipt filed in Receipts.' : '') + '</div>'
+        + '<div class="small ' + (v.ok ? 'muted' : 'err') + '">' + (v.ok ? 'Every saved row read back correctly.' : 'Read back: ' + esc((v.problems || []).join(' '))) + '</div>';
+      return h + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + metricLine(r) + '</div>';
+    }
+    if (!p || !waiting) return h + (waiting || r.status === 'Failed' ? '<div class="actions"><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>' : '') + metricLine(r) + '</div>';
+    var route = expRoute[r.id] || p.route, ent = (x.entries || []).filter(function (e) { return e.scope_id === p.scope_id; });
+    h += (p.why ? '<div class="small" style="margin-top:6px">' + esc(p.why) + '</div>' : '')
+      + xrow('Record it as', sel('route', route, [['existing_request', 'Evidence for an existing payment request'], ['existing_scope', 'A new payment request on an existing scope'], ['new_scope', 'A new scope, quote and payment request']], 'Record it as'));
+    if (route === 'existing_request') h += xrow('Payment request', sel('request_id', p.request_id, [['', 'Pick one']].concat((x.requests || []).map(function (q) { return [q.id, q.id + ' · ' + (q.item || q.payee) + ' · ' + peso(q.amount) + ' · ' + q.payment]; }))));
+    if (route === 'existing_scope') h += xrow('Scope', sel('scope_id', p.scope_id, [['', 'Pick one']].concat((x.scopes || []).map(function (c) { return [c.id, c.id + ' · ' + c.category + ' · ' + c.description + ' · ' + c.status]; }))));
+    if (route === 'new_scope') { var n = p.new_scope || {};
+      h += xrow('CE category', sel('new_scope.requirement_id', n.requirement_id, [['', 'Pick one']].concat((x.requirements || []).map(function (q) { return [q.id, q.category + ' (' + q.id + ')']; }))))
+        + xin('new_scope.category', n.category, 'Scope category') + xin('new_scope.description', n.description, 'Item (scope description)') + xin('new_scope.quantity', n.quantity || '', 'Quantity', 'number'); }
+    if (route !== 'existing_request') {
+      if (route === 'existing_scope' && ent.length) h += xrow('Supplier quote', sel('entry_id', p.entry_id, [['', 'New quote']].concat(ent.map(function (e) { return [e.id, e.id + ' · ' + e.supplier + ' · ' + peso(e.amount) + (e.awarded ? ' · awarded' : '')]; }))));
+      var ne = p.new_entry || {};
+      if (!p.entry_id) h += xin('new_entry.supplier', ne.supplier, 'Supplier (new quote)') + xin('new_entry.amount', ne.amount, 'Quote amount', 'number');
+      h += '<label class="small" style="display:flex;gap:8px;margin-top:6px"><input type="checkbox" data-x="award"' + (p.award ? ' checked' : '') + '> Award this quote (only when the scope has no award yet)</label>';
+    }
+    var L = x.lists || {};
+    h += xrow('Document', sel('kind', p.kind, L.kinds || ['Proof of transfer', 'Payment confirmation', 'Receipt']))
+      + xrow('Paid?', sel('paid', p.paid, [['proof', 'Paid: a file proves it'], ['cash', 'Paid in cash'], ['no', 'Not proven yet: request only']]))
+      + xin('amount', p.amount, 'Amount (PHP)', 'number') + xin('date', p.date, 'Payment date', 'date') + xin('ref', p.ref, 'Reference') + xin('payee', p.payee, 'Payee (who got the money)')
+      + xin('item', p.item, 'Cost item');
+    if (route !== 'existing_request') h += xrow('Cost type', sel('cost_type', p.cost_type, L.cost_types || [p.cost_type])) + xrow('Expense type', sel('expense_type', p.expense_type, [['', 'Pick one']].concat(L.expense_types || [])));
+    var have = held[r.id] || [];
+    h += '<div class="label">Files</div>' + (p.file_roles || []).map(function (f) {
+      return xrow(f.name + (have.some(function (k) { return k.name === f.name; }) ? '' : ' (attach again)'), sel('role:' + f.name, f.role, [['proof', 'Proof of payment → Payment Proof folder'], ['receipt', 'Receipt → Receipts folder'], ['none', 'Not filed']])); }).join('')
+      + ((p.file_roles || []).some(function (f) { return !have.some(function (k) { return k.name === f.name; }); }) ? '<div class="small"><button class="btn ghost" data-act="reattach" data-id="' + esc(r.id) + '">Attach the files again</button> <span class="muted">The page was reloaded, so Cue needs them once more. They must be the same files.</span></div>' : '');
+    if ((p.doubts || []).length) h += '<div class="label">Check these first</div>' + p.doubts.map(function (d, i) { return '<label class="small" style="display:flex;gap:8px;margin-top:4px"><input type="checkbox" data-xd="' + i + '"> <span>' + esc(d) + '</span></label>'; }).join('');
+    return h + '<div class="actions"><button class="btn" data-act="approve-expense" data-id="' + esc(r.id) + '">Approve and record</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
+      + '<div class="small muted" style="margin-top:6px">Approve records it in Canvas and files the documents in the project\'s Admin folder. Nothing is paid and no email is sent.</div>' + metricLine(r) + '</div>';
+  }
+  function collectExpense(id, scope) {
+    var card = (scope || document).querySelector('[data-xcard="' + id + '"]') || document.createElement('div'), e = { roles: {}, cleared: [] };
+    card.querySelectorAll('[data-x]').forEach(function (el) {
+      var k = el.getAttribute('data-x'), v = el.type === 'checkbox' ? el.checked : el.value;
+      if (k.indexOf('role:') === 0) e.roles[k.slice(5)] = v;
+      else if (k.indexOf('.') > 0) { var a = k.split('.'); (e[a[0]] = e[a[0]] || {})[a[1]] = v; }
+      else e[k] = v;
+    });
+    card.querySelectorAll('[data-xd]').forEach(function (el) { if (el.checked) e.cleared.push(Number(el.getAttribute('data-xd'))); });
+    return e;
   }
   // Files attached to every requote: this message's, the task replied to, and this project's from the last day. Untick to leave one out.
   function attachHtml(r, locked) {
@@ -808,6 +885,7 @@
   }
   function cardHtml(r) {
     if (r.kind === 'readiness') return readyCardHtml(r);
+    if (r.kind === 'expense') return expenseCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
     if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
@@ -916,6 +994,8 @@
     return e;
   }
   function bind() {
+    document.querySelectorAll('[data-xcard] select[data-x="route"]').forEach(function (x) {
+      x.onchange = function () { expRoute[x.closest('[data-xcard]').getAttribute('data-xcard')] = x.value; render(); }; });
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
@@ -927,6 +1007,15 @@
           b.disabled = true; return call('cueRulesSave', [ch], function (r) { rules = r; renderRules(); refresh(); }, function (e) { b.disabled = false; alertErr(e); });
         }
         if (act === 'show-archived') { showArchived = !showArchived; dirty(); return renderWidgets(); }
+        if (act === 'reattach') { var pk = document.createElement('input'); pk.type = 'file'; pk.multiple = true; pk.accept = 'image/*,.pdf';
+          pk.onchange = function () { var got = [], list = Array.prototype.slice.call(pk.files || []);
+            (function next(i) { if (i === list.length) { held[id] = got; return render(); }
+              shrink(list[i], function (f) {   // the same shrink as when it was first attached, so Cue's file check matches
+                var fr = new FileReader(); fr.onload = function () { got.push({ name: f.name, type: f.type, data: String(fr.result).split(',')[1] || '' }); next(i + 1); }; fr.readAsDataURL(f); }); })(0); };
+          return pk.click(); }
+        if (act === 'approve-expense') { var xe = collectExpense(id, scope); xe.files = held[id] || [];
+          b.disabled = true; running[id] = 1; schedule();
+          return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e); refresh(); }); }
         if (act === 'say') { var box = scope.querySelector('[data-say="' + id + '"]'), txt = box && box.value.trim(); if (!txt) return box && box.focus();
           var th = threads()[rootOf(id, byId())], ref = th && th.reqs.length ? th.reqs[th.reqs.length - 1].id : id;
           box.value = ''; return send(txt, [], '', ref); }
