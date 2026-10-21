@@ -1,5 +1,17 @@
 # Changelog
 
+## Two-pane layout (branch claude/project-thread-kqx76z; not deployed)
+
+Kiko 21 Oct 12:59Z, mockup approved 13:01Z: Cue looks like Claude's desktop app.
+
+- **Main chat on the left, a pane on the right.** The right pane has tabs. **Threads** is always first and lists every task in three groups: Needs you, Working on, and Recent. Each row shows the task's latest line and how long ago it changed. The list has a search box, and each group folds. Recent shows 8 at first, with Show more.
+- **Tapping a thread's name opens it in the right pane**, as its own tab, with the tracker, the cards and a reply box of its own. In the chat, only the name under a message is a link; the reply count is plain text (Kiko's rule). Tapping a task's message still opens its thread too. Widget cards, Reopen and the "Answered in" pointer lines open the thread in the pane as well.
+- **The chat's box always posts to the main chat.** Thread replies go through the thread's own box. Attachments stay with the box they were added to, by 📎, paste or drop.
+- **Files and images open in the pane.** A Drive file or Google Docs link opens as a tab with Drive's preview, plus "Open in a new tab". Folders, Gmail and other sites still open a new browser tab, and Ctrl/Cmd-click always does.
+- Up to 8 tabs stay open, and the browser remembers them after a reload. The old "Pinned widgets" side column is gone, because the Threads tab now does that job.
+- **Phone (900 px wide or less):** the chat fills the screen. A **Threads** tab in the top bar slides the pane over the chat, and **← Chat** closes it.
+- No server change and no new scopes. Tests: 150 of 150 pass. The layout was checked in Chromium at desktop and phone widths with stub data.
+
 ## Cue 1.10 (batch release rel/cue-batch; not deployed)
 
 One release made of the branches below. Each feature keeps its own notes.
