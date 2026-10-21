@@ -15,7 +15,7 @@
       display:flex;align-items:center;justify-content:center;transition:transform .12s;}
     .b:hover{transform:scale(1.06)} .b.drag{cursor:grabbing;transform:scale(1.1)}
     .b:focus-visible{outline:3px solid #559fef;outline-offset:3px}
-    .in{width:40px;height:40px;border-radius:50%;background:#141518;color:#fff;font:700 15px/40px Quicksand,system-ui,sans-serif;text-align:center}
+    .in{width:40px;height:40px;border-radius:50%;background:#141518;color:#fff;font:700 15px/40px 'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;text-align:center}
     .x{position:fixed;display:none;width:20px;height:20px;border-radius:50%;background:#262930;color:#e4e6ea;border:1px solid #3d4250;
       font:700 12px/18px system-ui,sans-serif;text-align:center;cursor:pointer}
     .wrap:hover .x{display:block}
