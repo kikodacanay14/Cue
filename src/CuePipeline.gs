@@ -249,8 +249,8 @@ const CUE_PIPE_D_SYSTEM_ = 'You write short follow-up emails for Kiko of BSE (Bl
 function cuePipeDraft_(s) {
   const P = s.pipe, by = {}; P.deals.forEach(d => { by[d.k] = d; });
   const pick = (P.pick || []).map(k => by[k]).filter(d => d && d.mail && d.mail.to);
-  const r = cueAiAll_(s, [cueGpt_({ step: 'follow-ups', name: 'pipe_followups', system: CUE_PIPE_D_SYSTEM_, schema: CUE_PIPE_D_SCHEMA_, maxTokens: 5000,
-    user: JSON.stringify({ sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'), deals: pick.map(d => ({ k: d.k, event: d.name, event_date: d.event, stage: d.stage,
+  const r = cueAiAll_(s, [cueGpt_({ step: 'follow-ups', name: 'pipe_followups', system: CUE_PIPE_D_SYSTEM_ + cueStyleFor_('client'), schema: CUE_PIPE_D_SCHEMA_, maxTokens: 5000,
+    user: JSON.stringify({ sign_off: cueStyleSignOff_('client'), deals: pick.map(d => ({ k: d.k, event: d.name, event_date: d.event, stage: d.stage,
       status: d.status || d.flags.join('; '), newest_email: { from: d.mail.dir === 'out' ? 'Kiko' : 'client', date: cueMnlDay_(d.mail.ms), subject: d.mail.subject, snippet: d.mail.snippet } })) }) })])[0];
   if (!r.ok) throw new Error(r.error);
   const seen = {};

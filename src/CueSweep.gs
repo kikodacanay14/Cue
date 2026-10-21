@@ -288,7 +288,7 @@ function cueSweepDraft_(s, items) {
   const groups = [];
   for (let i = 0; i < ask.length; i += CUE_SWEEP_.perCall) groups.push(ask.slice(i, i + CUE_SWEEP_.perCall));
   const res = groups.length ? cueAiAll_(s, groups.slice(0, 2).map((g, n) => cueGpt_({ step: 'chasers' + (groups.length > 1 ? ' ' + (n + 1) : ''), name: 'chasers',
-    system: CUE_SW_SYSTEM_, schema: CUE_SW_SCHEMA_, maxTokens: 8000,
+    system: CUE_SW_SYSTEM_ + cueStyleFor_('any'), schema: CUE_SW_SCHEMA_, maxTokens: 8000,
     user: '<items>\n' + JSON.stringify(g.map(it => ({ key: it.key, kind: kindOf(it).label, brief: kindOf(it).draftBrief, project: it.project || '', to: it.who || '',
       why: it.why || '', chased_before: it.times || 0, facts: it.facts || it.context || {} }))) + '\n</items>' }))) : [];
   const got = {};

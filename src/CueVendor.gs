@@ -240,8 +240,8 @@ function cueVendorDraft_(s) {
   const V = s.vendor, byK = {}; V.cands.forEach(c => { byK[c.k] = c; });
   const days = Math.max(1, Number(cueProp_('CUE_RFQ_DAYS', '3')) || 3);
   const deadline = Utilities.formatDate(new Date(cueNow_() + days * 864e5), 'Asia/Manila', 'EEEE, d MMMM yyyy');
-  const r = cueAiAll_(s, [cueGpt_({ step: 'rfqs', name: 'vendor_rfqs', system: CUE_VQ_SYSTEM_, schema: CUE_VQ_SCHEMA_, maxTokens: 8000,
-    user: JSON.stringify({ item: V.item, details: V.details || s.text, event_date: V.date, city: V.city, quote_deadline: deadline, sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'),
+  const r = cueAiAll_(s, [cueGpt_({ step: 'rfqs', name: 'vendor_rfqs', system: CUE_VQ_SYSTEM_ + cueStyleFor_('supplier'), schema: CUE_VQ_SCHEMA_, maxTokens: 8000,
+    user: JSON.stringify({ item: V.item, details: V.details || s.text, event_date: V.date, city: V.city, quote_deadline: deadline, sign_off: cueStyleSignOff_('supplier'),
       suppliers: V.rfq_for.map(k => ({ k: k, name: byK[k].name })) }) })])[0];
   if (!r.ok) throw new Error(r.error);
   V.rfqs = V.rfq_for.map(k => {

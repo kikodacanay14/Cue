@@ -394,12 +394,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'style' && 'Your writing style') || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'style' ? 'Writing style' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -457,7 +457,7 @@
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -478,7 +478,7 @@
       + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
       + (v ? '<div class="small">' + esc((v.cands || []).length) + ' supplier' + ((v.cands || []).length === 1 ? '' : 's') + (vp ? ' · Claude\'s pick: ' + esc(vp.name) : '') + '</div>' : '')
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
@@ -559,8 +559,10 @@
     ['Checking records', 'Code', 'Cue checks Personal Expense 2 and BSE Scopes and Transfers'], ['Needs you', 'Kiko', 'Waiting for your approval'],
     ['Saving', 'Sheets', 'Cue saves the rows and reads them back']];
   function personalName(r) { var x = ((r.personal || {}).items || [])[0]; return r.kind === 'personal' ? 'Personal expense' + (x && x.payee ? ': ' + x.payee : '') : ''; }
+  var STYLE = [['Reading sent emails', 'Gmail', 'Cue reads your sent emails (read only)'], ['Claude writing your guide', 'Claude', 'Claude writes your style guide'],
+    ['Needs you', 'Kiko', 'Edit and approve the guide']];
   function workHtmlOf(r) {
-    var list = r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'style' ? STYLE : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -1193,7 +1195,32 @@
       + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;
   }
+  // Write Like Me (Kiko 08:21Z): the draft style guide. Edit or untick lines; Approve saves them to the Style tab of the Cue sheet.
+  function styleCardHtml(r) {
+    var G = r.style || {}, waiting = r.status === 'Needs you', AUD = { all: 'Everyone', supplier: 'Suppliers', client: 'Clients', team: 'Team' };
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Writing style</div><b style="font-size:17px;color:#fff">Your writing style guide</b>';
+    if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
+    h += '<div class="small muted">From ' + esc(G.mails) + ' of your sent emails' + (G.notes ? ' and your old style notes' : '') + '. '
+      + (r.status === 'Done' ? 'Saved to the Style tab of your Cue sheet; edit it there any time.' : r.status === 'Rejected' ? 'Closed; nothing was saved.' : 'Nothing is saved until you approve.') + '</div>';
+    if (G.summary) h += '<div style="margin-top:8px"><span class="small muted">Claude:</span> ' + esc(G.summary) + '</div>';
+    ['all', 'supplier', 'client', 'team'].forEach(function (a) {
+      var list = (G.rules || []).filter(function (x) { return x.audience === a && (waiting || x.selected); }); if (!list.length) return;
+      h += '<details open style="margin-top:8px"><summary class="small"><b>' + AUD[a] + '</b> (' + list.length + ')</summary>' + list.map(function (x) {
+        return '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">'
+          + (waiting ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(x.k) + '"' + (x.selected ? ' checked' : '') + '>' : '<span>✓</span>')
+          + '<span style="flex:1"><span class="tag ' + (x.kind === 'avoid' ? 'flag' : x.kind === 'example' ? 'new' : 'pref') + '">' + esc(x.kind) + '</span>'
+          + (waiting ? '<textarea' + (x.kind === 'example' ? ' class="mail"' : ' style="display:block;width:100%;margin-top:4px"') + ' data-body="' + esc(r.id) + '" data-k="' + esc(x.k) + '" aria-label="Style line ' + esc(x.k) + '">' + esc(x.text) + '</textarea>'
+            : '<div style="white-space:pre-wrap;margin-top:2px">' + esc(x.text) + '</div>') + '</span></label>';
+      }).join('') + '</details>';
+    });
+    (r.notes || []).forEach(function (x) { h += '<div class="small muted" style="margin-top:4px">' + esc(x) + '</div>'; });
+    if (waiting) h += '<div class="actions"><button class="btn" data-act="approve-style" data-id="' + esc(r.id) + '">Approve and save</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
+    if (r.kind === 'style') return styleCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
@@ -1392,6 +1419,7 @@
         if (act === 'ready-pick') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyPick', [id, b.getAttribute('data-pid')], done, fail); }
         if (act === 'ready-followups') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyFollowups', [id], done, fail); }
         if (act === 'ready-recheck') { b.disabled = true; schedule(); return call('cueReadyRecheck', [id], done, fail); }
+        if (act === 'approve-style') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }
         if (act === 'approve-ready') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }
         if (act === 'send-ready') {
           var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, edr = change(true);

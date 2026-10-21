@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: Write Like Me, step 1 (Kiko said deploy 21 Oct 13:02Z; ships with the next Cue release)
+
+- Kiko approved specs/write-like-me.md (21 Oct 08:21Z: the old skill lives in ChatGPT; yes to reading sent emails; Claude writes the guide, ChatGPT keeps drafting).
+- Type "learn my style" in the chat (optionally paste your old Write Like Me notes after those words). Plain words, so no AI call routes it. Cue reads up to 100 of your sent emails from the last year (Gmail read only), keeps one per thread, drops forwards, auto-replies, quoted replies and anything over 2,000 characters, masks email addresses and phone numbers, and tags each one team (your own domain) or outside. Then one Claude call writes the guide: tone, greeting and sign-off per audience, phrases, things to avoid, length, language, and short example emails with placeholders.
+- The guide waits on a card in its own thread. Edit or untick lines, then Approve and save. Only then does Cue write the new Style tab of the Cue sheet (On | Audience | Kind | Text). Close saves nothing. Re-learning replaces the tab, and the replaced lines are kept in the request.
+- Every drafting call now adds the guide for its audience to the call it already makes (no extra AI call): intake RFQs, requotes and supplier-search RFQs (supplier lines), pipeline follow-ups (client lines), readiness follow-ups and the morning chasers (every audience, labelled). They use the guide's sign-off instead of CUE_SIGNOFF. With no guide, the prompts are exactly as before. Edit or switch off any line in the sheet.
+- Budget: 1 AI call (Claude), well under a minute.
 ## Cue 1.10 (batch release rel/cue-batch; not deployed)
 
 One release made of the branches below. Each feature keeps its own notes.
