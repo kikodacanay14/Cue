@@ -54,9 +54,16 @@ for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.joi
 const desc = 'Cue ' + (process.env.GITHUB_SHA || 'local').slice(0, 7);
 clasp(pushDir, 'push', '--force');
 if (mode === 'preview') {
-  const line = `Cue preview pushed: open the test link (/dev) to try it; live stays on Version ${live || 'head'}`;
+  // The test link is the head deployment's /dev address, never the live /exec deployment's. Read head back so a stale push shows.
+  const head = clasp(work, 'list-deployments').find(d => !d.versionNumber);
+  const devUrl = head ? `https://script.google.com/macros/s/${head.deploymentId}/dev` : '(no head deployment found)';
+  const headDir = project('head');
+  clasp(headDir, 'pull');
+  const stale = diff('head vs src/', sums(path.join(headDir, 'src')), want);
+  const line = `Cue preview pushed (${desc}): test link ${devUrl} ; live stays on Version ${live || 'head'}; head files ${stale ? 'MISMATCH' : 'match'}`;
   console.log('PREVIEW: ' + line);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+  if (stale) fail('head does not match src/ after the push');
   process.exit(0);
 }
 const { versionNumber } = clasp(pushDir, 'create-version', desc);
