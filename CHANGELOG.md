@@ -126,6 +126,14 @@ Chasing sweep task 3 (spec `canvas-integration/specs/ce-award-chasers.md`, appro
 - The file name sorts after `CueSweep.gs` on purpose, because Apps Script runs files in order and `cueKind_` must exist first.
 - Tests: 9 new (A1 to A9), 61 of 61 pass. Other tests run with the award kind off (`CUE_CHASE_OFF=award`).
 
+## Cue 1.9.4 (chat never claims work; Kiko 08:53Z)
+
+- The chat no longer says "I'm working on it" or "costing next" when no run started. Work only happens in a run, which always shows a card. If GPT still claims it, Cue adds a plain correction that nothing is running and how to start it.
+
+## Cue 1.9.3 (a lookup only answers; Kiko 08:51Z)
+
+- Asking Cue to look up, find or check a project only answers with what Canvas has. It never starts an intake or costing, and never says it did, unless that same message asks for it ("start intake", "requote"...). Earlier chat is history, not instructions.
+
 ## Cue 1.9.2 (intake means intake; Kiko 08:37-08:38Z)
 
 - "Start intake", "run intake", "full intake" or "redo intake" always runs a new intake, even when Canvas has a project with a similar name (for example one left by an earlier attempt). The card notes the similar project so you can reject it if it really is a duplicate.
