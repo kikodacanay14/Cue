@@ -45,8 +45,10 @@ function cueCanvasLink_(o) {
     case 'project': { const tab = CUE_CANVAS_TABS_.indexOf(o.tab) >= 0 ? o.tab : 'Main';
       return { title: nm + (tab === 'Main' ? '' : ' · ' + tab), url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab }) }; }
     case 'pay': return { title: 'Request payment · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Scope', action: 'pay' }) };
+    // New scope: Canvas picks the Requirement whose name matches req, else puts req in Scope; desc fills Description.
+    // scope is for the Canvas release (Scope filled even when a Requirement matched); today's Canvas ignores it.
     case 'newscope': return { title: 'New scope · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, action: 'newscope',
-      qc: cueCanvasB64_({ req: cueStr_(o.req, 120), desc: cueStr_(o.desc, 300), qty: o.qty ? Number(o.qty) || '' : '' }) }) };
+      qc: cueCanvasB64_({ req: cueStr_(o.req || o.desc, 120), scope: cueStr_(o.scope || o.desc, 120), desc: cueStr_(o.desc, 300), qty: o.qty ? Number(o.qty) || '' : '' }) }) };
     case 'task': return { title: 'Close task · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Main', qctask: cueStr_(o.q, 200) }) };
     case 'supplier': return { title: 'Supplier · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'support', tab: 'suppliers', q: cueStr_(o.q, 120) }) };
     case 'addsupplier': {   // never bank details (Kiko 19:20Z)
@@ -114,7 +116,7 @@ function cueCanvasSaid_(text, ref) {
   } else link = cueCanvasLink_(c);
   cueChat_('Kiko', t, ref || '');
   if (picks.length) { cueChat_('Cue', 'Canvas has ' + picks.length + ' projects like that. Which one?\n' + picks.map(cueCanvasTok_).join('\n'), ref || ''); return { chat: true, task: ref || '' }; }
-  const say = { pay: 'Request payment is open in Canvas. Pick the scope and fill in the payment there.', newscope: 'New scope is open in Canvas with "' + cueStr_(c.desc, 120) + '" filled in. Pick the requirement and save.',
+  const say = { pay: 'Request payment is open in Canvas. Pick the scope and fill in the payment there.', newscope: 'New scope is open in Canvas with "' + cueStr_(c.desc, 120) + '" filled in. Canvas picks the requirement when one matches; check Requirement and Scope, then save.',
     task: 'Canvas found the task and set it to Closed. Check it and save.', pricewatch: 'Price Watch is open in Canvas.', supplier: 'Opened the supplier in Canvas.',
     page: 'Opened in Canvas.', project: c.why === 'fsa' ? 'The project is open in Canvas. Tap Generate FSAs in its FSA row.' : 'Opened in Canvas.' }[c.what] || 'Opened in Canvas.';
   cueChat_('Cue', say + '\n' + cueCanvasTok_(link), ref || '');

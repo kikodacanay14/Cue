@@ -3456,7 +3456,7 @@ test('CV2 "open <project>": Canvas finds it (search_projects, read only), Cue an
 test('CV3 pre-filled forms: New scope (qc), close a task (qctask), Request payment, Price Watch, a supplier, a page, all in Canvas\'s own link format', () => {
   const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
   const sc = t.ctx.cueSend('add scope LED wall 4m x 3m to Globe party', [], '').canvas, q = cvQ(sc.url);
-  deq([q.page, q.project, q.action], ['canvas', 'S-31628060SP', 'newscope']); deq(cvDec(q.qc), { req: '', desc: 'LED wall 4m x 3m', qty: '' });
+  deq([q.page, q.project, q.action], ['canvas', 'S-31628060SP', 'newscope']); deq(cvDec(q.qc), { req: 'LED wall 4m x 3m', scope: 'LED wall 4m x 3m', desc: 'LED wall 4m x 3m', qty: '' }, 'Requirement or Scope, and Description');
   deq(cvQ(t.ctx.cueSend('close task send floor plan in Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', qctask: 'send floor plan' });
   deq(cvQ(t.ctx.cueSend('request payment for Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Scope', action: 'pay' });
   deq(cvQ(t.ctx.cueSend('price watch: LED wall', [], '').canvas.url), { page: 'pricewatch', q: 'LED wall' });
@@ -3510,6 +3510,26 @@ test('CV7 cards open their Canvas page: ARs on the project, readiness on Checkli
   deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'expense', expense: { project: { id: 'S-25506500TR', name: 'Trick or Treat' } } }).url), { page: 'canvas', project: 'S-25506500TR', tab: 'Scope', action: 'pay' });
   assert.strictEqual(t.ctx.cueCanvasFor_({ kind: 'finance' }), null);
   assert.strictEqual(t.ctx.cueCanvasFor_({ kind: 'ar', ar: { project_id: 'not-an-id' } }), null, 'a bad id never makes a link');
+});
+test('CV9 qcadd never carries bank, account, IBAN or SWIFT, whatever the supplier has (Kiko 19:20Z)', () => {
+  const t = sandbox(), BANK = { bank: 'BDO', bank_name: 'BDO Unibank', acctName: 'Bright Stage Rentals OPC', acctNo: '001234567890', account: '001234567890',
+    account_name: 'Bright Stage', account_number: '009988776655', bank_account: '001234567890', iban: 'PH12BDO0001234567890', swift: 'BNORPHMM', swift_code: 'BNORPHMM', bic: 'BNORPHMM' };
+  const dec = l => cvDec(cvQ(l.url).qcadd);
+  const a = t.ctx.cueCanvasLink_({ what: 'addsupplier', name: 'Bright Stage Rentals OPC', details: Object.assign({ person: 'Rita Santos', tin: '444-555-666-000' }, BANK) });
+  deq(dec(a).details, { person: 'Rita Santos', tin: '444-555-666-000' }, 'only the allowed fields');
+  const rec = { 'Supplier': 'Bright Stage Rentals OPC', 'City': 'Makati', 'TIN': '444-555-666-000', 'Bank': 'BDO', 'Account Name': 'Bright Stage Rentals OPC', 'AccountNumber': '001234567890',
+    'IBAN': 'PH12BDO0001234567890', 'SWIFT': 'BNORPHMM', 'SWIFT Code': 'BNORPHMM', 'Bank Account': '001234567890' };
+  const b = t.ctx.cueSupCanvas_({ sup: { record: rec, duplicates: [], contacts: [Object.assign({ person: 'Rita Santos', number: '+63 918 000 0000', email: 'rita@brightstage.example' }, BANK)] } });
+  [a, b].forEach(l => {
+    const raw = l.url + JSON.stringify(dec(l));
+    ['001234567890', '009988776655', 'PH12BDO', 'BNORPHMM', 'BDO', 'bank', 'Bank', 'acct', 'account', 'Account', 'iban', 'IBAN', 'swift', 'SWIFT', 'bic'].forEach(k => assert.ok(raw.indexOf(k) < 0, k + ' kept out of the link'));
+  });
+});
+test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable label; the pane says Loading Canvas until the project can show', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/\.card a \{ color:var\(--act\); \}/.test(html) && /\.card a\.btn \{ color:#0b1320; \} \.card a\.btn\.ghost \{ color:var\(--text\); \}/.test(html), 'label not the button colour');
+  assert.ok(html.indexOf('class="cvnote cvload"') > 0 && /cvGone = setTimeout\(cvUnload, 30000\)/.test(html), 'loading line, gone by 30 s');
+  assert.ok(/querySelector\('\.cvnote:not\(\.cvload\)'\)/.test(html), '"ready" removes only the sign-in note');
 });
 test('CV8 the page sends every Canvas command to the server, never to the expense shortcut (CV_SAY mirrors cueCanvasParse_)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), m = /var CV_SAY = (\/.+\/i);/.exec(html);
