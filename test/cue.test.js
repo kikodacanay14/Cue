@@ -3232,6 +3232,20 @@ test('TU8 PC test 18:15Z: a rejected expense\'s summary names the expense, not "
   deq(t.ctx.cueView_({ id: 'cue-x2', kind: 'intake', phased: true, x: { client: { company: 'Unilever' }, event: { name: 'Launch' } }, metrics: {} }).name, 'Unilever, Launch');
 });
 
+test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; ✕ forgets earlier threads; Kiko\'s line shows once when a poll beats the send; learn summaries name facts by words', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const wf = page.match(/function workflowCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  assert.ok(/\n    return h;[^\n]*\n  \}\n$/.test(wf), 'workflowCardHtml returns its card');
+  const close = page.match(/function paneClose\(\) \{[\s\S]*?\n  \}\n/)[0];
+  assert.ok(/ptabs = \[\]; pactive = 'list'/.test(close) && /paneOpen\(false\)/.test(close));
+  assert.ok(/data-p'\);[\s\S]{0,80}if \(p === 'pane'\) return paneClose\(\);/.test(page) && /if \(p === 'close'\) return paneClose\(\);/.test(page));
+  const fn = page.match(/function allLines\(\) \{[\s\S]*?\n  \}\n/)[0], now = Date.parse('2026-10-21T18:30:00Z'), box = {};
+  vm.runInNewContext(fn + 'out = allLines().length;', Object.assign(box, { state: { chat: [{ who: 'Kiko', text: 'hi', request_id: '', time: '2026-10-21T18:30:01Z' }] },
+    outbox: [{ who: 'Kiko', text: 'hi', request_id: '', time: '', sent: now }, { who: 'Kiko', text: 'other', request_id: '', time: '', sent: now }] }));
+  deq(box.out, 2, 'the echoed line once, the other pending line kept');
+  assert.ok(/never by their number n/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueTeach.gs'), 'utf8')));
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
