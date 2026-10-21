@@ -14,7 +14,23 @@ Kiko 17:39Z-17:46Z: "rather than it doing things right away... it asks first Cla
 - In tutor mode, the 1.19.1 rule (a short "LED wall for AMI Group" asks intake or supplier search) is replaced by the plan card.
 - Not changed in 1.20: explicit commands ("remember:", "learn my …", "connect ticktick"), replies to a phase card, and the keyword shortcuts. Those are money questions, personal expense, supplier registration, HubSpot clean-up and re-cost, and each still shows its own approval card before anything is saved.
 - Switch: Settings > Tutor mode ("Show me the plan before Cue starts anything", Script Property CUE_TUTOR). Off goes back to the GPT chat call that acts at once. CUE_TUTOR_EFFORT (default low) sets Claude's effort for the plan call.
-- Tests: 224 of 224 pass (new TU1 to TU6), on top of 1.19.4.
+- Tests: 226 of 226 pass (new TU1 to TU6), on top of 1.19.6.
+
+## Cue 1.19.6: a pasted memory list is learned, not run (not deployed)
+
+Kiko 18:00Z: a pasted phrasebook whose first row was "Record project expense" started an expense.
+
+- A pasted memory list or phrasebook goes to Learn my memory, with or without "learn my memory" in front: "learn my memory" anywhere, a "What you say / What it means" table, a column of quoted phrases, or mostly "Kiko prefers / wants / uses …" lines.
+- The page no longer sends such a paste to the expense form, and the server checks it before personal, money and chat routing. A client brief or a one-line expense routes as before.
+- Kiko's 10 phrases from that paste are saved as Always rules under My rules.
+
+## Cue 1.19.5: plan asks stay out of unrelated threads (not deployed)
+
+PC retest of 1.19.4 (17:58Z): "Write a plan for a client year-end thank-you campaign" went into the Morning batch thread, and the chat said "Answered in the that task thread."
+
+- A plan, checklist, brainstorm or analysis ask joins a task's thread only when it names that task's client, project or topic. Otherwise the main chat answers it. A Morning batch never matches, because its name has no topic words.
+- The pointer line uses the task's real name ("Answered in the Morning batch 10/22 thread.") and never says "the that".
+- Tests: 219 of 219 pass (new SK4, through cueSend).
 
 ## Cue 1.19.4: long chat replies are not cut (not deployed)
 

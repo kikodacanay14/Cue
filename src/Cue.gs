@@ -166,6 +166,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
   if (mode !== 'intake' && !has && CUE_MEM_RE_.test(String(text || ''))) return cueTeachStart_('memory', text);
   if (mode !== 'intake' && !has && CUE_PROC_RE_.test(String(text || ''))) return cueTeachStart_('process', text);
+  if (mode !== 'intake' && !has && cueMemPaste_(text)) return cueTeachStart_('memory', text);
   // Teach Cue add-on (Kiko 17:00Z): a phrase Kiko taught Cue word for word is a money question with no AI call routing it.
   if (!forced && !has && mode !== 'intake' && !inThread && cueRouteExact_(text) === 'money') return cueFinance_(String(text).trim(), '');
   // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
@@ -386,6 +387,14 @@ function cueReplyCut_(t, n) {
   const head = t.slice(0, n), end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('.\n'), head.lastIndexOf('\n'));
   return (end > n / 2 ? head.slice(0, end + 1) : head).trim() + '\n(cut short)';
 }
+/** The message shares a distinctive word (not a stop word) with the task's name, client or project. */
+function cueSameTopic_(t, x) {
+  if (!x) return false;
+  const p = x.proposal || {}, c = x.change || {}, want = cueTeachWords_(t);
+  const about = cueTeachWords_([cueTaskName_(x), p.client && p.client.company, p.event && p.event.name, c.project, x.x && x.x.client && x.x.client.company].filter(Boolean).join(' '))
+    .filter(w => !/^(morning|batch|plan|thread|check|review|search|map)$/.test(w));
+  return about.some(w => want.indexOf(w) >= 0);
+}
 /** What the chat call filled in for each command, so a button can start it with no new AI call. */
 function cueTalkCands_(d, t, force) {
   return { intake: String(d.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(d.readiness || '').trim(),
@@ -425,7 +434,10 @@ function cueTalk_(t, ref, force, opt) {
       + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
       + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
-  const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  let pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  // PC retest 17:58Z: "write a plan for a year-end campaign" joined the Morning batch thread. A plan, brainstorm or analysis ask
+  // joins a task's thread only when it names that task's project or topic; otherwise it is answered in the main chat.
+  if (pick && cuePlanAsk_(t, force) && !cueSameTopic_(t, by[pick])) pick = '';
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
   const lookupOnly = /\b(look\s*up|lookup|find|search|check|show|where\s+is|what\s+is|status)\b/i.test(t) && !/\b(run|start|redo|re-?run|begin|cost|requote|intake|send|draft|proceed|go ahead)\b/i.test(t);
   let reply = r.ok ? cueReplyCut_(String(r.data.reply || '').trim(), 8000) : 'I could not answer just now (' + r.error + ').';
@@ -468,8 +480,8 @@ function cueTalk_(t, ref, force, opt) {
   }
   const where = ref || pick;
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
-    const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || 'that task';
-    if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, ''); cueChat_('Cue', 'Answered in the ' + name + ' thread.', '>' + pick);
+    const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || (x.kind ? cueTaskName_(x) : '');
+    if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, ''); cueChat_('Cue', name ? 'Answered in the ' + String(name).replace(/^the\s+/i, '') + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
   }
   if (!force && !opt.replay && !opt.quiet) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);
