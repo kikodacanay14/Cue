@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.21.1: a thread keeps the name of its first task (not deployed)
+
+Kiko 19:20Z picked "First task names it". A thread's title comes from its first named task (a Morning batch never names it), so a later task filed into it, like an expense, no longer renames the LED wall thread "Expense · AMI Group".
+
 ## Cue 1.20.3: page fixes from the 1.20.2 PC test (not deployed)
 
 - Thread ✕ closes the pane and forgets the threads opened before it, so it never steps back to an earlier thread or keeps its title. The narrow-window ✕ does the same.

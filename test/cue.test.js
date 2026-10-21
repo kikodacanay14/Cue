@@ -3314,6 +3314,13 @@ test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the bu
   assert.ok(/<div class="actions"><button[^>]*ph-cancel/.test(card(4, { status: 'Done', ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [] } })), 'after phase 3 Cancel intake keeps its own row');
 });
 
+test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense filed into it does not rename it', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const fn = page.match(/function threadTitle\(th\) \{[\s\S]*?\n  \}\n/)[0], box = { personalName: () => '', kindName: r => r.kind };
+  vm.runInNewContext(fn + 'out = threadTitle({ reqs: [{ kind: "sweep", day: "2026-10-22" }, { kind: "intake", proposal: { client: { company: "AMI Group" } } }, { kind: "expense", expense: { project: { name: "AMI Group" } } }] });', box);
+  deq(box.out, 'AMI Group');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
