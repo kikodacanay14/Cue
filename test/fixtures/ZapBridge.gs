@@ -170,6 +170,19 @@ const ZB_ACTIONS_ = {
     schema: { client: { type: 'string', max: 200 }, date: { type: 'string', max: 10 }, name: { type: 'string', max: 200 } },
     run: (r) => aiIntakeSimilar_(r.args)
   },
+  /* CUE-LINKS-2026-10-21 (Kiko "Go" 19:46Z, specs/open-in-canvas.md). canvas_link: Canvas's own web address, so Cue needs no setup.
+   * handoff_put: bank details for one Add supplier / edit supplier page, kept in the script cache for 10 minutes under a
+   * one-time code. The link Cue opens carries only the code (&h=); SupportDesk swaps it once (cueHandoffTake). A read: nothing
+   * goes in the command ledger, so the details are never written to a sheet. */
+  canvas_link: {
+    kind: 'read', needsProject: false, schema: {},
+    run: () => ({ url: zbCanvasUrl_() })
+  },
+  handoff_put: {
+    kind: 'read', needsProject: false,
+    schema: { bank: { type: 'string', max: 200 }, acctName: { type: 'string', max: 200 }, acctNo: { type: 'string', max: 60 } },
+    run: (r) => cueHandoffPut_(r.args)
+  },
   search_projects: {
     kind: 'read', needsProject: false,
     schema: { query: { type: 'string', required: true, nonBlank: true, max: 200 }, limit: { type: 'number', min: 1, max: 10 } },
@@ -1201,3 +1214,28 @@ function zbHex_(b) { return b.map(x => ('0' + (x & 255).toString(16)).slice(-2))
 function zbPayloadHash_(r) { return zbHash_(JSON.stringify([r.action, r.project_id || '', r.expected_project_number || '', r.args])); }
 function zbHash_(s) { return zbHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(s))); }
 function zbSafeEq_(a, b) { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
+
+/* ---------- CUE-LINKS-2026-10-21: Canvas address and the one-time bank-details handoff ---------- */
+const ZB_CANVAS_URL_ = 'https://script.google.com/a/macros/blankspaceevent.com/s/AKfycbxZuZDGY0AkT87oYsTR3Yj151O2fa1x0BuALO7z1kQFpxi11SRceNKpIA_AWT9Z6mW6Rw/exec';
+const CUE_HANDOFF_SECS_ = 600;
+function zbCanvasUrl_() {
+  let u = ''; try { u = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+  return /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/AKfycbxZuZ[A-Za-z0-9_-]+\/exec$/.test(u) ? u : ZB_CANVAS_URL_;
+}
+function cueHandoffPut_(a) {
+  const v = { bank: String(a.bank || '').trim(), acctName: String(a.acctName || '').trim(), acctNo: String(a.acctNo || '').trim() };
+  if (!v.bank && !v.acctName && !v.acctNo) throw new Error('nothing to hand off');
+  const code = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+  CacheService.getScriptCache().put('cuehand:' + code, JSON.stringify(v), CUE_HANDOFF_SECS_);
+  return { code: code, expires_in: CUE_HANDOFF_SECS_ };
+}
+/** Support Desk swaps a handoff code for the bank details, once. Same access as editing a supplier. */
+function cueHandoffTake(code) { guestGate_('cueHandoffTake', arguments);
+  assertAdmin_();
+  code = String(code || '');
+  if (!/^[0-9a-f]{40}$/.test(code)) throw new Error('That bank-details code is not valid.');
+  const c = CacheService.getScriptCache(), k = 'cuehand:' + code, raw = c.get(k);
+  if (!raw) throw new Error('The bank details expired (10 minutes) or were already used. Copy them from Cue\'s card.');
+  c.remove(k);
+  return JSON.parse(raw);
+}

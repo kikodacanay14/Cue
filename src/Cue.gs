@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.24.1';
+const CUE_VERSION_ = 'Cue 1.25';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -733,6 +733,8 @@ function cueApprove(id, edits) {
 /** CUE-PHASED: Rescan (phase 2) and one RFQ's Send / Save as draft / Cancel (phase 4). */
 /** CUE-UNDO: Cancel intake removes what it wrote in Canvas (Kiko confirms first on the card). pid: the Same project? choice "remove it and add this". */
 /** CUE-CANVAS: Kiko saved the supplier in Canvas's own form; Cue finds it there, then files the documents and the request. */
+/** Supplier card's Open in Canvas (Canvas 194): the link with a one-time bank-details code. */
+function cueSupplierCanvas(id) { cueOwner_(); return cueSupCanvasOpen_(String(id || '')); }
 function cueSupplierSaved(id, edits) { cueOwner_(); return cueView_(cueSupplierSaved_(id, edits || {})); }
 function cueCancelIntake(id, pid) { cueOwner_(); return cueView_(cuePhCancel_(id, pid || '')); }
 function cueRescan(id, note) { cueOwner_(); return cueView_(cuePhRescan_(id, note)); }

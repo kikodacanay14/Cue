@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.25: Canvas opens filled, for everything Canvas 194 can take (not deployed; needs Canvas 194 live first)
+
+Kiko's "Go" at 19:46Z, specs/open-in-canvas.md "Release" rows. Every link still works on an older Canvas: it opens the page without the new fill-ins.
+
+- Prepare ARs: the card's Open in Canvas opens the AR generator on the project, not just the project.
+- "make FSAs for <project>" opens the FSA generator on the project.
+- Expense card: Request payment opens filled with the scope, amount, supplier and cost item from the card.
+- Supplier card: Add supplier opens with every column on the card filled (address, province, owner, website, business type, TIN status and the rest). Bank details never go in the link: on tap, Cue hands them to Canvas over the bridge (`handoff_put`) and the link carries a one-time code that lasts 10 minutes. If Canvas can't take them, the plain link opens and Cue says to copy them from the card.
+- When Kiko saves the new supplier in Canvas, Canvas says "saved" and the card moves on by itself (files the documents, drafts the request), the same as tapping Saved in Canvas. Other saves show "Saved in Canvas" on the pane.
+- New commands: "open receivables for <client>" and "open payables for <supplier>" (Finance on that tab, filtered), "open account <name>" (Accounts, searched), "open CE for <project>" (Cost Estimates, searched).
+- Money question and payment chaser cards open Finance.
+- Tests: 262 of 262 pass (new CV11, CV12). The bridge fixture is Canvas PR #15's ZapBridge.gs.
+
 ## Cue 1.24.1: daily bid check at 07:00 (not deployed)
 
 - Kiko 19:50Z moved the daily bid opportunity check from 08:00 to 07:00 Manila.
