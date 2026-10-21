@@ -3191,6 +3191,21 @@ test('TU6 an email never graduates; My rules lists the learned patterns and Demo
   deq([!!out.request_id, chatCalls(u), u.log.plans || 0], [true, 1, 0], 'switch off: GPT routes and it starts at once, as before');
 });
 
+test('TC16 PC test 18:17Z: a table pasted as "phrase<TAB>meaning" rows (3 rows or 1) starts Learn my memory through cueSend, and the page skips expense(); a tabbed receipt with amounts does not', () => {
+  const three = 'Record project expense\tLog a supplier cost to the project, scope and supplier entry, then verify it.\nSame rate as others\tCheck the existing rate for that exact assignment and apply it.\nApproved / Go ahead\tExecute the specific proposal already presented.';
+  const one = 'Record project expense\tLog a supplier cost to the project, scope and supplier entry, then verify it.';
+  const receipt = 'Record project expense\nDate\tAmount\n10/21\tPHP 1,500.00 tarp for AMI';
+  [three, one, '\t' + three + '\n'].forEach((say, i) => {
+    const t = sandbox(), out = t.ctx.cueSend(say, [], '');
+    deq([t.log.gpt.length, t.state(out.request_id).kind], [0, 'memory'], 'tabbed paste ' + i);
+  });
+  const c = sandbox().ctx; deq([c.cueMemPaste_(receipt), c.cueMemPaste_('Top 3\tpick the best three suppliers for it')], [false, true]);
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const fn = page.match(/function memPaste\(t\) \{[\s\S]*?\n  \}\n/)[0], box = {}, expRe = new RegExp(page.match(/EXP_RE = \/(.+?)\/i;/)[1], 'i');
+  vm.runInNewContext(fn + 'out = [memPaste(a), memPaste(b), memPaste(c)];', Object.assign(box, { a: three, b: one, c: receipt }));
+  deq([box.out, expRe.test(three), expRe.test(one)], [[true, true, false], true, true], 'EXP_RE matches these, so memPaste is what keeps them from expense()');
+});
+
 test('TU7 PC test 18:15Z: Claude unsure, or a short "LED wall for AMI Group" it only answered, shows the plan card with the best guess; Not that lists the other guesses first', () => {
   const unsure = Object.assign(PLAN(), { sure: false, choices: ['vendor', 'intake'], reply: 'Earlier we looked at AMI Group suppliers.' });
   const t = sandbox({ tutor: true, plan: unsure });

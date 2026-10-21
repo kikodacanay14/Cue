@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.20.1: tutor mode fixes from the PC test (not deployed)
+## Cue 1.20.2: tutor mode fixes from the PC test (not deployed)
 
 PC test of 1.20 on /dev, 21 Oct 18:15Z.
 
@@ -8,7 +8,14 @@ PC test of 1.20 on /dev, 21 Oct 18:15Z.
 - A rejected expense's summary read "Summary for Project intake: rejected". It now names the expense, for example "Summary for ₱500.00 tarp for AMI Group".
 - A thread showing the Unilever intake was titled "Morning batch 10/22". Phased intakes now carry their client name for the thread title, and a morning batch never names a thread that holds other tasks.
 - Expenses still start their own flow with no plan card. Their own approval card comes before anything is saved, as the spec says.
-- Tests: 228 of 228 pass (new TU7, TU8).
+- Tests: 229 of 229 pass (new TU7, TU8), on top of 1.20.1.
+
+## Cue 1.20.1: a table pasted with tabs is learned, not run (not deployed)
+
+PC test of 1.19.6 (18:17Z): three "phrase<TAB>meaning" rows starting "Record project expense" still started an expense, and one row did too. 1.19.6 only looked at pastes of 5 lines or more.
+
+- A pasted table of "phrase<TAB>meaning" rows goes to Learn my memory, even one row. Each tabbed row needs a short phrase and a meaning of 3 words or more, and no amounts. A tabbed receipt or bank table with amounts routes as before.
+- The page and the server use the same check.
 
 ## Cue 1.20: tutor mode (not deployed)
 
