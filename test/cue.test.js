@@ -33,6 +33,12 @@ const EVIDENCE = {
     bse: { packages: [], items: [] }, suppliers: [{ name: 'Sonic Pro', email: 'sales@sonicpro.example', accredited: true, preferred: true, quoted_before: true, new: false, why: 'preferred, accredited' }] },
   R2: { owned: [], ran: {}, quotes: [], stats: { count: 0 }, bse: { packages: [{ id: 'PKG-7', name: 'Photo booth package', desc: '', price: 25000 }], items: [] }, suppliers: [] },
   R3: { owned: [], ran: {}, quotes: [], stats: { count: 0 }, bse: { packages: [], items: [] }, suppliers: [] } };
+// CUE-PHASED: Claude's requirement rows (phase 2). The first row is too long on purpose: code cuts item to 6 words, spec to 12.
+const BREAKDOWN = { requirements: [
+    { scope: 'Lights and sound', item: 'LED wall with high quality processor and operator', spec: '4m x 3m, P3.9 pitch, with processor, operator and backup power for whole day', quantity: 1, days: 1, status: 'included', search_terms: 'led wall' },
+    { scope: 'Activities', item: 'Photo booth', spec: 'unlimited prints', quantity: 1, days: 1, status: 'optional', search_terms: 'photo booth' },
+    { scope: 'Show', item: 'Drone light show', spec: '100 drones, 10 minutes', quantity: 1, days: 1, status: 'included', search_terms: 'drone show' }],
+  excluded: ['Catering, client supplies it'], questions: ['Indoor or outdoor drone show?'] };
 const COST = { lines: [
   { key: 'R1', execution: 'Outsourced', why: 'Rented before from Sonic Pro.', price_source: '', unit_cost: 48000, cost_basis: 'past quotes', sources: ['E1', 'E999'], suppliers: ['Sonic Pro', 'Invented Co'], note: '' },
   { key: 'R2', execution: 'Outsourced', why: 'BSE package covers it.', price_source: 'PKG-7', unit_cost: 0, cost_basis: 'none', sources: [], suppliers: [], note: '' },
@@ -117,6 +123,7 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
+    CUE_PHASED: o.phased ? 'on' : 'off',   // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
   const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {}, type: {} };
@@ -150,6 +157,9 @@ function sandbox(o = {}) {
       if (n === 'lookup') return gptOk(o.lookup || { found: [] });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You turn one event inquiry/.test(body.system)) { log.claude.push(body); log.breaks = (log.breaks || 0) + 1;
+      if ((o.fail || {}).breakdown) return o.fail.breakdown();
+      return claudeOk(Array.isArray(o.breakdown) ? o.breakdown[Math.min(log.breaks, o.breakdown.length) - 1] : (o.breakdown || BREAKDOWN)); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
@@ -204,6 +214,21 @@ function sandbox(o = {}) {
       if (body.action === 'expense_evidence') { log.xev = (log.xev || []).concat([body.args]); return resp(200, { ok: true, status: 'Completed', result: (o.xev || XEV)(body.args) }); }
       if (body.action === 'record_expense') { log.recorded = (log.recorded || []).concat([{ pid: body.project_id, args: body.args }]);
         return resp(200, { ok: true, status: 'Completed', result: o.xrec ? o.xrec(log.recorded.length) : XREC }); }
+      // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
+      if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);
+        if (o.projectFail) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: Canvas busy' });
+        const e = body.args.project.event, tbc = !e.date;
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, replayed: log.phProject.length > 1, project_id: 'S-99900001ZZ', project_number: '052', name: e.name + (tbc ? ' (Date TBC)' : ''),
+          date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [] } }); }
+      if (body.action === 'intake_add_lines') { (log.phLines = log.phLines || []).push(body.args.lines);
+        const ids = {}; body.args.lines.forEach((l, i) => { ids[l.key] = 'REQ-' + (i + 1); });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', req_ids: ids, lines: body.args.lines.length } }); }
+      if (body.action === 'intake_save_costs') { (log.phCosts = log.phCosts || []).push(body.args);
+        if (o.canvasCost != null && log.phCosts.length === 1) return resp(200, { ok: true, status: 'Completed', result: { ok: true, saved: false, changed: true,
+          lines: body.args.lines.map(l => Object.assign({}, l, { unit_cost: o.canvasCost })), totals: { known_cost: o.canvasCost, known_price: 0 } } });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, saved: true, changed: false, project_id: 'S-99900001ZZ', lines: body.args.lines, totals: body.args.totals } }); }
+      if (body.action === 'intake_log_rfqs') { (log.phRfqs = log.phRfqs || []).push(body.args.rfqs[0]);
+        return o.logFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }) : resp(200, { ok: true, status: 'Completed', result: { ok: true, logged: log.phRfqs.length } }); }
       if (body.action === 'intake_evidence') return resp(200, { ok: true, status: 'Completed', result: o.evidence || EVIDENCE });
       if (body.action === 'submit_intake') {
         const L = body.args.proposal.lines, price = { 'PKG-7': 25000 };
@@ -2526,6 +2551,90 @@ test('N1 Kiko 14:22-14:27Z: similar means Project Name, Account and Event Date; 
 });
 
 let pass = 0;
+/* ---------- CUE-PHASED (Kiko 14:53Z, specs/phased-intake.md): four approved phases, one card per task ---------- */
+function phStart(o = {}) { const t = sandbox(Object.assign({ phased: true }, o)); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
+const writes = t => t.log.bridge.filter(b => /^intake_(add|save|log)/.test(b.action) || b.action === 'submit_intake' || b.action === 'apply_intake').map(b => b.action);
+test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Approve, which adds the project alone', () => {
+  const t = phStart();
+  deq([t.v.status, t.v.ph.phase, t.v.stage, t.v.metrics.ai_calls, writes(t)], ['Needs you', 1, 'Project details', 1, []]);
+  assert.ok(t.log.claude.length === 0, 'no Claude call before Kiko approves the details');
+  const v = t.ctx.cueApprove(t.id, { event: { venue: 'SMX Convention Center' }, client: {} });
+  deq([t.log.phProject.length, t.log.phProject[0].project.event.venue, writes(t)], [1, 'SMX Convention Center', ['intake_add_project']]);
+  deq([v.ph.phase, v.status, v.canvas.project_id, v.canvas.project_number], [2, 'Needs you', 'S-99900001ZZ', '052']);
+  assert.ok(/Added to Canvas as project 052/.test(JSON.stringify(t.tabs.Chat.rows)));
+});
+test('PH2 phase 2: Claude\'s rows are short (item at most 6 words, spec at most 12); Rescan reads again with Kiko\'s note and writes nothing', () => {
+  const t = phStart(); const v = t.ctx.cueApprove(t.id, {});
+  const r = v.ph.rows[0];
+  deq([r.item, r.spec], ['LED wall with high quality processor', '4m x 3m, P3.9 pitch, with processor, operator and backup power for']);
+  assert.ok(v.ph.rows.every(x => x.item.split(' ').length <= 6 && x.spec.split(' ').filter(Boolean).length <= 12));
+  deq([v.ph.excluded, v.ph.rows.map(x => x.status)], [['Catering, client supplies it'], ['included', 'optional', 'included']]);
+  const w = t.ctx.cueRescan(t.id, 'You missed the stage');
+  deq([t.log.breaks, w.ph.phase, w.status, writes(t)], [2, 2, 'Needs you', ['intake_add_project']]);
+  assert.ok(/<kiko_note>\nYou missed the stage/.test(t.log.claude[1].messages[0].content[0].text || t.log.claude[1].messages[0].content));
+});
+test('PH3 phase 2 Approve: Kiko\'s row edits go to Canvas as lines with no costs, then costing runs to the phase 3 card', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const v = t.ctx.cueApprove(t.id, { rows: { R1: { quantity: 2 }, R2: { remove: true } }, add: [{ item: 'Stage', spec: '24 x 16 ft', quantity: 1, days: 1 }] });
+  const L = t.log.phLines[0];
+  deq(L.map(l => [l.key, l.description, l.quantity]), [['R1', 'LED wall with high quality processor, 4m x 3m, P3.9 pitch, with processor, operator and backup power for', 2],
+    ['R2', 'Drone light show, 100 drones, 10 minutes', 1], ['R3', 'Stage, 24 x 16 ft', 1]]);
+  assert.ok(L.every(l => !('unit_cost' in l) && !('unit_price' in l)), 'no costs in phase 2');
+  deq([v.ph.phase, v.status, v.canvas.req_ids.R3, v.ph.lines.length], [3, 'Needs you', 'REQ-3', 3]);
+  assert.ok(v.ph.lines.every(l => l.why.split(' ').length <= 25));
+});
+test('PH4 phase 3 Save prices: Canvas re-checks; changed numbers write nothing and show Canvas\'s; saving again writes and drafts RFQs', () => {
+  const t = phStart({ canvasCost: 47000 }); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  let v = t.ctx.cueApprove(t.id, { lines: { R3: { unit_price: 280000 } } });
+  deq([v.ph.phase, v.ph.lines[0].unit_cost, t.log.phCosts.length], [3, 47000, 1]);
+  assert.ok(v.notes.some(n => /numbers and they changed/.test(n)));
+  v = t.ctx.cueApprove(t.id, {});
+  deq([t.log.phCosts.length, v.ph.phase, v.status, v.ph.prices_saved !== ''], [2, 4, 'Needs you', true]);
+  assert.ok(v.ph.rfqs.length >= 1 && v.ph.rfqs.every(q => q.state === 'open'));
+  assert.ok(!/Intake ready for you/.test(JSON.stringify(t.tabs.Chat.rows)), 'no one-card summary line');
+});
+test('PH5 phase 4: each RFQ is sent, drafted or cancelled on its own; Canvas records each; Done when none is open; 5 AI calls in all', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); let v = t.ctx.cueApprove(t.id, {});
+  const q = v.ph.rfqs; assert.ok(q.length >= 2, 'two or more RFQs');
+  assert.throws(() => t.ctx.cueRfq(t.id, q.findIndex(x => !x.email), 'send', null), /email first/);
+  const a = q.findIndex(x => x.email);
+  v = t.ctx.cueRfq(t.id, a, 'send', { body: 'Edited by Kiko.\nBlank Space Events' });
+  deq([v.ph.rfqs[a].state, t.log.sent.length, t.log.phRfqs[0].state], ['sent', 1, 'sent']);
+  assert.ok(/Edited by Kiko/.test(Buffer.from(t.log.gmail[0].split('\r\n\r\n')[1], 'base64').toString()));
+  assert.throws(() => t.ctx.cueRfq(t.id, a, 'send', null), /already sent/);
+  v.ph.rfqs.forEach((x, i) => { if (x.state === 'open') v = t.ctx.cueRfq(t.id, i, i === q.length - 1 ? 'cancel' : 'draft', null); });
+  deq([v.status, v.ph.rfqs.filter(x => x.state === 'open').length, t.log.phRfqs.length], ['Done', 0, q.length]);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + t.id && /^Summary for .*project 052 in Canvas; 3 lines; prices saved; 1 RFQ sent/.test(x[2])));
+  assert.ok(v.metrics.ai_calls <= 5, 'budget: ' + v.metrics.ai_calls + ' AI calls');
+});
+test('PH6 one card per task: a reply in the thread while a card waits changes that task in place, never a new run', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const before = t.tabs.Requests.rows.length;
+  const r = t.ctx.cueSend('you missed the stage, 24x16 ft', [], '', t.id);
+  deq([r.request_id, r.in_place, t.tabs.Requests.rows.length], [t.id, true, before]);
+  const v = t.ctx.cueRun(t.id);
+  deq([t.log.breaks, v.ph.phase, v.status], [2, 2, 'Needs you']);
+  assert.ok(/you missed the stage/.test(JSON.stringify(t.log.claude[1])));
+  t.ctx.cueApprove(t.id, {});
+  t.ctx.cueSend('cost them by item please', [], '', t.id); const w = t.ctx.cueRun(t.id);
+  deq([w.ph.phase, t.tabs.Requests.rows.length, t.log.claude.filter(b => /item-level costing/.test(JSON.stringify(b))).length], [3, before, 1]);
+});
+test('PH7 Reject is one tap with no reason: phase 1 writes nothing; phase 2 leaves the project in Canvas and says so', () => {
+  const t = phStart(); let v = t.ctx.cueReject(t.id);
+  deq([v.status, writes(t), v.ph.rejected.why], ['Rejected', [], 'Rejected by Kiko at Project details']);
+  assert.ok(/Nothing was written to Canvas/.test(JSON.stringify(t.tabs.Chat.rows)));
+  const u = phStart(); u.ctx.cueApprove(u.id, {}); v = u.ctx.cueReject(u.id);
+  deq([v.status, writes(u)], ['Rejected', ['intake_add_project']]);
+  assert.ok(/Project 052 stays in Canvas with no lines/.test(JSON.stringify(u.tabs.Chat.rows)));
+  deq(u.ctx.cueReject(u.id).status, 'Rejected', 'a second tap changes nothing');
+});
+test('PH8 the same-project question still comes first; the switch CUE_PHASED=off keeps the one-card intake', () => {
+  const t = phStart({ similar: [{ project_id: 'S-1', name: 'Acme Year-End Party', account: 'Acme Corp', date: '2026-12-12', status: 'For Proposal', why: 'same name' }] });
+  deq([t.v.stage, t.v.ph.phase], ['Same project?', 0]);
+  const v = t.ctx.cueSameAnswer(t.id, 'new'); deq([v.ph.phase, v.stage], [1, 'Project details']);
+  const off = startToCard({}); deq([off.v.phased, !!off.v.proposal], [false, true]);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

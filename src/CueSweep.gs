@@ -494,6 +494,7 @@ function cueCloseAny_(L) {
   if (s.status === 'Scheduled') throw new Error('Cancel the 9:00 send first.');
   if (['Done', 'Rejected', 'Closed'].indexOf(s.status) >= 0) return '';
   s.closed_from = s.status; s.status = 'Closed'; delete s.nudge;
+  if (s.phased && s.canvas && s.canvas.project_id) return 'Closed. What this task already saved in Canvas stays there.';   // CUE-PHASED
   return 'Closed. Nothing was written or sent.';
 }
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */

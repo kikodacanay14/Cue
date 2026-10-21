@@ -819,11 +819,12 @@
     var kiko = t.lines.some(function (m) { return m.who === 'Kiko'; });
     // Kiko 14:42Z: no Due / Priority / Remind row. ✓ in the header closes the task; ⋯ (closed threads only) offers Archive.
     var x0 = t.reqs[0], closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
-    var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status]; }).map(workHtmlOf).join('')
+    var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
       + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
       else if ((r.style && r.style.rules.length) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
@@ -1581,7 +1582,116 @@
     return h + '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="same-new" data-id="' + esc(r.id) + '">No, it is a new project</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>' + metricLine(r) + '</div>';
   }
+  // ---- Phased project intake (Kiko 14:53Z, specs/phased-intake.md): ONE card per task, inside its thread, updated in place.
+  // Finished phases fold to one line; only the current phase is open. Rows stay short: item, spec, qty, days.
+  var PHN = ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], phAdd = {}, rqEdit = {};
+  function phCardHtml(r) {
+    var P = r.ph, x = P.x || { client: {}, event: {} }, c = x.client || {}, e = x.event || {}, cv = r.canvas || {}, ph = P.phase || 0, ed = !!editing[r.id];
+    var waiting = r.status === 'Needs you', busy = WORK[r.status], end = CLOSED[r.status];
+    var h = '<div class="card' + (waiting || r.status === 'Failed' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake'
+      + (end ? '' : ph ? ' · phase ' + ph + ' of 4' : '') + '</div><b style="font-size:17px;color:#fff">' + esc(c.company || 'New client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>'
+      + '<div class="small muted" style="margin-top:4px">' + [1, 2, 3, 4].map(function (k) { return (k < ph || (end && r.status === 'Done') ? '✓ ' : k === ph && !end ? '● ' : '') + PHN[k]; }).join(' · ') + '</div>';
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    (r.notes || []).slice(-3).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    // Folded lines for the phases already done.
+    var done = [];
+    if (cv.project_id) done.push('✓ 1 Project details · ' + esc(cv.project_number || cv.project_id) + ' in Canvas' + (cv.date_tbc ? ', Date TBC' : ''));
+    if (cv.req_ids && ph > 2) done.push('✓ 2 Requirements · ' + Object.keys(cv.req_ids).length + ' lines in Canvas');
+    if (P.prices_saved && P.totals && ph > 3) done.push('✓ 3 Costing · cost ' + peso(P.totals.known_cost) + (P.totals.known_price ? ', price ' + peso(P.totals.known_price) : '') + ' saved');
+    if (done.length) h += '<div class="small" style="margin-top:8px">' + done.join('<br>') + '</div>' + (cv.project_id ? foldersHtml(r) : '');
+    if (busy) h += '<div class="small" style="margin-top:8px">✱ ' + esc(r.stage) + '…</div><div class="bar"><i style="width:' + Math.round((Math.max(ph, 1) - 0.5) / 4 * 100) + '%"></i></div>';
+    if (r.status === 'Rejected') h += '<div class="small" style="margin-top:8px">' + esc((P.rejected && P.rejected.why) || 'Rejected') + '.' + (cv.project_id ? ' The project stays in Canvas.' : ' Nothing was written to Canvas.') + '</div>';
+    if (r.status === 'Failed') h += '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
+    var btn = function (act, label, cls, extra) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '"' + (extra || '') + '>' + label + '</button>'; };
+    var editBtn = ed ? btn('cancel-edit', 'Cancel edits', 'ghost') : btn('edit', 'Edit', 'ghost');
+    if (waiting && ph === 1) {
+      var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
+      var sc = e.schedule || {}, sched = [sc.ingress && 'In ' + sc.ingress, sc.hours && 'Event ' + sc.hours, sc.egress && 'Out ' + sc.egress].filter(Boolean).join(' · ');
+      var f = [['Client', ed ? inp('client.company', c.company, 1) : esc(c.company || 'Not given')],
+        ['Contact', ed ? inp('client.contact', c.contact, 1) + inp('client.email', c.email, 1, 'email') + inp('client.phone', c.phone, 1, 'phone') : cs.map(function (y) { return esc([y.name, y.role, y.email, y.phone].filter(Boolean).join(', ')); }).join('<br>') || 'Not given'],
+        ['Event', ed ? inp('event.name', e.name, 1) + inp('event.type', e.type, 1, 'type') : esc([e.name, e.type].filter(Boolean).join(' · ') || 'Not given')],
+        ['Date', ed ? inp('event.date', e.date, 1, 'YYYY-MM-DD, blank = Date TBC') : e.date ? esc(e.date) : '<span class="tag flag">Date TBC</span>'],
+        ['Proposal due', ed ? inp('event.deadline', e.deadline, 1, 'YYYY-MM-DD') : esc(e.deadline || 'Not given')],
+        ['Schedule', esc(sched || 'Not given')],
+        ['Venue', ed ? inp('event.venue', e.venue, 1) + inp('event.city', e.city, 1, 'city') : esc([e.venue, e.city].filter(Boolean).join(', ') || 'Not given')],
+        ['Pax', ed ? inp('event.pax', e.pax || '', 0) : esc(e.pax || 'Not given')], ['Budget', ed ? inp('event.budget', e.budget, 1) : esc(e.budget || 'Not given')]];
+      h += '<table class="facts" style="margin-top:8px">' + f.map(function (y) { return '<tr><td>' + y[0] + '</td><td>' + y[1] + '</td></tr>'; }).join('') + '</table>';
+      if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
+      h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas') + editBtn + btn('reject', 'Reject', 'bad') + '</div>'
+        + '<div class="small muted" style="margin-top:6px">Approve adds the project only (client, contacts, schedule, folders). No lines yet.</div>';
+    }
+    if (waiting && ph === 2) {
+      var rows = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Item</th><th>Spec</th><th>Qty</th><th>Days</th></tr>';
+      P.rows.forEach(function (q) {
+        rows += '<tr data-row="' + esc(q.key) + '"><td>' + esc(q.key) + (ed ? '<br><label class="small"><input type="checkbox" data-f="remove" style="width:auto"> remove</label>' : '') + '</td>'
+          + '<td>' + (ed ? '<input data-f="item" value="' + esc(q.item) + '">' : '<b>' + esc(q.item) + '</b>') + (q.status === 'optional' ? ' <span class="tag new">optional</span>' : '')
+          + (ed ? '<select data-f="status" style="width:auto"><option value="included"' + (q.status !== 'optional' ? ' selected' : '') + '>Included</option><option value="optional"' + (q.status === 'optional' ? ' selected' : '') + '>Optional</option></select>' : '<div class="small muted">' + esc(q.scope) + '</div>') + '</td>'
+          + '<td>' + (ed ? '<input data-f="spec" value="' + esc(q.spec) + '">' : esc(q.spec)) + '</td>'
+          + '<td>' + (ed ? '<input data-f="quantity" value="' + esc(q.quantity) + '">' : esc(q.quantity)) + '</td><td>' + (ed ? '<input data-f="days" value="' + esc(q.days) + '">' : esc(q.days)) + '</td></tr>';
+      });
+      for (var a = 0; ed && a < (phAdd[r.id] || 0); a++) rows += '<tr data-add="' + a + '"><td>new</td><td><input data-f="item" placeholder="Item, 6 words"></td><td><input data-f="spec" placeholder="Spec, 12 words"></td><td><input data-f="quantity" value="1"></td><td><input data-f="days" value="1"></td></tr>';
+      h += rows + '</table></div>' + ((P.excluded || []).length ? '<div class="small muted">Not needed: ' + P.excluded.map(esc).join('; ') + '</div>' : '');
+      if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
+      h += '<input class="wide" style="width:100%;margin-top:10px" data-ph-note="' + esc(r.id) + '" placeholder="Note for Rescan (optional), e.g. you missed the stage">'
+        + '<div class="actions">' + btn('approve', 'Approve, add lines to Canvas') + editBtn + (ed ? btn('ph-add-row', 'Add row', 'ghost') : '') + btn('ph-rescan', 'Rescan', 'ghost') + btn('reject', 'Reject', 'bad') + '</div>'
+        + '<div class="small muted" style="margin-top:6px">Approve adds these lines to ' + esc(cv.project_number || 'the project') + ' with no costs. Reject keeps the project in Canvas with no lines.</div>';
+    }
+    if (waiting && ph === 3) {
+      var t = P.totals || {}, lh = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Item</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>Unit price</th></tr>';
+      P.lines.forEach(function (l) {
+        var sup = (l.suppliers || []).map(function (s) { return esc(s.name) + (s.new ? ' <span class="tag new">new</span>' : '') + (s.preferred ? ' <span class="tag pref">preferred</span>' : ''); }).join(', ');
+        lh += '<tr data-line="' + esc(l.key) + '"><td>' + esc(l.key) + '</td><td><details><summary><b>' + esc(l.item) + '</b>' + (l.status === 'optional' ? ' <span class="tag new">optional</span>' : '') + '</summary>'
+          + '<div class="small">' + esc(l.spec) + '</div><div class="small muted">' + esc(l.why) + '</div>' + (l.note ? '<div class="small muted">' + esc(l.note) + '</div>' : '') + srcHtml(l) + '</details>'
+          + (l.flags || []).map(function (y) { return '<span class="tag flag">' + esc(y) + '</span>'; }).join('')
+          + (l.execution === 'Outsourced' ? '<div class="small">Ask: ' + (sup || 'nobody yet') + '</div>' + (ed ? '<input data-f="add_supplier" placeholder="Add supplier name"><input data-f="add_email" placeholder="their email">' : '') : '') + '</td>'
+          + '<td>' + esc(l.quantity) + (l.days > 1 ? ' × ' + esc(l.days) : '') + '</td>'
+          + '<td>' + (ed ? '<select data-f="execution"><option' + (l.execution === 'In House' ? ' selected' : '') + '>In House</option><option' + (l.execution === 'Outsourced' ? ' selected' : '') + '>Outsourced</option></select>' : esc(l.execution)) + '</td>'
+          + '<td>' + (ed ? '<input data-f="unit_cost" placeholder="' + esc(l.unit_cost) + '">' : (l.cost_basis === 'none' ? '<span class="muted">Blank</span>' : peso(l.unit_cost)) + '<div class="small muted">' + esc(l.cost_basis) + '</div>') + '</td>'
+          + '<td>' + (ed ? '<input data-f="unit_price" placeholder="' + esc(l.unit_price || '') + '">' : l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + '</div>' : '<span class="muted">Blank</span>') + '</td></tr>';
+      });
+      h += '<div class="small" style="margin-top:8px">Known cost ' + peso(t.known_cost) + (t.known_price ? ' · price ' + peso(t.known_price) : '') + ' · ' + esc(t.lines_without_cost || 0) + ' blank cost, ' + esc(t.lines_without_price || 0) + ' blank price'
+        + (t.optional ? ' · ' + esc(t.optional) + ' optional not in totals' : '') + '</div>' + lh + '</table></div>';
+      if ((P.risks || []).length) h += secHtml(r.id + '|risks', 'Risks (' + P.risks.length + ')', '<ul class="small">' + P.risks.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
+      h += '<div class="actions">' + btn('approve', 'Save prices') + editBtn + '</div><div class="small muted" style="margin-top:6px">Save prices writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Tap an item to see why.</div>';
+    }
+    if ((waiting && ph === 4) || (end && P.rfqs.length)) {
+      h += '<div style="margin-top:8px">';
+      P.rfqs.forEach(function (q) {
+        var k = r.id + '|' + q.i, open = q.state === 'open' && waiting, edq = !!rqEdit[k];
+        var tag = q.state === 'sent' ? '<span class="tag pref">sent</span>' : q.state === 'draft' ? '<span class="tag new">in Drafts</span>' : q.state === 'cancelled' ? '<span class="tag">cancelled</span>' : '';
+        h += '<div data-rfq="' + esc(k) + '" style="border-top:1px solid var(--line);padding:10px 0"><b>' + esc(q.supplier) + '</b> ' + tag + (q.new ? ' <span class="tag new">new</span>' : '')
+          + '<div class="small muted">' + esc(q.email || 'no email yet') + ' · lines ' + esc(q.keys.join(', ')) + '</div>' + (q.error ? '<div class="err">' + esc(q.error) + '</div>' : '')
+          + (edq ? '<input class="wide" style="width:100%;margin-top:8px" data-rq-to value="' + esc(q.email) + '" placeholder="Supplier email" aria-label="To">'
+              + '<input class="wide" style="width:100%;margin-top:8px" data-rq-subj value="' + esc(q.subject) + '" aria-label="Subject"><textarea class="mail" data-rq-body aria-label="RFQ text">' + esc(q.body) + '</textarea>'
+            : '<details><summary class="small">' + esc(q.subject) + '</summary><pre>' + esc(q.body) + '</pre></details>')
+          + (open ? '<div class="actions">' + btn('rfq-send', 'Send RFQ', '', ' data-i="' + q.i + '"') + btn('rfq-draft', 'Save as draft', 'ghost', ' data-i="' + q.i + '"')
+              + (edq ? '' : btn('rfq-edit', 'Edit email', 'ghost', ' data-i="' + q.i + '"')) + btn('rfq-cancel', 'Cancel', 'bad', ' data-i="' + q.i + '"') + '</div>'
+            : q.state === 'draft' && waiting ? '<div class="actions">' + btn('rfq-send', 'Send RFQ', '', ' data-i="' + q.i + '"') + '</div>' : '') + '</div>';
+      });
+      h += '</div>' + (waiting ? '<div class="small muted" style="margin-top:6px">Send RFQ goes out from your Gmail. Save as draft puts it in your Gmail Drafts. Canvas records each one.</div>' : '');
+    }
+    if (end || waiting) h += '<div class="small muted" style="margin-top:8px">' + metricLine(r) + '</div>';
+    return h + '</div>';
+  }
+  function collectPh(id, scope) {
+    var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, rows: {}, add: [], lines: {}, suppliers: {} };
+    card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
+    card.querySelectorAll('[data-row]').forEach(function (tr) { var d = {};
+      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'remove') { if (x.checked) d.remove = true; } else d[f] = f === 'quantity' || f === 'days' ? Number(x.value) : x.value; });
+      e.rows[tr.getAttribute('data-row')] = d; });
+    card.querySelectorAll('[data-add]').forEach(function (tr) { var d = {}; tr.querySelectorAll('[data-f]').forEach(function (x) { d[x.getAttribute('data-f')] = x.value; }); if (String(d.item || '').trim()) e.add.push(d); });
+    card.querySelectorAll('[data-line]').forEach(function (tr) { var d = {}, k = tr.getAttribute('data-line'), add = {};
+      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (x.value === '') return;
+        if (f === 'add_supplier') add.name = x.value; else if (f === 'add_email') add.email = x.value; else d[f] = f === 'execution' ? x.value : Number(x.value); });
+      e.lines[k] = d; if (add.name) e.suppliers[k] = { add: add }; });
+    return e;
+  }
+  function rfqEditOf(id, i, scope) {
+    var box = (scope || document).querySelector('[data-rfq="' + id + '|' + i + '"]'); if (!box || !box.querySelector('[data-rq-body]')) return null;
+    return { to: box.querySelector('[data-rq-to]').value, subject: box.querySelector('[data-rq-subj]').value, body: box.querySelector('[data-rq-body]').value };
+  }
   function cardHtml(r) {
+    if (r.phased && r.ph) return phCardHtml(r);
     if (r.kind === 'email') return mailCardHtml(r);
     if (r.kind === 'style') return styleCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
@@ -1734,6 +1844,8 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e); refresh(); }); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
+        if (act === 'ph-add-row') { phAdd[id] = (phAdd[id] || 0) + 1; return render(); }
+        if (act === 'rfq-edit') { rqEdit[id + '|' + b.getAttribute('data-i')] = 1; return render(); }
         if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
         if (act === 'sup-rm-contact') { var row = b.closest('[data-sc]'); if (row) row.parentNode.removeChild(row); return; }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
@@ -1774,7 +1886,7 @@
         if (act === 'fin-sheet') { b.disabled = true; return call('cueFinSheet', [id], function (o) { addLocal('Cue', 'Sheet saved in your Drive: ' + o.url); done(); }, fail); }
         if (act === 'fin-save') { var v = {}; scope.querySelectorAll('[data-fin="' + id + '"]').forEach(function (x) { v[x.getAttribute('data-k')] = x.value.trim() === '' ? null : x.value.trim(); });
           b.disabled = true; return call('cueFinSave', [v], function () { addLocal('Cue', 'Saved your numbers. They apply from the next money question.'); done(); }, fail); }
-        if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
+        if (act === 'reject') { b.disabled = true; return call('cueReject', [id, ''], done, fail); }   // one tap, no reason to type (Kiko 14:56Z)
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
           else { accessNeeded = false; addLocal('Cue', 'Google says Cue has all the access it needs now. Tap Try again on the stopped card.'); }
@@ -1855,7 +1967,11 @@
         }
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve-supplier') { var sd = collectSupplier(id, scope, 'draft'); delete supExtra[id]; return call('cueApprove', [id, sd], done, fail); }
-        if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
+        if (act === 'approve') { var rq0 = state.requests.filter(function (x) { return x.id === id; })[0] || {};
+          return call('cueApprove', [id, rq0.phased && rq0.ph ? collectPh(id, scope) : collect(id, scope)], function () { delete phAdd[id]; done(); }, fail); }
+        if (act === 'ph-rescan') { var nt = scope.querySelector('[data-ph-note="' + id + '"]'); return call('cueRescan', [id, nt ? nt.value : ''], done, fail); }
+        if (act === 'rfq-send' || act === 'rfq-draft' || act === 'rfq-cancel') { var ri = Number(b.getAttribute('data-i'));
+          return call('cueRfq', [id, ri, act.slice(4), rfqEditOf(id, ri, scope)], function () { delete rqEdit[id + '|' + ri]; done(); }, fail); }
         if (act === 'approve-workflow') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'approve-personal') {
