@@ -8,14 +8,41 @@
 - The card shows To, subject and text to edit. Approve and send (one confirm) replies in the thread, or sends a new email. Save to Gmail drafts never sends. Close saves nothing. No thread and no address: a new email with To blank, and sending waits until you type the address.
 - Budget: 1 AI call for the run, plus the chat call. Well under a minute.
 
-## Unreleased: Write Like Me, step 1 (Kiko said deploy 21 Oct 13:02Z; ships with the next Cue release)
+## Cue 1.11 (Kiko 13:00-13:03Z "deploy and release the other tasks"; needs Canvas main V189 / Client V47)
+
+Write Like Me, and the chasers that were waiting on Canvas: payment (from info@, Kiko on CC), FSA/AR signatures (from freelancers@) and supplier accreditation, plus the RFQ and CE award chaser fixes. Nothing sends without Kiko's approve on a line.
+
+### Write Like Me, step 1 (Kiko said deploy 21 Oct 13:02Z)
 
 - Kiko approved specs/write-like-me.md (21 Oct 08:21Z: the old skill lives in ChatGPT; yes to reading sent emails; Claude writes the guide, ChatGPT keeps drafting).
 - Type "learn my style" in the chat (optionally paste your old Write Like Me notes after those words). Plain words, so no AI call routes it. Cue reads up to 100 of your sent emails from the last year (Gmail read only), keeps one per thread, drops forwards, auto-replies, quoted replies and anything over 2,000 characters, masks email addresses and phone numbers, and tags each one team (your own domain) or outside. Then one Claude call writes the guide: tone, greeting and sign-off per audience, phrases, things to avoid, length, language, and short example emails with placeholders.
 - The guide waits on a card in its own thread. Edit or untick lines, then Approve and save. Only then does Cue write the new Style tab of the Cue sheet (On | Audience | Kind | Text). Close saves nothing. Re-learning replaces the tab, and the replaced lines are kept in the request.
 - Every drafting call now adds the guide for its audience to the call it already makes (no extra AI call): intake RFQs, requotes and supplier-search RFQs (supplier lines), pipeline follow-ups (client lines), readiness follow-ups and the morning chasers (every audience, labelled). They use the guide's sign-off instead of CUE_SIGNOFF. With no guide, the prompts are exactly as before. Edit or switch off any line in the sheet.
 - Budget: 1 AI call (Claude), well under a minute.
-## Cue 1.10 (batch release rel/cue-batch; not deployed)
+### Chasers: CE award details, payment, FSA/AR signatures, accreditation
+
+Chasing sweep task 3 (spec `canvas-integration/specs/ce-award-chasers.md`, approved by Kiko 21 Oct 08:11Z). New file `src/CueSweepAward.gs`, a sweep kind.
+
+- **What it finds.** Projects in **For Client Awarding** on the Canvas board. For each, Cue searches Kiko's Sent Gmail for the CE email (CEs only go from Kiko's own Gmail, Kiko 08:10Z) and reads that thread's headers.
+- **When.** Set on Kiko's Chaser rules card (`ctx.rule('award')`; the default is 3 business days after "waiting since", then every 5, at most 3). "Waiting since" comes from `awaiting.since` in the next Canvas release, or from the CE email date until then. Chasers Kiko sent by hand in the thread count, and so does a chaser saved with Drafts only. Pausing the chaser on the card stops the Gmail search too.
+- **Flags with no draft.** The client replied: "have a look". Chased 3 times: "call the client or mark Not Awarded". Event within 7 days or past: urgent. No CE email found: chase by hand.
+- **Who does what.** Canvas: the board read the sweep already makes. Code: Gmail search and timing. ChatGPT: the sweep's one combined draft call, with no call of its own. The CE number and total show on the card line but are kept out of the facts given to ChatGPT. Client chasers only go out when Kiko approves.
+- The file name sorts after `CueSweep.gs` on purpose, because Apps Script runs files in order and `cueKind_` must exist first.
+- Tests: 10 new (A1 to A10), 69 of 69 pass with the chaser rules merged in. Other tests run with the award kind off (`CUE_CHASE_OFF=award`).
+
+**Payment chasers** (backlog task 4; spec `canvas-integration/specs/payment-chasers.md`, approved by Kiko 21 Oct 08:16Z). Needs Canvas with the bridge actions `overdue_billings` and `send_payment_chasers` (CanvasWorkspace branch `claude/project-thread-r3ta54`); until that Canvas release is live, the kind shows a "could not check" note and the rest of the batch is unaffected.
+
+- **Find (no AI).** One Canvas read lists every open billing invoice at least 7 days past due, with the balance worked out the way Finance Desk does (BI minus collections, Date filed + terms). A client's BIs become one email, anchored on its oldest BI. The contact is the billing contact in Client Desk when there is one, otherwise the invoice's contact (Kiko 08:16Z).
+- **Draft.** The sweep's one ChatGPT call writes the words. A new engine hook, `check(item)`, makes sure every BI number and the balance are in the draft, exactly as Canvas has them; otherwise the fixed wording is used and the batch says so.
+- **Send (Kiko 08:08-08:09Z).** From info@ with Kiko on CC, as a reply in the BI's own thread, only after Kiko approves the line; never automatic. Approved before 09:00 = sent at 09:00. Drafts only saves an info@ draft. Canvas re-checks each BI is still open and the balance unchanged, refuses an email that leaves out a BI or the balance, and never sends the same chaser twice.
+- **Timing.** 7 days after due, then every 7 days, at most 3 chasers; then the line is flagged to Kiko. A client who replied after BSE's last email, or a BI with no billing email, shows as a line for Kiko with no draft.
+- Engine: the approve and done lines now say when emails go from info@ instead of Kiko's Gmail Drafts.
+- **Chaser rules.** The kind reads `ctx.rule('payment')`: `first` is the days after the due date asked of Canvas, `every` and `max` come from the engine; a paused rule skips the Canvas read.
+- Tests: 6 new (PY1 to PY6); 65 of 65 pass with the chaser rules tests.
+- **Accreditation chasers** (backlog task 5; spec `specs/accreditation-chasers.md`, approved by Kiko 21 Oct 08:22Z; file `CueSweepAccr.gs`, which sorts after `CueSweep.gs` so `cueKind_` exists first). Canvas lists the Supplier Accreditation rows that still miss something, awarded or newly registered (`accreditation_gaps`, needs the Canvas release with `AiAccr.gs`). Suppliers who never got the form get it; the others get a reminder 3 days after the last email, then every 3, at most 3 (the accreditation Chaser rule). Sent from Kiko's Gmail, as a reply in the accreditation thread when there is one, with suppliers@ in CC. At send time Canvas re-checks the row is still open and logs the email after (`log_accreditation_reminder`). A supplier who answered by form or email since the last email gets no email; the line says to read their documents in Canvas. Urgent when the event is 5 days away or less. The form link is always kept in. No AI of its own (it shares the engine's ChatGPT call). Tests AC1 to AC7; 65 of 65 pass.
+- **FSA / AR signature chasers (task 6; spec `canvas-integration/specs/06-freelancer-signatures.md`, approved by Kiko 21 Oct 08:16Z).** `src/CueSweepSignature.gs` lists every FSA and freelancer AR still waiting for signature through the new Canvas read `list_unsigned_docs`. Chasing starts the day after the event's last day (Kiko 08:08Z), or the day after a late AR was made, then every 2 days, at most 3 times. Each freelancer gets one line covering all their unsigned papers. The reminder is a fixed template with the Canvas sign-in link, so there is no AI call. On Approve and send, Canvas sends it from freelancers@ (`send_doc_reminder`, Kiko 08:09Z), only for papers still unsigned. Drafts only puts it in Kiko's own Gmail Drafts. Cancelled projects are skipped. A freelancer with no email on file shows as a "remind them by text or call" line. Needs the Canvas release that adds the two bridge actions.
+
+## Cue 1.10 (deployed as Version 27, 21 Oct 12:59Z, with Canvas main V188 / Client V46)
 
 One release made of the branches below. Each feature keeps its own notes.
 
@@ -40,7 +67,7 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - **Nudges** are replies in the original RFQ thread (In-Reply-To the last message), with no attachments, and ask for the quote within 2 working days. ChatGPT drafts them in the engine's one combined call; if that fails, a template is used. RFQ chasers make no AI call of their own, and Claude isn't used. After 2 nudges Cue stops and hands the supplier to Kiko.
 - **Never info@** (Kiko 07:45Z): the old `CUE_DRAFTS_IN=canvas` switch is removed, so RFQ drafts are always made in Kiko's own Gmail. Cue no longer calls `make_rfq_drafts`.
 - **No new scopes and no Canvas writes.** It uses Gmail read (already granted) and the engine's one `get_project_board` read.
-- Tests: Q1 to Q5 added. C8 now checks that the old switch is ignored, and C16b is removed.
+- Tests: Q1 to Q6 added. C8 now checks that the old switch is ignored, and C16b is removed.
 
 ### Project expenses (needs the Canvas release with expense_evidence / record_expense)
 
@@ -131,15 +158,7 @@ Register a supplier (command C5; spec `canvas-integration/specs/supplier-registr
 - Sender rules (`cueTriageTeach`): Mute this sender, Not junk, Not an inquiry. New sheet tabs Triage log and Triage rules (cueSetup adds them; rows in Triage rules can be deleted by hand).
 
 ### CE award chasers (on top of the chasing sweep)
-
-Chasing sweep task 3 (spec `canvas-integration/specs/ce-award-chasers.md`, approved by Kiko 21 Oct 08:11Z). New file `src/CueSweepAward.gs`, a sweep kind.
-
-- **What it finds.** Projects in **For Client Awarding** on the Canvas board. For each, Cue searches Kiko's Sent Gmail for the CE email (CEs only go from Kiko's own Gmail, Kiko 08:10Z) and reads that thread's headers.
-- **When.** First chaser 3 business days after "waiting since" (from `awaiting.since` in the next Canvas release, or the CE email date until then), then every 5 business days, at most 3. Chasers Kiko sent by hand in the thread count, and so does a chaser saved with Drafts only.
-- **Flags with no draft.** The client replied: "have a look". Chased 3 times: "call the client or mark Not Awarded". Event within 7 days or past: urgent. No CE email found: chase by hand.
-- **Who does what.** Canvas: the board read the sweep already makes. Code: Gmail search and timing. ChatGPT: the sweep's one combined draft call, with no call of its own. The CE number and total show on the card line but are kept out of the facts given to ChatGPT. Client chasers only go out when Kiko approves.
-- The file name sorts after `CueSweep.gs` on purpose, because Apps Script runs files in order and `cueKind_` must exist first.
-- Tests: 9 new (A1 to A9), 61 of 61 pass. Other tests run with the award kind off (`CUE_CHASE_OFF=award`).
+- Tests: S1 to S13, S5b and R1 to R6; 58 of 58 pass.
 
 ## Cue 1.9.5 (costing starts mid-way; Kiko 08:55Z)
 

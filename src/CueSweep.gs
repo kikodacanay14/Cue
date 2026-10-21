@@ -111,7 +111,11 @@ function cueAddWork_(day, n) {
   return d;
 }
 /** The next day a line is due, by its kind's rule. */
-function cueNextDue_(rule, today) { return rule.unit === 'working' ? cueAddWork_(today, rule.every || 1) : cueAddDays_(today, rule.every || 1); }
+/** it.every (a whole number from 1 to 60) overrides the rule for that line, e.g. RFQ's event-soon interval. */
+function cueNextDue_(rule, today, it) {
+  const e = it && Number(it.every) >= 1 && Number(it.every) <= 60 && Number(it.every) === Math.floor(Number(it.every)) ? Number(it.every) : rule.every || 1;
+  return rule.unit === 'working' ? cueAddWork_(today, e) : cueAddDays_(today, e);
+}
 
 function cuePh_(ms) { const d = new Date(ms + CUE_PH_MS_); return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours(), minute: d.getUTCMinutes() }; }
 /** The moment of hour:00 Philippine time on day (YYYY-MM-DD). */
@@ -294,11 +298,17 @@ function cueSweepDraft_(s, items) {
   const got = {};
   res.forEach(r => { if (r.ok) (r.data.drafts || []).forEach(d => { got[String(d.key)] = d; }); else s.notes.push('ChatGPT could not draft (' + r.error + '); templates used.'); });
   items.forEach(it => {
-    const d = got[it.key], t = tpl(it);
+    let d = got[it.key];
+    const t = tpl(it), k = kindOf(it);
+    // A kind's check (payments: every BI number and the balance, exactly) can turn down ChatGPT's words; its template is used.
+    if (d && typeof k.check === 'function') { let ok = false; try { ok = !!k.check(Object.assign({}, it, { subject: d.subject, body: d.body })); } catch (e) { ok = false; }
+      if (!ok) { d = null; it.check_failed = true; } }
     it.subject = cueStr_((d && d.subject) || t.subject || it.subject || ('Following up: ' + (it.project || 'BSE')), 200).replace(/[\r\n]+/g, ' ');
     it.body = cueStr_((d && d.body) || t.body || it.body || '', 6000);
     it.drafted_by = d ? 'ChatGPT' : 'template';
   });
+  const turned = items.filter(it => it.check_failed).length;
+  if (turned) s.notes.push(turned + ' ChatGPT draft' + (turned === 1 ? '' : 's') + ' left out a required detail (such as an amount); the fixed wording was used.');
 }
 
 /** Open Cue tasks, one per thread: { root, name, status, due, priority } (newest 60 requests, archived and closed left out). */
@@ -342,7 +352,7 @@ function cueSweepApprove_(id, edits) {
       it.draft_id = typeof k.draft === 'function' ? String(k.draft(it, s) || '') : it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
         : cueGmailDraft_(it.to, it.subject, it.body);
       it.error = '';
-      if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today), note: 'draft' });
+      if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'draft' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
   });
   const toSend = b.items.filter(it => it.selected && b.send && it.send_ok && !it.sent_id);
@@ -351,7 +361,7 @@ function cueSweepApprove_(id, edits) {
   if (toSend.length && ph.hour < sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, sendHour);
   if (toSend.length && b.send_at && cueNow_() < b.send_at) {
     s.status = 'Scheduled';
-    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at 9:00. They are in your Gmail Drafts until then; tap Cancel on the batch to keep them as drafts.', s.id);
+    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at ' + String(sendHour).padStart(2, '0') + ':00. Nothing has gone out yet; tap Cancel on the batch to stop it.', s.id);
   } else cueSweepSend_(s);
   if (s.status === 'Making drafts') s.status = cueSweepBad_(s) ? 'Done, drafts incomplete' : 'Done';
   delete s.lease_until;
@@ -370,7 +380,7 @@ function cueSweepSend_(s) {
       if (typeof k.send === 'function') it.sent_id = String(k.send(it, s) || 'sent');
       else { if (!it.draft_id) throw new Error('The draft was not made.'); it.sent_id = cueGmailSend_(it.draft_id); }
       it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
-      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today), note: 'sent' });
+      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'sent' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
   });
   s.status = cueSweepBad_(s) ? 'Done, drafts incomplete' : 'Done';
@@ -379,7 +389,9 @@ function cueSweepDoneLine_(s) {
   const b = s.batch, sel = b.items.filter(it => it.selected), sent = sel.filter(it => it.sent_id), drafts = sel.filter(it => it.draft_id && !it.sent_id), bad = sel.filter(it => it.error);
   const out = [];
   if (sent.length) out.push('sent ' + sent.length);
-  if (drafts.length) out.push(drafts.length + ' in your Gmail Drafts');
+  const hooked = it => typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).draft === 'function';
+  if (drafts.filter(it => !hooked(it)).length) out.push(drafts.filter(it => !hooked(it)).length + ' in your Gmail Drafts');
+  if (drafts.filter(hooked).length) out.push(drafts.filter(hooked).length + ' in info@\'s Drafts');
   if (bad.length) out.push(bad.length + ' did not go through (tap Retry)');
   const line = 'Morning batch: ' + (out.join(', ') || 'nothing sent') + '.';
   cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
@@ -394,11 +406,11 @@ function cueSweepCancel(id) {
     const log = cueChaseLog_(), today = cuePh_(cueNow_()).day, rules = cueRules_();
     L.s.batch.items.filter(it => it.selected && it.draft_id && !it.sent_id).forEach(it => {
       const k = cueKinds_().filter(x => x.kind === it.kind)[0];
-      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today), note: 'draft' });
+      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'draft' });
     });
     L.s.batch.cancelled_at = new Date(cueNow_()).toISOString(); L.s.batch.send = false; L.s.status = 'Done'; cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  cueChat_('Cue', 'Cancelled. Nothing was sent; the emails are in your Gmail Drafts.', s.id);
+  cueChat_('Cue', 'Cancelled. Nothing was sent.' + (s.batch.items.some(it => it.selected && it.draft_id) ? ' The drafts made for it are still in Drafts.' : ''), s.id);
   return cueView_(s);
 }
 

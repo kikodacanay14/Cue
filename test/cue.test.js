@@ -132,7 +132,8 @@ function sandbox(o = {}) {
       if (n === 'chasers') {
         if ((o.fail || {}).chasers) return o.fail.chasers();
         const items = JSON.parse(body.input.split('<items>\n')[1].split('\n</items>')[0]);
-        return gptOk({ drafts: items.map(x => ({ key: x.key, subject: 'Follow-up: ' + x.project, body: 'GPT nudge for ' + x.to + ' about ' + x.project + ' (' + x.chased_before + ')' })) });
+        log.chaserItems = items;
+        return gptOk({ drafts: items.map(x => ({ key: x.key, subject: 'Follow-up: ' + x.project, body: o.chaserBody ? o.chaserBody(x) : 'GPT nudge for ' + x.to + ' about ' + x.project + ' (' + x.chased_before + ')' })) });
       }
       if (n === 'followups') return gptOk(o.followups || FOLLOWUPS);
       if (n === 'pipe_followups') return gptOk(o.pipeFollowups || PIPE_FOLLOWUPS);
@@ -164,6 +165,10 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      if (body.action === 'accreditation_gaps') { log.accrGaps = (log.accrGaps || 0) + 1; return o.accrFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
+        : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
+      if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
+        return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
       if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
       if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
@@ -179,6 +184,14 @@ function sandbox(o = {}) {
           contacts: body.args.contacts.map((c, i) => ({ person: c.person, row: 40 + i })), accreditation: { status: 'Open', missing: ['Bank details', 'Sample invoice'] }, verify: { ok: true, problems: [] } } }); }
       if (body.action === 'save_supplier_file') { log.supFiles = (log.supFiles || []).concat([body.args.drive_id ? 'shortcut:' + body.args.drive_id : body.args.name + ':' + Buffer.from(body.args.data, 'base64').toString()]);
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/s' + log.supFiles.length, existed: false } }); }
+      if (body.action === 'list_unsigned_docs') { log.unsigned = (log.unsigned || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: { sign_url: 'https://canvas.blankspaceevent.com/crew', docs: (o.unsigned || []).filter(d => !(log.signed || []).includes(d.id)) } }); }
+      if (body.action === 'send_doc_reminder') { log.reminders = log.reminders || []; log.reminders.push(body.args);
+        const live = body.args.docs.filter(d => !(log.signed || []).includes(d.id));
+        return resp(200, { ok: true, status: 'Completed', result: live.length ? { ok: true, sent: true, existed: false, docs: live.map(d => d.doc + ' ' + d.id) } : { ok: true, sent: false, reason: 'already signed or replaced', docs: [] } }); }
+      if (body.action === 'overdue_billings') { log.overdue = (log.overdue || 0) + 1; if (o.overdueFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.overdue || { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [], bis: [] } }); }
+      if (body.action === 'send_payment_chasers') { log.paySends = log.paySends || []; log.paySends.push(body.args);
+        if (o.payRefuse) return resp(200, { ok: false, status: 'Rejected', error: o.payRefuse });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, id: (body.args.mode === 'send' ? 'info-sent-' : 'info-draft-') + log.paySends.length, threaded: !!body.args.thread_id, mode: body.args.mode, to: body.args.to, cc: 'kikodacanay@blankspaceevent.com' } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
       if (body.action === 'search_projects') { log.search = (log.search || []).concat(body.args.query); if (o.searchFail) return resp(200, { ok: false, status: 'Blocked', error: 'boom' }); return resp(200, { ok: true, status: 'Completed', result: (o.search || {})[body.args.query.toLowerCase()] || { projects: [], total: 0 } }); }
       if (body.action === 'list_project_files') {
@@ -292,9 +305,10 @@ function sandbox(o = {}) {
         const q = decodeURIComponent(u.split('q=')[1]);
         if (/^from:/.test(q)) { (log.fromQ = log.fromQ || []).push(q); const after = Number((q.match(/after:(\d+)/) || [])[1]) || 0;
           return resp(200, { messages: (o.inbound || []).filter(m => q.indexOf('from:' + m.from + ' ') === 0 && m.ms / 1000 > after).map(m => ({ id: m.id, threadId: 'x' })) }); }
-        log.gmailQ = q; return resp(200, { messages: (o.sentSearch || o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) });
+        log.gmailQ = q; (log.gmailQs = log.gmailQs || []).push(q);
+        return resp(200, { messages: (o.gmailList ? o.gmailList(q) : (o.sentSearch || o.sent || SENT)).map(m => ({ id: m.id, threadId: m.thread })) });
       }
-      const m = (o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
+      const m = (o.msgs || []).concat(o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(m.ms), snippet: m.snippet,
         payload: { headers: [{ name: 'From', value: m.from || 'Kiko <kiko@example.com>' }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
     }
@@ -1021,6 +1035,76 @@ function rfqBox(o = {}) {
   return t;
 }
 const rfqBatch = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0];
+/* ---------- payment chasers (spec specs/payment-chasers.md, Kiko approved 08:16Z) ---------- */
+const OVERDUE = { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [{ no: '1045', project: 'Gamma Gala', why: 'The BI has no total, so the amount owed is unknown.' }], bis: [
+  { no: '1041', project_id: 'S-31628060SP', project: 'Synthetic Expo', company: 'Acme Corp', client: 'Ana Reyes', total: 120000, collected: 40000, balance: 80000,
+    total_text: 'PHP 120,000.00', balance_text: 'PHP 80,000.00', due: '2026-10-01', days_late: 20, to: 'ap@acme.example', to_name: 'Fe Santos', to_source: 'billing contact (Client Desk)',
+    thread: { thread_id: 'th1041abcd', message_id: '<a1@mail>', subject: 'Billing Invoice BI 1041', sent_on: '2026-09-01', to: ['ana@acme.example'], cc: [], last_from_bse: '2026-09-01', client_replied: null } },
+  { no: '1047', project_id: 'S-31628061SP', project: 'Acme Roadshow', company: 'Acme Corp', client: 'Ana Reyes', total: 25000, collected: 0, balance: 25000,
+    total_text: 'PHP 25,000.00', balance_text: 'PHP 25,000.00', due: '2026-10-10', days_late: 11, to: 'ap@acme.example', to_name: 'Fe Santos', to_source: 'billing contact (Client Desk)', thread: null },
+  { no: '1043', project_id: 'S-40000001AA', project: 'Beta Launch', company: 'Beta Inc', client: 'Ben Cruz', total: 80000, collected: 0, balance: 80000,
+    total_text: 'PHP 80,000.00', balance_text: 'PHP 80,000.00', due: '2026-09-16', days_late: 35, to: 'ben@beta.example', to_name: 'Ben Cruz', to_source: 'invoice contact',
+    thread: { thread_id: 'th1043abcd', subject: 'BI 1043', client_replied: { on: '2026-10-15', from: 'ben@beta.example', snippet: 'We are processing it this week.' } } },
+  { no: '1050', project_id: 'S-40000009ZZ', project: 'Zeta Fair', company: 'Zeta', client: 'Zed', total: 5000, collected: 0, balance: 5000,
+    total_text: 'PHP 5,000.00', balance_text: 'PHP 5,000.00', due: '2026-10-05', days_late: 16, to: '', to_name: 'Zed', to_source: '', thread: null }] };
+const GOODPAY = x => 'Dear Fe, a gentle reminder on ' + x.facts.bis.map(b => 'BI ' + b.no + ' (' + b.balance_text + ')').join(' and ') + ', total ' + x.facts.total_balance_text + '. When can we expect payment?';
+function payBox(o = {}) { const t = sweepBox(Object.assign({ overdue: OVERDUE, chaserBody: GOODPAY }, o), null); return t; }
+const payItems = t => batchOf(t).batch.items.filter(i => i.kind === 'payment');
+
+test('PY1 find: one Canvas read, one email per client (BIs grouped, oldest first), replied and no-email lines need Kiko, notes for skipped BIs', () => {
+  const t = payBox(); t.ctx.cueSweep(); const b = batchOf(t), it = payItems(t);
+  assert.strictEqual(t.log.overdue, 1); assert.strictEqual(t.log.gpt.length, 1, 'the sweep\'s one ChatGPT call'); assert.ok(!t.log.paySends, 'nothing sent at build');
+  deq(it.map(i => [i.who, i.to, i.no_email, i.selected, i.in_thread]).sort(), [['Ben Cruz', 'ben@beta.example', true, false, true], ['Fe Santos', 'ap@acme.example', false, true, true], ['Zed', '', true, false, false]]);
+  const acme = it.filter(i => i.who === 'Fe Santos')[0];
+  assert.ok(/BI 1041, BI 1047: PHP 105,000.00 owed, 20 days overdue \(due 2026-10-01\)\. From info@, CC you/.test(acme.why), acme.why);
+  assert.ok(/BI 1041 \(PHP 80,000.00\) and BI 1047 \(PHP 25,000.00\)/.test(acme.body)); assert.strictEqual(acme.drafted_by, 'ChatGPT');
+  assert.ok(/client replied on 2026-10-15/i.test(it.filter(i => i.who === 'Ben Cruz')[0].why)); assert.ok(/No billing email found/.test(it.filter(i => i.who === 'Zed')[0].why));
+  deq(t.log.chaserItems.map(x => x.key), ['payment:bi:1041'], 'only the line with an email goes to ChatGPT');
+  assert.strictEqual(t.log.chaserItems[0].facts.total_balance_text, 'PHP 105,000.00');
+  assert.ok(b.notes.some(n => /BI 1045 \(Gamma Gala\): The BI has no total/.test(n)));
+});
+test('PY2 check: a ChatGPT draft that leaves out a BI or the amount is replaced by the fixed wording, with a note', () => {
+  const t = payBox({ chaserBody: () => 'Dear Fe, kindly settle your balance soon.' }); t.ctx.cueSweep();
+  const acme = payItems(t).filter(i => i.who === 'Fe Santos')[0];
+  assert.strictEqual(acme.drafted_by, 'template');
+  assert.ok(/- BI 1041, Synthetic Expo: PHP 80,000.00 balance, due 2026-10-01 \(we received PHP 40,000.00, thank you\)/.test(acme.body), acme.body);
+  assert.ok(/Total balance: PHP 105,000.00/.test(acme.body)); assert.ok(batchOf(t).notes.some(n => /left out a required detail/.test(n)));
+});
+test('PY3 Approve and send before 9:00: nothing in Kiko\'s Gmail; at 9:00 Canvas sends from info@ in the BI thread; chased again in 7 days', () => {
+  const t = payBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.at('2026-10-21', 7, 30);
+  const v = t.ctx.cueApprove(id, { send: true }); assert.strictEqual(v.status, 'Scheduled'); assert.ok(!t.log.paySends && !t.log.gmail.length && !t.log.replies);
+  assert.ok(t.tabs.Chat.rows.some(r => /will go out at 09:00\. Nothing has gone out yet/.test(r[2])));
+  t.at('2026-10-21', 9, 0); t.ctx.cueResume();
+  assert.strictEqual(t.log.paySends.length, 1); const a = t.log.paySends[0];
+  deq([a.key, a.mode, a.bis, a.balance, a.to, a.thread_id], ['payment:bi:1041:c1', 'send', ['1041', '1047'], 105000, 'ap@acme.example', 'th1041abcd']);
+  assert.ok(bridgeCheck('send_payment_chasers', a) === '', 'matches the Canvas bridge schema');
+  assert.strictEqual(batchOf(t).status, 'Done'); deq(chase(t).filter(r => r[1] === 'payment').map(r => [r[0], r[5], r[6], r[8]]), [['payment:bi:1041', 1, '2026-10-28', 'sent']]);
+  t.at('2026-10-28', 7, 0); t.ctx.cueSweep(); t.at('2026-10-28', 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(t.log.paySends[1].key, 'payment:bi:1041:c2', 'second chaser has its own once-only key');
+});
+test('PY4 Drafts only saves an info@ draft through Canvas; Kiko\'s edit that drops the amount is refused before Canvas; a Canvas refusal shows on the line', () => {
+  const t = payBox(); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: false });
+  deq(t.log.paySends.map(a => a.mode), ['draft']); assert.ok(!t.log.gmail.length); assert.ok(t.tabs.Chat.rows.some(r => /1 in info@'s Drafts/.test(r[2])));
+  const u = payBox(); u.ctx.cueSweep(); u.at('2026-10-21', 10, 0);
+  u.ctx.cueApprove(batchOf(u).id, { send: true, bodies: { 'payment:bi:1041': 'Hi Fe, BI 1041 and BI 1047 are overdue, please pay.' } });
+  const e = payItems(u).filter(i => i.who === 'Fe Santos')[0]; assert.ok(!u.log.paySends); assert.ok(/must name BI 1041, BI 1047 and state the balance \(PHP 105,000.00\)/.test(e.error));
+  const w = payBox({ payRefuse: 'The balance changed from PHP 105,000.00 to PHP 25,000.00 since the batch was built. Nothing was sent; run the sweep again.' });
+  w.ctx.cueSweep(); w.at('2026-10-21', 10, 0); w.ctx.cueApprove(batchOf(w).id, { send: true });
+  assert.ok(/balance changed/.test(payItems(w).filter(i => i.who === 'Fe Santos')[0].error)); assert.strictEqual(batchOf(w).status, 'Done, drafts incomplete');
+  assert.strictEqual(chase(w).filter(r => r[1] === 'payment').length, 0, 'not logged as chased');
+});
+test('PY5 at most 3 chasers, then the engine flags it to Kiko; Canvas down is a note, not a failed batch', () => {
+  const t = payBox(); ['2026-10-21', '2026-10-28', '2026-11-04'].forEach(d => { t.at(d, 7, 0); t.ctx.cueSweep(); t.at(d, 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true }); });
+  assert.strictEqual(t.log.paySends.length, 3); t.at('2026-11-11', 7, 0); t.ctx.cueSweep();
+  const b = batchOf(t); assert.ok(b.batch.stopped.some(i => i.key === 'payment:bi:1041')); assert.strictEqual(payItems(t).filter(i => i.key === 'payment:bi:1041').length, 0);
+  const u = sweepBox({ overdueFail: true }, null); u.ctx.cueSweep(); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
+});
+test('PY6 the Chaser rules card drives payments: first sets the days late asked of Canvas, every sets the next due, off skips the Canvas read', () => {
+  const t = payBox(); t.ctx.cueRulesSave({ 'payment.first': 10, 'payment.every': 5 }); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
+  assert.strictEqual(t.log.bridge.filter(b => b.action === 'overdue_billings')[0].args.min_days_late, 10);
+  t.ctx.cueApprove(batchOf(t).id, { send: true }); assert.strictEqual(chase(t).filter(r => r[1] === 'payment')[0][6], '2026-10-26');
+  const u = payBox(); u.ctx.cueRulesSave({ 'payment.on': false }); u.ctx.cueSweep(); assert.ok(!u.log.overdue, 'paused: no Canvas read');
+});
 
 test('Q1 finds only RFQs still waiting: 3 working days, no reply in or out of the thread, no draft waiting, project open, not muted by setting, outside BSE', () => {
   const t = rfqBox(); t.ctx.cueSweep(); const b = rfqBatch(t);
@@ -1280,6 +1364,10 @@ test('Q5 timing comes from Kiko\'s Chaser rules card: first chase after 2 shows 
   const u = rfqBox(); u.ctx.cueRulesSave({ 'rfq.on': false }); u.ctx.cueSweep();
   assert.ok(!u.log.threads, 'paused: Gmail is not even read'); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
 });
+test('Q6 event soon: after a nudge the next one is due in soon_every (1 working day), not every (3)', () => {
+  const t = rfqBox(); t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(rfqBatch(t).id, { send: true });
+  deq(chase(t).filter(r => /a6|a1/.test(r[0])).map(r => [r[0], r[6]]).sort(), [['rfq:aaaa0000000000a1', '2026-10-26'], ['rfq:aaaa0000000000a6', '2026-10-22']]);
+});
 /* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ---------- */
 test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
   const t = sandbox(), r = t.ctx.cueRules();
@@ -1287,8 +1375,10 @@ test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
     [[3, 3, 2, 'working'], [3, 5, 3, 'working'], [7, 7, 3, 'days'], [3, 3, 3, 'days'], [1, 2, 3, 'days']]);
   deq(r.general, { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 });
 });
+// A test stub replaces a real chaser kind of the same name (payment, award, ...) once those kind files load.
+function stubKind(t, def) { const ks = t.ctx.cueKinds_(); const i = ks.findIndex(k => k.kind === def.kind); if (i >= 0) ks.splice(i, 1); t.ctx.cueKind_(def); }
 test('R2 Kiko saves a change: checked, kept in the Rules tab, noted in the chat, used by the next batch', () => {
-  const t = sweepBox(); t.ctx.cueKind_({ kind: 'payment', label: 'Payment chasers', template: it => ({ body: 'Pay ' + it.who }),
+  const t = sweepBox(); stubKind(t, { kind: 'payment', label: 'Payment chasers', template: it => ({ body: 'Pay ' + it.who }),
     find: ctx => [{ key: 'pay:1', project: 'P', who: 'Client', to: 'c@x.example', why: 'Unpaid ' + ctx.rule('payment').first + 'd' }] });
   const r = t.ctx.cueRulesSave({ 'payment.every': 5, 'payment.first': '10', 'rfq.on': false });
   assert.strictEqual(r.kinds.payment.every, 5); assert.strictEqual(r.kinds.payment.first, 10); assert.strictEqual(r.kinds.rfq.on, false);
@@ -1311,12 +1401,17 @@ test('R4 a broken value typed into the Rules tab falls back to the default and t
   t.ctx.cueSweep(); const b = batchOf(t); assert.strictEqual(b.status, 'Needs you'); assert.ok(b.notes.some(n => /nudge\.every = "soon" is not valid/.test(n)));
 });
 test('R5 send time and working days: approved at 9:30 waits for a 10:00 send; working-day rules skip the weekend', () => {
-  const t = sweepBox(); t.ctx.cueRulesSave({ 'general.send': 10 }); t.ctx.cueKind_({ kind: 'award', label: 'CE award chasers', template: () => ({ body: 'Any news?' }),
+  const t = sweepBox(); t.ctx.cueRulesSave({ 'general.send': 10 }); stubKind(t, { kind: 'award', label: 'CE award chasers', template: () => ({ body: 'Any news?' }),
     find: () => [{ key: 'award:1', project: 'Acme', who: 'Ana', to: 'ana@acme.example', why: 'CE sent' }] });
   t.at('2026-10-23', 7, 0); t.ctx.cueSweep(); t.at('2026-10-23', 9, 30);
   assert.strictEqual(t.ctx.cueApprove(batchOf(t).id, { send: true }).status, 'Scheduled');
   t.at('2026-10-23', 10, 0); t.ctx.cueResume(); assert.ok(t.log.sent.length >= 1);
   assert.strictEqual(chase(t).filter(x => x[0] === 'award:1')[0][6], '2026-10-30', 'Friday + 5 working days = next Friday');
+});
+test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 1 working day', () => {
+  const t = sweepBox({ items: [{ key: 'rfq:dddddddddddddddd', project: 'Soon', who: 'S', to: 's@x.example', why: 'event in 3 days', every: 1 }] });
+  t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(chase(t)[0][6], '2026-10-22');
 });
 test('R6 moving the build time moves the 07:00 trigger', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
@@ -2133,6 +2228,144 @@ test('LK5 "cost them by item" in an intake thread starts at costing: no GPT read
   const u = sandbox(); assert.ok(!u.ctx.cueSend('can you cost them by item?', [], '', '').request_id, 'no thread with a read: not a re-cost');
 });
 
+test('A10 the Chaser rules card drives the timing: first chaser after 1 business day; paused means no award lines', () => {
+  const t = awardBox({ projects: [AW({ awaiting: { since: '2026-10-20' } })] }); t.ctx.cueRulesSave({ 'award.first': 1 });
+  t.ctx.cueSweep(); const [it] = awItems(t); assert.ok(/, 1 business day with no award decision\. .*Chaser 1 of 3/.test(it.why), it.why);
+  const u = awardBox(); u.ctx.cueRulesSave({ 'award.on': false }); u.ctx.cueSweep();
+  assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2]))); assert.ok(!u.log.queries, 'no Gmail search when paused');
+});
+// FSA / AR signature chasers (CueSweepSignature.gs, spec 06-freelancer-signatures.md)
+const SIGN_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueSweepSignature.gs'), 'utf8');
+const UNSIGNED = [
+  { doc: 'FSA', id: 'FSA-1', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ana Cruz', email: 'ana@example.test', role: 'Usher', generated: '2026-11-01 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
+  { doc: 'AR', id: 'AR-1', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ana Cruz', email: 'ana@example.test', role: 'Usher', generated: '2026-11-05 09:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
+  { doc: 'AR', id: 'AR-2', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ben Lim', email: 'ben@example.test', role: 'Host', generated: '2026-11-20 09:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
+  { doc: 'FSA', id: 'FSA-9', project_id: 'S-40000000XX', project: 'Cancelled Gala', name: 'Cy Go', email: 'cy@example.test', role: 'Host', generated: '2026-11-01 10:00', event_date: '2026-11-10', event_days: 1, event_end: '2026-11-10', project_status: 'Cancelled', admin_status: '' },
+  { doc: 'FSA', id: 'FSA-7', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Dee Paz', email: '', role: 'Crew', generated: '2026-11-01 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' }];
+function signBox(o = {}) { const t = sweepBox(Object.assign({ unsigned: UNSIGNED }, o), null); return t; }
+test('G1 nothing before the day after the event; then one line per freelancer, no AI call, no board read, fixed template', () => {
+  const t = signBox(); t.at('2026-11-14', 7, 0); t.ctx.cueSweep();
+  assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'event still on (its last day)'); assert.strictEqual(t.log.unsigned, 1);
+  t.at('2026-11-15', 7, 0); t.ctx.cueSweep(); const b = batchOf(t);
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call'); assert.ok(!t.log.board, 'no project board read'); assert.strictEqual(b.metrics.ai_calls, 0);
+  deq(b.batch.items.map(i => [i.who, i.selected, i.no_email]), [['Ana Cruz', true, false], ['Dee Paz', false, true]]);
+  const ana = b.batch.items[0];
+  assert.ok(/FSA for Synthetic Expo/.test(ana.why) && /AR for Synthetic Expo/.test(ana.why), ana.why);
+  assert.strictEqual(ana.subject, 'Please sign your FSA and AR · Synthetic Expo');
+  assert.ok(/^Hi Ana,/.test(ana.body) && /FSA for Synthetic Expo \(Usher\) and AR for Synthetic Expo \(Usher\) are still waiting/.test(ana.body) && /https:\/\/canvas\.blankspaceevent\.com\/crew/.test(ana.body), ana.body);
+  assert.ok(/No email on file/.test(b.batch.items[1].why)); assert.ok(!b.batch.items.some(i => /Cy Go|Ben Lim/.test(i.who)), 'cancelled project skipped; late AR waits');
+});
+test('G2 an AR made after the event (late payment) is chased from the day after it was made', () => {
+  const t = signBox({ unsigned: UNSIGNED.filter(d => d.id === 'AR-2') });
+  t.at('2026-11-20', 7, 0); t.ctx.cueSweep(); assert.ok(!batchOf(t) || batchOf(t).status === 'Done');
+  t.at('2026-11-21', 7, 0); t.ctx.cueSweep(); deq(batchOf(t).batch.items.map(i => i.who), ['Ben Lim']);
+});
+test('G3 Approve and send at 10:00: Canvas sends from freelancers@ (real bridge schema), no Gmail draft, chased again 2 days later', () => {
+  const t = signBox({ unsigned: UNSIGNED.slice(0, 1) }); t.at('2026-11-15', 10, 0); t.ctx.cueSweep(); const id = batchOf(t).id;
+  t.ctx.cueApprove(id, { send: true, bodies: { [batchOf(t).batch.items[0].key]: 'Hi Ana, edited by Kiko. https://canvas.blankspaceevent.com/crew' } });
+  assert.strictEqual(t.log.reminders.length, 1); const r = t.log.reminders[0];
+  assert.strictEqual(bridgeCheck('send_doc_reminder', r), ''); deq(r.docs, [{ doc: 'FSA', id: 'FSA-1' }]); assert.strictEqual(r.email, 'ana@example.test');
+  assert.ok(/edited by Kiko/.test(r.body)); assert.ok(/^sig:cue-/.test(r.reminder_id)); assert.strictEqual(t.log.gmail.length, 0, 'no draft in Kiko\'s Gmail');
+  assert.strictEqual(batchOf(t).status, 'Done');
+  deq(chase(t).map(x => [x[0], x[5], x[6], x[8]]), [['signature:ana@example.test:S-31628060SP', 1, '2026-11-17', 'sent']]);
+  t.at('2026-11-16', 7, 0); t.ctx.cueSweep(); assert.ok(t.tabs.Chat.rows.some(x => /nothing to chase today/.test(x[2])));
+  t.at('2026-11-17', 10, 0); t.ctx.cueSweep(); const n = batchOf(t).batch.items[0];
+  assert.strictEqual(n.times, 1); assert.ok(/^Reminder: /.test(n.subject) && /Following up on our earlier reminder/.test(n.body), n.body);
+});
+test('G4 after 3 reminders Cue stops and flags it; signed papers drop out; signed between approve and send is not an error', () => {
+  const t = signBox({ unsigned: UNSIGNED.slice(0, 1) });
+  for (const d of ['2026-11-15', '2026-11-17', '2026-11-19']) { t.at(d, 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true }); }
+  assert.strictEqual(t.log.reminders.length, 3); t.at('2026-11-21', 7, 0); t.ctx.cueSweep();
+  const b = batchOf(t); assert.strictEqual(b.batch.items.length, 0); deq(b.batch.stopped.map(i => i.who), ['Ana Cruz']);
+  const u = signBox({ unsigned: UNSIGNED.slice(0, 1) }); u.at('2026-11-15', 7, 0); u.ctx.cueSweep(); const id = batchOf(u).id;
+  u.ctx.cueApprove(id, { send: true }); u.log.signed = ['FSA-1']; u.at('2026-11-15', 9, 0); u.ctx.cueResume();
+  const v = batchOf(u); assert.strictEqual(v.status, 'Done'); assert.ok(!v.batch.items[0].error);
+  u.at('2026-11-17', 7, 0); u.ctx.cueSweep(); assert.ok(u.tabs.Chat.rows.some(x => /nothing to chase today/.test(x[2])), 'signed: no longer listed');
+});
+test('G5 Drafts only: the reminder goes to Kiko\'s own Gmail Drafts and Canvas sends nothing', () => {
+  const t = signBox({ unsigned: UNSIGNED.slice(0, 1) }); t.at('2026-11-15', 10, 0); t.ctx.cueSweep();
+  t.ctx.cueApprove(batchOf(t).id, { send: false });
+  assert.strictEqual(t.log.gmail.length, 1); assert.ok(/ana@example\.test/.test(t.log.gmail[0])); assert.ok(!t.log.reminders);
+});
+/* ---------- accreditation chasers (spec specs/accreditation-chasers.md, Kiko 08:22Z) ---------- */
+const ACCR = { today: '2026-10-21', form_url: 'https://docs.google.com/forms/d/VAF/viewform', subject: 'Supplier accreditation · Blank Space Events', rows: [
+  { supplier: 'Sonic Pro', kind: 'Corporation', missing: ['Business Permit', 'Bank details'], status: 'Form sent', opened: '2026-10-14', form_sent: '2026-10-15',
+    sent_to: ['ben@sonic.example'], contact: { name: 'Ben Cruz', phone: '0917 111 2222' }, reminders: 0, last_reminder: '', replied_since: '', replied_by: '',
+    project_id: 'S-1', project: 'Acme Gala', event_date: '2026-10-24', project_status: 'For Production Start', asks: [['Please have these ready', ['Your TIN']]] },
+  { supplier: 'Build Co', kind: '', missing: ['TIN', 'Bank details'], status: 'Open', opened: '2026-10-20', form_sent: '', sent_to: ['hello@build.example'],
+    contact: { name: '', phone: '' }, reminders: 0, last_reminder: '', replied_since: '', replied_by: '', project_id: '', project: '', event_date: '', asks: [['Everyone', ['Your TIN', 'Bank details']]] },
+  { supplier: 'Fresh Co', missing: ['TIN'], status: 'Form sent', form_sent: '2026-10-20', sent_to: ['a@fresh.example'], contact: {}, reminders: 0, last_reminder: '', replied_since: '', project: 'Acme Gala', event_date: '2026-12-01', asks: [] },
+  { supplier: 'Answered Co', missing: ['TIN'], status: 'Form sent', form_sent: '2026-10-10', sent_to: ['x@answered.example'], contact: {}, reminders: 1, last_reminder: '2026-10-14', replied_since: '2026-10-16', replied_by: 'form', project: '', event_date: '', asks: [] },
+  { supplier: 'No Mail Co', missing: ['TIN'], status: 'Open', form_sent: '', sent_to: [], contact: { name: 'Ana', phone: '0918' }, reminders: 0, project: '', event_date: '', asks: [] }] };
+const ACCR_MSGS = [{ id: 'acc1', thread: 'thr-sonic', ms: Date.parse('2026-10-15T03:00:00Z'), subject: 'Supplier accreditation · Blank Space Events · Acme Gala', from: 'BSE Suppliers <suppliers@blankspaceevent.com>', snippet: '' }];
+const accrBox = (o = {}) => sweepBox(Object.assign({ accr: ACCR, msgs: ACCR_MSGS, gmailList: q => (/sonic/.test(q) ? ACCR_MSGS : []) }, o), null);
+const accrItems = b => b.batch.items.filter(i => i.kind === 'accreditation');
+
+test('AC1 accreditation: one line per open supplier; the form when never sent, a reminder 3 days after; urgent near the event; answered and no-email lines send nothing', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const b = batchOf(t), it = accrItems(b);
+  deq(it.map(i => [i.key, i.who, i.priority, !!i.no_email]).sort(), [['accr-form:buildco', 'Build Co', 'normal', false], ['accr-form:nomailco', 'No Mail Co', 'normal', true],
+    ['accr:answeredco', 'Answered Co', 'normal', true], ['accr:sonicpro', 'Sonic Pro', 'urgent', false]]);
+  assert.ok(!it.some(i => i.who === 'Fresh Co'), 'form sent yesterday: not due until 3 days after');
+  const sonic = t.state(b.id).batch.items.find(i => i.who === 'Sonic Pro');   // the card view leaves thread ids out
+  deq([sonic.thread_id, sonic.message_id, sonic.to], ['thr-sonic', '<acc1@mail>', 'ben@sonic.example']);
+  assert.ok(/0917 111 2222/.test(sonic.why) && /Event on 2026-10-24/.test(sonic.why));
+  assert.ok(/answered on 2026-10-16 \(accreditation form\)/.test(it.find(i => i.who === 'Answered Co').why));
+  assert.ok(/No email address on file/.test(it.find(i => i.who === 'No Mail Co').why));
+  deq(it.filter(i => i.selected).map(i => i.who).sort(), ['Build Co', 'Sonic Pro'], 'only the sendable lines are ticked');
+  assert.strictEqual(t.log.accrGaps, 1, 'one Canvas read');
+  assert.ok(t.log.gmailQs.some(q => /subject:"Supplier accreditation".*from:ben@sonic\.example/.test(q)), 'looks for the thread in Kiko\'s Gmail');
+});
+
+test('AC2 a supplier reply in Kiko\'s Gmail after the last email turns the reminder into "read their documents"', () => {
+  const reply = [{ id: 'acc2', thread: 'thr-sonic', ms: Date.parse('2026-10-17T03:00:00Z'), subject: 'Re: Supplier accreditation', from: 'Ben <ben@sonic.example>', snippet: '' }];
+  const t = accrBox({ msgs: reply, gmailList: q => (/sonic/.test(q) ? reply : []) }); t.ctx.cueSweep();
+  const s = accrItems(batchOf(t)).find(i => i.who === 'Sonic Pro');
+  assert.ok(s.no_email && /They answered on 2026-10-17/.test(s.why));
+});
+
+test('AC3 drafts only: Kiko\'s Gmail draft replies in the accreditation thread, suppliers@ in CC; nothing is logged in Canvas', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
+  const raws = t.log.gmail; assert.strictEqual(raws.length, 2);
+  const sonic = raws.find(r => /ben@sonic/.test(r)), body = Buffer.from(sonic.split('\r\n\r\n')[1], 'base64').toString('utf8');
+  assert.ok(/^To: ben@sonic\.example\r\nCc: suppliers@blankspaceevent\.com\r\n/.test(sonic) && /In-Reply-To: <acc1@mail>/.test(sonic));
+  assert.ok(body.indexOf('https://docs.google.com/forms/d/VAF/viewform') >= 0, 'the form link is always in');
+  assert.ok(!t.log.accrLog, 'drafts are not logged in Canvas');
+  assert.ok(!(t.log.sent || []).length, 'nothing sent');
+});
+
+test('AC4 approve and send at 9:00: Canvas re-checks, the email goes from Kiko\'s Gmail, Canvas logs it; a row closed since is not sent', () => {
+  const t = accrBox({ accrClosed: ['Build Co'] }); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: true });
+  assert.ok(!(t.log.sent || []).length, 'before 9:00 nothing goes');
+  t.at('2026-10-21', 9, 5); t.ctx.cueSweepTick_();
+  const b = batchOf(t), it = accrItems(b);
+  deq(t.log.accrLog.map(a => [a.supplier, a.stage]), [['Sonic Pro', 'check'], ['Sonic Pro', 'sent'], ['Build Co', 'check']]);
+  deq(t.log.accrLog[1].thread_id, 'thr-sonic');
+  assert.strictEqual(t.log.sent.length, 1);
+  assert.ok(/no longer missing anything/.test(it.find(i => i.who === 'Build Co').error));
+  assert.ok(t.log.accrLog.every(a => !bridgeCheck('log_accreditation_reminder', a)), 'arguments fit the real bridge schema');
+});
+
+test('AC5 ChatGPT drops the form link: Cue puts it back; ChatGPT down: the template is used', () => {
+  const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
+  assert.ok(t.log.gmail.every(r => Buffer.from(r.split('\r\n\r\n')[1], 'base64').toString('utf8').indexOf('/forms/d/VAF/viewform') >= 0));
+  const u = accrBox({ fail: { chasers: () => resp(500, {}) } }); u.ctx.cueSweep();
+  const f = accrItems(batchOf(u)).find(i => i.who === 'Build Co');
+  assert.ok(f.drafted_by === 'template' && /Vendor Accreditation Form/.test(f.body) && /- Bank details/.test(f.body));
+});
+
+test('AC7 a form Kiko sent by hand from a Drafts-only batch counts as sent: no second form, a reminder 3 days later', () => {
+  const mine = [{ id: 'acc3', thread: 'thr-build', ms: Date.parse('2026-10-21T02:00:00Z'), subject: 'Supplier accreditation · Blank Space Events', from: 'Kiko <kiko@example.com>', snippet: '' }];
+  const box = () => accrBox({ msgs: mine, gmailList: q => (/build/.test(q) ? mine : []) });
+  const t = box(); t.at('2026-10-22', 7, 0); t.ctx.cueSweep();
+  assert.ok(!accrItems(batchOf(t)).some(i => i.who === 'Build Co'), 'sent yesterday by hand: nothing today');
+  const u = box(); u.at('2026-10-24', 7, 0); u.ctx.cueSweep();
+  deq(accrItems(batchOf(u)).filter(i => i.who === 'Build Co').map(i => i.key), ['accr:buildco']);
+});
+
+test('AC6 Canvas down: the other kinds still run and the batch says accreditation could not be checked', () => {
+  const t = sweepBox({ accrFail: true }); t.ctx.cueSweep(); const b = batchOf(t);
+  assert.ok(b.batch.items.length > 0 && b.notes.some(n => /Accreditation chasers: could not check/.test(n)));
+});
 /* ---------- Write Like Me (specs/write-like-me.md) ---------- */
 const MINE = [
   { id: 's1', to: 'Sonic Pro <sales@sonicpro.example>', subject: 'RFQ: LED wall', body: 'Hi Sonic Pro team!\n\nCan you send us a quote for a 4x3m LED wall on Dec 12? Call me at 0917 123 4567.\n\nThanks po,\nKiko\n\nOn Mon, 20 Oct 2026 at 9:00, Sonic <sales@sonicpro.example> wrote:\n> old quoted text' },
@@ -2156,7 +2389,7 @@ const STYLE = { summary: 'Warm and short, Taglish touches with suppliers.', rule
 function styleRun(o) { const t = sandbox(Object.assign({ mine: MINE }, o)); const out = t.ctx.cueSend((o && o.say) || 'learn my style', [], ''); const v = t.ctx.cueRun(out.request_id); return Object.assign(t, { id: out.request_id, v }); }
 const styleRows = t => t.tabs.Style.rows.slice(1).filter(r => r[3]);
 
-test('W1 "learn my style": no AI call to route it; Cue reads sent emails (own words only), 1 Claude call, a card, nothing saved yet', () => {
+test('WL1 "learn my style": no AI call to route it; Cue reads sent emails (own words only), 1 Claude call, a card, nothing saved yet', () => {
   const t = styleRun();
   assert.strictEqual(t.log.gpt.length, 0, 'no chat call'); assert.strictEqual(t.v.kind, 'style'); assert.strictEqual(t.v.status, 'Needs you');
   assert.strictEqual(t.v.metrics.ai_calls, 1); assert.ok(/in:sent/.test(t.log.gmailQ));
@@ -2171,7 +2404,7 @@ test('W1 "learn my style": no AI call to route it; Cue reads sent emails (own wo
   assert.ok(!JSON.stringify(t.state(t.id)).includes('Got it, we will send'), 'the emails are not kept in the sheet');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + t.id), 'main chat points to the thread');
 });
-test('W2 approve: ticked lines, as edited, become the Style tab; RFQs and requotes then use the supplier guide and its sign-off', () => {
+test('WL2 approve: ticked lines, as edited, become the Style tab; RFQs and requotes then use the supplier guide and its sign-off', () => {
   const t = styleRun(), d = t.ctx.cueApprove(t.id, { skip: ['S5'], bodies: { S1: 'Warm and brief.' } });
   assert.strictEqual(d.status, 'Done');
   deq(styleRows(t), [[true, 'all', 'tone', 'Warm and brief.'], [true, 'supplier', 'greeting', 'Hi [supplier]!'], [true, 'supplier', 'sign-off', 'Thanks po,\nKiko'],
@@ -2184,7 +2417,7 @@ test('W2 approve: ticked lines, as edited, become the Style tab; RFQs and requot
   assert.ok(!/Cheers/.test(call.instructions), 'client lines stay out of supplier emails');
   assert.strictEqual(JSON.parse(call.input).sign_off, 'Thanks po,\nKiko');
 });
-test('W3 no guide: drafting prompts and sign-off are exactly as before; Off lines and an unreadable tab are ignored', () => {
+test('WL3 no guide: drafting prompts and sign-off are exactly as before; Off lines and an unreadable tab are ignored', () => {
   const t = startToCard(), call = t.log.gpt.filter(b => b.text.format.name === 'rfqs')[0];
   assert.ok(/^You write requests for quotation/.test(call.instructions) && !/own style/.test(call.instructions)); assert.strictEqual(JSON.parse(call.input).sign_off, 'Blank Space Events');
   const u = sandbox(); u.tabs.Style = sheetMock(); u.tabs.Style.appendRow(['On', 'Audience', 'Kind', 'Text']);
@@ -2194,7 +2427,7 @@ test('W3 no guide: drafting prompts and sign-off are exactly as before; Off line
   u.tabs.Style.getRange = () => { throw new Error('sheet busy'); };
   assert.strictEqual(u.ctx.cueStyleFor_('supplier'), ''); assert.strictEqual(u.ctx.cueStyleSignOff_('client'), 'Blank Space Events');
 });
-test('W4 pasted old notes reach Claude; too few emails without notes stops clearly; Close saves nothing; re-learning replaces the tab', () => {
+test('WL4 pasted old notes reach Claude; too few emails without notes stops clearly; Close saves nothing; re-learning replaces the tab', () => {
   const p = styleRun({ say: 'Learn my style: always say "po" to suppliers' });
   assert.strictEqual(JSON.parse(p.log.claude[0].messages[0].content).old_style_notes, 'always say "po" to suppliers'); assert.ok(p.v.style.notes);
   const f = styleRun({ mine: MINE.slice(0, 3) }); assert.strictEqual(f.v.status, 'Failed'); assert.ok(/only 3 sent emails/.test(f.v.error)); assert.strictEqual(f.log.claude.length, 0);
@@ -2206,7 +2439,7 @@ test('W4 pasted old notes reach Claude; too few emails without notes stops clear
   deq(styleRows(t), [[true, 'all', 'tone', 'Warm, short and direct; first names.']], 'old rows blanked');
   assert.strictEqual(t.state(again.id).style.previous.length, 6, 'the replaced guide is kept in the request');
 });
-test('W5 readiness follow-ups use every audience, labelled, and the general sign-off', () => {
+test('WL5 readiness follow-ups use every audience, labelled, and the general sign-off', () => {
   const t = sandbox(); t.tabs.Style = sheetMock(); [['On', 'Audience', 'Kind', 'Text'], [true, 'all', 'sign-off', 'Best,\nKiko'], [true, 'client', 'tone', 'Formal with clients'], [true, 'supplier', 'sign-off', 'Thanks po,\nKiko']].forEach(r => t.tabs.Style.appendRow(r));
   const any = t.ctx.cueStyleFor_('any'); assert.ok(/tone \(for clients\): Formal/.test(any) && /sign-off \(for suppliers\)/.test(any));
   assert.strictEqual(t.ctx.cueStyleSignOff_('all'), 'Best,\nKiko'); assert.strictEqual(t.ctx.cueStyleSignOff_('supplier'), 'Thanks po,\nKiko');
