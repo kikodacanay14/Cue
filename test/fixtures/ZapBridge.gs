@@ -141,6 +141,14 @@ const ZB_ACTIONS_ = {
     run: (r) => { const o = listProjectFiles(r.project_id); return { folder_url: o.folderUrl || '', own: !!o.own, more: !!o.more || (o.files || []).length > 60,
       files: (o.files || []).slice(0, 60).map(f => ({ name: f.name, url: f.url, mime: f.mime, size: f.size, modified: f.modified, folder: f.folder })) }; }
   },
+  get_readiness: {
+    // CUE-2026-10-21 (Kiko 07:32Z approved specs/project-readiness.md). The project's readiness checklist exactly as the
+    // Checklist tab computes it (getChecklist: Canvas's own rules, counts and auto checks), for Cue's readiness card.
+    // Read only: no item, review, exception or gate approval is written. gate 'auto' (default) = Closeout once the event
+    // date has passed or the project is in Closure; Pre-Event Readiness before that.
+    kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] } },
+    run: (r) => zbReadiness_(r.project_id, r.args.gate || 'auto')
+  },
   save_project_file: {
     // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
     // One file Kiko attached in Cue, into <project folder>/<type> through saveProjectFile_ (the Files tab's own save).
@@ -351,6 +359,29 @@ function zbCheck_(v, s, name) {
     if (s.minKeys && Object.keys(v).length < s.minKeys) return name + ' has nothing to write';
   }
   return '';
+}
+
+// Closure statuses (PROJECT_PHASES_ in Code.gs) and Completed get the Closeout gate.
+const ZB_CLOSE_RE_ = /invoic|project review|billing|payment advice|^complete/i;
+function zbReadiness_(pid, want) {
+  const p = ckProject_(pid), m = String(p.date || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const iso = m ? m[3] + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2) : '';
+  const gate = want === 'pre' || want === 'close' ? want : (iso && iso < today) || ZB_CLOSE_RE_.test(String(p.status || '').trim()) ? 'close' : 'pre';
+  const st = getChecklist(pid, gate), ev = st.eval || {}, t = (v, n) => String(v == null ? '' : v).slice(0, n);
+  const live = (st.items || []).filter(it => !it.auto);
+  const check = c => !c ? 'manual' : c.manual ? 'manual' : c.skip ? 'skipped' : c.err ? 'unknown' : c.met === true ? (c.reviewed ? 'met' : 'met, waiting for review') : 'not met';
+  const open = live.filter(it => !it.clear).slice(0, 120).map(it => ({ id: t(it.id, 20), section: t(it.cat, 80), requirement: t(it.req, 300),
+    criticality: t(it.crit, 10), applicability: t(it.eappl || it.appl, 12), status: t(it.status, 30), owner: t(it.owner, 80), due: t(it.due, 10),
+    follow_up: t(it.fu, 10), next_action: t(it.next, 300), evidence: /^https:\/\//i.test(String(it.ev || '')) ? t(it.ev, 500) : '',
+    check: check(it.chk), why: t(it.chk && (it.chk.err || it.chk.why), 300) }));
+  return { gate, gate_name: t(st.name, 60), target_status: t(st.target, 60), today,
+    project: { id: pid, name: t(p.name, 200), event_date: iso, status: t(p.status, 60) },
+    counts: { blockers_open: ev.blockers || 0, blockers_total: ev.blockersTotal || 0, warnings_open: ev.warnings || 0, warnings_total: ev.warningsTotal || 0,
+      waiting_on_others: ev.waiting || 0, needs_kiko: ev.needsKiko || 0, to_review: ev.toReview || 0, unchecked: ev.unchecked || 0, clear: live.length - live.filter(it => !it.clear).length },
+    ready: !!ev.ready, unchecked_items: (ev.uncheckedItems || []).slice(0, 20).map(x => t(x, 300)),
+    auto: (ev.auto || []).map(a => ({ key: t(a.key, 30), label: t(a.label, 120), open: (a.ids || []).length, items: (a.ids || []).slice(0, 10).map(x => t(x, 80)), error: t(a.error, 300) })),
+    items: open };
 }
 
 function zbSaveFile_(r) {
