@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.16';
+const CUE_VERSION_ = 'Cue 1.16.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -611,6 +611,8 @@ function cueApprove(id, edits) {
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** CUE-PHASED: Rescan (phase 2) and one RFQ's Send / Save as draft / Cancel (phase 4). */
+/** CUE-UNDO: Cancel intake removes what it wrote in Canvas (Kiko confirms first on the card). pid: the Same project? choice "remove it and add this". */
+function cueCancelIntake(id, pid) { cueOwner_(); return cueView_(cuePhCancel_(id, pid || '')); }
 function cueRescan(id, note) { cueOwner_(); return cueView_(cuePhRescan_(id, note)); }
 function cueRfq(id, i, act, edit) { cueOwner_(); return cueView_(cuePhRfq_(id, i, act, edit || null)); 
 }
@@ -821,7 +823,7 @@ function cueView_(s) {
     style: s.kind === 'style' ? cueStyleView_(s) : null,
     teach: s.kind === 'memory' || s.kind === 'process' ? cueTeachView_(s) : null,
     mail: s.kind === 'email' ? cueMailView_(s) : null,
-    ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased,
+    ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

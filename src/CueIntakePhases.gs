@@ -85,6 +85,15 @@ function cuePhCheck_(s, save) {
       + '. Is this the same project? Nothing is done until you answer on the card.', s.id);
     return;
   }
+  // Live 16:45Z: Canvas's similar list missed a project with the same name and date. Ask about an exact match too, before phase 1.
+  if (!s.as_new && !full && !s.said_change && !same.length && !named.length) {
+    const dup = cuePhDupOf_(s);
+    if (dup.length) {
+      Object.assign(s, { ask_same: dup, dup: true, status: 'Needs you', stage: 'Same project?', card_at: cueNow_() });
+      cueChat_('Cue', 'Canvas already has ' + dup.map(x => x.name + ' (' + x.project_id + ', ' + x.date + ')').join('; ') + '. Is this the same project? Nothing is done until you answer on the card.', s.id);
+      return;
+    }
+  }
   s.similar = named.length ? named : s.said_change ? same : [];
   if (!s.as_new && !full && (s.similar.length || s.said_change)) return cueChangeStart_(s);
   s.similar = [];
@@ -204,19 +213,74 @@ function cuePhApprove_(id, edits) {
     // Live 15:43Z: Canvas answers "request is Adding project" when an earlier tap is still saving that phase. That tap
     // finishes the card; this one only says so. Never save this tap's copy over a newer one: it would undo the phase.
     const m = cueStr_((e && e.message) || e, 400), still = /\(Blocked\): request is Adding (project|lines)\b/.test(m);
+    // Live 16:52Z: Canvas refuses a project it already has. That is the "Same project?" question, never an error.
+    const dup = s.phase === 1 && /is already in the Admin Directory/.test(m) ? cuePhDupOf_(s) : [];
     cueLocked_(() => {
       const N = cueLoad_(id); if (!N) return;
       const t = N.s.updated === stamp ? s : N.s;
-      if (t.phase === s.phase && t.status === 'Needs you') t.error = still ? CUE_PH_STILL_ : m;
+      if (dup.length && t.phase === 1 && t.status === 'Needs you') Object.assign(t, { ask_same: dup, dup: true, phase: 0, stage: 'Same project?', error: '', card_at: cueNow_() });
+      else if (t.phase === s.phase && t.status === 'Needs you') t.error = still ? CUE_PH_STILL_ : m;
       if (t === s || t.busy_until === s.busy_until) delete t.busy_until;
       t.work_ms = (t.work_ms || 0) + (cueNow_() - t0); cueSave_(N.sh, N.row, t);
     });
+    if (dup.length) { cueChat_('Cue', 'Canvas already has ' + dup.map(x => x.name + ' (' + x.project_id + ', ' + x.date + ')').join('; ') + '. Is this the same project? Nothing is done until you answer on the card.', id); return cueLoad_(id).s; }
     if (still) return cueLoad_(id).s;
     throw e;
   }
   delete s.busy_until; s.work_ms = (s.work_ms || 0) + (cueNow_() - t0); s.approved_at = new Date(cueNow_()).toISOString(); save();
   return s.status === 'Working' ? cueRunLeased_(id) : s;
 }
+/** The Canvas projects with this intake's name and event date (Canvas refused a second one). Read only; [] when the read fails. */
+function cuePhDupOf_(s) {
+  const e = s.x.event, n = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  let r = null; try { r = cueBridge_(s, 'search_projects', { query: cueStr_(e.name, 200) }); } catch (err) { return []; }
+  const day = t => { const d = Date.parse(String(t || '')); return isNaN(d) ? 0 : Math.floor(d / 864e5); };
+  return ((r && r.projects) || []).filter(x => n(x.name) === n(e.name) && Math.abs(day(x.date) - day(e.date)) <= 1).slice(0, 3)
+    .map(x => ({ project_id: String(x.project_id || ''), name: cueStr_(x.name, 200), account: cueStr_(x.account, 200), date: cueStr_(x.date, 20), status: cueStr_(x.status, 60) }));
+}
+
+/* CUE-UNDO (Kiko 16:53Z "when the whole thread gets cancelled it should delete and not save any record"). Cancel intake: Canvas
+ * removes everything this intake wrote (intake_remove: project, lines, contacts, folders), after Kiko confirms on the card.
+ * A Reject on one phase still only stops that phase. pid: remove that project instead (the Same project? card, when Canvas
+ * refused a second copy of a project an earlier Cue intake made); Canvas refuses any project no Cue intake made. */
+function cuePhCancel_(id, pid) {
+  const L = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    const s = L.s;
+    if (!s.phased || s.kind !== 'intake') throw new Error('Only a project intake can be cancelled this way.');
+    if (s.busy_until > cueNow_() || ['Working', 'Writing to Canvas'].indexOf(s.status) >= 0) throw new Error('This intake is still saving. Cancel it when it stops.');
+    if (pid) { if (!(s.ask_same || []).some(x => x.project_id === pid)) throw new Error('That project is not one of the choices.'); }
+    else if (!s.canvas || !s.canvas.project_id) throw new Error('Nothing from this intake is in Canvas.');
+    else if (s.canvas.removed) return Object.assign(L, { done: true });
+    s.busy_until = cueNow_() + CUE_LEASE_MS_; cueSave_(L.sh, L.row, s);
+    return L;
+  });
+  if (L.done) return L.s;
+  const s = L.s, P = pid || s.canvas.project_id;
+  let r;
+  try { r = cueBridge_(s, 'intake_remove', pid ? { project_id: pid } : { request_id: s.id, project_id: P }) || {}; }
+  catch (e) {
+    const m = cueStr_((e && e.message) || e, 400);
+    cueLocked_(() => { const N = cueLoad_(id); delete N.s.busy_until; N.s.error = /unknown action/.test(m) ? 'Canvas cannot remove projects until its next update. Nothing was removed.' : m; cueSave_(N.sh, N.row, N.s); });
+    return cueLoad_(id).s;
+  }
+  const said = 'Removed ' + P + ' from Canvas: the project, ' + (Number(r.lines_removed) || 0) + ' requirement line' + (r.lines_removed === 1 ? '' : 's') + ', '
+    + (Number(r.contacts_removed) || 0) + ' contact' + (r.contacts_removed === 1 ? '' : 's') + ((r.folders_trashed || []).length ? ' and its folders (in the Drive trash)' : '') + '.'
+    + ((r.left || []).length ? ' Still there: ' + r.left.join('; ') + '.' : '');
+  const out = cueLocked_(() => {
+    const N = cueLoad_(id), t = N.s; delete t.busy_until; t.error = '';
+    if (pid) { Object.assign(t, { same_answer: 'new', status: 'Working', stage: 'Checking Canvas', removed_dup: { project_id: P, at: new Date(cueNow_()).toISOString() } }); delete t.card_at; }
+    else { t.canvas.removed = { at: new Date(cueNow_()).toISOString(), lines: Number(r.lines_removed) || 0, left: r.left || [] };
+      Object.assign(t, { status: 'Rejected', stage: 'Cancelled', rejected: { at: new Date(cueNow_()).toISOString(), by: 'Kiko', phase: t.phase || 0, why: 'Cancelled by Kiko; removed from Canvas' } }); }
+    cueSave_(N.sh, N.row, t); return t;
+  });
+  cueChat_('Cue', said + (pid ? ' Adding this one fresh.' : ''), id);
+  if (pid) return cueRunLeased_(id);
+  cueSummary_(out);
+  return out;
+}
+
 const CUE_PH_STILL_ = 'Canvas is still saving this from your earlier tap. The card moves on when it finishes; tapping again never adds it twice.';
 
 /** Phase 1 approve: Kiko's edits, then Canvas adds the project (once; a repeat returns the same project). */
@@ -358,6 +422,8 @@ function cuePhReply_(ref, text, files) {
   if (!home) return null;
   const t = String(text || '').trim();
   if (!t && !(files && files.length)) return null;
+  // Live 17:03Z: a question in the thread gets an answer (the chat path), never a re-read with the question as a note.
+  if (!(files && files.length) && CUE_QUESTION_RE_.test(t)) return null;
   const saved = files && files.length ? cueFilesSave_(files, home.id) : [];
   const said = cueLocked_(() => {
     const L = cueLoad_(home.id), s = L.s;
@@ -375,6 +441,7 @@ function cuePhReply_(ref, text, files) {
   cueChat_('Cue', said + ' Same card, nothing new is written.', home.id);
   return { request_id: home.id, task: ref, in_place: true };
 }
+const CUE_QUESTION_RE_ = /\?\s*$|^(why|what|how|when|where|who|which|is|are|was|were|does|do|did|can|could|should|shouldn'?t|would|will|has|have|isn'?t|aren'?t|doesn'?t|didn'?t)\b/i;
 /** The phased intake waiting on a card in ref's thread, or null. */
 function cuePhOpen_(ref) {
   let list = []; try { list = cueRecent_(14); } catch (e) { return null; }

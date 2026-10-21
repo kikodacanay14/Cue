@@ -354,7 +354,8 @@
   // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
   // while Cue was busy, and Enter did nothing while the last send was still running).
   var outbox = [];
-  function addLocal(who, text, ref) { outbox.push({ who: who, text: text, request_id: ref || '', time: new Date().toISOString() }); renderChat(); }
+  function addLocal(who, text, ref) { var last = outbox[outbox.length - 1]; if (last && last.who === who && last.text === text && last.request_id === (ref || '')) return renderChat();   // live 17:03Z: the same error once, not four times
+    outbox.push({ who: who, text: text, request_id: ref || '', time: new Date().toISOString() }); renderChat(); }
   var hintT = 0;
   function hint(text) { var h = $('hint'); h.textContent = text; h.hidden = false; clearTimeout(hintT); hintT = setTimeout(function () { h.hidden = true; }, 12000); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
@@ -840,6 +841,7 @@
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
@@ -1636,9 +1638,10 @@
     r.same.forEach(function (p) {
       h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><b>' + esc(p.name) + '</b><br><span class="small muted">'
         + esc([p.project_id, p.account, p.date || 'no date', p.status].filter(Boolean).join(' · ')) + '</span>'
-        + (waiting ? '<div class="actions"><button class="btn" data-act="same-yes" data-id="' + esc(r.id) + '" data-pid="' + esc(p.project_id) + '">Yes, same project</button></div>' : '') + '</div>';
+        + (waiting ? '<div class="actions"><button class="btn" data-act="same-yes" data-id="' + esc(r.id) + '" data-pid="' + esc(p.project_id) + '">Yes, same project</button>'
+          + (r.dup ? '<button class="btn bad" data-act="same-remove" data-id="' + esc(r.id) + '" data-pid="' + esc(p.project_id) + '">Remove it, add this one</button>' : '') + '</div>' : '') + '</div>';
     });
-    return h + '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="same-new" data-id="' + esc(r.id) + '">No, it is a new project</button>'
+    return h + '<div class="actions">' + (waiting && !r.dup ? '<button class="btn ghost" data-act="same-new" data-id="' + esc(r.id) + '">No, it is a new project</button>' : '') + (waiting ? ''
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>' + metricLine(r) + '</div>';
   }
   // ---- Phased project intake (Kiko 14:53Z, specs/phased-intake.md): ONE card per task, inside its thread, updated in place.
@@ -1731,6 +1734,9 @@
       });
       h += '</div>' + (waiting ? '<div class="small muted" style="margin-top:6px">Send RFQ goes out from your Gmail. Save as draft puts it in your Gmail Drafts. Canvas records each one.</div>' : '');
     }
+    // CUE-UNDO (Kiko 16:53Z): cancelling the whole intake takes back what it saved in Canvas, after one confirm.
+    if (cv.removed) h += '<div class="small muted" style="margin-top:8px">Removed from Canvas.</div>';
+    else if (cv.project_id && !busy) h += '<div class="actions">' + btn('ph-cancel', 'Cancel intake', 'bad') + '</div>';
     if (end || waiting) h += '<div class="small muted" style="margin-top:8px">' + metricLine(r) + '</div>';
     return h + '</div>';
   }
@@ -1752,6 +1758,7 @@
     return { to: box.querySelector('[data-rq-to]').value, subject: box.querySelector('[data-rq-subj]').value, body: box.querySelector('[data-rq-body]').value };
   }
   function cardHtml(r) {
+    if (r.same && r.same.length) return sameCardHtml(r);
     if (r.phased && r.ph) return phCardHtml(r);
     if (r.kind === 'email') return mailCardHtml(r);
     if (r.kind === 'style') return styleCardHtml(r);
@@ -1923,6 +1930,10 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, hx], done, fail); });
         }
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
+        if (act === 'ph-cancel' || act === 'close-task') { var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, cvp = (rq.phased && rq.canvas && !rq.canvas.removed && rq.canvas.project_id) || '';
+          if (cvp) return ask('Cancel intake and remove ' + cvp + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueCancelIntake', [id, ''], done, fail); });
+          if (act === 'ph-cancel') return; }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
         if (act === 'archive') { b.disabled = true; return call('cueArchive', [id, b.getAttribute('data-on') === '1'], done, fail); }
         if (act === 'sweep-skip' || act === 'sweep-mute') { b.disabled = true; return call('cueSweepItem', [id, b.getAttribute('data-key'), act === 'sweep-skip' ? 'skip' : 'mute'], done, fail); }
@@ -2051,6 +2062,9 @@
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);
+        if (act === 'same-remove') { var rp = b.getAttribute('data-pid');
+          return ask('Remove ' + rp + ' from Canvas and add this one?', 'Canvas deletes ' + rp + ', its requirement lines and contacts, and moves its folders to the Drive trash. Then this intake adds the project fresh, after you approve it.', null, 'Remove and add', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueCancelIntake', [id, rp], done, fail); }); }
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
         if (act === 'folders') return call('cueFolders', [id], done, fail);
       };

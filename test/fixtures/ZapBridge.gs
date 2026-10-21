@@ -159,6 +159,12 @@ const ZB_ACTIONS_ = {
         state: { type: 'string', required: true, oneOf: ['sent', 'draft', 'cancelled'] }, gmail_id: { type: 'string', max: 100 } } } },
     run: (r) => aiIntakePhaseRfqs_(r.args.request_id, r.args.rfqs)
   },
+  /* CUE-UNDO-2026-10-21 (Kiko 16:53Z): a cancelled intake takes back what it wrote (AiIntake.gs aiIntakeRemove_). Cue asks Kiko first. */
+  intake_remove: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', re: /^[A-Za-z0-9:_-]{8,80}$/ }, project_id: { type: 'string', re: /^S-\d{3,12}[A-Z0-9]{2}$/ } },
+    run: (r) => aiIntakeRemove_(r.args.request_id, r.args.project_id)
+  },
   find_similar_projects: {
     kind: 'read', needsProject: false,
     schema: { client: { type: 'string', max: 200 }, date: { type: 'string', max: 10 }, name: { type: 'string', max: 200 } },
