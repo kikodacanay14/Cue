@@ -8,7 +8,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 
 | # | Who | What happens | AI call? |
 |---|---|---|---|
-| 1 | GPT | Reads the inquiry and pulls out the client, the event, the requirements and the scopes. | 1 |
+| 1 | GPT | Reads the inquiry and any attachments (photos, PDFs, text files; attach with 📎, paste or drag in) and pulls out the client, the event, the requirements and the scopes. | 1 |
 | 2 | Canvas (code) | Runs the duplicate check (same client within 7 days, or a similar name). Then, for each requirement, looks up BSE packages and the price list, owned stock, past scopes, past quotes with exact stats, and the Supplier DB picks (preferred and accredited first). Both lookups run in parallel. | no |
 | 3 | GPT and Claude, at the same time | **GPT** runs a web search for the lines that have no BSE price, no past quote and no stock, and looks for new suppliers wherever the DB has fewer than 3. This call is skipped when nothing is missing. **Claude** decides in-house or outsourced, costs the CE from the evidence, gives a one-line reason for each price, and names the current suppliers to ask. The research then fills the gaps in code, labelled "Research, not history". | 2 (or 1) |
 | 4 | GPT | Drafts one RFQ per supplier: Claude's DB picks plus the new suppliers research found (marked new and unaccredited). | 1 |
@@ -32,14 +32,15 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
 - `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.
 - `CueBridge.gs`: signed calls to the Canvas bridge. It uses five actions only: `find_similar_projects`, `intake_evidence`, `submit_intake`, `apply_intake` and `make_rfq_drafts`.
+- `CueFiles.gs`: attachments. Up to 8 files, 10 MB each, 15 MB in all; big photos are shrunk to 2048 px on the page first. They are kept in a **Cue uploads** Drive folder Cue makes itself, and only GPT's read call sees them, so the call count does not change. Word and Excel files: save as PDF first.
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
 - `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page.
-- `test/cue.test.js`: 20 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V183. Refresh that copy whenever a Canvas release changes the bridge.
+- `test/cue.test.js`: 22 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V183. Refresh that copy whenever a Canvas release changes the bridge.
 
 ## Setup (Kiko, in your personal Google account)
 
-1. **Make the project.** Create a new Apps Script project named **Cue** in Kiko's own account. Copy in everything from `src/`: the four `.gs` files, `Index.html` and `appsscript.json` (enable "Show appsscript.json" in Project Settings).
+1. **Make the project.** Create a new Apps Script project named **Cue** in Kiko's own account. Copy in everything from `src/`: the `.gs` files, `Index.html` and `appsscript.json` (enable "Show appsscript.json" in Project Settings).
 2. **Enter the Script Properties.** Kiko types these personally (Project Settings → Script Properties). Never paste them in chat.
    - `OPENAI_API_KEY`
    - `ANTHROPIC_API_KEY`

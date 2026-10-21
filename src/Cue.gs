@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.0';
+const CUE_VERSION_ = 'Cue 1.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -90,17 +90,19 @@ function cueChat_(who, text, id) {
 
 /* ---------- what the page calls ---------- */
 /** Kiko sends a message. In this first slice every message starts an intake. Returns the new request id. */
-function cueSend(text) {
+function cueSend(text, files) {
   cueOwner_();
-  const t = String(text || '').trim();
-  if (t.length < 20) throw new Error('Paste the client\'s inquiry or describe the event (at least a sentence).');
+  const has = !!(files && files.length);
+  const t = String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
+  if (t.length < 20 && !has) throw new Error('Paste the client\'s inquiry, describe the event (at least a sentence), or attach the brief.');
   if (t.length > 12000) throw new Error('That is too long for one intake (12,000 characters at most).');
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
-  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, status: 'Working', stage: 'Received',
+  const saved = cueFilesSave_(files, id);
+  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received',
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
-  cueChat_('Kiko', t, id);
+  cueChat_('Kiko', t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : ''), id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id };
 }
@@ -183,7 +185,7 @@ function cueState() {
 /** The part of a request the page needs. Evidence and raw AI answers stay in the sheet. */
 function cueView_(s) {
   const m = s.metrics || {};
-  return { id: s.id, created: s.created, status: s.status, stage: s.stage, text: String(s.text || '').slice(0, 600), error: s.error || '',
+  return { id: s.id, created: s.created, status: s.status, stage: s.stage, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',
     notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, flag: m.flag || '', calls: m.calls || [] } };

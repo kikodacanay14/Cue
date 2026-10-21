@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.1 (not yet deployed)
+
+- Attachments for intake: photos, PDFs and text files (📎, paste or drag). GPT reads them in its first call, so still 4 AI calls.
+- Deploy Cue and Connect Google Actions: no more copy and paste.
+
 ## Cue 1.0 (not yet deployed)
 
 - Project intake: start in chat, then GPT read, Canvas checks, Claude costing with GPT web research, and GPT RFQ drafts. Kiko approves, Canvas writes once, and the drafts go to Kiko's Gmail.

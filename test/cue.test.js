@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V183). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueIntake.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -49,11 +49,11 @@ const RFQS = { rfqs: [{ supplier: 'Sonic Pro', subject: 'RFQ: LED wall', body: '
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL, ...(o.props || {}) };
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
-  const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] };
+  const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {} };
   let now = Date.parse('2026-10-21T03:00:00Z');
   const step = o.step == null ? 5000 : o.step;
   const route = req => {
-    const u = req.url, body = JSON.parse(req.payload);
+    const u = req.url, body = u.indexOf('www.googleapis.com') >= 0 ? null : JSON.parse(req.payload);
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
@@ -87,6 +87,15 @@ function sandbox(o = {}) {
           to: q.suppliers[0].email, subject: q.subject, new: q.suppliers[0].new, id: 'info-draft-' + i, error: '' })) } });
       }
     }
+    if (u.indexOf('www.googleapis.com') >= 0) {
+      log.drive = log.drive || []; log.drive.push((req.method || 'get') + ' ' + u.split('?')[0].replace(/^.*googleapis\.com/, ''));
+      const m = (req.method || 'get').toLowerCase(), fileId = (u.split('?')[0].match(/files\/([^/]+)$/) || [])[1];
+      if (m === 'post' && u.indexOf('/upload/') >= 0) { const id = 'f' + (++drive.n); drive.files[id] = Buffer.from(req.payload); return resp(200, { id }); }
+      if (m === 'post') return resp(200, { id: 'folder-1' });
+      if (m === 'patch') { drive.meta[fileId] = JSON.parse(req.payload); drive.parent[fileId] = u.split('addParents=')[1]; return resp(200, { id: fileId }); }
+      if (u.indexOf('alt=media') >= 0) { const b = drive.files[fileId]; return b ? { getResponseCode: () => 200, getContent: () => Array.from(b), getContentText: () => b.toString('utf8') } : resp(404, {}); }
+      return resp(200, { id: fileId, trashed: !!(o.folderTrashed) });
+    }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
@@ -102,8 +111,10 @@ function sandbox(o = {}) {
     ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [] },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
-      newBlob: s => ({ getBytes: () => Array.from(Buffer.from(String(s), 'utf8')) }),
-      base64Encode: b => Buffer.from(b).toString('base64'), base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
+      newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
+        return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name }; },
+      base64Decode: t => Array.from(Buffer.from(String(t), 'base64')).map(b => (b > 127 ? b - 256 : b)),
+      base64Encode: b => Buffer.from(b.map(x => x & 255)).toString('base64'), base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
     UrlFetchApp: {
       fetch: (u, req) => { now += step; return route(typeof u === 'string' ? Object.assign({ url: u }, req) : u); },
       fetchAll: reqs => { now += (o.batchStep || step); log.batches.push(reqs.map(r => r.url.split('/')[2])); return reqs.map(route); } },
@@ -111,7 +122,7 @@ function sandbox(o = {}) {
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
   ctx.cueNow_ = () => now;
-  return { ctx, props, tabs, log, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
+  return { ctx, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ).request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
@@ -244,6 +255,42 @@ test('C17 an inquiry with no requirements stops with a clear message', () => {
 test('C18 page state hides keys and raw evidence', () => {
   const t = startToCard(), s = JSON.stringify(t.ctx.cueState());
   ['sk-test', 'sk-ant-test', SECRET, 'past_quotes'].forEach(x => assert.ok(s.indexOf(x) < 0, x));
+});
+
+const PNG = Buffer.from('89504e470d0a1a0a-fake-floor-plan').toString('base64'), PDF = Buffer.from('%PDF-1.7 fake brief').toString('base64');
+const TXT = Buffer.from('Need 2 LED walls and a stage, 8x4m.').toString('base64');
+test('C19 attachments: saved in Cue uploads, sent to GPT in the read call only, still 4 AI calls, no file data in page state', () => {
+  const t = sandbox(), files = [{ name: 'floor plan.png', type: 'image/png', data: PNG }, { name: 'brief.pdf', type: 'application/pdf', data: PDF },
+    { name: 'notes.txt', type: 'text/plain', data: TXT }];
+  const id = t.ctx.cueSend('', files).request_id, v = t.ctx.cueRun(id);
+  assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.metrics.ai_calls, 4);
+  deq(v.files.map(f => f.name), ['floor plan.png', 'brief.pdf', 'notes.txt']);
+  assert.strictEqual(t.props.CUE_UPLOADS_FOLDER, 'folder-1');
+  deq(Object.values(t.drive.parent), ['folder-1', 'folder-1', 'folder-1']);
+  assert.strictEqual(t.drive.files.f2.toString(), '%PDF-1.7 fake brief', 'bytes round-trip');
+  const c = t.log.gpt[0].input[0].content;
+  deq(c.map(p => p.type), ['input_text', 'input_image', 'input_file', 'input_text']);
+  assert.ok(/attached files/.test(c[0].text) && /Attached: floor plan\.png, brief\.pdf, notes\.txt/.test(c[0].text));
+  assert.strictEqual(c[1].image_url, 'data:image/png;base64,' + PNG);
+  assert.strictEqual(c[2].file_data, 'data:application/pdf;base64,' + PDF); assert.strictEqual(c[2].filename, 'brief.pdf');
+  assert.ok(c[3].text.indexOf('<attachment name="notes.txt">\nNeed 2 LED walls') === 0);
+  assert.ok(typeof t.log.gpt[1].input === 'string' && typeof t.log.gpt[2].input === 'string', 'research and RFQ calls get no files');
+  assert.ok(/attached/i.test(t.log.gpt[0].instructions));
+  const st = JSON.stringify(t.ctx.cueState()); [PNG, PDF, TXT].forEach(x => assert.ok(st.indexOf(x) < 0, 'no file data in state'));
+  assert.ok(/📎 floor plan\.png, brief\.pdf, notes\.txt/.test(st), 'chat line names the files');
+});
+test('C20 attachment limits: type, size, count, empty; a short message with no file is still refused; a trashed folder is remade', () => {
+  const t = sandbox(), send = (txt, f) => () => t.ctx.cueSend(txt, f);
+  assert.throws(send(INQ, [{ name: 'x.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', data: PDF }]), /Save it as a PDF/);
+  assert.throws(send(INQ, [{ name: 'big.pdf', type: 'application/pdf', data: Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64') }]), /over 10 MB/);
+  assert.throws(send(INQ, Array(9).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /8 files at most/);
+  assert.throws(send(INQ, [{ name: 'e.txt', type: 'text/plain', data: '' }]), /empty/);
+  assert.throws(send('hi', []), /at least a sentence/);
+  assert.strictEqual(t.tabs.Requests.rows.length, 1, 'nothing saved for refused sends');
+  const u = sandbox({ props: { CUE_UPLOADS_FOLDER: 'old' }, folderTrashed: true }); u.ctx.cueSend('', [{ name: 'a.txt', type: 'text/plain', data: TXT }]);
+  assert.strictEqual(u.props.CUE_UPLOADS_FOLDER, 'folder-1');
+  const w = sandbox({ props: { CUE_UPLOADS_FOLDER: 'kept' } }); w.ctx.cueSend('', [{ name: 'a.txt', type: 'text/plain', data: TXT }]);
+  assert.strictEqual(w.drive.parent.f1, 'kept');
 });
 
 let pass = 0;

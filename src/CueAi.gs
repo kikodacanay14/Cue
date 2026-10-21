@@ -18,10 +18,10 @@ function cueKey_(name) {
   return k;
 }
 
-/** o = { step, system, user, schema, name, web?, maxTokens? } -> a call for cueAiAll_. */
+/** o = { step, system, user, schema, name, web?, maxTokens?, parts? } -> a call for cueAiAll_. parts = extra content (attachments). */
 function cueGpt_(o) {
   const model = cueProp_('OPENAI_MODEL', 'gpt-5-mini'), effort = cueProp_('CUE_GPT_REASONING', 'low');
-  const body = { model, instructions: String(o.system), input: String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
+  const body = { model, instructions: String(o.system), input: o.parts && o.parts.length ? [{ role: 'user', content: [{ type: 'input_text', text: String(o.user) }].concat(o.parts) }] : String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
     text: { format: { type: 'json_schema', name: o.name || 'answer', strict: true, schema: o.schema } } };
   if (effort !== 'off') body.reasoning = { effort };
   if (o.web) body.tools = [{ type: cueProp_('CUE_GPT_WEB_TOOL', 'web_search') }];

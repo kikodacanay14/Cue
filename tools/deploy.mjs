@@ -40,7 +40,7 @@ const want = sums('src');
 const work = project('cue');
 const who = clasp(work, 'show-authorized-user');
 console.log(`signed in as ${who.email}`);
-if (who.email !== cfg.account) fail(`the saved sign-in is ${who.email}, deploy.json says ${cfg.account}`);
+if (String(who.email).toLowerCase() !== cfg.account.toLowerCase()) fail(`the saved sign-in is ${who.email}, deploy.json says ${cfg.account}`);
 const dep = clasp(work, 'list-deployments').find(d => d.deploymentId === cfg.deploymentId);
 if (!dep) fail('Cue web app deployment not found in that project');
 const live = dep.versionNumber;

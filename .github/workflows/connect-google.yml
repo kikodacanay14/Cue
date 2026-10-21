@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "$DEPLOY_KEY" ] || { echo "Add the DEPLOY_KEY secret first"; exit 1; }
-          ACCOUNT=$(jq -r .account deploy.json)
+          ACCOUNT=$(jq -r .account deploy.json | tr A-Z a-z)
           case "$ACCOUNT" in *@*) ;; *) echo "Fill in account in deploy.json first"; exit 1;; esac
           mkfifo /tmp/in; exec 3<>/tmp/in
           script -qfec "clasp login --no-localhost" /dev/null <&3 > /tmp/out 2>&1 &
@@ -53,7 +53,7 @@ jobs:
           echo "::add-mask::$C"
           printf '%s\r' "$C" >&3
           wait $PID || { cat /tmp/out | grep -v localhost; gh issue close -R "$REPO" "$N" -c "Google did not accept the sign-in. Ask Claude to start it again."; exit 1; }
-          EMAIL=$(clasp show-authorized-user --json | jq -r '.email // empty')
+          EMAIL=$(clasp show-authorized-user --json | jq -r '.email // empty' | tr A-Z a-z)
           echo "Signed in as $EMAIL"
           if [ "$EMAIL" != "$ACCOUNT" ]; then
             gh issue close -R "$REPO" "$N" -c "That was $EMAIL. Please use $ACCOUNT; ask Claude to start again."; exit 1
