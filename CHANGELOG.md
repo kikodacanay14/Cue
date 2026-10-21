@@ -25,7 +25,7 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - **Nudges** are replies in the original RFQ thread (In-Reply-To the last message), with no attachments, and ask for the quote within 2 working days. ChatGPT drafts them in the engine's one combined call; if that fails, a template is used. RFQ chasers make no AI call of their own, and Claude isn't used. After 2 nudges Cue stops and hands the supplier to Kiko.
 - **Never info@** (Kiko 07:45Z): the old `CUE_DRAFTS_IN=canvas` switch is removed, so RFQ drafts are always made in Kiko's own Gmail. Cue no longer calls `make_rfq_drafts`.
 - **No new scopes and no Canvas writes.** It uses Gmail read (already granted) and the engine's one `get_project_board` read.
-- Tests: Q1 to Q5 added. C8 now checks that the old switch is ignored, and C16b is removed.
+- Tests: Q1 to Q6 added. C8 now checks that the old switch is ignored, and C16b is removed.
 
 ### Project expenses (needs the Canvas release with expense_evidence / record_expense)
 
