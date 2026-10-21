@@ -1,15 +1,26 @@
 # Changelog
 
-## Unreleased (readiness; needs Canvas V186 with get_readiness)
+## Unreleased (readiness; Canvas V186 with get_readiness is live)
 
 - Readiness check (Kiko approved specs/project-readiness.md, 21 Oct 07:32Z). Ask "is X ready?" or "what's missing for X?" in the chat. The chat call names the project; Canvas finds it (several open matches: pick on the card; a project ID works too) and returns its readiness checklist exactly as the Checklist tab scores it (new bridge read get_readiness: Pre-Event Readiness before the event, Closeout after). Cue flags overdue items, missing owners and blockers within 7 days of the event, and looks in your Gmail (subjects and snippets, last 60 days) for proof Canvas hasn't recorded. One Claude call writes the summary, the top 3 risks, what closes each open blocker, and whether each email or file looks like proof. The card leads with Canvas's own count (Blockers clear X of Y), never an AI number.
 - Draft follow-ups on the card: one GPT call drafts a reply in the email thread for each item Waiting on Others. Edit, then Approve and send, or Drafts only, like requotes. Close follow-ups drops them and keeps the check. Re-check runs it again in the same thread.
 - Read only: nothing is written to Canvas. Marking Ready, verifying and gate approval stay on the Checklist tab.
 - Budget: 1 AI call per check (Claude), 2 with follow-ups, plus the chat call that reads the ask.
 
+## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
+
+- New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).
+
+- Approved spec (Kiko 07:41-07:46Z). GPT's read now keeps every client contact (role, email, phone), the proposal deadline, and ingress, event hours and egress apart from the event date. Each line is included, optional or not needed.
+- No event date no longer stops an intake. The card shows "Date TBC" and Canvas holds a stand-in date until Kiko sets the real one.
+- Optional lines are costed and marked, and totalled apart. Lines the client doesn't need are listed but never costed or written.
+- Selling price: BSE's packages and price list first, then past CE prices Canvas shows (Claude cites them and Canvas re-checks). Otherwise the price stays blank and the line is flagged "No selling price: set it". Kiko can type a price on the card.
+- RFQs ask for quotes back at least a day before the client's proposal deadline.
+- After the write, the done card lists every project folder Canvas read back. A missing one is flagged with "Make folders again".
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
-- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
+- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for Kiko. Cards show "Cue worked N s".
 - Project folder honesty: Canvas V186 says when a project has no Drive folder yet (usually no event date). Cue then says the files went to Canvas Files for that project (shown in Canvas's Files tab) instead of claiming the project folder. Before V186, Cue keeps the old wording.
 
 ## Cue 1.8.1 (not deployed yet)
@@ -18,7 +29,7 @@
 
 ## Cue 1.8 (deployed as Version 18, with Canvas main V185 / Client V43)
 
-- Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file he attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
+- Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file Kiko attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
 - Reply box on every widget card (Kiko 06:48Z), with Cue's latest line in that thread above it. It posts into the task's thread; Enter sends; typed text survives refreshes.
 - Threads hold everything (Kiko 06:50Z): the request and its files, the conversation, and the full card for every run, also after it is done. Finished requotes are one line per supplier with sent / in Drafts, and expand in place to the whole email with an Open in Gmail link. Links open in a new tab.
 - The progress tracker sits at the top of the thread (Kiko 06:51Z).
@@ -29,7 +40,7 @@
 
 ## Cue 1.7 (deployed as Version 17)
 
-- Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; his message and Cue's answer go in that thread. A redo started this way joins the same thread.
+- Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; Kiko's message and Cue's answer go in that thread. A redo started this way joins the same thread.
 
 ## Cue 1.6.2 (shipped in Version 17)
 

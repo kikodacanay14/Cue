@@ -81,8 +81,9 @@ function sandbox(o = {}) {
       if (body.action === 'intake_evidence') return resp(200, { ok: true, status: 'Completed', result: o.evidence || EVIDENCE });
       if (body.action === 'submit_intake') {
         const L = body.args.proposal.lines, price = { 'PKG-7': 25000 };
-        const t = { known_cost: L.reduce((s, l) => s + (l.cost_basis === 'none' ? 0 : l.unit_cost * l.quantity * l.occurrence), 0),
-          known_price: L.reduce((s, l) => s + (price[l.price_source] || 0) * l.quantity * l.occurrence, 0) };
+        const I = L.filter(l => l.status !== 'optional'); // Canvas totals optional lines apart (C1 G3)
+        const t = { known_cost: I.reduce((s, l) => s + (l.cost_basis === 'none' ? 0 : l.unit_cost * l.quantity * l.occurrence), 0),
+          known_price: I.reduce((s, l) => s + (price[l.price_source] || (l.price_basis !== 'none' && l.unit_price) || 0) * l.quantity * l.occurrence, 0) };
         if (o.canvasCost != null) t.known_cost = o.canvasCost;
         log.submitted = body.args.proposal;
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, request_id: body.args.request_id, status: 'Waiting for Kiko', summary: 'summary',
@@ -90,8 +91,14 @@ function sandbox(o = {}) {
       }
       if (body.action === 'apply_intake') {
         if (o.applyFails) return resp(200, { ok: false, status: 'Blocked', error: 'Apply failed after project S-99900001ZZ was made: boom' });
-        return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', project_number: '052', req_ids: ['REQ-1'], rfqs: log.submitted.rfqs } });
+        const tbc = !log.submitted.event.date;
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', project_number: '052', req_ids: ['REQ-1'], rfqs: log.submitted.rfqs,
+          date: tbc ? '2026-12-31' : log.submitted.event.date, date_tbc: tbc, name: log.submitted.event.name + (tbc ? ' (Date TBC)' : ''),
+          contacts_added: (log.submitted.client.contacts || []).length, folders: o.missingFolders ? { 'Project Folder': 'https://drive.google.com/drive/folders/P' } : { 'Project Folder': 'https://drive.google.com/drive/folders/P', 'Key Visuals': 'https://drive.google.com/drive/folders/V' },
+          folders_missing: o.missingFolders || [], warnings: o.missingFolders ? ['Folders: no event date'] : [] } });
       }
+      if (body.action === 'make_project_folders') { log.madeFolders = body.project_id;
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, complete: true, project_id: body.project_id, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, missing: [], error: '' } }); }
       if (body.action === 'save_project_file') {
         log.saved = log.saved || []; log.saved.push({ pid: body.project_id, name: body.args.name, type: body.args.type, mime: body.args.mime, bytes: Buffer.from(body.args.data, 'base64').length });
         if (o.saveFail && log.saved.length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
@@ -190,7 +197,8 @@ test('C3 Canvas rules applied before Kiko sees it: cited quotes, BSE price from 
   assert.strictEqual(r3.price_source, ''); assert.ok(r3.flags.some(f => /not shown/.test(f)));
   assert.strictEqual(r3.cost_basis, 'market research'); assert.strictEqual(r3.unit_cost, 150000);
   deq(r3.sources, ['https://drones.example/ph-prices']); assert.ok(r3.flags.indexOf('Research, not history: confirm with an RFQ') >= 0);
-  deq(p.totals, { known_cost: 198000, known_price: 25000, lines_with_bse_price: 1, lines_without_cost: 1, outsourced: 3, in_house: 0 });
+  deq(p.totals, { known_cost: 198000, known_price: 25000, optional_cost: 0, optional_price: 0, optional: 0, lines_with_bse_price: 1, lines_without_price: 2,
+    lines_without_cost: 1, outsourced: 3, in_house: 0 });
 });
 test('C4 suppliers: Claude picks only from the Supplier DB; research adds new, unaccredited ones; no guessed emails', () => {
   const p = startToCard().v.proposal;
@@ -520,6 +528,36 @@ test('C36 budget (Kiko 07:19Z): only Cue\'s own time counts, not the time a card
   assert.strictEqual(v.metrics.flag, '');
 });
 
+test('C37 C1 intake (Kiko approved 07:46Z): every contact, deadline, schedule, optional and excluded lines, Date TBC, past CE prices, folders readback', () => {
+  const read = JSON.parse(JSON.stringify(READ));
+  read.client.contacts = [{ name: 'Ana Reyes', role: 'HR', email: 'ana@acme.example', phone: '' }, { name: 'Ben Cruz', role: 'Finance', email: 'ben@acme.example', phone: '0918' }];
+  Object.assign(read.event, { date: '', deadline: '2026-10-23', schedule: { ingress: 'Dec 12 6 AM', hours: '6-11 PM', egress: 'Dec 13 1 AM' } });
+  read.requirements[0].status = 'included'; read.requirements[1].status = 'optional'; read.requirements[2].status = 'included';
+  read.requirements.push({ category: 'Food', description: 'Catering', quantity: 1, occurrence: 1, search_terms: 'catering', status: 'excluded' });
+  const ev = JSON.parse(JSON.stringify(EVIDENCE)); ev.R1.ce_prices = [{ req_id: 'REQ-77', project: 'S-1', description: 'LED wall 4x3', unit: 65000 }];
+  const cost = JSON.parse(JSON.stringify(COST));
+  Object.assign(cost.lines[0], { unit_price: 65000, price_basis: 'past CE prices', price_sources: ['REQ-77'] });
+  Object.assign(cost.lines[2], { unit_price: 300000, price_basis: 'past CE prices', price_sources: ['REQ-404'] });
+  const t = startToCard({ read, evidence: ev, cost }), p = t.v.proposal;
+  deq(p.client.contacts.map(c => c.name + '/' + c.role), ['Ana Reyes/HR', 'Ben Cruz/Finance']);
+  deq([p.event.date, p.event.date_tbc, p.event.deadline, p.event.schedule.hours, p.excluded], ['', true, '2026-10-23', '6-11 PM', ['Catering']]);
+  deq(p.lines.map(l => [l.key, l.status, l.price_basis, l.unit_price]), [['R1', 'included', 'past CE prices', 65000], ['R2', 'optional', 'BSE package', 25000], ['R3', 'included', 'none', 0]]);
+  assert.ok(p.lines[2].flags.indexOf('No selling price: set it') >= 0 && p.lines[2].flags.some(f => /no CE price it was shown/.test(f)));
+  deq([p.totals.known_price, p.totals.optional, p.totals.optional_price], [65000, 1, 25000]);
+  assert.ok(t.v.notes.some(n => /Date TBC/.test(n))); assert.ok(!(p.questions || []).some(q => /event date/i.test(q)), 'no date question any more');
+  assert.ok(/proposal due 2026-10-23/.test(JSON.stringify(t.tabs.Chat.rows)));
+  const rq = t.log.gpt.find(b => b.text.format.name === 'rfqs'); assert.ok(/2026-10-22/.test(JSON.stringify(rq)), 'quotes asked back before the proposal deadline');
+  const v = t.ctx.cueApprove(t.id, { lines: { R3: { unit_price: 280000 }, R1: { status: 'optional' } } });
+  const sub = t.log.submitted;
+  deq([sub.client.contacts.length, sub.event.deadline, sub.event.date, sub.lines.map(l => l.status + ':' + l.price_basis)], [2, '2026-10-23', '', ['optional:past CE prices', 'optional:BSE package', 'included:set by Kiko']]);
+  deq([v.canvas.date_tbc, v.canvas.contacts_added, v.canvas.folders_missing], [true, 2, []]);
+  assert.ok(/Date TBC/.test(JSON.stringify(t.tabs.Chat.rows)) && /All project folders are there/.test(JSON.stringify(t.tabs.Chat.rows)));
+});
+test('C38 missing folders after the write are flagged, and "Make folders again" asks Canvas for that project only', () => {
+  const t = startToCard({ missingFolders: ['Admin Folder', 'Visual Materials'] }); const v = t.ctx.cueApprove(t.id, {});
+  deq(v.canvas.folders_missing, ['Admin Folder', 'Visual Materials']); assert.ok(/Missing folders: Admin Folder, Visual Materials/.test(JSON.stringify(t.tabs.Chat.rows)));
+  const w = t.ctx.cueFolders(t.id); deq([t.log.madeFolders, w.canvas.folders_missing], ['S-99900001ZZ', []]);
+});
 test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat and its thread, from what happened', () => {
   const t = sandbox({ similar: JBL, read: CHANGE_READ });
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
@@ -673,6 +711,6 @@ test('R4 close follow-ups keeps the check; Re-check is a new run in the same thr
 });
 
 let pass = 0;
-for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, 3).join('\n     ')); } }
+for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

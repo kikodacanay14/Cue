@@ -279,7 +279,7 @@
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   function send(t, files, mode, ref, mine) {
     $('chip-intake').hidden = true;
-    if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let him keep typing
+    if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || threadRef();
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
       outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
@@ -421,7 +421,7 @@
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas;
     return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
-      + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
+      + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
   }
@@ -620,28 +620,37 @@
     (r.similar || []).forEach(function (s) { h += '<div class="warn">Possible duplicate: ' + esc(s.name) + ', ' + esc(s.account) + ', ' + esc(s.date) + ' (' + esc(s.why) + ')</div>'; });
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
-    var f = [['Contact', ed ? inp('client.contact', c.contact, 1) : esc([c.contact, c.email, c.phone].filter(Boolean).join(', ') || 'Not given')],
+    // C1: every contact (G2), the proposal deadline and schedule (G1, G3), Date TBC (G4).
+    var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
+    var sc = e.schedule || {}, sched = [sc.ingress && 'Ingress ' + sc.ingress, sc.hours && 'Event ' + sc.hours, sc.egress && 'Egress ' + sc.egress].filter(Boolean).join(' · ');
+    var f = [['Contacts', ed ? inp('client.contact', c.contact, 1) : cs.map(function (x) { return esc([x.name, x.role, x.email, x.phone].filter(Boolean).join(', ')); }).join('<br>') || 'Not given'],
       ['Client', ed ? inp('client.company', c.company, 1) : esc(c.company || 'Not given')],
       ['Event name', ed ? inp('event.name', e.name, 1) : esc(e.name || 'Not given')],
-      ['Date', ed ? inp('event.date', e.date, 1, 'YYYY-MM-DD') : esc(e.date || 'Not given')],
+      ['Date', ed ? inp('event.date', e.date, 1, 'YYYY-MM-DD, or blank for Date TBC') : e.date ? esc(e.date) : '<span class="tag flag">Date TBC</span> <span class="small muted">Canvas holds a stand-in date until you set it</span>'],
+      ['Proposal due', ed ? inp('event.deadline', e.deadline, 1, 'YYYY-MM-DD') : esc(e.deadline || 'Not given')],
+      ['Schedule', esc(sched || 'Not given')],
       ['Venue', ed ? inp('event.venue', e.venue, 1) : esc([e.venue, e.city].filter(Boolean).join(', ') || 'Not given')],
       ['Pax', ed ? inp('event.pax', e.pax || '', 0) : esc(e.pax || 'Not given')],
-      ['Known cost', peso(t.known_cost) + ' <span class="muted small">(' + esc(t.lines_without_cost) + ' line(s) still need a price)</span>'],
-      ['BSE price', t.known_price ? peso(t.known_price) + ' <span class="muted small">(' + esc(t.lines_with_bse_price) + ' line(s) from BSE packages or price list)</span>' : 'No BSE package or price list match'],
+      ['Known cost', peso(t.known_cost) + ' <span class="muted small">(' + esc(t.lines_without_cost) + ' line(s) still need a cost)</span>'],
+      ['Price', t.known_price ? peso(t.known_price) + ' <span class="muted small">(' + esc(t.lines_without_price || 0) + ' line(s) with no price yet)</span>' : 'No price yet'],
+      ['Optional', t.optional ? esc(t.optional) + ' line(s): cost ' + peso(t.optional_cost) + ', price ' + peso(t.optional_price) + ' <span class="muted small">(not in the totals above)</span>' : 'None'],
       ['Split', esc(t.in_house) + ' in house, ' + esc(t.outsourced) + ' outsourced'],
       ['Run', metricLine(r)]];
     h += '<table class="facts">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
-    h += '<div class="label">Lines</div><div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>BSE price</th></tr>';
+    if ((p.excluded || []).length) h += '<div class="small muted">Not needed, so not costed or written: ' + p.excluded.map(esc).join('; ') + '</div>';
+    h += '<div class="label">Lines</div><div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>Unit price</th></tr>';
     p.lines.forEach(function (l) {
       var sup = (l.suppliers || []).map(function (s) { return esc(s.name) + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + (s.preferred ? ' <span class="tag pref">preferred</span>' : ''); }).join(', ');
       h += '<tr data-line="' + esc(l.key) + '"><td>' + esc(l.key) + (ed ? '<br><label class="small"><input type="checkbox" data-f="remove" style="width:auto"> remove</label>' : '') + '</td>'
-        + '<td><b>' + esc(l.description) + '</b><div class="small muted">' + esc(l.category) + '</div><div class="small">' + esc(l.why) + '</div>'
+        + '<td><b>' + esc(l.description) + '</b>' + (l.status === 'optional' ? ' <span class="tag new">optional</span>' : '')
+        + (ed ? '<div><select data-f="status" style="width:auto"><option value="included"' + (l.status !== 'optional' ? ' selected' : '') + '>Included</option><option value="optional"' + (l.status === 'optional' ? ' selected' : '') + '>Optional</option></select></div>' : '')
+        + '<div class="small muted">' + esc(l.category) + '</div><div class="small">' + esc(l.why) + '</div>'
         + (l.note ? '<div class="small muted">' + esc(l.note) + '</div>' : '') + (l.flags || []).map(function (x) { return '<span class="tag flag">' + esc(x) + '</span>'; }).join('')
         + (sup ? '<div class="small">Ask: ' + sup + '</div>' : '') + srcHtml(l) + '</td>'
         + '<td>' + (ed ? '<input data-f="quantity" value="' + esc(l.quantity) + '">' : esc(l.quantity) + (l.occurrence > 1 ? ' × ' + esc(l.occurrence) : '')) + '</td>'
         + '<td>' + (ed ? '<select data-f="execution"><option' + (l.execution === 'In House' ? ' selected' : '') + '>In House</option><option' + (l.execution === 'Outsourced' ? ' selected' : '') + '>Outsourced</option></select>' : esc(l.execution)) + '</td>'
         + '<td>' + (ed ? '<input data-f="unit_cost" placeholder="' + esc(l.unit_cost) + '">' : (l.cost_basis === 'none' ? '<span class="muted">Unknown</span>' : peso(l.unit_cost)) + '<div class="small muted">' + esc(l.cost_basis) + '</div>') + '</td>'
-        + '<td>' + (l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + ' ' + esc(l.price_name) + '</div>' : '<span class="muted">None</span>') + '</td></tr>';
+        + '<td>' + (ed ? '<input data-f="unit_price" placeholder="' + esc(l.unit_price || '') + '">' : l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + ' ' + esc(l.price_name) + '</div>' : '<span class="tag flag">No price: set it</span>') + '</td></tr>';
     });
     h += '</table></div>';
     h += '<div class="label">RFQ drafts (' + p.rfqs.length + ')</div>' + (p.rfqs.length ? '' : '<div class="small muted">None yet.</div>');
@@ -663,7 +672,7 @@
         : '<button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>')
         + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
     } else if (r.status === 'Done' || r.status === 'Rejected') {
-      h += (cv.project_id ? '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + ' (' + esc(cv.project_id) + ').</div>' : '') + savedHtml(r)
+      h += (cv.project_id ? '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '.</div>' + foldersHtml(r) : '') + savedHtml(r)
         + ((r.drafts || []).length ? '<div class="label">RFQs</div><ul class="small">' + r.drafts.map(function (d) { return '<li>' + esc(d.supplier || 'Supplier') + ' <span class="muted">' + esc(d.to || 'no email') + '</span> '
           + (d.sent_id ? '<span class="tag pref">sent</span>' : d.id ? '<span class="tag new">in Drafts</span>' : '<span class="tag flag">not made</span>') + '</li>'; }).join('') + '</ul>' : '');
     } else {
@@ -674,6 +683,14 @@
         + '<div class="small muted" style="margin-top:6px">Open an RFQ above to edit its text. Approve writes the project and lines to Canvas, then sends the RFQs from your Gmail. Suppliers with no email stay in your Drafts. Drafts only sends nothing.</div>';
     }
     return h + '</div>';
+  }
+  // C1 G6: every folder Canvas read back after the write; a missing one is flagged with "Make folders again".
+  function foldersHtml(r) {
+    var cv = r.canvas || {}, fo = cv.folders || {}, miss = cv.folders_missing || [], k = Object.keys(fo);
+    if (!k.length && !miss.length) return '';
+    return '<div class="small" style="margin-top:6px">📁 ' + k.map(function (n) { return '<a href="' + esc(fo[n]) + '" target="_blank" rel="noopener">' + esc(n === 'Key Visuals' ? 'Visual Materials' : n) + '</a>'; }).join(' · ')
+      + (miss.length ? '<div class="err">Missing folders: ' + miss.map(esc).join(', ') + '</div><div class="actions"><button class="btn" data-act="folders" data-id="' + esc(r.id) + '">Make folders again</button></div>' : '')
+      + ((cv.warnings || []).length ? '<div class="warn">' + cv.warnings.map(esc).join('<br>') + '</div>' : '') + '</div>';
   }
   function inp(name, v, wide, ph) { return '<input class="' + (wide ? 'wide' : '') + '" data-field="' + name + '" value="' + esc(v) + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>'; }
   function srcHtml(l) {
@@ -687,7 +704,7 @@
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
     card.querySelectorAll('[data-line]').forEach(function (tr) {
       var d = {}, k = tr.getAttribute('data-line');
-      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'remove') { if (x.checked) d.remove = true; } else if (x.value !== '') d[f] = f === 'execution' ? x.value : Number(x.value); });
+      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'remove') { if (x.checked) d.remove = true; } else if (x.value !== '') d[f] = f === 'execution' || f === 'status' ? x.value : Number(x.value); });
       e.lines[k] = d;
     });
     card.querySelectorAll('[data-skip]').forEach(function (x) { if (x.checked) e.skip_rfqs.push(Number(x.getAttribute('data-skip'))); });
@@ -751,6 +768,7 @@
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
+        if (act === 'folders') return call('cueFolders', [id], done, fail);
       };
     });
   }
