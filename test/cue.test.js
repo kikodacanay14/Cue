@@ -754,6 +754,19 @@ test('C43 chat never claims work without a run: a claim gets a plain correction;
   assert.ok(/You do no work from chat yourself/.test(t.log.gpt[0].instructions));
 });
 
+test('C44 "cost them by item" in an intake thread starts at costing: no GPT read, same requirements and files, item-level ask to Claude', () => {
+  const t = startToCard(), gpt0 = t.log.gpt.length;
+  const r = t.ctx.cueSend('can you cost them by item?', [], '', t.id);
+  assert.ok(r.request_id && r.request_id !== t.id); const s0 = t.ctx.cueLoad_(r.request_id).s;
+  assert.strictEqual(s0.stage, 'Checking Canvas'); assert.strictEqual(s0.ref, t.id); assert.strictEqual(s0.item_level, true);
+  const v = t.ctx.cueRun(r.request_id);
+  assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'intake');
+  assert.ok(!v.metrics.calls.some(c => c.step === 'read'), 'no GPT read');
+  assert.ok(/item-level costing/.test(t.log.claude[t.log.claude.length - 1].messages[0].content.map ? JSON.stringify(t.log.claude[t.log.claude.length - 1].messages) : String(t.log.claude[t.log.claude.length - 1].messages[0].content)));
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === r.request_id && /No new intake/.test(x[2])));
+  const u = sandbox(); assert.ok(!u.ctx.cueSend('can you cost them by item?', [], '', '').request_id, 'no thread with a read: not a re-cost');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

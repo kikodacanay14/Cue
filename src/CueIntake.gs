@@ -206,7 +206,7 @@ function cueIntakeCost_(s, save) {
 }
 
 function cueCostPrompt_(s, E) {
-  return '<inquiry>\n' + s.text + '\n</inquiry>\n\nEvent (as read): ' + JSON.stringify(s.x.event) + '\n\nRequirements with Canvas evidence (JSON):\n'
+  return '<inquiry>\n' + s.text + '\n</inquiry>\n\n' + (s.item_level ? 'Kiko asked for item-level costing. In each line\'s note, break the requirement into the items it is made of, one per line: item, quantity, unit cost in PHP and where the cost comes from (a quote, owned stock, or "no price"). Keep unit_cost as the total per unit of the requirement.\n\n' : '') + 'Event (as read): ' + JSON.stringify(s.x.event) + '\n\nRequirements with Canvas evidence (JSON):\n'
     + JSON.stringify(s.reqs.map(r => { const v = E(r.key); return { key: r.key, category: r.category, description: r.description,
       quantity: r.quantity, occurrence: r.occurrence, bse_packages: (v.bse || {}).packages || [], bse_price_list: (v.bse || {}).items || [],
       owned_stock: v.owned || [], past_scopes_run: v.ran || {}, quote_stats: v.stats || null, status: r.status || 'included',
@@ -223,7 +223,7 @@ function cueIntakeBuild_(s, E, a, research, asked) {
     const v = E(r.key), shown = (v.quotes || []).map(q => String(q.entry_id)), flags = [];
     const exec = l.execution === 'In House' ? 'In House' : 'Outsourced';
     let basis = ['past quotes', 'owned stock', 'none'].indexOf(l.cost_basis) >= 0 ? l.cost_basis : 'none';
-    let unit = Math.max(0, Number(l.unit_cost) || 0), note = cueStr_(l.note, 600);
+    let unit = Math.max(0, Number(l.unit_cost) || 0), note = cueStr_(l.note, s.item_level ? 2000 : 600);
     let sources = (l.sources || []).map(String).filter((x, i, all) => shown.indexOf(x) >= 0 && all.indexOf(x) === i);
     if (basis === 'past quotes' && !sources.length) { basis = 'none'; flags.push('Claude cited no quote it was shown, so the cost was cleared'); }
     if (basis !== 'past quotes') sources = [];

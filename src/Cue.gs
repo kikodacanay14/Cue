@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.9.4';
+const CUE_VERSION_ = 'Cue 1.9.5';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -136,6 +136,8 @@ function cueSend(text, files, mode, ref) {
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
   let asked = '', reopened = '';
+  // Kiko 08:55Z: "can you cost them by item?" restarted the whole intake. Costing starts mid-way when the thread already has the read.
+  if (!has && mode !== 'chat') { const rc = cueRecostStart_(String(text || '').trim(), ref); if (rc) return rc; }
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
@@ -166,6 +168,37 @@ function cueSend(text, files, mode, ref) {
   if (!asked) cueChat_('Kiko', line, id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id, task: ref };
+}
+
+const CUE_RECOST_RE_ = /\b(re-?cost|cost(ing)?|price|prices|break\s*(it|them)?\s*down|breakdown|by item|per item|item[- ]?level|itemi[sz]e)\b/i;
+const CUE_FULL_RE_ = /\b(full|run|redo|re-?run|start|begin|do)\b[^.\n]{0,20}\bintake\b/i;
+
+/** The newest intake run in a thread that GPT already read (client, event and requirements), or null. */
+function cueReadBase_(ref) {
+  if (!ref) return null;
+  let list = []; try { list = cueRecent_(14); } catch (e) { return null; }
+  const by = {}; list.forEach(x => { by[x.id] = x; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
+  return list.filter(x => root(x.id) === home && x.kind === 'intake' && x.x && (x.reqs || []).length)[0] || null;
+}
+
+/** "Cost them", "re-cost", "break it down by item" in a thread that has a read: a new run that starts at costing, with the same
+ * requirements and files. No GPT read, no duplicate check switching it to a change. Returns the send result, or null. */
+function cueRecostStart_(t, ref) {
+  if (!t || !CUE_RECOST_RE_.test(t) || CUE_FULL_RE_.test(t) || t.length > 2000) return null;
+  const base = cueReadBase_(ref || cueRelated_(t, '', ''));
+  if (!base) return null;
+  const now = cueNow_(), d = new Date(now), items = /\b(item|items|break\s*(it|them)?\s*down|breakdown|itemi[sz]e)\b/i.test(t);
+  const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
+  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: base.text, ask: t, files: base.files || [],
+    status: 'Working', stage: 'Checking Canvas', ref: base.id, as_new: true, recost_of: base.id, item_level: items,
+    x: base.x, reqs: base.reqs, metrics: { ai_calls: 0, calls: [] }, notes: [] };
+  cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
+  cueSettleReopened_(base.id);
+  if (!ref) cueChat_('Cue', 'Costing it in the ' + cueTaskName_(base) + ' thread.', '>' + id);
+  cueChat_('Kiko', t, id);
+  cueChat_('Cue', 'Costing again from the requirements already read' + (items ? ', item by item' : '') + '. No new intake.', id);
+  return { request_id: id, task: base.id };
 }
 
 const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'readiness'],
