@@ -65,6 +65,7 @@ function cueSetup() {
   const missing = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ZAD_SECRET', 'CUE_BRIDGE_URL'].filter(k => !props.getProperty(k));
   let acc = null; try { acc = cueAccess_(); } catch (e) { acc = null; }
   const msg = 'Cue is set up (sheet ' + ss.getId() + '). ' + (missing.length ? 'Still missing in Script Properties: ' + missing.join(', ') + '.' : 'All keys are present.')
+    + (props.getProperty('CUE_HUBSPOT_TOKEN') ? '' : ' CUE_HUBSPOT_TOKEN is not set yet, so pipeline reviews cannot run.')
     + (acc && acc.checked ? (acc.missing.length ? ' Google access still missing: ' + acc.missing.join(', ') + '.' : ' Google access: all granted.') : '');
   console.log(msg);
   return msg;
@@ -150,6 +151,7 @@ function cueSend(text, files, mode, ref) {
     const talk = cueTalk_(String(text || '').trim(), ref);
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
     if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); if (!ref && !talk.task) cueChat_('Cue', 'Started a thread for it.', '>' + out.request_id); return out; }
+    if (talk.pipeline) return cuePipeStart_(String(text || '').trim(), talk.pipeline.client);   // command C11, its own thread
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -178,13 +180,18 @@ function cueSend(text, files, mode, ref) {
   return { request_id: id, task: ref };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
       + 'priority or reminder for the task he is replying about (or the task you put in task). Empty strings for anything he did not ask to change.',
       properties: { due: { type: 'string', description: 'YYYY-MM-DD, "none" to clear, or empty' }, priority: { type: 'string', description: 'High, Normal, Low, or empty' },
         remind: { type: 'string', description: 'YYYY-MM-DDTHH:mm in Philippine time, "none" to clear, or empty' } } },
+    command: { type: 'string', enum: ['', 'pipeline'], description: '"pipeline" when Kiko asks about deals, the sales pipeline or who to follow up '
+      + 'with clients (e.g. "how\'s the pipeline", "which deals went quiet", "who do I need to chase", "who\'s waiting on me", "what\'s pending award", '
+      + '"anything slipping", "where are we with Telus", "kumusta yung deals", "sino kailangan i-follow up"). Not for supplier RFQs, HubSpot clean-up, '
+      + 'profit or cash flow. Empty otherwise.' },
+    command_client: { type: 'string', description: 'For "pipeline": the one client or deal Kiko named, e.g. "Telus"; empty for the whole pipeline' },
     task: { type: 'string', description: 'The id from Tasks when Kiko\'s message is clearly about one of those tasks (same client, project or '
       + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
@@ -202,7 +209,10 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'Kiko asks if a project is ready or what is missing, set readiness and reply in one short line that you are checking it in Canvas; Canvas '
   + 'scores the checklist and Claude summarises it in the task\'s thread. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
-  + 'and never ask Kiko to give access "to send". Gmail and Drive access is already working; '
+  + 'and never ask Kiko to give access "to send". Pipeline review: when Kiko asks about his deals, the pipeline or which clients to follow '
+  + 'up, set command "pipeline" (and command_client if he names one client) and reply in one short line that you are checking; Cue then '
+  + 'reads HubSpot and his Gmail in a new thread. "Clean up HubSpot" and profit or cash-flow questions are not built yet: say so. '
+  + 'Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
   + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. You cannot change Canvas, look up Canvas records or '
   + 'browse the web from chat: say so plainly when asked, and never pretend you did something. Every morning at 7:00 Cue builds a '
@@ -217,7 +227,7 @@ function cueTalk_(t, ref) {
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Reopened')
-    .map(r => ((r.ready && r.ready.project && r.ready.project.name) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
+    .map(r => ((r.ready && r.ready.project && r.ready.project.name) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
   // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
   const by = {}; st.requests.forEach(r => { by[r.id] = r; });
@@ -231,7 +241,7 @@ function cueTalk_(t, ref) {
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
-  const pick = !ref && r.ok && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   const where = ref || pick, reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
     const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || 'that task';
@@ -253,7 +263,8 @@ function cueTalk_(t, ref) {
   let sweep = '';
   if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
   const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
-  return { chat: true, reply, task: pick, sweep, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !ready), start_intake: start.length >= 20 ? start : '', readiness: ready.length >= 2 ? ready : '' };
+  const pipeline = r.ok && r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null;
+  return { chat: true, reply, task: pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !ready && !pipeline), start_intake: start.length >= 20 && !pipeline ? start : '', readiness: ready.length >= 2 ? ready : '' };
 }
 
 /** Kiko answered in a task's thread: its reminder flag clears. */
@@ -266,6 +277,7 @@ function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
   if (x.kind === 'sweep') return 'Morning batch ' + String(x.day || '').slice(5).replace('-', '/');
   if (x.kind === 'readiness') return (x.ready && ((x.ready.match && x.ready.match.name) || x.ready.ask)) || 'the readiness check';
+  if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -284,7 +296,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self); } catch (e) { return ''; }
+  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline'); } catch (e) { return ''; }
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -303,6 +315,9 @@ function cueTaskLine_(id) {
   if (s.kind === 'sweep') return 'morning chasing batch for ' + s.day + ', status ' + s.status + '; ' + ((s.batch && s.batch.items) || []).length + ' line(s): '
     + ((s.batch && s.batch.items) || []).slice(0, 10).map(it => it.label + ' ' + (it.project || it.who || '')).join('; ');
   if (s.kind === 'readiness') return 'readiness check for ' + cueTaskName_(s) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
+  if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
+    return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
+      + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -332,8 +347,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -377,6 +392,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
   if (L && L.s.kind === 'sweep') return cueView_(cueSweepApprove_(id, edits || {}));
   if (L && L.s.kind === 'readiness') return cueView_(cueReadyApprove_(id, edits || {}));
+  if (L && L.s.kind === 'pipeline') return cueView_(cuePipeApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -466,11 +482,17 @@ function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
-    const name = s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
-    else if (s.kind === 'change') {
+    else if (s.kind === 'pipeline') {
+      const P = s.pipe || {}, k = P.counts || {}, d = P.drafts || [], sent = d.filter(x => x.sent_id), wait = d.filter(x => x.draft_id && !x.sent_id), bad = d.filter(x => x.selected && x.error);
+      out.push((P.deals || []).length + ' open deal' + ((P.deals || []).length === 1 ? '' : 's') + ' checked: ' + (k.act || 0) + ' to act on, ' + (k.chase || 0) + ' to chase, ' + (k.data || 0) + ' to fix');
+      if (sent.length) out.push('sent ' + sent.length + ' follow-up' + (sent.length === 1 ? '' : 's'));
+      if (wait.length) out.push(wait.length + ' follow-up' + (wait.length === 1 ? '' : 's') + ' in your Gmail Drafts');
+      if (bad.length) out.push(bad.length + ' did not go through');
+    } else if (s.kind === 'change') {
       const sel = (c.drafts || []).filter(d => d.selected), sent = sel.filter(d => d.sent_id), drafts = sel.filter(d => d.draft_id && !d.sent_id), bad = sel.filter(d => d.error);
       if (sent.length) out.push('sent ' + sent.length + ' requote' + (sent.length === 1 ? '' : 's') + ' (' + list(sent.map(d => d.supplier)) + ')');
       if (drafts.length) out.push(drafts.length + ' requote' + (drafts.length === 1 ? '' : 's') + ' waiting in your Gmail Drafts (' + list(drafts.map(d => d.supplier)) + ')');
@@ -499,7 +521,7 @@ function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
-  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
+  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',

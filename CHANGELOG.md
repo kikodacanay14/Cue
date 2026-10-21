@@ -39,6 +39,16 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - RFQs ask for quotes back at least a day before the client's proposal deadline.
 - After the write, the done card lists every project folder Canvas read back. A missing one is flagged with "Make folders again".
 
+## Unreleased (pipeline health)
+
+_Needs CUE_HUBSPOT_TOKEN before deploy._
+
+- Review deals and follow-ups (command C11, Kiko approved the spec 21 Oct 07:34Z). Ask in chat ("how's the pipeline", "which deals went quiet", "who's waiting on me", "where are we with Telus", "kumusta yung deals") and Cue opens a Pipeline review thread.
+- Code reads the open deals from HubSpot (read-only private app token, `CUE_HUBSPOT_TOKEN`) and the newest email for each from Kiko's Gmail, by contact email, Canvas project ID or client name. Fixed rules flag each deal: they wrote last (1+ working day), event within 14 days, event passed but still open, quiet 7 days (3 working days once the CE is with the client), missing amount, event date or contact.
+- One Claude call writes where each flagged deal stands and the next step, plus a short summary. If Claude is down, the rule flags still show.
+- The card groups deals into Act today, Chase, Fix the data (in Canvas) and On track, with HubSpot and Gmail links. Tick deals and tap Draft follow-ups: one GPT call drafts a reply in each deal's thread; edit, then Approve and send or Drafts only. Done closes the review.
+- Budget: 1 AI call for the review, 2 with follow-ups (plus the chat call). At most 40 deals (nearest event first). Read only: nothing is written to HubSpot or Canvas. Each review is logged in a new Pipeline tab of the Cue sheet.
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for Kiko. Cards show "Cue worked N s".
