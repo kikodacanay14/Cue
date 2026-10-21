@@ -2681,6 +2681,13 @@ test('PH10 live 15:43Z: a tap while the phase is saving is not an error; Canvas 
   deq([x.ph.phase, x.canvas.project_id, x.error || ''], [2, 'S-99900001ZZ', '']);
 });
 
+test('PH12 live 18:40Z: a tap that lands after its phase moved on (Working, or the next card) does nothing and is never an error', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const L = t.ctx.cueLoad_(t.id); L.s.status = 'Working'; t.ctx.cueSave_(L.sh, L.row, L.s);
+  const chat0 = t.tabs.Chat.rows.length, n = (t.log.phLines || []).length, w = t.ctx.cueApprove(t.id, {});
+  deq([(t.log.phLines || []).length, w.status, w.error || '', t.tabs.Chat.rows.length], [n, 'Working', '', chat0]);
+});
+
 test('PH11 Kiko 15:48Z: Leave blank per line saves no cost and no price, over any suggested or typed number; phase 3 has a one-tap Reject', () => {
   const t = phStart(); t.ctx.cueApprove(t.id, {}); const v3 = t.ctx.cueApprove(t.id, {});
   assert.strictEqual(v3.ph.phase, 3);
@@ -3244,6 +3251,26 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
     outbox: [{ who: 'Kiko', text: 'hi', request_id: '', time: '', sent: now }, { who: 'Kiko', text: 'other', request_id: '', time: '', sent: now }] }));
   deq(box.out, 2, 'the echoed line once, the other pending line kept');
   assert.ok(/never by their number n/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueTeach.gs'), 'utf8')));
+});
+
+test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the buttons; all buttons on one row with Cancel intake last; the text is a tooltip', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const box = { PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
+    esc: v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
+    peso: n => 'PHP ' + n, secHtml: (k, t) => '<sec>' + t + '</sec>', srcHtml: () => '', inp: () => '<input>', metricLine: () => 'M', foldersHtml: () => '' };
+  const lines = [{ key: 'R1', item: 'LED wall', spec: 'P3.9', why: 'w', quantity: 1, days: 1, execution: 'Outsourced', unit_cost: 1, cost_basis: 'history', unit_price: 2, price_basis: 'p' }];
+  const card = (phase, extra) => vm.runInNewContext(fn + 'phCardHtml(r)', Object.assign({}, box, { r: Object.assign({ id: 'q1', status: 'Needs you', stage: 'Needs you', canvas: { project_id: 'S-1ZZ', project_number: '073' },
+    ph: { phase, x: { client: {}, event: {} }, rows: [{ key: 'R1', item: 'LED', spec: 'P3', quantity: 1, days: 1 }], lines, totals: {}, rfqs: [] } }, extra || {}) }));
+  [1, 2, 3].forEach(ph => {
+    const h = card(ph), rows = h.match(/<div class="actions">[\s\S]*?<\/div>/g);
+    deq(rows.length, 1, 'phase ' + ph + ': one button row');
+    assert.ok(/data-act="reject"[\s\S]*data-act="ph-cancel"[^>]*margin-left:auto/.test(rows[0]), 'phase ' + ph + ': Cancel intake last, set apart');
+    assert.ok(!/Save prices writes|Approve adds|Reject keeps|Tap an item/.test(h.replace(/title="[^"]*"/g, '')), 'phase ' + ph + ': no explaining text');
+    assert.ok(/data-act="approve"[^>]*title="/.test(h), 'phase ' + ph + ': tooltip on the main button');
+  });
+  assert.ok(!/ph-cancel/.test(card(3, { canvas: {} })), 'no Canvas project: no Cancel intake');
+  assert.ok(/<div class="actions"><button[^>]*ph-cancel/.test(card(4, { status: 'Done', ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [] } })), 'after phase 3 Cancel intake keeps its own row');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

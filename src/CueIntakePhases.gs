@@ -198,7 +198,9 @@ function cuePhApprove_(id, edits) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (L.s.busy_until > cueNow_()) return Object.assign(L, { busy: true });   // a second tap while the first is saving: not an error
-    if (L.s.status !== 'Needs you' || [1, 2, 3].indexOf(L.s.phase) < 0) throw new Error('This intake is ' + L.s.status + (L.s.phase ? ' (phase ' + L.s.phase + ')' : '') + ', not waiting for that.');
+    // Live 18:40Z: a second tap lands after the first finished its phase and moved on (Working, or the next card).
+    // The card already shows the newer state, so this tap does nothing. Never an error.
+    if (L.s.status !== 'Needs you' || [1, 2, 3].indexOf(L.s.phase) < 0) return Object.assign(L, { busy: true });
     L.s.busy_until = cueNow_() + CUE_LEASE_MS_; cueSave_(L.sh, L.row, L.s);
     return L;
   });
