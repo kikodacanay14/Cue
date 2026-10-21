@@ -735,7 +735,7 @@
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && EXP_RE.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (mode !== 'intake' && EXP_RE.test(t) && !memPaste(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
@@ -746,6 +746,17 @@
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
     }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+  }
+  // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
+  function memPaste(t) {
+    var s = String(t || '');
+    if (/\b(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:memory|memories)\b/i.test(s)) return true;
+    var lines = s.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+    if (lines.length < 5) return false;
+    if (/^what (?:you|i|kiko) says?\b/im.test(s) && /\bwhat it means\b/i.test(s)) return true;
+    if (lines.filter(function (x) { return /^["\u201c'].{2,80}["\u201d']$/.test(x); }).length >= 3) return true;
+    var hits = lines.filter(function (x) { return /\b(?:kiko|i|he|she|you)\s+(?:prefers?|wants?|likes?|dislikes?|uses?|works?|lives?|hates?|needs?)\b|\bit means\b|^(?:always|never)\b|^when (?:i|kiko|you) says?\b/i.test(x); }).length;
+    return hits >= 3 && hits * 3 >= lines.length;
   }
   // Learn from exported chats (Kiko 17:04Z): the export is read here, on Kiko's computer. Only the newest conversations, cut short, go to Cue.
   var CHATS_RE = /^\s*(?:please\s+)?learn\s+from\s+(?:my\s+)?(?:chatgpt\s+|claude\s+|old\s+)?(?:chats?|conversations?)\b/i;
