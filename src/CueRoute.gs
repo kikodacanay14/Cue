@@ -103,6 +103,7 @@ function cueAskPick(id, pick) {
   if (o.type === 'ticktick') {   // Kiko 17:26Z: Add = approve; nothing is created before it
     cueChat_('Kiko', pick === 'add' ? 'Add to TickTick' : 'Skip', done);
     if (pick !== 'add') { cueChat_('Cue', 'OK, not added.', done); return { chat: true }; }
+    if (!cueTtOn_()) { cueTtKeep_(o); cueChat_('Cue', 'Kept: "' + o.title + '". TickTick is not connected yet. Type "connect ticktick" and sign in, and I will add it then.', done); return { chat: true }; }
     try { cueTtAdd_(o); cueChat_('Cue', 'Added to TickTick: "' + o.title + '"' + (o.due ? ', due ' + o.due : '') + '.', done); }
     catch (e) { cueChat_('Cue', 'TickTick did not take it: ' + e.message, done); }
     return { chat: true };

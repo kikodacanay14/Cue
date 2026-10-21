@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.19.2: TickTick card always shows; "write a plan" is chat (not deployed)
+
+PC test on /dev 1.19.1 (17:42Z) found two problems.
+
+- TickTick not connected: Cue said "tap Add" but showed no card, then "not connected". Now the Add or Skip card always shows. When TickTick is not connected, the card says so first. Add keeps the to-do (up to 20), and Cue adds it right after Kiko types "connect ticktick" and signs in.
+- "Write a plan for onboarding a new freelancer" started a workflow map. A plan, checklist, brainstorm or analysis ask is now answered in chat with the Write a plan (or matching) process. Only map, Zap, workflow or automate words, or picking Workflow map, start a map.
+- Tests: 216 of 216 pass (new SK2; TT2 covers the kept to-do).
+
 ## Cue 1.19.1: fixes from the PC test of 1.18.1 (not deployed)
 
 PC test of 1.18.1 on /dev, 21 Oct 17:30Z.
