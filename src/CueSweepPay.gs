@@ -8,7 +8,8 @@
  * - Send (Kiko 08:08-08:09Z): from info@ with Kiko on CC, Approve and send, one by one on the card, never automatic. Canvas
  *   sends through send_payment_chasers (it runs as info@); the engine holds approvals until 09:00 PH. Drafts only saves an
  *   info@ draft. Canvas re-checks the BI is still open and the balance unchanged before anything goes out.
- * - Timing: 7 days after the due date, then every 7 days, at most 3 chasers; then the engine flags it to Kiko ("call the client").
+ * - Timing: 7 days after the due date, then every 7 days, at most 3 chasers (defaults; Kiko changes them on the Chaser rules card);
+ *   then the engine flags it to Kiko ("call the client").
  * - Finance stays read only: nothing here marks a BI paid or changes any record. */
 
 const CUE_PAY_ = { minLate: 7, every: 7, max: 3 };
@@ -24,7 +25,10 @@ cueKind_({ kind: 'payment', label: 'Payment chasers', every: CUE_PAY_.every, max
 
 /** The day's payment lines: one per client email, anchored on its oldest overdue BI. */
 function cuePayFind_(ctx) {
-  const res = cueBridge_(ctx.s, 'overdue_billings', { min_days_late: CUE_PAY_.minLate }) || {};
+  // Kiko's Chaser rules card (Rules tab): first = days after the due date; every and max are applied by the engine.
+  const rule = typeof ctx.rule === 'function' ? ctx.rule('payment') || {} : {};
+  if (rule.on === false) return [];
+  const res = cueBridge_(ctx.s, 'overdue_billings', { min_days_late: Number(rule.first) >= 0 && rule.first !== '' && rule.first != null ? Number(rule.first) : CUE_PAY_.minLate }) || {};
   (res.skipped || []).forEach(x => ctx.s.notes.push('Payment chasers: ' + (x.no ? 'BI ' + x.no + ' (' + x.project + '): ' : '') + x.why));
   if (res.more) ctx.s.notes.push('Payment chasers: ' + res.more + ' more overdue BIs wait for the next run.');
   const groups = {}, order = [];

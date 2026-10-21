@@ -152,7 +152,7 @@ function sandbox(o = {}) {
     SpreadsheetApp: { openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
-    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; return {}; } }; return { timeBased: () => tb }; }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; return {}; } }; return { timeBased: () => tb }; }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
@@ -604,7 +604,7 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
 const PH = (day, hh, mm) => Date.parse(day + 'T' + String(hh).padStart(2, '0') + ':' + String(mm || 0).padStart(2, '0') + ':00+08:00');
 function sweepBox(o = {}, kind) {
   const t = sandbox(o); let T = PH('2026-10-21', 7, 0); t.at = (d, h, m) => { T = PH(d, h, m); }; t.ctx.cueNow_ = () => T;
-  if (kind !== null) t.ctx.cueKind_(Object.assign({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, draftBrief: 'Ask for the quote.',
+  if (kind !== null) t.ctx.cueKind_(Object.assign({ kind: 'nudge', label: 'RFQ chasers', every: 3, max: 2, draftBrief: 'Ask for the quote.',
     template: it => ({ subject: 'Quote for ' + it.project, body: 'Template nudge for ' + it.who }),
     find: ctx => { const b = ctx.board(); return (o.items || [
       { key: 'rfq:aaaaaaaaaaaaaaaa', project: b.projects[0].name, who: 'Sonic Pro', to: 'sales@sonicpro.example', thread_id: 'aaaaaaaaaaaaaaaa', message_id: '<m1@mail>', thread_subject: 'RFQ: LED wall', why: 'No quote after 3 days', due_since: '2026-10-18' },
@@ -758,7 +758,7 @@ test('PY2 check: a ChatGPT draft that leaves out a BI or the amount is replaced 
 test('PY3 Approve and send before 9:00: nothing in Kiko\'s Gmail; at 9:00 Canvas sends from info@ in the BI thread; chased again in 7 days', () => {
   const t = payBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.at('2026-10-21', 7, 30);
   const v = t.ctx.cueApprove(id, { send: true }); assert.strictEqual(v.status, 'Scheduled'); assert.ok(!t.log.paySends && !t.log.gmail.length && !t.log.replies);
-  assert.ok(t.tabs.Chat.rows.some(r => /go out at 9:00\. Tap Cancel on the batch before then to stop them\. Payment chasers go from info@ with you on CC\./.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => /will go out at 09:00\. Nothing has gone out yet/.test(r[2])));
   t.at('2026-10-21', 9, 0); t.ctx.cueResume();
   assert.strictEqual(t.log.paySends.length, 1); const a = t.log.paySends[0];
   deq([a.key, a.mode, a.bis, a.balance, a.to, a.thread_id], ['payment:bi:1041:c1', 'send', ['1041', '1047'], 105000, 'ap@acme.example', 'th1041abcd']);
@@ -783,6 +783,61 @@ test('PY5 at most 3 chasers, then the engine flags it to Kiko; Canvas down is a 
   assert.strictEqual(t.log.paySends.length, 3); t.at('2026-11-11', 7, 0); t.ctx.cueSweep();
   const b = batchOf(t); assert.ok(b.batch.stopped.some(i => i.key === 'payment:bi:1041')); assert.strictEqual(payItems(t).filter(i => i.key === 'payment:bi:1041').length, 0);
   const u = sweepBox({ overdueFail: true }, null); u.ctx.cueSweep(); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
+});
+test('PY6 the Chaser rules card drives payments: first sets the days late asked of Canvas, every sets the next due, off skips the Canvas read', () => {
+  const t = payBox(); t.ctx.cueRulesSave({ 'payment.first': 10, 'payment.every': 5 }); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
+  assert.strictEqual(t.log.bridge.filter(b => b.action === 'overdue_billings')[0].args.min_days_late, 10);
+  t.ctx.cueApprove(batchOf(t).id, { send: true }); assert.strictEqual(chase(t).filter(r => r[1] === 'payment')[0][6], '2026-10-26');
+  const u = payBox(); u.ctx.cueRulesSave({ 'payment.on': false }); u.ctx.cueSweep(); assert.ok(!u.log.overdue, 'paused: no Canvas read');
+});
+
+/* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ---------- */
+test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
+  const t = sandbox(), r = t.ctx.cueRules();
+  deq(['rfq', 'award', 'payment', 'accreditation', 'signature'].map(k => [r.kinds[k].first, r.kinds[k].every, r.kinds[k].max, r.kinds[k].unit]),
+    [[3, 3, 2, 'working'], [3, 5, 3, 'working'], [7, 7, 3, 'days'], [3, 3, 3, 'days'], [1, 2, 3, 'days']]);
+  deq(r.general, { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 });
+});
+test('R2 Kiko saves a change: checked, kept in the Rules tab, noted in the chat, used by the next batch', () => {
+  const t = sweepBox(); const L = t.ctx.cueKinds_(); L.splice(L.findIndex(k => k.kind === 'payment'), 1);   // swap the real payment kind for a stub
+  t.ctx.cueKind_({ kind: 'payment', label: 'Payment chasers', template: it => ({ body: 'Pay ' + it.who }),
+    find: ctx => [{ key: 'pay:1', project: 'P', who: 'Client', to: 'c@x.example', why: 'Unpaid ' + ctx.rule('payment').first + 'd' }] });
+  const r = t.ctx.cueRulesSave({ 'payment.every': 5, 'payment.first': '10', 'rfq.on': false });
+  assert.strictEqual(r.kinds.payment.every, 5); assert.strictEqual(r.kinds.payment.first, 10); assert.strictEqual(r.kinds.rfq.on, false);
+  assert.ok(t.tabs.Chat.rows.some(x => /Payment chasers: then every 7 → 5/.test(x[2]) && /RFQ chasers: paused/.test(x[2])));
+  deq(t.tabs.Rules.rows.slice(1).map(x => [x[0], x[1]]), [['payment.every', 5], ['payment.first', 10], ['rfq.on', false]]);
+  t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); const b = batchOf(t);
+  assert.ok(b.batch.items.some(i => /Unpaid 10d/.test(i.why)), 'the kind reads rule.first');
+  t.ctx.cueApprove(b.id, { send: true }); assert.strictEqual(chase(t).filter(x => x[0] === 'pay:1')[0][6], '2026-10-26', 'next due uses every = 5');
+});
+test('R3 bad values are refused with a plain reason; nothing is saved', () => {
+  const t = sandbox();
+  assert.throws(() => t.ctx.cueRulesSave({ 'payment.every': 0 }), /whole number from 1 to 60/);
+  assert.throws(() => t.ctx.cueRulesSave({ 'general.send': 6 }), /from 7 to 20/);
+  assert.throws(() => t.ctx.cueRulesSave({ 'general.build': 9, 'general.send': 9 }), /after the time the batch is built/);
+  assert.throws(() => t.ctx.cueRulesSave({ 'nope.every': 3 }), /Unknown chaser/);
+  assert.ok(!t.tabs.Rules || t.tabs.Rules.rows.length <= 1);
+});
+test('R4 a broken value typed into the Rules tab falls back to the default and the batch says so', () => {
+  const t = sweepBox(); t.ctx.cueRules(); t.tabs.Rules.appendRow(['nudge.every', 'soon']);
+  t.ctx.cueSweep(); const b = batchOf(t); assert.strictEqual(b.status, 'Needs you'); assert.ok(b.notes.some(n => /nudge\.every = "soon" is not valid/.test(n)));
+});
+test('R5 send time and working days: approved at 9:30 waits for a 10:00 send; working-day rules skip the weekend', () => {
+  const t = sweepBox(); t.ctx.cueRulesSave({ 'general.send': 10 }); t.ctx.cueKind_({ kind: 'award', label: 'CE award chasers', template: () => ({ body: 'Any news?' }),
+    find: () => [{ key: 'award:1', project: 'Acme', who: 'Ana', to: 'ana@acme.example', why: 'CE sent' }] });
+  t.at('2026-10-23', 7, 0); t.ctx.cueSweep(); t.at('2026-10-23', 9, 30);
+  assert.strictEqual(t.ctx.cueApprove(batchOf(t).id, { send: true }).status, 'Scheduled');
+  t.at('2026-10-23', 10, 0); t.ctx.cueResume(); assert.ok(t.log.sent.length >= 1);
+  assert.strictEqual(chase(t).filter(x => x[0] === 'award:1')[0][6], '2026-10-30', 'Friday + 5 working days = next Friday');
+});
+test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 1 working day', () => {
+  const t = sweepBox({ items: [{ key: 'rfq:dddddddddddddddd', project: 'Soon', who: 'S', to: 's@x.example', why: 'event in 3 days', every: 1 }] });
+  t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(chase(t)[0][6], '2026-10-22');
+});
+test('R6 moving the build time moves the 07:00 trigger', () => {
+  const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
+  assert.strictEqual(t.log.triggers.filter(h => h === 'cueSweep').length, 1); deq(t.log.triggerTz.cueSweep, [6, 'Asia/Manila']);
 });
 
 let pass = 0;

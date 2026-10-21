@@ -5,19 +5,118 @@
  * - Who does what: code finds and filters, Canvas gives one read (get_project_board, only when a kind needs it), ChatGPT drafts
  *   every kind's nudges in one call (two when the batch is big) and each kind's template covers a ChatGPT failure, so the batch
  *   never depends on ChatGPT. Claude is not in the daily run.
- * - Chaser kinds plug in with cueKind_({ kind, label, find(ctx), draftBrief, template(item), every, max, sendAllowed,
+ * - Chaser kinds plug in with cueKind_({ kind, label, find(ctx), draftBrief, template(item), every, max, unit?, sendAllowed,
  *   send?(item, s), draft?(item, s) (makes the draft somewhere other than Kiko's Gmail, e.g. info@), act?(item, s), posted?(ctx, items), chase? }). ctx = { now, today, s (the sweep run), board() (one Canvas read,
- *   cached), tasks() }. The engine applies every/max from the Chase log tab, so find() returns everything outstanding; chase: false
+ *   cached), tasks(), rule(kind) (Kiko's Chaser rules: on, first, every, max, unit; use rule.first in find) }. The engine applies every/max from the Chase log tab, so find() returns everything outstanding; chase: false
  *   skips the log (inbox triage). A kind's own AI call in find() must go through cueAiAll_(ctx.s) so it counts in the run.
  *   Items: { key (put the Gmail thread id in it), project, project_id, who, to, thread_id, message_id, thread_subject, why, due_since,
  *   priority, group?, action?, needs_draft?, context?/facts?, no_email? }.
  * - Task basics (Part B): due date, priority, reminder, Close and Archive on every task. */
 
-const CUE_SWEEP_ = { perKind: 15, perBatch: 40, perCall: 20, sendHour: 9, buildHour: 7, quietFrom: 21, quietTo: 7 };
+const CUE_SWEEP_ = { perCall: 20 };   // timing and caps are Kiko's Chaser rules (below)
 const CUE_PH_MS_ = 8 * 3600 * 1000;               // the Philippines is UTC+8 all year (no daylight saving)
 const CUE_PRIORITIES_ = ['High', 'Normal', 'Low'];
 
 /** Philippine date (YYYY-MM-DD) and hour of a moment. */
+/* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ----------
+ * Kiko changes the timing on the Chaser rules card in Widgets. The values live in the Rules tab of Kiko's Cue sheet (Rule, Value,
+ * Changed, Was), one row per changed setting; anything missing or broken falls back to these defaults. Code only, no AI. */
+const CUE_RULE_KINDS_ = {
+  rfq: { label: 'RFQ chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },
+  award: { label: 'CE award chasers', on: true, first: 3, every: 5, max: 3, unit: 'working' },
+  payment: { label: 'Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
+  accreditation: { label: 'Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },
+  signature: { label: 'FSA / AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' } };
+const CUE_RULE_GENERAL_ = { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
+const CUE_RULE_LIMITS_ = { first: [1, 60], every: [1, 60], max: [1, 10], soon_first: [1, 60], soon_every: [1, 60], build: [5, 10], send: [7, 20],
+  quiet_from: [18, 23], quiet_to: [5, 9], per_kind: [1, 30], per_batch: [1, 60] };
+
+/** { kinds: { rfq: {...}, ... }, general: {...}, notes: [] }: the defaults with Kiko's saved values on top. */
+function cueRules_() {
+  const out = { kinds: JSON.parse(JSON.stringify(CUE_RULE_KINDS_)), general: Object.assign({}, CUE_RULE_GENERAL_), notes: [] };
+  let rows = [];
+  try { const sh = cueRulesSheet_(), n = sh.getLastRow() - 1; rows = n > 0 ? sh.getRange(2, 1, n, 2).getValues() : []; } catch (e) { out.notes.push('Rules could not be read; defaults used.'); }
+  rows.forEach(r => {
+    const k = String(r[0] || '').trim(), v = r[1], m = /^(general|[a-z_]{2,20})\.([a-z_]+)$/.exec(k);
+    if (!m) return;
+    const tgt = m[1] === 'general' ? out.general : out.kinds[m[1]] || (out.kinds[m[1]] = { label: m[1], on: true });
+    if (m[2] === 'on') { tgt.on = !(v === false || /^(false|no|off|0)$/i.test(String(v))); return; }
+    const lim = CUE_RULE_LIMITS_[m[2]], n = Number(v);
+    if (!lim || !(n === Math.floor(n) && n >= lim[0] && n <= lim[1])) { out.notes.push('Rule ' + k + ' = "' + v + '" is not valid; the default was used.'); return; }
+    tgt[m[2]] = n;
+  });
+  if (out.general.send <= out.general.build) { out.notes.push('The send time must be after the build time; defaults used.'); out.general.send = CUE_RULE_GENERAL_.send; out.general.build = CUE_RULE_GENERAL_.build; }
+  return out;
+}
+function cueRulesSheet_() {
+  const ss = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', ''));
+  let sh = ss.getSheetByName('Rules');
+  if (!sh) { sh = ss.insertSheet('Rules'); sh.appendRow(CUE_TABS_.Rules); sh.setFrozenRows(1); }
+  return sh;
+}
+/** The rule a kind runs on: its saved rule when it has one, else its own registration. */
+function cueRuleFor_(rules, k) {
+  const r = rules.kinds[k.kind];
+  return r ? Object.assign({}, r) : { label: k.label, on: true, every: k.every, max: k.max, unit: k.unit || 'days' };
+}
+/** What the Chaser rules card shows. */
+function cueRules() { cueOwner_(); const r = cueRules_(); return { kinds: r.kinds, general: r.general, defaults: { kinds: CUE_RULE_KINDS_, general: CUE_RULE_GENERAL_ }, notes: r.notes }; }
+/** Kiko saves the card: changes = { 'payment.every': 5, 'rfq.on': false, 'general.send': 10, ... }. Checked, saved, noted in the chat. */
+function cueRulesSave(changes) {
+  cueOwner_();
+  const cur = cueRules_(), said = [], put = {};
+  Object.keys(changes || {}).forEach(k => {
+    const m = /^(general|[a-z_]{2,20})\.([a-z_]+)$/.exec(k);
+    if (!m) throw new Error('Unknown rule ' + k + '.');
+    const tgt = m[1] === 'general' ? cur.general : cur.kinds[m[1]];
+    if (!tgt) throw new Error('Unknown chaser ' + m[1] + '.');
+    let v = changes[k];
+    if (m[2] === 'on') v = !(v === false || /^(false|no|off|0)$/i.test(String(v)));
+    else {
+      const lim = CUE_RULE_LIMITS_[m[2]], n = Number(v);
+      if (!lim || !(m[2] in tgt)) throw new Error('Unknown rule ' + k + '.');
+      if (!(n === Math.floor(n) && n >= lim[0] && n <= lim[1])) throw new Error((tgt.label || 'General') + ': ' + m[2].replace('_', ' ') + ' must be a whole number from ' + lim[0] + ' to ' + lim[1] + '.');
+      v = n;
+    }
+    if (tgt[m[2]] === v) return;
+    said.push((m[1] === 'general' ? 'General' : tgt.label) + ': ' + (m[2] === 'on' ? (v ? 'switched on' : 'paused')
+      : cueRuleName_(m[2]) + ' ' + cueRuleShow_(m[2], tgt[m[2]]) + ' → ' + cueRuleShow_(m[2], v)));
+    tgt[m[2]] = v; put[k] = v;
+  });
+  if (cur.general.send <= cur.general.build) throw new Error('The send time must be after the time the batch is built.');
+  if (!said.length) return cueRules();
+  cueLocked_(() => {
+    const sh = cueRulesSheet_(), n = sh.getLastRow() - 1, rows = n > 0 ? sh.getRange(2, 1, n, 2).getValues() : [], now = new Date(cueNow_());
+    Object.keys(put).forEach(k => {
+      const i = rows.findIndex(r => String(r[0]) === k), was = i >= 0 ? rows[i][1] : '';
+      if (i >= 0) sh.getRange(i + 2, 1, 1, 4).setValues([[k, put[k], now, was]]); else { sh.appendRow([k, put[k], now, was]); rows.push([k, put[k]]); }
+    });
+  });
+  if ('general.build' in put) cueSweepTrigger_(put['general.build']);
+  cueChat_('Cue', 'Chaser rules changed. ' + said.join('; ') + '. From the next morning batch.', '');
+  return cueRules();
+}
+const cueRuleName_ = f => ({ on: 'on', first: 'first chase after', every: 'then every', max: 'stop after', soon_first: 'event-soon first chase after', soon_every: 'event-soon every',
+  build: 'build at', send: 'send at', quiet_from: 'quiet from', quiet_to: 'quiet until', per_kind: 'lines per chaser', per_batch: 'lines per batch' }[f] || f);
+const cueRuleShow_ = (f, v) => f === 'on' ? (v ? 'on' : 'off') : /^(build|send|quiet_from|quiet_to)$/.test(f) ? String(v).padStart(2, '0') + ':00' : String(v);
+/** Moves the morning sweep trigger to a new hour. */
+function cueSweepTrigger_(hour) {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'cueSweep').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('cueSweep').timeBased().atHour(hour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
+}
+/** Adds n working days (Monday to Friday) to a PH day. */
+function cueAddWork_(day, n) {
+  let d = day;
+  for (let i = 0; i < n;) { d = cueAddDays_(d, 1); const w = new Date(d + 'T00:00:00Z').getUTCDay(); if (w !== 0 && w !== 6) i++; }
+  return d;
+}
+/** The next day a line is due, by its kind's rule. */
+/** it.every (a whole number from 1 to 60) overrides the rule for that line, e.g. RFQ's event-soon interval. */
+function cueNextDue_(rule, today, it) {
+  const e = it && Number(it.every) >= 1 && Number(it.every) <= 60 && Number(it.every) === Math.floor(Number(it.every)) ? Number(it.every) : rule.every || 1;
+  return rule.unit === 'working' ? cueAddWork_(today, e) : cueAddDays_(today, e);
+}
+
 function cuePh_(ms) { const d = new Date(ms + CUE_PH_MS_); return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours(), minute: d.getUTCMinutes() }; }
 /** The moment of hour:00 Philippine time on day (YYYY-MM-DD). */
 function cuePhAt_(day, hour) { return Date.parse(day + 'T00:00:00Z') - CUE_PH_MS_ + hour * 3600 * 1000; }
@@ -33,9 +132,9 @@ function cueKind_(k) {
   cueKinds_().push(Object.assign({ label: k.kind, every: 3, max: 4, sendAllowed: true }, k));
 }
 /** Kinds switched off in Script Property CUE_CHASE_OFF (comma list) are skipped; Kiko can pause one without a release. */
-function cueKindsOn_() {
-  const off = cueProp_('CUE_CHASE_OFF', '').split(',').map(x => x.trim()).filter(String);
-  return cueKinds_().filter(k => off.indexOf(k.kind) < 0);
+function cueKindsOn_(rules) {
+  const off = cueProp_('CUE_CHASE_OFF', '').split(',').map(x => x.trim()).filter(String), R = rules || cueRules_();
+  return cueKinds_().filter(k => off.indexOf(k.kind) < 0 && !(R.kinds[k.kind] && R.kinds[k.kind].on === false));
 }
 
 /* Built-in kind: Kiko's own Cue tasks that are due or overdue. No email, no AI: each line opens the task. */
@@ -109,7 +208,8 @@ function cueSweepStart_(how) {
 
 /** The sweep's pipeline (cueRunLeased_ runs it under the request lease). */
 function cueSweepRun_(s, save) {
-  const now = cueNow_(), today = s.day || cuePh_(now).day;
+  const now = cueNow_(), today = s.day || cuePh_(now).day, rules = cueRules_(), G = rules.general;
+  rules.notes.forEach(n => s.notes.push(n));
   let board = null, boardErr = '';
   const ctx = { now, today, s,
     board: () => {   // one Canvas read per sweep, only when a kind asks for it
@@ -118,10 +218,11 @@ function cueSweepRun_(s, save) {
       try { board = cueBridge_(s, 'get_project_board', {}) || { projects: [] }; return board; }
       catch (e) { boardErr = String((e && e.message) || e).slice(0, 300); throw new Error(boardErr); }
     },
-    tasks: () => cueOpenTasks_() };
+    tasks: () => cueOpenTasks_(),
+    rule: kind => { const k = cueKinds_().filter(x => x.kind === kind)[0]; return k ? cueRuleFor_(rules, k) : Object.assign({}, rules.kinds[kind] || {}); } };
   // 1. Find. One kind failing never stops the others.
   const found = [];
-  cueKindsOn_().forEach(k => {
+  cueKindsOn_(rules).forEach(k => {
     let list = [];
     try { list = (k.find(ctx) || []).filter(it => it && it.key); }
     catch (e) { s.notes.push(k.label + ': could not check (' + String((e && e.message) || e).slice(0, 200) + ')'); return; }
@@ -132,11 +233,11 @@ function cueSweepRun_(s, save) {
   const log = cueChaseLog_(), keep = [], stopped = [], seen = {};
   found.forEach(it => {
     if (seen[it.key]) return; seen[it.key] = 1;
-    const k = cueKinds_().filter(x => x.kind === it.kind)[0], L = log[it.key];
+    const k = cueKinds_().filter(x => x.kind === it.kind)[0], L = log[it.key], rule = cueRuleFor_(rules, k);
     if (k.chase === false) { keep.push(Object.assign({}, it, { times: 0 })); return; }   // e.g. inbox triage: no repeat window, no log
     if (L && L.muted) return;
     if (L && L.next && L.next > today) return;
-    if (L && k.max > 0 && L.times >= k.max) {   // Kiko 07:31Z: stop at the max and flag it to Kiko, once
+    if (L && rule.max > 0 && L.times >= rule.max) {   // Kiko 07:31Z: stop at the max and flag it to Kiko, once
       if (L.note !== 'stopped') { stopped.push(Object.assign({}, it, { times: L.times })); cueChaseWrite_(log, it, { note: 'stopped' }); }
       return;
     }
@@ -147,7 +248,7 @@ function cueSweepRun_(s, save) {
   keep.sort((a, b) => rank(a).localeCompare(rank(b)));
   const per = {}, items = [];
   let over = 0;
-  keep.forEach(it => { per[it.kind] = (per[it.kind] || 0) + 1; if (per[it.kind] > CUE_SWEEP_.perKind || items.length >= CUE_SWEEP_.perBatch) over++; else items.push(it); });
+  keep.forEach(it => { per[it.kind] = (per[it.kind] || 0) + 1; if (per[it.kind] > G.per_kind || items.length >= G.per_batch) over++; else items.push(it); });
   // 3. Draft: one ChatGPT call for every kind that needs words; the kind's template if ChatGPT fails or the kind has no brief.
   s.stage = 'Drafting'; save();
   cueSweepDraft_(s, items);
@@ -162,12 +263,12 @@ function cueSweepRun_(s, save) {
   s.card_at = s.ready_at = cueNow_();
   if (!items.length && !stopped.length) {
     s.status = 'Done'; s.stage = 'Done'; s.quiet = true;
-    cueKindsOn_().forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
+    cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
     cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), '');
     return;
   }
   s.status = 'Needs you'; s.stage = 'Needs you';
-  cueKindsOn_().forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
+  cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
   const counts = {}; items.forEach(it => { counts[it.label] = (counts[it.label] || 0) + 1; });
   const what = Object.keys(counts).map(l => counts[l] + ' ' + l).concat(stopped.length ? [stopped.length + ' to decide on (chased the max times)'] : []).join(', ');
   const line = 'Morning batch is ready: ' + what + (over ? '. ' + over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.';
@@ -243,7 +344,7 @@ function cueSweepApprove_(id, edits) {
       if (it.selected && typeof bodies[it.key] === 'string' && bodies[it.key].trim()) it.body = cueStr_(bodies[it.key], 6000);
     });
   }
-  const log = cueChaseLog_(), today = cuePh_(cueNow_()).day;
+  const log = cueChaseLog_(), today = cuePh_(cueNow_()).day, rules = cueRules_();
   b.items.filter(it => it.selected && !it.draft_id && !(it.sent_id || it.sent_at)).forEach(it => {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     try {
@@ -251,18 +352,16 @@ function cueSweepApprove_(id, edits) {
       it.draft_id = typeof k.draft === 'function' ? String(k.draft(it, s) || '') : it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
         : cueGmailDraft_(it.to, it.subject, it.body);
       it.error = '';
-      if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueAddDays_(today, k.every || 1), note: 'draft' });
+      if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'draft' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
   });
   const toSend = b.items.filter(it => it.selected && b.send && it.send_ok && !it.sent_id);
   const ph = cuePh_(cueNow_());
-  if (toSend.length && ph.hour < CUE_SWEEP_.sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, CUE_SWEEP_.sendHour);
+  const sendHour = rules.general.send;   // Kiko 07:28Z: 09:00 PH unless changed on the Chaser rules card
+  if (toSend.length && ph.hour < sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, sendHour);
   if (toSend.length && b.send_at && cueNow_() < b.send_at) {
     s.status = 'Scheduled';
-    const viaHook = toSend.filter(it => typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).send === 'function').length;
-    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at 9:00. '
-      + (viaHook === toSend.length ? 'Tap Cancel on the batch before then to stop them.'
-        : 'Those from your Gmail are in your Drafts until then; tap Cancel on the batch to keep them as drafts.') + (viaHook ? ' Payment chasers go from info@ with you on CC.' : ''), s.id);
+    cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at ' + String(sendHour).padStart(2, '0') + ':00. Nothing has gone out yet; tap Cancel on the batch to stop it.', s.id);
   } else cueSweepSend_(s);
   if (s.status === 'Making drafts') s.status = cueSweepBad_(s) ? 'Done, drafts incomplete' : 'Done';
   delete s.lease_until;
@@ -274,14 +373,14 @@ const cueSweepBad_ = s => s.batch.items.some(it => it.selected && it.error);
 
 /** Sends the approved emails that are due to go (Kiko pressed Approve and send). */
 function cueSweepSend_(s) {
-  const b = s.batch, log = cueChaseLog_(), today = cuePh_(cueNow_()).day;
+  const b = s.batch, log = cueChaseLog_(), today = cuePh_(cueNow_()).day, rules = cueRules_();
   b.items.filter(it => it.selected && b.send && it.send_ok && !it.sent_id).forEach(it => {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     try {
       if (typeof k.send === 'function') it.sent_id = String(k.send(it, s) || 'sent');
       else { if (!it.draft_id) throw new Error('The draft was not made.'); it.sent_id = cueGmailSend_(it.draft_id); }
       it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
-      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueAddDays_(today, k.every || 1), note: 'sent' });
+      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'sent' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
   });
   s.status = cueSweepBad_(s) ? 'Done, drafts incomplete' : 'Done';
@@ -304,14 +403,14 @@ function cueSweepCancel(id) {
   const s = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L || L.s.kind !== 'sweep' || L.s.status !== 'Scheduled') throw new Error('Only a batch waiting for 9:00 can be cancelled.');
-    const log = cueChaseLog_(), today = cuePh_(cueNow_()).day;
+    const log = cueChaseLog_(), today = cuePh_(cueNow_()).day, rules = cueRules_();
     L.s.batch.items.filter(it => it.selected && it.draft_id && !it.sent_id).forEach(it => {
       const k = cueKinds_().filter(x => x.kind === it.kind)[0];
-      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueAddDays_(today, k.every || 1), note: 'draft' });
+      cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'draft' });
     });
     L.s.batch.cancelled_at = new Date(cueNow_()).toISOString(); L.s.batch.send = false; L.s.status = 'Done'; cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  cueChat_('Cue', 'Cancelled. Nothing was sent' + (s.batch.items.some(it => it.selected && it.draft_id) ? '; the emails are in your Gmail Drafts.' : '.'), s.id);
+  cueChat_('Cue', 'Cancelled. Nothing was sent.' + (s.batch.items.some(it => it.selected && it.draft_id) ? ' The drafts made for it are still in Drafts.' : ''), s.id);
   return cueView_(s);
 }
 
@@ -411,7 +510,7 @@ function cueArchive(id, on) {
 
 /** From cueResume (every 5 minutes): reminders that came due, and approved batches whose 9:00 has come. Never approves anything. */
 function cueSweepTick_() {
-  const now = cueNow_(), ph = cuePh_(now), quiet = ph.hour >= CUE_SWEEP_.quietFrom || ph.hour < CUE_SWEEP_.quietTo;
+  const now = cueNow_(), ph = cuePh_(now), G = cueRules_().general, quiet = ph.hour >= G.quiet_from || ph.hour < G.quiet_to;
   const rows = cueRows_(cueSheet_('Requests'));
   rows.forEach(r => {
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }

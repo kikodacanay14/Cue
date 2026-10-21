@@ -130,6 +130,7 @@
     <div class="label">Working on</div><div id="w-work"></div>
 
     <div class="label">Recently done</div><div id="w-done"></div>
+    <div class="label">Chaser rules</div><div id="w-rules"></div>
   </section>
   <aside id="pinned">
     <div class="label">Pinned widgets</div>
@@ -213,7 +214,7 @@
   function goChat() { openThread = ''; show('chat'); }
   $('tab-chat').onclick = goChat;
   $('back').onclick = goChat;
-  $('tab-widgets').onclick = function () { show('widgets'); };
+  $('tab-widgets').onclick = function () { show('widgets'); loadRules(); };
   $('chip-need').onclick = function () { show('widgets'); };
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
 
@@ -509,7 +510,7 @@
     var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:#fff">' + esc(r.day) + '</b>'
       + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
-    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>9:00</b>. Until then they wait in your Gmail Drafts.</div>';
+    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
     kinds.forEach(function (k) {
       h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
       by[k].forEach(function (it) {
@@ -546,6 +547,33 @@
     h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
     return h + metricLine(r) + '</div>';
   }
+  // ---- Chaser rules (Kiko 08:12Z, spec chaser-rules.md): timing per chaser, saved to the Rules tab, used from the next batch ----
+  var rules = null, rulesOpen = false;
+  function loadRules() { call('cueRules', [], function (r) { rules = r; renderRules(); }, function () {}); }
+  function renderRules() {
+    if (!rules || !rules.kinds) return;
+    var K = rules.kinds, G = rules.general, n = function (f, v, lo, hi) { return '<input type="number" data-rule="' + f + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" style="width:64px" aria-label="' + esc(f) + '">'; };
+    var h = '<details class="card"' + (rulesOpen ? ' open' : '') + ' id="rules-card"><summary><b>Follow-up timing</b> <span class="small muted">first chase, interval, when to stop, send time</span></summary>'
+      + '<div class="scroll"><table><tr><th>Chaser</th><th>On</th><th>First after</th><th>Then every</th><th>Stop after</th></tr>';
+    Object.keys(K).forEach(function (k) {
+      var x = K[k];
+      h += '<tr><td><b>' + esc(x.label) + '</b><div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
+        + '<td>' + n(k + '.first', x.first, 1, 60) + '</td><td>' + n(k + '.every', x.every, 1, 60) + '</td><td>' + n(k + '.max', x.max, 1, 10) + '</td></tr>';
+      if (x.soon_first != null) h += '<tr><td class="small muted">↳ event within 7 days</td><td></td><td>' + n(k + '.soon_first', x.soon_first, 1, 60) + '</td><td>' + n(k + '.soon_every', x.soon_every, 1, 60) + '</td><td></td></tr>';
+    });
+    h += '</table></div><div class="label">General (all chasers)</div><table class="facts">'
+      + '<tr><td>Build the batch at</td><td>' + n('general.build', G.build, 5, 10) + ' :00</td></tr>'
+      + '<tr><td>Send approved emails at</td><td>' + n('general.send', G.send, 7, 20) + ' :00</td></tr>'
+      + '<tr><td>Quiet hours (no reminders)</td><td>' + n('general.quiet_from', G.quiet_from, 18, 23) + ' :00 to ' + n('general.quiet_to', G.quiet_to, 5, 9) + ' :00</td></tr>'
+      + '<tr><td>Most lines per chaser / per batch</td><td>' + n('general.per_kind', G.per_kind, 1, 30) + ' / ' + n('general.per_batch', G.per_batch, 1, 60) + '</td></tr></table>'
+      + (rules.notes || []).map(function (x) { return '<div class="warn">' + esc(x) + '</div>'; }).join('')
+      + '<div class="actions"><button class="btn" data-act="rules-save" data-id="">Save rules</button></div>'
+      + '<div class="small muted">Changes apply from the next morning batch. Who an email comes from, and your approval, never change here.</div></details>';
+    setHtml($('w-rules'), h);
+    $('rules-card').ontoggle = function () { rulesOpen = $('rules-card').open; };
+    bind();
+  }
+
   // ---- Task basics (Kiko 07:31Z): due date, priority, reminder, Close, Archive ----
   function dueTag(x) {
     var t = (x.priority === 'High' ? '<span class="tag flag">High</span> ' : '') + (x.due ? '<span class="tag new">due ' + esc(x.due) + '</span>' : '');
@@ -723,6 +751,12 @@
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
         if (act === 'more-done') { moreDone = !moreDone; return renderWidgets(); }
+        if (act === 'rules-save') {
+          var ch = {}, cur = function (k) { var p = k.split('.'); return p[0] === 'general' ? rules.general[p[1]] : (rules.kinds[p[0]] || {})[p[1]]; };
+          scope.querySelectorAll('[data-rule]').forEach(function (x) { var k = x.getAttribute('data-rule'), v = x.type === 'checkbox' ? x.checked : Number(x.value); if (v !== cur(k)) ch[k] = v; });
+          if (!Object.keys(ch).length) return addLocal('Cue', 'No rule changed.');
+          b.disabled = true; return call('cueRulesSave', [ch], function (r) { rules = r; renderRules(); refresh(); }, function (e) { b.disabled = false; alertErr(e); });
+        }
         if (act === 'show-archived') { showArchived = !showArchived; dirty(); return renderWidgets(); }
         if (act === 'say') { var box = scope.querySelector('[data-say="' + id + '"]'), txt = box && box.value.trim(); if (!txt) return box && box.focus();
           var th = threads()[rootOf(id, byId())], ref = th && th.reqs.length ? th.reqs[th.reqs.length - 1].id : id;

@@ -14,7 +14,8 @@ const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
-  'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note']   // the sweep's memory (CueSweep.gs)
+  'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
+  Rules: ['Rule', 'Value', 'Changed', 'Was']   // Kiko's Chaser rules card (CueSweep.gs)
 };
 const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
@@ -75,7 +76,7 @@ function cueSetup() {
 function cueTriggers_() {
   const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   if (have.indexOf('cueResume') < 0) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
-  if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(CUE_SWEEP_.buildHour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
+  if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(cueRules_().general.build).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
   PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '2');
 }
 
