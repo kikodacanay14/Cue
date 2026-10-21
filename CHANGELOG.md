@@ -1,6 +1,11 @@
 # Changelog
 
-## Cue 1.1 (not yet deployed)
+## Cue 1.2 (deployed as Version 5)
+
+- Change requests (Kiko 21 Oct): "this project changed, requote with the same suppliers". GPT spots it in the read call, Cue finds the RFQ emails Kiko sent (Gmail, read only), GPT drafts one reply per supplier, Kiko ticks and approves, and the drafts land in the original threads with the files attached. 2 AI calls. Nothing sent, Canvas untouched.
+- Attachments upload one at a time with a progress count (one big call silently failed at ~10 MB); photos over 500 KB are shrunk to 1800 px JPEG.
+
+## Cue 1.1 (Versions 3-4)
 
 - Attachments for intake: photos, PDFs and text files (📎, paste or drag). GPT reads them in its first call, so still 4 AI calls.
 - Deploy Cue and Connect Google Actions: no more copy and paste.

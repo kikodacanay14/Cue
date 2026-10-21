@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V183). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -49,14 +49,15 @@ const RFQS = { rfqs: [{ supplier: 'Sonic Pro', subject: 'RFQ: LED wall', body: '
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL, ...(o.props || {}) };
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
-  const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {} };
+  const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {}, type: {} };
   let now = Date.parse('2026-10-21T03:00:00Z');
   const step = o.step == null ? 5000 : o.step;
   const route = req => {
-    const u = req.url, body = u.indexOf('www.googleapis.com') >= 0 ? null : JSON.parse(req.payload);
+    const u = req.url, body = typeof req.payload === 'string' && /^[{\[]/.test(req.payload) ? JSON.parse(req.payload) : null;
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
+      if (n === 'requotes') return gptOk(o.requotes || REQUOTES);
       if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
@@ -91,11 +92,23 @@ function sandbox(o = {}) {
     if (u.indexOf('www.googleapis.com') >= 0) {
       log.drive = log.drive || []; log.drive.push((req.method || 'get') + ' ' + u.split('?')[0].replace(/^.*googleapis\.com/, ''));
       const m = (req.method || 'get').toLowerCase(), fileId = (u.split('?')[0].match(/files\/([^/]+)$/) || [])[1];
-      if (m === 'post' && u.indexOf('/upload/') >= 0) { const id = 'f' + (++drive.n); drive.files[id] = Buffer.from(req.payload); return resp(200, { id }); }
+      if (m === 'post' && u.indexOf('/upload/') >= 0) { const id = 'f' + (++drive.n); drive.files[id] = Buffer.from(req.payload); drive.type[id] = req.contentType; return resp(200, { id }); }
       if (m === 'post') return resp(200, { id: 'folder-1' });
       if (m === 'patch') { drive.meta[fileId] = JSON.parse(req.payload); drive.parent[fileId] = u.split('addParents=')[1]; return resp(200, { id: fileId }); }
       if (u.indexOf('alt=media') >= 0) { const b = drive.files[fileId]; return b ? { getResponseCode: () => 200, getContent: () => Array.from(b), getContentText: () => b.toString('utf8') } : resp(404, {}); }
+      if (drive.files[fileId]) return resp(200, { id: fileId, name: (drive.meta[fileId] || {}).name, mimeType: drive.type[fileId], size: String(drive.files[fileId].length), parents: [drive.parent[fileId]] });
+      if (/^f\d+$/.test(fileId || '') || fileId === 'not-ours') return resp(404, {});
       return resp(200, { id: fileId, trashed: !!(o.folderTrashed) });
+    }
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
+      if (u.indexOf('/messages?') >= 0) { log.gmailQ = decodeURIComponent(u.split('q=')[1]); return resp(200, { messages: (o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) }); }
+      const m = (o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
+      return resp(200, { id: m.id, threadId: m.thread, internalDate: String(m.ms), snippet: m.snippet,
+        payload: { headers: [{ name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
+    }
+    if (u.indexOf('upload/gmail/v1/users/me/drafts') >= 0) {
+      log.replies = log.replies || []; log.replies.push({ type: req.contentType, payload: req.payload });
+      return (o.replyFail && log.replies.length === 1) ? resp(500, {}) : resp(200, { id: 'reply-' + log.replies.length });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
@@ -258,6 +271,17 @@ test('C18 page state hides keys and raw evidence', () => {
   ['sk-test', 'sk-ant-test', SECRET, 'past_quotes'].forEach(x => assert.ok(s.indexOf(x) < 0, x));
 });
 
+const SENT = [
+  { id: 'm1', thread: 'th1', ms: 1760000000000, to: 'Mats Co <sales@matsco.example>', subject: 'RFQ: JBL launch floor mats', snippet: 'Please quote 40 mats' },
+  { id: 'm2', thread: 'th1', ms: 1760100000000, to: 'sales@matsco.example', subject: 'Re: RFQ: JBL launch floor mats', snippet: 'Following up' },
+  { id: 'm3', thread: 'th2', ms: 1760050000000, to: 'Print Hub <hello@printhub.example>, kiko@example.com', subject: 'RFQ - JBL mats printing', snippet: 'Quote for printing' },
+  { id: 'm4', thread: 'th3', ms: 1760060000000, to: 'kiko@example.com', subject: 'RFQ internal JBL', snippet: 'internal only' },
+  { id: 'm5', thread: 'th4', ms: 1760070000000, to: 'tents@tentco.example', subject: 'RFQ: JBL tent', snippet: 'tent quote' }];
+const REQUOTES = { requotes: [{ k: 'T1', supplier: 'Mats Co', body: 'Hi Mats Co,\nThe JBL mat designs changed; updated files attached. Please requote by Friday.\nBlank Space Events' },
+  { k: 'T3', supplier: 'Print Hub', body: 'Hi Print Hub,\nUpdated JBL mat artwork attached. Please send a revised quote.\nBlank Space Events' },
+  { k: 'T3', supplier: 'Print Hub again', body: 'duplicate' }, { k: 'T99', supplier: 'Made up', body: 'x' }], note: 'Skipped the tent thread.' };
+const CHANGE_READ = Object.assign({}, READ, { kind: 'change_request', requirements: [],
+  change: { project: 'JBL', what_changed: 'New floor mat designs (8 files).', search_terms: ['mats'], suppliers: [] } });
 const PNG = Buffer.from('89504e470d0a1a0a-fake-floor-plan').toString('base64'), PDF = Buffer.from('%PDF-1.7 fake brief').toString('base64');
 const TXT = Buffer.from('Need 2 LED walls and a stage, 8x4m.').toString('base64');
 test('C19 attachments: saved in Cue uploads, sent to GPT in the read call only, still 4 AI calls, no file data in page state', () => {
@@ -307,6 +331,40 @@ test('C21 small talk: one GPT call, no intake, both lines in the chat; an inquir
   assert.ok(u.ctx.cueSend('New project intake. ' + INQ).request_id, 'opener starts an intake');
   assert.throws(() => u.ctx.cueSend('   '), /Type a message/);
   const w = sandbox({ fail: { chat: () => resp(500, {}) } }); assert.ok(/could not answer/.test(w.ctx.cueSend('hello').reply));
+});
+
+test('C22 change request: 2 AI calls, finds the sent RFQ threads, one reply per supplier, drafts in the original threads with the files, Canvas untouched', () => {
+  const t = sandbox({ read: CHANGE_READ });
+  const up = t.ctx.cueUpload({ name: 'mat 1.png', type: 'image/png', data: PNG });
+  const id = t.ctx.cueSend('this for JBL new mats that needs to resent to suppliers. find the emails sent before and ask for a requote', [{ id: up.id }]).request_id;
+  const v = t.ctx.cueRun(id);
+  assert.strictEqual(v.status, "Needs you", v.error); assert.strictEqual(v.kind, "change"); assert.strictEqual(v.metrics.ai_calls, 2);
+  assert.strictEqual(t.log.bridge.length + t.log.claude.length, 0, 'no Canvas, no Claude');
+  assert.ok(/^in:sent newer_than:1y .*"JBL" OR "mats"/.test(t.log.gmailQ), t.log.gmailQ);
+  deq(v.change.drafts.map(d => [d.k, d.to]), [['T1', 'sales@matsco.example'], ['T3', 'hello@printhub.example']], 'own address dropped, dup and unknown keys dropped');
+  assert.strictEqual(v.change.found, 3, 'internal-only thread dropped; th1 kept once');
+  const cands = JSON.parse(t.log.gpt[1].input).candidates; assert.strictEqual(cands[0].subject, 'Re: RFQ: JBL launch floor mats', 'latest message of th1');
+  assert.ok(/data/.test(t.log.gpt[1].instructions));
+  const d = t.ctx.cueApprove(id, { skip: ['T3'] });
+  assert.strictEqual(d.status, 'Done'); assert.strictEqual(t.log.replies.length, 1, 'only the ticked supplier');
+  const pl = t.log.replies[0].payload;
+  assert.ok(/^multipart\/related; boundary=/.test(t.log.replies[0].type));
+  assert.ok(pl.indexOf('{"message":{"threadId":"th1"}}') > 0, 'in the original thread');
+  assert.ok(/In-Reply-To: <m2@mail>/.test(pl) && /To: sales@matsco\.example/.test(pl));
+  assert.ok(pl.indexOf('filename="mat 1.png"') > 0 && pl.indexOf(PNG.slice(0, 20)) > 0, 'file attached');
+  assert.ok(t.tabs.Chat.rows.some(r => /Nothing was sent and nothing changed in Canvas/.test(r[2])));
+  assert.throws(() => t.ctx.cueApprove(id, {}), /not waiting/);
+});
+test('C23 change request edge cases: nothing found, nothing matched, all unticked, a failed draft retries only the missing one, upload ids are checked', () => {
+  const a = sandbox({ read: CHANGE_READ, sent: [] }), ia = a.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id;
+  const va = a.ctx.cueRun(ia); assert.strictEqual(va.status, 'Failed', JSON.stringify(va.error)); assert.ok(/found no RFQ emails/.test(va.error));
+  const b = sandbox({ read: CHANGE_READ, requotes: { requotes: [], note: 'none match' } }), ib = b.ctx.cueSend('New project intake. JBL mats changed, requote please').request_id;
+  assert.ok(/matched this change/.test(b.ctx.cueRun(ib).error));
+  const c = sandbox({ read: CHANGE_READ, replyFail: true }), ic = c.ctx.cueSend('New project intake. JBL mats changed, requote please').request_id; c.ctx.cueRun(ic);
+  assert.throws(() => c.ctx.cueApprove(ic, { skip: ['T1', 'T3'] }), /Tick at least one/);
+  const v1 = c.ctx.cueApprove(ic, {}); assert.strictEqual(v1.status, 'Done, drafts incomplete'); assert.strictEqual(c.log.replies.length, 2);
+  const v2 = c.ctx.cueApprove(ic, {}); assert.strictEqual(v2.status, 'Done'); assert.strictEqual(c.log.replies.length, 3, 'only the failed one again');
+  assert.throws(() => c.ctx.cueSend('x', [{ id: 'not-ours' }]), /did not finish uploading|not one Cue uploaded/);
 });
 
 let pass = 0;

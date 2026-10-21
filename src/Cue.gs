@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.1';
+const CUE_VERSION_ = 'Cue 1.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -190,7 +190,12 @@ function cueRetry(id) {
 }
 
 /** Kiko approves, optionally with edits. Canvas re-checks and records it; then the RFQs become Gmail drafts. */
-function cueApprove(id, edits) { cueOwner_(); return cueView_(cueIntakeApprove_(id, edits || {})); }
+function cueApprove(id, edits) {
+  cueOwner_();
+  const L = cueLoad_(id);
+  if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
+  return cueView_(cueIntakeApprove_(id, edits || {}));
+}
 /** Kiko rejects. Nothing goes to Canvas. */
 function cueReject(id, why) { cueOwner_(); return cueView_(cueIntakeReject_(id, why)); }
 /** Retries only the Gmail drafts that did not get made. */
@@ -213,7 +218,11 @@ function cueState() {
 /** The part of a request the page needs. Evidence and raw AI answers stay in the sheet. */
 function cueView_(s) {
   const m = s.metrics || {};
-  return { id: s.id, created: s.created, status: s.status, stage: s.stage, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',
+  const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
+  return { id: s.id, kind: s.kind || 'intake', created: s.created, status: s.status, stage: s.stage,
+    change: ch && { project: ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
+      drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
+        body: d.body, selected: d.selected, made: !!d.draft_id, error: d.error || '' })) }, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',
     notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, flag: m.flag || '', calls: m.calls || [] } };

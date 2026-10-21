@@ -7,28 +7,40 @@ const CUE_FILE_TYPES_ = { 'image/png': 'image', 'image/jpeg': 'image', 'image/we
   'application/pdf': 'pdf', 'text/plain': 'text', 'text/csv': 'text', 'message/rfc822': 'text' };
 const CUE_FILES_MAX_ = { count: 8, each: 10 * 1024 * 1024, total: 15 * 1024 * 1024, text: 40000 };
 
-/** files = [{name, type, data}] from the page (data is base64, no data: prefix) -> saved [{id, name, type, size}]. */
+/** The page uploads each file on its own (one big call with everything silently failed at ~10 MB), then sends the ids. */
+function cueUpload(file) {
+  cueOwner_();
+  const b = cueBlob_(file);
+  return cueDriveSave_(b, 'Cue upload, not sent yet');
+}
+function cueBlob_(f) {
+  const name = String((f && f.name) || 'file').replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 120), type = String((f && f.type) || '');
+  if (!CUE_FILE_TYPES_[type]) throw new Error(name + ': Cue reads photos (JPG, PNG, WebP, GIF), PDFs and text files. Save it as a PDF or JPG first.');
+  const bytes = Utilities.base64Decode(String((f && f.data) || ''));
+  if (!bytes.length) throw new Error(name + ' is empty.');
+  if (bytes.length > CUE_FILES_MAX_.each) throw new Error(name + ' is over 10 MB.');
+  return Utilities.newBlob(bytes, type, name);
+}
+function cueDriveSave_(b, why) {
+  const folder = cueUploads_();
+  const up = cueDrive_('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=media', { contentType: b.getContentType(), payload: b.getBytes() });
+  cueDrive_('patch', CUE_DRIVE_ + '/' + up.id + '?addParents=' + folder, { contentType: 'application/json', payload: JSON.stringify({ name: b.getName(), description: why }) });
+  return { id: up.id, name: b.getName(), type: b.getContentType(), size: b.getBytes().length };
+}
+/** files = [{id}] already uploaded with cueUpload, or [{name, type, data}] (base64) -> [{id, name, type, size}]. */
 function cueFilesSave_(files, id) {
   if (!files || !files.length) return [];
   if (!Array.isArray(files) || files.length > CUE_FILES_MAX_.count) throw new Error('Attach ' + CUE_FILES_MAX_.count + ' files at most.');
-  let total = 0;
-  const blobs = files.map(f => {
-    const name = String((f && f.name) || 'file').replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 120), type = String((f && f.type) || '');
-    if (!CUE_FILE_TYPES_[type]) throw new Error(name + ': Cue reads photos (JPG, PNG, WebP, GIF), PDFs and text files. Save it as a PDF or JPG first.');
-    const bytes = Utilities.base64Decode(String((f && f.data) || ''));
-    if (!bytes.length) throw new Error(name + ' is empty.');
-    if (bytes.length > CUE_FILES_MAX_.each) throw new Error(name + ' is over 10 MB.');
-    total += bytes.length;
-    return Utilities.newBlob(bytes, type, name);
+  const folder = files.some(f => f && f.id) ? cueUploads_() : '';
+  const known = files.filter(f => f && f.id).map(f => {
+    let m; try { m = cueDrive_('get', CUE_DRIVE_ + '/' + encodeURIComponent(String(f.id)) + '?fields=id,name,mimeType,size,parents'); } catch (e) { throw new Error('An attachment did not finish uploading. Attach it again.'); }
+    if ((m.parents || []).indexOf(folder) < 0 || !CUE_FILE_TYPES_[m.mimeType]) throw new Error('That attachment is not one Cue uploaded. Attach it again.');
+    return { id: m.id, name: cueStr_(m.name, 120), type: m.mimeType, size: Number(m.size) || 0 };
   });
+  const blobs = files.filter(f => !(f && f.id)).map(cueBlob_);
+  const total = known.reduce((n, f) => n + f.size, 0) + blobs.reduce((n, b) => n + b.getBytes().length, 0);
   if (total > CUE_FILES_MAX_.total) throw new Error('The attachments add up to more than 15 MB. Send fewer or smaller files.');
-  const folder = cueUploads_();
-  return blobs.map(b => {
-    const up = cueDrive_('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=media', { contentType: b.getContentType(), payload: b.getBytes() });
-    cueDrive_('patch', CUE_DRIVE_ + '/' + up.id + '?addParents=' + folder, { contentType: 'application/json',
-      payload: JSON.stringify({ name: b.getName(), description: 'Cue intake ' + id }) });
-    return { id: up.id, name: b.getName(), type: b.getContentType(), size: b.getBytes().length };
-  });
+  return known.concat(blobs.map(b => cueDriveSave_(b, 'Cue request ' + id)));
 }
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
 const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';
