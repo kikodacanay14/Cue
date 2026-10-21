@@ -788,6 +788,10 @@ test('Q5 timing comes from Kiko\'s Chaser rules card: first chase after 2 shows 
   const u = rfqBox(); u.ctx.cueRulesSave({ 'rfq.on': false }); u.ctx.cueSweep();
   assert.ok(!u.log.threads, 'paused: Gmail is not even read'); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
 });
+test('Q6 event soon: after a nudge the next one is due in soon_every (1 working day), not every (3)', () => {
+  const t = rfqBox(); t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(rfqBatch(t).id, { send: true });
+  deq(chase(t).filter(r => /a6|a1/.test(r[0])).map(r => [r[0], r[6]]).sort(), [['rfq:aaaa0000000000a1', '2026-10-26'], ['rfq:aaaa0000000000a6', '2026-10-22']]);
+});
 /* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ---------- */
 test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
   const t = sandbox(), r = t.ctx.cueRules();

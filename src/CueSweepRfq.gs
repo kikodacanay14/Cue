@@ -109,6 +109,7 @@ function cueRfqFind_(ctx) {
     if (gone < Math.max(1, Number(wait) || 1)) return;
     out.push({ key: 'rfq:' + w.thread_id, project: (p && p.name) || w.project || cueRfqTopic_(w.subject) || 'your RFQ', project_id: w.pid, who: w.who, to: w.to,
       thread_id: w.thread_id, message_id: w.message_id, thread_subject: w.subject, due_since: since, priority: soon ? 'urgent' : 'normal', after_ms: w.last_ms,
+      every: soon ? Math.max(1, Math.min(60, Math.round(Number(rule.soon_every) || 1))) : undefined,   // the engine's Next due uses it (event soon)
       why: 'No reply ' + gone + (rule.unit === 'days' ? ' day' : ' working day') + (gone === 1 ? '' : 's') + ' after your ' + (nudged ? 'last nudge' : 'RFQ') + (soon ? '; event on ' + event : ''),
       facts: { rfq_subject: cueStr_(w.subject, 200), rfq_sent: w.rfq_day, rfq_snippet: w.snippet, event_date: event, reply_by: cueRfqBy_(ctx.today) } });
   });
