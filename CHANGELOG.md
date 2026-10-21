@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.19.5: plan asks stay out of unrelated threads (not deployed)
+
+PC retest of 1.19.4 (17:58Z): "Write a plan for a client year-end thank-you campaign" went into the Morning batch thread, and the chat said "Answered in the that task thread."
+
+- A plan, checklist, brainstorm or analysis ask joins a task's thread only when it names that task's client, project or topic. Otherwise the main chat answers it. A Morning batch never matches, because its name has no topic words.
+- The pointer line uses the task's real name ("Answered in the Morning batch 10/22 thread.") and never says "the that".
+- Tests: 219 of 219 pass (new SK4, through cueSend).
+
 ## Cue 1.19.4: long chat replies are not cut (not deployed)
 
 PC retest of 1.19.3 (17:52Z): the "Write a plan" reply stopped mid-sentence ("I'll make Gmail drafts and a").
