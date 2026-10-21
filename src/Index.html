@@ -482,7 +482,7 @@
   function metricLine(r) {
     var m = r.metrics || {};
     return '<div class="small muted">' + esc(m.ai_calls) + ' AI calls' + (m.seconds_to_card != null ? ', card in ' + esc(m.seconds_to_card) + ' s' : '')
-      + (m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
+      + (m.seconds_work != null ? ', Cue worked ' + esc(m.seconds_work) + ' s' : m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
   }
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
@@ -520,6 +520,8 @@
           + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + ' ' + state
           + '<br><span class="small muted">' + esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? '' : ' · no email: stays a draft')
           + (it.removed ? ' · ' + (it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '') + '</span></span></label>';
+        if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+          + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
         if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
         else if (!it.no_email) h += waiting && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
           : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';

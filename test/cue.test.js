@@ -138,7 +138,7 @@ function sandbox(o = {}) {
       if (body.action === 'save_project_file') {
         log.saved = log.saved || []; log.saved.push({ pid: body.project_id, name: body.args.name, type: body.args.type, mime: body.args.mime, bytes: Buffer.from(body.args.data, 'base64').length });
         if (o.saveFail && log.saved.length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
-        return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/p' + log.saved.length, name: body.project_id + ' · ' + body.args.name, type: body.args.type, existed: false } });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/p' + log.saved.length, name: body.project_id + ' · ' + body.args.name, type: body.args.type, existed: false, in_project_folder: !o.noFolder } });
       }
       if (body.action === 'make_rfq_drafts') {
         log.canvasDrafts = (log.canvasDrafts || 0) + 1;
@@ -202,7 +202,7 @@ function sandbox(o = {}) {
     HtmlService: {}
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
-  ctx.cueNow_ = () => now;
+  ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
@@ -555,6 +555,16 @@ test('C35 Reopen (Kiko 07:15Z): a finished task can be reopened into Needs you, 
   assert.strictEqual(t.ctx.cueLoad_(r).s.ref, id);
 });
 
+test('C36 budget (Kiko 07:19Z): only Cue\'s own time counts, not the time a card waits for Kiko', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  t.ctx.__wait(600000);   // the card waits 10 minutes for Kiko
+  const v = t.ctx.cueApprove(id, { skip: ['T3'] });
+  assert.ok(v.metrics.seconds_total > 600, 'ready time still includes the wait: ' + v.metrics.seconds_total);
+  assert.ok(v.metrics.seconds_work < 180, 'Cue worked ' + v.metrics.seconds_work + ' s');
+  assert.strictEqual(v.metrics.flag, '');
+});
+
 test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat and its thread, from what happened', () => {
   const t = sandbox({ similar: JBL, read: CHANGE_READ });
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
@@ -579,6 +589,11 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
   deq(w.log.saved.map(x => [x.pid, x.name, x.type]), [['S-99900001ZZ', 'brief.pdf', 'Brief & Planning']]);
   assert.ok(w.tabs.Chat.rows.some(x => /Saved 1 file to the Canvas project folder: brief\.pdf/.test(x[2])));
   assert.strictEqual(v.status, 'Done');
+  // A new project with no Drive folder yet (no event date): Cue says the files are in Canvas Files, not the project folder.
+  const n = sandbox({ noFolder: true }), inn = n.ctx.cueSend('', [{ name: 'brief.pdf', type: 'application/pdf', data: PDF }]).request_id; n.ctx.cueRun(inn);
+  n.ctx.cueApprove(inn, {});
+  assert.ok(n.tabs.Chat.rows.some(x => /Saved 1 file to Canvas Files for this project \(it has no Drive project folder yet/.test(x[2])));
+  assert.ok(!n.tabs.Chat.rows.some(x => /to the Canvas project folder/.test(x[2])));
 });
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
   t.opts.talk = { reply: 'The JBL requotes are waiting for you.', looks_like_inquiry: false, start_intake: '', task: id };
