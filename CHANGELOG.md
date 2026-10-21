@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: acknowledgement receipts (needs Canvas with the ar_list / ar_make / ar_email bridge actions)
+
+- "Prepare ARs for <project>" (Kiko 07:42Z approved specs/supplier-ars.md). GPT recognises it in the chat call Cue already makes (new field start_ar), so the run itself makes no AI call. Cue finds the project (Canvas id as given, else Canvas's project match), and Canvas lists everyone the project paid: suppliers, talents and freelancers.
+- One card: Ready to make (ticked), Already made (link, status, emailed; a Remake tick), Can't make yet (Canvas's reason, e.g. VAT registered, service fee, invoice on file, no paid amount).
+- Make ticked receipts: one Canvas call per receipt, at most 15 per run, PDFs in the project's Acknowledgement Receipts folder and logged on the AR Receipts tab. A failed one stays ticked for a retry; a repeat never makes a second PDF.
+- Then, only on its own approval, Email receipts sends supplier and talent receipts from AccountsPayables@ (Event Specialist and Kiko in CC), once each. Freelancer receipts are never emailed; they sign in Canvas Client. Finish without emailing ends the task.
+- Summary line in the main chat and the thread. Bridge fixture refreshed to the Canvas bridge with the AR actions.
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
