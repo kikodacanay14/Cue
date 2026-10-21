@@ -747,6 +747,13 @@ test('C42 a lookup only answers: GPT setting start_intake or claiming a start is
   const x = u.ctx.cueSend('start intake for selecta'); assert.ok(x.start_intake || x.request_id, 'an explicit ask still starts');
 });
 
+test('C43 chat never claims work without a run: a claim gets a plain correction; a real start does not', () => {
+  const t = sandbox({ talk: { reply: 'Yes, I\'ve pulled the requirements and I\'m working on them.', looks_like_inquiry: false, start_intake: '', task: '', readiness: '' } });
+  const r = t.ctx.cueSend('do you have the requirements?');
+  assert.ok(/nothing is running yet/.test(r.reply), r.reply); assert.strictEqual(t.tabs.Requests.rows.length, 1);
+  assert.ok(/You do no work from chat yourself/.test(t.log.gpt[0].instructions));
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

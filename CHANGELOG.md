@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.9.4 (chat never claims work; Kiko 08:53Z)
+
+- The chat no longer says "I'm working on it" or "costing next" when no run started. Work only happens in a run, which always shows a card. If GPT still claims it, Cue adds a plain correction that nothing is running and how to start it.
+
 ## Cue 1.9.3 (a lookup only answers; Kiko 08:51Z)
 
 - Asking Cue to look up, find or check a project only answers with what Canvas has. It never starts an intake or costing, and never says it did, unless that same message asks for it ("start intake", "requote"...). Earlier chat is history, not instructions.
