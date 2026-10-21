@@ -1,5 +1,32 @@
 # Changelog
 
+## Cue 1.17: Cue learns from corrections at once; asks when unsure; Wrong command (not deployed)
+
+Kiko 17:00Z picked Teach Cue items 2 and 3; 17:03Z "something needs to be done to expedite how he learns". Spec: specs/teach-cue.md (add-on sections).
+
+- Corrections are learned at once. When Kiko corrects Cue or states a rule, the chat call Cue already makes returns it (new "learn" field, no extra AI call). Cue saves it to the Memory tab as a rule used in every task and shows "Learned: …" with Keep or Undo where Kiko said it. Undo switches the row off. Every GPT and Claude call reads Memory, so the rule applies from the next message.
+- "remember: …", "rule: …" or "from now on …" in any thread, including a phased intake's, saves the rule with no AI call.
+- Kiko's intake rules are seeded into Memory once: same-project check first, answer questions instead of rescanning, nothing saved before Approve, cancelling an intake removes its records.
+- Asking when unsure: when the chat call cannot tell which command Kiko means, Cue starts nothing and shows the top 2 as buttons plus Just chat. A button starts that command from the details the same call filled. In a task's thread it asks in words.
+- Wrong command?: on a waiting task that came from a message (no files, nothing in Canvas yet), pick the right command. Cue closes the task, starts the right one from the same message, and asks once "Remember that … means …?". Yes saves it to the hidden Routing examples tab, and the 5 closest examples go into each chat call.
+- Up to 12 rules marked Always are added to every call, newest first.
+- Tests: 207 of 207 pass (new TC5 to TC9).
+
+## Cue 1.16.1: Same project? first, Cancel intake removes it from Canvas (not deployed)
+
+Kiko re-ran the Unilever intake at 16:45Z. Phase 1 failed with "is already in the Admin Directory", four times, and Cue never asked whether it was the same project.
+
+- Cause: Cue's "Same project?" check did run, but Canvas's similar-projects list came back empty for this project, so Cue did not ask. The Cue matcher accepts it (test SAME1), and so does the Canvas matcher in the repo (test SIM1).
+- Before phase 1, Cue now also asks Canvas for a project with exactly this name and an event date within one day (search_projects). A match shows the Same project? card.
+- If Canvas still refuses a project it already has, the refusal becomes the Same project? card in the thread, never an error.
+- On that card, "Remove it, add this one" asks once, then removes that project from Canvas (only a project a Cue intake made) and shows phase 1 again for approval.
+- Phased intakes now show the Same project? card. Before, the phase card covered it.
+- Cancel intake (Kiko 16:53Z: "when the whole thread gets cancelled it should delete and not save any record"): a button on the intake card, and the thread's Close button for an intake that saved something in Canvas. One confirm, then Canvas removes the project, its lines, contacts and folders (folders go to the Drive trash). Reject on one phase still only stops that phase.
+- A question asked in an intake thread gets an answer, not a re-read with the question as the note.
+- The same error shows once, not once per tap.
+- This needs the Canvas bridge step intake_remove (CanvasWorkspace branch claude/project-thread-q9uyhb). Until Canvas has it, Cancel intake says Canvas cannot remove projects yet, and removes nothing.
+- Tests: 202 of 202 pass (new SAME1 to SAME3, UNDO3, UNDO4, ASK1).
+
 ## Cue 1.16: Teach Cue, memory and processes (not deployed)
 
 Kiko 16:26Z: "go build Teach Cue". Spec: canvas-integration/specs/teach-cue.md.
