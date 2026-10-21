@@ -2966,8 +2966,9 @@ test('TT1 a to-do from the same chat call (no extra AI call): Add or Skip; nothi
 
 test('TT2 not connected: no question, says how; "connect ticktick" (no AI call) gives setup steps, then a sign-in link; the callback checks state and keeps the token out of chat', () => {
   const t = sandbox({ talk: TTALK() });
-  t.ctx.cueSend('add call Ana to ticktick', [], '');
-  assert.ok(!askLine(t) && /not connected yet/.test(t.tabs.Chat.rows.pop()[2]));
+  t.ctx.cueSend('add review Unilever quote to my TickTick', [], '');
+  const q0 = askLine(t); assert.ok(/^TickTick is not connected yet, so Add keeps this to-do/.test(q0[2]) && /:add,skip$/.test(q0[3]), 'the card shows, and says it first');
+  t.ctx.cueAskPick(askId(q0), 'add'); deq((t.log.tt || []).length, 0); assert.ok(/^Kept: /.test(t.tabs.Chat.rows.pop()[2]));
   t.ctx.cueSend('connect ticktick', [], ''); deq(t.log.gpt.length, 1, 'no AI call');
   assert.ok(/developer\.ticktick\.com/.test(t.tabs.Chat.rows.pop()[2]));
   t.ctx.PropertiesService.getScriptProperties().setProperty('CUE_TICKTICK_CLIENT_ID', 'cid'); t.ctx.PropertiesService.getScriptProperties().setProperty('CUE_TICKTICK_CLIENT_SECRET', 'csecret');
@@ -2977,6 +2978,9 @@ test('TT2 not connected: no question, says how; "connect ticktick" (no AI call) 
   const ok = t.ctx.doGet({ parameter: { code: 'c1', state: '1234abcd00004000800000000000beef' } });
   assert.ok(/connected/.test(ok.html)); deq(t.log.tt[0].auth, 'Basic ' + Buffer.from('cid:csecret').toString('base64'));
   deq(t.ctx.PropertiesService.getScriptProperties().getProperty('CUE_TICKTICK_TOKEN'), 'tt-token-not-real');
+  deq(t.log.tt.map(x => x.url.replace(/^.*ticktick\.com/, '')), ['/oauth/token', '/open/v1/task'], 'the kept to-do is added after sign-in');
+  deq(t.log.tt[1].body.title, 'Call Ana about the Acme brief'); deq(t.ctx.PropertiesService.getScriptProperties().getProperty('CUE_TICKTICK_PENDING'), '[]');
+  assert.ok(/Added the to-do you kept/.test(t.tabs.Chat.rows.filter(r => /connected/.test(r[2])).pop()[2]));
   assert.ok(!t.tabs.Chat.rows.some(r => /tt-token-not-real/.test(r[2])), 'the token never shows in chat');
   assert.ok(/old/.test(t.ctx.doGet({ parameter: { code: 'c1', state: '1234abcd00004000800000000000beef' } }).html), 'one use per link');
 });
@@ -3009,6 +3013,17 @@ test('TC13 "remember:" for a rule that was switched off turns it back on and ask
   deq([t.tabs.Memory.rows.length, t.tabs.Memory.rows[1][0]], [2, true]); assert.ok(/^Learned: /.test(askLine(t)[2]) && !/^!/.test(String(t.tabs.Chat.rows.pop()[3])));
   t.ctx.cueSend('remember: RFQs never go out from info@', [], '');
   assert.ok(/already have that rule, and it is on\. See it under My rules/.test(t.tabs.Chat.rows.pop()[2]));
+});
+
+test('SK2 "write a plan for …" is answered in chat with the Write a plan process, never a workflow map; "map the workflow" still maps', () => {
+  const talk = { reply: 'Here is the plan.', looks_like_inquiry: false, workflow: { job: 'map', name: 'Onboarding a new freelancer' } };
+  const t = sandbox({ talk });
+  const out = t.ctx.cueSend('write a plan for onboarding a new freelancer', [], '');
+  assert.ok(!out.workflow && !out.request_id, 'no map started'); deq(t.log.claude.length, 0);
+  assert.ok(!t.tabs.Requests.rows.slice(1).length, 'no task');
+  deq(t.ctx.cuePlanAsk_('map the freelancer onboarding workflow'), false);
+  deq(t.ctx.cuePlanAsk_('write a plan', 'workflow'), false, 'Kiko picking Workflow map still maps');
+  deq(t.ctx.cuePlanAsk_('brainstorm launch ideas'), true);
 });
 
 test('TC14 PC test 17:42Z + Personality: a vague message that GPT only answered still asks; the picked voice goes in the chat call only and can be edited or switched off; Settings shows processes and connections, never tokens', () => {

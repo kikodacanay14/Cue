@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.19.3: PC regression fixes, Personality, Settings page, card minimize (not deployed)
+
+PC test of 1.19.1 (21 Oct 17:42Z), and Kiko's asks at 17:29Z, 17:42Z and 17:44Z.
+
+- "LED wall for AMI Group" shows Intake / Supplier search / Just chat even when the chat call only answered (for example "No Canvas project matched").
+- Thread ✕ closes the pane on a wide screen too. ☰ Threads opens it again.
+- Chat order: when Cue answers a main-chat message in an older thread, the "Answered in the … thread" line now shows under the message it answers, not only at the thread's first line.
+- Viewer: a fresh screenshot (image.png) with no Drive thumbnail yet is fetched from Cue itself, so zoom and rotate work, and file-card thumbnails no longer stay black. Transparent images sit on white.
+- Chat bubbles: file names under a main-chat message are links again and open the viewer.
+- A thread's task card can be minimized. It becomes a bar on top of the reply box showing the title and "Needs you"; tap the bar to open it again. This is remembered per thread.
+- Personality: Kiko picked "Warm and witty". It goes only into the chat call; cards, errors and emails stay plain. Edit it or switch it off at the top of My rules. It is stored as one Memory row, Topic "personality".
+- Settings page: the K avatar at the top right, or ⋯ in the Threads pane, opens it. It has Memory, rules and personality; Processes; Chaser rules; Connections (TickTick, HubSpot, Google: shows only whether each is set, never a token); and Auto-send (all off). My rules and Chaser rules moved here from the Threads pane.
+- Tests: 217 of 217 pass (new TC14).
+
+## Cue 1.19.2: TickTick card always shows; "write a plan" is chat (not deployed)
+
+PC test on /dev 1.19.1 (17:42Z) found two problems.
+
+- TickTick not connected: Cue said "tap Add" but showed no card, then "not connected". Now the Add or Skip card always shows. When TickTick is not connected, the card says so first. Add keeps the to-do (up to 20), and Cue adds it right after Kiko types "connect ticktick" and signs in.
+- "Write a plan for onboarding a new freelancer" started a workflow map. A plan, checklist, brainstorm or analysis ask is now answered in chat with the Write a plan (or matching) process. Only map, Zap, workflow or automate words, or picking Workflow map, start a map.
+- Tests: 216 of 216 pass (new SK2; TT2 covers the kept to-do).
+
 ## Cue 1.19.1: fixes from the PC test of 1.18.1 (not deployed)
 
 PC test of 1.18.1 on /dev, 21 Oct 17:30Z.

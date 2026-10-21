@@ -56,7 +56,10 @@ function cueTtCallback_(p) {
   const d = (() => { try { return JSON.parse(res.getContentText()); } catch (e) { return {}; } })();
   if (res.getResponseCode() >= 300 || !d.access_token) { cueChat_('Cue', 'TickTick did not connect (' + res.getResponseCode() + '). Type "connect ticktick" to try again.', ''); return page('TickTick did not connect. Go back to Cue and try again.'); }
   P.setProperty('CUE_TICKTICK_TOKEN', String(d.access_token));
-  cueChat_('Cue', 'TickTick is connected. Ask me to add a to-do, or "what\'s on my TickTick".', '');
+  const f = cueTtFlush_();
+  cueChat_('Cue', 'TickTick is connected.' + (f.done.length ? ' Added the to-do' + (f.done.length === 1 ? '' : 's') + ' you kept: ' + f.done.map(x => '"' + x + '"').join(', ') + '.' : '')
+    + (f.left ? ' ' + f.left + ' kept to-do' + (f.left === 1 ? '' : 's') + ' did not go in; ask me to add ' + (f.left === 1 ? 'it' : 'them') + ' again.' : '')
+    + ' Ask me to add a to-do, or "what\'s on my TickTick".', '');
   return page('TickTick is connected. You can close this tab and go back to Cue.');
 }
 
@@ -65,13 +68,30 @@ function cueTtCallback_(p) {
 function cueTtFromTalk_(todo, where) {
   const job = todo && todo.job;
   if (job !== 'add' && job !== 'list') return '';
-  if (!cueTtOn_()) { cueChat_('Cue', 'TickTick is not connected yet. Type "connect ticktick" and I will set it up.', where); return ''; }
+  if (job === 'list' && !cueTtOn_()) { cueChat_('Cue', 'TickTick is not connected yet. Type "connect ticktick" and I will set it up.', where); return ''; }
   if (job === 'list') { try { cueChat_('Cue', cueTtList_(), where); } catch (e) { cueChat_('Cue', 'I could not read TickTick: ' + e.message, where); } return ''; }
   const title = cueStr_(String(todo.title || '').replace(/\s+/g, ' ').trim(), CUE_TT_MAX_.title);
   if (title.length < 2) return '';
   const due = /^\d{4}-\d{2}-\d{2}$/.test(String(todo.due || '')) ? String(todo.due) : '';
   const note = cueStr_(String(todo.note || '').trim(), CUE_TT_MAX_.note);
-  return cueAskOpen_({ type: 'ticktick', title, due, note }, 'Add to TickTick: "' + title + '"' + (due ? ', due ' + due : '') + '?', ['add', 'skip'], where);
+  // PC test 17:42Z: the card always shows. Not connected yet: it says so first, and Add keeps the to-do until TickTick is connected.
+  return cueAskOpen_({ type: 'ticktick', title, due, note }, (cueTtOn_() ? '' : 'TickTick is not connected yet, so Add keeps this to-do and adds it once you type "connect ticktick" and sign in. ')
+    + 'Add to TickTick: "' + title + '"' + (due ? ', due ' + due : '') + '?', ['add', 'skip'], where);
+}
+
+/** Kiko tapped Add before TickTick was connected: kept in CUE_TICKTICK_PENDING (at most 20) and added after sign-in. */
+function cueTtKeep_(o) {
+  const P = PropertiesService.getScriptProperties(), list = (() => { try { return JSON.parse(P.getProperty('CUE_TICKTICK_PENDING') || '[]'); } catch (e) { return []; } })();
+  list.push({ title: o.title, due: o.due || '', note: o.note || '' });
+  P.setProperty('CUE_TICKTICK_PENDING', JSON.stringify(list.slice(-20)));
+}
+/** After sign-in: each kept to-do is added once; one that fails stays kept. */
+function cueTtFlush_() {
+  const P = PropertiesService.getScriptProperties(), list = (() => { try { return JSON.parse(P.getProperty('CUE_TICKTICK_PENDING') || '[]'); } catch (e) { return []; } })();
+  const left = [], done = [];
+  list.forEach(o => { try { cueTtAdd_(o); done.push(o.title); } catch (e) { left.push(o); } });
+  P.setProperty('CUE_TICKTICK_PENDING', JSON.stringify(left));
+  return { done, left: left.length };
 }
 
 /** Kiko tapped Add: the task is created as shown, in the Inbox or CUE_TICKTICK_PROJECT. */
