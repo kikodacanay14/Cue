@@ -10,8 +10,12 @@
   :root { --font:'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Archivo Black', 'DM Sans', system-ui, sans-serif; --bg:#141518; --head:#0e0f11; --panel:#262930; --input:#1d1f24; --line:#34373f; --line2:#3d4250; --muted:#a3a7b0;
     --text:#e4e6ea; --white:#fff; --need:#b00c98; --act:#559fef; --ok:#3fbf7f; --warn:#e9d151; --bad:#cd5023; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:500 15px/1.5 var(--font); }
-  header { position:sticky; top:0; z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
+  /* The page never scrolls: header, tabs and composer stay put, and only the middle (chat or widgets) scrolls. */
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:500 15px/1.5 var(--font); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+  header, nav, .composer { flex:none; }
+  #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
   .logo { width:30px; height:30px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
   /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only. */
   header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
@@ -29,12 +33,12 @@
   .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
   .card.need { border-left:4px solid var(--need); }
-  .msgs { display:flex; flex-direction:column; gap:10px; padding-bottom:150px; }
+  .msgs { display:flex; flex-direction:column; gap:10px; }
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg.me { align-self:flex-end; background:#22344d; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
-  .composer { position:fixed; left:0; right:0; bottom:0; background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
+  .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
   .composer .in { max-width:1200px; margin:0 auto; }
   .row { display:flex; gap:8px; align-items:flex-end; }
   textarea, input, select { background:var(--input); color:var(--text); border:1px solid var(--line2); border-radius:6px; font:500 14px var(--font); padding:8px 10px; }
@@ -51,6 +55,8 @@
   .file button { border:0; background:transparent; color:var(--muted); cursor:pointer; font:700 14px system-ui, sans-serif; width:24px; height:24px; border-radius:50%; }
   .file button:hover { color:var(--text); background:var(--line); }
   .composer.drop { outline:2px dashed var(--act); outline-offset:-6px; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line2); border-radius:8px; padding:18px; width:min(420px, calc(100vw - 48px)); }
+  dialog::backdrop { background:rgba(0,0,0,.55); }
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .chip { border:1px solid var(--line2); border-radius:9999px; padding:6px 12px; font-size:13px; color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
   .muted { color:var(--muted); } .small { font-size:13px; }
@@ -88,6 +94,7 @@
   <button class="tab" role="tab" id="tab-chat" aria-selected="true">Chat</button>
   <button class="tab" role="tab" id="tab-widgets" aria-selected="false">Widgets<span class="badge" id="needCount" hidden></span></button>
 </nav>
+<div id="scroller">
 <main>
   <section class="col" id="page-chat">
     <div class="msgs" id="msgs"></div>
@@ -103,6 +110,15 @@
     <div id="p-need"></div><div id="p-work"></div>
   </aside>
 </main>
+</div>
+<dialog id="ask" aria-labelledby="ask-t">
+  <form method="dialog">
+    <b id="ask-t" style="font-size:17px;color:#fff"></b>
+    <div class="small muted" id="ask-sub" style="margin:4px 0 12px"></div>
+    <input id="ask-in" style="width:100%;box-sizing:border-box">
+    <div class="actions" style="justify-content:flex-end"><button class="btn ghost" value="cancel">Cancel</button><button class="btn bad" id="ask-ok" value="ok">OK</button></div>
+  </form>
+</dialog>
 <div class="composer" id="composer">
   <div class="in">
     <div class="files" id="files" aria-live="polite"></div>
@@ -115,6 +131,7 @@
     <div class="chips">
       <button class="chip" data-fill="New project intake. Client inquiry:&#10;">New project intake</button>
       <button class="chip" id="chip-need">What needs me?</button>
+      <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
 </div>
@@ -133,6 +150,12 @@
     var r = google.script.run.withSuccessHandler(function (x) { $('dot').style.background = 'var(--ok)'; ok && ok(x); })
       .withFailureHandler(function (e) { $('dot').style.background = 'var(--bad)'; (bad || alertErr)(e); });
     r[fn].apply(r, args || []);
+  }
+  // Cue's own question box (the browser's prompt() shows the Apps Script sandbox address).
+  function ask(title, sub, placeholder, okLabel, cb) {
+    var d = $('ask'); $('ask-t').textContent = title; $('ask-sub').textContent = sub; $('ask-in').value = ''; $('ask-in').placeholder = placeholder; $('ask-ok').textContent = okLabel;
+    d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
+    d.returnValue = ''; d.showModal(); $('ask-in').focus();
   }
   function alertErr(e) { addLocal('Cue', 'Something went wrong: ' + ((e && e.message) || e)); }
   function addLocal(who, text) { state.chat.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
@@ -206,12 +229,21 @@
     if (reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     $('send').disabled = true;
     var files = pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; });
-    call('cueSend', [t, files], function (r) {
-      $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false; refresh();
+    send(t, files, '');
+  };
+  var lastTalk = '';
+  $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
+  function send(t, files, mode) {
+    $('send').disabled = true; $('chip-intake').hidden = true;
+    if (!files.length && mode !== 'intake') { addLocal('Kiko', t); addLocal('Cue', '…'); $('box').value = ''; }
+    call('cueSend', [t, files, mode], function (r) {
+      $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false;
+      if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(); }
+      refresh();
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
-    }, function (e) { $('send').disabled = false; alertErr(e); });
-  };
+    }, function (e) { $('send').disabled = false; if (!$('box').value) $('box').value = t; alertErr(e); });
+  }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
 
@@ -220,7 +252,14 @@
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
   function render() { renderChat(); renderWidgets(); }
+  var lastChat = -1;
   function renderChat() {
+    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, grew = state.chat.length !== lastChat;
+    lastChat = state.chat.length;
+    renderChatHtml();
+    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
+  }
+  function renderChatHtml() {
     $('msgs').innerHTML = state.chat.map(function (m) {
       return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
     }).join('') || '<div class="muted">Paste a client inquiry to start a project intake.</div>';
@@ -346,7 +385,7 @@
         if (act === 'edit') { editing[id] = 1; return renderWidgets(); }
         if (act === 'cancel-edit') { delete editing[id]; return renderWidgets(); }
         var done = function () { delete running[id]; delete editing[id]; refresh(); }, fail = function (e) { delete running[id]; alertErr(e); refresh(); };
-        if (act === 'reject') { var why = prompt('Reject this intake? Nothing goes to Canvas. Reason (optional):'); if (why === null) return; return call('cueReject', [id, why], done, fail); }
+        if (act === 'reject') return ask('Reject this intake?', 'Nothing goes to Canvas.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-edits') return call('cueApprove', [id, collect(id)], done, fail);

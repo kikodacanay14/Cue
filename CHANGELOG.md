@@ -4,6 +4,8 @@
 
 - Attachments for intake: photos, PDFs and text files (📎, paste or drag). GPT reads them in its first call, so still 4 AI calls.
 - Deploy Cue and Connect Google Actions: no more copy and paste.
+- BSE fonts (DM Sans, Archivo Black). Enter sends, Shift+Enter adds a line. Only the chat area scrolls. Cue's own Reject box.
+- Small talk: anything that isn't an intake gets one GPT reply; an inquiry-looking message offers "Start an intake". Attachments or a "New project intake" opener start an intake directly.
 
 ## Cue 1.0 (not yet deployed)
 

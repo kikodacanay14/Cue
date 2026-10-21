@@ -57,6 +57,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
+      if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
     if (u.indexOf('api.anthropic.com') >= 0) { log.claude.push(body); return (o.fail || {}).cost ? o.fail.cost() : claudeOk(o.cost || COST); }
@@ -125,7 +126,7 @@ function sandbox(o = {}) {
   return { ctx, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
-function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ).request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
+function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
 const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
 const tests = [];
@@ -227,7 +228,7 @@ test('C13 only the owner can use Cue', () => {
 });
 test('C14 GPT read fails: Failed before Canvas; Try again resumes and counts the extra call', () => {
   let n = 0; const t = sandbox({ fail: { intake: () => (n++ === 0 ? resp(400, { error: { message: 'bad request' } }) : gptOk(READ)) } });
-  const id = t.ctx.cueSend(INQ).request_id, v = t.ctx.cueRun(id);
+  const id = t.ctx.cueSend(INQ, [], 'intake').request_id, v = t.ctx.cueRun(id);
   assert.strictEqual(v.status, 'Failed'); assert.strictEqual(t.log.bridge.length, 0); assert.ok(/GPT \(read\): HTTP 400/.test(v.error));
   const w = t.ctx.cueRetry(id); assert.strictEqual(w.status, 'Needs you'); assert.strictEqual(w.metrics.ai_calls, 5);
 });
@@ -280,7 +281,7 @@ test('C19 attachments: saved in Cue uploads, sent to GPT in the read call only, 
   assert.ok(/📎 floor plan\.png, brief\.pdf, notes\.txt/.test(st), 'chat line names the files');
 });
 test('C20 attachment limits: type, size, count, empty; a short message with no file is still refused; a trashed folder is remade', () => {
-  const t = sandbox(), send = (txt, f) => () => t.ctx.cueSend(txt, f);
+  const t = sandbox(), send = (txt, f) => () => t.ctx.cueSend(txt, f, 'intake');
   assert.throws(send(INQ, [{ name: 'x.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', data: PDF }]), /Save it as a PDF/);
   assert.throws(send(INQ, [{ name: 'big.pdf', type: 'application/pdf', data: Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64') }]), /over 10 MB/);
   assert.throws(send(INQ, Array(9).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /8 files at most/);
@@ -291,6 +292,21 @@ test('C20 attachment limits: type, size, count, empty; a short message with no f
   assert.strictEqual(u.props.CUE_UPLOADS_FOLDER, 'folder-1');
   const w = sandbox({ props: { CUE_UPLOADS_FOLDER: 'kept' } }); w.ctx.cueSend('', [{ name: 'a.txt', type: 'text/plain', data: TXT }]);
   assert.strictEqual(w.drive.parent.f1, 'kept');
+});
+
+test('C21 small talk: one GPT call, no intake, both lines in the chat; an inquiry-looking message offers the intake; the opener still starts one', () => {
+  const t = sandbox(), r = t.ctx.cueSend('hey GPT / Claude, how are you');
+  assert.strictEqual(r.chat, true); assert.strictEqual(r.reply, 'Doing well! Ready when you are.'); assert.strictEqual(r.suggest_intake, false);
+  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.claude.length + t.log.bridge.length, 0);
+  assert.strictEqual(t.tabs.Requests.rows.length, 1, 'no request made');
+  deq(t.tabs.Chat.rows.slice(1).map(x => x[1]), ['Kiko', 'Cue']);
+  assert.ok(/how are you/.test(t.log.gpt[0].input) && /never pretend/.test(t.log.gpt[0].instructions));
+  const AI = t.tabs['AI Runs'].rows.slice(1); assert.strictEqual(AI.length, 1); assert.strictEqual(AI[0][2], 'chat');
+  const u = sandbox({ talk: { reply: 'That looks like an inquiry.', looks_like_inquiry: true } });
+  assert.strictEqual(u.ctx.cueSend(INQ).suggest_intake, true);
+  assert.ok(u.ctx.cueSend('New project intake. ' + INQ).request_id, 'opener starts an intake');
+  assert.throws(() => u.ctx.cueSend('   '), /Type a message/);
+  const w = sandbox({ fail: { chat: () => resp(500, {}) } }); assert.ok(/could not answer/.test(w.ctx.cueSend('hello').reply));
 });
 
 let pass = 0;
