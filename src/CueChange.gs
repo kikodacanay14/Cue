@@ -31,7 +31,7 @@ const CUE_CH_SYSTEM_ = 'You help BSE (Blank Space Events, Philippines) send a ch
 /* ---------- Gmail, read only ---------- */
 function cueGmail_(path) {
   const res = UrlFetchApp.fetch(CUE_GMAIL_ + path, { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
-  if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in Widgets.');
+  if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in the Threads pane.');
   if (res.getResponseCode() !== 200) throw new Error('Gmail search said HTTP ' + res.getResponseCode() + cueGoogleWhy_(res));
   return JSON.parse(res.getContentText() || '{}');
 }

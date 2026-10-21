@@ -126,7 +126,7 @@ function cuePipeQuery_(d) {
 function cuePipeMail_(s) {
   const D = s.pipe.deals, auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, own = cueOwnDomain_();
   const fetchAll = reqs => { let out = []; for (let i = 0; i < reqs.length; i += 20) out = out.concat(UrlFetchApp.fetchAll(reqs.slice(i, i + 20))); return out; };
-  const scope = res => { if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in Widgets.'); };
+  const scope = res => { if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in the Threads pane.'); };
   const todo = D.filter(d => (d.q = cuePipeQuery_(d)));
   const lists = fetchAll(todo.map(d => ({ url: CUE_GMAIL_ + '/messages?maxResults=1&q=' + encodeURIComponent(d.q), muteHttpExceptions: true, headers: auth })));
   const newest = [];

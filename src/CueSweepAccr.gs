@@ -23,7 +23,7 @@ function cueAccrThreads_(rows) {
   const lists = UrlFetchApp.fetchAll(ask.map(x => ({ url: CUE_GMAIL_ + '/messages?maxResults=1&q=' + encodeURIComponent(x.q), muteHttpExceptions: true, headers: tok })));
   const got = [];
   lists.forEach((res, n) => {
-    if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in Widgets.');
+    if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in the Threads pane.');
     if (res.getResponseCode() !== 200) return;
     const m = (JSON.parse(res.getContentText() || '{}').messages || [])[0];
     if (m) got.push({ i: ask[n].i, id: m.id });
