@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueAr.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -101,6 +101,20 @@ function sandbox(o = {}) {
         if (o.saveFail && log.saved.length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/p' + log.saved.length, name: body.project_id + ' · ' + body.args.name, type: body.args.type, existed: false, in_project_folder: !o.noFolder } });
       }
+      // CUE-AR: Canvas's AR list, make and email, with the shapes of the bridge's ar_list / ar_make / ar_email.
+      if (body.action === 'ar_list') { log.arList = body.project_id; return resp(200, { ok: true, status: 'Completed', result: { more: false, items: (o.arItems || AR_ITEMS).map(x => Object.assign({}, x, { ar: (log.ars || {})[x.key] || x.ar || null })) } }); }
+      if (body.action === 'ar_make') {
+        log.arMade = log.arMade || []; log.arMade.push([body.args.key, !!body.args.remake]);
+        if ((o.arFail || []).indexOf(body.args.key) >= 0 && log.arMade.filter(k => k[0] === body.args.key).length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
+        const it = (o.arItems || AR_ITEMS).find(x => x.key === body.args.key), ar = { ar_id: 'AR-' + log.arMade.length, status: it.kind === 'Resource' ? 'Waiting for signature' : 'Made',
+          url: 'https://drive.google.com/file/d/ar' + log.arMade.length, generated: '2026-10-21 08:00', emailed: '', signed_at: '', signed_url: '' };
+        (log.ars = log.ars || {})[it.key] = ar; return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: false, name: it.name, kind: it.kind, ar } });
+      }
+      if (body.action === 'ar_email') {
+        log.arMailed = log.arMailed || []; log.arMailed.push(body.args.key);
+        if (o.apNotSetUp) return resp(200, { ok: false, status: 'Rejected', error: 'Not sent: AccountsPayables@ is not set up to send from yet' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: false, emailed: 'Sent to a@supplier.test 2026-10-21 08:05' } });
+      }
       if (body.action === 'make_rfq_drafts') {
         log.canvasDrafts = (log.canvasDrafts || 0) + 1;
         if (o.canvasDraftsFail && log.canvasDrafts === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Gmail busy' });
@@ -164,6 +178,13 @@ function sandbox(o = {}) {
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
+const AR_ITEMS = [
+  { key: 'Q|PR-001', kind: 'Supplier', name: 'Lights Co', role: 'Lights', amount: 15000, paid_on: '2026-10-18', request_id: 'PR-001', has_email: true, why: '', ar: null },
+  { key: 'Q|PR-002', kind: 'Supplier', name: 'VAT Co', role: 'Sound', amount: 50000, paid_on: '2026-10-18', request_id: 'PR-002', has_email: true, why: 'VAT Co is VAT registered, so they owe us an invoice instead of an AR.', ar: null },
+  { key: 'Q|PR-003', kind: 'Talent', name: 'DJ Ana', role: 'DJ', amount: 8000, paid_on: '2026-10-19', request_id: 'PR-003', has_email: false, why: '', ar: null },
+  { key: 'R|ben cruz|usher', kind: 'Resource', name: 'Ben Cruz', role: 'Usher', amount: 1500, paid_on: '', request_id: '', has_email: false, why: '', ar: null },
+  { key: 'Q|PR-004', kind: 'Supplier', name: 'Old Co', role: 'Tables', amount: 3000, paid_on: '2026-10-10', request_id: 'PR-004', has_email: true, why: '',
+    ar: { ar_id: 'AR-OLD', status: 'Made', url: 'https://drive.google.com/file/d/old', generated: '2026-10-11 09:00', emailed: 'Sent to o@old.test 2026-10-11 09:01', signed_at: '', signed_url: '' } }];
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
@@ -623,6 +644,76 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
   const seen = JSON.stringify(t.log.gpt.slice(before));
   assert.ok(/JBL mats changed/.test(seen), 'thread history included'); assert.ok(!/secret line about lunch/.test(seen), 'main chat left out');
   assert.ok(t.tabs.Chat.rows.filter(x => x[3] === id).length >= 3, 'reply and answer filed under the task');
+});
+
+test('C34 ARs (Kiko 07:42Z): the chat call picks the command, Canvas lists, the card ticks only what is ready; no extra AI call, no Claude', () => {
+  const t = sandbox({ similar: [{ project_id: 'S-31628060SP', name: 'Globe Year-End Party', account: 'Globe', date: '2026-12-12', status: 'Completed', why: 'similar name' }],
+    talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Globe year-end party' } });
+  const r = t.ctx.cueSend('prepare ARs for the Globe year-end party', [], '');
+  assert.ok(r.request_id); const v = t.ctx.cueRun(r.request_id);
+  assert.strictEqual(v.kind, 'ar'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.ar.project_id, 'S-31628060SP');
+  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'ar_list']); assert.strictEqual(t.log.arList, 'S-31628060SP');
+  assert.strictEqual(v.metrics.ai_calls, 0, 'the run itself makes no AI call'); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.claude.length, 0);
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked and already-made ones are not ticked');
+  assert.ok(t.tabs.Chat.rows.some(x => x[2] === 'Started a thread for it.' && x[3] === '>' + r.request_id), 'main chat points at the new thread');
+  assert.ok(/acknowledgement receipts/i.test(JSON.stringify(t.log.gpt[0].instructions)), 'the chat model knows the command');
+  deq(Object.keys(JSON.parse(JSON.stringify(t.log.gpt[0].text.format.schema.properties))).sort(), ['looks_like_inquiry', 'reply', 'start_ar', 'start_intake', 'task']);
+  deq(JSON.parse(JSON.stringify(t.log.gpt[0].text.format.schema.required)).sort(), ['looks_like_inquiry', 'reply', 'start_ar', 'start_intake', 'task'], 'strict schema needs every field required');
+});
+test('C35 ARs: a Canvas id is used as given; an unknown name stops with a plain reason and Try again', () => {
+  const t = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'S-31628060SP' } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('ARs for S-31628060SP please', [], '').request_id);
+  assert.strictEqual(v.status, 'Needs you'); deq(t.log.bridge.map(b => b.action), ['ar_list']);
+  const u = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Nowhere Fest' } });
+  const w = u.ctx.cueRun(u.ctx.cueSend('make the ARs for Nowhere Fest', [], '').request_id);
+  assert.strictEqual(w.status, 'Failed'); assert.ok(/no project called "Nowhere Fest"/.test(w.error), w.error);
+});
+function arCard(o) {
+  const t = sandbox(Object.assign({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'S-31628060SP' } }, o || {}));
+  const id = t.ctx.cueSend('prepare ARs S-31628060SP', [], '').request_id; t.ctx.cueRun(id); return Object.assign(t, { id });
+}
+test('C36 ARs: approve makes only the ticked ones, one bridge call each; refuses blocked, over 15, and remaking what was never made', () => {
+  const t = arCard();
+  assert.throws(() => t.ctx.cueApprove(t.id, { make: ['Q|PR-002'] }), /VAT registered/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { remake: ['Q|PR-001'] }), /already made/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { make: [] }), /Tick at least one/);
+  const big = arCard({ arItems: Array.from({ length: 16 }, (_, i) => ({ key: 'Q|PR-1' + i, kind: 'Supplier', name: 'S' + i, role: 'x', amount: 1, has_email: true, why: '', ar: null })) });
+  assert.throws(() => big.ctx.cueApprove(big.id, { make: Array.from({ length: 16 }, (_, i) => 'Q|PR-1' + i) }), /15 at most/);
+  const v = t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'R|ben cruz|usher'] });
+  deq(t.log.arMade, [['Q|PR-001', false], ['R|ben cruz|usher', false]]);
+  t.log.bridge.filter(b => b.action === 'ar_make').forEach(b => { assert.strictEqual(b.project_id, 'S-31628060SP'); assert.strictEqual(b.args.request_id, t.id); });
+  assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.stage, 'Ready to email', 'Lights Co has an email and a new receipt');
+  assert.strictEqual(v.ar.items.find(x => x.key === 'R|ben cruz|usher').ar.status, 'Waiting for signature');
+  assert.ok(!t.log.arMailed, 'nothing emailed on make');
+  assert.ok(t.tabs.Chat.rows.some(x => /Canvas made 2 receipts/.test(x[2])));
+});
+test('C37 ARs: email only on its own approval, only mailable ones, from Canvas; done with one summary line', () => {
+  const t = arCard(); t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'Q|PR-003'] });
+  assert.throws(() => t.ctx.cueApprove(t.id, { email: ['Q|PR-003'] }), /cannot be emailed/, 'no email on file');
+  assert.throws(() => t.ctx.cueApprove(t.id, { email: ['Q|PR-004'] }), /cannot be emailed/, 'already sent');
+  const v = t.ctx.cueApprove(t.id, { email: ['Q|PR-001'] });
+  deq(t.log.arMailed, ['Q|PR-001']); assert.strictEqual(v.status, 'Done');
+  assert.ok(/^Sent to /.test(v.ar.items.find(x => x.key === 'Q|PR-001').ar.emailed));
+  const sum = t.tabs.Chat.rows.filter(x => /^Summary for ARs for S-31628060SP: made 2 receipts; emailed 1 from AccountsPayables@; 1 could not be made yet/.test(x[2]));
+  assert.strictEqual(sum.length, 2, 'main chat and thread');
+  assert.ok(!t.log.gmail.length && !(t.log.sent || []).length, 'nothing from Kiko\'s Gmail');
+});
+test('C38 ARs: a failed receipt stays ticked for a retry; Finish without emailing ends it; AccountsPayables@ not set up is shown, not hidden', () => {
+  const t = arCard({ arFail: ['Q|PR-003'] });
+  const v = t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'Q|PR-003'] });
+  assert.strictEqual(v.stage, 'Needs you'); const x = v.ar.items.find(i => i.key === 'Q|PR-003'); assert.ok(x.tick && /Drive busy/.test(x.error));
+  const w = t.ctx.cueApprove(t.id, { make: ['Q|PR-003'] }); assert.strictEqual(w.stage, 'Ready to email');
+  deq(t.log.arMade.map(k => k[0]), ['Q|PR-001', 'Q|PR-003', 'Q|PR-003']);
+  const n = arCard({ apNotSetUp: true }); n.ctx.cueApprove(n.id, { make: ['Q|PR-001'] });
+  const e = n.ctx.cueApprove(n.id, { email: ['Q|PR-001'] });
+  assert.strictEqual(e.stage, 'Ready to email'); assert.ok(/AccountsPayables@ is not set up/.test(e.ar.items.find(i => i.key === 'Q|PR-001').error));
+  const f = n.ctx.cueApprove(n.id, { finish: true }); assert.strictEqual(f.status, 'Done');
+  assert.throws(() => n.ctx.cueApprove(n.id, { make: ['Q|PR-003'] }), /not waiting for you/);
+});
+test('C39 ARs: the bridge fixture accepts exactly what Cue sends (ar_list, ar_make, ar_email)', () => {
+  assert.strictEqual(bridgeCheck('ar_list', {}), ''); assert.strictEqual(bridgeCheck('ar_make', { request_id: 'cue-20261021080000-ab12', key: 'R|ben cruz|usher', remake: true }), '');
+  assert.strictEqual(bridgeCheck('ar_email', { request_id: 'cue-20261021080000-ab12', key: 'Q|PR-001' }), '');
+  assert.ok(bridgeCheck('ar_email', { request_id: 'cue-20261021080000-ab12', key: 'Q|PR-001', remake: true }));
 });
 
 let pass = 0;

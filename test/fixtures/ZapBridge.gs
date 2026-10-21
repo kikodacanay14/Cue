@@ -174,6 +174,29 @@ const ZB_ACTIONS_ = {
       data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } },
     run: (r) => zbSaveFile_(r)
   },
+  /* CUE-AR-2026-10-21 (Kiko 07:42Z approved specs/supplier-ars.md): Cue's "Prepare ARs" command. Canvas's own AR generator
+   * (arPeople, arMake, arEmail_) does all the work; these only expose it to Cue, one receipt per call, after Kiko ticks it. */
+  ar_list: {
+    // The Generate window's list: who can get a receipt, the current one if made, and why the rest can't. No bank details.
+    kind: 'read', needsProject: true, schema: {},
+    run: (r) => zbArList_(r.project_id)
+  },
+  ar_make: {
+    // One receipt. A repeat returns the receipt already there, so a retry never makes a second PDF. remake (Kiko's tick
+    // only) makes a new one and keeps a signed copy, like the page's Remake; a remake retried within 10 minutes is a repeat.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ }, remake: { type: 'boolean' } },
+    run: (r) => zbArMake_(r)
+  },
+  ar_email: {
+    // Emails a supplier or talent their current receipt through arEmail_: from AccountsPayables@ only, Event Specialist and
+    // Kiko in CC. Sent once: a receipt already marked "Sent to" is not sent again. Freelancer receipts are never emailed.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ } },
+    run: (r) => zbArEmail_(r)
+  },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
     run: () => getProjectBoard()
@@ -411,6 +434,57 @@ function zbSaveFile_(r) {
   try { up.file.setDescription('Linked to: Project · Added by: Cue (' + a.request_id + ')'); } catch (e) { /* the note is optional */ }
   try { logEvent('Uploaded document', 'Projects', r.project_id + ': ' + up.name + ' (' + a.type + ', from Cue)'); } catch (e) { /* logging never blocks */ }
   return { ok: true, url: up.url, name: up.name, type: a.type, existed: false, in_project_folder: own };
+}
+
+/* ---------- CUE-AR-2026-10-21: acknowledgement receipts ---------- */
+const zbArView_ = a => a ? { ar_id: a.id, status: a.status, url: a.url, generated: a.generated, emailed: a.emailed, signed_at: a.signedAt || '', signed_url: a.signedUrl || '' } : null;
+function zbArList_(pid) {
+  const o = arPeople(pid), items = (o.items || []).slice(0, 200);
+  return { more: (o.items || []).length > 200, items: items.map(p => ({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount,
+    paid_on: p.paidOn || '', request_id: p.requestId || '', has_email: !!p.hasEmail, why: p.why || '', ar: zbArView_(p.ar) })) };
+}
+// A receipt made in the last 10 minutes (the AR Receipts tab's "Generated", script time zone).
+function zbArFresh_(generated, now) {
+  let d = null; try { d = Utilities.parseDate(String(generated || ''), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'); } catch (e) { return false; }
+  return !!d && (now || Date.now()) - d.getTime() < 10 * 60 * 1000;
+}
+function zbArItem_(r) {
+  const x = zbProject_(r); if (x.error) return { error: x.error };
+  const p = arFind_(arItems_(r.project_id), r.args.key);
+  if (!p) return { error: 'That person or payment is no longer on this project. Refresh the list.' };
+  return { p };
+}
+function zbArMake_(r) {
+  const it = zbArItem_(r); if (it.error) return { ok: false, error: it.error };
+  const p = it.p, pid = r.project_id;
+  if (p.why) return { ok: false, error: p.name + ': ' + p.why };
+  const cur = arStatus_(pid).filter(a => arMine_(p, a.key))[0];
+  if (cur && arCovers_(cur, p) && (!r.args.remake || zbArFresh_(cur.generated))) return { ok: true, existed: true, name: p.name, kind: p.kind, ar: zbArView_(cur) };
+  const res = arMake(pid, p.key, { redo: !!r.args.remake });
+  // Read back: the new row must be on the AR Receipts tab as the current receipt.
+  const made = (res.ar || []).filter(a => a.id === res.made.id)[0];
+  if (!made) return { ok: false, error: 'Canvas made ' + res.made.file + ' but it is not on the AR Receipts tab. Check the project in Canvas.' };
+  return { ok: true, existed: false, name: p.name, kind: p.kind, ar: zbArView_(made), folder_url: res.folderUrl || '' };
+}
+function zbArEmail_(r) {
+  const it = zbArItem_(r); if (it.error) return { ok: false, error: it.error };
+  const p = it.p, pid = r.project_id;
+  if (p.kind === 'Resource') return { ok: false, error: 'Freelancer receipts are signed in Canvas Client, not emailed.' };
+  let out = null;
+  locked_(() => {   // under the app's lock, so two taps can't both send
+    const sh = arTab_(false), o = arRows_(sh).filter(v => norm_(v.r[AR_C_['Project ID']]) === norm_(pid) && arMine_(p, v.r[AR_C_['Key']])
+      && !/replaced/i.test(v.r[AR_C_['Status']]))[0];
+    if (!o) { out = { ok: false, error: 'No receipt for ' + p.name + ' yet. Make it first.' }; return; }
+    const g = h => o.r[AR_C_[h]];
+    if (!arCovers_({ reqs: g('Request ID') }, p)) { out = { ok: false, error: p.name + ' was paid again since this receipt was made. Make it again first.' }; return; }
+    if (/^Sent to /.test(g('Emailed'))) { out = { ok: true, existed: true, name: p.name, ar_id: g('AR ID'), emailed: g('Emailed') }; return; }
+    if (!g('PDF ID')) { out = { ok: false, error: 'This receipt has no PDF. Make it again.' }; return; }
+    const sent = arEmail_(p, arEvent_(pid), DriveApp.getFileById(g('PDF ID')));
+    sh.getRange(o.row, AR_C_['Emailed'] + 1).setValue(safe_(sent));
+    out = /^Sent to /.test(sent) ? { ok: true, existed: false, name: p.name, ar_id: g('AR ID'), emailed: sent } : { ok: false, error: sent };
+  });
+  if (out.ok && !out.existed) try { logEvent('Emailed AR', 'Projects', pid + ': ' + p.name + ' (from Cue)'); } catch (e) { /* logging never blocks */ }
+  return out;
 }
 
 // The project must exist in the Admin Directory and, when the caller names a number, carry it.
