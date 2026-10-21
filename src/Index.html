@@ -48,7 +48,7 @@
   .thread-head .back { all:unset; cursor:pointer; color:var(--act); font-weight:700; padding:8px 4px; }
   .thread-head .back:focus-visible { outline:2px solid var(--act); border-radius:6px; }
   .thread-head .t { font-weight:700; color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .open-thread { all:unset; cursor:pointer; color:var(--act); font-size:13px; font-weight:600; display:inline-block; margin:-6px 0 12px 4px; }
+  .tap { cursor:pointer; } .tap > .card { transition:border-color .15s; } .tap:hover > .card { border-color:var(--line2); }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
   .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
   .composer .in { max-width:1200px; margin:0 auto; }
@@ -389,19 +389,27 @@
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
       + metricLine(r) + '</div>';
   }
-  function openLink(r) { var by = byId(); return '<button class="open-thread" data-act="open-thread" data-id="' + esc(rootOf(r.id, by)) + '">Open its thread →</button>'; }
+  // Kiko 06:28Z: tapping a widget card opens its thread (no separate link). Buttons, ticks, text boxes and links inside still do their own job.
+  function inThread(r, h) { return '<div class="tap" data-open="' + esc(rootOf(r.id, byId())) + '" title="Open its thread">' + h + '</div>'; }
+  function tapOpen(e) {
+    if (e.target.closest('button, input, textarea, select, a, label, summary')) return;
+    var t = e.target.closest('[data-open]'); if (t) goThread(t.getAttribute('data-open'));
+  }
+  $('page-widgets').addEventListener('click', tapOpen); $('pinned').addEventListener('click', tapOpen);
   function renderWidgets() {
     var need = state.requests.filter(function (r) { return r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Done, drafts incomplete'; });
     var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
-    var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; }).slice(0, 5);
+    var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; });
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
-    var needHtml = (accessHtml() + need.map(function (r) { return cardHtml(r) + openLink(r); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
-    var workHtml = work.map(function (r) { return workHtmlOf(r) + openLink(r); }).join('') || '<div class="card muted">Nothing running.</div>';
+    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, cardHtml(r)); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
+    var workHtml = work.map(function (r) { return inThread(r, workHtmlOf(r)); }).join('') || '<div class="card muted">Nothing running.</div>';
     setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
     setHtml($('p-need'), need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open their threads, or Widgets, to review.</div></div>' : '');
-    setHtml($('p-work'), work.map(workHtmlOf).join(''));
-    setHtml($('w-done'), done.map(function (r) { return doneHtml(r) + openLink(r); }).join('') || '<div class="card muted">Nothing yet.</div>');
+    setHtml($('p-work'), work.map(function (r) { return inThread(r, workHtmlOf(r)); }).join(''));
+    // Kiko 06:28Z: three, then See more.
+    setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r)); }).join('') || '<div class="card muted">Nothing yet.</div>')
+      + (done.length > 3 ? '<button class="btn ghost" data-act="more-done" data-id="">' + (moreDone ? 'See less' : 'See more (' + (done.length - 3) + ')') + '</button>' : ''));
     bind();
   }
   function metricLine(r) {
@@ -424,7 +432,7 @@
         : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
       + '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + (open ? metricLine(r) : '') + '</div>';
   }
-  var openWork = {};
+  var openWork = {}, moreDone = false;
 
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
@@ -566,7 +574,7 @@
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
-        if (act === 'open-thread') return goThread(id);
+        if (act === 'more-done') { moreDone = !moreDone; return renderWidgets(); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }

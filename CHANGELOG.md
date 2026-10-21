@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.6.2 (not deployed yet)
+
+- Widgets (Kiko 06:28Z): tapping a card opens its thread; the "Open its thread" links are gone. Buttons, ticks, text boxes and links inside a card still do their own job.
+- Recently done shows 3, then "See more".
+
 ## Cue 1.6.1 (deployed as Version 16)
 
 - Change requests tick only the newest files (Kiko 06:25Z "kept on attaching the old files"): this message's files, or else the newest earlier message with files. Older files from the last day are listed unticked.
