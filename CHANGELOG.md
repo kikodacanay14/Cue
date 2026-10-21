@@ -8,6 +8,12 @@ Kiko's live check of 1.15 at 15:35Z: tapping image.jpg in a chat bubble, or on t
 - Each file name that matches a saved Drive file of the task is now a link, and tapping it opens the viewer (third pane). Tapping a file name in the main chat opens the file, not the thread. A name with no saved file yet (still uploading) stays plain text.
 - The header now shows the version the page runs, for example "· Cue 1.15", next to "One chat. Each task gets its own thread." Kiko can confirm after a reload that /exec serves the new version.
 - Tests: 189 of 189 pass. Playwright checked the chat bubble chip (opens floorplan.jpg, 1 of 2) and the intake card chip (opens brief.pdf, 2 of 3).
+## Cue 1.15.1: one card per request (not deployed)
+
+Fixes a problem found in the live test at 15:34Z: one Unilever request made two intake cards, and the two cards disagreed.
+
+- Pasting or attaching a project again while its phased intake card is waiting no longer starts a second intake. The message goes into the same card, and Cue says so in the main chat.
+- A second read of the details (from a new message, a note or new files) now adds to the first read and never wipes it. Contacts, venue, dates, schedule and questions found by either read stay on the card.
 
 ## Cue 1.15: Project intake in four phases (not deployed; needs the Canvas release with it)
 
