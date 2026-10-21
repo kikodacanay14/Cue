@@ -747,7 +747,7 @@ test('TR1 triage: code drops answered, project, old and junk mail; ONE GPT call 
   assert.ok(!/old quoted text/.test(sent), 'quoted history cut'); assert.ok(sent.length < 4 * 1600 + 2000, 'each email cut to 1,500 characters');
   const r = lines.find(l => l.group === 'reply'), q = lines.find(l => l.group === 'inquiry');
   assert.ok(r.needs_draft && r.urgent && /meet Thursday/.test(r.context) && r.context.length <= 1500); assert.strictEqual(r.to, 'marco@partner.example');
-  assert.strictEqual(r.who, 'Marco Cruz'); assert.ok(r.message_id && r.subject === 'Meeting Thursday?', 'enough to reply in the thread');
+  assert.strictEqual(r.who, 'Marco Cruz'); assert.strictEqual(r.sender, 'marco@partner.example', 'for the teach buttons'); assert.ok(r.message_id && r.subject === 'Meeting Thursday?', 'enough to reply in the thread');
   assert.strictEqual(q.action, 'start_intake'); assert.ok(!q.needs_draft && q.context === '', 'only reply briefs go on to the draft call');
   assert.strictEqual(lines[0].group, 'inquiry'); assert.strictEqual(lines[lines.length - 1].group, 'skip', 'inquiries first, skipped last');
   assert.ok(lines.every(l => l.kind === 'inbox' && /^inbox:/.test(l.key)));
@@ -762,7 +762,7 @@ test('TR2 triage: when GPT fails the batch still builds; everything it would sor
   assert.ok(/ChatGPT could not sort/.test(run.notes[0]));
 });
 test('TR3 triage: after the batch is posted the lines are logged and the window moves, so tomorrow shows only new mail', () => {
-  const t = sandbox({ inbox: INBOX, triage: TRIAGE }), run = triRun(), c = { s: run, board: BOARD };
+  const t = sandbox({ inbox: INBOX, triage: TRIAGE }), run = triRun(), c = { s: run, board: () => BOARD };   // the engine passes board as a function
   const lines = t.ctx.cueTriageFind_(c);
   vm.runInContext('CUE_TRIAGE_KIND_', t.ctx).posted(c, lines);
   assert.strictEqual(t.tabs['Triage log'].rows.length - 1, lines.length); assert.strictEqual(t.props.CUE_TRIAGE_SINCE, String(Date.parse('2026-10-21T03:00:00Z')));
@@ -791,6 +791,8 @@ test('TR5 triage: Start intake turns the email and its readable files into a nor
   assert.ok(/product launch on 5 December/.test(s.text) && /Not attached, Cue cannot read them: tool\.exe/.test(s.text));
   deq(s.files.map(f => f.name), ['brief.pdf']); assert.ok(!/logo\.png/.test(s.text), 'signature logos ignored'); assert.strictEqual(t.drive.files[s.files[0].id].toString(), 'PDFDATA');
   assert.strictEqual(s.source.thread_id, 'a1a1a1a1a1a1a1a1');
+  const viaCard = vm.runInContext('CUE_TRIAGE_KIND_', t.ctx).act({ action: 'start_intake', thread_id: 'a1a1a1a1a1a1a1a1' }, {});
+  assert.ok(viaCard.request_id && viaCard.request_id !== out.request_id, 'the card button runs the same Start intake');
   assert.ok(!t.ctx.cueTriageFind_({ s: triRun(), board: BOARD }).some(l => l.thread_id === 'a1a1a1a1a1a1a1a1'), 'claimed by the intake');
   assert.throws(() => t.ctx.cueTriageIntake('../../x'), /not in your inbox/);
 });
