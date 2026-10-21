@@ -298,11 +298,17 @@ function cueSweepDraft_(s, items) {
   const got = {};
   res.forEach(r => { if (r.ok) (r.data.drafts || []).forEach(d => { got[String(d.key)] = d; }); else s.notes.push('ChatGPT could not draft (' + r.error + '); templates used.'); });
   items.forEach(it => {
-    const d = got[it.key], t = tpl(it);
+    let d = got[it.key];
+    const t = tpl(it), k = kindOf(it);
+    // A kind's check (payments: every BI number and the balance, exactly) can turn down ChatGPT's words; its template is used.
+    if (d && typeof k.check === 'function') { let ok = false; try { ok = !!k.check(Object.assign({}, it, { subject: d.subject, body: d.body })); } catch (e) { ok = false; }
+      if (!ok) { d = null; it.check_failed = true; } }
     it.subject = cueStr_((d && d.subject) || t.subject || it.subject || ('Following up: ' + (it.project || 'BSE')), 200).replace(/[\r\n]+/g, ' ');
     it.body = cueStr_((d && d.body) || t.body || it.body || '', 6000);
     it.drafted_by = d ? 'ChatGPT' : 'template';
   });
+  const turned = items.filter(it => it.check_failed).length;
+  if (turned) s.notes.push(turned + ' ChatGPT draft' + (turned === 1 ? '' : 's') + ' left out a required detail (such as an amount); the fixed wording was used.');
 }
 
 /** Open Cue tasks, one per thread: { root, name, status, due, priority } (newest 60 requests, archived and closed left out). */
@@ -383,7 +389,9 @@ function cueSweepDoneLine_(s) {
   const b = s.batch, sel = b.items.filter(it => it.selected), sent = sel.filter(it => it.sent_id), drafts = sel.filter(it => it.draft_id && !it.sent_id), bad = sel.filter(it => it.error);
   const out = [];
   if (sent.length) out.push('sent ' + sent.length);
-  if (drafts.length) out.push(drafts.length + ' in your Gmail Drafts');
+  const hooked = it => typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).draft === 'function';
+  if (drafts.filter(it => !hooked(it)).length) out.push(drafts.filter(it => !hooked(it)).length + ' in your Gmail Drafts');
+  if (drafts.filter(hooked).length) out.push(drafts.filter(hooked).length + ' in info@\'s Drafts');
   if (bad.length) out.push(bad.length + ' did not go through (tap Retry)');
   const line = 'Morning batch: ' + (out.join(', ') || 'nothing sent') + '.';
   cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
