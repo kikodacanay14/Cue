@@ -26,10 +26,43 @@
   .tab { border:1px solid var(--line2); background:transparent; color:var(--text); border-radius:9999px; min-height:44px; padding:0 18px; font:600 14px var(--font); cursor:pointer; }
   .tab[aria-selected="true"] { background:var(--panel); border-color:var(--act); color:var(--white); }
   .badge { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; border-radius:9999px; background:var(--need); color:#fff; font-size:12px; }
-  main { display:flex; gap:20px; padding:16px; max-width:1200px; margin:0 auto; }
-  .col { flex:1; max-width:820px; min-width:0; }
-  aside { width:340px; flex:none; }
-  @media (max-width: 1000px) { aside { display:none; } }
+  /* Two panes (Kiko 21 Oct 12:59Z, like Claude's desktop app): the main chat on the left; on the right, tabs for the Threads list,
+     each opened thread, and files or images opened from a thread. On a phone the right pane slides over the chat. */
+  .split { flex:1; min-height:0; display:flex; }
+  .left { flex:1; min-width:0; display:flex; flex-direction:column; }
+  main { padding:16px; max-width:860px; margin:0 auto; }
+  .col { min-width:0; }
+  .pane { width:44%; min-width:380px; max-width:720px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:#17181c; }
+  .ptabs { flex:none; display:flex; gap:4px; align-items:center; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--head); overflow-x:auto; }
+  .ptab { flex:none; display:inline-flex; align-items:center; max-width:220px; border:1px solid transparent; border-radius:6px; color:var(--muted); }
+  .ptab[aria-selected="true"] { background:var(--panel); border-color:var(--line2); color:var(--white); }
+  .ptab button { all:unset; cursor:pointer; padding:7px 10px; font:600 13px var(--font); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ptab button.x { padding:7px 8px 7px 2px; color:var(--muted); font-weight:700; }
+  .ptab button:focus-visible { outline:2px solid var(--act); border-radius:6px; }
+  .ptab:hover { color:var(--text); }
+  .pane-x { display:none; }
+  #pscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px; }
+  .tsearch { width:100%; margin-bottom:6px; }
+  .tgroup { all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:flex; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); font-weight:700; margin:14px 0 4px; }
+  .tgroup:focus-visible { outline:2px solid var(--act); border-radius:4px; }
+  .trow { all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:flex; gap:10px; align-items:flex-start; padding:8px; border-radius:6px; }
+  .trow:hover, .trow:focus-visible { background:var(--panel); }
+  .trow.sel { background:#1f2b3d; box-shadow:inset 0 0 0 1px #2d4466; }
+  .trow .dot { margin-top:7px; }
+  .trow .tx { flex:1; min-width:0; } .trow .tx b { display:block; color:var(--white); font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .trow .tx span { display:block; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .trow .tm { color:var(--muted); font-size:11px; white-space:nowrap; }
+  .tmore { all:unset; cursor:pointer; display:block; width:100%; text-align:center; color:var(--act); font-size:13px; font-weight:600; padding:6px; }
+  .fview { display:flex; flex-direction:column; height:100%; }
+  .fview iframe { flex:1; min-height:60vh; width:100%; border:1px solid var(--line); border-radius:6px; background:#0e0f11; }
+  .fhead { display:flex; gap:10px; align-items:center; margin-bottom:10px; } .fhead b { color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fhead a { color:var(--act); margin-left:auto; white-space:nowrap; font-size:13px; }
+  .tcomposer { flex:none; background:var(--head); border-top:1px solid var(--line); padding:10px 12px; }
+  .only-phone { display:none; }
+  @media (max-width: 900px) {
+    .pane { position:fixed; inset:0; width:auto; min-width:0; max-width:none; z-index:20; border-left:0; }
+    .pane:not(.open) { display:none; }
+    .pane-x { display:inline-flex; } .only-phone { display:inline-block; }
+  }
   .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
   .card.need { border-left:4px solid var(--need); }
@@ -39,15 +72,14 @@
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
   /* Threads (Kiko 06:07Z, like Claude's project chat): a task's first message shows in the chat with a reply counter; its replies and cards live in the thread. */
-  .thread-row { all:unset; box-sizing:border-box; align-self:flex-start; display:flex; align-items:center; gap:8px; margin:-4px 0 4px; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--muted); max-width:85%; }
+  .thread-row { align-self:flex-start; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-4px 0 4px; padding:4px 10px; font-size:13px; color:var(--muted); max-width:85%; }
   .msg.me + .thread-row { align-self:flex-end; }
-  .thread-row:hover, .thread-row:focus-visible { background:var(--panel); color:var(--text); }
-  .thread-row b { color:var(--act); font-weight:700; }
   .thread-row .need { color:#f07bd9; font-weight:700; }
-  .thread-row .tt { color:var(--text); font-weight:600; text-decoration:underline; text-decoration-color:transparent; }
-  .thread-row:hover .tt { text-decoration-color:currentColor; }
+  /* Kiko 12:59Z: the thread's name is what opens it (in the right pane); the reply count is only a count. */
+  .thread-row .tt { all:unset; cursor:pointer; color:var(--act); font-weight:700; text-decoration:underline; text-underline-offset:2px; }
+  .thread-row .tt:hover { color:var(--white); } .thread-row .tt:focus-visible { outline:2px solid var(--act); border-radius:4px; }
   .msg[data-thread] { cursor:pointer; }
-  .thread-head { position:sticky; top:0; z-index:2; background:var(--bg); display:flex; align-items:center; gap:10px; margin:-16px -4px 14px; padding:12px 4px 8px; }
+  .thread-head { position:sticky; top:0; z-index:2; background:#17181c; display:flex; align-items:center; gap:10px; margin:-14px -4px 14px; padding:12px 4px 8px; }
   .thread-head .back { all:unset; cursor:pointer; color:var(--act); font-weight:700; padding:8px 4px; }
   .thread-head .back:focus-visible { outline:2px solid var(--act); border-radius:6px; }
   .thread-head .t { font-weight:700; color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -59,7 +91,7 @@
   .tap { cursor:pointer; } .tap > .card { transition:border-color .15s; } .tap:hover > .card { border-color:var(--line2); }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
   .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
-  .composer .in { max-width:1200px; margin:0 auto; }
+  .composer .in { max-width:828px; margin:0 auto; }
   .row { display:flex; gap:8px; align-items:flex-end; }
   textarea, input, select { background:var(--input); color:var(--text); border:1px solid var(--line2); border-radius:6px; font:500 14px var(--font); padding:8px 10px; }
   textarea { flex:1; min-height:44px; max-height:200px; resize:vertical; }
@@ -115,18 +147,17 @@
   <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread.</div></div>
   <span class="dot" id="dot" title="Connected"></span>
 </header>
+<div class="split">
+<div class="left">
 <nav role="tablist">
   <button class="tab" role="tab" id="tab-chat" aria-selected="true">Chat</button>
   <button class="tab" role="tab" id="tab-widgets" aria-selected="false">Widgets<span class="badge" id="needCount" hidden></span></button>
+  <button class="tab only-phone" id="tab-threads">Threads</button>
 </nav>
 <div id="scroller">
 <main>
   <section class="col" id="page-chat">
     <div class="msgs" id="msgs"></div>
-  </section>
-  <section class="col" id="page-thread" hidden>
-    <div class="thread-head"><button class="back" id="back" aria-label="Back to the chat">← Chat</button><i class="dot" id="t-dot"></i><span class="t" id="t-title"></span><span class="small muted" id="t-status"></span></div>
-    <div class="msgs" id="tmsgs"></div>
   </section>
   <section class="col" id="page-widgets" hidden>
     <div class="label">Needs you</div><div id="w-need"></div>
@@ -135,10 +166,6 @@
     <div class="label">Recently done</div><div id="w-done"></div>
     <div class="label">Chaser rules</div><div id="w-rules"></div>
   </section>
-  <aside id="pinned">
-    <div class="label">Pinned widgets</div>
-    <div id="p-need"></div><div id="p-work"></div>
-  </aside>
 </main>
 </div>
 <dialog id="ask" aria-labelledby="ask-t">
@@ -168,6 +195,33 @@
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
+</div>
+</div>
+<aside class="pane" id="pane" aria-label="Threads and files">
+  <div class="ptabs" id="ptabs" role="tablist"></div>
+  <div id="pscroll">
+    <section id="page-threads">
+      <input type="search" class="tsearch" id="tsearch" placeholder="Search threads" aria-label="Search threads">
+      <div id="tlist"></div>
+    </section>
+    <section id="page-thread" hidden>
+      <div class="thread-head"><button class="back" id="back" aria-label="Back to the threads list">← Threads</button><i class="dot" id="t-dot"></i><span class="t" id="t-title"></span><span class="small muted" id="t-status"></span></div>
+      <div class="msgs" id="tmsgs"></div>
+    </section>
+    <section class="fview" id="page-file" hidden>
+      <div class="fhead"><b id="f-name"></b><a id="f-open" target="_blank" rel="noopener">Open in a new tab ↗</a></div>
+      <iframe id="f-frame" title="File preview" allow="autoplay"></iframe>
+    </section>
+  </div>
+  <div class="tcomposer" id="tcomposer" hidden>
+    <div class="files" id="tfiles" aria-live="polite"></div>
+    <div class="row">
+      <button class="btn ghost attach" id="tattach" title="Attach files to this thread" aria-label="Attach files to this thread">📎</button>
+      <textarea id="tbox" placeholder="Reply in this thread. Cue keeps it with this task." aria-label="Reply in this thread"></textarea>
+      <button class="btn" id="tsend">Send</button>
+    </div>
+  </div>
+</aside>
 </div>
 <script>
 (function () {
@@ -210,23 +264,107 @@
   // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
   // while Cue was busy, and Enter did nothing while the last send was still running).
   var outbox = [];
-  function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: threadRef(), time: new Date().toISOString() }); renderChat(); }
+  function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: '', time: new Date().toISOString() }); renderChat(); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
-  // Pages: the chat, one task's thread (openThread = its first task's id), or widgets. The composer serves the chat and threads.
-  var openThread = '';
+  // Left pane: the chat or widgets. Right pane (Kiko 12:59Z): tabs for the Threads list, each opened thread (openThread = its
+  // first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own reply box.
+  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8;
+  try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
   function show(tab) {
-    var talk = tab === 'chat' || tab === 'thread';
-    $('tab-chat').setAttribute('aria-selected', talk); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
-    $('page-chat').hidden = tab !== 'chat'; $('page-thread').hidden = tab !== 'thread'; $('page-widgets').hidden = tab !== 'widgets';
-    $('composer').hidden = !talk; $('pinned').hidden = !talk;
-    $('box').placeholder = tab === 'thread' ? 'Reply in this thread. Cue keeps it with this task.' : 'Ask Cue, or paste an inquiry. 📎 adds briefs, photos and plans.';
+    $('tab-chat').setAttribute('aria-selected', tab === 'chat'); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
+    $('page-chat').hidden = tab !== 'chat'; $('page-widgets').hidden = tab !== 'widgets'; $('composer').hidden = tab !== 'chat';
     lastChat = -1; renderChat();
   }
-  function goThread(id) { openThread = id; show('thread'); $('scroller').scrollTop = $('scroller').scrollHeight; $('box').focus(); }
-  function goChat() { openThread = ''; show('chat'); }
-  $('tab-chat').onclick = goChat;
-  $('back').onclick = goChat;
+  function openPane(it) {
+    if (!ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
+    pactive = it.key; $('pane').classList.add('open'); paneShow();
+  }
+  function goThread(id) {
+    openPane({ key: 't:' + id, type: 'thread', id: id });
+    $('pscroll').scrollTop = $('pscroll').scrollHeight; if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus();
+  }
+  function goFile(id, name, url) { openPane({ key: 'f:' + id, type: 'file', id: id, name: name, url: url }); }
+  function closeTab(key) {
+    var i = ptabs.map(function (k) { return k.key; }).indexOf(key); if (i < 0) return;
+    ptabs.splice(i, 1);
+    if (pactive === key) pactive = ptabs[i] ? ptabs[i].key : ptabs[i - 1] ? ptabs[i - 1].key : 'list';
+    paneShow();
+  }
+  function paneShow() {
+    var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
+    if (!it) pactive = 'list';
+    openThread = it && it.type === 'thread' ? it.id : '';
+    $('page-threads').hidden = !!it; $('page-thread').hidden = !openThread; $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
+    if (!openThread && fileHost === 'tfiles') hostFiles('files');
+    if (it && it.type === 'file' && $('f-frame').getAttribute('data-key') !== it.key) {
+      $('f-frame').setAttribute('data-key', it.key); $('f-frame').src = it.preview || previewUrl(it.url) || 'about:blank';
+      $('f-name').textContent = it.name || 'File'; $('f-open').href = it.url;
+    }
+    try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}
+    lastThread = -1; renderChat();
+  }
+  // Drive and Google Docs files open in the pane (Kiko 12:59Z); folders, Gmail and other sites still open a new tab.
+  function previewUrl(u) {
+    var m = /^https:\/\/(drive|docs)\.google\.com\/(?:file|document|spreadsheets|presentation)\/d\/([\w-]{10,})/.exec(u || '') || /^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]{10,})/.exec(u || '');
+    if (!m) return '';
+    var id = m[m.length - 1], kind = /\/(document|spreadsheets|presentation)\/d\//.exec(u);
+    return kind ? 'https://docs.google.com/' + kind[1] + '/d/' + id + '/preview' : 'https://drive.google.com/file/d/' + id + '/preview';
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    if (a.id === 'f-open' || !previewUrl(a.href)) return;
+    e.preventDefault(); goFile(previewUrl(a.href), (a.textContent || 'File').trim(), a.href);
+  });
+  $('ptabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.getAttribute('data-pclose') === 'pane') return $('pane').classList.remove('open');
+    if (b.hasAttribute('data-pclose')) return closeTab(b.getAttribute('data-pclose'));
+    if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); }
+  });
+  function renderPaneTabs(th) {
+    var need = Object.keys(th).filter(function (k) { return th[k].reqs.length && threadState(th[k]).need; }).length;
+    var tab = function (key, label, x) { return '<span class="ptab" role="presentation" aria-selected="' + (pactive === key) + '"><button role="tab" data-ptab="' + esc(key) + '" title="' + esc(label) + '">' + x + esc(label) + '</button>'
+      + (key === 'list' ? '' : '<button class="x" data-pclose="' + esc(key) + '" aria-label="Close ' + esc(label) + '">×</button>') + '</span>'; };
+    setHtml($('ptabs'), '<button class="btn ghost pane-x" data-pclose="pane" style="min-height:36px;padding:0 12px">← Chat</button>'
+      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>')
+      + ptabs.map(function (k) { return tab(k.key, k.type === 'thread' ? (th[k.id] ? threadTitle(th[k.id]) : 'Thread') : k.name, k.type === 'file' ? '🖼 ' : ''); }).join(''));
+  }
+  // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
+  var tq = '', tshut = {}, tmore = false;
+  $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
+  $('tlist').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-thread')) return goThread(b.getAttribute('data-thread'));
+    if (b.hasAttribute('data-tgroup')) { var g = b.getAttribute('data-tgroup'); tshut[g] = !tshut[g]; return renderChat(); }
+    if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
+  });
+  function renderThreadList(th) {
+    var by = byId(), G = { need: [], work: [], rest: [] };
+    Object.keys(th).forEach(function (k) {
+      var t = th[k]; if (!t.reqs.length || (by[k] || t.reqs[0]).archived) return;
+      var title = threadTitle(t), st = threadState(t), lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
+      if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
+      var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
+      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '',
+        line: st.need || !cue ? (st.text === 'Needs you' ? (cue ? cue.text : 'Waiting for you') : st.text) : cue.text });
+    });
+    var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
+      + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + esc(String(x.line || '').slice(0, 140)) + '</span></span><span class="tm">' + esc(ago(x.when).replace(' ago', '')) + '</span></button>'; };
+    var h = '', n = G.need.length;
+    h += '<div class="small muted" style="margin:2px 0 4px">' + (n ? n + ' thread' + (n === 1 ? ' is' : 's are') + ' waiting on you.' : 'Nothing is waiting on you.') + '</div>';
+    [['need', 'Needs you'], ['work', 'Working on'], ['rest', 'Recent']].forEach(function (g) {
+      var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
+      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + (tshut[g[0]] ? '›' : '⌄') + ' ' + g[1] + ' · ' + l.length + '</button>';
+      if (tshut[g[0]]) return;
+      var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
+      h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
+    });
+    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : ''));
+  }
+  $('tab-chat').onclick = function () { show('chat'); };
+  $('back').onclick = function () { pactive = 'list'; paneShow(); };
+  $('tab-threads').onclick = function () { pactive = 'list'; $('pane').classList.add('open'); paneShow(); };
   $('tab-widgets').onclick = function () { show('widgets'); loadRules(); };
   $('chip-need').onclick = function () { show('widgets'); };
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
@@ -236,12 +374,14 @@
   var TYPES = { 'image/png': 1, 'image/jpeg': 1, 'image/webp': 1, 'image/gif': 1, 'application/pdf': 1, 'text/plain': 1, 'text/csv': 1, 'message/rfc822': 1 };
   var BY_EXT = { eml: 'message/rfc822', txt: 'text/plain', csv: 'text/csv', pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
   function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  var fileHost = 'files';   // the chat's composer or the thread's (tfiles); attachments go with the box they were added to
+  function hostFiles(h) { if (h !== fileHost) { $(fileHost).innerHTML = ''; fileHost = h; renderFiles(); } }
   function renderFiles() {
-    $('files').innerHTML = pending.map(function (f, i) {
+    $(fileHost).innerHTML = pending.map(function (f, i) {
       return '<span class="file">📎 ' + esc(f.name) + ' <span class="muted">' + kb(f.size) + '</span><button data-rm="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button></span>';
     }).join('') + (reading ? '<span class="file muted">Reading…</span>' : '');
   }
-  $('files').onclick = function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-rm'); if (i != null) { pending.splice(Number(i), 1); renderFiles(); } };
+  $('files').onclick = $('tfiles').onclick = function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-rm'); if (i != null) { pending.splice(Number(i), 1); renderFiles(); } };
   function shrink(file, done) {
     if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size < 512000) return done(file);
     var img = new Image(), url = URL.createObjectURL(file);
@@ -275,15 +415,18 @@
       });
     });
   }
-  $('attach').onclick = function () { $('picker').click(); };
+  $('attach').onclick = function () { hostFiles('files'); $('picker').click(); };
+  $('tattach').onclick = function () { hostFiles('tfiles'); $('picker').click(); };
   $('picker').onchange = function () { addFiles($('picker').files); $('picker').value = ''; };
-  $('box').addEventListener('paste', function (e) {
-    var fs = Array.prototype.filter.call((e.clipboardData && e.clipboardData.files) || [], function (f) { return /^image\//.test(f.type); });
-    if (fs.length) { e.preventDefault(); addFiles(fs); }
+  [['box', 'composer', 'files'], ['tbox', 'tcomposer', 'tfiles']].forEach(function (k) {
+    $(k[0]).addEventListener('paste', function (e) {
+      var fs = Array.prototype.filter.call((e.clipboardData && e.clipboardData.files) || [], function (f) { return /^image\//.test(f.type); });
+      if (fs.length) { e.preventDefault(); hostFiles(k[2]); addFiles(fs); }
+    });
+    ['dragenter', 'dragover'].forEach(function (n) { $(k[1]).addEventListener(n, function (e) { e.preventDefault(); $(k[1]).classList.add('drop'); }); });
+    ['dragleave', 'drop'].forEach(function (n) { $(k[1]).addEventListener(n, function (e) { e.preventDefault(); $(k[1]).classList.remove('drop'); }); });
+    $(k[1]).addEventListener('drop', function (e) { hostFiles(k[2]); addFiles(e.dataTransfer && e.dataTransfer.files); });
   });
-  ['dragenter', 'dragover'].forEach(function (n) { $('composer').addEventListener(n, function (e) { e.preventDefault(); $('composer').classList.add('drop'); }); });
-  ['dragleave', 'drop'].forEach(function (n) { $('composer').addEventListener(n, function (e) { e.preventDefault(); $('composer').classList.remove('drop'); }); });
-  $('composer').addEventListener('drop', function (e) { addFiles(e.dataTransfer && e.dataTransfer.files); });
 
   // Snapshots (spec screen-snapshot.md, Kiko 08:17Z): the Cue bubble 1.2 captures the Chrome tab Kiko was on and drops it here.
   // 📷 and "Snap an area" show only when the bubble answers. A snapshot or "Send to Cue" text only fills the box; Enter sends.
@@ -299,7 +442,7 @@
       addFiles([new File([bytes], String(d.file.name || 'Cue snapshot.jpg'), { type: String(d.file.type || 'image/jpeg') })]);
       fillBox(from ? 'Snapshot of ' + from + '.' : '');
     } else if (d.text) fillBox((from ? 'From ' + from + ':' : 'Selected text:') + '\n' + String(d.text));
-    window.focus(); $('box').focus();
+    window.focus(); hostFiles('files'); $('box').focus();
   });
   function fillBox(line) {
     var b = $('box'), v = b.value.trim();
@@ -310,20 +453,23 @@
   $('chip-area').onclick = function () { window.postMessage({ cueSnapAsk: 'area' }, '*'); };
   window.postMessage({ cueBubbleAsk: 1 }, '*'); setTimeout(function () { window.postMessage({ cueBubbleAsk: 1 }, '*'); }, 2500);
 
-  $('send').onclick = function () {
-    var t = $('box').value.trim(); if (!t && !pending.length) return;
-    if (reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
-    var files = pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; });
-    send(t, files, '');
-  };
+  function sendFrom(box, host, ref) {
+    var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
+    if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
+    var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+    send(t, files, '', ref, undefined, box);
+  }
+  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };
+  $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
-  function send(t, files, mode, ref, mine) {
+  // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
+  function send(t, files, mode, ref, mine, box) {
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
-      ref = ref || threadRef();
-      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
-      outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
+      ref = ref || '';
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box };
+      outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && EXP_RE.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
@@ -335,15 +481,16 @@
       refresh(swap);
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
-    }, function (e) { unbox(mine, dots); if (!$('box').value) $('box').value = t; alertErr(e); });
+    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e); });
   }
+  function back(mine, t) { var b = mine && mine.box; if (b && !b.value) b.value = t; }
   // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
   function expense(t, files, ref, mine) {
     var bad = files.filter(function (f) { return !/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/.test(f.type); });
-    if (bad.length) { unbox(mine); if (!$('box').value) $('box').value = t; return addLocal('Cue', bad[0].name + ': for an expense, attach photos or PDFs.'); }
+    if (bad.length) { unbox(mine); back(mine, t); return addLocal('Cue', bad[0].name + ': for an expense, attach photos or PDFs.'); }
     var dots = { who: 'Cue', text: 'Reading the expense…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueExpense', [t, files, ref], function (r) { held[r.id] = files; refresh(function () { unbox(mine, dots); }); },
-      function (e) { unbox(mine, dots); if (!$('box').value) $('box').value = t; alertErr(e); });
+      function (e) { unbox(mine, dots); back(mine, t); alertErr(e); });
   }
   // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
   function upload(t, files, mode, ref, mine) {
@@ -353,11 +500,12 @@
       if (i === files.length) { unbox(note); return send(t, ids, mode, ref, mine); }
       note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
       call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); },
-        function (e) { unbox(note, mine); if (!$('box').value) $('box').value = t; alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
+        function (e) { unbox(note, mine); back(mine, t); alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); schedule(); }, function () { if (after) after(); schedule(); }); }
   function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
@@ -371,7 +519,7 @@
     el.innerHTML = h; el._h = h;
     el.querySelectorAll('[data-say]').forEach(function (x) { var k = x.getAttribute('data-say'); if (keep[k]) x.value = keep[k]; if (k === fk) x.focus(); });
   }   // a poll that changes nothing keeps ticks and edits
-  function dirty() { ['msgs', 'tmsgs', 'w-need', 'w-work', 'w-done', 'p-need', 'p-work'].forEach(function (k) { $(k)._h = null; }); }
+  function dirty() { ['msgs', 'tmsgs', 'tlist', 'ptabs', 'w-need', 'w-work', 'w-done'].forEach(function (k) { $(k)._h = null; }); }
 
   // Threads. A task started from another task's thread (s.ref) joins that thread, so a redo stays with its project.
   function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
@@ -410,13 +558,20 @@
     return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
   }
 
-  var lastChat = -1;
+  var lastChat = -1, lastThread = -1;
   function renderChat() {
     var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
-    var n = openThread ? (th[openThread] ? th[openThread].lines.length : 0) : state.chat.length + outbox.length, grew = n !== lastChat;
+    var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
-    if (openThread) renderThread(th[openThread] || { root: openThread, lines: [], reqs: [] }); else renderMain(th);
-    if ((!$('page-chat').hidden || !$('page-thread').hidden) && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
+    renderMain(th);
+    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
+    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (openThread) {
+      var t = th[openThread] || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
+      lastThread = tn; renderThread(t);
+      if (pBottom || tg) ps.scrollTop = ps.scrollHeight;
+    }
+    renderPaneTabs(th); renderThreadList(th);
   }
   // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
   function renderMain(th) {
@@ -435,13 +590,13 @@
     });
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
   }
-  // The "↩ N replies · title · status · when" line under a message in the chat; tap to open the thread.
+  // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
   function rowHtml(root, t, head) {
     var st = threadState(t), n = t.lines.length - (head ? 1 : 0), last = t.lines[t.lines.length - 1];
-    return '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
-      + '<i class="dot" style="background:' + st.color + '"></i><b>↩ ' + (n > 0 ? n + ' repl' + (n === 1 ? 'y' : 'ies') : 'Open thread') + '</b>'
-      + '<span class="tt">' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
-      + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</button>';
+    return '<div class="thread-row"><i class="dot" style="background:' + st.color + '"></i>'
+      + '<button class="tt" data-thread="' + esc(root) + '" aria-label="Open the thread ' + esc(threadTitle(t)) + '">' + esc(threadTitle(t)) + '</button>'
+      + (n > 0 ? '<span>' + n + ' repl' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
+      + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</div>';
   }
   // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
   function renderThread(t) {
@@ -512,7 +667,7 @@
   $('page-widgets').addEventListener('click', tapOpen);
   $('page-widgets').addEventListener('keydown', function (e) {   // Enter in a card's reply box sends it
     var x = e.target.getAttribute && e.target.getAttribute('data-say'); if (x == null || e.key !== 'Enter' || e.isComposing) return;
-    e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); }); $('pinned').addEventListener('click', tapOpen);
+    e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); });
   function renderWidgets() {
     var by = byId(), root = function (r) { return by[rootOf(r.id, by)] || r; }, live = function (r) { return !root(r).archived; };
     // Kiko 07:31Z task basics: Needs you sorts by priority, then due date.
@@ -525,8 +680,6 @@
     var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, dueTag(root(r)) + (r.kind === 'sweep' && r.batch ? sweepCardHtml(r) : r.status === 'Reopened' ? reopenedHtml(r) : NEED[r.status] ? cardHtml(r) : nudgeHtml(r)), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
     var workHtml = work.map(function (r) { return inThread(r, r.status === 'Scheduled' ? sweepCardHtml(r) : workHtmlOf(r), 1); }).join('') || '<div class="card muted">Nothing running.</div>';
     setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
-    setHtml($('p-need'), need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open their threads, or Widgets, to review.</div></div>' : '');
-    setHtml($('p-work'), work.map(function (r) { return inThread(r, workHtmlOf(r)); }).join(''));
     // Kiko 06:28Z: three, then See more.
     // Kiko 07:15Z: a Reopen button on each finished card instead of a reply box.
     setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r, 1)); }).join('') || '<div class="card muted">Nothing yet.</div>')
@@ -1361,7 +1514,7 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e); refresh(); }); }
         if (act === 'say') { var box = scope.querySelector('[data-say="' + id + '"]'), txt = box && box.value.trim(); if (!txt) return box && box.focus();
           var th = threads()[rootOf(id, byId())], ref = th && th.reqs.length ? th.reqs[th.reqs.length - 1].id : id;
-          box.value = ''; return send(txt, [], '', ref); }
+          return send(txt, [], '', ref, undefined, box); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
@@ -1495,6 +1648,7 @@
       };
     });
   }
+  paneShow();
   refresh();
 })();
 </script>
