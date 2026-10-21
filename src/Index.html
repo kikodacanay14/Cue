@@ -342,11 +342,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
-    return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
+    return r ? kindName(r) : 'Earlier task';
   }
+  function kindName(r) { return r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -402,7 +403,7 @@
     t.reqs.forEach(function (r) {
       if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || r.pipe) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -419,14 +420,14 @@
   }
   function doneHtml(r, reopen) {
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
   }
   function reopenedHtml(r) {
     var p = r.proposal || {}, c = p.client || {};
-    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
       + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
       + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
   }
@@ -477,12 +478,16 @@
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
+  var PIPE = [['Reading HubSpot', 'HubSpot', 'Cue reads your open deals from HubSpot'], ['Checking Gmail', 'Gmail', 'Cue finds the newest email for each deal'],
+    ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
+    ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],
+    ['Sending', 'Gmail', 'Follow-ups go out from your Gmail as replies in their threads']];
   function workHtmlOf(r) {
-    var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
-      + '<b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<b>' + kindName(r) + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
       + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
       + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
           return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
@@ -549,10 +554,59 @@
       + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
         + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
   }
+  // Pipeline review (command C11, Kiko 07:34Z): open deals grouped by what they need, each with why and the next step. Read only.
+  function pipeCardHtml(r) {
+    var P = r.pipe, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', dr = P.drafts || [], drafting = waiting && dr.length, k = P.counts || {};
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Pipeline review</div><b style="font-size:17px;color:#fff">' + esc(P.title) + '</b>'
+      + (P.summary ? '<div style="margin-top:6px">' + esc(P.summary) + '</div>' : '')
+      + (P.counts ? '<div class="small muted" style="margin-top:6px">' + esc(P.deals.length) + ' checked of ' + esc(P.open) + ' open: ' + esc(k.act) + ' act today · ' + esc(k.chase) + ' chase · ' + esc(k.data) + ' fix · ' + esc(k.ok) + ' on track</div>' : '');
+    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    var row = function (d) {
+      var tick = waiting && !dr.length && d.can_draft ? '<input type="checkbox" data-pk="' + esc(r.id) + '" value="' + esc(d.k) + '">' : '<span class="muted">•</span>';
+      var m = d.mail, when = d.days == null ? 'no event date' : d.days < 0 ? 'event ' + esc(-d.days) + ' day(s) ago' : d.days === 0 ? 'event today' : 'event in ' + esc(d.days) + ' day(s)';
+      return '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">' + tick + '<span>'
+        + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener"><b>' + esc(d.name) + '</b></a>' : '<b>' + esc(d.name) + '</b>')
+        + '<br><span class="small muted">' + esc(d.stage) + (d.amount ? ' · ' + peso(d.amount) : '') + ' · ' + when + (d.event ? ' (' + esc(d.event) + ')' : '') + '</span><br>'
+        + d.flags.map(function (f) { return '<span class="tag flag">' + esc(f) + '</span>'; }).join('')
+        + (d.status ? '<div class="small" style="margin-top:4px">' + esc(d.status) + '</div>' : '')
+        + (d.next ? '<div class="small" style="margin-top:2px"><b>Next:</b> ' + esc(d.next) + '</div>' : '')
+        + (m ? '<div class="small muted" style="margin-top:4px">Last email ' + esc(m.date) + ', ' + (m.dir === 'in' ? 'from them' : m.dir === 'out' ? 'from you' : 'internal') + ': '
+          + (m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.subject || '(no subject)') + '</a>' : esc(m.subject)) + '</div>' : '<div class="small muted" style="margin-top:4px">No email found in your Gmail.</div>')
+        + '</span></label></div>';
+    };
+    if (!drafting && !again && !(r.status === 'Done' && dr.length)) [['act', 'Act today'], ['chase', 'Chase'], ['data', 'Fix the data (in Canvas)']].forEach(function (g) {
+      var l = P.deals.filter(function (d) { return d.group === g[0]; }); if (!l.length) return;
+      h += '<div class="label">' + g[1] + ' (' + l.length + ')</div>' + l.map(row).join('');
+    });
+    var ok = P.deals.filter(function (d) { return d.group === 'ok'; });
+    if (ok.length && !drafting) h += '<details style="margin-top:10px"><summary class="small">On track (' + ok.length + ')</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + ok.map(function (d) { return '<li>' + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.name) + '</a>' : esc(d.name)) + ' <span class="muted">' + esc(d.stage) + '</span></li>'; }).join('') + '</ul></details>';
+    if (dr.length) {
+      h += '<div class="label">Follow-ups' + (drafting ? '. Edit before sending. Nothing has gone out yet' : '') + '</div>' + (P.note ? '<div class="small muted">' + esc(P.note) + '</div>' : '');
+      dr.forEach(function (d) {
+        h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
+          + (drafting ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>' : '<span>' + (d.made ? '✓' : '•') + '</span>')
+          + '<span><b>' + esc(d.deal) + '</b> <span class="small muted">' + esc(d.to) + '</span>' + (d.sent ? ' <span class="tag pref">sent</span>' : d.made ? ' <span class="tag new">in Drafts</span>' : '')
+          + '<br><span class="small muted">Re: ' + esc(d.subject) + '</span></span></label>'
+          + (drafting ? '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(d.k) + '" aria-label="Email for ' + esc(d.deal) + '">' + esc(d.body) + '</textarea>' : '<pre style="margin-top:8px">' + esc(d.body) + '</pre>')
+          + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
+      });
+    }
+    var can = P.deals.some(function (d) { return d.can_draft; });
+    h += '<div class="actions">'
+      + (waiting && !dr.length && can ? '<button class="btn" data-act="pipe-draft" data-id="' + esc(r.id) + '">Draft follow-ups for ticked</button>' : '')
+      + (drafting ? '<button class="btn" data-act="send-pipe" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-pipe" data-id="' + esc(r.id) + '">Drafts only</button>' : '')
+      + (again ? '<button class="btn" data-act="approve-pipe" data-id="' + esc(r.id) + '">' + (r.pipe.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
+      + (waiting ? '<button class="btn ghost" data-act="pipe-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
+      + (waiting && !dr.length ? '<div class="small muted" style="margin-top:6px">Read only: HubSpot and Canvas are not changed. Tick deals with an email thread, then Draft follow-ups. Nothing is sent until you approve.</div>' : '')
+      + metricLine(r) + '</div>';
+    return h;
+  }
   function cardHtml(r) {
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
+    if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
-    if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+    if (!p) return '<div class="card need"><b>' + kindName(r) + ' stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
     var c = p.client || {}, e = p.event || {}, t = p.totals || {}, cv = r.canvas || {};
@@ -652,6 +706,12 @@
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
+        if (act === 'pipe-done') { b.disabled = true; return call('cuePipeDone', [id], done, fail); }
+        if (act === 'pipe-draft') {
+          var keys = Array.prototype.filter.call(scope.querySelectorAll('[data-pk="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
+          if (!keys.length) return addLocal('Cue', 'Tick at least one deal first.');
+          b.disabled = true; running[id] = 1; schedule(); return call('cuePipeFollowUps', [id, keys], done, fail);
+        }
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
@@ -664,20 +724,21 @@
           return { skip: ck.filter(function (x) { return !x.checked; }).map(function (x) { return x.value; }), bodies: bodies, send: send,
             files_skip: Array.prototype.filter.call(scope.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; }) };
         };
-        if (act === 'send-change' || act === 'approve-send') {
+        if (act === 'send-change' || act === 'approve-send' || act === 'send-pipe') {
           var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, who = [];
-          if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
+          if (act === 'send-pipe') { var ep = change(true); who = ((req.pipe || {}).drafts || []).filter(function (d) { return ep.skip.indexOf(d.k) < 0; }).map(function (d) { return d.deal + ' (' + d.to + ')'; }); }
+          else if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
           else { var ex = collect(id, scope); who = ((req.proposal || {}).rfqs || []).filter(function (q, i) { return ex.skip_rfqs.indexOf(i) < 0; }).map(function (q) { var x = (q.suppliers || [])[0] || {}; return (x.name || 'Supplier') + (x.email ? ' (' + x.email + ')' : ' (no email: stays a draft)'); }); }
-          if (!who.length) return addLocal('Cue', 'Tick at least one supplier first.');
+          if (!who.length) return addLocal('Cue', act === 'send-pipe' ? 'Tick at least one follow-up first.' : 'Tick at least one supplier first.');
           return ask('Send ' + who.length + ' email' + (who.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
             b.disabled = true; running[id] = 1; schedule();
-            var x = act === 'send-change' ? change(true) : collect(id, scope); x.send = true;
+            var x = act === 'send-change' || act === 'send-pipe' ? change(true) : collect(id, scope); x.send = true;
             call('cueApprove', [id, x], done, fail);
           });
         }
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
-        if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
+        if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);

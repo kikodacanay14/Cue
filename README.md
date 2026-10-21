@@ -34,10 +34,11 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 - `CueBridge.gs`: signed calls to the Canvas bridge. It uses five actions only: `find_similar_projects`, `intake_evidence`, `submit_intake`, `apply_intake` and `make_rfq_drafts`.
 - `CueFiles.gs`: attachments. Up to 8 files, 10 MB each, 15 MB in all; big photos are shrunk to 2048 px on the page first. They are kept in a **Cue uploads** Drive folder Cue makes itself, and only GPT's read call sees them, so the call count does not change. Word and Excel files: save as PDF first.
 - `CueChange.gs`: change requests, started when Canvas's duplicate check finds the project (or Kiko says it is a change). Lists the project's folder files through Canvas, searches Kiko's **sent** Gmail (gmail.readonly) for RFQ emails about the project, then makes reply drafts in those threads with the attachments. Cue sees only Kiko's own mailbox, not info@.
+- `CuePipeline.gs`: command C11, **Review deals and follow-ups** (spec `specs/c11-pipeline-health.md` in the project files, approved by Kiko 21 Oct 07:34Z). The chat call recognises the ask ("how's the pipeline", "who do I need to chase", "kumusta yung deals"). Code reads the open deals from HubSpot (read-only token) and the newest email for each deal from Kiko's Gmail, flags them with fixed rules (Act today, Chase, Fix the data, On track), and one Claude call writes where each stands and the next step. Kiko can tick deals for follow-ups: one GPT call drafts a reply in each deal's thread, then Approve and send or Drafts only. Never writes to HubSpot or Canvas. Logged in the Pipeline tab.
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
 - `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page.
-- `test/cue.test.js`: 29 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V184. Refresh that copy whenever a Canvas release changes the bridge.
+- `test/cue.test.js`: 41 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V184. Refresh that copy whenever a Canvas release changes the bridge.
 
 ## Setup (Kiko, in your personal Google account)
 
@@ -55,6 +56,8 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
      - `CUE_DRAFTS_IN` (default `cue`, meaning your Gmail; `canvas` puts drafts in info@)
+     - `CUE_HUBSPOT_TOKEN`: needed for pipeline reviews. A HubSpot **private app** token with read scopes only: `crm.objects.deals.read`, `crm.objects.contacts.read` (HubSpot → Settings → Integrations → Private Apps). Cue never writes to HubSpot.
+     - `CUE_PIPE_QUIET_DAYS` (default 7) and `CUE_PIPE_AWARD_DAYS` (default 3 working days once the CE is with the client): when a deal counts as quiet.
 3. **Set spend limits** in the OpenAI and Claude consoles.
 4. **Run `cueSetup`** once from the editor. It makes the Cue spreadsheet and the 5-minute resume trigger, and lists any missing keys. Then authorize the scopes it asks for:
    - Sheets
