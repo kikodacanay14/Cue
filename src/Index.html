@@ -1942,7 +1942,7 @@
   }
   // ---- Phased project intake (Kiko 14:53Z, specs/phased-intake.md): ONE card per task, inside its thread, updated in place.
   // Finished phases fold to one line; only the current phase is open. Rows stay short: item, spec, qty, days.
-  var PHN = ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], phAdd = {}, rqEdit = {};
+  var PHN = ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], phAdd = {}, rqEdit = {}, pickMode = {};
   function phCardHtml(r) {
     var P = r.ph, x = P.x || { client: {}, event: {} }, c = x.client || {}, e = x.event || {}, cv = r.canvas || {}, ph = P.phase || 0, ed = !!editing[r.id];
     var waiting = r.status === 'Needs you', busy = WORK[r.status], end = CLOSED[r.status];
@@ -1965,7 +1965,7 @@
     var editBtn = ed ? btn('cancel-edit', 'Cancel edits', 'ghost') : btn('edit', 'Edit', 'ghost');
     // Kiko 18:42Z: no explaining text under the buttons; all of them on one row, Cancel intake set apart at the end. The old text is the tooltip.
     var tip = function (t) { return ' title="' + esc(t) + '"'; };
-    var canCancel = !!(cv.project_id && !cv.removed && !busy), inRow = waiting && [1, 2, 3].indexOf(ph) >= 0;
+    var picking = waiting && ph === 4 && !!P.pick, canCancel = !!(cv.project_id && !cv.removed && !busy), inRow = picking || (waiting && [1, 2, 3].indexOf(ph) >= 0);
     var cancelBtn = canCancel ? btn('ph-cancel', 'Cancel intake', 'bad', ' style="margin-left:auto"' + tip('Removes everything this intake saved in Canvas, after one confirm.')) : '';
     if (waiting && ph === 1) {
       var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
@@ -2018,7 +2018,22 @@
       h += '<div class="actions">' + btn('approve', 'Save prices', '', tip('Writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Leave blank saves that line with no cost and no price.'))
         + editBtn + btn('reject', 'Reject', 'bad', tip('Keeps the project and its lines in Canvas with no costs.')) + cancelBtn + '</div>';
     }
-    if ((waiting && ph === 4) || (end && P.rfqs.length)) {
+    if (picking) {   // Kiko 18:47Z: RFQs for which? Per line or one RFQ for everything, up to 5 suppliers each; none ticked = no RFQs
+      var pm = pickMode[r.id] || P.pick.mode || 'line', pk = P.pick;
+      var supBox = function (x, on) { return '<label class="small" style="display:inline-block;margin:4px 12px 0 0;white-space:nowrap"><input type="checkbox" data-pick-sup="' + esc(x.name) + '"' + (on ? ' checked' : '') + '> '
+        + esc(x.name) + (x.preferred ? ' <span class="tag pref">preferred</span>' : '') + (x.new ? ' <span class="tag new">new</span>' : '') + '</label>'; };
+      var addBox = function () { return '<div style="margin-top:4px"><input data-pick-add="name" placeholder="Add supplier name"> <input data-pick-add="email" placeholder="their email"></div>'; };
+      h += '<div class="actions" style="margin-top:8px">' + btn('pick-mode', 'Per line', pm === 'line' ? '' : 'ghost', ' data-mode="line"') + btn('pick-mode', 'One RFQ for everything', pm === 'all' ? '' : 'ghost', ' data-mode="all"') + '</div>';
+      if (pm === 'all') h += '<div data-pick-all style="margin-top:8px">' + (pk.all.length ? pk.all.map(function (x) { return supBox(x, true); }).join('') : '<div class="small muted">No supplier on file yet.</div>') + addBox() + '</div>';
+      else pk.lines.forEach(function (l) {
+        var ln = (P.lines || []).filter(function (y) { return y.key === l.key; })[0] || {};
+        h += '<div data-pick-line="' + esc(l.key) + '" style="border-top:1px solid var(--line);padding:8px 0"><label><input type="checkbox" data-pick-on' + (l.on ? ' checked' : '') + '> <b>' + esc(l.key) + ' ' + esc(ln.item || '') + '</b>'
+          + (ln.execution === 'In House' ? ' <span class="small muted">In house</span>' : '') + '</label><div>' + l.suppliers.map(function (x) { return supBox(x, l.on); }).join('') + '</div>' + addBox() + '</div>';
+      });
+      var n0 = pickCount(pk, pm);
+      h += '<div class="actions">' + btn('pick-save', n0 ? 'Draft ' + n0 + ' RFQ' + (n0 === 1 ? '' : 's') : 'Finish, no RFQs', '', ' data-pick-go') + btn('pick-skip', 'Skip RFQs', 'ghost') + cancelBtn + '</div>';
+    }
+    if (((waiting && ph === 4) || (end && P.rfqs.length)) && !picking) {
       h += '<div style="margin-top:8px">';
       P.rfqs.forEach(function (q) {
         var k = r.id + '|' + q.i, open = q.state === 'open' && waiting, edq = !!rqEdit[k];
@@ -2040,6 +2055,27 @@
     if (end || waiting) h += '<div class="small muted" style="margin-top:8px">' + metricLine(r) + '</div>';
     return h + '</div>';
   }
+  // RFQs for which? The ticks are read from the card when Kiko taps; the main button counts the suppliers picked.
+  function pickCount(pk, pm) { if (pm === 'all') return pk.all.length; var n = {}; pk.lines.forEach(function (l) { if (l.on) l.suppliers.forEach(function (x) { n[x.name.toLowerCase()] = 1; }); }); return Object.keys(n).length; }
+  function collectPick(id, scope) {
+    var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), sel = { mode: pickMode[id] || 'line', lines: [], names: [], add: {} };
+    var addOf = function (box, key) { var nm = box.querySelector('[data-pick-add="name"]'), em = box.querySelector('[data-pick-add="email"]'); if (nm && nm.value.trim()) sel.add[key] = { name: nm.value.trim(), email: em ? em.value.trim() : '' }; };
+    var ticked = function (box) { return Array.prototype.slice.call(box.querySelectorAll('[data-pick-sup]')).filter(function (x) { return x.checked; }).map(function (x) { return x.getAttribute('data-pick-sup'); }); };
+    var all = card.querySelector('[data-pick-all]');
+    if (all) { sel.mode = 'all'; sel.names = ticked(all); addOf(all, '*'); }
+    else card.querySelectorAll('[data-pick-line]').forEach(function (box) { var on = box.querySelector('[data-pick-on]'), k = box.getAttribute('data-pick-line');
+      if (!on || !on.checked) return; sel.lines.push({ key: k, names: ticked(box) }); addOf(box, k); });
+    return sel;
+  }
+  function pickRecount(e) {
+    var t = e.target, card = t.closest && t.closest('[data-card]'); if (!card || !['data-pick-on', 'data-pick-sup', 'data-pick-add'].some(function (a) { return t.hasAttribute(a); })) return;
+    if (e.type === 'change' && t.hasAttribute('data-pick-on')) t.closest('[data-pick-line]').querySelectorAll('[data-pick-sup]').forEach(function (x) { x.checked = t.checked; });
+    var sel = collectPick(card.getAttribute('data-card'), card.parentNode), n = {};
+    (sel.mode === 'all' ? sel.names : [].concat.apply([], sel.lines.map(function (l) { return l.names; }))).concat(Object.keys(sel.add).map(function (k) { return sel.add[k].name; }))
+      .forEach(function (x) { n[x.toLowerCase()] = 1; });
+    var go = card.querySelector('[data-pick-go]'), c = Object.keys(n).length; if (go) go.textContent = c ? 'Draft ' + c + ' RFQ' + (c === 1 ? '' : 's') : 'Finish, no RFQs';
+  }
+  document.addEventListener('change', pickRecount); document.addEventListener('input', pickRecount);
   function collectPh(id, scope) {
     var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, rows: {}, add: [], lines: {}, suppliers: {} };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
@@ -2214,6 +2250,7 @@
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'ph-add-row') { phAdd[id] = (phAdd[id] || 0) + 1; return render(); }
+        if (act === 'pick-mode') { pickMode[id] = b.getAttribute('data-mode'); return render(); }
         if (act === 'rfq-edit') { rqEdit[id + '|' + b.getAttribute('data-i')] = 1; return render(); }
         if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
         if (act === 'sup-rm-contact') { var row = b.closest('[data-sc]'); if (row) row.parentNode.removeChild(row); return; }
@@ -2350,6 +2387,7 @@
         if (act === 'approve-supplier') { var sd = collectSupplier(id, scope, 'draft'); delete supExtra[id]; return call('cueApprove', [id, sd], done, fail); }
         if (act === 'approve') { var rq0 = state.requests.filter(function (x) { return x.id === id; })[0] || {};
           return call('cueApprove', [id, rq0.phased && rq0.ph ? collectPh(id, scope) : collect(id, scope)], function () { delete phAdd[id]; done(); }, fail); }
+        if (act === 'pick-save' || act === 'pick-skip') return call('cueRfqPick', [id, act === 'pick-skip' ? { mode: 'line', lines: [] } : collectPick(id, scope)], function () { delete pickMode[id]; done(); }, fail);
         if (act === 'ph-rescan') { var nt = scope.querySelector('[data-ph-note="' + id + '"]'); return call('cueRescan', [id, nt ? nt.value : ''], done, fail); }
         if (act === 'rfq-send' || act === 'rfq-draft' || act === 'rfq-cancel') { var ri = Number(b.getAttribute('data-i'));
           return call('cueRfq', [id, ri, act.slice(4), rfqEditOf(id, ri, scope)], function () { delete rqEdit[id + '|' + ri]; done(); }, fail); }

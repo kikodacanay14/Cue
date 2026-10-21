@@ -530,7 +530,7 @@ test('C5 GPT drafts one RFQ per supplier from Claude\'s names plus research\'s; 
   assert.ok(!/[\r\n]/.test(p.rfqs[1].subject));
 });
 test('C6 no gaps and enough suppliers: research is skipped, 3 AI calls', () => {
-  const ev = JSON.parse(JSON.stringify(EVIDENCE)), sup = ['A', 'B', 'C'].map(n => ({ name: 'Sup ' + n, email: '', accredited: true, preferred: false }));
+  const ev = JSON.parse(JSON.stringify(EVIDENCE)), sup = ['A', 'B', 'C', 'D', 'E'].map(n => ({ name: 'Sup ' + n, email: '', accredited: true, preferred: false }));
   ev.R1.suppliers = sup; ev.R2.suppliers = sup; ev.R3 = JSON.parse(JSON.stringify(ev.R1));
   const t = startToCard({ evidence: ev, cost: Object.assign({}, COST, { lines: COST.lines.map(l => Object.assign({}, l, { suppliers: ['Sup A'] })) }) });
   assert.strictEqual(t.v.metrics.ai_calls, 3); assert.strictEqual(t.log.gpt.length, 2);
@@ -2575,6 +2575,7 @@ test('N1 Kiko 14:22-14:27Z: similar means Project Name, Account and Event Date; 
 let pass = 0;
 /* ---------- CUE-PHASED (Kiko 14:53Z, specs/phased-intake.md): four approved phases, one card per task ---------- */
 function phStart(o = {}) { const t = sandbox(Object.assign({ phased: true }, o)); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
+const phPick = (t, v) => t.ctx.cueRfqPick(t.id, { mode: 'line', lines: v.ph.pick.lines.filter(l => l.on).map(l => ({ key: l.key, names: l.suppliers.map(x => x.name) })) });
 const writes = t => t.log.bridge.filter(b => /^intake_(add|save|log)/.test(b.action) || b.action === 'submit_intake' || b.action === 'apply_intake').map(b => b.action);
 test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Approve, which adds the project alone', () => {
   const t = phStart();
@@ -2611,12 +2612,13 @@ test('PH4 phase 3 Save prices: Canvas re-checks; changed numbers write nothing a
   deq([v.ph.phase, v.ph.lines[0].unit_cost, t.log.phCosts.length], [3, 47000, 1]);
   assert.ok(v.notes.some(n => /numbers and they changed/.test(n)));
   v = t.ctx.cueApprove(t.id, {});
-  deq([t.log.phCosts.length, v.ph.phase, v.status, v.ph.prices_saved !== ''], [2, 4, 'Needs you', true]);
+  deq([t.log.phCosts.length, v.ph.phase, v.status, v.ph.prices_saved !== '', v.ph.rfqs.length, !!v.ph.pick], [2, 4, 'Needs you', true, 0, true]);
+  v = phPick(t, v);
   assert.ok(v.ph.rfqs.length >= 1 && v.ph.rfqs.every(q => q.state === 'open'));
   assert.ok(!/Intake ready for you/.test(JSON.stringify(t.tabs.Chat.rows)), 'no one-card summary line');
 });
 test('PH5 phase 4: each RFQ is sent, drafted or cancelled on its own; Canvas records each; Done when none is open; 5 AI calls in all', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); let v = t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); let v = phPick(t, t.ctx.cueApprove(t.id, {}));
   const q = v.ph.rfqs; assert.ok(q.length >= 2, 'two or more RFQs');
   assert.throws(() => t.ctx.cueRfq(t.id, q.findIndex(x => !x.email), 'send', null), /email first/);
   const a = q.findIndex(x => x.email);
@@ -2686,6 +2688,41 @@ test('PH12 live 18:40Z: a tap that lands after its phase moved on (Working, or t
   const L = t.ctx.cueLoad_(t.id); L.s.status = 'Working'; t.ctx.cueSave_(L.sh, L.row, L.s);
   const chat0 = t.tabs.Chat.rows.length, n = (t.log.phLines || []).length, w = t.ctx.cueApprove(t.id, {});
   deq([(t.log.phLines || []).length, w.status, w.error || '', t.tabs.Chat.rows.length], [n, 'Working', '', chat0]);
+});
+
+test('PH14 Kiko 18:47Z: RFQs for which? Per line sends only the picked lines and suppliers; one RFQ for everything covers every line; an added supplier counts', () => {
+  const toCard = () => { const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); return Object.assign(t, { p: t.ctx.cueApprove(t.id, {}) }); };
+  const rfqReq = t => { const b = t.log.gpt.filter(x => x.text.format.name === 'rfqs').pop(); return b && JSON.parse(JSON.stringify(b.input).match(/\{\\"event[\s\S]*?\}\]\}(?=")/)[0].replace(/\\"/g, '"')); };
+  const a = toCard(), P = a.p.ph.pick;
+  deq([a.p.stage, a.p.status, a.p.ph.rfqs.length, P.mode, a.log.gpt.filter(x => x.text.format.name === 'rfqs').length], ['RFQs', 'Needs you', 0, 'line', 0]);
+  assert.ok(P.lines.every(l => l.suppliers.length <= 5) && P.all.length <= 5, 'up to 5 suppliers');
+  const on = P.lines.filter(l => l.on); assert.ok(on.length >= 1);
+  const one = on[0], who = one.suppliers[0].name;
+  let v = a.ctx.cueRfqPick(a.id, { mode: 'line', lines: [{ key: one.key, names: [who] }], add: { [one.key]: { name: 'Kiko Pick Co', email: 'quotes@kikopick.example' } } });
+  const r = rfqReq(a);
+  deq([r.lines.map(l => l.key), r.suppliers.map(x => [x.supplier, x.keys])], [[one.key], [[who, [one.key]], ['Kiko Pick Co', [one.key]]]]);
+  deq([v.ph.pick, v.status], [null, 'Needs you']);
+  const b = toCard(), names = b.p.ph.pick.all.slice(0, 1).map(x => x.name);
+  b.ctx.cueRfqPick(b.id, { mode: 'all', names });
+  const r2 = rfqReq(b);
+  deq([r2.suppliers.length, r2.suppliers[0].keys, r2.lines.length], [1, b.p.ph.lines.map(l => l.key), b.p.ph.lines.length]);
+});
+test('PH15 Kiko 18:48Z: picking none (or Skip RFQs) ends the intake with no RFQs and no GPT call; a late tap or a reply on the card changes nothing', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const g = t.log.gpt.length, chat0 = t.tabs.Chat.rows.length;
+  assert.strictEqual(t.ctx.cuePhReply_(t.id, 'only Sonic Pro please', []), null, 'a reply on the picking card is not a redraft');
+  deq([t.ctx.cueLoad_(t.id).s.status, t.ctx.cueLoad_(t.id).s.stage], ['Needs you', 'RFQs']);
+  let v = t.ctx.cueRfqPick(t.id, { mode: 'line', lines: [] });
+  deq([v.status, v.ph.rfqs.length, t.log.gpt.filter(x => x.text.format.name === 'rfqs').length], ['Done', 0, 0]);
+  assert.ok(t.tabs.Chat.rows.slice(chat0).some(x => /No RFQs sent: you picked none/.test(x[2])));
+  const w = t.ctx.cueRfqPick(t.id, { mode: 'all', names: ['Sonic Pro'] });
+  deq([w.status, t.log.gpt.filter(x => x.text.format.name === 'rfqs').length], ['Done', 0]);
+});
+test('PH16 Kiko 18:47Z: research looks for suppliers until each line has 5, and Claude may name up to 5', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const b = t.log.gpt.filter(x => x.text.format.name === 'research').pop(), j = JSON.stringify(b);
+  assert.ok(/\\"need\\":4/.test(j) && /\\"need\\":5/.test(j), 'need = 5 minus the DB suppliers');
+  assert.ok(/up to need \(at most 5\)/.test(j));
 });
 
 test('PH11 Kiko 15:48Z: Leave blank per line saves no cost and no price, over any suggested or typed number; phase 3 has a one-tap Reject', () => {
@@ -3256,7 +3293,7 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
 test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the buttons; all buttons on one row with Cancel intake last; the text is a tooltip', () => {
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
   const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
-  const box = { PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
+  const box = { pickMode: {}, pickCount: (pk, pm) => pm === 'all' ? pk.all.length : new Set([].concat(...pk.lines.filter(l => l.on).map(l => l.suppliers.map(x => x.name)))).size, PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
     esc: v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     peso: n => 'PHP ' + n, secHtml: (k, t) => '<sec>' + t + '</sec>', srcHtml: () => '', inp: () => '<input>', metricLine: () => 'M', foldersHtml: () => '' };
   const lines = [{ key: 'R1', item: 'LED wall', spec: 'P3.9', why: 'w', quantity: 1, days: 1, execution: 'Outsourced', unit_cost: 1, cost_basis: 'history', unit_price: 2, price_basis: 'p' }];
@@ -3270,6 +3307,10 @@ test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the bu
     assert.ok(/data-act="approve"[^>]*title="/.test(h), 'phase ' + ph + ': tooltip on the main button');
   });
   assert.ok(!/ph-cancel/.test(card(3, { canvas: {} })), 'no Canvas project: no Cancel intake');
+  const pk = card(4, { ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [], lines, pick: { mode: 'line', lines: [{ key: 'R1', on: true, suppliers: [{ name: 'A' }, { name: 'B', new: true }] }], all: [{ name: 'A' }] } } });
+  const pr = pk.match(/<div class="actions"[^>]*>[\s\S]*?<\/div>/g);
+  deq(pr.length, 2, 'picking card: mode switch, then one button row');
+  assert.ok(/data-act="pick-save"[^>]*>Draft 2 RFQs<[\s\S]*data-act="pick-skip"[\s\S]*data-act="ph-cancel"/.test(pr[1]));
   assert.ok(/<div class="actions"><button[^>]*ph-cancel/.test(card(4, { status: 'Done', ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [] } })), 'after phase 3 Cancel intake keeps its own row');
 });
 
