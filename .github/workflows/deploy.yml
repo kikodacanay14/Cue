@@ -1,11 +1,12 @@
 name: Deploy Cue
 # Ships src/ onto Cue's web app (same /exec address) with clasp, signed in as deploy.json's account (see tools/deploy.mjs).
-# mode=check only reads and shows what would change. mode=deploy runs the tests first and stops if any fail.
+# mode=check only reads and shows what would change. mode=preview puts the code on the test link (/dev) only; live is
+# untouched. mode=deploy runs the tests first and stops if any fail.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: check or deploy
+        description: check, preview or deploy
         required: true
         default: check
 permissions:
@@ -33,7 +34,7 @@ jobs:
         env:
           MODE: ${{ inputs.mode }}
         run: |
-          case "$MODE" in check|deploy) ;; *) echo "mode must be check or deploy"; exit 1;; esac
+          case "$MODE" in check|preview|deploy) ;; *) echo "mode must be check, preview or deploy"; exit 1;; esac
           node tools/deploy.mjs "$MODE"
       - if: always()
         run: rm -f ~/.clasprc.json
