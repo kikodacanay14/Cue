@@ -155,8 +155,7 @@
 <div class="split">
 <div class="left">
 <nav>
-  <button class="tab" id="tab-threads" aria-controls="pane">Threads</button>
-  <button class="tab" id="tab-widgets" aria-controls="pane">Widgets<span class="badge" id="needCount" hidden></span></button>
+  <button class="tab" id="tab-threads" aria-controls="pane">Threads<span class="badge" id="needCount" hidden></span></button>
 </nav>
 <div id="scroller">
 <main>
@@ -198,13 +197,9 @@
   <div class="ptabs" id="ptabs" role="tablist"></div>
   <div id="pscroll">
     <section id="page-threads">
+      <div id="w-access"></div>
       <input type="search" class="tsearch" id="tsearch" placeholder="Search threads" aria-label="Search threads">
       <div id="tlist"></div>
-    </section>
-    <section id="page-widgets" hidden>
-      <div class="label" style="margin-top:4px">Needs you</div><div id="w-need"></div>
-      <div class="label">Working on</div><div id="w-work"></div>
-      <div class="label">Recently done</div><div id="w-done"></div>
       <div class="label">Chaser rules</div><div id="w-rules"></div>
     </section>
     <section id="page-thread" hidden>
@@ -270,9 +265,9 @@
   function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: '', time: new Date().toISOString() }); renderChat(); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
-  // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, Widgets, each opened thread
+  // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, each opened thread
   // (openThread = its first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own box.
-  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1, widgets: 1 };
+  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1 };   // Kiko 14:03Z: no Widgets tab; what it showed lives in the Threads list and each thread
   try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
   // In a narrow window the pane opens beside the chat; the Cue bubble (1.3+) widens the window by the pane's width and gives it back on close.
   var bubble = false, grown = 0, GROW = 440;
@@ -285,7 +280,6 @@
   function openPane(it) {
     if (!FIXED[it.key] && !ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
     pactive = it.key; paneOpen(true); paneShow();
-    if (it.key === 'widgets') loadRules();
   }
   function goThread(id) {
     openPane({ key: 't:' + id, type: 'thread', id: id });
@@ -302,8 +296,8 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
     if (!it && !FIXED[pactive]) pactive = 'list';
     openThread = it && it.type === 'thread' ? it.id : '';
-    $('page-threads').hidden = pactive !== 'list'; $('page-widgets').hidden = pactive !== 'widgets'; $('page-thread').hidden = !openThread;
-    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tab-widgets').setAttribute('aria-pressed', pactive === 'widgets'); $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
+    $('page-threads').hidden = pactive !== 'list'; $('page-thread').hidden = !openThread;
+    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
     if (!openThread && fileHost === 'tfiles') hostFiles('files');
     if (it && it.type === 'file' && $('f-frame').getAttribute('data-key') !== it.key) {
       $('f-frame').setAttribute('data-key', it.key); $('f-frame').src = it.preview || previewUrl(it.url) || 'about:blank';
@@ -328,14 +322,14 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.getAttribute('data-pclose') === 'pane') return paneOpen(false);
     if (b.hasAttribute('data-pclose')) return closeTab(b.getAttribute('data-pclose'));
-    if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); if (pactive === 'widgets') loadRules(); }
+    if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); }
   });
   function renderPaneTabs(th) {
     var need = Object.keys(th).filter(function (k) { return th[k].reqs.length && threadState(th[k]).need; }).length;
     var tab = function (key, label, x) { return '<span class="ptab" role="presentation" aria-selected="' + (pactive === key) + '"><button role="tab" data-ptab="' + esc(key) + '" title="' + esc(label) + '">' + x + esc(label) + '</button>'
       + (FIXED[key] ? '' : '<button class="x" data-pclose="' + esc(key) + '" aria-label="Close ' + esc(label) + '">×</button>') + '</span>'; };
     setHtml($('ptabs'), '<button class="btn ghost pane-x" data-pclose="pane" style="min-height:36px;padding:0 12px" aria-label="Close this pane">✕</button>'
-      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>') + tab('widgets', 'Widgets', '')
+      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>')
       + ptabs.map(function (k) { return tab(k.key, k.type === 'thread' ? (th[k.id] ? threadTitle(th[k.id]) : 'Thread') : k.name, k.type === 'file' ? '🖼 ' : ''); }).join(''));
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
@@ -350,7 +344,7 @@
   function renderThreadList(th) {
     var by = byId(), G = { need: [], work: [], rest: [] };
     Object.keys(th).forEach(function (k) {
-      var t = th[k]; if (!t.reqs.length || (by[k] || t.reqs[0]).archived) return;
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
       var title = threadTitle(t), st = threadState(t), lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
       var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
@@ -368,12 +362,13 @@
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
-    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : ''));
+    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
+      + '<button class="tmore" data-act="show-archived" data-id="">' + (showArchived ? 'Back to recent' : 'See archived') + '</button>');
+    bind();
   }
   $('back').onclick = function () { pactive = 'list'; paneShow(); };
   $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
-  $('tab-widgets').onclick = function () { openPane({ key: 'widgets' }); };
-  $('chip-need').onclick = function () { openPane({ key: 'widgets' }); };
+  $('chip-need').onclick = function () { openPane({ key: 'list' }); };
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
@@ -526,7 +521,7 @@
     el.innerHTML = h; el._h = h;
     el.querySelectorAll('[data-say]').forEach(function (x) { var k = x.getAttribute('data-say'); if (keep[k]) x.value = keep[k]; if (k === fk) x.focus(); });
   }   // a poll that changes nothing keeps ticks and edits
-  function dirty() { ['msgs', 'tmsgs', 'tlist', 'ptabs', 'w-need', 'w-work', 'w-done'].forEach(function (k) { $(k)._h = null; }); }
+  function dirty() { ['msgs', 'tmsgs', 'tlist', 'ptabs', 'w-access'].forEach(function (k) { $(k)._h = null; }); }
 
   // Threads. A task started from another task's thread (s.ref) joins that thread, so a redo stays with its project.
   function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
@@ -617,11 +612,13 @@
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
-      else if (NEED[r.status]) h += cardHtml(r);
+      else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
       else if ((r.style && r.style.rules.length) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
       else h += doneHtml(r);
     });
+    var lastR = t.reqs[t.reqs.length - 1];
+    if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     setHtml($('tmsgs'), h);
     bind();
   }
@@ -659,39 +656,12 @@
     return '<div class="small" style="margin-top:6px">📁 In the project folder: ' + l.map(function (x) {
       return x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> <span class="muted">(' + esc(x.folder) + ')</span>' : esc(x.name) + ' <span class="muted">(not saved yet)</span>'; }).join(', ') + '</div>';
   }
-  // Kiko 06:48Z: a reply box on every widget card. It posts into that task's thread; the latest line of the thread shows above it.
-  function sayHtml(r) {
-    var by = byId(), root = rootOf(r.id, by), th = threads()[root], last = th && th.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
-    return '<div class="say">' + (last ? '<div class="small muted say-last"><b>Cue:</b> ' + esc(String(last.text).slice(0, 220)) + (String(last.text).length > 220 ? '…' : '') + '</div>' : '')
-      + '<div class="row"><input data-say="' + esc(r.id) + '" placeholder="Reply about this task" aria-label="Reply about this task"><button class="btn" data-act="say" data-id="' + esc(r.id) + '">Send</button></div></div>';
-  }
-  // Kiko 06:28Z: tapping a widget card opens its thread (no separate link). Buttons, ticks, text boxes and links inside still do their own job.
-  function inThread(r, h, say) { return '<div class="tap" data-open="' + esc(rootOf(r.id, byId())) + '" title="Open its thread">' + (say ? h.replace(/<\/div>\s*$/, sayHtml(r) + '</div>') : h) + '</div>'; }
-  function tapOpen(e) {
-    if (e.target.closest('button, input, textarea, select, a, label, summary, .say')) return;
-    var t = e.target.closest('[data-open]'); if (t) goThread(t.getAttribute('data-open'));
-  }
-  $('page-widgets').addEventListener('click', tapOpen);
-  $('page-widgets').addEventListener('keydown', function (e) {   // Enter in a card's reply box sends it
-    var x = e.target.getAttribute && e.target.getAttribute('data-say'); if (x == null || e.key !== 'Enter' || e.isComposing) return;
-    e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); });
+  // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
   function renderWidgets() {
-    var by = byId(), root = function (r) { return by[rootOf(r.id, by)] || r; }, live = function (r) { return !root(r).archived; };
-    // Kiko 07:31Z task basics: Needs you sorts by priority, then due date.
-    var PR = { High: 0, Normal: 1, Low: 2 }, key = function (r) { var x = root(r); return (PR[x.priority] == null ? 1 : PR[x.priority]) + (x.due || '9999') + String(r.created); };
-    var need = state.requests.filter(function (r) { return isNeed(r) && live(r); }).sort(function (a, b) { return key(a) < key(b) ? -1 : 1; });
-    var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts' || r.status === 'Saving' || r.status === 'Scheduled'; });
-    var done = state.requests.filter(function (r) { return CLOSED[r.status] && !r.nudge && (showArchived ? root(r).archived : live(r)) && !(r.kind === 'sweep' && r.batch && !r.batch.items.length && !r.batch.stopped.length); });
+    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; });
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
-    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, dueTag(root(r)) + (r.kind === 'sweep' && r.batch ? sweepCardHtml(r) : r.status === 'Reopened' ? reopenedHtml(r) : NEED[r.status] ? cardHtml(r) : nudgeHtml(r)), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
-    var workHtml = work.map(function (r) { return inThread(r, r.status === 'Scheduled' ? sweepCardHtml(r) : workHtmlOf(r), 1); }).join('') || '<div class="card muted">Nothing running.</div>';
-    setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
-    // Kiko 06:28Z: three, then See more.
-    // Kiko 07:15Z: a Reopen button on each finished card instead of a reply box.
-    setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r, 1)); }).join('') || '<div class="card muted">Nothing yet.</div>')
-      + (done.length > 3 ? '<button class="btn ghost" data-act="more-done" data-id="">' + (moreDone ? 'See less' : 'See more (' + (done.length - 3) + ')') + '</button>' : '')
-      + ' <button class="btn ghost" data-act="show-archived" data-id="">' + (showArchived ? 'Back to recent' : 'See archived') + '</button>');
+    setHtml($('w-access'), accessHtml());
     bind();
   }
   function metricLine(r) {
@@ -735,7 +705,7 @@
         : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
       + '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + (open ? metricLine(r) : '') + '</div>';
   }
-  var openWork = {}, moreDone = false, showArchived = false;
+  var openWork = {}, showArchived = false;
 
   // ---- Morning batch (Kiko 07:31Z, spec sweep-engine.md): grouped by kind; tick, edit, Skip today, Stop chasing; send at 9:00 ----
   function sweepCardHtml(r) {
@@ -810,11 +780,6 @@
   }
 
   // ---- Task basics (Kiko 07:31Z): due date, priority, reminder, Close, Archive ----
-  function dueTag(x) {
-    var t = (x.priority === 'High' ? '<span class="tag flag">High</span> ' : '') + (x.due ? '<span class="tag new">due ' + esc(x.due) + '</span>' : '');
-    return t ? '<div class="small" style="margin:0 0 4px">' + t + '</div>' : '';
-  }
-  function nudgeHtml(r) { return '<div class="card need"><b>Reminder</b> <span class="small muted">' + esc(threadTitle(threads()[rootOf(r.id, byId())] || { reqs: [r] })) + '</span><div class="small muted">Reply here or open the thread. The reminder clears when you answer.</div></div>'; }
   function taskBarHtml(t) {
     var x = t.reqs[0]; if (!x || x.kind === 'sweep') return '';
     var last = t.reqs[t.reqs.length - 1], running = t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; }), closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
@@ -1523,14 +1488,13 @@
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
-        if (act === 'more-done') { moreDone = !moreDone; return renderWidgets(); }
         if (act === 'rules-save') {
           var ch = {}, cur = function (k) { var p = k.split('.'); return p[0] === 'general' ? rules.general[p[1]] : (rules.kinds[p[0]] || {})[p[1]]; };
           scope.querySelectorAll('[data-rule]').forEach(function (x) { var k = x.getAttribute('data-rule'), v = x.type === 'checkbox' ? x.checked : Number(x.value); if (v !== cur(k)) ch[k] = v; });
           if (!Object.keys(ch).length) return addLocal('Cue', 'No rule changed.');
           b.disabled = true; return call('cueRulesSave', [ch], function (r) { rules = r; renderRules(); refresh(); }, function (e) { b.disabled = false; alertErr(e); });
         }
-        if (act === 'show-archived') { showArchived = !showArchived; dirty(); return renderWidgets(); }
+        if (act === 'show-archived') { showArchived = !showArchived; dirty(); return renderChat(); }
         if (act === 'reattach') { var pk = document.createElement('input'); pk.type = 'file'; pk.multiple = true; pk.accept = 'image/*,.pdf';
           pk.onchange = function () { var got = [], list = Array.prototype.slice.call(pk.files || []);
             (function next(i) { if (i === list.length) { held[id] = got; return render(); }
@@ -1540,9 +1504,6 @@
         if (act === 'approve-expense') { var xe = collectExpense(id, scope); xe.files = held[id] || [];
           b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e); refresh(); }); }
-        if (act === 'say') { var box = scope.querySelector('[data-say="' + id + '"]'), txt = box && box.value.trim(); if (!txt) return box && box.focus();
-          var th = threads()[rootOf(id, byId())], ref = th && th.reqs.length ? th.reqs[th.reqs.length - 1].id : id;
-          return send(txt, [], '', ref, undefined, box); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
@@ -1686,7 +1647,7 @@
     });
   }
   paneShow();
-  refresh();
+  refresh(); loadRules();
 })();
 </script>
 </body>

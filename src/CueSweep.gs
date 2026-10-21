@@ -19,7 +19,7 @@ const CUE_PRIORITIES_ = ['High', 'Normal', 'Low'];
 
 /** Philippine date (YYYY-MM-DD) and hour of a moment. */
 /* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ----------
- * Kiko changes the timing on the Chaser rules card in Widgets. The values live in the Rules tab of Kiko's Cue sheet (Rule, Value,
+ * Kiko changes the timing on the Chaser rules card in the Threads pane. The values live in the Rules tab of Kiko's Cue sheet (Rule, Value,
  * Changed, Was), one row per changed setting; anything missing or broken falls back to these defaults. Code only, no AI. */
 const CUE_RULE_KINDS_ = {
   rfq: { label: 'RFQ chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },

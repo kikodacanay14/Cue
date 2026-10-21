@@ -46,7 +46,7 @@ function cueAwardFind_(ctx) {
   if (!list.length || rule.on === false) return [];
   const auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, own = cueOwnDomain_(), log = cueChaseLog_();
   const gmail = res => {
-    if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in Widgets.');
+    if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in the Threads pane.');
     return res.getResponseCode() === 200 ? JSON.parse(res.getContentText() || '{}') : null;
   };
   // Two batched rounds: one search per project, then each thread found (headers only).
