@@ -2,7 +2,7 @@
 
 ## Cue 1.9.5 (costing starts mid-way; Kiko 08:55Z)
 
-- "Cost them", "re-cost" or "break it down by item" in a project intake's thread now starts at the costing step, with the requirements and files GPT already read. There's no new GPT read, no duplicate check and no switch to a change request. The run joins the same thread.
+- "Cost them", "re-cost" or "break it down by item" in a project's thread (an intake, or a change request that read requirements) now starts at the costing step, with the requirements and files GPT already read. There's no new GPT read, no duplicate check and no switch to a change request. The run joins the same thread.
 - "By item" asks Claude to list each requirement's items (quantity, unit cost and where the cost comes from) in the line's note. Writing those items into Canvas as sub-items is still to come.
 - "Start intake" or "full intake" still runs the whole intake.
 

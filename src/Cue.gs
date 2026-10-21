@@ -179,7 +179,7 @@ function cueReadBase_(ref) {
   let list = []; try { list = cueRecent_(14); } catch (e) { return null; }
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
-  return list.filter(x => root(x.id) === home && x.kind === 'intake' && x.x && (x.reqs || []).length)[0] || null;
+  return list.filter(x => root(x.id) === home && (x.kind === 'intake' || x.kind === 'change') && x.x && (x.reqs || []).length)[0] || null;   // a change run read the requirements too
 }
 
 /** "Cost them", "re-cost", "break it down by item" in a thread that has a read: a new run that starts at costing, with the same
