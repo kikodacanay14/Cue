@@ -529,6 +529,8 @@ test('C11 apply fails: stops "Failed", never retried by the trigger; "Check Canv
 });
 test('C12 reject: nothing goes to Canvas', () => {
   const t = startToCard(), v = t.ctx.cueReject(t.id, 'Duplicate');
+  assert.strictEqual(t.ctx.cueReject(t.id, 'tapped twice').status, 'Rejected', 'a second Reject is a silent no-op');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => /^Rejected\. Nothing was written/.test(r[2])).length, 1, 'no second chat line');
   assert.strictEqual(v.status, 'Rejected'); assert.strictEqual(t.log.bridge.length, 2);
 });
 test('C13 only the owner can use Cue', () => {

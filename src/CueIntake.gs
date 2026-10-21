@@ -481,6 +481,7 @@ function cueIntakeReject_(id, why) {
   return cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
+    if (L.s.status === 'Rejected') return L.s;   // a second Reject (double tap, or the card shown twice) changes nothing and says nothing (Kiko 14:32Z)
     if (['Needs you', 'Failed'].indexOf(L.s.status) < 0) throw new Error('This intake is ' + L.s.status + ' and can no longer be rejected here.');
     L.s.status = 'Rejected'; L.s.stage = 'Rejected'; L.s.rejected = { at: new Date(cueNow_()).toISOString(), why: cueStr_(why, 500) };
     cueSave_(L.sh, L.row, L.s);
