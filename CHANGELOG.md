@@ -1,6 +1,8 @@
 # Changelog
 
-## A task shows once in the chat; a second Reject is a no-op (not deployed)
+## Cue 1.14 (Kiko said deploy 14:36Z): 1.13.1 match fix, 1.13.2 ask first, ☰ Threads on the right (PR #23), one line per task and no double-Reject error (PR #24)
+
+## A task shows once in the chat; a second Reject is a no-op (in Cue 1.14)
 
 Kiko 21 Oct 14:32Z: "can the update not appear again? like the Pipeline Telus 4 replies. changes can appear on the first line since it updates anyway".
 
@@ -8,14 +10,14 @@ Kiko 21 Oct 14:32Z: "can the update not appear again? like the Pipeline Telus 4 
 - Rejecting a task that is already Rejected now changes nothing and posts nothing. It used to show "Something went wrong: This intake is Rejected and can no longer be rejected here." Other closed states still refuse as before.
 - Tests: 181 of 181 pass, and the intake Reject test now also checks a second Reject.
 
-## Cue 1.13.2 (Cue asks first when a project looks the same; Kiko 14:26-14:27Z; not deployed)
+## Cue 1.13.2 (Cue asks first when a project looks the same; Kiko 14:26-14:27Z; in Cue 1.14)
 
 - Similar now means the Project Name, Account and Event Date all match: the client words overlap, the distinctive name words mostly match, and the event dates are within 30 days (or one side has no date yet).
 - When Canvas has such a project, Cue stops at a new step, "Same project?", and asks on a card: "Yes, same project" for each look-alike, or "No, it is a new project". Nothing is done until Kiko picks. Yes runs the change function for that project; No runs the full intake. A Project ID in Kiko's message is the answer, so there is no question. A change request Kiko asked for goes to the change card as before.
 - New server function `cueSameAnswer(id, projectId | 'new')`. No new AI call; answering repeats the two Canvas reads.
 - Tests: N1 and C24 cover the question, both answers and the date and account rules. 181 of 181 pass.
 
-## ☰ Threads in the chat's top bar (not deployed)
+## ☰ Threads in the chat's top bar (in Cue 1.14)
 
 Kiko 21 Oct 14:24Z: "remove the Threads with a rounded border... the Threads with a Burger Menu put it on the main pane but on the right".
 
@@ -23,7 +25,7 @@ Kiko 21 Oct 14:24Z: "remove the Threads with a rounded border... the Threads wit
 - The pane's tab bar now holds only the threads and files Kiko opened. On a wide screen it hides when nothing is open.
 - Tests: 181 of 181 pass. Checked in Chromium at 440 px and 1440 px.
 
-## Cue 1.13.1 (intake never joins a project on a "similar name" alone; Kiko 14:22Z; not deployed)
+## Cue 1.13.1 (intake never joins a project on a "similar name" alone; Kiko 14:22Z; in Cue 1.14)
 
 - Cause: Canvas's duplicate check called "UNILEVER YEAR END PARTY 2026" similar to "Exilara Year End Party" (they share only "year end party"), and Cue turned any similar name into a change.
 - Now Cue checks each Canvas hint itself (`cueSameProject_`). It is the same project only when Kiko's message has its Project ID, or the clients match and the distinctive name words (not client words, event-type words like year, end, party, launch, or years) mostly match. A different client, or a date more than 90 days away, is never the same project.
