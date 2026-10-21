@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.21';
+const CUE_VERSION_ = 'Cue 1.22';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -83,7 +83,9 @@ function cueTriggers_() {
   const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   if (have.indexOf('cueResume') < 0) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
   if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(cueRules_().general.build).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '2');
+  // Kiko 19:05Z: the bid opportunity check every day at 08:00 Manila (CueBids.gs).
+  if (have.indexOf('cueBidsDaily') < 0) ScriptApp.newTrigger('cueBidsDaily').timeBased().atHour(CUE_BIDS_RULES_.hour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
+  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '3');
 }
 
 /* ---------- Google access (Kiko 05:32Z: "think of another way") ----------
@@ -181,6 +183,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (wf && wf.s.kind === 'workflow' && wf.s.status === 'Needs you') return cueWorkflowReply_(ref, text);
   if (has && mode !== 'intake' && cueWorkflowAsked_(text)) { const out = cueWorkflowStart_({ name: '' }, ref, String(text || '').trim(), files); if (!ref) cueChat_('Cue', 'Started a thread to map it.', '>' + out.request_id); return out; }
   if (mode !== 'intake' && !has && !ref && cueHsAsked_(text)) return cueHsStart_(String(text || '').trim(), 'chat');   // command C12, its own thread
+  // Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
+  if (mode !== 'chat' && mode !== 'intake' && !has && cueBidsFor_(text)) return cueBidsIntake_(String(text).trim(), ref);
+  if (mode !== 'intake' && !has && !ref && cueBidsAsked_(text)) return cueBidsStart_(String(text || '').trim(), 'chat');
   // A supplier to register (CueSupplier.gs) skips the chat call: Kiko's own words say what it is.
   // Kiko 08:55Z: "can you cost them by item?" restarted the whole intake. Costing starts mid-way when the thread already has the read.
   if (!has && mode !== 'chat') { const rc = cueRecostStart_(String(text || '').trim(), ref); if (rc) return rc; }
@@ -564,6 +569,7 @@ function cueTaskName_(x) {
   if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
+  if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
   if (x.kind === 'workflow') return 'the ' + ((x.workflow && ((x.workflow.map && x.workflow.map.name) || x.workflow.name)) || 'workflow') + ' map';
   if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
@@ -586,7 +592,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance' && x.kind !== 'hubspot'); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance' && x.kind !== 'hubspot' && x.kind !== 'bids'); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -620,6 +626,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'ar') return 'acknowledgement receipts for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
+  if (s.kind === 'bids') { const B = s.bids || {}; return (B.title || 'bid check') + ', status ' + s.status + '; ' + (B.summary || '') + ((B.items || []).length ? ' New: ' + B.items.map(x => x.agency + ' ' + x.reference + ' ' + x.project).join('; ').slice(0, 600) : ''); }
   if (s.kind === 'hubspot') { const H = s.hs || {}; return (H.title || 'HubSpot clean-up') + ', status ' + s.status + '; ' + (H.items || []).length + ' finding(s), ' + (H.fixed || 0) + ' fixed'; }
   if (s.kind === 'vendor') return 'supplier search for ' + cueVendorAsk_(s.vendor || {}) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '')
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
@@ -658,8 +665,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -816,7 +823,7 @@ function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
 function cueState() {
   cueOwner_();
-  if (cueProp_('CUE_TRIGGERS_V', '') !== '2') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
+  if (cueProp_('CUE_TRIGGERS_V', '') !== '3') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
@@ -908,7 +915,7 @@ function cueView_(s) {
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
   return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
-    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null,
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',

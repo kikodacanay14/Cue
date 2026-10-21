@@ -963,8 +963,8 @@ const batchOf = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0
 
 test('S1 the 07:00 PH sweep trigger is installed by setup and when Cue opens; the resume trigger stays', () => {
   const t = sandbox(); t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']);
-  t.ctx.cueSetup(); deq(t.log.triggers.slice().sort(), ['cueHsWeekly', 'cueResume', 'cueSweep'], 'not installed twice (setup also adds the Monday HubSpot check)');
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [8, 'Asia/Manila'], 'bid check at 08:00 (Kiko 19:05Z)');
+  t.ctx.cueSetup(); deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep'], 'not installed twice (setup also adds the Monday HubSpot check)');
 });
 test('S2 nothing to chase: no card, one chat line, no AI call, no Canvas read when no kind asks', () => {
   const t = sweepBox({}, null); t.ctx.cueSweep();
@@ -3312,6 +3312,91 @@ test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the bu
   deq(pr.length, 2, 'picking card: mode switch, then one button row');
   assert.ok(/data-act="pick-save"[^>]*>Draft 2 RFQs<[\s\S]*data-act="pick-skip"[\s\S]*data-act="ph-cancel"/.test(pr[1]));
   assert.ok(/<div class="actions"><button[^>]*ph-cancel/.test(card(4, { status: 'Done', ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [] } })), 'after phase 3 Cancel intake keeps its own row');
+});
+
+/* ---------- Find and Screen Bid Opportunities (CueBids.gs, Kiko 19:04Z-19:10Z) ---------- */
+const BID = (o) => Object.assign({ source: 'CITEM', agency: 'CITEM', reference: '2026-0999', project: 'Trade fair booth fabrication', location: 'World Trade Center, Pasay', abc: 500000, budget_note: '',
+  deadline: '2026-10-29T17:00+08:00', event_date: '5 Nov 2026', scope: '9 sqm booth build and styling', eligibility: 'PhilGEPS, Mayor permit', url: 'https://citem.gov.ph/procurement/x.pdf',
+  documents: [{ name: 'RFQ', url: 'https://citem.gov.ph/procurement/x.pdf', status: 'read' }, { name: 'Drawings', url: 'https://citem.gov.ph/d.zip', status: 'not opened' }],
+  amendments: 'none seen', limitations: '', next_action: 'Check booth drawings', relevant: true }, o);
+const SRC = names => names.map(n => ({ source: n, status: n === 'New PhilGEPS' ? 'Blocked' : 'Checked', checked: 'list page', gap: n === 'New PhilGEPS' ? 'needs sign-in' : '' }));
+const BIDS_A = { sources: SRC(['New PhilGEPS', 'Other PhilGEPS', 'CITEM', 'TPB']), items: [BID(),
+  BID({ reference: '2026-0412', project: 'General Assembly catering', abc: 120000 }),                        // below the ₱150k minimum
+  BID({ reference: 'PG-1', agency: 'Pilar', project: 'Town fiesta stage', location: 'Pilar, Bataan', abc: 300000 }),   // Bataan
+  BID({ reference: 'PG-2', agency: 'QC', project: 'Year-end party sound', location: 'Quezon City', abc: 650000, deadline: '2026-10-20T13:00+08:00' }),   // closed
+  BID({ reference: 'PG-3', agency: 'DOT', project: 'Tourism forum production', location: '', abc: 0, budget_note: 'not stated' }),   // For verification
+  BID({ source: 'Other PhilGEPS', project: 'Trade fair booth fabrication (copy)' }),                         // same reference: duplicate
+  BID({ reference: 'GS-9', project: 'Expo booth', location: 'General Santos', abc: 400000 }),                 // outside the area
+  BID({ reference: 'OLD-1', agency: 'TPB', project: 'Travel fair booth', location: 'Makati', abc: 600000, deadline: '2026-10-30T17:00+08:00' })] };   // earlier, deadline moved
+const BIDS_B = { sources: SRC(['EU / EEAS', 'UNGM', 'ADB', 'GIZ']), items: [] };
+const BIDS_C = { sources: SRC(['NPDC', 'PCC']), items: [BID({ source: 'NPDC', agency: 'NPDC', reference: 'NP-77', project: 'Christmas lights styling', location: 'Rizal Park, Manila', abc: 0, documents: [], limitations: '' })] };
+function bidBox(o = {}, rows) {
+  const t = sandbox(Object.assign({ gpt: { bids: [BIDS_A, BIDS_B, BIDS_C] } }, o));
+  const f = sheetMock(); f.appendRow(['Reviewed on (PHT)']); (rows || [['2026-10-20', 'TPB', 'OLD-1', 'Travel fair booth', 'Open', 'Makati', 600000, 'PHP', '2026-10-27T17:00+08:00', '', '', '', 'https://tpb.gov.ph/x', '', '', '', '']]).forEach(r => f.appendRow(r));
+  const l = sheetMock(); l.appendRow(['Check date (PHT)']);
+  t.tabs['Web bid findings'] = f; t.tabs['Web source scan log'] = l;
+  return t;
+}
+test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko\'s screen, dedupe, only new on the card; sheet rows; Needs you', () => {
+  const t = bidBox(); const r = t.ctx.cueSend('run bid opportunity check', [], '');
+  assert.strictEqual(t.log.gpt.length, 0, 'plain words, no chat call'); const v = t.ctx.cueRun(r.request_id);
+  assert.strictEqual(t.log.gpt.length, 3); assert.ok(t.log.gpt.every(b => b.tools && b.tools[0].type === 'web_search'), 'web search on');
+  assert.ok(/New PhilGEPS: https:\/\/philgeps\.gov\.ph/.test(t.log.gpt[0].input) && /OLD-1/.test(t.log.gpt[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(/Never register, pay, submit/.test(t.log.gpt[0].instructions));
+  assert.strictEqual(v.kind, 'bids'); assert.strictEqual(v.status, 'Needs you');
+  deq(v.bids.items.map(x => x.reference), ['2026-0999', 'PG-3', 'NP-77'], 'below minimum, Bataan, closed, outside area and the duplicate are left out');
+  assert.strictEqual(v.bids.items[0].status, 'Within cap and area'); assert.ok(/^For verification \(budget, location\)/.test(v.bids.items[1].status));
+  deq(v.bids.updated.map(x => [x.reference, x.was]), [['OLD-1', '2026-10-27T17:00+08:00']], 'an earlier notice shows only as Updated');
+  const ck = n => v.bids.checks.filter(c => c.id === n)[0];
+  assert.strictEqual(ck(1).ok, false); assert.ok(/NCCA/.test(ck(1).detail), 'NCCA was not reported');
+  assert.strictEqual(ck(7).ok, true, 'OLD-1 was rechecked'); assert.strictEqual(ck(8).ok, false); assert.ok(/NP-77/.test(ck(8).detail));
+  assert.ok(/1 duplicates merged/.test(ck(6).detail)); assert.ok(/1 closed/.test(ck(5).detail)); assert.ok(/2 outside the area/.test(ck(4).detail));
+  const f = t.tabs['Web bid findings'].rows; assert.strictEqual(f.length, 5, 'header + earlier + 3 new');
+  assert.strictEqual(f[2][2], '2026-0999'); assert.strictEqual(f[2][16], '', 'Intake?? left for Kiko'); assert.strictEqual(f[1][8], '2026-10-30T17:00+08:00', 'deadline updated in place');
+  assert.strictEqual(t.tabs['Web source scan log'].rows.length, 12, 'one row per source');
+  deq(v.bids.sources.filter(x => x.source === 'NCCA').map(x => x.status), ['Not reported']);
+  assert.ok(/3 new, 1 updated\. 9 of 11 sources fully checked, 2 partial or blocked\. Process check: 7 of 9 passed\./.test(v.bids.summary), v.bids.summary);
+  assert.ok(t.tabs.Chat.rows.some(r => /Started a bid opportunity check/.test(r[2]) && r[3] === '>' + r[3].slice(1)));
+  assert.ok(!t.log.bridge.length && !(t.log.gmail || []).length, 'no Canvas, no Gmail');
+});
+test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
+  const t = sandbox();
+  ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
+  ['do intake for 2026-0999', 'LED wall for AMI Group', 'can you clean up hubspot?', 'new RFP from Acme'].forEach(x => assert.ok(!t.ctx.cueBidsAsked_(x), x));
+});
+test('BD3 nothing new: Done with one line; every ChatGPT call failing stops the check; a missing sheet is a note', () => {
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }] } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('any new bids today?', [], '').request_id);
+  assert.strictEqual(v.status, 'Done'); assert.ok(/^No new bid opportunities/.test(v.bids.summary));
+  const f = bidBox({ fail: { bids: () => resp(500, {}) } }); const w = f.ctx.cueRun(f.ctx.cueSend('check bids', [], '').request_id);
+  assert.strictEqual(w.status, 'Failed'); assert.ok(/ChatGPT could not run the search/.test(w.error));
+  const n = sandbox({ gpt: { bids: [BIDS_A, BIDS_B, BIDS_C] } }); const x = n.ctx.cueRun(n.ctx.cueSend('check bids', [], '').request_id);
+  assert.ok(x.notes.some(m => /Not saved to your bid sheet/.test(m))); assert.strictEqual(x.bids.items.length, 4, 'with no sheet, OLD-1 counts as new');
+});
+test('BD4 "do intake for <reference>": the notice becomes an intake and Intake?? = Yes; Done for now closes the list', () => {
+  const t = bidBox(); const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  const out = t.ctx.cueSend('do intake for CITEM 2026-0999', [], '');
+  assert.ok(out.request_id && out.request_id !== v.id); const s = t.state(out.request_id);
+  assert.ok(/Reference: 2026-0999/.test(s.text) && /Approved budget \(ABC\): ₱500000/.test(s.text), 'the notice is the opener');
+  assert.strictEqual(t.tabs['Web bid findings'].rows[2][16], 'Yes');
+  assert.strictEqual(t.ctx.cueBidsClose(v.id).status, 'Done'); assert.throws(() => t.ctx.cueBidsClose(v.id), /waiting for you/);
+});
+test('BD5 daily 08:00 run happens once a Manila day and posts in its own thread', () => {
+  const t = bidBox(); const a = t.ctx.cueBidsDaily(); assert.strictEqual(a.kind, 'bids'); assert.ok(/^Bid opportunities/.test(a.bids.title));
+  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^8:00 bid check/.test(r[2])));
+  assert.ok(!t.tabs.Chat.rows.some(r => r[1] === 'Kiko'), 'no fake Kiko line for the daily run');
+});
+
+test('BD6 page: the bid card shows new and updated notices, links only https, the process check and sources; no Pursue button', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const t = bidBox(); const v = JSON.parse(JSON.stringify(t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id)));
+  v.bids.items[0].documents.push({ name: 'evil', url: 'javascript:alert(1)', status: 'read' });
+  const box = { esc: x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]), metricLine: () => 'M', r: v };
+  const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
+  assert.ok(/Trade fair booth fabrication/.test(h) && /Travel fair booth/.test(h) && /Updated \(1\)/.test(h) && /New \(3\)/.test(h));
+  assert.ok(/Process check: 7 of 9 passed/.test(h) && /✗ All 11 sources reported/.test(h)); assert.ok(/data-act="bids-close"/.test(h) && !/Pursue/.test(h));
+  assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱500,000/.test(h) && /For verification/.test(h) && /\(not opened\)/.test(h));
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
