@@ -25,6 +25,17 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 - No email address is ever guessed.
 - The RFQs leave out prices, budgets, the client's name and signatures.
 
+## Morning batch (chasing sweep)
+
+| # | Who | What happens | AI call? |
+|---|---|---|---|
+| 1 | Code | 07:00 PH time trigger (or "run the sweep" in chat) | no |
+| 2 | Canvas | One `get_project_board` read, only if a chaser kind needs it | no |
+| 3 | Code | Each chaser kind finds what is outstanding; the Chase log drops muted, skipped, recently chased and maxed-out lines | no |
+| 4 | ChatGPT | Drafts every nudge in one call (two if big); templates if it fails | 0 to 2 |
+| 5 | Kiko | Ticks, edits, skips or stops lines; Approve and send, or Drafts only | no |
+| 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); a kind's own send hook (payments via Canvas from info@) is used instead of Kiko's Gmail | no |
+
 ## Files
 
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.

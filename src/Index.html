@@ -48,6 +48,8 @@
   .thread-head .back { all:unset; cursor:pointer; color:var(--act); font-weight:700; padding:8px 4px; }
   .thread-head .back:focus-visible { outline:2px solid var(--act); border-radius:6px; }
   .thread-head .t { font-weight:700; color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .taskbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 12px; font-size:13px; color:var(--muted); }
+  .taskbar input, .taskbar select { min-height:36px; padding:4px 8px; font-size:13px; } .taskbar .btn { min-height:36px; padding:0 14px; font-size:13px; }
   .say { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); cursor:default; }
   .say .row input { flex:1; min-width:0; min-height:40px; } .say .btn { min-height:40px; }
   .say-last { margin-bottom:6px; }
@@ -334,8 +336,10 @@
     return t;
   }
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
+  function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
+  var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
   function threadState(th) {
-    var need = th.reqs.filter(function (r) { return NEED[r.status]; }).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
+    var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
     if (need) return { color: 'var(--need)', text: 'Needs you', need: 1 };
     if (work) return { color: 'var(--act)', text: 'Working' };
@@ -345,6 +349,7 @@
     var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
+    if (r && r.kind === 'sweep') return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/');
     return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
   }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
@@ -397,10 +402,11 @@
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
     var kiko = t.lines.some(function (m) { return m.who === 'Kiko'; });
-    var h = t.reqs.filter(function (r) { return WORK[r.status]; }).map(workHtmlOf).join('')
+    var h = taskBarHtml(t) + t.reqs.filter(function (r) { return WORK[r.status]; }).map(workHtmlOf).join('')
       + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
     t.reqs.forEach(function (r) {
-      if (NEED[r.status]) h += cardHtml(r);
+      if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
       else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
       else h += doneHtml(r);
@@ -453,20 +459,24 @@
     var x = e.target.getAttribute && e.target.getAttribute('data-say'); if (x == null || e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); }); $('pinned').addEventListener('click', tapOpen);
   function renderWidgets() {
-    var need = state.requests.filter(function (r) { return NEED[r.status]; });
-    var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
-    var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; });
+    var by = byId(), root = function (r) { return by[rootOf(r.id, by)] || r; }, live = function (r) { return !root(r).archived; };
+    // Kiko 07:31Z task basics: Needs you sorts by priority, then due date.
+    var PR = { High: 0, Normal: 1, Low: 2 }, key = function (r) { var x = root(r); return (PR[x.priority] == null ? 1 : PR[x.priority]) + (x.due || '9999') + String(r.created); };
+    var need = state.requests.filter(function (r) { return isNeed(r) && live(r); }).sort(function (a, b) { return key(a) < key(b) ? -1 : 1; });
+    var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts' || r.status === 'Scheduled'; });
+    var done = state.requests.filter(function (r) { return CLOSED[r.status] && !r.nudge && (showArchived ? root(r).archived : live(r)) && !(r.kind === 'sweep' && r.batch && !r.batch.items.length && !r.batch.stopped.length); });
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
-    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
-    var workHtml = work.map(function (r) { return inThread(r, workHtmlOf(r), 1); }).join('') || '<div class="card muted">Nothing running.</div>';
+    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, dueTag(root(r)) + (r.kind === 'sweep' && r.batch ? sweepCardHtml(r) : r.status === 'Reopened' ? reopenedHtml(r) : NEED[r.status] ? cardHtml(r) : nudgeHtml(r)), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
+    var workHtml = work.map(function (r) { return inThread(r, r.status === 'Scheduled' ? sweepCardHtml(r) : workHtmlOf(r), 1); }).join('') || '<div class="card muted">Nothing running.</div>';
     setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
     setHtml($('p-need'), need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open their threads, or Widgets, to review.</div></div>' : '');
     setHtml($('p-work'), work.map(function (r) { return inThread(r, workHtmlOf(r)); }).join(''));
     // Kiko 06:28Z: three, then See more.
     // Kiko 07:15Z: a Reopen button on each finished card instead of a reply box.
     setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r, 1)); }).join('') || '<div class="card muted">Nothing yet.</div>')
-      + (done.length > 3 ? '<button class="btn ghost" data-act="more-done" data-id="">' + (moreDone ? 'See less' : 'See more (' + (done.length - 3) + ')') + '</button>' : ''));
+      + (done.length > 3 ? '<button class="btn ghost" data-act="more-done" data-id="">' + (moreDone ? 'See less' : 'See more (' + (done.length - 3) + ')') + '</button>' : '')
+      + ' <button class="btn ghost" data-act="show-archived" data-id="">' + (showArchived ? 'Back to recent' : 'See archived') + '</button>');
     bind();
   }
   function metricLine(r) {
@@ -489,7 +499,77 @@
         : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
       + '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + (open ? metricLine(r) : '') + '</div>';
   }
-  var openWork = {}, moreDone = false;
+  var openWork = {}, moreDone = false, showArchived = false;
+
+  // ---- Morning batch (Kiko 07:31Z, spec sweep-engine.md): grouped by kind; tick, edit, Skip today, Stop chasing; send at 9:00 ----
+  function sweepCardHtml(r) {
+    var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
+    b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
+    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed; }).length;
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:#fff">' + esc(r.day) + '</b>'
+      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
+      + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>9:00</b>. Until then they wait in your Gmail Drafts.</div>';
+    kinds.forEach(function (k) {
+      h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
+      by[k].forEach(function (it) {
+        var dim = it.removed ? ' style="opacity:.5"' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
+        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"' + dim + '><label style="display:flex;gap:8px;align-items:flex-start">'
+          + (waiting && !it.no_email && !it.removed ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + '>' : '<span>' + (it.removed ? '–' : it.no_email ? '•' : '✓') + '</span>')
+          + '<span><b>' + esc(it.project || it.who) + '</b>' + (it.who && it.project ? ' <span class="small muted">' + esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') + '</span>' : '')
+          + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + ' ' + state
+          + '<br><span class="small muted">' + esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? '' : ' · no email: stays a draft')
+          + (it.removed ? ' · ' + (it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '') + '</span></span></label>';
+        if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+          + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
+        if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
+        else if (!it.no_email) h += waiting && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+          : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';
+        if (it.action && !it.acted && waiting) h += '<div class="actions"><button class="btn ghost" data-act="sweep-act" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + esc(it.action === 'start_intake' ? 'Start intake' : it.action) + '</button></div>';
+        if (waiting && !it.removed && !it.task_id) h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
+          + '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Stop chasing</button></div>';
+        if (it.error) h += '<div class="err">' + esc(it.error) + '</div>';
+        h += '</div>';
+      });
+    });
+    var st = (b.stopped || []).filter(function (x) { return !x.removed; });
+    if (st.length) {
+      h += '<div class="label">Chased the max times, no reply. Your call</div>';
+      st.forEach(function (x) { h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(x.project || x.who) + '</b> <span class="small muted">' + esc(x.label) + ' · ' + esc(x.who) + ' · chased ' + x.times + ' times</span>'
+        + (waiting ? '<div class="actions"><button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(x.key) + '">Stop chasing</button></div>' : '') + '</div>'; });
+    }
+    h += '<div class="actions">';
+    if (waiting && mail) h += '<button class="btn" data-act="sweep-send" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="sweep-drafts" data-id="' + esc(r.id) + '">Drafts only</button>';
+    if (again) h += '<button class="btn" data-act="sweep-drafts" data-id="' + esc(r.id) + '">Retry the ones that failed</button>';
+    if (r.status === 'Scheduled') h += '<button class="btn bad" data-act="sweep-cancel" data-id="' + esc(r.id) + '">Cancel the 9:00 send</button>';
+    if (waiting) h += '<button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">' + (mail ? 'Close without sending' : 'Got it') + '</button>';
+    h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
+    return h + metricLine(r) + '</div>';
+  }
+  // ---- Task basics (Kiko 07:31Z): due date, priority, reminder, Close, Archive ----
+  function dueTag(x) {
+    var t = (x.priority === 'High' ? '<span class="tag flag">High</span> ' : '') + (x.due ? '<span class="tag new">due ' + esc(x.due) + '</span>' : '');
+    return t ? '<div class="small" style="margin:0 0 4px">' + t + '</div>' : '';
+  }
+  function nudgeHtml(r) { return '<div class="card need"><b>Reminder</b> <span class="small muted">' + esc(threadTitle(threads()[rootOf(r.id, byId())] || { reqs: [r] })) + '</span><div class="small muted">Reply here or open the thread. The reminder clears when you answer.</div></div>'; }
+  function taskBarHtml(t) {
+    var x = t.reqs[0]; if (!x || x.kind === 'sweep') return '';
+    var last = t.reqs[t.reqs.length - 1], running = t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; }), closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
+    var rem = x.remind_at ? new Date(new Date(x.remind_at).getTime() + 8 * 3600000).toISOString().slice(0, 16) : '';
+    return '<div class="taskbar" data-task="' + esc(x.id) + '">Due <input type="date" data-tb="due" value="' + esc(x.due) + '" aria-label="Due date">'
+      + 'Priority <select data-tb="priority" aria-label="Priority">' + ['High', 'Normal', 'Low'].map(function (p) { return '<option' + (x.priority === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>'
+      + 'Remind <input type="datetime-local" data-tb="remind" value="' + esc(rem) + '" aria-label="Reminder, Philippine time">'
+      + (!running && !closed ? '<button class="btn ghost" data-act="close-task" data-id="' + esc(last.id) + '">Close</button>' : '')
+      + (closed ? '<button class="btn ghost" data-act="archive" data-id="' + esc(x.id) + '" data-on="' + (x.archived ? '0' : '1') + '">' + (x.archived ? 'Unarchive' : 'Archive') + '</button>' : '') + '</div>';
+  }
+  document.addEventListener('change', function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-tb'), bar = f && e.target.closest('[data-task]'); if (!bar) return;
+    var o = {}; o[f] = e.target.value; call('cueTaskSet', [bar.getAttribute('data-task'), o], function () { dirty(); refresh(); });
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-open-task]'); if (!b) return;
+    e.stopPropagation(); goThread(rootOf(b.getAttribute('data-open-task'), byId()));
+  }, true);
 
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
@@ -660,6 +740,7 @@
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
         if (act === 'more-done') { moreDone = !moreDone; return renderWidgets(); }
+        if (act === 'show-archived') { showArchived = !showArchived; dirty(); return renderWidgets(); }
         if (act === 'say') { var box = scope.querySelector('[data-say="' + id + '"]'), txt = box && box.value.trim(); if (!txt) return box && box.focus();
           var th = threads()[rootOf(id, byId())], ref = th && th.reqs.length ? th.reqs[th.reqs.length - 1].id : id;
           box.value = ''; return send(txt, [], '', ref); }
@@ -669,6 +750,21 @@
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
+        if (act === 'archive') { b.disabled = true; return call('cueArchive', [id, b.getAttribute('data-on') === '1'], done, fail); }
+        if (act === 'sweep-skip' || act === 'sweep-mute') { b.disabled = true; return call('cueSweepItem', [id, b.getAttribute('data-key'), act === 'sweep-skip' ? 'skip' : 'mute'], done, fail); }
+        if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
+        if (act === 'sweep-cancel') { b.disabled = true; return call('cueSweepCancel', [id], done, fail); }
+        if (act === 'sweep-send' || act === 'sweep-drafts') {
+          var sk = Array.prototype.slice.call(scope.querySelectorAll('[data-sk="' + id + '"]')), sb = {};
+          scope.querySelectorAll('[data-sb="' + id + '"]').forEach(function (x) { sb[x.getAttribute('data-k')] = x.value; });
+          var ed2 = { skip: sk.filter(function (x) { return !x.checked; }).map(function (x) { return x.value; }), bodies: sb, send: act === 'sweep-send' };
+          if (act === 'sweep-drafts') { b.disabled = true; running[id] = 1; return call('cueApprove', [id, ed2], done, fail); }
+          var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, go = ((rq.batch || {}).items || []).filter(function (it) { return it.send_ok && !it.removed && ed2.skip.indexOf(it.key) < 0; });
+          if (!go.length) return addLocal('Cue', 'Nothing ticked can be sent. Use Drafts only.');
+          var h9 = new Date(Date.now() + 8 * 3600000).getUTCHours() < 9;
+          return ask('Send ' + go.length + ' email' + (go.length === 1 ? '' : 's') + (h9 ? ' at 9:00?' : ' now?'), 'From your Gmail to: ' + go.map(function (it) { return it.who + ' (' + it.to + ')'; }).join(', ') + '. ' + (h9 ? 'You can cancel until 9:00.' : 'Sent emails cannot be called back.'), null, 'Send', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, ed2], done, fail); });
+        }
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }

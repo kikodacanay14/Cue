@@ -13,7 +13,8 @@ const CUE_VERSION_ = 'Cue 1.8.3';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
-  'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note']
+  'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
+  'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note']   // the sweep's memory (CueSweep.gs)
 };
 const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
@@ -60,13 +61,22 @@ function cueSetup() {
   if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
   if (!ss) { ss = SpreadsheetApp.create('Cue'); props.setProperty('CUE_SHEET_ID', ss.getId()); }
   Object.keys(CUE_TABS_).forEach(n => { if (!ss.getSheetByName(n)) { const sh = ss.insertSheet(n); sh.appendRow(CUE_TABS_[n]); sh.setFrozenRows(1); } });
-  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
+  cueTriggers_();
   const missing = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ZAD_SECRET', 'CUE_BRIDGE_URL'].filter(k => !props.getProperty(k));
   let acc = null; try { acc = cueAccess_(); } catch (e) { acc = null; }
   const msg = 'Cue is set up (sheet ' + ss.getId() + '). ' + (missing.length ? 'Still missing in Script Properties: ' + missing.join(', ') + '.' : 'All keys are present.')
     + (acc && acc.checked ? (acc.missing.length ? ' Google access still missing: ' + acc.missing.join(', ') + '.' : ' Google access: all granted.') : '');
   console.log(msg);
   return msg;
+}
+
+/** The 5-minute resume trigger and the 07:00 PH morning sweep (Kiko 07:28Z). Also checked when Cue opens, so a deploy needs no extra step.
+ * The sweep only builds the batch; nothing goes out without Kiko's approval. */
+function cueTriggers_() {
+  const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
+  if (have.indexOf('cueResume') < 0) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
+  if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(CUE_SWEEP_.buildHour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
+  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '2');
 }
 
 /* ---------- Google access (Kiko 05:32Z: "think of another way") ----------
@@ -166,8 +176,13 @@ function cueSend(text, files, mode, ref) {
   return { request_id: id, task: ref };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
+    run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
+    task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
+      + 'priority or reminder for the task he is replying about (or the task you put in task). Empty strings for anything he did not ask to change.',
+      properties: { due: { type: 'string', description: 'YYYY-MM-DD, "none" to clear, or empty' }, priority: { type: 'string', description: 'High, Normal, Low, or empty' },
+        remind: { type: 'string', description: 'YYYY-MM-DDTHH:mm in Philippine time, "none" to clear, or empty' } } },
     task: { type: 'string', description: 'The id from Tasks when Kiko\'s message is clearly about one of those tasks (same client, project or '
       + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
@@ -184,7 +199,9 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'and never ask Kiko to give access "to send". Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
   + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. You cannot change Canvas, look up Canvas records or '
-  + 'browse the web from chat: say so plainly when asked, and never pretend you did something. When Kiko asks you to run, redo or reload '
+  + 'browse the web from chat: say so plainly when asked, and never pretend you did something. Every morning at 7:00 Cue builds a '
+  + 'Morning batch of follow-ups (approved emails go out at 9:00); set run_sweep when Kiko asks for it now. Each task can have a due date, '
+  + 'a priority and a reminder: fill task_set when Kiko asks, using today\'s date given below, and confirm in one line. When Kiko asks you to run, redo or reload '
   + 'something now, set start_intake and reply in one short line that you are starting it. If the message reads like a client inquiry or '
   + 'event brief, set looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
 
@@ -203,8 +220,9 @@ function cueTalk_(t, ref) {
   const about = ref ? cueTaskLine_(ref) : '';
   // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
+  const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
-    user: 'Waiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
+    user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
   const pick = !ref && r.ok && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
@@ -216,12 +234,30 @@ function cueTalk_(t, ref) {
   cueChat_('Kiko', t, where);
   cueChat_('Cue', reply || '…', where);
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
-  return { chat: true, reply, task: pick, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick), start_intake: start.length >= 20 ? start : '' };
+  if (where) cueUnnudge_(where);
+  // Kiko 07:31Z task basics: a due date, priority or reminder said in chat is set on the task (no extra AI call).
+  const ts = r.ok && r.data.task_set, set = {};
+  if (ts && where) {
+    const v = k => String(ts[k] || '').trim();
+    if (v('due')) set.due = /^none$/i.test(v('due')) ? '' : v('due');
+    if (v('priority')) set.priority = v('priority');
+    if (v('remind')) set.remind = /^none$/i.test(v('remind')) ? '' : v('remind');
+    if (Object.keys(set).length) { try { cueTaskSet_(where, set); } catch (e) { cueChat_('Cue', 'I could not set that: ' + e.message, where); } }
+  }
+  let sweep = '';
+  if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
+  return { chat: true, reply, task: pick, sweep, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick), start_intake: start.length >= 20 ? start : '' };
+}
+
+/** Kiko answered in a task's thread: its reminder flag clears. */
+function cueUnnudge_(id) {
+  try { cueLocked_(() => { const L = cueRootOf_(id); if (L && L.s.nudge) { delete L.s.nudge; cueSave_(L.sh, L.row, L.s); } }); } catch (e) { console.error('Unnudge: ' + e); }
 }
 
 /** A task's display name: the matched project, the client and event, or what it is. */
 function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
+  if (x.kind === 'sweep') return 'Morning batch ' + String(x.day || '').slice(5).replace('-', '/');
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -256,6 +292,8 @@ function cueNewest_(list, root, id) { const h = root(id), m = list.filter(x => r
 function cueTaskLine_(id) {
   const L = cueLoad_(id); if (!L) return '';
   const s = L.s, c = s.change || {}, p = s.proposal || {};
+  if (s.kind === 'sweep') return 'morning chasing batch for ' + s.day + ', status ' + s.status + '; ' + ((s.batch && s.batch.items) || []).length + ' line(s): '
+    + ((s.batch && s.batch.items) || []).slice(0, 10).map(it => it.label + ' ' + (it.project || it.who || '')).join('; ');
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -267,6 +305,7 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 /** Time trigger (every 5 minutes): resumes a request whose page closed mid-run. Never approves anything. */
 function cueResume() {
   const now = cueNow_();
+  try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -284,8 +323,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
-  try { cueIntakeRun_(s, () => cueSave_(got.sh, got.row, s)); }
-  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', 'The intake stopped: ' + s.error, s.id); }
+  try { (s.kind === 'sweep' ? cueSweepRun_ : cueIntakeRun_)(s, () => cueSave_(got.sh, got.row, s)); }
+  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', (s.kind === 'sweep' ? 'The morning sweep stopped: ' : 'The intake stopped: ') + s.error, s.id); }
   delete s.lease_until;
   cueMetrics_(s);
   cueSave_(got.sh, got.row, s);
@@ -325,6 +364,7 @@ function cueApprove(id, edits) {
   cueOwner_();
   const L = cueLoad_(id);
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
+  if (L && L.s.kind === 'sweep') return cueView_(cueSweepApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -342,7 +382,12 @@ function cueAsNew(id) {
   return cueView_(cueRunLeased_(id));
 }
 /** Kiko rejects. Nothing goes to Canvas. */
-function cueReject(id, why) { cueOwner_(); return cueView_(cueIntakeReject_(id, why)); }
+function cueReject(id, why) {
+  cueOwner_();
+  const L = cueLoad_(id);
+  if (L && L.s.kind === 'sweep') return cueCloseTask(id);   // a batch is closed, never "rejected": nothing was sent
+  return cueView_(cueIntakeReject_(id, why));
+}
 /** Kiko 07:15Z: Reopen on a Recently done card. The task waits in Needs you, with its reply box, until a new run joins its thread or
  * Kiko closes it again. Nothing is re-run, written or sent by reopening. */
 function cueReopen(id) {
@@ -350,23 +395,24 @@ function cueReopen(id) {
   const s = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
-    if (L.s.status !== 'Done' && L.s.status !== 'Rejected') throw new Error('Only a finished task can be reopened.');
+    if (L.s.status !== 'Done' && L.s.status !== 'Rejected' && L.s.status !== 'Closed') throw new Error('Only a finished task can be reopened.');
+    if (L.s.kind === 'sweep') throw new Error('A morning batch cannot be reopened. Say "run the sweep" for a fresh one.');
     Object.assign(L.s, { closed_status: L.s.status, status: 'Reopened', reopened_at: new Date(cueNow_()).toISOString() });
     cueSave_(L.sh, L.row, L.s); return L.s;
   });
   cueChat_('Cue', 'Reopened. Tell me what to do next here, or close it again.', id);
   return cueView_(s);
 }
-/** Closes a reopened task: it goes back to how it finished. */
+/** Closes a task: a reopened one goes back to how it finished; any other task that is not running becomes Closed (Kiko 07:31Z). */
 function cueCloseTask(id) {
   cueOwner_();
+  let said = '';
   const s = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
-    if (L.s.status !== 'Reopened') return L.s;
-    L.s.status = L.s.closed_status || 'Done'; delete L.s.closed_status; cueSave_(L.sh, L.row, L.s); return L.s;
+    said = cueCloseAny_(L); cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  cueChat_('Cue', 'Closed again.', id);
+  if (said) cueChat_('Cue', said, id);
   return cueView_(s);
 }
 /** A new run joined the thread: a reopened run in it goes back to how it finished (the new run carries the work). */
@@ -388,6 +434,7 @@ function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
 function cueState() {
   cueOwner_();
+  if (cueProp_('CUE_TRIGGERS_V', '') !== '2') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
@@ -437,7 +484,15 @@ function cueMe_() { try { return Session.getEffectiveUser().getEmail() || ''; } 
 function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
+  const b = s.batch;
   return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
+    due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
+    batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
+      items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',
+        priority: it.priority || 'normal', times: it.times || 0, subject: it.subject || '', body: it.body || '', task_id: it.task_id || '', no_email: !!it.no_email,
+        send_ok: !!it.send_ok, selected: !!it.selected, removed: it.removed || '', group: it.group || '', action: it.action || '', acted: !!it.acted, sender: it.sender || '', summary: it.summary || '',
+        skipped: (it.skipped || []).slice(0, 50).map(x => ({ key: x.key || '', who: x.who || '', sender: x.sender || '', subject: x.subject || '', why: x.why || '' })), made: !!it.draft_id, sent: !!it.sent_id, error: it.error || '', in_thread: !!it.thread_id, drafted_by: it.drafted_by || '' })),
+      stopped: (b.stopped || []).map(it => ({ key: it.key, label: it.label || it.kind, project: it.project || '', who: it.who || '', why: it.why || '', times: it.times || 0, removed: it.removed || '' })) },
     change: !(ch && s.kind === 'change') ? null : { project: (ch.match && ch.match.name) || ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
       match: ch.match || null, others: ch.others || [], attach: (ch.attach || []).map(f => ({ id: f.id, name: f.name, size: f.size, from: f.from, selected: !!f.selected })), folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
       can_run_new: !!(s.reqs || []).length,
