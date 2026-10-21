@@ -14,7 +14,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 | 4 | GPT | Drafts one RFQ per supplier: Claude's DB picks plus the new suppliers research found (marked new and unaccredited). | 1 |
 | 5 | Kiko | Approves, edits first, or rejects in Cue. | no |
 | 6 | Canvas (code) | Re-checks everything (`submit_intake`), writes the project and lines once, and reads them back (`apply_intake`). If the re-check changes a number, nothing is written and the card comes back. | no |
-| 7 | Gmail | Each RFQ becomes a Gmail draft in **your own Gmail** (Kiko's choice, 21 Oct). Nothing is sent. Setting `CUE_DRAFTS_IN=canvas` has Canvas make them in info@ instead (`make_rfq_drafts`). | no |
+| 7 | Gmail | Each RFQ becomes a Gmail draft in **your own Gmail** (Kiko's choice, 21 Oct). With **Approve and send** (Kiko 21 Oct 06:17Z) Cue sends them after one confirm; **Drafts only** sends nothing. Sending from info@ (CUE_DRAFTS_IN=canvas) is not supported; those stay drafts. Setting `CUE_DRAFTS_IN=canvas` has Canvas make them in info@ instead (`make_rfq_drafts`). | no |
 
 **Budget (Kiko, 21 Oct):** a major function makes 3 to 5 AI calls and finishes within 3 minutes. Every run records its AI calls and its seconds (time to the card and time to ready) in the Requests tab and on the card. A run over 5 calls or 180 seconds is flagged "Over budget". A retried call counts as a call.
 
@@ -61,7 +61,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
    - Drive (only files Cue makes)
    - external requests
    - triggers
-   - Gmail compose (drafts only)
+   - Gmail compose (drafts, and sending a draft after Approve and send)
    - your email address
 5. **Deploy.** Deploy → Web app, execute as **Me**, access **Only myself**.
 6. **First test.** Run it with Kiko watching, on one real inquiry. Check the card, the AI calls and the seconds, then approve and confirm the project and lines in Canvas.

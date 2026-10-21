@@ -97,6 +97,7 @@
   pre { white-space:pre-wrap; font:500 13px/1.5 var(--font); background:var(--input); padding:10px; border-radius:6px; }
   .scroll { overflow-x:auto; }
   .edit input { width:90px; } .edit input.wide { width:100%; }
+  textarea.mail { display:block; width:100%; min-height:140px; margin-top:8px; resize:vertical; font:500 14px/1.5 var(--font); }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -173,9 +174,9 @@
   }
   // Cue's own question box (the browser's prompt() shows the Apps Script sandbox address).
   function ask(title, sub, placeholder, okLabel, cb) {
-    var d = $('ask'); $('ask-t').textContent = title; $('ask-sub').textContent = sub; $('ask-in').value = ''; $('ask-in').placeholder = placeholder; $('ask-ok').textContent = okLabel;
+    var d = $('ask'); $('ask-t').textContent = title; $('ask-sub').textContent = sub; $('ask-in').value = ''; $('ask-in').hidden = placeholder === null; $('ask-in').placeholder = placeholder || ''; $('ask-ok').textContent = okLabel;
     d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
-    d.returnValue = ''; d.showModal(); $('ask-in').focus();
+    d.returnValue = ''; d.showModal(); if (placeholder !== null) $('ask-in').focus(); else $('ask-ok').focus();
   }
   function alertErr(e) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m); }
   // Google access (Kiko 05:32Z): one button that checks Cue's access and, if some is missing, resets it so Google asks again.
@@ -436,16 +437,19 @@
       + attachHtml(r, again || r.status !== 'Needs you')
       + '<div class="small muted" style="margin-top:6px">Found ' + esc(c.found) + ' RFQ thread(s) in your sent mail. ' + esc(c.note || '') + '</div>'
       // Kiko 06:02Z read the previews as the drafts themselves. Say plainly they only live in Cue until saved.
-      + ((c.drafts || []).length && waiting ? '<div class="label">Preview only. Not in Gmail yet</div>' : '');
+      + ((c.drafts || []).length && waiting ? '<div class="label">Edit before sending. Nothing has gone out yet</div>' : '');
     c.drafts.forEach(function (d) {
       h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-        + (again || d.made ? '<span>' + (d.made ? '✓' : '•') + '</span>' : '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>')
-        + '<span><b>' + esc(d.supplier) + '</b> <span class="small muted">' + esc(d.to) + '</span><br><span class="small muted">Re: ' + esc(d.subject) + ' · ' + esc(d.date) + '</span></span></label>'
-        + '<pre style="margin-top:8px">' + esc(d.body) + '</pre>' + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
+        + (again || d.made ? '<span>' + (d.sent ? '✓' : d.made ? '✓' : '•') + '</span>' : '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>')
+        + '<span><b>' + esc(d.supplier) + '</b> <span class="small muted">' + esc(d.to) + '</span>' + (d.sent ? ' <span class="tag pref">sent</span>' : d.made ? ' <span class="tag new">in Drafts</span>' : '')
+        + '<br><span class="small muted">Re: ' + esc(d.subject) + ' · ' + esc(d.date) + '</span></span></label>'
+        + (waiting && !d.made ? '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(d.k) + '" aria-label="Email to ' + esc(d.supplier) + '">' + esc(d.body) + '</textarea>'
+          : '<pre style="margin-top:8px">' + esc(d.body) + '</pre>') + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
     });
     var has = (c.drafts || []).length;
-    h += (has ? '<div class="small muted" style="margin-top:8px">These are previews inside Cue. Save puts them in your Gmail Drafts, as replies in each original thread. Nothing is sent, and Canvas is not touched.</div>' : '')
-      + '<div class="actions">' + (has && (waiting || again) ? '<button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (again ? 'Save the missing ones to Gmail' : 'Save to Gmail drafts') + '</button>' : '')
+    h += (has && waiting ? '<div class="small muted" style="margin-top:8px">Edit any email above. Approve and send sends the ticked ones from your Gmail, as replies in each original thread with the ticked files. Drafts only puts them in your Gmail Drafts instead. Canvas is not touched.</div>' : '')
+      + '<div class="actions">' + (has && waiting ? '<button class="btn" data-act="send-change" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-change" data-id="' + esc(r.id) + '">Drafts only</button>' : '')
+      + (has && again ? '<button class="btn" data-act="approve-change" data-id="' + esc(r.id) + '">' + (c.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
       + (waiting && c.can_run_new ? '<button class="btn ghost" data-act="as-new" data-id="' + esc(r.id) + '">Not this project: run as new</button>' : '')
       + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">' + (has ? 'Reject' : 'Close') + '</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;
@@ -513,22 +517,25 @@
       var s = (q.suppliers || [])[0] || {};
       h += '<details><summary>' + (ed ? '<label onclick="event.stopPropagation()"><input type="checkbox" data-skip="' + i + '" style="width:auto"> skip </label>' : '')
         + esc(s.name || 'Supplier') + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + ' <span class="muted small">' + esc(s.email || 'no email on file') + ' · ' + esc(q.keys.join(', ')) + '</span></summary>'
-        + '<div class="small"><b>' + esc(q.subject) + '</b></div><pre>' + esc(q.body) + '</pre></details>';
+        + (r.status === 'Needs you' ? '<input class="wide" style="width:100%;margin-top:8px" data-rq-subj="' + i + '" value="' + esc(q.subject) + '" aria-label="Subject">'
+            + '<textarea class="mail" data-rq-body="' + i + '" aria-label="RFQ text">' + esc(q.body) + '</textarea>'
+          : '<div class="small"><b>' + esc(q.subject) + '</b></div><pre>' + esc(q.body) + '</pre>') + '</details>';
     });
     if (p.study) h += '<div class="label">Claude\'s study</div><div class="small">' + esc(p.study) + '</div>';
     if ((p.risks || []).length) h += '<div class="label">Risks</div><ul class="small">' + p.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if ((p.questions || []).length) h += '<div class="label">Ask the client</div><ul class="small">' + p.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if (r.status === 'Done, drafts incomplete') {
-      h += '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + '. Some Gmail drafts were not made.</div><div class="actions"><button class="btn" data-act="drafts" data-id="' + esc(r.id) + '">Make drafts again</button></div>';
+      h += '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + '. Some RFQs did not go through.</div><div class="actions"><button class="btn" data-act="drafts" data-id="' + esc(r.id) + '">Try those again</button></div>';
     } else if (r.status === 'Failed') {
       h += '<div class="actions">' + (cv.submitted ? '<button class="btn" data-act="approve" data-id="' + esc(r.id) + '">Check Canvas and finish</button>'
         : '<button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>')
         + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
     } else {
-      h += '<div class="actions">' + (ed ? '<button class="btn" data-act="approve-edits" data-id="' + esc(r.id) + '">Approve with edits</button><button class="btn ghost" data-act="cancel-edit" data-id="' + esc(r.id) + '">Cancel edits</button>'
-        : '<button class="btn" data-act="approve" data-id="' + esc(r.id) + '">Approve</button><button class="btn ghost" data-act="edit" data-id="' + esc(r.id) + '">Edit first</button>')
+      h += '<div class="actions"><button class="btn" data-act="approve-send" data-id="' + esc(r.id) + '">Approve and send RFQs</button>'
+        + '<button class="btn ghost" data-act="approve" data-id="' + esc(r.id) + '">Approve, drafts only</button>'
+        + (ed ? '<button class="btn ghost" data-act="cancel-edit" data-id="' + esc(r.id) + '">Cancel edits</button>' : '<button class="btn ghost" data-act="edit" data-id="' + esc(r.id) + '">Edit lines</button>')
         + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
-        + '<div class="small muted" style="margin-top:6px">Approve writes the project and lines to Canvas, then makes the RFQs as Gmail drafts. Nothing is sent.</div>';
+        + '<div class="small muted" style="margin-top:6px">Open an RFQ above to edit its text. Approve writes the project and lines to Canvas, then sends the RFQs from your Gmail. Suppliers with no email stay in your Drafts. Drafts only sends nothing.</div>';
     }
     return h + '</div>';
   }
@@ -540,7 +547,7 @@
   }
 
   function collect(id, scope) {
-    var card = (scope || document).querySelector('[data-card="' + id + '"]'), e = { event: {}, client: {}, lines: {}, skip_rfqs: [] };
+    var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, lines: {}, skip_rfqs: [] };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
     card.querySelectorAll('[data-line]').forEach(function (tr) {
       var d = {}, k = tr.getAttribute('data-line');
@@ -548,6 +555,9 @@
       e.lines[k] = d;
     });
     card.querySelectorAll('[data-skip]').forEach(function (x) { if (x.checked) e.skip_rfqs.push(Number(x.getAttribute('data-skip'))); });
+    e.rfqs = {};
+    card.querySelectorAll('[data-rq-subj]').forEach(function (x) { (e.rfqs[x.getAttribute('data-rq-subj')] = e.rfqs[x.getAttribute('data-rq-subj')] || {}).subject = x.value; });
+    card.querySelectorAll('[data-rq-body]').forEach(function (x) { (e.rfqs[x.getAttribute('data-rq-body')] = e.rfqs[x.getAttribute('data-rq-body')] || {}).body = x.value; });
     return e;
   }
   function bind() {
@@ -564,14 +574,27 @@
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
           else { accessNeeded = false; addLocal('Cue', 'Google says Cue has all the access it needs now. Tap Try again on the stopped card.'); }
           renderWidgets(); }, function (e) { b.disabled = false; alertErr(e); }); }
-        b.disabled = true; running[id] = 1; schedule();
-        if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
-        if (act === 'approve-change') {
-          var skip = Array.prototype.filter.call(scope.querySelectorAll('[data-ck="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
-          var fskip = Array.prototype.filter.call(scope.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
-          return call('cueApprove', [id, { skip: skip, files_skip: fskip }], done, fail);
+        // Sending (Kiko 06:17Z): Approve sends, after one confirm that names who gets an email. Drafts only never sends.
+        var change = function (send) {
+          var ck = Array.prototype.slice.call(scope.querySelectorAll('[data-ck="' + id + '"]'));
+          var bodies = {}; scope.querySelectorAll('[data-body="' + id + '"]').forEach(function (x) { bodies[x.getAttribute('data-k')] = x.value; });
+          return { skip: ck.filter(function (x) { return !x.checked; }).map(function (x) { return x.value; }), bodies: bodies, send: send,
+            files_skip: Array.prototype.filter.call(scope.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; }) };
+        };
+        if (act === 'send-change' || act === 'approve-send') {
+          var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, who = [];
+          if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
+          else { var ex = collect(id, scope); who = ((req.proposal || {}).rfqs || []).filter(function (q, i) { return ex.skip_rfqs.indexOf(i) < 0; }).map(function (q) { var x = (q.suppliers || [])[0] || {}; return (x.name || 'Supplier') + (x.email ? ' (' + x.email + ')' : ' (no email: stays a draft)'); }); }
+          if (!who.length) return addLocal('Cue', 'Tick at least one supplier first.');
+          return ask('Send ' + who.length + ' email' + (who.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
+            b.disabled = true; running[id] = 1; schedule();
+            var x = act === 'send-change' ? change(true) : collect(id, scope); x.send = true;
+            call('cueApprove', [id, x], done, fail);
+          });
         }
-        if (act === 'approve-edits') return call('cueApprove', [id, collect(id, scope)], done, fail);
+        b.disabled = true; running[id] = 1; schedule();
+        if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
+        if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);

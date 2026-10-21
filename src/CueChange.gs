@@ -144,12 +144,16 @@ function cueChangeApprove_(id, edits) {
     const s = L.s, again = s.status === 'Done, drafts incomplete';
     if (s.status !== 'Needs you' && !again) throw new Error('This change request is ' + s.status + ', not waiting for you.');
     if (!again) {
-      const skip = (edits && edits.skip) || [], fskip = (edits && edits.files_skip) || [];
+      const skip = (edits && edits.skip) || [], fskip = (edits && edits.files_skip) || [], bodies = (edits && edits.bodies) || {};
       (s.change.attach || []).forEach(f => { f.selected = fskip.indexOf(f.id) < 0; });
       s.change.drafts.forEach(d => { d.selected = skip.indexOf(d.k) < 0; });
       if (!s.change.drafts.some(d => d.selected)) throw new Error('Tick at least one supplier, or reject the change request.');
+      // Kiko 06:17Z: edit the text on the card, and Approve sends. "Drafts only" stays as the other button.
+      s.change.drafts.forEach(d => { if (bodies[d.k] == null) return; const b = String(bodies[d.k]).trim().slice(0, 5000);
+        if (d.selected && !b) throw new Error('The email to ' + d.supplier + ' is empty.'); d.body = b; });
+      s.send = !!(edits && edits.send);
     }
-    s.status = 'Making drafts'; s.stage = 'Making Gmail drafts'; s.error = ''; s.approved_at = s.approved_at || new Date(cueNow_()).toISOString();
+    s.status = 'Making drafts'; s.stage = s.send ? 'Sending' : 'Making Gmail drafts'; s.error = ''; s.approved_at = s.approved_at || new Date(cueNow_()).toISOString();
     cueSave_(L.sh, L.row, s);
     return L;
   });
@@ -164,13 +168,29 @@ function cueChangeApprove_(id, edits) {
     } catch (e) { d.error = String((e && e.message) || e).slice(0, 200); bad.push(d.supplier); }
     cueLocked_(() => cueSave_(L.sh, L.row, s));
   });
-  const made = c.drafts.filter(d => d.draft_id).length;
+  if (s.send) c.drafts.filter(d => d.selected && d.draft_id && !d.sent_id).forEach(d => {
+    try { d.sent_id = cueGmailSend_(d.draft_id); d.sent_at = new Date(cueNow_()).toISOString(); d.error = ''; }
+    catch (e) { d.error = String((e && e.message) || e).slice(0, 200); if (bad.indexOf(d.supplier) < 0) bad.push(d.supplier); }
+    cueLocked_(() => cueSave_(L.sh, L.row, s));
+  });
+  const made = c.drafts.filter(d => d.draft_id).length, sent = c.drafts.filter(d => d.sent_id).length;
   s.status = bad.length ? 'Done, drafts incomplete' : 'Done'; s.stage = s.status; s.ready_at = s.ready_at || cueNow_();
   cueMetrics_(s);
   cueLocked_(() => cueSave_(L.sh, L.row, s));
-  cueChat_('Cue', 'Made ' + made + ' requote draft' + (made === 1 ? '' : 's') + ' in your Gmail, each in its original thread' + (cueChangeFilesOf_(s).length ? ' with ' + cueChangeFilesOf_(s).length + ' file(s) attached' : '')
-    + '. Nothing was sent and nothing changed in Canvas.' + (bad.length ? ' Not made yet: ' + bad.join(', ') + '. Approve again to retry those.' : ''), s.id);
+  const nf = cueChangeFilesOf_(s).length, att = nf ? ' with ' + nf + ' file(s) attached' : '';
+  cueChat_('Cue', (s.send ? 'Sent ' + sent + ' requote' + (sent === 1 ? '' : 's') + ' from your Gmail, each as a reply in its original thread' + att + '. Canvas was not changed.'
+    : 'Made ' + made + ' requote draft' + (made === 1 ? '' : 's') + ' in your Gmail, each in its original thread' + att + '. Nothing was sent and nothing changed in Canvas.')
+    + (bad.length ? ' Not done yet: ' + bad.join(', ') + '. Tap the button again to retry those.' : ''), s.id);
   return s;
+}
+
+/** Sends a draft Cue made (gmail.compose covers drafts.send). Returns the sent message id. Only after Kiko's Approve and send. */
+function cueGmailSend_(draftId) {
+  const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts/send', { method: 'post', contentType: 'application/json',
+    muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, payload: JSON.stringify({ id: draftId }) });
+  let o = null; try { o = JSON.parse(res.getContentText()); } catch (e) { o = null; }
+  if (res.getResponseCode() !== 200 || !o || !o.id) throw new Error('Gmail did not send it; it is still in your Drafts (HTTP ' + res.getResponseCode() + ')' + cueGoogleWhy_(res));
+  return o.id;
 }
 
 /** One reply draft in thread f, with attachments. Multipart upload, so big attachments fit (Gmail allows 35 MB). */

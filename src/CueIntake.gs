@@ -288,7 +288,7 @@ function cueIntakeApprove_(id, edits) {
     if (!L) throw new Error('No such request.');
     const s = L.s, again = s.status === 'Failed' && s.canvas && s.canvas.submitted && !s.canvas.project_id;
     if (s.status !== 'Needs you' && !again) throw new Error('This intake is ' + s.status + ', not waiting for you.');
-    if (!again) cueIntakeEdit_(s.proposal, edits);
+    if (!again) { cueIntakeEdit_(s.proposal, edits); s.send = !!(edits && edits.send); }
     s.status = 'Writing to Canvas'; s.stage = again ? 'Writing to Canvas' : 'Canvas re-checking'; s.error = ''; s.approved_at = new Date(cueNow_()).toISOString();
     cueSave_(L.sh, L.row, s);
     return Object.assign(L, { again });
@@ -352,6 +352,10 @@ function cueIntakeEdit_(p, e) {
   });
   p.lines = p.lines.filter(l => drop.indexOf(l.key) < 0);
   if (!p.lines.length) throw new Error('An intake needs at least one line.');
+  // Kiko 06:17Z: RFQ subject and text are edited on the card (indexes are before skipping).
+  Object.keys(e.rfqs || {}).forEach(i => { const q = p.rfqs[Number(i)], d = e.rfqs[i] || {}; if (!q) return;
+    if (d.subject != null) q.subject = cueStr_(d.subject, 200).trim() || q.subject;
+    if (d.body != null) { const b = cueStr_(d.body, 5000).trim(); if (!b) throw new Error('The RFQ to ' + (((q.suppliers || [])[0] || {}).name || 'a supplier') + ' is empty.'); q.body = b; } });
   const skip = (e.skip_rfqs || []).map(Number), outKeys = p.lines.filter(l => l.execution === 'Outsourced').map(l => l.key);
   p.rfqs = p.rfqs.filter((q, i) => skip.indexOf(i) < 0).map(q => Object.assign(q, { keys: q.keys.filter(k => outKeys.indexOf(k) >= 0) })).filter(q => q.keys.length);
   cueTotals_(p);
@@ -413,14 +417,17 @@ function cueIntakeDraftsRun_(s) {
   const done = s.drafts || (s.drafts = []);
   (s.rfqs_final || []).forEach((q, i) => ((q.suppliers || []).length ? q.suppliers : [{ name: '', email: '' }]).forEach((x, j) => {
     const k = i + ':' + j, have = done.find(d => d.k === k);
-    if (have && have.id) return;
+    if (have && have.id && (!s.send || have.sent_id || !have.to)) return;
     const d = have || { k, supplier: String(x.name || ''), to: cueEmail_(x.email), subject: String(q.subject || ''), new: !!x.new };
     if (!have) done.push(d);
-    try { d.id = cueGmailDraft_(d.to, q.subject, q.body); d.error = ''; } catch (e) { d.error = cueStr_((e && e.message) || e, 200); }
+    try { if (!d.id) d.id = cueGmailDraft_(d.to, q.subject, q.body); d.error = ''; } catch (e) { d.error = cueStr_((e && e.message) || e, 200); return; }
+    // Approve and send (Kiko 06:17Z): send what has an address; a supplier with no email stays a draft for Kiko to address.
+    if (s.send && d.to) { try { d.sent_id = cueGmailSend_(d.id); d.sent_at = new Date(cueNow_()).toISOString(); } catch (e) { d.error = cueStr_((e && e.message) || e, 200); } }
   }));
-  const bad = done.filter(d => !d.id).length;
+  const bad = done.filter(d => !d.id || (s.send && d.to && !d.sent_id)).length, sent = done.filter(d => d.sent_id).length, noTo = done.filter(d => d.id && !d.to).length;
   s.status = bad ? 'Done, drafts incomplete' : 'Done'; s.stage = 'Done';
-  cueChat_('Cue', done.length ? (done.length - bad) + ' RFQ draft(s) are in Gmail, not sent.' + (bad ? ' ' + bad + ' could not be made; use "Make drafts again".' : '') : 'No RFQ drafts to make.', s.id);
+  cueChat_('Cue', !done.length ? 'No RFQ drafts to make.' : (s.send ? sent + ' RFQ(s) sent from your Gmail.' + (noTo ? ' ' + noTo + ' had no email address, so they wait in your Drafts.' : '')
+    : (done.length - bad) + ' RFQ draft(s) are in Gmail, not sent.') + (bad ? ' ' + bad + ' did not go through; use "Make drafts again".' : ''), s.id);
 }
 /** Makes one Gmail draft through the Gmail API (gmail.compose scope only). To is left blank when the supplier has no email. */
 function cueGmailDraft_(to, subject, body) {

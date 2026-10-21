@@ -119,6 +119,10 @@ function sandbox(o = {}) {
       log.replies = log.replies || []; log.replies.push({ type: req.contentType, payload: req.payload });
       return (o.replyFail && log.replies.length === 1) ? resp(500, {}) : resp(200, { id: 'reply-' + log.replies.length });
     }
+    if (u.indexOf('/drafts/send') >= 0) {
+      log.sent = log.sent || []; log.sent.push(JSON.parse(req.payload).id);
+      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent-' + log.sent.length });
+    }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
@@ -446,6 +450,28 @@ test('C27 requotes carry every file Kiko sent for the project in the last day; a
 
 test('C28 threads: the redo run points at its task, and a reply in a thread sees only that thread, not the main chat', () => {
   const t = sandbox({ similar: JBL, read: CHANGE_READ, talk: { reply: 'Noted.', looks_like_inquiry: false, start_intake: '' } });
+test('C29 approve and send (Kiko 06:17Z): edited text goes out, only after send:true; drafts only never sends; a failed send retries alone', () => {
+  const t = sandbox({ read: CHANGE_READ, sendFail: true });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  assert.throws(() => t.ctx.cueApprove(id, { bodies: { T1: '   ' }, send: true }), /is empty/);
+  const v = t.ctx.cueApprove(id, { bodies: { T1: 'Hi Mats Co, edited by Kiko.' }, send: true });
+  assert.ok(Buffer.from(t.log.replies[0].payload.split('base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString().indexOf('edited by Kiko') >= 0, 'edited body in the email');
+  deq(t.log.sent, ['reply-1', 'reply-2'], 'both drafts sent'); assert.strictEqual(v.status, 'Done, drafts incomplete', 'first send failed');
+  assert.deepStrictEqual(v.change.drafts.map(d => d.sent), [false, true]);
+  const v2 = t.ctx.cueApprove(id, {}); assert.strictEqual(v2.status, 'Done'); deq(t.log.sent, ['reply-1', 'reply-2', 'reply-1'], 'only the failed one again, no new draft');
+  assert.strictEqual(t.log.replies.length, 2);
+  assert.ok(t.tabs.Chat.rows.some(x => /^Sent 2 requotes from your Gmail/.test(x[2])));
+  const u = sandbox({ read: CHANGE_READ }), iu = u.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; u.ctx.cueRun(iu);
+  assert.strictEqual(u.ctx.cueApprove(iu, {}).status, 'Done'); assert.ok(!u.log.sent, 'drafts only sends nothing');
+  // Intake: edited RFQ goes out; the supplier with no email stays a draft.
+  const w = startToCard(), card = w.v, i0 = card.proposal.rfqs[0];
+  const d = w.ctx.cueApprove(w.id, { rfqs: { 0: { subject: 'RFQ edited', body: 'Edited RFQ text' } }, send: true });
+  assert.strictEqual(d.status, 'Done'); assert.ok(/Edited RFQ text|RWRpdGVkIFJGUSB0ZXh0/.test(w.log.gmail[0]), 'edited text');
+  assert.strictEqual(w.log.sent.length, 2, 'two with emails sent, the one without stays a draft');
+  assert.ok(w.tabs.Chat.rows.some(x => /2 RFQ\(s\) sent from your Gmail\. 1 had no email address/.test(x[2])));
+  assert.ok(i0);
+});
+
   t.ctx.cueSend('main chat secret line about lunch', [], 'chat');
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
   const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.ref, '', 'a new task starts its own thread');
