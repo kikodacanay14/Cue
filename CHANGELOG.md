@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.17: Cue learns from corrections at once; asks when unsure; Wrong command (not deployed)
+
+Kiko 17:00Z picked Teach Cue items 2 and 3; 17:03Z "something needs to be done to expedite how he learns". Spec: specs/teach-cue.md (add-on sections).
+
+- Corrections are learned at once. When Kiko corrects Cue or states a rule, the chat call Cue already makes returns it (new "learn" field, no extra AI call). Cue saves it to the Memory tab as a rule used in every task and shows "Learned: …" with Keep or Undo where Kiko said it. Undo switches the row off. Every GPT and Claude call reads Memory, so the rule applies from the next message.
+- "remember: …", "rule: …" or "from now on …" in any thread, including a phased intake's, saves the rule with no AI call.
+- Kiko's intake rules are seeded into Memory once: same-project check first, answer questions instead of rescanning, nothing saved before Approve, cancelling an intake removes its records.
+- Asking when unsure: when the chat call cannot tell which command Kiko means, Cue starts nothing and shows the top 2 as buttons plus Just chat. A button starts that command from the details the same call filled. In a task's thread it asks in words.
+- Wrong command?: on a waiting task that came from a message (no files, nothing in Canvas yet), pick the right command. Cue closes the task, starts the right one from the same message, and asks once "Remember that … means …?". Yes saves it to the hidden Routing examples tab, and the 5 closest examples go into each chat call.
+- Up to 12 rules marked Always are added to every call, newest first.
+- Tests: 207 of 207 pass (new TC5 to TC9).
+
 ## Cue 1.16.1: Same project? first, Cancel intake removes it from Canvas (not deployed)
 
 Kiko re-ran the Unilever intake at 16:45Z. Phase 1 failed with "is already in the Admin Directory", four times, and Cue never asked whether it was the same project.

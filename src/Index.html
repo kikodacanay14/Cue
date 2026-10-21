@@ -743,7 +743,9 @@
   function threads() {
     var by = byId(), t = {};
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
-    state.chat.concat(outbox).forEach(function (m) { if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
+    state.chat.concat(outbox).forEach(function (m) {
+      var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
+      if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
@@ -771,7 +773,30 @@
     return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
   }
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + '</div>';
+    if (typeof thread !== 'string') thread = '';   // map() passes an index
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
+  }
+  // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
+  var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
+    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo' };
+  function askOf(m) {
+    var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
+    return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
+  }
+  function askHtml(m) {
+    var q = askOf(m); if (!q || !q.open) return '';
+    if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
+    return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
+      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
+    }).join('') + '</div>';
+  }
+  // "Wrong command?" (Kiko 17:00Z): on a waiting task that came from a message. Pick the right one; Cue redoes it and asks once to remember.
+  function wrongHtml(r) {
+    var now = { intake: 'intake', change: 'intake', readiness: 'readiness', pipeline: 'pipeline', ar: 'ar', vendor: 'vendor', workflow: 'workflow', email: 'email', finance: 'money' }[r.kind];
+    return '<details class="small" style="margin:0 0 10px"><summary class="muted">Wrong command?</summary><div class="actions" style="margin-top:6px">'
+      + '<select data-wc="' + esc(r.id) + '" aria-label="The right command">' + Object.keys(ASKL).filter(function (k) { return k !== now && !/^(yes|no|keep|undo)$/.test(k); })
+        .map(function (k) { return '<option value="' + k + '">' + esc(ASKL[k]) + '</option>'; }).join('') + '</select>'
+      + '<button class="btn ghost" data-act="wrong-cmd" data-id="' + esc(r.id) + '">Redo as this</button></div></details>';
   }
   // 1.15 fix (Kiko's live check 15:35Z): the "📎 a.jpg, b.pdf" line under Kiko's message was plain text, so tapping a file did
   // nothing. Each name that matches a saved file of the message's task is now a link that opens in the viewer.
@@ -806,6 +831,7 @@
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     state.chat.concat(outbox).forEach(function (m) {
+      var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
@@ -837,6 +863,7 @@
     // Kiko 14:42Z: no Due / Priority / Remind row. ✓ in the header closes the task; ⋯ (closed threads only) offers Archive.
     var x0 = t.reqs[0], closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
     var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
+      + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('')
       + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
@@ -1983,6 +2010,9 @@
           if (!String(to || '').trim()) return addLocal('Cue', 'Type their email address in To first, or save it to Drafts.');
           return ask('Send this email now?', 'From your Gmail to: ' + to + '. Sent emails cannot be called back.', null, 'Send', go);
         }
+        if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], done, fail); }
+        if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
+          return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }
         if (act === 'approve-teach') { var te = change(false); te.always = Array.prototype.filter.call(scope.querySelectorAll('[data-al="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
           b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, te], done, fail); }
         if (act === 'approve-style') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }

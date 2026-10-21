@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.16.1';
+const CUE_VERSION_ = 'Cue 1.17';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -146,11 +146,15 @@ function cueChat_(who, text, id) {
 /* ---------- what the page calls ---------- */
 /** Kiko sends a message. mode 'intake' or 'chat' forces one; otherwise attachments or a "New project intake" opener start an
  * intake and everything else is a chat reply (one GPT call). Returns { request_id } for an intake or { chat, reply, suggest_intake }. */
-function cueSend(text, files, mode, ref) {
+function cueSend(text, files, mode, ref) { return cueSendWith_(text, files, mode, ref, null); }
+/** forced = a chat-call result already made (Teach Cue add-on, CueRoute.gs: a button under "which did you mean?"), so no second call. */
+function cueSendWith_(text, files, mode, ref, forced) {
   cueOwner_();
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
+  // Kiko 17:03Z "expedite how he learns": "remember: …" / "from now on …" anywhere is saved as a rule at once (no AI call).
+  if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
   // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
   if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
   // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
@@ -158,6 +162,8 @@ function cueSend(text, files, mode, ref) {
   // Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
   if (mode !== 'intake' && !has && CUE_MEM_RE_.test(String(text || ''))) return cueTeachStart_('memory', text);
   if (mode !== 'intake' && !has && CUE_PROC_RE_.test(String(text || ''))) return cueTeachStart_('process', text);
+  // Teach Cue add-on (Kiko 17:00Z): a phrase Kiko taught Cue word for word is a money question with no AI call routing it.
+  if (!forced && !has && mode !== 'intake' && !inThread && cueRouteExact_(text) === 'money') return cueFinance_(String(text).trim(), '');
   // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
   if (mode !== 'chat' && mode !== 'intake' && cueIsPersonal_(text)) return cuePersonalStart_(String(text || '').trim(), files, ref);
   // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
@@ -175,7 +181,7 @@ function cueSend(text, files, mode, ref) {
   if (!has && mode !== 'chat') { const rc = cueRecostStart_(String(text || '').trim(), ref); if (rc) return rc; }
   let sup = mode !== 'intake' && mode !== 'chat' && cueIsSupplier_(text);
   if (!sup && mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
-    const talk = cueTalk_(String(text || '').trim(), ref);
+    const talk = forced || cueTalk_(String(text || '').trim(), ref);
     if (talk.workflow) { const out = cueWorkflowStart_(talk.workflow, ref || talk.task || '', String(text || '').trim(), []); if (!ref && !talk.task) cueChat_('Cue', 'Started a thread to map it.', '>' + out.request_id); return out; }
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
     if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); if (!ref && !talk.task) cueChat_('Cue', 'Started a thread for it.', '>' + out.request_id); return out; }
@@ -258,8 +264,14 @@ function cueRecostStart_(t, ref) {
   return { request_id: id, task: base.id };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
+    learn: { type: 'string', description: 'When Kiko corrects how Cue works or states a rule for next time (e.g. "no, check if it is the same project first", '
+      + '"don\'t rescan, just answer me", "always cost per requirement"), that rule in one short sentence about what Cue should do, e.g. '
+      + '"When Kiko asks a question in a thread, Cue answers it instead of rescanning." Empty for anything else, including one-off requests.' },
+    sure: { type: 'boolean', description: 'false when Kiko seems to ask Cue to do something but you cannot tell which command, or two fit about equally. true otherwise, including plain chat.' },
+    choices: { type: 'array', items: { type: 'string', enum: ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email', 'money', 'chat'] },
+      description: 'When sure is false: the two commands that fit best, best first, with the fields of both filled in. Empty when sure is true.' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
       + 'priority or reminder for the task Kiko is replying about (or the task you put in task). Empty strings for anything Kiko did not ask to change.',
@@ -296,6 +308,8 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
         about: { type: 'string', description: 'Self-contained: what the email must say, with every fact Kiko gave' },
         audience: { type: 'string', enum: ['supplier', 'client', 'team', 'other'] }, project: { type: 'string', description: 'The project or event it is about, or ""' } } } } };
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
+  + 'Never guess which command Kiko wants: when you cannot tell, or two fit about equally, set sure to false and name the two best in choices; '
+  + 'Cue then asks Kiko with buttons and starts nothing, so reply in one short line without saying you started anything. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), answer money '
@@ -343,7 +357,7 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'event brief, set looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
 
 /** Small talk and questions: one GPT call with the recent chat and what is waiting on Kiko. Nothing else happens. */
-function cueTalk_(t, ref) {
+function cueTalk_(t, ref, force) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
@@ -358,11 +372,13 @@ function cueTalk_(t, ref) {
   // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
-  const found = cueLookup_(s, t);
+  const found = cueLookup_(s, t), ex = cueRouteExamples_(t);
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
+      + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
+      + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
   const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
@@ -379,13 +395,31 @@ function cueTalk_(t, ref) {
   const acts = r.ok && (['start_intake', 'readiness', 'command', 'start_ar'].some(k => String(r.data[k] || '').trim()) || (r.data.email && r.data.email.job)) || (r.ok && (r.data.run_sweep || r.data.task_set));
   if (r.ok && !acts && claims.test(reply))
     reply += '\n\n(Correction: nothing is running yet and no card was made. Say "start intake" and I will run it; its card will show in the thread.)';
+  // Teach Cue add-on (Kiko 17:00Z): not sure which command, or two fit about equally: start nothing and ask. Never guess.
+  const choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
+  if (choices.some(c => c !== 'chat')) {
+    const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
+    const cands = { intake: String(r.data.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(r.data.readiness || '').trim(),
+      ar: String(r.data.start_ar || '').trim(), pipeline: r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null,
+      vendor: r.data.vendor && r.data.vendor.job ? r.data.vendor : null, workflow: r.data.workflow && r.data.workflow.job === 'map' ? r.data.workflow : null,
+      email: r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null };
+    const keep = {}; choices.forEach(c => { if (cands[c]) keep[c] = cands[c]; });
+    cueChat_('Kiko', t, ref);
+    if (ref) { cueChat_('Cue', (reply ? reply + '\n\n' : '') + 'Did you mean ' + ask + '? Say which and I will start it.', ref); return { chat: true, reply, task: '' }; }
+    const q = /\?\s*$/.test(reply) ? reply : (reply ? reply + '\n\n' : '') + 'I am not sure what you want me to do. Did you mean ' + ask + '?';
+    const id = cueAskOpen_({ type: 'route', text: t, choices: choices.filter(c => c !== 'chat').concat(['chat']), cands: keep, found: keep.email ? found : '' }, q,
+      choices.filter(c => c !== 'chat').concat(['chat']));
+    return { chat: true, reply: q, task: '', ask: id };
+  }
   const where = ref || pick;
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
     const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || 'that task';
     cueChat_('Kiko', t, ''); cueChat_('Cue', 'Answered in the ' + name + ' thread.', '>' + pick);
   }
-  cueChat_('Kiko', t, where);
+  if (!force) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);
+  // Kiko 17:03Z: a correction is saved at once, with Keep or Undo, and used from the next message.
+  if (r.ok && !force && String(r.data.learn || '').trim()) { try { cueLearnNow_(r.data.learn, where); } catch (e) { console.warn('Learn: ' + e); } }
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
   if (where) cueUnnudge_(where);
   // Kiko 07:31Z task basics: a due date, priority or reminder said in chat is set on the task (no extra AI call).
@@ -821,7 +855,7 @@ function cueView_(s) {
     supplier: s.kind === 'supplier' ? cueSupView_(s) : null,
     personal: s.kind === 'personal' ? cuePeView_(s) : null,
     style: s.kind === 'style' ? cueStyleView_(s) : null,
-    teach: s.kind === 'memory' || s.kind === 'process' ? cueTeachView_(s) : null,
+    teach: s.kind === 'memory' || s.kind === 'process' ? cueTeachView_(s) : null, can_redo: cueRouteCan_(s),
     mail: s.kind === 'email' ? cueMailView_(s) : null,
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
