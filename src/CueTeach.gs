@@ -24,11 +24,20 @@ function cueMemPaste_(t) {
   const s = String(t || '');
   if (CUE_MEM_ANY_RE_.test(s)) return true;
   const lines = s.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (cueTabPhrases_(lines)) return true;
   if (lines.length < 5) return false;
   if (/^what (?:you|i|kiko) says?\b/im.test(s) && /\bwhat it means\b/i.test(s)) return true;
   if (lines.filter(x => /^["\u201c'].{2,80}["\u201d']$/.test(x)).length >= 3) return true;   // a column of quoted phrases
   const hits = lines.filter(x => CUE_MEM_LINE_RE_.test(x)).length;
   return hits >= 3 && hits * 3 >= lines.length;
+}
+// PC test 18:17Z: a table copied from a doc or sheet comes as "phrase<TAB>meaning" rows, even one row. Nobody types a tab, so every
+// tabbed row having a short phrase and a worded meaning (no amounts) is a phrasebook paste. A tabbed bank or receipt table has amounts.
+function cueTabPhrases_(lines) {
+  const rows = lines.filter(x => x.indexOf('\t') >= 0);
+  if (!rows.length || rows.length * 2 < lines.length) return false;
+  return rows.every(x => { const c = x.split('\t').map(y => y.trim()).filter(Boolean);
+    return c.length === 2 && c[0].length <= 80 && c[1].split(/\s+/).length >= 3 && !/\u20b1\s?\d|\b(?:php|p)\s?\d|\d[\d,]{2,}(?:\.\d+)?/i.test(x); });
 }
 const CUE_TEACH_SECRET_RE_ = /\b(password|passcode|api[ _-]?key|secret key|token|otp|pin code|cvv)\b|\d(?:[ -]?\d){11,}/i;
 
