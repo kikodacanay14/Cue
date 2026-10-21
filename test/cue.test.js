@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-xzc68a: V185 + expense_evidence / record_expense). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs', 'CueSweepRfq.gs', 'CueReady.gs', 'CuePipeline.gs', 'CueAr.gs', 'CueExpense.gs', 'CueFinance.gs', 'CueHubspot.gs', 'CueVendor.gs', 'CueWorkflow.gs', 'CueSupplier.gs', 'CueTriage.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs', 'CueSweepRfq.gs', 'CueReady.gs', 'CuePipeline.gs', 'CueAr.gs', 'CueExpense.gs', 'CueFinance.gs', 'CueHubspot.gs', 'CueVendor.gs', 'CueWorkflow.gs', 'CueSupplier.gs', 'CueTriage.gs', 'CueSweepAward.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -116,7 +116,8 @@ function inboxRoute(box, u, log) {
 }
 
 function sandbox(o = {}) {
-  const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL, ...(o.props || {}) };
+  const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
+    ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
   const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {}, type: {} };
   let now = Date.parse('2026-10-21T03:00:00Z');
@@ -266,6 +267,14 @@ function sandbox(o = {}) {
         payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0 && (req.method || 'get') === 'get') { const r = inboxRoute(o.inbox || [], u, log); if (r) return r; }   // an empty inbox unless a test gives one
+    if (o.award && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/threads/') >= 0) {   // CE award chasers: thread headers (their own thread format)
+      const id = decodeURIComponent(u.split('/threads/')[1].split('?')[0]), th = (o.threads || {})[id];
+      (log.threads = log.threads || []).push(id); return th ? resp(200, Object.assign({ id }, th)) : resp(404, {});
+    }
+    if (o.search && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages?') >= 0) {
+      if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
+      const q = decodeURIComponent(u.split('q=')[1]); (log.queries = log.queries || []).push(q); return resp(200, { messages: o.search(q) });
+    }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
       if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
       if (u.indexOf('/messages?') >= 0) {
@@ -320,6 +329,7 @@ function sandbox(o = {}) {
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
   if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
+  if (!o.award) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'award'); if (i >= 0) K.splice(i, 1); }
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
@@ -1852,6 +1862,77 @@ test('TR6 triage inside the real Morning batch: 1 sort call + the engine\'s 1 dr
   assert.ok(batchOf(t).batch.items.find(i => i.key === q.key).acted, 'the line shows it was acted on');
   assert.ok(!t.log.sent, 'nothing sent before Kiko approves');
   t.at('2026-10-22', 7, 0); t.ctx.cueSweep(); assert.ok(!batchOf(t).batch || !batchOf(t).batch.items.some(i => i.kind === 'inbox'), 'yesterday\'s mail is not shown again');
+});
+
+/* ---------- CE award chasers (spec specs/ce-award-chasers.md, Kiko approved 08:11Z) ---------- */
+const AW = (o = {}) => Object.assign({ id: 'S-1', name: 'Acme Party', account: 'Acme Corp', status: 'For Client Awarding', date: '12/12/2026',
+  awaiting: { since: '2026-10-15', ce_total: 1250000, ce_no: 'CE-26-047' } }, o);
+const agm = (id, sent, phIso, extra) => ({ id, labelIds: sent ? ['SENT'] : ['INBOX'], internalDate: String(Date.parse(phIso + '+08:00')),
+  payload: { headers: [{ name: 'From', value: sent ? 'Kiko <kiko@example.com>' : 'Ana Reyes <ana@acme.example>' },
+    { name: 'To', value: sent ? 'Joy <joy@example.com>, "Ana Reyes" <ana@acme.example>' : 'kiko@example.com' },
+    { name: 'Subject', value: 'BSE cost estimate: Acme Party' }, { name: 'Message-ID', value: '<' + id + '@mail>' }].concat(extra || []) } });
+function awardBox(o = {}) {
+  const th = o.thread === undefined ? [agm('m1', true, '2026-10-15T10:00:00')] : o.thread;
+  return sweepBox(Object.assign({ award: true, projects: o.projects || [AW()], search: q => (th && /Acme Party/.test(q) ? [{ id: 'm1', threadId: 'T1' }] : []),
+    threads: th ? { T1: { messages: th } } : {} }, o), null);
+}
+const awItems = t => t.state(batchOf(t).id).batch.items.filter(i => i.kind === 'award');   // stored lines (the view leaves out thread ids and facts)
+
+test('A1 due after 3 business days: one item replying in the CE thread to the client (not Kiko\'s own domain), drafted in the one ChatGPT call; no price sent to ChatGPT', () => {
+  const t = awardBox(); t.ctx.cueSweep(); const [it] = awItems(t);
+  deq([it.key, it.who, it.to, it.thread_id, it.message_id, it.thread_subject], ['award:S-1', 'Ana Reyes', 'ana@acme.example', 'T1', '<m1@mail>', 'BSE cost estimate: Acme Party']);
+  assert.ok(/CE sent 2026-10-15 \(CE-26-047, PHP 1,250,000\), 4 business days with no award decision\. Event 2026-12-12\. Chaser 1 of 3/.test(it.why), it.why);
+  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.board, 1);
+  const sentToGpt = t.log.gpt[0].input; assert.ok(/chaser_number":1/.test(sentToGpt)); assert.ok(!/1250000|1,250,000|ce_total/.test(sentToGpt.replace(/"why":"[^"]*"/g, '')), 'no total in facts');
+  assert.ok(/in:sent newer_than:180d \("Acme Party" OR "S-1"\).*-RFQ/.test(t.log.queries[0]));
+  t.at('2026-10-21', 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true });
+  assert.strictEqual(t.log.replies.length, 1); assert.ok(/"threadId":"T1"/.test(t.log.replies[0].payload) && /In-Reply-To: <m1@mail>/.test(t.log.replies[0].payload));
+  assert.strictEqual(t.log.sent.length, 1, 'approved after 9: sent at once');
+});
+test('A2 not due yet (2 business days) and the weekend does not count: nothing to chase', () => {
+  const t = awardBox({ projects: [AW({ awaiting: { since: '2026-10-19' } })] }); t.ctx.cueSweep();
+  assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2]))); assert.strictEqual(t.log.gpt.length, 0);
+  assert.strictEqual(t.ctx.cueBizDays_('2026-10-16', '2026-10-19'), 1, 'Fri to Mon is one business day');
+});
+test('A3 the client replied after the CE: a flag to look, no draft and no AI call', () => {
+  const t = awardBox({ thread: [agm('m1', true, '2026-10-15T10:00:00'), agm('m2', false, '2026-10-20T09:00:00')] }); t.ctx.cueSweep(); const [it] = awItems(t);
+  assert.ok(/client replied on 2026-10-20/i.test(it.why)); assert.strictEqual(it.no_email, true); assert.strictEqual(t.log.gpt.length, 0);
+});
+test('A4 a chaser Kiko sent by hand counts: the next one waits 5 business days and is chaser 2', () => {
+  const thread = [agm('m1', true, '2026-10-12T10:00:00'), agm('m2', true, '2026-10-16T10:00:00')];
+  const t = awardBox({ thread, projects: [AW({ awaiting: { since: '2026-10-12' } })] }); t.ctx.cueSweep();
+  assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), '3 business days since the hand chaser');
+  t.at('2026-10-23', 7, 0); t.ctx.cueSweep(); const [it] = awItems(t);
+  assert.ok(/Chaser 2 of 3/.test(it.why)); assert.strictEqual(it.facts.chaser_number, 2); assert.strictEqual(it.message_id, '<m2@mail>', 'replies under the newest message');
+});
+test('A5 chased 3 times: no more drafts; "call the client or mark Not Awarded" once the next chaser would be due', () => {
+  const thread = [agm('m1', true, '2026-09-20T10:00:00'), agm('m2', true, '2026-09-25T10:00:00'), agm('m3', true, '2026-10-02T10:00:00'), agm('m4', true, '2026-10-14T10:00:00')];
+  const t = awardBox({ thread, projects: [AW({ awaiting: { since: '2026-09-20' } })] }); t.ctx.cueSweep(); const [it] = awItems(t);
+  assert.ok(/Chased 3 times with no decision\. Call the client, or mark it Not Awarded/.test(it.why)); assert.strictEqual(it.no_email, true);
+});
+test('A6 event within 7 days (or past) is urgent with no draft', () => {
+  const t = awardBox({ projects: [AW({ date: '10/25/2026' }), AW({ id: 'S-2', name: 'Old Gala', date: '2026-10-01', awaiting: {} })] }); t.ctx.cueSweep();
+  const [a, b] = awItems(t).sort((x, y) => x.key.localeCompare(y.key));
+  deq([a.priority, a.no_email, b.priority], ['urgent', true, 'urgent']);
+  assert.ok(/Event on 2026-10-25 and still no award/.test(a.why)); assert.ok(/has passed/.test(b.why)); assert.strictEqual(t.log.gpt.length, 0);
+});
+test('A7 no CE email in Sent: chase by hand (only once it is due); projects in other statuses are ignored', () => {
+  const t = awardBox({ thread: null, projects: [AW(), AW({ id: 'S-3', name: 'Done Expo', status: 'For Production Start' })] }); t.ctx.cueSweep();
+  const items = awItems(t); assert.strictEqual(items.length, 1); assert.ok(/No CE email found/.test(items[0].why)); assert.strictEqual(t.log.queries.length, 1);
+  const u = awardBox({ thread: null, projects: [AW({ awaiting: { since: '2026-10-20' } })] }); u.ctx.cueSweep();
+  assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
+});
+test('A8 Canvas without awaiting (before the next release): waiting since falls back to the CE email date; Drafts only counts as a chaser in the log', () => {
+  const t = awardBox({ projects: [AW({ awaiting: undefined })] }); t.ctx.cueSweep(); const [it] = awItems(t);
+  assert.strictEqual(it.due_since, '2026-10-15'); assert.ok(/CE sent 2026-10-15, 4 business days/.test(it.why));
+  t.ctx.cueApprove(batchOf(t).id, { send: false }); assert.ok(!t.log.sent);
+  t.at('2026-10-22', 7, 0); t.ctx.cueSweep(); assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'the draft counts: next one in 5 business days');
+});
+test('A9 Gmail access missing is a note on the batch, not a crash; the kind file loads after CueSweep.gs (Apps Script file order)', () => {
+  const t = awardBox({ gmailScope: true }); t.ctx.cueSweep();
+  assert.ok(batchOf(t).notes.some(n => /CE award chasers: could not check \(Cue does not have Gmail access/.test(n)));
+  const files = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort();
+  assert.ok(files.indexOf('CueSweepAward.gs') > files.indexOf('CueSweep.gs'));
 });
 
 let pass = 0;
