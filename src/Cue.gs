@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.20.4';
+const CUE_VERSION_ = 'Cue 1.21';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -723,6 +723,7 @@ function cueApprove(id, edits) {
 /** CUE-UNDO: Cancel intake removes what it wrote in Canvas (Kiko confirms first on the card). pid: the Same project? choice "remove it and add this". */
 function cueCancelIntake(id, pid) { cueOwner_(); return cueView_(cuePhCancel_(id, pid || '')); }
 function cueRescan(id, note) { cueOwner_(); return cueView_(cuePhRescan_(id, note)); }
+function cueRfqPick(id, sel) { cueOwner_(); return cueView_(cuePhPickSave_(id, sel || {})); }
 function cueRfq(id, i, act, edit) { cueOwner_(); return cueView_(cuePhRfq_(id, i, act, edit || null)); 
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */

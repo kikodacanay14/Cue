@@ -148,7 +148,7 @@ function cuePhCost_(s, save) {
   const E = k => ev[k] || { owned: [], ran: {}, quotes: [], stats: null, bse: { packages: [], items: [] }, suppliers: [] };
   const priced = k => { const v = E(k), b = v.bse || {}; return (b.packages || []).length || (b.items || []).length || (v.quotes || []).length || (v.owned || []).length; };
   const gaps = s.reqs.filter(r => !priced(r.key)), e = s.x.event;
-  const supNeed = s.reqs.filter(r => !(E(r.key).owned || []).length && (E(r.key).suppliers || []).length < 3);
+  const supNeed = s.reqs.filter(r => !(E(r.key).owned || []).length && (E(r.key).suppliers || []).length < CUE_SUPS_);
   s.stage = 'Claude costing'; save();
   const calls = [cueClaude_({ step: 'cost', system: CUE_C_SYSTEM_, schema: CUE_C_SCHEMA_, maxTokens: 12000,
     user: cueCostPrompt_(s, E) + (s.cost_note ? '\n\n<kiko_note>\n' + s.cost_note + '\n</kiko_note>' : '') })];
@@ -156,7 +156,7 @@ function cuePhCost_(s, save) {
     schema: CUE_RS_SCHEMA_, maxTokens: 8000, user: JSON.stringify({
       event: { type: e.type, date: e.date, venue: e.venue, city: e.city, pax: e.pax },
       price_needed: gaps.map(r => ({ key: r.key, category: r.category, description: r.description, quantity: r.quantity, occurrence: r.occurrence })),
-      suppliers_needed: supNeed.map(r => ({ key: r.key, category: r.category, description: r.description })),
+      suppliers_needed: supNeed.map(r => ({ key: r.key, category: r.category, description: r.description, need: CUE_SUPS_ - (E(r.key).suppliers || []).length })),
       known_suppliers: [].concat.apply([], s.reqs.map(r => (E(r.key).suppliers || []).map(x => x.name))).filter((n, i, a) => a.indexOf(n) === i) }) }));
   const out = cueAiAll_(s, calls);
   if (!out[0].ok) throw new Error(out[0].error);
@@ -347,8 +347,52 @@ function cuePhPrices_(s, edits) {
     return;
   }
   s.prices_saved = new Date(cueNow_()).toISOString();
-  cueChat_('Cue', 'Prices saved in Canvas: known cost ' + cuePeso_(p.totals.known_cost) + (p.totals.known_price ? ', price ' + cuePeso_(p.totals.known_price) : '') + '. GPT is drafting the RFQs.', s.id);
-  s.phase = 4; s.status = 'Working'; s.stage = 'GPT drafting RFQs'; delete s.card_at;
+  cueChat_('Cue', 'Prices saved in Canvas: known cost ' + cuePeso_(p.totals.known_cost) + (p.totals.known_price ? ', price ' + cuePeso_(p.totals.known_price) : '') + '.', s.id);
+  delete s.card_at; cuePhPick_(s);
+}
+
+/* ---------- Phase 4, step 0: RFQs for which? (Kiko 18:47Z) ---------- */
+/** The picking card: per line (outsourced lines ticked, each with its up to 5 suppliers) or one RFQ for everything
+ * (the suppliers covering the most lines, up to 5). No AI call: the suppliers come from costing. */
+function cuePhPick_(s) {
+  const p = s.proposal, cover = {}, order = [];
+  p.lines.forEach(l => (l.suppliers || []).forEach(x => { const k = cueName_(x.name); if (!cover[k]) { cover[k] = { x, n: 0 }; order.push(k); } cover[k].n++; }));
+  const sup = x => ({ name: x.name, email: x.email || '', new: !!x.new, preferred: !!x.preferred });
+  p.pick = { mode: 'line',
+    lines: p.lines.map(l => ({ key: l.key, on: l.execution === 'Outsourced' && !!(l.suppliers || []).length, suppliers: (l.suppliers || []).slice(0, CUE_SUPS_).map(sup) })),
+    all: order.map((k, i) => ({ k, i })).sort((a, b) => cover[b.k].n - cover[a.k].n || a.i - b.i).slice(0, CUE_SUPS_).map(o => sup(cover[o.k].x)) };
+  delete p.pick_sel;
+  cuePhCard_(s, 4, 'Pick the lines and suppliers that get an RFQ, or none.');
+}
+/** Kiko's pick. sel = { mode: 'line' | 'all', lines: [{ key, names }], names: [...], add: { <key or '*'>: { name, email } } }.
+ * Nothing picked ends the intake with no RFQs (Kiko 18:48Z). Otherwise GPT drafts one RFQ per supplier for its picked lines. */
+function cuePhPickSave_(id, sel) {
+  const L = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    const s = L.s, p = s.proposal || {};
+    if (s.status !== 'Needs you' || s.phase !== 4 || !p.pick || p.pick_sel) return Object.assign(L, { busy: true });   // a late tap: the card already moved on
+    const d = sel || {}, add = d.add || {}, by = {}, order = [];
+    const take = (x, keys) => { const k = cueName_(x.name); if (!k) return; if (!by[k]) { by[k] = { name: x.name, email: x.email || '', new: !!x.new, keys: [] }; order.push(k); }
+      keys.forEach(q => { if (by[k].keys.indexOf(q) < 0) by[k].keys.push(q); }); };
+    const extra = a => { const nm = cueStr_(a && a.name, 200).trim(); return nm ? { name: nm, email: cueEmail_(a.email), new: false } : null; };
+    const named = (list, names) => (names || []).map(cueName_).map(n => list.find(x => cueName_(x.name) === n)).filter(Boolean);
+    if (d.mode === 'all') {
+      const keys = p.lines.map(l => l.key), ex = extra(add['*']);
+      named(p.pick.all, d.names).concat(ex ? [ex] : []).forEach(x => take(x, keys));
+    } else (d.lines || []).forEach(q => {
+      const pl = p.pick.lines.find(x => x.key === q.key); if (!pl) throw new Error('There is no line ' + q.key + '.');
+      const ex = extra(add[q.key]);
+      named(pl.suppliers, q.names).concat(ex ? [ex] : []).forEach(x => take(x, [q.key]));
+    });
+    p.pick.mode = d.mode === 'all' ? 'all' : 'line';
+    p.pick_sel = order.slice(0, CUE_MAX_RFQS_).map(k => by[k]);
+    if (!p.pick_sel.length) { p.rfqs = []; cuePhDone_(s, 'No RFQs sent: you picked none.'); }
+    else { s.status = 'Working'; s.stage = 'GPT drafting RFQs'; s.error = ''; delete s.card_at; }
+    cueSave_(L.sh, L.row, s);
+    return L;
+  });
+  return L.busy || L.s.status !== 'Working' ? L.s : cueRunLeased_(id);
 }
 
 /** Phase 3 supplier edits per line: drop names, add one {name, email}. */
@@ -434,6 +478,7 @@ function cuePhReply_(ref, text, files) {
     if (s.phase === 1) { s.text = (s.text + '\n\nKiko adds: ' + t).slice(0, 12000); s.stage = 'GPT reading'; }
     else if (s.phase === 2) { s.rescan_note = cueStr_(t || 'New files attached: read them too.', 1000); s.stage = 'Claude reading requirements'; }
     else if (s.phase === 3) { s.cost_note = cueStr_(t, 1000); s.item_level = s.item_level || /\b(item|items|break\s*(it|them)?\s*down|breakdown|itemi[sz]e)\b/i.test(t); s.stage = 'Costing'; }
+    else if (!(s.proposal || {}).pick_sel) return '';   // the picking card: a reply is a question, answered in the chat
     else { s.rfq_note = cueStr_(t, 1000); s.stage = 'GPT drafting RFQs'; }
     s.status = 'Working'; delete s.card_at; cueSave_(L.sh, L.row, s);
     return { 1: 'Reading the details again with your note.', 2: 'Reading the requirements again with your note.', 3: 'Costing again with your note.', 4: 'Redrafting the RFQs with your note.' }[s.phase];
@@ -500,7 +545,7 @@ function cuePhView_(s) {
       unit_cost: l.unit_cost, cost_basis: l.cost_basis, unit_price: l.unit_price, price_basis: l.price_basis, price_name: l.price_name || '', why: l.why || '', note: l.note || '',
       flags: (l.flags || []).map(cuePhFlag_).filter((f, i, a) => a.indexOf(f) === i), sources: l.cost_basis === 'market research' ? l.sources || [] : [], stats: l.stats || null,
       suppliers: (l.suppliers || []).map(x => ({ name: x.name, email: x.email || '', new: !!x.new, preferred: !!x.preferred })) })),
-    totals: p.totals || null, prices_saved: s.prices_saved || '',
+    totals: p.totals || null, prices_saved: s.prices_saved || '', pick: p.pick && !p.pick_sel ? p.pick : null,
     rfqs: (p.rfqs || []).map((q, i) => { const x = (q.suppliers || [])[0] || {}; return { i, supplier: x.name || 'Supplier', email: x.email || '', new: !!x.new, keys: q.keys || [],
       subject: q.subject, body: q.body, state: q.state || 'open', error: q.error || '', logged: q.logged !== false }; }),
     questions: (s.x && s.x.questions) || [], risks: p.risks || [], study: p.study || '', rejected: s.rejected || null, work_s: Math.round((s.work_ms || 0) / 100) / 10 };
