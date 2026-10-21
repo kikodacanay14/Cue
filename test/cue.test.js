@@ -3571,6 +3571,22 @@ test('CV13 PC test 20:33Z: "Record project expense 979 ... for <project>" with n
   assert.ok(v.expense.project, 'project found by search_projects'); assert.strictEqual(t.log.xev[t.log.xev.length - 1].project_id, 'S-25506500TR');
   assert.ok(v.expense.plan, 'Claude planned it, so the card has Request payment and Approve');
 });
+test('CV14 1.25.2 (PC test 20:41Z): only an amount means quantity 1; Request payment carries the expense type and says when the scope is not For Payment Request', () => {
+  const q = (read, plan) => { const t = sandbox({ xread: Object.assign({}, XREAD, read), xev: () => XPROJ, xplan: plan ? Object.assign({}, XPLAN, plan) : XPLAN });
+    return t.ctx.cueExpense("Record project expense 979 Fresh N' Famous snack packs for Trick or Treat Manila", [], '').expense; };
+  assert.strictEqual(q({ amount: 979, quantity: 979, unit: '' }).read.quantity, 1, 'the amount copied into quantity');
+  assert.strictEqual(q({ amount: 979, quantity: 0 }).read.quantity, 1, 'no quantity shown');
+  assert.strictEqual(q({ amount: 450, quantity: 3 }).read.quantity, 3, 'a real quantity stays');
+  assert.strictEqual(q({ amount: 979, quantity: 979 }, { new_scope: Object.assign({}, XPLAN.new_scope, { quantity: 979 }) }).plan.new_scope.quantity, 1, 'new scope too');
+  const t = sandbox(), ex = st => ({ kind: 'expense', read: { amount: 979, item: 'Snack packs' }, expense: { project: { id: 'S-25506500TR', name: 'Trick or Treat' },
+    scopes: [{ id: 'SCP26-017-09', status: st }], plan: { route: 'existing_scope', scope_id: 'SCP26-017-09', expense_type: 'Supplies and Materials', amount: 979 } } });
+  const l = t.ctx.cueCanvasFor_(ex('Awarded')), qc = cvDec(cvQ(l.url).qc);
+  assert.strictEqual(qc.scope, 'SCP26-017-09'); assert.strictEqual(qc.etype, 'Supplies and Materials'); assert.strictEqual(qc.amount, 979);
+  assert.ok(/SCP26-017-09 is "Awarded".*For Payment Request/.test(l.note), l.note);
+  assert.strictEqual(t.ctx.cueCanvasFor_(ex('For Payment Request')).note, undefined, 'no note when Canvas lists it');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/r\.open\.note \? '<div class="small muted"/.test(html), 'the card shows the note under Open in Canvas');
+});
 test('CV8 the page sends every Canvas command to the server, never to the expense shortcut (CV_SAY mirrors cueCanvasParse_)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), m = /var CV_SAY = (\/.+\/i);/.exec(html);
   assert.ok(m); const re = eval(m[1]), t = sandbox({});

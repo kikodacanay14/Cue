@@ -2274,7 +2274,7 @@
   function cardHtml(r) {
     var h = cardBody(r);
     if (!r.open || r.kind === 'ar' || r.kind === 'supplier') return h;
-    var b = '<div class="cvrow">' + cvLink(r.open) + '</div>', at = h.indexOf('<div class="actions">');
+    var b = '<div class="cvrow">' + cvLink(r.open) + '</div>' + (r.open.note ? '<div class="small muted" style="margin-top:4px">' + esc(r.open.note) + '</div>' : ''), at = h.indexOf('<div class="actions">');
     if (at < 0) at = h.lastIndexOf('</div>');
     return at < 0 ? h + b : h.slice(0, at) + b + h.slice(at);
   }

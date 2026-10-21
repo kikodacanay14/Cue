@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.25.2: Request payment fill-ins from the 1.25.1 PC test (not deployed)
+
+- Request payment now passes the card's expense type (`etype`) as well as the scope. Canvas fills Expense type from it once the CUE-LINKS etype patch ships (CanvasWorkspace, same branch); an older Canvas ignores it.
+- Canvas's Request payment lists only scope cards marked For Payment Request. When the card's scope has another status, the card now says so under Open in Canvas ("SCP26-017-09 is "Awarded" in Canvas…"), and the Canvas patch's toast names the status instead of a generic "pick the scope".
+- Only an amount given ("979 snack packs") now reads as quantity 1. A quantity of 0, or one equal to the amount, becomes 1; a real quantity (3 rolls) stays. The new scope's quantity follows the same rule.
+- Tests: 264 of 264 pass (new CV14).
+
 ## Cue 1.25.1: fixes from the 1.25 PC test (not deployed)
 
 The PC test at 20:33Z passed ARs, FSAs and New scope. Two fixes:
