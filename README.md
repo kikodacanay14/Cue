@@ -14,7 +14,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 | 4 | GPT | Drafts one RFQ per supplier: Claude's DB picks plus the new suppliers research found (marked new and unaccredited). | 1 |
 | 5 | Kiko | Approves, edits first, or rejects in Cue. | no |
 | 6 | Canvas (code) | Re-checks everything (`submit_intake`), writes the project and lines once, and reads them back (`apply_intake`). If the re-check changes a number, nothing is written and the card comes back. | no |
-| 7 | Gmail | Each RFQ becomes a Gmail draft in **your own Gmail** (Kiko's choice, 21 Oct). With **Approve and send** (Kiko 21 Oct 06:17Z) Cue sends them after one confirm; **Drafts only** sends nothing. Sending from info@ (CUE_DRAFTS_IN=canvas) is not supported; those stay drafts. Setting `CUE_DRAFTS_IN=canvas` has Canvas make them in info@ instead (`make_rfq_drafts`). | no |
+| 7 | Gmail | Each RFQ becomes a Gmail draft in **your own Gmail** (Kiko's choice, 21 Oct). With **Approve and send** (Kiko 21 Oct 06:17Z) Cue sends them after one confirm; **Drafts only** sends nothing. RFQs never go out from info@ (Kiko, 21 Oct). | no |
 
 **Budget (Kiko, 21 Oct):** a major function makes 3 to 5 AI calls and finishes within 3 minutes. Every run records its AI calls and its seconds (time to the card and time to ready) in the Requests tab and on the card. A run over 5 calls or 180 seconds is flagged "Over budget". A retried call counts as a call.
 
@@ -42,8 +42,9 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
 - `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.
-- `CueBridge.gs`: signed calls to the Canvas bridge. It uses five actions only: `find_similar_projects`, `intake_evidence`, `submit_intake`, `apply_intake` and `make_rfq_drafts`.
+- `CueBridge.gs`: signed calls to the Canvas bridge. It uses `find_similar_projects`, `intake_evidence`, `list_project_files`, `get_project_board`, `submit_intake`, `apply_intake` and `save_project_file`.
 - `CueFiles.gs`: attachments. Up to 8 files, 10 MB each, 15 MB in all; big photos are shrunk to 2048 px on the page first. They are kept in a **Cue uploads** Drive folder Cue makes itself, and only GPT's read call sees them, so the call count does not change. Word and Excel files: save as PDF first.
+- `CueSweepRfq.gs`: RFQ chasers, a kind in the morning batch. Finds Kiko's sent RFQs with no supplier reply after 3 working days and drafts a nudge in the original thread. Gmail read only; no AI call of its own; at most 2 nudges, then Kiko decides.
 - `CueChange.gs`: change requests, started when Canvas's duplicate check finds the project (or Kiko says it is a change). Lists the project's folder files through Canvas, searches Kiko's **sent** Gmail (gmail.readonly) for RFQ emails about the project, then makes reply drafts in those threads with the attachments. Cue sees only Kiko's own mailbox, not info@.
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
@@ -65,7 +66,8 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `CUE_CLAUDE_EFFORT` (default `medium`)
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
-     - `CUE_DRAFTS_IN` (default `cue`, meaning your Gmail; `canvas` puts drafts in info@)
+     - `CUE_RFQ_CHASE_DAYS` (default 3: working days before an RFQ with no reply is chased; 1 when the event is within 7 days)
+     - `CUE_RFQ_NEVER` (addresses or domains never to chase, comma list; default none)
 3. **Set spend limits** in the OpenAI and Claude consoles.
 4. **Run `cueSetup`** once from the editor. It makes the Cue spreadsheet and the 5-minute resume trigger, and lists any missing keys. Then authorize the scopes it asks for:
    - Sheets
