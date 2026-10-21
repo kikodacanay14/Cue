@@ -1,6 +1,8 @@
 # Changelog
 
-## Cue 1.12 (two-pane layout; Kiko approved the mockup 13:01Z and the build 13:05Z)
+## Cue 1.12 (Kiko 13:53Z "lets deploy everything that can be deployed already")
+
+### Two-pane layout (Kiko approved the mockup 13:01Z and the build 13:05Z)
 
 Kiko 21 Oct 12:59Z, mockup approved 13:01Z: Cue looks like Claude's desktop app.
 
@@ -12,6 +14,13 @@ Kiko 21 Oct 12:59Z, mockup approved 13:01Z: Cue looks like Claude's desktop app.
 - **Phone (900 px wide or less):** the chat fills the screen. A **Threads** tab in the top bar slides the pane over the chat, and **← Chat** closes it.
 - No server change and no new scopes. Tests: 150 of 150 pass. The layout was checked in Chromium at desktop and phone widths with stub data.
 
+### Write Like Me, step 2 "Draft an email"
+
+- Ask in the chat, e.g. "email Lights Inc asking if they can deliver a day early" or "reply to Marco about the LED wall". The chat call that reads every message picks it (new field email: new or reply, who, what to say, audience, project), so routing costs no extra AI call.
+- Code finds your newest email with that person in Gmail (read only; an email address is matched exactly, a name in From/To) and reads its last message. Canvas matches come from the chat's own project lookup. Your own domain makes it a team email.
+- One GPT call drafts it with your style guide for that audience and the guide's sign-off. Missing facts come back as [brackets] and a note.
+- The card shows To, subject and text to edit. Approve and send (one confirm) replies in the thread, or sends a new email. Save to Gmail drafts never sends. Close saves nothing. No thread and no address: a new email with To blank, and sending waits until you type the address.
+- Budget: 1 AI call for the run, plus the chat call. Well under a minute.
 
 ## Cue 1.11 (Kiko 13:00-13:03Z "deploy and release the other tasks"; needs Canvas main V189 / Client V47)
 

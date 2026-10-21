@@ -542,12 +542,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.kind === 'style' && 'Your writing style') || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'style' && 'Your writing style') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'style' ? 'Writing style' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -612,7 +612,7 @@
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -633,7 +633,7 @@
       + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
-    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
       + (v ? '<div class="small">' + esc((v.cands || []).length) + ' supplier' + ((v.cands || []).length === 1 ? '' : 's') + (vp ? ' · Claude\'s pick: ' + esc(vp.name) : '') + '</div>' : '')
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
@@ -712,10 +712,12 @@
     ['Checking records', 'Code', 'Cue checks Personal Expense 2 and BSE Scopes and Transfers'], ['Needs you', 'Kiko', 'Waiting for your approval'],
     ['Saving', 'Sheets', 'Cue saves the rows and reads them back']];
   function personalName(r) { var x = ((r.personal || {}).items || [])[0]; return r.kind === 'personal' ? 'Personal expense' + (x && x.payee ? ': ' + x.payee : '') : ''; }
+  var MAILSTEPS = [['Finding the thread', 'Gmail', 'Cue finds your newest thread with them (read only)'], ['GPT drafting', 'GPT', 'GPT drafts it in your style'],
+    ['Needs you', 'Kiko', 'Edit, then send or save to Drafts'], ['Sending', 'Gmail', 'It goes out from your Gmail']];
   var STYLE = [['Reading sent emails', 'Gmail', 'Cue reads your sent emails (read only)'], ['Claude writing your guide', 'Claude', 'Claude writes your style guide'],
     ['Needs you', 'Kiko', 'Edit and approve the guide']];
   function workHtmlOf(r) {
-    var list = r.kind === 'style' ? STYLE : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -1372,7 +1374,26 @@
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>';
     return h + metricLine(r) + '</div>';
   }
+  // Draft an email (write-like-me step 2): one email in Kiko's style. Edit To, subject and text; send or keep it in Drafts.
+  function mailCardHtml(r) {
+    var M = r.mail || {}, D = M.draft, T = M.thread, waiting = r.status === 'Needs you' && D && !D.made;
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Email</div><b style="font-size:17px;color:#fff">Email to ' + esc(M.to || (D && D.to) || 'someone') + '</b>';
+    if (r.status === 'Failed' || !D) return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
+    h += '<div class="small muted">' + (T ? 'Reply in your thread "' + esc(T.subject) + '" (' + esc(T.date) + ')' + (T.url ? ' · <a href="' + esc(T.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '') : 'New email')
+      + (D.sent ? ' · <span class="tag pref">sent</span>' : D.made ? ' · <span class="tag new">in Drafts</span>' : '') + '</div>';
+    (r.notes || []).concat(M.note ? [M.note] : []).forEach(function (x) { h += '<div class="small muted" style="margin-top:4px">' + esc(x) + '</div>'; });
+    if (M.error) h += '<div class="err">' + esc(M.error) + '</div>';
+    if (waiting) h += '<div class="small" style="margin-top:8px">To <input data-mail-to="' + esc(r.id) + '" value="' + esc(D.to) + '" placeholder="their email address" aria-label="To" style="width:100%"></div>'
+      + '<div class="small" style="margin-top:6px">Subject <input data-mail-subject="' + esc(r.id) + '" value="' + esc(D.subject) + '" aria-label="Subject" style="width:100%"' + (T ? ' disabled' : '') + '></div>'
+      + '<textarea class="mail" data-mail-body="' + esc(r.id) + '" aria-label="Email text">' + esc(D.body) + '</textarea>';
+    else h += '<div class="small" style="margin-top:8px"><b>To</b> ' + esc(D.to || '(blank)') + ' · <b>Subject</b> ' + esc(D.subject) + '</div><pre style="margin-top:8px">' + esc(D.body) + '</pre>';
+    if (r.status === 'Needs you') h += '<div class="actions"><button class="btn" data-act="mail-send" data-id="' + esc(r.id) + '">' + (D.made ? 'Send it now' : 'Approve and send') + '</button>'
+      + (D.made ? '' : '<button class="btn ghost" data-act="mail-draft" data-id="' + esc(r.id) + '">Save to Gmail drafts</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
+    if (r.kind === 'email') return mailCardHtml(r);
     if (r.kind === 'style') return styleCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
@@ -1572,6 +1593,15 @@
         if (act === 'ready-pick') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyPick', [id, b.getAttribute('data-pid')], done, fail); }
         if (act === 'ready-followups') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyFollowups', [id], done, fail); }
         if (act === 'ready-recheck') { b.disabled = true; schedule(); return call('cueReadyRecheck', [id], done, fail); }
+        if (act === 'mail-send' || act === 'mail-draft') {
+          var mv = function (k) { var x = scope.querySelector('[data-mail-' + k + '="' + id + '"]'); return x ? x.value : null; };
+          var ed = { to: mv('to'), subject: mv('subject'), body: mv('body'), send: act === 'mail-send' };
+          var go = function () { b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, ed], done, fail); };
+          if (act === 'mail-draft') return go();
+          var rm = state.requests.filter(function (x) { return x.id === id; })[0] || {}, to = ed.to != null ? ed.to : (((rm.mail || {}).draft) || {}).to;
+          if (!String(to || '').trim()) return addLocal('Cue', 'Type their email address in To first, or save it to Drafts.');
+          return ask('Send this email now?', 'From your Gmail to: ' + to + '. Sent emails cannot be called back.', null, 'Send', go);
+        }
         if (act === 'approve-style') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }
         if (act === 'approve-ready') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }
         if (act === 'send-ready') {
