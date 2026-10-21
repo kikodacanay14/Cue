@@ -3069,3 +3069,18 @@ test('SK4 a plan ask about another topic never joins an open task thread (main c
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
+
+test('TC15 Kiko 18:00Z: a pasted phrasebook or memory list starts Learn my memory through cueSend (no chat call, no expense), with or without the prefix; the page skips expense() for it; a client brief and a one-line expense do not', () => {
+  const book = 'What you say\nWhat it means\n“Record project expense”\nSave the transaction to the correct project, scope and supplier entry.\n“Under…”\nUse the category or scope you specify.\n“Approved” / “Go ahead”\nExecute the specific proposal already presented.\n“How much?” / “So many words”\nLead with the amount.';
+  const list = 'Kiko prefers short answers.\nKiko uses BDO and GCash.\nKiko wants receipts kept separate.\nBSE handles events.\nKiko works in Manila time.';
+  const brief = 'Hi BSE,\nWe need a 3-day booth at SMX.\nLED wall 4x3m\nSound system\nIngress Nov 5, event Nov 6-8.\nPlease send a quote.';
+  [book, list, 'Please read this and learn my memory\n' + list].forEach((say, i) => {
+    const t = sandbox(), out = t.ctx.cueSend(say, [], '');
+    deq([t.log.gpt.length, t.state(out.request_id).kind, t.state(out.request_id).text], [0, 'memory', 'Learn my memory'], 'paste ' + i);
+  });
+  const c = sandbox().ctx; deq([c.cueMemPaste_(brief), c.cueMemPaste_('Record project expense 500 for AMI tarp'), c.cueMemPaste_('learn my memory')], [false, false, true]);
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/EXP_RE\.test\(t\) && !memPaste\(t\)/.test(page), 'the page does not send a pasted list to expense()');
+  const fn = page.match(/function memPaste\(t\) \{[\s\S]*?\n  \}\n/)[0], box = {}; vm.runInNewContext(fn + 'out = [memPaste(a), memPaste(b), memPaste(c), memPaste(d)];', Object.assign(box, { a: book, b: list, c: brief, d: 'Record project expense 500 for AMI tarp' }));
+  deq(box.out, [true, true, false, false], 'page and server agree');
+});

@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.19.6: a pasted memory list is learned, not run (not deployed)
+
+Kiko 18:00Z: a pasted phrasebook whose first row was "Record project expense" started an expense.
+
+- A pasted memory list or phrasebook goes to Learn my memory, with or without "learn my memory" in front: "learn my memory" anywhere, a "What you say / What it means" table, a column of quoted phrases, or mostly "Kiko prefers / wants / uses …" lines.
+- The page no longer sends such a paste to the expense form, and the server checks it before personal, money and chat routing. A client brief or a one-line expense routes as before.
+- Kiko's 10 phrases from that paste are saved as Always rules under My rules.
+
 ## Cue 1.19.5: plan asks stay out of unrelated threads (not deployed)
 
 PC retest of 1.19.4 (17:58Z): "Write a plan for a client year-end thank-you campaign" went into the Morning batch thread, and the chat said "Answered in the that task thread."

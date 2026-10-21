@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.5';
+const CUE_VERSION_ = 'Cue 1.19.6';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -166,6 +166,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
   if (mode !== 'intake' && !has && CUE_MEM_RE_.test(String(text || ''))) return cueTeachStart_('memory', text);
   if (mode !== 'intake' && !has && CUE_PROC_RE_.test(String(text || ''))) return cueTeachStart_('process', text);
+  if (mode !== 'intake' && !has && cueMemPaste_(text)) return cueTeachStart_('memory', text);
   // Teach Cue add-on (Kiko 17:00Z): a phrase Kiko taught Cue word for word is a money question with no AI call routing it.
   if (!forced && !has && mode !== 'intake' && !inThread && cueRouteExact_(text) === 'money') return cueFinance_(String(text).trim(), '');
   // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.

@@ -16,6 +16,20 @@ const CUE_PROC_WHO_ = ['Claude', 'ChatGPT', 'Code', 'Canvas', 'Zapier', 'Kiko'];
 const CUE_TEACH_MAX_ = { pasted: 20000, facts: 60, fact: 400, known: 150, processes: 8, always: 12, pick: 8, memChars: 1800, procChars: 1500, input: 8000 };
 const CUE_MEM_RE_ = /^\s*(?:please\s+)?(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:memory|memories)\b[\s:.,!-]*/i;
 const CUE_PROC_RE_ = /^\s*(?:please\s+)?(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:process|processes|skills?|custom\s+instructions)\b[\s:.,!-]*/i;
+// Kiko 18:00Z: a pasted memory list or phrasebook ("What you say / What it means", "Kiko prefers …") is something to learn, never a
+// command its first lines name ("Record project expense" ran an expense). Index.html memPaste() mirrors this for the page's own routes.
+const CUE_MEM_ANY_RE_ = /\b(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:memory|memories)\b/i;
+const CUE_MEM_LINE_RE_ = /\b(?:kiko|i|he|she|you)\s+(?:prefers?|wants?|likes?|dislikes?|uses?|works?|lives?|hates?|needs?)\b|\bit means\b|^(?:always|never)\b|^when (?:i|kiko|you) says?\b/i;
+function cueMemPaste_(t) {
+  const s = String(t || '');
+  if (CUE_MEM_ANY_RE_.test(s)) return true;
+  const lines = s.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (lines.length < 5) return false;
+  if (/^what (?:you|i|kiko) says?\b/im.test(s) && /\bwhat it means\b/i.test(s)) return true;
+  if (lines.filter(x => /^["\u201c'].{2,80}["\u201d']$/.test(x)).length >= 3) return true;   // a column of quoted phrases
+  const hits = lines.filter(x => CUE_MEM_LINE_RE_.test(x)).length;
+  return hits >= 3 && hits * 3 >= lines.length;
+}
 const CUE_TEACH_SECRET_RE_ = /\b(password|passcode|api[ _-]?key|secret key|token|otp|pin code|cvv)\b|\d(?:[ -]?\d){11,}/i;
 
 const CUE_MEM_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['summary', 'facts'],
