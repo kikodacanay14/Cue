@@ -63,7 +63,7 @@ function cueAccrFind_(ctx) {
       why: 'They answered on ' + answered + (r.replied_by === 'form' ? ' (accreditation form)' : '') + '. Read their documents in Canvas; still missing: ' + r.missing.join(', ') + '.' });
     if (!r.sent_to.length) return Object.assign(base, { no_email: true, needs_draft: false, why: 'No email address on file. Add one in Canvas to chase. Missing: ' + r.missing.join(', ') + '.' + contact });
     const gap = r.reminders || r.last_reminder ? rule.every || 3 : rule.first || 3;   // the engine's Chase log also applies every and max
-    if (!first && today < cueAddDays_(last, gap)) return null;
+    if (!first && today < (rule.unit === 'working' ? cueAddWork_ : cueAddDays_)(last, gap)) return null;
     return Object.assign(base, { why: (first ? 'Accreditation form not sent yet' : 'Form sent ' + r.form_sent + (r.reminders ? ', ' + r.reminders + ' reminder(s)' : ''))
       + '. Missing: ' + r.missing.join(', ') + '.' + (soon ? ' Event on ' + r.event_date + '.' : '') + contact });
   }).filter(Boolean);
