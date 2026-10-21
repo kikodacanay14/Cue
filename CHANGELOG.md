@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.10 (Write Like Me, step 1; not deployed)
+
+- Kiko approved specs/write-like-me.md (21 Oct 08:21Z: the old skill lives in ChatGPT; yes to reading sent emails; Claude writes the guide, ChatGPT keeps drafting).
+- Type "learn my style" in the chat (optionally paste your old Write Like Me notes after those words). Plain words, so no AI call routes it. Cue reads up to 100 of your sent emails from the last year (Gmail read only), keeps one per thread, drops forwards, auto-replies, quoted replies and anything over 2,000 characters, masks email addresses and phone numbers, and tags each one team (your own domain) or outside. Then one Claude call writes the guide: tone, greeting and sign-off per audience, phrases, things to avoid, length, language, and short example emails with placeholders.
+- The guide waits on a card in its own thread. Edit or untick lines, then Approve and save. Only then does Cue write the new Style tab of the Cue sheet (On | Audience | Kind | Text). Close saves nothing. Re-learning replaces the tab, and the replaced lines are kept in the request.
+- Every RFQ, requote and readiness follow-up now adds the guide for its audience to the drafting call it already makes (no extra AI call), and uses the guide's sign-off instead of CUE_SIGNOFF. With no guide, the prompts are exactly as before. Edit or switch off any line in the sheet.
+- Budget: 1 AI call (Claude), well under a minute.
+
 ## Cue 1.9 (readiness check; Kiko said deploy 08:21Z; needs Canvas V186, live)
 
 - Readiness check (Kiko approved specs/project-readiness.md, 21 Oct 07:32Z). Ask "is X ready?" or "what's missing for X?" in the chat. The chat call names the project; Canvas finds it (several open matches: pick on the card; a project ID works too) and returns its readiness checklist exactly as the Checklist tab scores it (new bridge read get_readiness: Pre-Event Readiness before the event, Closeout after). Cue flags overdue items, missing owners and blockers within 7 days of the event, and looks in your Gmail (subjects and snippets, last 60 days) for proof Canvas hasn't recorded. One Claude call writes the summary, the top 3 risks, what closes each open blocker, and whether each email or file looks like proof. The card leads with Canvas's own count (Blockers clear X of Y), never an AI number.
