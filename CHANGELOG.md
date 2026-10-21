@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.20.1: a table pasted with tabs is learned, not run (not deployed)
+
+PC test of 1.19.6 (18:17Z): three "phrase<TAB>meaning" rows starting "Record project expense" still started an expense, and one row did too. 1.19.6 only looked at pastes of 5 lines or more.
+
+- A pasted table of "phrase<TAB>meaning" rows goes to Learn my memory, even one row. Each tabbed row needs a short phrase and a meaning of 3 words or more, and no amounts. A tabbed receipt or bank table with amounts routes as before.
+- The page and the server use the same check.
+
 ## Cue 1.20: tutor mode (not deployed)
 
 Kiko 17:39Z-17:46Z: "rather than it doing things right away... it asks first Claude to see what it needs to do". Kiko picked option C of specs/tutor-mode.md.
