@@ -844,7 +844,7 @@
   }
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
-    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo' };
+    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip' };
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -868,7 +868,7 @@
   // nothing. Each name that matches a saved file of the message's task is now a link that opens in the viewer.
   function fileText(m) {
     var t = String(m.text || ''), at = t.lastIndexOf('\n📎 '), r = m.request_id && byId()[String(m.request_id).replace(/^>/, '')];
-    if (at < 0 || !r || !(r.files || []).length) return esc(t);
+    if (at < 0 || !r || !(r.files || []).length) return esc(t).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; });   // the connect ticktick link
     return esc(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
       var f = r.files.filter(function (x) { return x.name === n && /^[\w-]{10,}$/.test(x.id || ''); })[0];
       return f ? fileLink(f) : esc(n);

@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.19: skills and TickTick (not deployed)
+
+Kiko 17:26Z approved "step 1 + TickTick" of specs/cue-skills-connectors.md.
+
+- Skills: the useful parts of the Data, Superpowers and Product design skills are now four approved processes in the Workflows tab: Analyze data, Brainstorm an idea, Write a plan, Review a design. They are written once, with Target "Chat" and Use in prompts on. Kiko edits or switches them off there.
+- A Chat process shapes only the chat reply, and only when Kiko's words match its trigger. An intake brief that says "booth design" never pulls the design review into costing. No extra AI call.
+- TickTick: "add … to my TickTick" fills a to-do in the chat call Cue already makes (new "todo" field, no extra AI call). Cue asks "Add to TickTick: …?" with Add or Skip. Nothing reaches TickTick before Add, and Add creates it once.
+- "What's on my TickTick" lists open tasks from the Inbox (and CUE_TICKTICK_PROJECT when set), soonest due first. Read only.
+- Connect: "connect ticktick" (no AI call) gives the setup steps, then a sign-in link. TickTick sends Kiko back to Cue, which checks the one-use state and keeps the token in Script Property CUE_TICKTICK_TOKEN. The token never shows in chat or the sheet.
+- Kiko setup: make an app at developer.ticktick.com (Manage Apps), set its redirect URL to Cue's web app URL, add CUE_TICKTICK_CLIENT_ID and CUE_TICKTICK_CLIENT_SECRET in Script Properties, then type "connect ticktick".
+- Tests: 213 of 213 pass (new SK1, TT1 to TT3).
+
 ## Cue 1.18.1: My rules (not deployed)
 
 Kiko 17:12Z: "we should have custom rules area and it should pick up these rules as we go".
