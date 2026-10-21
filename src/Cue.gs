@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.3';
+const CUE_VERSION_ = 'Cue 1.19.4';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -142,7 +142,7 @@ function cueSave_(sh, row, s) {
     new Date(cueNow_())].concat(parts)]);
 }
 function cueChat_(who, text, id) {
-  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 5000), id || '']); } catch (e) { console.error('Chat log: ' + e); }
+  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || '']); } catch (e) { console.error('Chat log: ' + e); }
 }
 
 /* ---------- what the page calls ---------- */
@@ -379,6 +379,13 @@ function cuePlanAsk_(t, force) {
   return force !== 'workflow' && /\b(plan|checklist|to-?do list|brainstorm|analy[sz]e|analysis|roadmap|timeline)\b/i.test(String(t || ''))
     && !/\b(map|zap|zapier|workflow|automat\w*)\b/i.test(String(t || ''));
 }
+/** PC test 17:52Z: a written plan was cut mid-sentence at 3,000 characters. Long replies are kept whole up to n, and anything
+ * longer ends at the last full sentence with "(cut short)", never mid-word. */
+function cueReplyCut_(t, n) {
+  if (t.length <= n) return t;
+  const head = t.slice(0, n), end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('.\n'), head.lastIndexOf('\n'));
+  return (end > n / 2 ? head.slice(0, end + 1) : head).trim() + '\n(cut short)';
+}
 function cueTalk_(t, ref, force) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
@@ -395,7 +402,7 @@ function cueTalk_(t, ref, force) {
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
   const found = cueLookup_(s, t), ex = cueRouteExamples_(t);
-  const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
+  const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema: CUE_TALK_SCHEMA_, maxTokens: cuePlanAsk_(t, force) ? 4000 : 1500,
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
@@ -405,7 +412,7 @@ function cueTalk_(t, ref, force) {
   const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
   const lookupOnly = /\b(look\s*up|lookup|find|search|check|show|where\s+is|what\s+is|status)\b/i.test(t) && !/\b(run|start|redo|re-?run|begin|cost|requote|intake|send|draft|proceed|go ahead)\b/i.test(t);
-  let reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
+  let reply = r.ok ? cueReplyCut_(String(r.data.reply || '').trim(), 8000) : 'I could not answer just now (' + r.error + ').';
   if (r.ok && lookupOnly && (r.data.start_intake || /\b(i('ve| have)? started|i'?m starting|starting the|running (the )?costing|i'?ll (start|run))\b/i.test(reply))) {
     r.data.start_intake = '';
     reply = /^none|failed/.test(found) ? 'I could not find that project in Canvas (' + found + '). Try another name or the project ID.'
