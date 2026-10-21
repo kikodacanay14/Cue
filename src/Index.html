@@ -53,6 +53,7 @@
   .ibtn:hover, .ibtn[aria-pressed="true"] { background:var(--panel); color:var(--white); } .ibtn:focus-visible { outline:2px solid var(--act); }
   .ibtn svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .pane-x, .pane-wide { display:none; }
+  .pane.shut { display:none; }   /* PC test 17:42Z: ✕ closes the pane on a wide screen too; ☰ Threads opens it again */
   @media (min-width: 901px) { .pane-wide { display:inline-flex; } }
   .pane.wide { width:65%; max-width:none; }
   #pscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px; }
@@ -114,10 +115,17 @@
   .fcard { display:flex; flex-direction:column; gap:8px; width:160px; padding:10px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); text-decoration:none; }
   .fcard:hover { border-color:var(--muted); } .fcard:focus-visible { outline:2px solid var(--act); }
   .fcard .ft { align-self:flex-start; padding:1px 6px; border:1px solid var(--line2); border-radius:4px; font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; }
+  .fcard .fth img, #v-img { background:#fff; }
   .fcard .fth { height:64px; border-radius:6px; background:#0e0f11 center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; overflow:hidden; }
   .fcard .fth img { width:100%; height:100%; object-fit:cover; }
   .fcard .fn { font-size:14px; line-height:1.3; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .tcomposer { flex:none; background:#17181c; padding:8px 14px 10px; }
+  /* Kiko 17:42Z: a thread's task card minimizes, like Claude's, to a bar that sits on top of the reply box. */
+  .tdock { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; margin:0 0 8px; padding:8px 12px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+  .tdock:hover, .tdock:focus-visible { border-color:var(--muted); }
+  .tdock .tdt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .tdock .need { color:var(--need); font-size:12px; } .tdock .st { color:var(--muted); font-size:12px; }
+  .tcards-bar { display:flex; justify-content:flex-end; margin:4px 0 -4px; }
   .rbox { display:flex; align-items:flex-end; gap:6px; padding:4px 6px 4px 14px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); }
   .rbox:focus-within { border-color:var(--act); }
   .rbox textarea { flex:1; min-height:40px; max-height:160px; border:0; background:none; padding:9px 0; resize:none; outline:none; }
@@ -216,6 +224,19 @@
   .edit input { width:90px; } .edit input.wide { width:100%; }
   textarea.mail { display:block; width:100%; min-height:140px; margin-top:8px; resize:vertical; font:500 14px/1.5 var(--font); }
   [hidden] { display:none !important; }
+  /* Kiko 17:44Z: settings and config live on one page, opened from Kiko's avatar (like Claude's settings). */
+  .avatar { all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--act); color:#0b0c0e; font-weight:800; font-size:14px; }
+  .avatar:focus-visible { outline:2px solid var(--white); outline-offset:2px; }
+  #settings { position:fixed; inset:0; z-index:30; background:var(--bg, #121316); display:flex; flex-direction:column; }
+  #settings .shead { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--head); }
+  #settings .shead h2 { margin:0; font:400 20px/1.1 var(--display); color:var(--white); flex:1; }
+  #settings .sbody { flex:1; min-height:0; display:flex; }
+  #settings .snav { flex:none; width:200px; padding:12px; border-right:1px solid var(--line); overflow:auto; }
+  #settings .snav button { all:unset; box-sizing:border-box; display:block; width:100%; padding:8px 10px; border-radius:6px; cursor:pointer; color:var(--text); font-size:14px; }
+  #settings .snav button[aria-current="true"] { background:var(--head); color:var(--white); font-weight:700; }
+  #settings .smain { flex:1; min-width:0; overflow:auto; padding:16px 20px 40px; }
+  #settings .smain > section { max-width:760px; }
+  @media (max-width: 700px) { #settings .sbody { flex-direction:column; } #settings .snav { width:auto; display:flex; gap:4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } #settings .snav button { width:auto; white-space:nowrap; } }
 </style>
 </head>
 <body>
@@ -223,7 +244,23 @@
   <div class="logo" aria-hidden="true"></div>
   <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread. <span id="ver" title="The Cue version this page is running"></span></div></div>
   <span class="dot" id="dot" title="Connected"></span>
+  <button class="avatar" id="avatar" title="Settings" aria-label="Settings">K</button>
 </header>
+<div id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-t" hidden>
+  <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sbody">
+    <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="auto">Auto-send</button>
+    </div>
+    <div class="smain">
+      <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
+      <section data-sec="procs" hidden><div class="label" style="margin-top:0">Processes</div><div id="w-procs"></div></section>
+      <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
+      <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
+      <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
+    </div>
+  </div>
+</div>
 <div class="split">
 <div class="left">
 <nav>
@@ -273,14 +310,13 @@
       <input type="search" class="tsearch" id="tsearch" placeholder="Search threads" aria-label="Search threads" hidden>
       <div id="w-access"></div>
       <div id="tlist"></div>
-      <div class="label" id="myrules-label">My rules</div><div id="w-myrules"></div>
-      <div class="label" id="rules-label">Chaser rules</div><div id="w-rules"></div>
     </section>
     <section id="page-thread" hidden>
       <div class="msgs" id="tmsgs"></div>
     </section>
   </div>
   <div class="tcomposer" id="tcomposer" hidden>
+    <div id="tdock"></div>
     <div class="files" id="tfiles" aria-live="polite"></div>
     <div class="rbox">
       <textarea id="tbox" placeholder="Reply in this thread" aria-label="Reply in this thread"></textarea>
@@ -369,7 +405,7 @@
   var bubble = false, grown = 0, GROW = 440;
   function paneOpen(on) {
     var narrow = window.innerWidth <= 900, was = $('pane').classList.contains('open');
-    $('pane').classList.toggle('open', on);
+    $('pane').classList.toggle('open', on); $('pane').classList.toggle('shut', !on);
     if (on && !was && narrow && bubble && !grown) { grown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
     if (!on && grown) { window.postMessage({ cueResize: -grown }, '*'); grown = 0; }
   }
@@ -450,11 +486,20 @@
     if (k.img && id) {
       st.innerHTML = '<img id="v-img" class="fit" alt="' + esc(f.name) + '" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(id) + '&amp;sz=w2400">';
       $('v-img').onload = viewZoom;
-      $('v-img').onerror = function () { viewFrame(f); };   // no thumbnail (no access yet, or not an image after all): Drive's own preview
+      $('v-img').onerror = function () {   // no thumbnail yet (a fresh screenshot): the image itself from Cue, else Drive's own preview
+        var im = this; im.onerror = function () { viewFrame(f); };
+        imgData(id, function (u) { if (vlist[vat] === f) im.src = u; }, function () { if (vlist[vat] === f) viewFrame(f); });
+      };
       zoomOn(true);
     } else viewFrame(f);
     viewZoom();
   }
+  var imgCache = {};   // file id -> data: URL, so a card thumbnail and the viewer fetch an image once
+  function imgData(id, ok, bad) {
+    if (imgCache[id]) return ok(imgCache[id]);
+    call('cueFileData', [id], function (u) { imgCache[id] = u; ok(u); }, bad || function () {});
+  }
+  window.cueThumb = function (im, id) { im.onerror = function () { im.remove(); }; imgData(id, function (u) { im.src = u; }, function () { im.remove(); }); };
   function viewFrame(f) {
     $('v-stage').innerHTML = '<iframe title="' + esc(f.name) + '" allow="autoplay" src="' + esc(f.preview) + '"></iframe>';
     zoomOn(false); $('v-pct').textContent = '';   // Drive's preview zooms inside itself
@@ -520,7 +565,7 @@
     if (p === 'close') { closeTab(pactive); pactive = 'list'; paneShow(); return paneOpen(false); }   // PC test 17:30Z: ✕ closes the pane; "Threads ›" goes back
     if (p === 'search') { searching = !searching; $('tsearch').hidden = !searching; if (searching) $('tsearch').focus(); else if (tq) { $('tsearch').value = tq = ''; } return renderChat(); }
     if (p === 'archived') { showArchived = !showArchived; dirty(); return renderChat(); }
-    if (p === 'rules') return $('myrules-label').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (p === 'rules') return settingsOpen('rules');
     if (p === 'task') { tbOpen = !tbOpen; return renderChat(); }
     if (p === 'wide') { wide = !wide; $('pane').classList.toggle('wide', wide); return renderChat(); }
   });
@@ -531,7 +576,7 @@
       var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
       h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
-        + ib('data-p="rules"', 'more', 'My rules and chaser rules') + x;
+        + ib('data-p="rules"', 'more', 'Settings') + x;
     } else {
       var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
@@ -868,6 +913,9 @@
   // nothing. Each name that matches a saved file of the message's task is now a link that opens in the viewer.
   function fileText(m) {
     var t = String(m.text || ''), at = t.lastIndexOf('\n📎 '), r = m.request_id && byId()[String(m.request_id).replace(/^>/, '')];
+    // PC test 17:42Z: a main-chat line has no task id, so its file names were plain text. Find the task that has those files.
+    if (at >= 0 && !r) { var nm = t.slice(at + 4).split(', '); r = state.requests.filter(function (x) { return (x.files || []).some(function (f) { return nm.indexOf(f.name) >= 0; }); })
+      .sort(function (a, b) { return Math.abs(Date.parse(a.created) - Date.parse(m.time)) - Math.abs(Date.parse(b.created) - Date.parse(m.time)); })[0]; }
     if (at < 0 || !r || !(r.files || []).length) return esc(t).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; });   // the connect ticktick link
     return esc(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
       var f = r.files.filter(function (x) { return x.name === n && /^[\w-]{10,}$/.test(x.id || ''); })[0];
@@ -896,21 +944,26 @@
     var by = byId(), seen = {}, shown = {}, h = '';
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
-    state.chat.concat(outbox).forEach(function (m) {
+    var prev = null;
+    state.chat.concat(outbox).forEach(function (m) { one(m); prev = m; });
+    function one(m) {
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
         // pointers (updates, "Summary for …") live in the thread only.
-        if (pt && shown[to]) return;
+        // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
+        var answers = prev && prev.who === 'Kiko' && !prev.request_id;
+        if (pt && shown[to] && !answers) return;
+        if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
         h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
         return;
       }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
       h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
-    });
+    }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
@@ -922,6 +975,14 @@
       + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</div>';
   }
   // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
+  var cardMin = {}; try { cardMin = JSON.parse(localStorage.getItem('cue.cardmin') || '{}') || {}; } catch (e) {}
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-tmin]'); if (!b || !openThread) return;
+    var root = rootOf(openThread, byId()); cardMin[root] = b.getAttribute('data-tmin') === '1';
+    if (!cardMin[root]) delete cardMin[root];
+    try { localStorage.setItem('cue.cardmin', JSON.stringify(cardMin)); } catch (x) {}
+    $('tmsgs')._h = null; lastThread = -1; renderChat();
+  });
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
@@ -931,6 +992,7 @@
     var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
       + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('')
       + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
+    var cardsAt = h.length;
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
@@ -943,6 +1005,11 @@
     });
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
+    // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
+    var cards = h.slice(cardsAt), min = !!cardMin[t.root] && cards.length > 0, st = threadState(t);
+    if (cards) h = h.slice(0, cardsAt) + (min ? '' : '<div class="tcards-bar">' + ib('data-tmin="1"', 'chev', 'Minimize the card') + '</div>' + cards);
+    setHtml($('tdock'), min ? '<button class="tdock" data-tmin="0" aria-label="Open the card"><span class="tdt">' + esc(threadTitle(t)) + '</span>'
+      + (st.need ? '<span class="need">Needs you</span>' : '<span class="st">' + esc(st.text) + '</span>') + '<span aria-hidden="true">⌃</span></button>' : '');
     setHtml($('tmsgs'), h);
     bind();
   }
@@ -960,7 +1027,7 @@
   }
   function fileCardHtml(x) {
     var ext = (/\.(\w{1,5})$/.exec(x.name || '') || [])[1] || '', img = /^(png|jpe?g|gif|webp|heic)$/i.test(ext), ok = /^[\w-]{10,}$/.test(x.id || '');
-    var body = '<span class="ft">' + esc((ext || 'file').toUpperCase()) + '</span><span class="fth">' + (img && ok ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(x.id) + '&amp;sz=w320" onerror="this.remove()">' : '📄') + '</span><span class="fn">' + esc(x.name) + '</span>';
+    var body = '<span class="ft">' + esc((ext || 'file').toUpperCase()) + '</span><span class="fth">' + (img && ok ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(x.id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(x.id) + '\')">' : '📄') + '</span><span class="fn">' + esc(x.name) + '</span>';
     return ok ? '<a class="fcard" data-name="' + esc(x.name) + '" href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + body + '</a>' : '<span class="fcard">' + body + '</span>';
   }
   function doneHtml(r, reopen) {
@@ -1085,6 +1152,31 @@
     h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
     return h + metricLine(r) + '</div>';
   }
+  // ---- Settings page (Kiko 17:44Z): memory, rules, personality, processes, chaser rules, connections, auto-send. ----
+  var settingsData = null;
+  function settingsOpen(sec) {
+    $('settings').hidden = false; settingsTab(sec || 'rules'); loadMyRules(); loadRules();
+    call('cueSettings', [], function (r) { settingsData = r; renderSettings(); }, function () {});
+    var b = $('snav').querySelector('[aria-current="true"]'); if (b) b.focus();
+  }
+  function settingsTab(sec) {
+    $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
+    document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
+  }
+  function renderSettings() {
+    var S = settingsData || {}, P = S.processes || [];
+    setHtml($('w-procs'), '<div class="card">' + (P.length ? P.map(function (x) {
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span>' + (x.on ? '✓' : '○') + '</span><span style="flex:1">' + esc(x.name) + (x.target ? ' <span class="small muted">· ' + esc(x.target) + '</span>' : '') + '</span><span class="small muted">v' + esc(x.version) + (x.on ? ', used in prompts' : ', off') + '</span></div>'; }).join('')
+      : '<div class="small muted">No processes yet. Say "learn my process" and paste your steps.</div>')
+      + '<div class="small muted" style="margin-top:10px">Edit steps, or switch "Use in prompts", in the Workflows tab' + (S.sheet_url ? ' of <a href="' + esc(S.sheet_url) + '" target="_blank" rel="noopener">your Cue sheet</a>' : ' of your Cue sheet') + '.</div></div>');
+    var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
+    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
+  }
+  $('avatar').onclick = function () { settingsOpen(); };
+  $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
+  $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) { $('settings').hidden = true; $('avatar').focus(); } });
+
   // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
   // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----
   var myRules = null, myOpen = true, myOther = false, myEdit = 0, myErr = '', mySig = null;
@@ -1108,8 +1200,10 @@
   function renderMyRules() {
     if (!myRules) return;
     var R = myRules.rows.filter(function (x) { return x.topic === 'rules'; }), F = myRules.rows.filter(function (x) { return x.topic !== 'rules'; });
-    var on = R.filter(function (x) { return x.on; }).length;
+    var on = R.filter(function (x) { return x.on; }).length; var V = myRules.voice;
     var h = '<details class="card"' + (myOpen ? ' open' : '') + ' id="myrules-card"><summary><b>Rules Cue follows</b> <span class="small muted">' + on + ' on' + (R.length > on ? ', ' + (R.length - on) + ' off' : '') + '</span></summary>'
+      + (V ? '<div class="small" style="margin-top:8px"><label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" data-my="voice-on"' + (V.on ? ' checked' : '') + '> <b>Personality</b></label> <span class="muted">how Cue sounds in chat replies; cards and emails stay plain</span></div>'
+        + '<div style="display:flex;gap:8px;margin-top:4px;align-items:flex-end"><textarea data-say="my-voice" style="flex:1;min-width:0;min-height:52px" aria-label="Personality">' + esc(V.text) + '</textarea><button class="btn ghost" data-my="voice">Save</button></div>' : '')
       + '<div style="display:flex;gap:8px;margin-top:8px"><input data-say="my-add" placeholder="Add a rule, e.g. RFQs never go out from info@" style="flex:1;min-width:0" aria-label="New rule"><button class="btn" data-my="add">Add</button></div>'
       + (myErr ? '<div class="err">' + esc(myErr) + '</div>' : '')
       + (R.length ? R.map(myRowHtml).join('') : '<div class="small muted" style="margin-top:8px">No rules yet. Correct Cue in any thread, or start a message with "remember:", and the rule shows up here.</div>')
@@ -1132,8 +1226,11 @@
     if (act === 'cancel') { myEdit = 0; return renderMyRules(); }
     if (act === 'save') { var t = document.querySelector('[data-say="my' + row + '"]'); return mySave({ row: row, was: x.text, text: t ? t.value : x.text }, b); }
     if (act === 'del') return mySave({ row: row, was: x.text, del: true }, b);
+    if (act === 'voice') { var vt = (document.querySelector('[data-say="my-voice"]') || {}).value || ''; return mySave({ voice: vt, on: (myRules.voice || {}).on !== false }, b); }
   });
   $('w-myrules').addEventListener('change', function (e) {
+    var vc = e.target.closest('[data-my="voice-on"]');
+    if (vc) return mySave({ voice: (myRules.voice || {}).text || '', on: vc.checked }, vc);
     var c = e.target.closest('[data-my="on"]'); if (!c) return;
     var row = Number(c.getAttribute('data-row')), x = (myRules.rows.filter(function (y) { return y.row === row; })[0]) || {};
     mySave({ row: row, was: x.text, on: c.checked }, c);

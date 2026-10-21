@@ -3011,6 +3011,25 @@ test('TC13 "remember:" for a rule that was switched off turns it back on and ask
   assert.ok(/already have that rule, and it is on\. See it under My rules/.test(t.tabs.Chat.rows.pop()[2]));
 });
 
+test('TC14 PC test 17:42Z + Personality: a vague message that GPT only answered still asks; the picked voice goes in the chat call only and can be edited or switched off; Settings shows processes and connections, never tokens', () => {
+  const t = sandbox({ talk: { reply: 'No Canvas project matched AMI Group, say the name or S-ID.', looks_like_inquiry: false, sure: true, choices: [] } });
+  t.ctx.cueSend('LED wall for AMI Group', [], '');
+  const q = askLine(t); assert.ok(q && /:intake,vendor,chat$/.test(q[3]) && !/No Canvas project/.test(q[2]), q && q[2]);
+  assert.ok(/Your voice in the reply field only.*Warm and witty/.test(t.log.gpt[0].instructions), 'default voice is the one Kiko picked');
+  let v = t.ctx.cueMyRules(); deq([v.voice.row, v.voice.on, /^Warm and witty/.test(v.voice.text)], [0, true, true]);
+  assert.ok(!v.rows.some(x => x.topic === 'personality'));
+  v = t.ctx.cueMyRuleSave({ voice: 'Crisp chief of staff: numbered, no small talk.', on: true });
+  deq([v.voice.on, v.voice.text, v.rows.length], [true, 'Crisp chief of staff: numbered, no small talk.', 0]);
+  t.ctx.cueSend('hello there', [], ''); assert.ok(/Crisp chief of staff/.test(t.log.gpt[1].instructions) && !/Warm and witty/.test(t.log.gpt[1].instructions));
+  assert.ok(!/Crisp chief/.test(t.ctx.cueTeachFor_('chief of staff numbered')), 'the voice is not a memory fact for other calls');
+  t.ctx.cueMyRuleSave({ voice: 'Crisp chief of staff: numbered, no small talk.', on: false });
+  t.ctx.cueSend('hello again', [], ''); assert.ok(!/Your voice in the reply field/.test(t.log.gpt[2].instructions), 'switched off: no voice');
+  deq(t.tabs.Memory.rows.filter(r => r[1] === 'personality').length, 1, 'one row, updated in place');
+  const st = sandbox({ props: { CUE_TICKTICK_TOKEN: 'secret-tt', CUE_HUBSPOT_TOKEN: '' } }).ctx.cueSettings();
+  deq([st.ticktick, st.hubspot, JSON.stringify(st).indexOf('secret-tt')], [true, false, -1]);
+  assert.throws(() => t.ctx.cueFileData('../x'), /No such file/);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
