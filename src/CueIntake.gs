@@ -432,6 +432,13 @@ function cueIntakeEditLines_(p, e) {
     const l = p.lines.find(x => x.key === k), d = e.lines[k] || {};
     if (!l) throw new Error('There is no line ' + k + '.');
     if (d.remove) { drop.push(k); return; }
+    // Kiko 15:48Z: "leave cost and price blank per item". It wins over any number on the line or typed beside it.
+    if (d.blank === true) {
+      Object.assign(l, { blank: true, unit_cost: 0, cost_basis: 'none', sources: [], unit_price: 0, price_basis: 'none', price_source: '', price_name: '', price_sources: [], flags: ['Left blank'] });
+      if (d.execution != null && ['In House', 'Outsourced'].indexOf(d.execution) >= 0) l.execution = d.execution;
+      return;
+    }
+    if (d.blank === false) delete l.blank;
     if (d.quantity != null && d.quantity !== '') { const n = Number(d.quantity); if (!(n > 0) || n > 1e6) throw new Error('Quantity on ' + k + ' must be more than 0.'); l.quantity = n; }
     if (d.execution != null) { if (['In House', 'Outsourced'].indexOf(d.execution) < 0) throw new Error('Execution on ' + k + ' must be In House or Outsourced.'); l.execution = d.execution; }
     if (d.status != null) { if (['included', 'optional'].indexOf(d.status) < 0) throw new Error('Line ' + k + ' must be included or optional.'); l.status = d.status; }

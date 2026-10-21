@@ -394,7 +394,7 @@ function cuePhReject_(id) {
     const pid = s.canvas && s.canvas.project_id;
     s.status = 'Rejected'; s.stage = 'Rejected'; s.rejected = { at: new Date(cueNow_()).toISOString(), by: 'Kiko', phase: s.phase || 0, why: 'Rejected by Kiko at ' + (CUE_PH_NAMES_[s.phase] || 'the start') };
     cueSave_(L.sh, L.row, s);
-    cueChat_('Cue', 'Rejected at ' + (CUE_PH_NAMES_[s.phase] || 'the start') + '. ' + (pid ? 'Project ' + (s.canvas.project_number || pid) + ' stays in Canvas with ' + (s.phase >= 3 ? 'its lines' : 'no lines') + '.' : 'Nothing was written to Canvas.'), id);
+    cueChat_('Cue', 'Rejected at ' + (CUE_PH_NAMES_[s.phase] || 'the start') + '. ' + (pid ? 'Project ' + (s.canvas.project_number || pid) + ' stays in Canvas with ' + (s.phase >= 4 ? 'its lines and prices' : s.phase === 3 ? 'its lines and no costs' : 'no lines') + '.' : 'Nothing was written to Canvas.'), id);
     cueSummary_(s);
     return s;
   });
