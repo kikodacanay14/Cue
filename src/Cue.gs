@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.6.2';
+const CUE_VERSION_ = 'Cue 1.7';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -138,6 +138,7 @@ function cueSend(text, files, mode, ref) {
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
     if (!talk.start_intake) return talk;
+    if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
   }
   const t = asked || String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
@@ -151,11 +152,13 @@ function cueSend(text, files, mode, ref) {
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (!asked) cueChat_('Kiko', t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : ''), id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
-  return { request_id: id };
+  return { request_id: id, task: ref };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
+    task: { type: 'string', description: 'The id from Tasks when Kiko\'s message is clearly about one of those tasks (same client, project or '
+      + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
       + 'self-contained instruction for that run naming the client or project and what to do, e.g. "JBL Booth Fabrication: the designs changed; '
       + 'requote with the suppliers from the first RFQ and attach all the new files".' } } };
@@ -187,15 +190,26 @@ function cueTalk_(t, ref) {
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = ref ? root(ref) : '';
   const hist = st.chat.filter(m => ref ? m.request_id && root(m.request_id) === home : !m.request_id).slice(-12).map(m => m.who + ': ' + String(m.text).slice(0, 1500)).join('\n');
   const about = ref ? cueTaskLine_(ref) : '';
-  cueChat_('Kiko', t, ref);
+  // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
+  const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
     user: 'Waiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
+      + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
-  const reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
-  cueChat_('Cue', reply || '…', ref);
+  const pick = !ref && r.ok && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  const where = ref || pick, reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
+  if (pick) {   // like Claude's project chat: Kiko's line stays where he wrote it, with a pointer; the answer goes in the thread
+    const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || 'that task';
+    cueChat_('Kiko', t, ''); cueChat_('Cue', 'Answered in the ' + name + ' thread.', '>' + pick);
+  }
+  cueChat_('Kiko', t, where);
+  cueChat_('Cue', reply || '…', where);
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
-  return { chat: true, reply, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start), start_intake: start.length >= 20 ? start : '' };
+  return { chat: true, reply, task: pick, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick), start_intake: start.length >= 20 ? start : '' };
 }
+
+/** The newest run in the thread rooted at id, so a reply sees the latest state. */
+function cueNewest_(list, root, id) { const h = root(id), m = list.filter(x => root(x.id) === h)[0]; return m ? m.id : id; }
 
 /** One line about a task for the chat model: what it is, its state and its files. */
 function cueTaskLine_(id) {

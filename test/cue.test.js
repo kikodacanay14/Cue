@@ -150,7 +150,7 @@ function sandbox(o = {}) {
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
   ctx.cueNow_ = () => now;
-  return { ctx, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
+  return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
@@ -453,6 +453,20 @@ test('C28 threads: the redo run points at its task, and a reply in a thread sees
   const t = sandbox({ similar: JBL, read: CHANGE_READ, talk: { reply: 'Noted.', looks_like_inquiry: false, start_intake: '' } });
 test('C29 approve and send (Kiko 06:17Z): edited text goes out, only after send:true; drafts only never sends; a failed send retries alone', () => {
   const t = sandbox({ read: CHANGE_READ, sendFail: true });
+
+test('C30 a main-chat message about an existing task: Kiko\'s line stays with a pointer, the answer goes in that task\'s thread', () => {
+  const t = sandbox({ read: CHANGE_READ });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  t.opts.talk = { reply: 'The JBL requotes are waiting for you.', looks_like_inquiry: false, start_intake: '', task: id };
+  const r = t.ctx.cueSend('whats happening with jbl?');
+  assert.strictEqual(r.task, id);
+  deq(t.tabs.Chat.rows.slice(-4).map(x => [x[1], x[3]]), [['Kiko', ''], ['Cue', '>' + id], ['Kiko', id], ['Cue', id]]);
+  assert.ok(t.tabs.Chat.rows.some(x => x[1] === 'Cue' && x[3] === '>' + id && /Answered in the (?!that task).+ thread/.test(x[2])), 'pointer in the main chat');
+  assert.ok(t.tabs.Chat.rows.some(x => x[1] === 'Cue' && x[3] === id && /requotes are waiting/.test(x[2])), 'answer in the thread');
+  assert.ok(JSON.stringify(t.log.gpt[t.log.gpt.length - 1]).indexOf(id + ': change request for') >= 0, 'GPT saw the task list');
+  t.opts.talk = { reply: 'Hi!', looks_like_inquiry: false, start_intake: '', task: 'cue-made-up-0000' };
+  assert.strictEqual(t.ctx.cueSend('hello').task, '', 'an unknown task id is ignored');
+});
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
   assert.throws(() => t.ctx.cueApprove(id, { bodies: { T1: '   ' }, send: true }), /is empty/);
   const v = t.ctx.cueApprove(id, { bodies: { T1: 'Hi Mats Co, edited by Kiko.' }, send: true });

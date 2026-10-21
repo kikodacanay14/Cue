@@ -1,6 +1,10 @@
 # Changelog
 
-## Cue 1.6.2 (not deployed yet)
+## Cue 1.7 (deployed as Version 17)
+
+- Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; his message and Cue's answer go in that thread. A redo started this way joins the same thread.
+
+## Cue 1.6.2 (shipped in Version 17)
 
 - Widgets (Kiko 06:28Z): tapping a card opens its thread; the "Open its thread" links are gone. Buttons, ticks, text boxes and links inside a card still do their own job.
 - Recently done shows 3, then "See more".

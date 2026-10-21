@@ -285,6 +285,7 @@
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
+      // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(swap); }
       refresh(swap);
       running[r.request_id] = 1;
@@ -319,7 +320,7 @@
   function threads() {
     var by = byId(), t = {};
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
-    state.chat.concat(outbox).forEach(function (m) { if (m.request_id) get(rootOf(m.request_id, by)).lines.push(m); });
+    state.chat.concat(outbox).forEach(function (m) { if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
@@ -358,6 +359,11 @@
     var by = byId(), seen = {}, h = '';
     state.chat.concat(outbox).forEach(function (m) {
       if (!m.request_id) { h += msgHtml(m); return; }
+      if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
+        var to = rootOf(m.request_id.slice(1), by), pt = th[to];
+        h += msgHtml(m) + (pt ? '<button class="thread-row" data-thread="' + esc(to) + '"><i class="dot" style="background:' + threadState(pt).color + '"></i><b>↩ Open thread</b><span>' + esc(threadTitle(pt)) + '</span></button>' : '');
+        return;
+      }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
       var t = th[root], st = threadState(t), n = t.lines.length - 1, last = t.lines[t.lines.length - 1];
       h += msgHtml(m) + '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
