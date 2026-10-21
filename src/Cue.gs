@@ -282,8 +282,14 @@ function cueRelated_(text, pid, self) {
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
+  // Kiko 08:32Z: a Selecta message reopened the AMI Halloween gift boxes. The client's name ties a message to a task only when that
+  // client has one task this week; with several (AMI: BEKO, Halloween, Selecta) a word from the project name itself must match.
+  const client = x => { const c = x.change || {}, p = x.proposal || {}, k = (x.x && x.x.client) || p.client || {};
+    return cueWords_([(c.match && c.match.account) || '', k.company || '', (x.canvas && x.canvas.account) || ''].join(' ')); };
+  const roots = {}; list.forEach(x => { roots[root(x.id)] = x; });
+  const tasksOf = w => Object.keys(roots).filter(k => client(roots[k]).indexOf(w) >= 0).length;
   const hit = list.filter(x => pid ? (x.change && x.change.match && x.change.match.project_id === pid) || (x.canvas && x.canvas.project_id === pid)
-    : cueWords_(cueTaskName_(x)).some(w => words[w]))[0];
+    : (cl => cueWords_(cueTaskName_(x)).some(w => words[w] && (cl.indexOf(w) < 0 || tasksOf(w) <= 1)))(client(x)))[0];
   return hit ? list.filter(x => root(x.id) === root(hit.id))[0].id : '';
 }
 

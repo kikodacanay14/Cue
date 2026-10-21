@@ -44,6 +44,9 @@
   .thread-row:hover, .thread-row:focus-visible { background:var(--panel); color:var(--text); }
   .thread-row b { color:var(--act); font-weight:700; }
   .thread-row .need { color:#f07bd9; font-weight:700; }
+  .thread-row .tt { color:var(--text); font-weight:600; text-decoration:underline; text-decoration-color:transparent; }
+  .thread-row:hover .tt { text-decoration-color:currentColor; }
+  .msg[data-thread] { cursor:pointer; }
   .thread-head { position:sticky; top:0; z-index:2; background:var(--bg); display:flex; align-items:center; gap:10px; margin:-16px -4px 14px; padding:12px 4px 8px; }
   .thread-head .back { all:unset; cursor:pointer; color:var(--act); font-weight:700; padding:8px 4px; }
   .thread-head .back:focus-visible { outline:2px solid var(--act); border-radius:6px; }
@@ -353,8 +356,8 @@
     var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
   }
-  function msgHtml(m) {
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
+  function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
   }
 
   var lastChat = -1;
@@ -374,11 +377,11 @@
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
-        h += msgHtml(m) + (pt ? rowHtml(to, pt) : '');
+        h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
         return;
       }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
-      h += msgHtml(m) + rowHtml(root, th[root], 1);
+      h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
     });
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
   }
@@ -387,7 +390,7 @@
     var st = threadState(t), n = t.lines.length - (head ? 1 : 0), last = t.lines[t.lines.length - 1];
     return '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
       + '<i class="dot" style="background:' + st.color + '"></i><b>↩ ' + (n > 0 ? n + ' repl' + (n === 1 ? 'y' : 'ies') : 'Open thread') + '</b>'
-      + '<span>' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
+      + '<span class="tt">' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
       + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</button>';
   }
   // A thread: its messages in order, then the card for each of its tasks (review, progress or result).

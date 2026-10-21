@@ -4,6 +4,8 @@
 
 - Chat can look up Canvas projects. Ask "lookup AMI Group - Selecta" or "what's the status of S-…" and Cue searches Canvas by project name, client or ID (new bridge read search_projects, read only) before GPT answers, so the reply comes from real Canvas records. Cue no longer says it has no access to Canvas.
 - Canvas V187 also tightens the duplicate check: the client's name alone no longer counts as a similar project name (Selecta was matched to the Halloween gift boxes), and the best match comes first.
+- A new message no longer reopens an old task just because the client matches. When a client has several tasks this week (AMI: BEKO, Halloween boxes, Selecta), a word from the project name itself must match.
+- In the chat, the thread title and the task's message open the thread, like Claude. Before, only "N replies" did.
 - Budget: no extra AI call. One parallel Canvas read per name word, at most 4 plus 2 project IDs.
 
 ## Cue 1.9 (readiness check; Kiko said deploy 08:21Z; needs Canvas V186, live)
