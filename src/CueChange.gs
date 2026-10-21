@@ -113,7 +113,7 @@ function cueChangeFind_(s) {
   c.drafts = []; c.note = 'I found no RFQ emails you sent about ' + terms.join(' / ') + ' in the last year. If they went out from info@ '
     + 'or someone else\'s Gmail, Cue cannot see them yet.';
   s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
-  cueChat_('Cue', c.note + ' The project card is in Widgets.', s.id);
+  cueChat_('Cue', c.note + ' The card is below, in this thread.', s.id);
 }
 function cueOwnDomain_() { try { return String(Session.getEffectiveUser().getEmail()).toLowerCase().split('@')[1] || ''; } catch (e) { return ''; } }
 
@@ -136,7 +136,7 @@ function cueChangeDraft_(s) {
   if (!c.drafts.length) c.note = 'None of the ' + c.found.length + ' RFQ emails I found matched this change. ' + (c.note || '');
   s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
   cueChat_('Cue', 'Change request ready for you: ' + c.drafts.length + ' requote' + (c.drafts.length === 1 ? '' : 's') + ' for ' + ((c.match && c.match.name) || c.project || 'the project')
-    + '. Open Widgets to check them.', s.id);
+    + '. They are below, in this thread: edit, then send.', s.id);
 }
 
 /* ---------- approve: drafts in the original threads, with the files ---------- */
@@ -161,6 +161,8 @@ function cueChangeApprove_(id, edits) {
     return L;
   });
   const s = L.s, c = s.change, keys = {};
+  // This message's own files go into the matched project's folder (older messages saved theirs when they were approved).
+  if (c.match && c.match.project_id) { s.stage = 'Saving files to the project folder'; cueSaveToProject_(s, c.match.project_id, s.files, 'Client Documents'); cueLocked_(() => cueSave_(L.sh, L.row, s)); }
   c.found.forEach(f => { keys[f.k] = f; });
   let files = null;
   const bad = [];

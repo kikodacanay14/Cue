@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.8 (not deployed yet; needs Canvas V185)
+
+- Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file he attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.
+- Reply box on every widget card (Kiko 06:48Z), with Cue's latest line in that thread above it. It posts into the task's thread; Enter sends; typed text survives refreshes.
+- Threads hold everything (Kiko 06:50Z): the request and its files, the conversation, and the full card for every run, also after it is done. Finished requotes are one line per supplier with sent / in Drafts, and expand in place to the whole email with an Open in Gmail link. Links open in a new tab.
+- The progress tracker sits at the top of the thread (Kiko 06:51Z).
+- Cue's messages point to the thread instead of Widgets.
+
 ## Cue 1.7 (deployed as Version 17)
 
 - Answers go in the thread (Kiko 06:29Z, "like your own UX"): when Kiko writes in the main chat about a task that already has a thread, GPT (same single chat call) picks the task. Kiko's line stays in the main chat with "Answered in the <project> thread" and an Open thread row; his message and Cue's answer go in that thread. A redo started this way joins the same thread.

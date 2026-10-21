@@ -1,6 +1,6 @@
 // Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs). Apps Script services, GPT, Claude, the Canvas bridge
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
-// schema in fixtures/ZapBridge.gs (copied from Canvas V184). Run: node test/cue.test.js
+// schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
 const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
@@ -88,6 +88,11 @@ function sandbox(o = {}) {
       if (body.action === 'apply_intake') {
         if (o.applyFails) return resp(200, { ok: false, status: 'Blocked', error: 'Apply failed after project S-99900001ZZ was made: boom' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', project_number: '052', req_ids: ['REQ-1'], rfqs: log.submitted.rfqs } });
+      }
+      if (body.action === 'save_project_file') {
+        log.saved = log.saved || []; log.saved.push({ pid: body.project_id, name: body.args.name, type: body.args.type, mime: body.args.mime, bytes: Buffer.from(body.args.data, 'base64').length });
+        if (o.saveFail && log.saved.length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/p' + log.saved.length, name: body.project_id + ' · ' + body.args.name, type: body.args.type, existed: false } });
       }
       if (body.action === 'make_rfq_drafts') {
         log.canvasDrafts = (log.canvasDrafts || 0) + 1;
@@ -456,6 +461,24 @@ test('C29 approve and send (Kiko 06:17Z): edited text goes out, only after send:
 
 test('C30 a main-chat message about an existing task: Kiko\'s line stays with a pointer, the answer goes in that task\'s thread', () => {
   const t = sandbox({ read: CHANGE_READ });
+
+test('C31 project folder (Kiko 06:45Z): approved files go into the Canvas project folder; photos to Designs & Visuals; a failure is a note and retries once', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ, saveFail: true });
+  const up = n => ({ id: t.ctx.cueUpload({ name: n, type: n.endsWith('.pdf') ? 'application/pdf' : 'image/png', data: n.endsWith('.pdf') ? PDF : PNG }).id });
+  const id = t.ctx.cueSend('JBL new mats, requote please', [up('S1.png'), up('brief.pdf')]).request_id; t.ctx.cueRun(id);
+  assert.ok(!t.log.saved, 'nothing saved before Kiko approves');
+  const d = t.ctx.cueApprove(id, {});
+  deq(t.log.saved.map(x => [x.pid, x.name, x.type]), [['S-31628060SP', 'S1.png', 'Designs & Visuals'], ['S-31628060SP', 'brief.pdf', 'Client Documents']]);
+  assert.ok(t.log.saved[1].bytes > 0);
+  deq(d.project_saved.map(x => [x.name, !!x.url]), [['S1.png', false], ['brief.pdf', true]]);
+  assert.ok(d.notes.some(n => /Not saved to the project folder yet: S1\.png/.test(n)));
+  // An intake: after Canvas makes the project, the brief goes to Brief & Planning.
+  const w = sandbox(), iw = w.ctx.cueSend('', [{ name: 'brief.pdf', type: 'application/pdf', data: PDF }]).request_id; w.ctx.cueRun(iw);
+  const v = w.ctx.cueApprove(iw, {});
+  deq(w.log.saved.map(x => [x.pid, x.name, x.type]), [['S-99900001ZZ', 'brief.pdf', 'Brief & Planning']]);
+  assert.ok(w.tabs.Chat.rows.some(x => /Saved 1 file to the Canvas project folder: brief\.pdf/.test(x[2])));
+  assert.strictEqual(v.status, 'Done');
+});
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
   t.opts.talk = { reply: 'The JBL requotes are waiting for you.', looks_like_inquiry: false, start_intake: '', task: id };
   const r = t.ctx.cueSend('whats happening with jbl?');

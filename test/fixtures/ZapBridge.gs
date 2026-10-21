@@ -53,6 +53,9 @@ const ZB_FORBIDDEN_ = {
   award: 'Award needs approval.', book: 'Booking needs approval.', pay: 'Payment needs approval.'
 };
 
+// Files Cue may put in a project folder: what Cue accepts as attachments, into a Files-tab type folder.
+const ZB_FILE_MIMES_ = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/csv', 'message/rfc822'];
+const ZB_FILE_TYPES_ = ['Brief & Planning', 'Client Documents', 'Designs & Visuals', 'Visual Materials', 'Other Documents'];
 const ZB_ACTIONS_ = {
   claim_plan: {
     // Review 05:36Z: an atomic claim of one task's plan, under the app's lock. The first plan for a task wins; a second,
@@ -137,6 +140,17 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: true, schema: {},
     run: (r) => { const o = listProjectFiles(r.project_id); return { folder_url: o.folderUrl || '', own: !!o.own, more: !!o.more || (o.files || []).length > 60,
       files: (o.files || []).slice(0, 60).map(f => ({ name: f.name, url: f.url, mime: f.mime, size: f.size, modified: f.modified, folder: f.folder })) }; }
+  },
+  save_project_file: {
+    // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
+    // One file Kiko attached in Cue, into <project folder>/<type> through saveProjectFile_ (the Files tab's own save).
+    // A repeat with the same name and size returns the file already there, so a retry never makes a second copy.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      name: { type: 'string', required: true, nonBlank: true, max: 150 },
+      mime: { type: 'string', required: true, oneOf: ZB_FILE_MIMES_ }, type: { type: 'string', required: true, oneOf: ZB_FILE_TYPES_ },
+      data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } },
+    run: (r) => zbSaveFile_(r)
   },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
@@ -337,6 +351,20 @@ function zbCheck_(v, s, name) {
     if (s.minKeys && Object.keys(v).length < s.minKeys) return name + ' has nothing to write';
   }
   return '';
+}
+
+function zbSaveFile_(r) {
+  const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
+  const a = r.args, bytes = Utilities.base64Decode(a.data);
+  const dest = childFolder_(paRoot_(r.project_id, true).folder, a.type);
+  const want = r.project_id + ' · ' + String(a.name).trim().replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150);
+  for (const it = dest.getFilesByName(want); it.hasNext();) {
+    const f = it.next(); if (!f.isTrashed() && f.getSize() === bytes.length) return { ok: true, url: f.getUrl(), name: f.getName(), type: a.type, existed: true };
+  }
+  const up = saveProjectFile_(r.project_id, a.type, a.name, a.mime, a.data, dest.getUrl());
+  try { up.file.setDescription('Linked to: Project · Added by: Cue (' + a.request_id + ')'); } catch (e) { /* the note is optional */ }
+  try { logEvent('Uploaded document', 'Projects', r.project_id + ': ' + up.name + ' (' + a.type + ', from Cue)'); } catch (e) { /* logging never blocks */ }
+  return { ok: true, url: up.url, name: up.name, type: a.type, existed: false, in_project_folder: !!up.inProjectFolder };
 }
 
 // The project must exist in the Admin Directory and, when the caller names a number, carry it.

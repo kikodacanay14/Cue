@@ -44,6 +44,27 @@ function cueFilesSave_(files, id) {
 }
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
 const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';
+
+/** Kiko 06:45Z: the files he attaches belong in the Canvas project folder ("a critical part of the intake"). Cue sends each
+ * one through the bridge (save_project_file) after Kiko approves. Photos go to Designs & Visuals, the rest to `other`.
+ * A file already saved is skipped, and a repeat on Canvas's side returns the same file. A failure is a note, not a stop. */
+function cueSaveToProject_(s, pid, files, other) {
+  if (!pid || !(files || []).length) return;
+  const saved = s.project_saved || (s.project_saved = []), ok = [];
+  files.forEach(f => {
+    const was = saved.find(x => x.id === f.id); if (was && was.url) return;
+    const rec = was || { id: f.id, name: f.name }; if (!was) saved.push(rec);
+    try {
+      const data = Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + f.id + '?alt=media', { raw: true }).getContent());
+      const type = /^image\//.test(f.type) ? 'Designs & Visuals' : other;
+      const r = cueBridge_(s, 'save_project_file', { request_id: s.id, name: f.name, mime: f.type, type, data }, pid) || {};
+      rec.url = String(r.url || ''); rec.folder = type; rec.error = ''; ok.push(f.name);
+    } catch (e) { rec.error = cueStr_((e && e.message) || e, 200); }
+  });
+  const bad = saved.filter(x => !x.url);
+  if (ok.length) cueChat_('Cue', 'Saved ' + ok.length + ' file' + (ok.length === 1 ? '' : 's') + ' to the Canvas project folder: ' + ok.join(', ') + '.', s.id);
+  if (bad.length) (s.notes = s.notes || []).push('Not saved to the project folder yet: ' + bad.map(x => x.name + ' (' + x.error + ')').join('; ') + '.');
+}
 function cueDrive_(method, url, o) {
   const opt = Object.assign({ method, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } }, o || {});
   delete opt.raw;

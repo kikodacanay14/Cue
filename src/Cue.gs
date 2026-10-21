@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.7';
+const CUE_VERSION_ = 'Cue 1.8';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -315,6 +315,8 @@ function cueState() {
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 
+function cueMe_() { try { return Session.getEffectiveUser().getEmail() || ''; } catch (e) { return ''; } }
+
 /** The part of a request the page needs. Evidence and raw AI answers stay in the sheet. */
 function cueView_(s) {
   const m = s.metrics || {};
@@ -324,8 +326,8 @@ function cueView_(s) {
       match: ch.match || null, others: ch.others || [], attach: (ch.attach || []).map(f => ({ id: f.id, name: f.name, size: f.size, from: f.from, selected: !!f.selected })), folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
-        body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',
-    notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
+        body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
+    project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, flag: m.flag || '', calls: m.calls || [] } };
 }

@@ -325,6 +325,8 @@ function cueIntakeApprove_(id, edits) {
     save(); return s;
   }
   cueChat_('Cue', 'Recorded in Canvas as project ' + (s.canvas.project_number || s.canvas.project_id) + ' (' + s.canvas.project_id + ').', s.id);
+  s.stage = 'Saving files to the project folder'; save();
+  cueSaveToProject_(s, s.canvas.project_id, s.files, 'Brief & Planning'); save();
   s.stage = 'Making Gmail drafts'; save();
   cueIntakeDraftsRun_(s); save();
   return s;
