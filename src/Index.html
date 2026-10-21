@@ -244,6 +244,8 @@
   #settings .snav button[aria-current="true"] { background:var(--head); color:var(--white); font-weight:700; }
   #settings .smain { flex:1; min-width:0; overflow:auto; padding:16px 20px 40px; }
   #settings .smain > section { max-width:760px; }
+  #settings button.link { all:unset; cursor:pointer; color:var(--white); font-weight:600; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); }
+  #settings button.link:focus-visible { outline:2px solid var(--act); }
   @media (max-width: 700px) { #settings .sbody { flex-direction:column; } #settings .snav { width:auto; display:flex; gap:4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } #settings .snav button { width:auto; white-space:nowrap; } }
 </style>
 </head>
@@ -258,7 +260,7 @@
   <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button>
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -267,6 +269,7 @@
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
+      <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
     </div>
   </div>
 </div>
@@ -1257,6 +1260,7 @@
   function settingsTab(sec) {
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
+    if (sec === 'usage') loadUsage();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -1275,6 +1279,53 @@
   $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
   $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) { $('settings').hidden = true; $('avatar').focus(); } });
+
+  // ---- AI usage and cost (Kiko 19:25Z, spec usage-cost.md): read from the AI Runs log, priced from an editable table. No AI call. ----
+  var usage = null, usageMonth = '';
+  function loadUsage() { call('cueUsage', [], function (r) { usage = r; renderUsage(); }, function () { setHtml($('w-usage'), '<div class="err">Could not read the AI Runs log. Try again.</div>'); }); }
+  function usd(n) { return 'US$ ' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function php(n) { return '₱' + Math.round((Number(n) || 0) * ((usage && usage.prices.fx) || 0)).toLocaleString('en-US'); }
+  function tok(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n); }
+  function usageDetail(m) {
+    return '<div class="label">By AI</div><div class="scroll"><table><tr><th>AI</th><th>Model</th><th>Calls</th><th>Tokens in / out</th><th>Web searches</th><th>US$</th><th>₱</th></tr>'
+      + m.by_ai.map(function (a) { return '<tr><td>' + esc(a.provider === 'GPT' ? 'ChatGPT' : a.provider) + '</td><td>' + esc(a.model) + (a.priced ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + a.calls + (a.failed ? ' <span class="small muted">(' + a.failed + ' failed)</span>' : '') + '</td><td>' + tok(a.in) + ' / ' + tok(a.out) + '</td><td>' + (a.provider === 'GPT' ? a.web : '–') + '</td><td>' + esc(usd(a.usd).slice(4)) + '</td><td>' + esc(php(a.usd)) + '</td></tr>'; }).join('')
+      + '</table></div><div class="label">By command</div><div class="scroll"><table><tr><th>Command</th><th>Calls</th><th>US$</th><th>₱</th><th>Share</th></tr>'
+      + m.by_cmd.map(function (c) { return '<tr><td>' + esc(c.name) + '</td><td>' + c.calls + '</td><td>' + esc(usd(c.usd).slice(4)) + '</td><td>' + esc(php(c.usd)) + '</td><td>' + c.share + '%</td></tr>'; }).join('') + '</table></div>';
+  }
+  function renderUsage() {
+    if (!usage) return;
+    var U = usage, M = U.months || [], cur = M[0] && M[0].current ? M[0] : null, P = U.prices, h = '';
+    if (U.error) h += '<div class="err">' + esc(U.error) + '</div>';
+    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:#fff;font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
+      + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:#fff">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
+      + '<tr><td>Cost so far</td><td><b style="color:#fff">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
+      + '<tr><td>Likely by month end</td><td><b style="color:#fff">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
+      + usageDetail(cur) + '</div>';
+    else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
+    if (M.length) h += '<div class="label">Monthly</div><div class="card"><div class="scroll"><table><tr><th>Month</th><th>Claude calls</th><th>ChatGPT calls</th><th>US$</th><th>₱</th><th></th></tr>'
+      + M.map(function (m) { return '<tr><td><button class="link" data-um="' + esc(m.month) + '" aria-expanded="' + (usageMonth === m.month) + '">' + esc(m.label) + '</button>' + (m.current ? ' <span class="small muted">so far</span>' : '') + '</td><td>' + m.claude + '</td><td>' + m.gpt + '</td><td>' + esc(usd(m.usd).slice(4)) + '</td><td>' + esc(php(m.usd)) + '</td><td class="small muted">' + (m.current ? 'likely ' + esc(php(m.likely_usd)) : '') + '</td></tr>'
+        + (usageMonth === m.month ? '<tr><td colspan="6">' + usageDetail(m) + '</td></tr>' : ''); }).join('')
+      + '</table></div><div class="small muted" style="margin-top:6px">Tap a month to see its By AI and By command tables.</div></div>';
+    var names = Object.keys(P.models).concat(U.unpriced || []).filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
+    var n = function (k, v, w) { return '<input type="number" step="0.01" min="0" data-up="' + esc(k) + '" value="' + (v == null ? '' : esc(v)) + '" style="width:' + (w || 80) + 'px" aria-label="' + esc(k) + '">'; };
+    h += '<div class="label">Prices used (editable)</div><div class="card"><div class="scroll"><table><tr><th>Model</th><th>US$ / 1M in</th><th>US$ / 1M out</th></tr>'
+      + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
+      + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr></table></div>'
+      + '<div class="actions"><button class="btn" id="usage-save">Save prices</button></div>'
+      + '<div class="small muted" style="margin-top:6px">An estimate from Cue\'s own AI Runs log. Your real bill is on platform.openai.com and console.anthropic.com. Saving recalculates every month.</div></div>';
+    setHtml($('w-usage'), h);
+    $('usage-save').onclick = function () {
+      var b = this, p = { models: {}, web: '', fx: '' };
+      $('w-usage').querySelectorAll('[data-up]').forEach(function (x) {
+        var k = x.getAttribute('data-up'), i = k.indexOf(':'), m = i > 0 ? k.slice(i + 1) : '';
+        if (!m) { p[k] = x.value; return; }
+        (p.models[m] = p.models[m] || ['', ''])[k.slice(0, i) === 'in' ? 0 : 1] = x.value;
+      });
+      b.disabled = true; b.textContent = 'Saving…';
+      call('cueUsagePrices', [p], function (r) { usage = r; $('w-usage')._h = null; renderUsage(); }, function () { b.disabled = false; b.textContent = 'Save prices'; });
+    };
+  }
+  $('w-usage').addEventListener('click', function (e) { var b = e.target.closest('[data-um]'); if (!b) return; var m = b.getAttribute('data-um'); usageMonth = usageMonth === m ? '' : m; renderUsage(); });
 
   // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
   // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----

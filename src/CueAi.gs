@@ -4,7 +4,7 @@
  * Answers must be JSON matching the caller's schema; anything else throws and nothing is guessed.
  * Script Properties (all optional except the keys):
  *   OPENAI_MODEL (default gpt-5-mini), CUE_GPT_REASONING (default low; "off" sends none), CUE_GPT_WEB_TOOL (default web_search),
- *   OPENAI_PRICE ("input,output" US$ per million tokens, to log GPT cost), CUE_CLAUDE_MODEL (default claude-sonnet-5-5),
+ *   OPENAI_PRICE ("input,output" US$ per million tokens, to log GPT cost; Settings > AI usage and cost prices win), CUE_CLAUDE_MODEL (default claude-sonnet-5-5),
  *   CUE_CLAUDE_EFFORT (default medium). */
 
 const CUE_OPENAI_URL_ = 'https://api.openai.com/v1/responses';
@@ -101,16 +101,16 @@ function cueAiAll_(s, calls) {
 }
 function cueCount_(s, n) { const m = s.metrics || (s.metrics = { ai_calls: 0, calls: [] }); m.ai_calls = (m.ai_calls || 0) + n; }
 
-function cueAiCost_(provider, model, inTok, outTok) {
-  let p = provider === 'Claude' ? CUE_CLAUDE_PRICE_[model] : null;
-  if (provider === 'GPT') { const v = cueProp_('OPENAI_PRICE', '').split(',').map(Number); p = v.length === 2 && v.every(x => x >= 0) ? v : null; }
-  return p ? Math.round((inTok * p[0] + outTok * p[1]) / 1e4) / 100 : '';
+/** US$ for the Cost column, from the same price table as Settings > AI usage and cost (CueUsage.gs). Blank when the model has no price. */
+function cueAiCost_(provider, model, inTok, outTok, web) {
+  const c = cueUsageCost_(cueUsagePrices_(), provider, model, inTok, outTok, web);
+  return c === null ? '' : Math.round(c * 10000) / 10000;
 }
 /** Logs one call. Never fails the caller. The page shows the per-call list as the Working on hand-off. */
 function cueAiLog_(s, c, model, inTok, outTok, secs, status, note) {
   const m = s.metrics || (s.metrics = { ai_calls: 0, calls: [] });
   (m.calls || (m.calls = [])).push({ step: c.step, provider: c.provider, seconds: secs, status });
   try { cueSheet_('AI Runs').appendRow([new Date(cueNow_()), s.id, c.step, c.provider, model || '', inTok, outTok,
-    cueAiCost_(c.provider, model, inTok, outTok), secs, status, String(note || '').slice(0, 300)]); }
+    cueAiCost_(c.provider, model, inTok, outTok, cueUsageWeb_(note)), secs, status, String(note || '').slice(0, 300)]); }
   catch (e) { console.error('AI Runs log: ' + e); }
 }

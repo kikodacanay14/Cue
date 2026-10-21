@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.24: AI usage and cost in Settings (not deployed)
+
+Kiko 19:25Z: see how many API calls Cue made this month, the likely cost, and a monthly view. Spec: specs/usage-cost.md (Kiko OK 19:47Z).
+
+- Settings (K avatar) > **AI usage and cost**: this month's AI calls (Claude, ChatGPT, failed), cost so far and the likely month-end in ₱ and US$, marked ESTIMATE. Tables by AI (model, calls, tokens in/out, ChatGPT web searches) and by command (top 8, rest as Other). A Monthly table with every month since Cue started; tap a month for its tables.
+- Read only and plain code: it reads the AI Runs tab and the kind of each request. No AI call. It loads only when the section is opened.
+- Prices are one editable table (US$ per million tokens in/out per model, US$ per 1,000 ChatGPT web searches, ₱ per US$), saved as Script Property CUE_AI_PRICES. Defaults: Claude prices as before, gpt-5-mini 0.25 / 2.00, web search 10.00, ₱58. Dated model ids (gpt-5-mini-2025-08-07) use the plain name's price. A model with no price shows "no price set".
+- Likely month-end = cost so far + the average day of the last 7 days (or since the first call, if newer) x days left. Marked "rough" while Cue has under 7 days of log.
+- The AI Runs Cost column now fills for ChatGPT too (it was blank because OPENAI_PRICE was never set), web searches included, from the same table.
+- Tests: 259 of 259 pass (new UG1 to UG5).
+
 ## Cue 1.23.2: Open in Canvas fixes from the PC test (not deployed)
 
 The PC test of 1.23.1 at 19:40Z passed: Canvas opens signed in inside Cue's right-hand pane. Fixes from it:
