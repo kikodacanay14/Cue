@@ -50,7 +50,7 @@ _Needs CUE_HUBSPOT_TOKEN before deploy._
 - The card groups deals into Act today, Chase, Fix the data (in Canvas) and On track, with HubSpot and Gmail links. Tick deals and tap Draft follow-ups: one GPT call drafts a reply in each deal's thread; edit, then Approve and send or Drafts only. Done closes the review.
 - Budget: 1 AI call for the review, 2 with follow-ups (plus the chat call). At most 40 deals (nearest event first). Read only: nothing is written to HubSpot or Canvas. Each review is logged in a new Pipeline tab of the Cue sheet.
 
-## Unreleased: acknowledgement receipts (needs Canvas with the ar_list / ar_make / ar_email bridge actions)
+## Unreleased (supplier ARs): acknowledgement receipts (needs Canvas with the ar_list / ar_make / ar_email bridge actions)
 
 - "Prepare ARs for <project>" (Kiko 07:42Z approved specs/supplier-ars.md). GPT recognises it in the chat call Cue already makes (new field start_ar), so the run itself makes no AI call. Cue finds the project (Canvas id as given, else Canvas's project match), and Canvas lists everyone the project paid: suppliers, talents and freelancers.
 - One card: Ready to make (ticked), Already made (link, status, emailed; a Remake tick), Can't make yet (Canvas's reason, e.g. VAT registered, service fee, invoice on file, no paid amount).
