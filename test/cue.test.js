@@ -659,13 +659,20 @@ test('C23 change request edge cases: nothing found, nothing matched, all unticke
 
 const JBL = [{ project_id: 'S-31628060SP', name: 'JBL Launch', account: 'JBL', date: '2026-11-05', status: 'For Client Awarding', why: 'similar name' },
   { project_id: 'S-31628061SP', name: 'JBL Roadshow', account: 'JBL', date: '2026-11-20', status: 'Lead', why: 'similar name' }];
-const JBL_READ = Object.assign({}, READ, { client: Object.assign({}, READ.client, { company: 'JBL' }), event: Object.assign({}, READ.event, { name: 'JBL Launch' }) });
+const JBL_READ = Object.assign({}, READ, { client: Object.assign({}, READ.client, { company: 'JBL' }), event: Object.assign({}, READ.event, { name: 'JBL Launch', date: '2026-11-05' }) });
 test('C24 intake steps first: a Canvas duplicate switches a "new project" read to the change function, with the project folder files', () => {
   const t = sandbox({ similar: JBL, read: JBL_READ });   // GPT read it as new_project; Canvas says it already exists, and the names really match
   const id = t.ctx.cueSend('New project intake. JBL wants new mats, 3m x 2m, please get quotes').request_id;
-  const v = t.ctx.cueRun(id);
+  const q = t.ctx.cueRun(id);   // Kiko 14:26Z: Cue asks first
+  assert.strictEqual(q.status, 'Needs you', q.error); assert.strictEqual(q.stage, 'Same project?'); assert.strictEqual(q.kind, 'intake');
+  deq(q.same.map(p => p.project_id), ['S-31628060SP'], 'only the one with the same name, account and close date');
+  assert.ok(!t.log.bridge.some(b => b.action === 'list_project_files'), 'nothing done before Kiko answers');
+  assert.ok(t.tabs.Chat.rows.some(r => /looks the same: JBL Launch \(JBL, 2026-11-05\)\. Is this the same project\?/.test(r[2])));
+  assert.throws(() => t.ctx.cueSameAnswer(id, 'S-99'), /not one of the choices/);
+  const v = t.ctx.cueSameAnswer(id, 'S-31628060SP');
   assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'change'); assert.strictEqual(v.metrics.ai_calls, 2, 'read + requotes, no costing');
-  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'intake_evidence', 'list_project_files']);
+  assert.throws(() => t.ctx.cueSameAnswer(id, 'new'), /not waiting/);
+  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'intake_evidence', 'find_similar_projects', 'intake_evidence', 'list_project_files']);
   assert.strictEqual(t.log.filesFor, 'S-31628060SP'); assert.strictEqual(t.log.claude.length, 0, 'no Claude costing');
   assert.strictEqual(v.change.project, 'JBL Launch'); assert.strictEqual(v.change.match.why, 'similar name'); deq(v.change.others, [], 'JBL Roadshow is another event, not a possible match');
   assert.strictEqual(v.change.project_files.length, 2); assert.strictEqual(v.change.project_files[1].url, '', 'non-Drive link dropped');
@@ -688,7 +695,7 @@ test('C25 change without a Canvas match or past emails still shows a card; a fol
   assert.throws(() => a.ctx.cueAsNew(ia), /no requirements/);
   assert.strictEqual(a.ctx.cueReject(ia, '').status, 'Rejected');
   const b = sandbox({ similar: JBL, read: JBL_READ, filesFail: true }), ib = b.ctx.cueSend('New project intake. JBL wants new mats').request_id;
-  const vb = b.ctx.cueRun(ib);
+  b.ctx.cueRun(ib); const vb = b.ctx.cueSameAnswer(ib, 'S-31628060SP');
   assert.strictEqual(vb.status, 'Needs you', vb.error); deq(vb.change.project_files, []); assert.ok(vb.notes.some(x => /could not list the project folder/.test(x)));
 });
 
@@ -2490,7 +2497,7 @@ test('M4 an address goes straight to To; own domain is team; "new" never replies
   const n = sandbox({ talk: mailAsk({ job: '' }) }); const r = n.ctx.cueSend('hello there', [], ''); assert.ok(r.chat && !r.request_id, 'job "" stays a chat');
 });
 
-test('N1 Kiko 14:22Z: a "similar name" from Canvas with no shared distinctive word, and another client, never turns an intake into a change', () => {
+test('N1 Kiko 14:22-14:27Z: similar means Project Name, Account and Event Date; Cue asks first; a Project ID in Kiko\'s words needs no question', () => {
   const EXI = [{ project_id: 'S-10243120EX', name: 'Exilara Year End Party', account: 'Exilara', date: '12/10/2026', status: 'For Event Execution', why: 'similar name' },
     { project_id: 'S-12291744DM', name: 'DMCI Year End 2026', account: 'DMCI', date: '12/12/2026', status: 'For Client Awarding', why: 'similar name' }];
   const UNI = Object.assign({}, READ, { client: Object.assign({}, READ.client, { company: 'Unilever' }), event: Object.assign({}, READ.event, { name: 'UNILEVER YEAR END PARTY 2026' }) });
@@ -2503,7 +2510,14 @@ test('N1 Kiko 14:22Z: a "similar name" from Canvas with no shared distinctive wo
   assert.strictEqual(c.cueSameProject_({ x: UNI }, EXI[0]), false);
   assert.strictEqual(c.cueSameProject_({ x: JBL_READ }, JBL[0]), true, 'same client and name');
   assert.strictEqual(c.cueSameProject_({ x: JBL_READ }, JBL[1]), false, 'same client, other event');
-  assert.strictEqual(c.cueSameProject_({ x: UNI, text: 'mats for S-10243120EX' }, EXI[0]), true, 'Kiko named the project ID');
+  const u = sandbox({ similar: EXI, read: UNI }), w = u.ctx.cueRun(u.ctx.cueSend('New mats for S-10243120EX, requote please', [], 'intake').request_id);
+  assert.strictEqual(w.kind, 'change', 'Kiko named the project ID: no question'); assert.strictEqual(w.change.match.project_id, 'S-10243120EX');
+  const n = sandbox({ similar: JBL, read: JBL_READ }), nid = n.ctx.cueSend('New project intake. JBL wants new mats').request_id; n.ctx.cueRun(nid);
+  const nv = n.ctx.cueSameAnswer(nid, 'new');
+  assert.strictEqual(nv.kind, 'intake'); assert.strictEqual(nv.status, 'Needs you', nv.error); assert.ok(nv.proposal, 'No, new project: the full intake runs');
+  assert.ok(n.tabs.Chat.rows.some(r => /A new project: running the full intake/.test(r[2])));
+  assert.strictEqual(c.cueSameProject_({ x: JBL_READ }, Object.assign({}, JBL[0], { date: '2026-12-20' })), false, 'event date too far apart');
+  assert.strictEqual(c.cueSameProject_({ x: Object.assign({}, JBL_READ, { client: { company: '' } }) }, JBL[0]), false, 'no account read: not similar');
   assert.strictEqual(c.cueSameProject_({ x: Object.assign({}, UNI, { event: { name: 'Unilever Year End Party' } }) },
     { name: 'Unilever Year End Party 2026', account: 'Unilever', date: '12/11/2026' }), true, 'same client, same event-type name');
   assert.strictEqual(c.cueSameProject_({ x: UNI }, { name: 'Unilever Year End Party 2025', account: 'Unilever', date: '12/12/2025' }), false, 'last year\'s party is another project');

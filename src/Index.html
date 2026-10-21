@@ -231,7 +231,7 @@
   var held = {}, expRoute = {}, EXP_RE = /\b(record (an? |this |the )?(expense|payment)|expenses?|receipts?|official receipt|proof of (payment|transfer)|liquidat\w*|reimburs\w*|paid (to|for|via|in cash|cash|by))\b/i;
   var EXPENSE = [['GPT reading', 'GPT', 'GPT reads your line and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the project and its records'],
     ['Claude matching', 'Claude', 'Claude matches it to a request or a scope'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Writing to Canvas', 'Canvas', 'Canvas records it and reads it back']];
-  var STEPS = [['GPT reading', 'GPT', 'GPT reads the request'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates, prices and history'],
+  var STEPS = [['GPT reading', 'GPT', 'GPT reads the request'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates, prices and history'], ['Same project?', 'Kiko', 'You say if Canvas\'s look-alike is this project'],
     ['Claude costing', 'Claude + GPT', 'Claude costs the CE while GPT researches the gaps'], ['GPT drafting RFQs', 'GPT', 'GPT drafts one RFQ per supplier'],
     ['Needs you', 'Kiko', 'Waiting for your approval']];
   var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
@@ -617,7 +617,7 @@
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -1367,6 +1367,18 @@
       + (D.made ? '' : '<button class="btn ghost" data-act="mail-draft" data-id="' + esc(r.id) + '">Save to Gmail drafts</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
+  // Kiko 14:26Z: Canvas has a project that looks the same (name, account and event date). Cue asks before doing anything.
+  function sameCardHtml(r) {
+    var waiting = r.status === 'Needs you', h = '<div class="card"><b>Is this the same project?</b>'
+      + '<div class="small muted" style="margin-top:4px">Canvas has a project with the same account, a similar name and a close event date. Nothing is done until you pick.</div>';
+    r.same.forEach(function (p) {
+      h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><b>' + esc(p.name) + '</b><br><span class="small muted">'
+        + esc([p.project_id, p.account, p.date || 'no date', p.status].filter(Boolean).join(' · ')) + '</span>'
+        + (waiting ? '<div class="actions"><button class="btn" data-act="same-yes" data-id="' + esc(r.id) + '" data-pid="' + esc(p.project_id) + '">Yes, same project</button></div>' : '') + '</div>';
+    });
+    return h + '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="same-new" data-id="' + esc(r.id) + '">No, it is a new project</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>' + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
     if (r.kind === 'email') return mailCardHtml(r);
     if (r.kind === 'style') return styleCardHtml(r);
@@ -1377,6 +1389,7 @@
     if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
+    if (r.same && r.same.length) return sameCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
@@ -1644,6 +1657,8 @@
         if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
         if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
+        if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
+        if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
         if (act === 'folders') return call('cueFolders', [id], done, fail);
       };

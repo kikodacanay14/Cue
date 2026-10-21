@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.13.2 (Cue asks first when a project looks the same; Kiko 14:26-14:27Z; not deployed)
+
+- Similar now means the Project Name, Account and Event Date all match: the client words overlap, the distinctive name words mostly match, and the event dates are within 30 days (or one side has no date yet).
+- When Canvas has such a project, Cue stops at a new step, "Same project?", and asks on a card: "Yes, same project" for each look-alike, or "No, it is a new project". Nothing is done until Kiko picks. Yes runs the change function for that project; No runs the full intake. A Project ID in Kiko's message is the answer, so there is no question. A change request Kiko asked for goes to the change card as before.
+- New server function `cueSameAnswer(id, projectId | 'new')`. No new AI call; answering repeats the two Canvas reads.
+- Tests: N1 and C24 cover the question, both answers and the date and account rules. 181 of 181 pass.
+
 ## ☰ Threads in the chat's top bar (not deployed)
 
 Kiko 21 Oct 14:24Z: "remove the Threads with a rounded border... the Threads with a Burger Menu put it on the main pane but on the right".

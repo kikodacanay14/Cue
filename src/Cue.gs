@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.13.1';
+const CUE_VERSION_ = 'Cue 1.13.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -604,6 +604,23 @@ function cueAsNew(id) {
   cueChat_('Cue', 'Running it as a new project instead.', id);
   return cueView_(cueRunLeased_(id));
 }
+/** Kiko 14:26Z: Cue asks first when Canvas has a project that looks the same. pid = the Canvas project it is, or 'new'. */
+function cueSameAnswer(id, pid) {
+  cueOwner_();
+  let name = '';
+  cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    if (L.s.stage !== 'Same project?' || L.s.status !== 'Needs you') throw new Error('This request is not waiting for that answer.');
+    const pick = (L.s.ask_same || []).filter(x => x.project_id === pid)[0];
+    if (pid !== 'new' && !pick) throw new Error('That project is not one of the choices.');
+    name = pick ? pick.name : '';
+    Object.assign(L.s, { same_answer: pid, status: 'Working', stage: 'Checking Canvas', error: '' });
+    delete L.s.card_at; cueSave_(L.sh, L.row, L.s);
+  });
+  cueChat_('Cue', name ? 'Same project as ' + name + ': treating it as a change.' : 'A new project: running the full intake.', id);
+  return cueView_(cueRunLeased_(id));
+}
 /** Kiko rejects. Nothing goes to Canvas. */
 function cueReject(id, why) {
   cueOwner_();
@@ -750,7 +767,8 @@ function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
-  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null,
+  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',
