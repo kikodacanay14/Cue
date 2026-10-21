@@ -657,7 +657,8 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
 test('X1 an expense is recognised from Kiko\'s own words, in code; an inquiry is not', () => {
   const t = sandbox();
   [XTEXT, 'record this payment: gcash to Ace 450', 'proof of transfer for the LED wall', 'liquidation for Telus', 'paid cash for tapes'].forEach(x => assert.ok(t.ctx.cueIsExpense_(x), x));
-  [INQ, 'Hi, how are you?', 'new project intake for JBL'].forEach(x => assert.ok(!t.ctx.cueIsExpense_(x), x));
+  [INQ, 'Hi, how are you?', 'new project intake for JBL', 'personal expense: Grab receipt', 'record this receipt as personal'].forEach(x => assert.ok(!t.ctx.cueIsExpense_(x), x));
+  assert.throws(() => t.ctx.cueExpense('record this receipt as personal', [], ''), /personal/);
 });
 test('X2 expense read: 2 AI calls (GPT reads the photo, Claude matches), Canvas looked up by name, nothing saved or uploaded', () => {
   const t = expenseCard();

@@ -288,7 +288,7 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
       outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
     }
-    if (mode !== 'intake' && EXP_RE.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (mode !== 'intake' && EXP_RE.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {

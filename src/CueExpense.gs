@@ -17,7 +17,8 @@ const CUE_EXP_KINDS_ = ['Proof of transfer', 'Payment confirmation', 'Receipt'];
 const CUE_EXP_PAID_ = ['proof', 'cash', 'no'];
 const CUE_EXP_RE_ = /\b(record (an? |this |the )?(expense|payment)|expenses?|receipts?|official receipt|proof of (payment|transfer)|liquidat\w*|reimburs\w*|paid (to|for|via|in cash|cash|by))\b/i;
 /** True when Kiko's own words ask to record an expense (code, no AI call). The page uses the same pattern before uploading. */
-function cueIsExpense_(t) { return CUE_EXP_RE_.test(String(t || '')); }
+const CUE_PERSONAL_RE_ = /\bpersonal\b/i;          // personal expenses never go to Canvas (the Personal expenses command owns them)
+function cueIsExpense_(t) { t = String(t || ''); return CUE_EXP_RE_.test(t) && !CUE_PERSONAL_RE_.test(t); }
 
 /* ---------- AI call 1: GPT reads ---------- */
 const CUE_EX_SCHEMA_ = { type: 'object', additionalProperties: false,
@@ -86,6 +87,7 @@ function cueExpense(text, files, ref) {
   cueOwner_();
   const t = String(text || '').trim(), fs = cueExpFiles_(files);
   if (t.length < 3 && !fs.length) throw new Error('Say what the expense is for, or attach the receipt or proof.');
+  if (CUE_PERSONAL_RE_.test(t)) throw new Error('This looks like a personal expense, so it is not recorded in Canvas.');
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
