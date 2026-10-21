@@ -1,5 +1,11 @@
 # Changelog
 
+## Cue 1.9.1 (project lookup in chat; Kiko 08:25Z "i need this fixed asap"; needs Canvas main V187)
+
+- Chat can look up Canvas projects. Ask "lookup AMI Group - Selecta" or "what's the status of S-…" and Cue searches Canvas by project name, client or ID (new bridge read search_projects, read only) before GPT answers, so the reply comes from real Canvas records. Cue no longer says it has no access to Canvas.
+- Canvas V187 also tightens the duplicate check: the client's name alone no longer counts as a similar project name (Selecta was matched to the Halloween gift boxes), and the best match comes first.
+- Budget: no extra AI call. One parallel Canvas read per name word, at most 4 plus 2 project IDs.
+
 ## Cue 1.9 (readiness check; Kiko said deploy 08:21Z; needs Canvas V186, live)
 
 - Readiness check (Kiko approved specs/project-readiness.md, 21 Oct 07:32Z). Ask "is X ready?" or "what's missing for X?" in the chat. The chat call names the project; Canvas finds it (several open matches: pick on the card; a project ID works too) and returns its readiness checklist exactly as the Checklist tab scores it (new bridge read get_readiness: Pre-Event Readiness before the event, Closeout after). Cue flags overdue items, missing owners and blockers within 7 days of the event, and looks in your Gmail (subjects and snippets, last 60 days) for proof Canvas hasn't recorded. One Claude call writes the summary, the top 3 risks, what closes each open blocker, and whether each email or file looks like proof. The card leads with Canvas's own count (Blockers clear X of Y), never an AI number.

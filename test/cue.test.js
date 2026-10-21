@@ -71,6 +71,7 @@ function sandbox(o = {}) {
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
       if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
+      if (body.action === 'search_projects') { log.search = (log.search || []).concat(body.args.query); if (o.searchFail) return resp(200, { ok: false, status: 'Blocked', error: 'boom' }); return resp(200, { ok: true, status: 'Completed', result: (o.search || {})[body.args.query.toLowerCase()] || { projects: [], total: 0 } }); }
       if (body.action === 'list_project_files') {
         if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
         log.filesFor = body.project_id;
@@ -658,7 +659,8 @@ function readyRun(o) { const t = sandbox(Object.assign({ talk: ASK, similar: ACM
 test('R1 readiness: chat names the project, Canvas scores it, Claude summarises; 1 AI call in the run, reads only, Canvas numbers untouched', () => {
   const t = readyRun(), v = t.v, R = v.ready;
   assert.strictEqual(v.kind, 'readiness'); assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.metrics.ai_calls, 1, 'only Claude in the run (the chat call is the message itself)');
-  deq(t.log.bridge.map(b => b.action).sort(), ['find_similar_projects', 'get_readiness', 'list_project_files'], 'reads only');
+  deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects').sort(), ['find_similar_projects', 'get_readiness', 'list_project_files'], 'reads only');
+  deq(t.log.search, ['acme', 'party'], 'the chat lookup, also a read');
   assert.strictEqual(t.log.readyFor, 'S-31628060SP', 'the open project, not the completed one from last year');
   deq(R.canvas.counts, READINESS.counts, 'Canvas\'s counts as given');
   deq(R.canvas.items.map(i => i.id), ['PER-1.05', 'PER-9.03', 'PER-1.04', 'PER-2.06'], 'blockers first, then by due date, undated last');
@@ -708,6 +710,21 @@ test('R4 close follow-ups keeps the check; Re-check is a new run in the same thr
   assert.strictEqual(f.v.status, 'Done'); assert.strictEqual(f.v.ready.review, null); assert.ok(f.v.notes.some(n => /Claude's summary did not come through/.test(n)));
   deq(f.v.ready.canvas.counts, READINESS.counts);
   const g = readyRun({ gmailScope: true }); assert.strictEqual(g.v.status, 'Done'); assert.ok(g.v.notes.some(n => /Gmail search did not work/.test(n)));
+});
+
+test('C40 chat looks up Canvas projects: one search per name word, matches go to GPT, the prompt never says no access; a failed search is said plainly', () => {
+  const SEL = { project_id: 'S-12345678AB', name: 'AMI - Selecta Merchandising Installation', account: 'AMI Group', date: '11/15/2026', status: 'For Client Awarding' };
+  const HAL = { project_id: 'S-22345678AB', name: 'AMI Group Customized Halloween Gift Boxes', account: 'AMI Group', date: '10/31/2026', status: 'For Production Start' };
+  const t = sandbox({ search: { ami: { projects: [SEL, HAL], total: 2 }, selecta: { projects: [SEL], total: 1 } } });
+  t.ctx.cueSend('lookup AMI Group - Selecta project');
+  deq(t.log.search, ['ami', 'selecta']); assert.strictEqual(t.log.gpt.length, 1);
+  const inp = t.log.gpt[0].input;
+  assert.ok(/Canvas projects: S-12345678AB \| AMI - Selecta/.test(inp), 'Selecta passed to GPT'); assert.ok(!/Halloween/.test(inp), 'one-word match dropped');
+  assert.ok(/CAN look up Canvas projects/.test(t.log.gpt[0].instructions) && !/cannot change Canvas, look up/.test(t.log.gpt[0].instructions));
+  const u = sandbox({ searchFail: true }); u.ctx.cueSend('what is the status of Selecta');
+  assert.ok(/Canvas search failed/.test(u.log.gpt[0].input));
+  const w = sandbox(); w.ctx.cueSend('find Zebra');
+  assert.ok(/none matched "zebra"/.test(w.log.gpt[0].input));
 });
 
 let pass = 0;

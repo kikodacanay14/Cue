@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.9';
+const CUE_VERSION_ = 'Cue 1.9.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -189,8 +189,11 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
   + 'and never ask Kiko to give access "to send". Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
-  + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. You cannot change Canvas, look up Canvas records or '
-  + 'browse the web from chat: say so plainly when asked, and never pretend you did something. When Kiko asks you to run, redo or reload '
+  + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. Cue CAN look up Canvas projects: before you answer, Cue '
+  + 'searched Canvas for the names in Kiko\'s message, and the matches are listed under "Canvas projects" (ID, name, client, event date, '
+  + 'status). Answer questions about projects from that list. If the list says none matched, say no Canvas project matched those words and '
+  + 'ask for another name or the project ID. Never say you have no access to Canvas or cannot look up projects. You cannot change Canvas '
+  + 'or browse the web from chat, and never pretend you did something. When Kiko asks you to run, redo or reload '
   + 'something now, set start_intake and reply in one short line that you are starting it. If the message reads like a client inquiry or '
   + 'event brief, set looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
 
@@ -209,8 +212,10 @@ function cueTalk_(t, ref) {
   const about = ref ? cueTaskLine_(ref) : '';
   // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
+  const found = cueLookup_(s, t);
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
     user: 'Waiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
+      + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
   const pick = !ref && r.ok && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
@@ -224,6 +229,31 @@ function cueTalk_(t, ref) {
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
   const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
   return { chat: true, reply, task: pick, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !ready), start_intake: start.length >= 20 ? start : '', readiness: ready.length >= 2 ? ready : '' };
+}
+
+const CUE_LOOKUP_SKIP_ = ['lookup', 'look', 'find', 'check', 'show', 'open', 'can', 'you', 'access', 'now', 'have', 'does', 'what', 'which', 'where',
+  'when', 'status', 'please', 'pls', 'about', 'tell', 'give', 'list', 'all', 'our', 'any', 'how', 'are', 'was', 'were', 'there', 'want', 'need',
+  'requirements', 'requirement', 'cost', 'costs', 'costing', 'again', 'scope', 'reanalyze', 'analyze', 'details', 'info', 'canvas', 'hey', 'hello',
+  'thanks', 'thank', 'yes', 'okay', 'doing', 'gpt', 'claude', 'cue', 'ready', 'missing', 'readiness', 'done'];
+
+/** Kiko 08:23Z: chat can look up Canvas projects. One parallel bridge read per distinctive word (search_projects, read only),
+ * merged and ranked by how many words a project matched. Returns a short text list for the chat model; never throws. */
+function cueLookup_(s, t) {
+  const words = cueWords_(t).filter(w => CUE_LOOKUP_SKIP_.indexOf(w) < 0).filter((w, i, a) => a.indexOf(w) === i).slice(0, 4);
+  const ids = (String(t).match(/\b[A-Z]-\d{6,}[A-Z0-9]*\b/gi) || []).slice(0, 2);
+  const qs = ids.concat(words);
+  if (!qs.length) return 'none searched (no project name in the message)';
+  let res; try { res = cueBridgeAll_(s, qs.map(q => ['search_projects', { query: q, limit: 10 }])); }
+  catch (e) { return 'the Canvas search failed just now (' + String((e && e.message) || e).slice(0, 160) + '); say so and ask Kiko to try again'; }
+  const by = {};
+  res.forEach((r, i) => ((r && r.projects) || []).forEach(p => {
+    const k = p.project_id, w = i < ids.length ? 10 : 1;
+    if (!by[k]) by[k] = { p, n: 0 }; by[k].n += w;
+  }));
+  const top = Object.keys(by).map(k => by[k]).sort((a, b) => b.n - a.n), best = top.length ? top[0].n : 0;
+  const keep = top.filter(x => x.n === best || x.n >= 2).slice(0, 8);
+  if (!keep.length) return 'none matched "' + qs.join('", "') + '"';
+  return keep.map(x => x.p.project_id + ' | ' + x.p.name + ' | ' + (x.p.account || 'no client') + ' | ' + (x.p.date || 'no date') + ' | ' + (x.p.status || 'no status')).join('\n');
 }
 
 /** A task's display name: the matched project, the client and event, or what it is. */
