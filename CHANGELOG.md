@@ -1,5 +1,13 @@
 # Changelog
 
+## ☰ Threads in the chat's top bar (not deployed)
+
+Kiko 21 Oct 14:24Z: "remove the Threads with a rounded border... the Threads with a Burger Menu put it on the main pane but on the right".
+
+- The rounded Threads button is gone. **☰ Threads**, with its needs-you badge, now sits at the right of the chat's top bar, styled like the pane's tabs, and opens the Threads list.
+- The pane's tab bar now holds only the threads and files Kiko opened. On a wide screen it hides when nothing is open.
+- Tests: 180 of 180 pass. Checked in Chromium at 440 px and 1440 px.
+
 ## Cue 1.13: side pane in a narrow window, no Widgets page, Cue bubble 1.3.0 (Kiko said deploy 14:18Z)
 
 Kiko 21 Oct 13:58Z: in the narrow Cue window, the pane must slide in on the right without covering the chat.

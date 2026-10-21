@@ -22,9 +22,12 @@
   .card b { letter-spacing:-0.01em; }
   header .sub { color:var(--muted); font-size:13px; }
   header .dot { margin-left:auto; width:9px; height:9px; border-radius:50%; background:var(--ok); }
-  nav { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--head); }
-  .tab { border:1px solid var(--line2); background:transparent; color:var(--text); border-radius:9999px; min-height:44px; padding:0 18px; font:600 14px var(--font); cursor:pointer; }
-  .tab[aria-selected="true"] { background:var(--panel); border-color:var(--act); color:var(--white); }
+  /* Kiko 14:24Z: no pill button; the ☰ Threads tab sits at the right of the chat's top bar, level with the pane's tabs. */
+  nav { display:flex; justify-content:flex-end; gap:4px; padding:8px 10px; min-height:53px; border-bottom:1px solid var(--line); background:var(--head); }
+  .ntab { all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:7px 10px; border:1px solid transparent; border-radius:6px; color:var(--muted); font:600 13px var(--font); }
+  .ntab:hover { color:var(--text); } .ntab[aria-pressed="true"] { background:var(--panel); border-color:var(--line2); color:var(--white); }
+  .ntab:focus-visible { outline:2px solid var(--act); }
+  .ptabs { min-height:53px; }
   .badge { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; border-radius:9999px; background:var(--need); color:#fff; font-size:12px; }
   /* Two panes (Kiko 21 Oct 12:59Z, like Claude's desktop app): the main chat on the left; on the right, tabs for the Threads list,
      each opened thread, and files or images opened from a thread. On a phone the right pane slides over the chat. */
@@ -155,7 +158,7 @@
 <div class="split">
 <div class="left">
 <nav>
-  <button class="tab" id="tab-threads" aria-controls="pane">Threads<span class="badge" id="needCount" hidden></span></button>
+  <button class="ntab" id="tab-threads" aria-controls="pane" aria-pressed="false">☰ Threads<span class="badge" id="needCount" hidden></span></button>
 </nav>
 <div id="scroller">
 <main>
@@ -325,11 +328,11 @@
     if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); }
   });
   function renderPaneTabs(th) {
-    var need = Object.keys(th).filter(function (k) { return th[k].reqs.length && threadState(th[k]).need; }).length;
     var tab = function (key, label, x) { return '<span class="ptab" role="presentation" aria-selected="' + (pactive === key) + '"><button role="tab" data-ptab="' + esc(key) + '" title="' + esc(label) + '">' + x + esc(label) + '</button>'
       + (FIXED[key] ? '' : '<button class="x" data-pclose="' + esc(key) + '" aria-label="Close ' + esc(label) + '">×</button>') + '</span>'; };
+    // The Threads list opens from ☰ Threads in the chat's top bar; this bar holds only the threads and files Kiko opened.
+    $('ptabs').hidden = !ptabs.length && window.innerWidth > 900;
     setHtml($('ptabs'), '<button class="btn ghost pane-x" data-pclose="pane" style="min-height:36px;padding:0 12px" aria-label="Close this pane">✕</button>'
-      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>')
       + ptabs.map(function (k) { return tab(k.key, k.type === 'thread' ? (th[k.id] ? threadTitle(th[k.id]) : 'Thread') : k.name, k.type === 'file' ? '🖼 ' : ''); }).join(''));
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
