@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.4.1 (deployed as Version 13)
+
+- Sending never blocks (Kiko 05:59Z): your message shows at once and stays through refreshes; Enter works while Cue is still busy with the last message; the box and the reply bar clear on send.
+
 ## Cue 1.4 (deployed as Version 12)
 
 - Requote files (Kiko 05:47Z "load again with new files"): a change request attaches this message's files, the task Kiko replied to, and every file Kiko sent for the same Canvas project in the last 24 hours (newest copy per name, up to 20 MB ticked). The card lists them with ticks.

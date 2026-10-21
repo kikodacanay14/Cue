@@ -178,7 +178,11 @@
     return '<div class="card need"><b>Cue needs Google access</b><div class="small muted">Google has not given Cue all the access it needs (Gmail or Drive). This checks and fixes it.</div>'
       + '<div class="actions"><button class="btn" data-act="fix-access" data-id="">Fix Google access</button></div></div>';
   }
-  function addLocal(who, text) { state.chat.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
+  // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
+  // while Cue was busy, and Enter did nothing while the last send was still running).
+  var outbox = [];
+  function addLocal(who, text) { outbox.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
+  function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
   function show(tab) {
     $('tab-chat').setAttribute('aria-selected', tab === 'chat'); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
@@ -247,54 +251,56 @@
   $('send').onclick = function () {
     var t = $('box').value.trim(); if (!t && !pending.length) return;
     if (reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
-    $('send').disabled = true;
     var files = pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; });
     send(t, files, '');
   };
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
-  function send(t, files, mode) {
-    $('send').disabled = true; $('chip-intake').hidden = true;
-    if (!files.length && mode !== 'intake') { state.chat.push({ who: 'Kiko', text: t, request_id: replyTo, time: '' }); addLocal('Cue', '…'); $('box').value = ''; }
-    if (files.length && !files[0].id) return upload(t, files, mode);
-    var ref = replyTo;
+  function send(t, files, mode, ref, mine) {
+    $('chip-intake').hidden = true;
+    if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let him keep typing
+      ref = replyTo; replyTo = ''; renderReply();
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
+      outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
+    }
+    if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
+    var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
-      $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false; replyTo = ''; renderReply();
-      if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(); }
-      refresh();
+      var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
+      if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(swap); }
+      refresh(swap);
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
-    }, function (e) { $('send').disabled = false; if (!$('box').value) $('box').value = t; alertErr(e); });
+    }, function (e) { unbox(mine, dots); if (!$('box').value) $('box').value = t; alertErr(e); });
   }
   // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
-  function upload(t, files, mode) {
-    var ids = [], i = 0, note = { who: 'Cue', text: '', time: '' };
-    state.chat.push(note);
+  function upload(t, files, mode, ref, mine) {
+    var ids = [], i = 0, note = { who: 'Cue', text: '', request_id: ref, time: '' };
+    outbox.push(note);
     (function next() {
-      if (i === files.length) return send(t, ids, mode);
-      if (state.chat.indexOf(note) < 0) state.chat.push(note);
+      if (i === files.length) { unbox(note); return send(t, ids, mode, ref, mine); }
       note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
       call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); },
-        function (e) { $('send').disabled = false; alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
+        function (e) { unbox(note, mine); if (!$('box').value) $('box').value = t; alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
 
-  function refresh() { call('cueState', [], function (s) { state = s; render(); schedule(); }, function () { schedule(); }); }
+  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); schedule(); }, function () { if (after) after(); schedule(); }); }
   function busy() { return state.requests.some(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
   function render() { renderChat(); renderWidgets(); }
   var lastChat = -1;
   function renderChat() {
-    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, grew = state.chat.length !== lastChat;
-    lastChat = state.chat.length;
+    var n = state.chat.length + outbox.length, sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, grew = n !== lastChat;
+    lastChat = n;
     renderChatHtml();
     if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
   }
   function renderChatHtml() {
-    $('msgs').innerHTML = state.chat.map(function (m) {
+    $('msgs').innerHTML = state.chat.concat(outbox).map(function (m) {
       var t = m.request_id ? taskOf(m.request_id) : null;
       return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who)
         + (t ? ' <span class="task"><i class="dot" style="background:' + t.color + '"></i>' + esc(t.label) + '</span>' : '') + '</span>' + esc(m.text)
