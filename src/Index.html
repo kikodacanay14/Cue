@@ -62,6 +62,9 @@
   .chip { border:1px solid var(--line2); border-radius:9999px; padding:6px 12px; font-size:13px; color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
   .muted { color:var(--muted); } .small { font-size:13px; }
   .worker { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; background:#1f2b3d; color:var(--act); }
+  .work-head { all:unset; box-sizing:border-box; width:100%; display:flex; justify-content:space-between; gap:8px; align-items:center; cursor:pointer; }
+  .work-head:focus-visible { outline:2px solid var(--act); outline-offset:4px; border-radius:8px; }
+  .chev { color:var(--muted); font-size:14px; }
   .steps { list-style:none; margin:10px 0 0; padding:0; }
   .steps li { display:flex; gap:8px; align-items:center; padding:3px 0; font-size:14px; color:var(--muted); }
   .steps li .d { width:9px; height:9px; border-radius:50%; background:var(--line2); flex:none; }
@@ -316,12 +319,17 @@
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
   function workHtmlOf(r) {
     var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
-    var cur = list[i] || list[0];
-    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span class="worker">' + esc(cur[1]) + '</span></div>'
-      + '<div class="small muted">' + esc(r.text.slice(0, 90)) + '</div><ul class="steps">' + list.map(function (s, j) {
-        return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('')
-      + '</ul><div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + metricLine(r) + '</div>';
+    var cur = list[i] || list[0], open = !!openWork[r.id];
+    // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
+    return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
+      + '<b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
+      + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
+          return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
+        : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
+      + '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + (open ? metricLine(r) : '') + '</div>';
   }
+  var openWork = {};
 
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
@@ -439,6 +447,7 @@
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+        if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return renderWidgets(); }
         if (act === 'edit') { editing[id] = 1; return renderWidgets(); }
         if (act === 'cancel-edit') { delete editing[id]; return renderWidgets(); }
         var done = function () { delete running[id]; delete editing[id]; refresh(); }, fail = function (e) { delete running[id]; alertErr(e); refresh(); };

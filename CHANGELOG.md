@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.3.3 (deployed as Version 10)
+
+- Working on cards are collapsible (Kiko 05:39Z): collapsed shows the title, the current step and the bar; tap to see the full request, every step and the AI-call count.
+
 ## Cue 1.3.2 (deployed as Version 9)
 
 - Removed the Speed budget widget (Kiko 05:38Z). Runs still record AI calls and seconds on each card.
