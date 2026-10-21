@@ -182,6 +182,13 @@ function cueIntakeCost_(s, save) {
   // Kiko 08:37Z: "run full project intake" means an intake, even when Canvas has a project with that name (an earlier attempt).
   const full = /\b(full|run|redo|re-?run|start|begin|do)\b[^.\n]{0,20}\bintake\b/i.test(String(s.text || ''));   // Kiko 08:38Z: "Start intake" too
   if (full && s.similar.length) s.notes.push('Canvas already has ' + s.similar.map(x => x.name + ' (' + (x.date || 'no date') + ', ' + (x.status || 'no status') + ')').join('; ') + '. You asked for a full intake, so this runs as a new intake; reject it if it duplicates that project.');
+  // Kiko 14:22Z: a "similar name" from Canvas is only a hint. It becomes a change only when the names really match
+  // (cueSameProject_); otherwise the intake runs as new and the near names are a note. A change request Kiko asked for still goes to change.
+  const same = s.similar.filter(x => cueSameProject_(s, x));
+  if (!s.as_new && !full && !s.said_change && s.similar.length && !same.length)
+    s.notes.push('Canvas has projects with a similar name (' + s.similar.map(x => x.name).join('; ') + '), but none is this project, so this runs as a new intake.');
+  if (!s.said_change) s.similar = same;
+  else if (same.length) s.similar = same.concat(s.similar.filter(x => same.indexOf(x) < 0));
   if (!s.as_new && !full && (s.similar.length || s.said_change)) return cueChangeStart_(s);
   if (!s.reqs.length) throw new Error('GPT found no requirements in this message. Add what the client needs and send it again.');
   const ev = got[1] || {}, E = k => ev[k] || { owned: [], ran: {}, quotes: [], stats: null, bse: { packages: [], items: [] }, suppliers: [] };
@@ -515,4 +522,37 @@ function cueGmailDraft_(to, subject, body) {
   let o = null; try { o = JSON.parse(res.getContentText()); } catch (e) { o = null; }
   if (res.getResponseCode() !== 200 || !o || !o.id) throw new Error('Gmail did not make the draft (HTTP ' + res.getResponseCode() + ')');
   return o.id;
+}
+
+// Words that say what kind of event it is, not which one (Kiko 14:22Z: "Unilever Year End Party" is not "Exilara Year End Party").
+const CUE_EVENT_WORDS_ = ['year', 'end', 'yearend', 'party', 'christmas', 'xmas', 'holiday', 'event', 'events', 'project', 'launch', 'launching',
+  'activation', 'booth', 'fabrication', 'installation', 'merchandising', 'conference', 'convention', 'summit', 'gala', 'night', 'dinner', 'lunch',
+  'anniversary', 'celebration', 'team', 'building', 'teambuilding', 'town', 'hall', 'townhall', 'kick', 'off', 'kickoff', 'sales', 'awards', 'award',
+  'family', 'day', 'fun', 'run', 'expo', 'exhibit', 'exhibition', 'roadshow', 'tour', 'mall', 'show', 'concert', 'festival', 'fair', 'market',
+  'seminar', 'workshop', 'training', 'meeting', 'forum', 'opening', 'grand', 'store', 'pop', 'up', 'popup', 'the', 'and', 'for', 'of', 'with', 'new',
+  'annual', 'national', 'regional', 'internal', 'corporate', 'company', 'group', 'inc', 'corp', 'corporation', 'phils', 'philippines', 'ph', 'co', 'ltd'];
+function cueNameWords_(t) {
+  return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ')
+    .filter(w => w.length > 1 && !/^\d+$/.test(w) && CUE_EVENT_WORDS_.indexOf(w) < 0);
+}
+// True only when a Canvas project is really this one: its ID is in Kiko's words, or the client matches (when both are known)
+// and the distinctive name words (not client words, event-type words or years) mostly match.
+function cueSameProject_(s, x) {
+  if (!x) return false;
+  const text = String(s.text || '');
+  if (x.project_id && text.indexOf(x.project_id) >= 0) return true;
+  const e = (s.x && s.x.event) || {}, c = (s.x && s.x.client) || {}, ch = s.change || {};
+  const mine = cueNameWords_(c.company), theirs = cueNameWords_(x.account);
+  if (mine.length && theirs.length && !mine.some(w => theirs.indexOf(w) >= 0)) return false;   // different clients: never the same project
+  const d1 = Date.parse(e.date), d2 = Date.parse(x.date);   // a yearly event repeats: last year's project is another project
+  if (d1 && d2 && Math.abs(d1 - d2) > 90 * 864e5) return false;
+  const client = mine.concat(theirs);
+  const a = cueNameWords_([e.name, s.said_change ? ch.project : ''].join(' ')).filter(w => client.indexOf(w) < 0);
+  const b = cueNameWords_(x.name).filter(w => client.indexOf(w) < 0);
+  if (!a.length || !b.length) {   // nothing distinctive left: same client plus same event-type name, and close dates, is still the same project
+    const n1 = String(e.name || '').toLowerCase().replace(/[^a-z]+/g, ''), n2 = String(x.name || '').toLowerCase().replace(/[^a-z]+/g, '');
+    return !!(mine.length && theirs.length && n1 && n1 === n2);
+  }
+  const shared = a.filter(w => b.indexOf(w) >= 0).length;
+  return shared > 0 && shared / Math.min(a.length, b.length) >= 0.6;
 }
