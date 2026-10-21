@@ -6,7 +6,7 @@ Kiko 21 Oct 14:32Z: "can the update not appear again? like the Pipeline Telus 4 
 
 - In the main chat, each task appears once: its first line and its row, which keeps updating (replies, status, time). Later Cue lines that point to the same thread, such as "Summary for …", now show only in the thread.
 - Rejecting a task that is already Rejected now changes nothing and posts nothing. It used to show "Something went wrong: This intake is Rejected and can no longer be rejected here." Other closed states still refuse as before.
-- Tests: 181 of 181 pass, and C-test 531 now also checks a second Reject.
+- Tests: 181 of 181 pass, and the intake Reject test now also checks a second Reject.
 
 ## Cue 1.13.2 (Cue asks first when a project looks the same; Kiko 14:26-14:27Z; not deployed)
 
