@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.20: tutor mode (not deployed)
+
+Kiko 17:39Z-17:46Z: "rather than it doing things right away... it asks first Claude to see what it needs to do". Kiko picked option C of specs/tutor-mode.md.
+
+- Claude now makes the chat call (it was GPT). When a message would start a command, nothing starts. Cue shows a plan card first: "Here's what I'll do", the reading in one line, numbered steps with who does each (code, Claude, ChatGPT, Canvas, Kiko), and Go, Change and Not that.
+- Go runs the plan as planned with no new AI call. It also counts one approval for that kind of request and saves the phrasing as a routing example.
+- Change: Kiko types what to do instead. Claude plans again with that correction, and a new card shows.
+- Not that: up to three other commands plus Just chat. The pick is saved as a routing example.
+- Second opinion in code: Kiko's saved phrasings (word for word, or most words shared). When the code and Claude disagree, a fresh ChatGPT call sees both plans unnamed and in random order, and picks one or neither. Two of three win, and the card says so under Checks. When they are still split, Kiko picks from buttons.
+- Graduation: 3 Go taps in a row for the same pattern (command plus Claude's short name for the kind of request) and it runs on its own, with "Ask me again next time" under the run. Change or Not that start the count again. Emails never graduate. If Kiko repeats the exact words of an approved request for a graduated pattern, it runs from the saved plan with no AI call.
+- My rules now has a "Learned patterns" section: each pattern, its Go count, and Demote for the graduated ones. Store: the new Patterns tab.
+- In tutor mode, the 1.19.1 rule (a short "LED wall for AMI Group" asks intake or supplier search) is replaced by the plan card.
+- Not changed in 1.20: explicit commands ("remember:", "learn my …", "connect ticktick"), replies to a phase card, and the keyword shortcuts. Those are money questions, personal expense, supplier registration, HubSpot clean-up and re-cost, and each still shows its own approval card before anything is saved.
+- Switch: Script Property CUE_TUTOR=off goes back to the GPT chat call that acts at once. CUE_TUTOR_EFFORT (default low) sets Claude's effort for the plan call.
+- Tests: 222 of 222 pass (new TU1 to TU6).
+
 ## Cue 1.19.2: TickTick card always shows; "write a plan" is chat (not deployed)
 
 PC test on /dev 1.19.1 (17:42Z) found two problems.

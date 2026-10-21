@@ -144,6 +144,7 @@
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg.me { align-self:flex-end; background:#22344d; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
+  .msg.plan { border-left:4px solid var(--need); }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
   /* Threads (Kiko 06:07Z, like Claude's project chat): a task's first message shows in the chat with a reply counter; its replies and cards live in the thread. */
   .thread-row { align-self:flex-start; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-4px 0 4px; padding:4px 10px; font-size:13px; color:var(--muted); max-width:85%; }
@@ -840,11 +841,13 @@
   }
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
+    var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
   }
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
-    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip' };
+    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
+    go: 'Go', change: 'Change', not: 'Not that', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -853,7 +856,7 @@
     var q = askOf(m); if (!q || !q.open) return '';
     if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
     return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
-      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
+      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
     }).join('') + '</div>';
   }
   // "Wrong command?" (Kiko 17:00Z): on a waiting task that came from a message. Pick the right one; Cue redoes it and asks once to remember.
@@ -1087,7 +1090,7 @@
   }
   // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
   // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----
-  var myRules = null, myOpen = true, myOther = false, myEdit = 0, myErr = '', mySig = null;
+  var myRules = null, myOpen = true, myOther = false, myPat = false, myEdit = 0, myErr = '', mySig = null;
   function loadMyRules() { call('cueMyRules', [], function (r) { myRules = r; myErr = ''; renderMyRules(); }, function () {}); }
   function myRulesCheck() {
     var sig = state.chat.filter(function (m) { return /^[?!]ask-/.test(m.request_id); }).length + ':'
@@ -1114,10 +1117,23 @@
       + (myErr ? '<div class="err">' + esc(myErr) + '</div>' : '')
       + (R.length ? R.map(myRowHtml).join('') : '<div class="small muted" style="margin-top:8px">No rules yet. Correct Cue in any thread, or start a message with "remember:", and the rule shows up here.</div>')
       + (F.length ? '<details class="sec" id="myrules-other"' + (myOther ? ' open' : '') + '><summary>Other things Cue remembers (' + F.length + ')</summary>' + F.map(myRowHtml).join('') + '</details>' : '')
+      + patternsHtml(myRules.patterns || [])
       + '<div class="small muted" style="margin-top:8px">Changes apply from your next message. Same list as the Memory tab of your Cue sheet.</div></details>';
     setHtml($('w-myrules'), h);
     $('myrules-card').ontoggle = function () { myOpen = $('myrules-card').open; };
     if ($('myrules-other')) $('myrules-other').ontoggle = function () { myOther = $('myrules-other').open; };
+    if ($('myrules-pat')) $('myrules-pat').ontoggle = function () { myPat = $('myrules-pat').open; };
+  }
+  // Tutor mode (CueTutor.gs): the kinds of request Cue has learned, how many Go taps in a row, and Demote for the graduated ones.
+  function patternsHtml(P) {
+    if (!P.length) return '';
+    var g = P.filter(function (x) { return x.graduated; }).length;
+    return '<details class="sec" id="myrules-pat"' + (myPat ? ' open' : '') + '><summary>Learned patterns (' + P.length + (g ? ', ' + g + ' run on their own' : '') + ')</summary>'
+      + P.map(function (x) {
+        return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span style="flex:1;min-width:0">' + esc(x.key) + '<br><span class="small muted">'
+          + (x.graduated ? 'Runs on its own' : x.never ? 'Always asks first' : 'Asks first · ' + x.n + ' of 3 Go taps in a row') + (x.used ? ' · ' + esc(x.used) : '') + '</span></span>'
+          + (x.graduated ? '<button class="btn ghost" data-my="demote" data-key="' + esc(x.key) + '">Demote</button>' : '') + '</div>';
+      }).join('') + '</details>';
   }
   function mySave(o, b) {
     if (b) b.disabled = true;
@@ -1132,6 +1148,8 @@
     if (act === 'cancel') { myEdit = 0; return renderMyRules(); }
     if (act === 'save') { var t = document.querySelector('[data-say="my' + row + '"]'); return mySave({ row: row, was: x.text, text: t ? t.value : x.text }, b); }
     if (act === 'del') return mySave({ row: row, was: x.text, del: true }, b);
+    if (act === 'demote') { b.disabled = true; return call('cueMyPatternDemote', [b.getAttribute('data-key')], function (r) { myRules = r; myErr = ''; $('w-myrules')._h = null; renderMyRules(); },
+      function (e) { myErr = (e && e.message) || String(e); b.disabled = false; $('w-myrules')._h = null; renderMyRules(); }); }
   });
   $('w-myrules').addEventListener('change', function (e) {
     var c = e.target.closest('[data-my="on"]'); if (!c) return;
@@ -2131,6 +2149,9 @@
           if (!String(to || '').trim()) return addLocal('Cue', 'Type their email address in To first, or save it to Drafts.');
           return ask('Send this email now?', 'From your Gmail to: ' + to + '. Sent emails cannot be called back.', null, 'Send', go);
         }
+        if (act === 'ask-pick' && b.getAttribute('data-pick') === 'change')   // tutor mode: Change asks what to do instead, then Claude re-plans
+          return ask('What should I do instead?', 'Cue plans again with your words. Nothing has started.', 'e.g. find LED wall suppliers instead', 'Re-plan',
+            function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], done, fail); });
         if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], done, fail); }
         if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
           return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }

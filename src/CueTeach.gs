@@ -492,7 +492,7 @@ function cueMyRules() {
   const rows = n > 0 ? sh.getRange(2, 1, n, 6).getValues().map((r, i) => ({ row: i + 2, on: cueStyleOn_(r[0]), topic: String(r[1] || '').trim() || 'rules',
     text: String(r[2] || '').trim(), always: cueStyleOn_(r[3]), saved: r[4] instanceof Date ? r[4].toISOString().slice(0, 10) : String(r[4] || '').slice(0, 10), from: String(r[5] || '') }))
     .filter(x => x.text) : [];
-  return { rows: rows.reverse() };   // newest first
+  return { rows: rows.reverse(), patterns: cueMyPatterns_() };   // newest first; patterns = tutor mode (CueTutor.gs)
 }
 
 /** One change from the My rules list. o = { add } or { row, was, on?, text?, del? }. was = the text Kiko saw, so a row that moved
