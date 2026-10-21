@@ -1,6 +1,7 @@
 // Cloud deploy for Cue, run by .github/workflows/deploy.yml. Uses clasp, signed in as deploy.json's account.
-// Usage: node tools/deploy.mjs check|deploy
-// check only reads: it shows what would change between the live version and src/. deploy replaces every file in the
+// Usage: node tools/deploy.mjs check|preview|deploy
+// check only reads: it shows what would change between the live version and src/. preview pushes src/ to the project's
+// head only, so Cue's test link (/dev) runs the new code while the live web app (/exec) stays on its Version. deploy replaces every file in the
 // Cue project with src/, makes a new version, points Cue's web app (same /exec address) at it, and reads it back.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +10,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 const mode = process.argv[2];
-if (!['check', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|deploy'); process.exit(2); }
+if (!['check', 'preview', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|deploy'); process.exit(2); }
 const cfg = JSON.parse(fs.readFileSync('deploy.json', 'utf8'));
 const fail = m => { console.error('STOPPED: ' + m); process.exit(1); };
 if (/FILL_IN/.test(cfg.account + cfg.scriptId)) fail('fill in account and scriptId in deploy.json first');
@@ -52,6 +53,12 @@ const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));
 const desc = 'Cue ' + (process.env.GITHUB_SHA || 'local').slice(0, 7);
 clasp(pushDir, 'push', '--force');
+if (mode === 'preview') {
+  const line = `Cue preview pushed: open the test link (/dev) to try it; live stays on Version ${live || 'head'}`;
+  console.log('PREVIEW: ' + line);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+  process.exit(0);
+}
 const { versionNumber } = clasp(pushDir, 'create-version', desc);
 const done = clasp(pushDir, 'update-deployment', cfg.deploymentId, '--versionNumber', String(versionNumber), '--description', desc);
 const bad = diff(`live Version ${done.versionNumber} vs src/`, sums(pull(project('verify'), done.versionNumber)), want);
