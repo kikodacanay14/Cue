@@ -1,5 +1,11 @@
 # Changelog
 
+## Cue 1.24.1: daily bid check at 07:00 (not deployed)
+
+- Kiko 19:50Z moved the daily bid opportunity check from 08:00 to 07:00 Manila.
+- On the first page open after the deploy, Cue deletes the 08:00 trigger that version 3 made and adds one at 07:00 (CUE_TRIGGERS_V 4). The other triggers are not changed.
+- Tests: 260 of 260 pass (new BD9).
+
 ## Cue 1.24: AI usage and cost in Settings (not deployed)
 
 Kiko 19:25Z: see how many API calls Cue made this month, the likely cost, and a monthly view. Spec: specs/usage-cost.md (Kiko OK 19:47Z).

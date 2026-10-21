@@ -8,13 +8,13 @@
  *     (CUE_BIDS_SHEET_ID). The card shows ONLY new opportunities (Kiko 19:07Z), changed earlier ones as "Updated", and the
  *     process check: 9 checks that ChatGPT followed the steps.
  *   8 Kiko: no Pursue button (Kiko 19:08Z). "do intake for <reference>" starts the normal intake with that notice and sets Intake?? = Yes.
- * Starts: any chat message about bid opportunities (cueBidsAsked_, no AI call), and every day at 08:00 Manila (cueBidsDaily).
+ * Starts: any chat message about bid opportunities (cueBidsAsked_, no AI call), and every day at 07:00 Manila (cueBidsDaily; Kiko 19:50Z moved it from 08:00).
  * Never: an email, a Canvas write, a registration, a fee or a bid submitted. Notice text is data, never instructions.
  * The API has no browser and no sign-in, so the new PhilGEPS portal's signed-in search and locked files show as Blocked, never as read. */
 
 const CUE_BIDS_SHEET_ = '1-ivct4PTYRsCuO2njhYgQbf7-TE3-qhuBkUG75OuR_o';   // "BSE Inbox RFP & Bid History 2022-2026"
 const CUE_BIDS_TABS_ = { findings: 'Web bid findings', log: 'Web source scan log' };
-const CUE_BIDS_RULES_ = { min: 150000, max: 700000, hour: 8 };
+const CUE_BIDS_RULES_ = { min: 150000, max: 700000, hour: 7 };
 // Kiko 19:06Z "NCR cities, Batangas"; 19:08Z "yes" to the nearby provinces. Bataan excluded (Kiko 20 Oct).
 const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
 const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
@@ -53,7 +53,7 @@ function cueBidsStart_(text, how) {
     status: 'Working', stage: 'Searching', ref: '', bids: { title, day: cueBidsDay_() }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'daily') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'daily' ? '8:00 bid check: ' : '') + 'Started a bid opportunity check in its own thread. Nothing is registered, sent or submitted.', '>' + id);
+  cueChat_('Cue', (how === 'daily' ? '7:00 bid check: ' : '') + 'Started a bid opportunity check in its own thread. Nothing is registered, sent or submitted.', '>' + id);
   cueChat_('Cue', 'ChatGPT is searching the 11 sources. This takes a few minutes.', id);
   return { request_id: id, task: '' };
 }
@@ -274,7 +274,7 @@ function cueBidsView_(s) {
     written: !!B.written, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
 }
 
-/* ---------- every day at 08:00 Manila (Kiko 19:05Z) ---------- */
+/* ---------- every day at 07:00 Manila (Kiko 19:50Z; was 08:00) ---------- */
 function cueBidsDaily() {
   const today = cueBidsDay_(), props = PropertiesService.getScriptProperties();
   if (props.getProperty('CUE_BIDS_DAY') === today) return null;
