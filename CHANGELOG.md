@@ -1,5 +1,15 @@
 # Changelog
 
+## Project intake card sections fold; only the first is open (not deployed)
+
+Kiko 21 Oct 14:49Z: "for Project Intake - can the sections become an expandable section. on load they are folded except for the 1st section".
+
+- The Project intake card has these folding sections: Details, Lines, RFQ drafts, Claude's study, Risks and Ask the client. A finished intake also has an RFQs section. Each section title shows its count.
+- When the card loads, only Details is open. The card remembers what Kiko opens or folds when it refreshes. Edit lines opens the Lines section.
+- The card's title, its warnings and its buttons stay visible outside the sections.
+- The thread reply box no longer draws a second outline when it has focus.
+- Tests: 181 of 181 pass. Playwright checked that the folding works at load, after a toggle and after Edit lines.
+
 ## The right pane looks like Claude's Threads panel; no Due / Priority / Remind row (not deployed)
 
 Kiko 21 Oct 14:38Z sent two screenshots of Claude's Threads panel: "2 pane window how should look like". Kiko 14:42Z on the Due / Priority / Remind row: "remove this. i dont need this".

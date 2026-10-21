@@ -92,6 +92,7 @@
   .rbox { display:flex; align-items:flex-end; gap:6px; padding:4px 6px 4px 14px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); }
   .rbox:focus-within { border-color:var(--act); }
   .rbox textarea { flex:1; min-height:40px; max-height:160px; border:0; background:none; padding:9px 0; resize:none; outline:none; }
+  .rbox textarea:focus, .rbox textarea:focus-visible { border:0; box-shadow:none; outline:none; }
   .rtools { display:flex; gap:4px; margin-top:4px; }
   /* Narrow window (Kiko 13:58Z, the bubble's Cue window): the pane stays shut until Threads or Widgets is tapped, then sits beside
      the chat, never over it; the Cue bubble 1.3 widens the window to make room and narrows it again on close. Only a real
@@ -169,6 +170,14 @@
   .err { background:#3a1c13; border:1px solid var(--bad); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
   .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
   details { margin-top:8px; } summary { cursor:pointer; color:var(--act); font-weight:600; }
+  /* Kiko 14:49Z: the Project intake card's sections fold; only the first is open on load. */
+  details.sec { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  details.sec > summary { list-style:none; display:flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); font-weight:700; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary::before { content:'›'; display:inline-block; width:10px; font-size:16px; letter-spacing:0; transition:transform .15s; }
+  details.sec[open] > summary::before { transform:rotate(90deg); }
+  details.sec > summary:hover { color:var(--text); } details.sec > summary:focus-visible { outline:2px solid var(--act); border-radius:4px; }
+  details.sec > :not(summary) { margin-top:8px; }
   pre { white-space:pre-wrap; font:500 13px/1.5 var(--font); background:var(--input); padding:10px; border-radius:6px; }
   .scroll { overflow-x:auto; }
   .edit input { width:90px; } .edit input.wide { width:100%; }
@@ -1462,6 +1471,8 @@
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
     var c = p.client || {}, e = p.event || {}, t = p.totals || {}, cv = r.canvas || {};
+    var sec = function (k, title, body, first) { return secHtml(r.id + '|' + k, title, body, first); };
+    if (ed) secOpen[r.id + '|lines'] = true;   // Edit lines opens the Lines section
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake</div>'
       + '<b style="font-size:17px;color:#fff">' + esc(c.company || 'Unknown client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>';
     if ((r.files || []).length) h += '<div class="small muted">📎 ' + r.files.map(function (f) { return esc(f.name); }).join(', ') + '</div>';
@@ -1484,12 +1495,12 @@
       ['Optional', t.optional ? esc(t.optional) + ' line(s): cost ' + peso(t.optional_cost) + ', price ' + peso(t.optional_price) + ' <span class="muted small">(not in the totals above)</span>' : 'None'],
       ['Split', esc(t.in_house) + ' in house, ' + esc(t.outsourced) + ' outsourced'],
       ['Run', metricLine(r)]];
-    h += '<table class="facts">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
-    if ((p.excluded || []).length) h += '<div class="small muted">Not needed, so not costed or written: ' + p.excluded.map(esc).join('; ') + '</div>';
-    h += '<div class="label">Lines</div><div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>Unit price</th></tr>';
+    h += sec('details', 'Details', '<table class="facts">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>'
+      + ((p.excluded || []).length ? '<div class="small muted">Not needed, so not costed or written: ' + p.excluded.map(esc).join('; ') + '</div>' : ''), 1);
+    var lh = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>Unit price</th></tr>';
     p.lines.forEach(function (l) {
       var sup = (l.suppliers || []).map(function (s) { return esc(s.name) + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + (s.preferred ? ' <span class="tag pref">preferred</span>' : ''); }).join(', ');
-      h += '<tr data-line="' + esc(l.key) + '"><td>' + esc(l.key) + (ed ? '<br><label class="small"><input type="checkbox" data-f="remove" style="width:auto"> remove</label>' : '') + '</td>'
+      lh += '<tr data-line="' + esc(l.key) + '"><td>' + esc(l.key) + (ed ? '<br><label class="small"><input type="checkbox" data-f="remove" style="width:auto"> remove</label>' : '') + '</td>'
         + '<td><b>' + esc(l.description) + '</b>' + (l.status === 'optional' ? ' <span class="tag new">optional</span>' : '')
         + (ed ? '<div><select data-f="status" style="width:auto"><option value="included"' + (l.status !== 'optional' ? ' selected' : '') + '>Included</option><option value="optional"' + (l.status === 'optional' ? ' selected' : '') + '>Optional</option></select></div>' : '')
         + '<div class="small muted">' + esc(l.category) + '</div><div class="small">' + esc(l.why) + '</div>'
@@ -1500,19 +1511,20 @@
         + '<td>' + (ed ? '<input data-f="unit_cost" placeholder="' + esc(l.unit_cost) + '">' : (l.cost_basis === 'none' ? '<span class="muted">Unknown</span>' : peso(l.unit_cost)) + '<div class="small muted">' + esc(l.cost_basis) + '</div>') + '</td>'
         + '<td>' + (ed ? '<input data-f="unit_price" placeholder="' + esc(l.unit_price || '') + '">' : l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + ' ' + esc(l.price_name) + '</div>' : '<span class="tag flag">No price: set it</span>') + '</td></tr>';
     });
-    h += '</table></div>';
-    h += '<div class="label">RFQ drafts (' + p.rfqs.length + ')</div>' + (p.rfqs.length ? '' : '<div class="small muted">None yet.</div>');
+    h += sec('lines', 'Lines (' + p.lines.length + ')', lh + '</table></div>', ed);
+    var rh = p.rfqs.length ? '' : '<div class="small muted">None yet.</div>';
     p.rfqs.forEach(function (q, i) {
       var s = (q.suppliers || [])[0] || {};
-      h += '<details><summary>' + (ed ? '<label onclick="event.stopPropagation()"><input type="checkbox" data-skip="' + i + '" style="width:auto"> skip </label>' : '')
+      rh += '<details><summary>' + (ed ? '<label onclick="event.stopPropagation()"><input type="checkbox" data-skip="' + i + '" style="width:auto"> skip </label>' : '')
         + esc(s.name || 'Supplier') + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + ' <span class="muted small">' + esc(s.email || 'no email on file') + ' · ' + esc(q.keys.join(', ')) + '</span></summary>'
         + (r.status === 'Needs you' ? '<input class="wide" style="width:100%;margin-top:8px" data-rq-subj="' + i + '" value="' + esc(q.subject) + '" aria-label="Subject">'
             + '<textarea class="mail" data-rq-body="' + i + '" aria-label="RFQ text">' + esc(q.body) + '</textarea>'
           : '<div class="small"><b>' + esc(q.subject) + '</b></div><pre>' + esc(q.body) + '</pre>') + '</details>';
     });
-    if (p.study) h += '<div class="label">Claude\'s study</div><div class="small">' + esc(p.study) + '</div>';
-    if ((p.risks || []).length) h += '<div class="label">Risks</div><ul class="small">' + p.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
-    if ((p.questions || []).length) h += '<div class="label">Ask the client</div><ul class="small">' + p.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    h += sec('rfqs', 'RFQ drafts (' + p.rfqs.length + ')', rh);
+    if (p.study) h += sec('study', 'Claude\'s study', '<div class="small">' + esc(p.study) + '</div>');
+    if ((p.risks || []).length) h += sec('risks', 'Risks (' + p.risks.length + ')', '<ul class="small">' + p.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>');
+    if ((p.questions || []).length) h += sec('ask', 'Ask the client (' + p.questions.length + ')', '<ul class="small">' + p.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>');
     if (r.status === 'Done, drafts incomplete') {
       h += '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + '. Some RFQs did not go through.</div><div class="actions"><button class="btn" data-act="drafts" data-id="' + esc(r.id) + '">Try those again</button></div>';
     } else if (r.status === 'Failed') {
@@ -1521,8 +1533,8 @@
         + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
     } else if (r.status === 'Done' || r.status === 'Rejected') {
       h += (cv.project_id ? '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '.</div>' + foldersHtml(r) : '') + savedHtml(r)
-        + ((r.drafts || []).length ? '<div class="label">RFQs</div><ul class="small">' + r.drafts.map(function (d) { return '<li>' + esc(d.supplier || 'Supplier') + ' <span class="muted">' + esc(d.to || 'no email') + '</span> '
-          + (d.sent_id ? '<span class="tag pref">sent</span>' : d.id ? '<span class="tag new">in Drafts</span>' : '<span class="tag flag">not made</span>') + '</li>'; }).join('') + '</ul>' : '');
+        + ((r.drafts || []).length ? sec('sent', 'RFQs (' + r.drafts.length + ')', '<ul class="small">' + r.drafts.map(function (d) { return '<li>' + esc(d.supplier || 'Supplier') + ' <span class="muted">' + esc(d.to || 'no email') + '</span> '
+          + (d.sent_id ? '<span class="tag pref">sent</span>' : d.id ? '<span class="tag new">in Drafts</span>' : '<span class="tag flag">not made</span>') + '</li>'; }).join('') + '</ul>') : '');
     } else {
       h += '<div class="actions"><button class="btn" data-act="approve-send" data-id="' + esc(r.id) + '">Approve and send RFQs</button>'
         + '<button class="btn ghost" data-act="approve" data-id="' + esc(r.id) + '">Approve, drafts only</button>'
@@ -1532,6 +1544,13 @@
     }
     return h + '</div>';
   }
+  // A folding section of a card (Kiko 14:49Z). Kiko's open/fold choice is kept across refreshes; `first` opens it until Kiko folds it.
+  var secOpen = {};
+  function secHtml(key, title, body, first) {
+    var on = key in secOpen ? secOpen[key] : !!first;
+    return '<details class="sec" data-sec="' + esc(key) + '"' + (on ? ' open' : '') + '><summary>' + esc(title) + '</summary>' + body + '</details>';
+  }
+  document.addEventListener('toggle', function (e) { var k = e.target.getAttribute && e.target.getAttribute('data-sec'); if (k) secOpen[k] = e.target.open; }, true);
   // C1 G6: every folder Canvas read back after the write; a missing one is flagged with "Make folders again".
   function foldersHtml(r) {
     var cv = r.canvas || {}, fo = cv.folders || {}, miss = cv.folders_missing || [], k = Object.keys(fo);
