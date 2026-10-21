@@ -3520,6 +3520,15 @@ test('CV8 the page sends every Canvas command to the server, never to the expens
   ['record expense 450 duct tape for Globe', 'paid to Ace Hardware 450', 'show me the expenses'].forEach(x => assert.ok(!re.test(x), 'stays an expense: ' + x));
 });
 
+test('BD8 PC test 19:32Z: blank sheet rows are not notices to recheck; plain wording for the intake check; run names carry the time', () => {
+  const blank = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+  const t = bidBox({}, [blank, ['2026-10-20', 'TPB', 'OLD-1', 'Travel fair booth', 'Open', 'Makati', 600000, 'PHP', '2026-10-27T17:00+08:00', '', '', '', 'https://tpb.gov.ph/x', '', '', '', ''], blank]);
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), ck = n => v.bids.checks.filter(c => c.id === n)[0];
+  assert.strictEqual(ck(7).ok, true); assert.strictEqual(ck(7).detail, '', 'no empty "Not rechecked: ," line');
+  assert.strictEqual(ck(9).label, 'You pick which ones go to intake (Cue never marks them)');
+  assert.ok(/'MM\/dd HH:mm'/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueBids.gs'), 'utf8')), 'title has the time');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

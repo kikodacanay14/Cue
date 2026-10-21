@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.23.1: bid check polish from the PC test (not deployed)
+
+The PC test of 1.22.1 at 19:32Z passed (5 new notices, 8 of 9 checks, 49 s). Three small fixes from it:
+
+- Each bid check's name now includes the time ("Bid check 10/22 03:15"), so two runs on the same day have different names.
+- Blank rows in the bid sheet no longer count as earlier notices, so check 7 never shows an empty "Not rechecked: ," line.
+- Check 9 now reads "You pick which ones go to intake (Cue never marks them)" instead of "Intake?? left for you".
+- Tests: 252 of 252 pass (new BD8).
+
 ## Cue 1.23: Open in Canvas, filled (not deployed)
 
 Kiko 18:57Z and 18:59Z: when Canvas has the data or the process, Cue opens that Canvas page with the details filled in and shows it, instead of redoing it in a Cue card. Spec: specs/open-in-canvas.md (Kiko OK 19:20Z: no bank details in links).
