@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.8.1';
+const CUE_VERSION_ = 'Cue 1.8.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -297,9 +297,14 @@ function cueMetrics_(s) {
   const m = s.metrics || (s.metrics = { ai_calls: 0, calls: [] });
   if (s.card_at && m.seconds_to_card == null) m.seconds_to_card = Math.round((s.card_at - s.started) / 100) / 10;
   if (s.ready_at && m.seconds_total == null) m.seconds_total = Math.round((s.ready_at - s.started) / 100) / 10;
+  // Kiko's budget is Cue's own time (Kiko 07:19Z): the run up to the card, plus the work after he approves. Time the card waits for him
+  // does not count.
+  const ap = Date.parse(s.approved_at || '');
+  const work = !s.ready_at ? null : ap && s.card_at && s.ready_at > ap ? (s.card_at - s.started) + (s.ready_at - ap) : s.ready_at - s.started;
+  if (work != null) m.seconds_work = Math.round(work / 100) / 10;
   const over = [];
   if (m.ai_calls > CUE_BUDGET_.calls) over.push(m.ai_calls + ' AI calls');
-  if (m.seconds_total > CUE_BUDGET_.seconds) over.push(m.seconds_total + ' s');
+  if (m.seconds_work > CUE_BUDGET_.seconds) over.push(m.seconds_work + ' s of Cue\'s time');
   m.flag = over.length ? 'Over budget: ' + over.join(', ') : '';
 }
 
@@ -416,7 +421,7 @@ function cueSummary_(s) {
       if (wait.length) out.push(wait.length + ' RFQ' + (wait.length === 1 ? '' : 's') + ' in your Gmail Drafts');
       if (bad.length) out.push(bad.length + ' RFQ' + (bad.length === 1 ? '' : 's') + ' did not go through');
     }
-    const saved = (s.project_saved || []).filter(x => x.url).length; if (saved) out.push(saved + ' file' + (saved === 1 ? '' : 's') + ' saved to the project folder');
+    const saved = (s.project_saved || []).filter(x => x.url).length; if (saved) out.push(saved + ' file' + (saved === 1 ? '' : 's') + ' saved to ' + ((s.project_saved || []).some(x => /^Canvas Files/.test(x.folder || '')) ? 'Canvas Files' : 'the project folder'));
     const open = s.status === 'Done, drafts incomplete' ? ' Still open: retry the ones that did not go through.' : '';
     const line = 'Summary for ' + name + ': ' + (out.join('; ') || s.status.toLowerCase()) + '.' + open;
     cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
@@ -437,5 +442,5 @@ function cueView_(s) {
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
-      seconds_total: m.seconds_total == null ? null : m.seconds_total, flag: m.flag || '', calls: m.calls || [] } };
+      seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
 }

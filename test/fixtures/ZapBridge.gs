@@ -356,15 +356,16 @@ function zbCheck_(v, s, name) {
 function zbSaveFile_(r) {
   const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
   const a = r.args, bytes = Utilities.base64Decode(a.data);
-  const dest = childFolder_(paRoot_(r.project_id, true).folder, a.type);
+  // own = the project's real Drive folder; otherwise paRoot_ falls back to Canvas Files/<id> (a project with no folder yet, e.g. no event date).
+  const root = paRoot_(r.project_id, true), dest = childFolder_(root.folder, a.type), own = !!root.own;
   const want = r.project_id + ' · ' + String(a.name).trim().replace(/[\\/:*?"<>|]+/g, '-').slice(0, 150);
   for (const it = dest.getFilesByName(want); it.hasNext();) {
-    const f = it.next(); if (!f.isTrashed() && f.getSize() === bytes.length) return { ok: true, url: f.getUrl(), name: f.getName(), type: a.type, existed: true };
+    const f = it.next(); if (!f.isTrashed() && f.getSize() === bytes.length) return { ok: true, url: f.getUrl(), name: f.getName(), type: a.type, existed: true, in_project_folder: own };
   }
   const up = saveProjectFile_(r.project_id, a.type, a.name, a.mime, a.data, dest.getUrl());
   try { up.file.setDescription('Linked to: Project · Added by: Cue (' + a.request_id + ')'); } catch (e) { /* the note is optional */ }
   try { logEvent('Uploaded document', 'Projects', r.project_id + ': ' + up.name + ' (' + a.type + ', from Cue)'); } catch (e) { /* logging never blocks */ }
-  return { ok: true, url: up.url, name: up.name, type: a.type, existed: false, in_project_folder: !!up.inProjectFolder };
+  return { ok: true, url: up.url, name: up.name, type: a.type, existed: false, in_project_folder: own };
 }
 
 // The project must exist in the Admin Directory and, when the caller names a number, carry it.

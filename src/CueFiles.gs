@@ -51,6 +51,7 @@ const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';
 function cueSaveToProject_(s, pid, files, other) {
   if (!pid || !(files || []).length) return;
   const saved = s.project_saved || (s.project_saved = []), ok = [];
+  let loose = false;
   files.forEach(f => {
     const was = saved.find(x => x.id === f.id); if (was && was.url) return;
     const rec = was || { id: f.id, name: f.name }; if (!was) saved.push(rec);
@@ -58,11 +59,14 @@ function cueSaveToProject_(s, pid, files, other) {
       const data = Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + f.id + '?alt=media', { raw: true }).getContent());
       const type = /^image\//.test(f.type) ? 'Designs & Visuals' : other;
       const r = cueBridge_(s, 'save_project_file', { request_id: s.id, name: f.name, mime: f.type, type, data }, pid) || {};
-      rec.url = String(r.url || ''); rec.folder = type; rec.error = ''; ok.push(f.name);
+      rec.url = String(r.url || ''); rec.folder = r.in_project_folder === false ? 'Canvas Files, ' + type : type; rec.error = ''; ok.push(f.name);
+      if (r.in_project_folder === false) loose = true;
     } catch (e) { rec.error = cueStr_((e && e.message) || e, 200); }
   });
   const bad = saved.filter(x => !x.url);
-  if (ok.length) cueChat_('Cue', 'Saved ' + ok.length + ' file' + (ok.length === 1 ? '' : 's') + ' to the Canvas project folder: ' + ok.join(', ') + '.', s.id);
+  // Canvas V186 says when a project has no Drive folder yet (usually no event date): then the files are in Canvas Files for it.
+  if (ok.length) cueChat_('Cue', 'Saved ' + ok.length + ' file' + (ok.length === 1 ? '' : 's') + (loose ? ' to Canvas Files for this project (it has no Drive project folder yet, '
+    + 'usually because it has no event date; Canvas shows them in its Files tab)' : ' to the Canvas project folder') + ': ' + ok.join(', ') + '.', s.id);
   if (bad.length) (s.notes = s.notes || []).push('Not saved to the project folder yet: ' + bad.map(x => x.name + ' (' + x.error + ')').join('; ') + '.');
 }
 function cueDrive_(method, url, o) {
