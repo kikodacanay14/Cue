@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.14';
+const CUE_VERSION_ = 'Cue 1.15';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -150,6 +150,8 @@ function cueSend(text, files, mode, ref) {
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
+  // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
+  if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
   // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
   if (mode !== 'intake' && !has && CUE_STYLE_RE_.test(String(text || ''))) return cueStyleStart_(text);
   // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
@@ -200,6 +202,8 @@ function cueSend(text, files, mode, ref) {
   const saved = cueFilesSave_(files, id);
   const s = { id, version: CUE_VERSION_, kind: sup ? 'supplier' : 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
+  // CUE-PHASED: every new intake runs in four approved phases. Script Property CUE_PHASED=off goes back to the one-card intake.
+  if (!sup && cueProp_('CUE_PHASED', 'on') !== 'off') s.phased = true;
   if (reopened) s.ref_by = reopened;
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   cueSettleReopened_(ref);
@@ -209,7 +213,7 @@ function cueSend(text, files, mode, ref) {
   if (!inThread && !asked && !(ref && !reopened)) { cueChat_('Kiko', line, ''); cueChat_('Cue', back ? 'On it. ' + back : 'On it. I started a thread for this, and GPT is reading it first.', '>' + id); }
   if (!inThread && asked && (!ref || reopened)) cueChat_('Cue', back || 'Started a thread for it.', '>' + id);
   if (!asked) cueChat_('Kiko', line, id);
-  cueChat_('Cue', sup ? 'Registering a supplier. GPT is reading it first; nothing is saved until you approve.' : 'Starting a project intake. GPT is reading it first.', id);
+  cueChat_('Cue', sup ? 'Registering a supplier. GPT is reading it first; nothing is saved until you approve.' : 'Starting a project intake, phase 1 of 4: GPT is reading the project details.', id);
   return { request_id: id, task: ref };
 }
 
@@ -222,7 +226,7 @@ function cueReadBase_(ref) {
   let list = []; try { list = cueRecent_(14); } catch (e) { return null; }
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
-  return list.filter(x => root(x.id) === home && (x.kind === 'intake' || x.kind === 'change') && x.x && (x.reqs || []).length)[0] || null;   // a change run read the requirements too
+  return list.filter(x => root(x.id) === home && (x.kind === 'intake' || x.kind === 'change') && !x.phased && x.x && (x.reqs || []).length)[0] || null;   // a phased intake re-costs in place (cuePhReply_)   // a change run read the requirements too
 }
 
 /** "Cost them", "re-cost", "break it down by item" in a thread that has a read: a new run that starts at costing, with the same
@@ -549,7 +553,7 @@ function cueMetrics_(s) {
   // Kiko's budget is Cue's own time (Kiko 07:19Z): the run up to the card, plus the work after Kiko approves. Time the card waits for Kiko
   // does not count.
   const ap = Date.parse(s.approved_at || '');
-  const work = !s.ready_at ? null : ap && s.card_at && s.ready_at > ap ? (s.card_at - s.started) + (s.ready_at - ap) : s.ready_at - s.started;
+  const work = s.phased && s.kind === 'intake' ? (s.work_ms || 0) : !s.ready_at ? null : ap && s.card_at && s.ready_at > ap ? (s.card_at - s.started) + (s.ready_at - ap) : s.ready_at - s.started;
   if (work != null) m.seconds_work = Math.round(work / 100) / 10;
   const over = [];
   if (m.ai_calls > CUE_BUDGET_.calls) over.push(m.ai_calls + ' AI calls');
@@ -588,7 +592,12 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'workflow') return cueView_(cueWorkflowApprove_(id));
   if (L && L.s.kind === 'supplier') return cueView_(cueSupplierApprove_(id, edits || {}));
   if (L && L.s.kind === 'personal') return cueView_(cuePersonalApprove_(id, edits || {}));
+  if (L && L.s.phased) return cueView_(cuePhApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
+}
+/** CUE-PHASED: Rescan (phase 2) and one RFQ's Send / Save as draft / Cancel (phase 4). */
+function cueRescan(id, note) { cueOwner_(); return cueView_(cuePhRescan_(id, note)); }
+function cueRfq(id, i, act, edit) { cueOwner_(); return cueView_(cuePhRfq_(id, i, act, edit || null)); 
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
 function cueAsNew(id) {
@@ -630,6 +639,7 @@ function cueReject(id, why) {
   if (L && L.s.kind === 'style') return cueView_(cueStyleClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
+  if (L && L.s.phased && L.s.kind === 'intake') return cueView_(cuePhReject_(id));   // one tap, no reason (Kiko 14:56Z)
   return cueView_(cueIntakeReject_(id, why));
 }
 /** Kiko 07:15Z: Reopen on a Recently done card. The task waits in Needs you, with its reply box, until a new run joins its thread or
@@ -698,6 +708,7 @@ function cueSummary_(s) {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
+    if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     const name = s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
@@ -793,6 +804,7 @@ function cueView_(s) {
     personal: s.kind === 'personal' ? cuePeView_(s) : null,
     style: s.kind === 'style' ? cueStyleView_(s) : null,
     mail: s.kind === 'email' ? cueMailView_(s) : null,
+    ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

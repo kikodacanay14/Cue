@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.15: Project intake in four phases (not deployed; needs the Canvas release with it)
+
+Kiko 21 Oct 14:53Z asked for this, and said "build" at 14:57Z. Spec: specs/phased-intake.md.
+
+- Each intake now runs in four phases, and each phase has its own Approve. Canvas gets only what that phase approved:
+  1. **Project details.** GPT reads the inquiry, and Canvas checks for the same project. Approve adds the project only: client, contacts, schedule and folders.
+  2. **Requirements.** Claude breaks the inquiry into short rows: item (6 words at most), spec (12 words at most), qty and days. Approve adds the lines with no costs. Rescan reads them again, using Kiko's note if there is one. Reject keeps the project in Canvas, with no lines.
+  3. **Costing.** Canvas evidence comes first, then GPT web research for the gaps, then Claude's costing. Save prices writes unit cost and price after Canvas re-checks them.
+  4. **RFQs.** Each RFQ has Send RFQ (from Kiko's Gmail), Save as draft, Edit email and Cancel. Canvas records each one, and the task is Done when no RFQ is left open.
+- **One card per task, inside its thread.** The card updates in place, and finished phases fold to one line. A reply in the thread while a card waits changes the same task (re-read, rescan, re-cost or redraft). It never starts a new run or a new card.
+- **Reject is one tap.** There is no reason box on any card now, and Cue records "Rejected by Kiko" with the phase.
+- The card shows short flag labels: No cost, No price, Research price, No supplier.
+- The budget is unchanged at 5 AI calls (4 without research). Cue's working time is counted across phases.
+- Setting the Script Property `CUE_PHASED=off` brings back the old one-card intake.
+- **Needs the Canvas release (CanvasWorkspace branch claude/project-thread-q9uyhb).** It adds the bridge steps intake_add_project, intake_add_lines, intake_save_costs and intake_log_rfqs. Deploy Canvas first, then Cue.
+
 ## Three panes: a file and image viewer on the right; Cue bubble 1.4.0 (not deployed)
 
 Kiko 21 Oct 14:54Z: "3 pane window - 3rd pane is for file / image viewer", with a screenshot of Claude's file viewer.

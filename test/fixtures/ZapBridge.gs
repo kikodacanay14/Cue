@@ -109,6 +109,56 @@ const ZB_ACTIONS_ = {
       description: { type: 'string', required: true, nonBlank: true, max: 2000 } } } },
     run: (r) => aiIntakeEvidenceFor_(r.args.requirements, { suppliers: true })
   },
+  /* CUE-PHASED-2026-10-21 (Kiko 14:57Z "build", specs/phased-intake.md): the phased intake. Each phase writes only what Kiko
+   * approved on that phase's card. The AI Queue row is the ledger (canvas-ai/AiIntake.gs aiIntakePhase*_), so phases 1 and 2
+   * write once and a repeat returns the stored outcome; phase 3 overwrites; phase 4 only records RFQs Kiko's Gmail sent. */
+  intake_add_project: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      project: { type: 'object', required: true, fields: {
+        client: { type: 'object', required: true, fields: { company: { type: 'string', max: 200 }, contact: { type: 'string', max: 200 },
+          email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 },
+          contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, role: { type: 'string', max: 100 },
+            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } } } },
+        event: { type: 'object', required: true, fields: { name: { type: 'string', max: 200 }, type: { type: 'string', max: 100 },
+          date: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ }, deadline: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
+          schedule: { type: 'object', fields: { ingress: { type: 'string', max: 100 }, hours: { type: 'string', max: 100 }, egress: { type: 'string', max: 100 } } },
+          venue: { type: 'string', max: 200 }, city: { type: 'string', max: 100 },
+          pax: { type: 'number', min: 0 }, budget: { type: 'string', max: 100 }, date_tbc: { type: 'boolean' } } } } } },
+    run: (r) => aiIntakePhaseProject_(r.args.request_id, r.args.project, 'zap_' + r.command_id)
+  },
+  intake_add_lines: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      lines: { type: 'array', required: true, minItems: 1, maxItems: 40, items: {
+        key: { type: 'string', required: true, re: /^R\d{1,3}$/ }, category: { type: 'string', max: 200 },
+        description: { type: 'string', required: true, nonBlank: true, max: 2000 }, search_terms: { type: 'string', max: 80 },
+        quantity: { type: 'number', required: true, positive: true }, occurrence: { type: 'number', positive: true },
+        status: { type: 'string', oneOf: ['included', 'optional'] } } } },
+    run: (r) => aiIntakePhaseLines_(r.args.request_id, r.args.lines)
+  },
+  intake_save_costs: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      lines: { type: 'array', required: true, minItems: 1, maxItems: 40, items: {
+        key: { type: 'string', required: true, re: /^R\d{1,3}$/ },
+        execution: { type: 'string', required: true, oneOf: ['In House', 'Outsourced'] }, why: { type: 'string', max: 600 },
+        unit_cost: { type: 'number', min: 0 }, cost_basis: { type: 'string', required: true, oneOf: ['past quotes', 'owned stock', 'none', 'set by Kiko', 'market research'] },
+        price_source: { type: 'string', max: 60 }, unit_price: { type: 'number', min: 0 },
+        price_basis: { type: 'string', oneOf: ['BSE package', 'BSE price list', 'past CE prices', 'market research', 'set by Kiko', 'none'] },
+        price_sources: { type: 'array', maxItems: 8 }, sources: { type: 'array', maxItems: 8 }, note: { type: 'string', max: 600 } } },
+      totals: { type: 'object', required: true, fields: { known_cost: { type: 'number', min: 0 }, known_price: { type: 'number', min: 0 } } } },
+    run: (r) => aiIntakePhaseCosts_(r.args.request_id, { lines: r.args.lines, totals: r.args.totals })
+  },
+  intake_log_rfqs: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      rfqs: { type: 'array', required: true, minItems: 1, maxItems: 40, items: {
+        supplier: { type: 'string', required: true, nonBlank: true, max: 200 }, email: { type: 'string', max: 200 },
+        keys: { type: 'array', maxItems: 40 }, subject: { type: 'string', max: 200 },
+        state: { type: 'string', required: true, oneOf: ['sent', 'draft', 'cancelled'] }, gmail_id: { type: 'string', max: 100 } } } },
+    run: (r) => aiIntakePhaseRfqs_(r.args.request_id, r.args.rfqs)
+  },
   find_similar_projects: {
     kind: 'read', needsProject: false,
     schema: { client: { type: 'string', max: 200 }, date: { type: 'string', max: 10 }, name: { type: 'string', max: 200 } },
