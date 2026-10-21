@@ -3406,6 +3406,20 @@ test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense fil
   deq(box.out, 'AMI Group');
 });
 
+test('BD7 PC test 19:23Z: a bid check never shows as an intake: its own name while working, its own stopped card with Try again, which runs it again', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const kn = page.match(/function kindName\(r\) \{[^\n]*\n/)[0], fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  assert.strictEqual(vm.runInNewContext(kn + 'kindName({ kind: "bids" })', {}), 'Bid check');
+  const f = bidBox({ fail: { bids: () => resp(500, {}) } }); const id = f.ctx.cueSend('check bids', [], '').request_id; const w = JSON.parse(JSON.stringify(f.ctx.cueRun(id)));
+  assert.strictEqual(w.status, 'Failed'); assert.ok(w.bids, 'the page still gets the bid view');
+  const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', { esc, metricLine: () => 'M', r: w });
+  assert.ok(/Bid check stopped/.test(h) && /data-act="retry"/.test(h) && !/Project intake/.test(h) && !/data-act="reject"/.test(h));
+  assert.ok(/if \(r\.kind === 'bids'\) return bidsCardHtml\(r\);/.test(page), 'cardHtml sends every bid check to its own card');
+  f.opts.fail = {}; f.opts.gpt = { bids: [BIDS_A, BIDS_B, BIDS_C] };
+  const again = f.ctx.cueRetry(id); assert.strictEqual(again.kind, 'bids'); assert.strictEqual(again.status, 'Needs you', 'Try again runs the bid check, not an intake');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

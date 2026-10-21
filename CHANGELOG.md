@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.22.1: a bid check never shows as a Project intake (not deployed)
+
+PC test 19:23Z on /dev: "run bid opportunity check" posted the right summary ("4 new … Process check 7 of 9"), but the thread was titled "Project intake" and the card read "Project intake stopped" with Try again / Reject.
+
+- The page names a bid check "Bid check" while it works, and every bid check uses its own card. A stopped one shows "Bid check stopped" with the error and Try again. It never shows the intake card or Reject.
+- While ChatGPT searches, a bid check holds its run for 7 minutes, longer than Apps Script's 6-minute limit. The 5-minute resume can no longer start a second run of the same check midway (which also meant paying for the searches twice).
+- Tests: 243 of 243 pass (new BD7).
+
 ## Cue 1.22: Find and Screen Bid Opportunities (not deployed)
 
 Kiko 19:04Z-19:10Z, specs/bid-opportunities.md, Route B (ChatGPT through the API).

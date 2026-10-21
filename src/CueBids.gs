@@ -34,6 +34,7 @@ const CUE_BIDS_SOURCES_ = [
 const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
+const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
 /** True when Kiko's message asks for the bid check (plain words, no AI call). An intake request for a found bid is not one. */
 function cueBidsAsked_(t) { t = String(t || ''); return CUE_BIDS_RE_.test(t) && !CUE_BIDS_INTAKE_RE_.test(t); }
@@ -59,6 +60,8 @@ function cueBidsStart_(text, how) {
 
 /** Advances a bid check from wherever it stopped. */
 function cueBidsRun_(s, save) {
+  // The 3 web searches can take minutes: hold the lease past Apps Script's 6-minute limit so the 5-minute resume never starts a second run (PC test 19:23Z).
+  if (s.stage === 'Searching') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); }
   if (s.stage === 'Searching') { cueBidsSearch_(s); save(); }
   if (s.stage === 'Checking') { cueBidsCheck_(s); save(); }
 }
