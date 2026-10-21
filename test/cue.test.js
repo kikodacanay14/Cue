@@ -3191,6 +3191,32 @@ test('TU6 an email never graduates; My rules lists the learned patterns and Demo
   deq([!!out.request_id, chatCalls(u), u.log.plans || 0], [true, 1, 0], 'switch off: GPT routes and it starts at once, as before');
 });
 
+test('TU7 PC test 18:15Z: Claude unsure, or a short "LED wall for AMI Group" it only answered, shows the plan card with the best guess; Not that lists the other guesses first', () => {
+  const unsure = Object.assign(PLAN(), { sure: false, choices: ['vendor', 'intake'], reply: 'Earlier we looked at AMI Group suppliers.' });
+  const t = sandbox({ tutor: true, plan: unsure });
+  const out = t.ctx.cueSend('LED wall for AMI Group', [], '');
+  const q = askLine(t);
+  deq([!!out.ask, /:go,change,not$/.test(q[3]), t.tabs.Requests.rows.length], [true, true, 1]);
+  assert.ok(/^Here's what I'll do\nI think you want: Supplier search for an LED wall in Cebu/.test(q[2]) && /Not sure: it could also be Project intake\. Tap Not that/.test(q[2]) && !/I am not sure|Earlier we looked/.test(q[2]), q[2]);
+  const go = t.ctx.cueAskPick(askId(q), 'go');
+  deq([t.ctx.cueLoad_(go.request_id).s.kind, t.log.plans], ['vendor', 1], 'Go runs the filled plan, no second call and no old buttons');
+  const u = sandbox({ tutor: true, plan: unsure }); u.ctx.cueSend('LED wall for AMI Group', [], ''); u.ctx.cueAskPick(askId(askLine(u)), 'not');
+  deq(askLine(u)[3].split(':')[1], 'intake,readiness,email,chat');
+  const w = sandbox({ tutor: true, plan: { reply: 'No Canvas project matched AMI Group.', looks_like_inquiry: false, sure: true, choices: [], plan: { reading: '', steps: [], pattern: '' } } });
+  w.ctx.cueSend('LED wall for AMI Group', [], '');
+  const p = askLine(w);
+  assert.ok(/:go,change,not$/.test(p[3]) && /I think you want: Project intake for "LED wall for AMI Group"/.test(p[2]) && /could also be Supplier search/.test(p[2]), p[2]);
+  const gi = w.ctx.cueAskPick(askId(p), 'go'); deq(w.ctx.cueLoad_(gi.request_id).s.kind, 'intake');
+});
+
+test('TU8 PC test 18:15Z: a rejected expense\'s summary names the expense, not "Project intake"; a phased intake carries its client name for the thread title', () => {
+  const t = sandbox();
+  t.ctx.cueSummary_({ id: 'cue-x1', kind: 'expense', status: 'Rejected', expense: { plan: { amount: 500, item: 'tarp' }, project: { name: 'AMI Group' } } });
+  const line = t.tabs.Chat.rows.pop()[2];
+  assert.ok(/^Summary for ₱500\.00 tarp for AMI Group: rejected/.test(line), line);
+  deq(t.ctx.cueView_({ id: 'cue-x2', kind: 'intake', phased: true, x: { client: { company: 'Unilever' }, event: { name: 'Launch' } }, metrics: {} }).name, 'Unilever, Launch');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

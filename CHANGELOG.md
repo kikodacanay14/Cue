@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.20.1: tutor mode fixes from the PC test (not deployed)
+
+PC test of 1.20 on /dev, 21 Oct 18:15Z.
+
+- "LED wall for AMI Group" showed the old "I am not sure… Supplier search / Project intake / Just chat" buttons, with a recap of an earlier search. Tutor mode now shows the plan card in both cases: when Claude is not sure, and when a short main-chat message names no command. The card shows Cue's best guess (a phrasing Kiko taught wins), plus "Not sure: it could also be …". Not that lists those other guesses first. Go on the best guess needs no second AI call when Claude filled it in.
+- A rejected expense's summary read "Summary for Project intake: rejected". It now names the expense, for example "Summary for ₱500.00 tarp for AMI Group".
+- A thread showing the Unilever intake was titled "Morning batch 10/22". Phased intakes now carry their client name for the thread title, and a morning batch never names a thread that holds other tasks.
+- Expenses still start their own flow with no plan card. Their own approval card comes before anything is saved, as the spec says.
+- Tests: 228 of 228 pass (new TU7, TU8).
+
 ## Cue 1.20: tutor mode (not deployed)
 
 Kiko 17:39Z-17:46Z: "rather than it doing things right away... it asks first Claude to see what it needs to do". Kiko picked option C of specs/tutor-mode.md.

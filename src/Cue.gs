@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.20';
+const CUE_VERSION_ = 'Cue 1.20.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -453,13 +453,18 @@ function cueTalk_(t, ref, force, opt) {
   if (r.ok && !acts && claims.test(reply))
     reply += '\n\n(Correction: nothing is running yet and no card was made. Say "start intake" and I will run it; its card will show in the thread.)';
   // Teach Cue add-on (Kiko 17:00Z): not sure which command, or two fit about equally: start nothing and ask. Never guess.
-  let choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
+  let choices = r.ok && !force && !opt.replay && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
   // PC test 17:30Z: "LED wall for AMI Group" started a supplier search, and a bare "LED wall" re-ran one in an open thread. A short
   // item-and-name message in the main chat always asks project intake or supplier search, whatever GPT says.
   // PC test 17:42Z: also when the call only answered (e.g. "no Canvas project matched AMI Group"): a vague message always asks.
   // Tutor mode shows its plan card (or just answers) instead.
   if (r.ok && !force && !tutorOn && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
     { choices = ['intake', 'vendor']; reply = ''; }
+  // Tutor mode (PC test 18:15Z): an unsure answer, or a short vague main-chat message, shows the plan card with the best guess.
+  if (r.ok && tutor && !replay && (choices.some(c => c !== 'chat') || (!ref && cueRouteVague_(t) && !cueTutorCmd_(r.data, opt.quiet || t)))) {
+    const g = cueTutorGate_(s, t, ref, r.data, cueTalkCands_(r.data, t, force), found, opt.quiet || '', choices.some(c => c !== 'chat') ? choices : ['intake', 'vendor']);
+    if (g && g.out) return g.out;
+  }
   if (choices.some(c => c !== 'chat')) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
     const cands = cueTalkCands_(r.data, t, force);
@@ -832,7 +837,8 @@ function cueSummary_(s) {
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
-    const name = s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
+    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.kind === 'personal') {
@@ -928,6 +934,7 @@ function cueView_(s) {
     teach: s.kind === 'memory' || s.kind === 'process' ? cueTeachView_(s) : null, can_redo: cueRouteCan_(s),
     mail: s.kind === 'email' ? cueMailView_(s) : null,
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
+    name: (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
