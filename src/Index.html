@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Cue design canvas tokens (Chat.dc.html): graphite, magenta = needs you, sky = action. */
+  :root { --bg:#141518; --head:#0e0f11; --panel:#262930; --input:#1d1f24; --line:#34373f; --line2:#3d4250; --muted:#a3a7b0;
+    --text:#e4e6ea; --white:#fff; --need:#b00c98; --act:#559fef; --ok:#3fbf7f; --warn:#e9d151; --bad:#cd5023; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:500 15px/1.5 Quicksand, system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
+  .logo { width:30px; height:30px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
+  header h1 { margin:0; font-size:18px; font-weight:700; color:var(--white); }
+  header .sub { color:var(--muted); font-size:13px; }
+  header .dot { margin-left:auto; width:9px; height:9px; border-radius:50%; background:var(--ok); }
+  nav { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--head); }
+  .tab { border:1px solid var(--line2); background:transparent; color:var(--text); border-radius:9999px; min-height:44px; padding:0 18px; font:600 14px Quicksand, sans-serif; cursor:pointer; }
+  .tab[aria-selected="true"] { background:var(--panel); border-color:var(--act); color:var(--white); }
+  .badge { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; border-radius:9999px; background:var(--need); color:#fff; font-size:12px; }
+  main { display:flex; gap:20px; padding:16px; max-width:1200px; margin:0 auto; }
+  .col { flex:1; max-width:820px; min-width:0; }
+  aside { width:340px; flex:none; }
+  @media (max-width: 1000px) { aside { display:none; } }
+  .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
+  .card.need { border-left:4px solid var(--need); }
+  .msgs { display:flex; flex-direction:column; gap:10px; padding-bottom:150px; }
+  .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.me { align-self:flex-end; background:#22344d; }
+  .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
+  .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
+  .composer { position:fixed; left:0; right:0; bottom:0; background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
+  .composer .in { max-width:1200px; margin:0 auto; }
+  .row { display:flex; gap:8px; align-items:flex-end; }
+  textarea, input, select { background:var(--input); color:var(--text); border:1px solid var(--line2); border-radius:6px; font:500 14px Quicksand, sans-serif; padding:8px 10px; }
+  textarea { flex:1; min-height:44px; max-height:200px; resize:vertical; }
+  textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
+  .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px Quicksand, sans-serif; cursor:pointer; background:var(--act); color:#0b1320; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
+  .btn.bad { background:transparent; color:#ff9b7a; border:1px solid #6a3a2c; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .chip { border:1px solid var(--line2); border-radius:9999px; padding:6px 12px; font-size:13px; color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
+  .muted { color:var(--muted); } .small { font-size:13px; }
+  .worker { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; background:#1f2b3d; color:var(--act); }
+  .steps { list-style:none; margin:10px 0 0; padding:0; }
+  .steps li { display:flex; gap:8px; align-items:center; padding:3px 0; font-size:14px; color:var(--muted); }
+  .steps li .d { width:9px; height:9px; border-radius:50%; background:var(--line2); flex:none; }
+  .steps li.done { color:var(--text); } .steps li.done .d { background:var(--ok); }
+  .steps li.now { color:var(--white); font-weight:700; } .steps li.now .d { background:var(--act); box-shadow:0 0 0 4px rgba(85,159,239,.25); }
+  .bar { height:6px; background:var(--input); border-radius:9999px; overflow:hidden; margin-top:10px; }
+  .bar i { display:block; height:100%; background:var(--act); transition:width .4s; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .facts td:first-child { color:var(--muted); width:42%; }
+  .tag { display:inline-block; padding:0 8px; border-radius:9999px; font-size:11px; font-weight:700; margin:1px 2px 1px 0; }
+  .tag.new { background:#3a2a05; color:var(--warn); } .tag.pref { background:#13321f; color:var(--ok); } .tag.flag { background:#3d1430; color:#f07bd9; }
+  .warn { background:#3d1430; border:1px solid var(--need); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
+  .err { background:#3a1c13; border:1px solid var(--bad); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  details { margin-top:8px; } summary { cursor:pointer; color:var(--act); font-weight:600; }
+  pre { white-space:pre-wrap; font:500 13px/1.5 Quicksand, sans-serif; background:var(--input); padding:10px; border-radius:6px; }
+  .scroll { overflow-x:auto; }
+  .edit input { width:90px; } .edit input.wide { width:100%; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true"></div>
+  <div><h1>Cue</h1><div class="sub">One chat. Everything else is a widget.</div></div>
+  <span class="dot" id="dot" title="Connected"></span>
+</header>
+<nav role="tablist">
+  <button class="tab" role="tab" id="tab-chat" aria-selected="true">Chat</button>
+  <button class="tab" role="tab" id="tab-widgets" aria-selected="false">Widgets<span class="badge" id="needCount" hidden></span></button>
+</nav>
+<main>
+  <section class="col" id="page-chat">
+    <div class="msgs" id="msgs"></div>
+  </section>
+  <section class="col" id="page-widgets" hidden>
+    <div class="label">Needs you</div><div id="w-need"></div>
+    <div class="label">Working on</div><div id="w-work"></div>
+    <div class="label">Speed budget</div><div id="w-budget"></div>
+    <div class="label">Recently done</div><div id="w-done"></div>
+  </section>
+  <aside id="pinned">
+    <div class="label">Pinned widgets</div>
+    <div id="p-need"></div><div id="p-work"></div>
+  </aside>
+</main>
+<div class="composer" id="composer">
+  <div class="in">
+    <div class="row">
+      <textarea id="box" placeholder="Ask Cue anything, or give it a job" aria-label="Message"></textarea>
+      <button class="btn" id="send">Send</button>
+    </div>
+    <div class="chips">
+      <button class="chip" data-fill="New project intake. Client inquiry:&#10;">New project intake</button>
+      <button class="chip" id="chip-need">What needs me?</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var state = { requests: [], chat: [], metrics: {} }, editing = {}, polling = null, running = {};
+  var STEPS = [['GPT reading', 'GPT', 'GPT reads the request'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates, prices and history'],
+    ['Claude costing', 'Claude + GPT', 'Claude costs the CE while GPT researches the gaps'], ['GPT drafting RFQs', 'GPT', 'GPT drafts one RFQ per supplier'],
+    ['Needs you', 'Kiko', 'Waiting for your approval']];
+  var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
+    ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Done', 'Done', 'Done']];
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+  function call(fn, args, ok, bad) {
+    var r = google.script.run.withSuccessHandler(function (x) { $('dot').style.background = 'var(--ok)'; ok && ok(x); })
+      .withFailureHandler(function (e) { $('dot').style.background = 'var(--bad)'; (bad || alertErr)(e); });
+    r[fn].apply(r, args || []);
+  }
+  function alertErr(e) { addLocal('Cue', 'Something went wrong: ' + ((e && e.message) || e)); }
+  function addLocal(who, text) { state.chat.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
+
+  function show(tab) {
+    $('tab-chat').setAttribute('aria-selected', tab === 'chat'); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
+    $('page-chat').hidden = tab !== 'chat'; $('page-widgets').hidden = tab !== 'widgets';
+    $('composer').hidden = tab !== 'chat'; $('pinned').hidden = tab !== 'chat';
+  }
+  $('tab-chat').onclick = function () { show('chat'); };
+  $('tab-widgets').onclick = function () { show('widgets'); };
+  $('chip-need').onclick = function () { show('widgets'); };
+  document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
+
+  $('send').onclick = function () {
+    var t = $('box').value.trim(); if (!t) return;
+    $('send').disabled = true;
+    call('cueSend', [t], function (r) {
+      $('box').value = ''; $('send').disabled = false; refresh();
+      running[r.request_id] = 1;
+      call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
+    }, function (e) { $('send').disabled = false; alertErr(e); });
+  };
+  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('send').click(); });
+
+  function refresh() { call('cueState', [], function (s) { state = s; render(); schedule(); }, function () { schedule(); }); }
+  function busy() { return state.requests.some(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas'; }) || Object.keys(running).length; }
+  function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
+
+  function render() { renderChat(); renderWidgets(); }
+  function renderChat() {
+    $('msgs').innerHTML = state.chat.map(function (m) {
+      return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
+    }).join('') || '<div class="muted">Paste a client inquiry to start a project intake.</div>';
+  }
+  function renderWidgets() {
+    var need = state.requests.filter(function (r) { return r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Done, drafts incomplete'; });
+    var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas'; });
+    var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; }).slice(0, 5);
+    $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
+    var needHtml = need.map(cardHtml).join('') || '<div class="card muted">Nothing needs you right now.</div>';
+    var workHtml = work.map(workHtmlOf).join('') || '<div class="card muted">Nothing running.</div>';
+    $('w-need').innerHTML = needHtml; $('w-work').innerHTML = workHtml;
+    $('p-need').innerHTML = need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open Widgets to review.</div></div>' : '';
+    $('p-work').innerHTML = work.map(workHtmlOf).join('');
+    var m = state.metrics || {}, b = m.budget || { calls: 5, seconds: 180 };
+    $('w-budget').innerHTML = '<div class="card"><table class="facts"><tr><td>Target</td><td>' + b.calls + ' AI calls or fewer, ' + Math.round(b.seconds / 60) + ' minutes or less</td></tr>'
+      + '<tr><td>Average so far</td><td>' + (m.runs ? esc(m.avg_ai_calls) + ' calls, ' + esc(m.avg_seconds) + ' s over ' + esc(m.runs) + ' run(s)' : 'No runs yet') + '</td></tr>'
+      + '<tr><td>Over budget</td><td>' + esc(m.over_budget || 0) + '</td></tr></table></div>';
+    $('w-done').innerHTML = done.map(function (r) {
+      var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
+      return '<div class="card"><b>' + esc(c.company || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+        + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
+        + metricLine(r) + '</div>';
+    }).join('') || '<div class="card muted">Nothing yet.</div>';
+    bind();
+  }
+  function metricLine(r) {
+    var m = r.metrics || {};
+    return '<div class="small muted">' + esc(m.ai_calls) + ' AI calls' + (m.seconds_to_card != null ? ', card in ' + esc(m.seconds_to_card) + ' s' : '')
+      + (m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
+  }
+  function workHtmlOf(r) {
+    var list = r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var cur = list[i] || list[0];
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>Project intake</b><span class="worker">' + esc(cur[1]) + '</span></div>'
+      + '<div class="small muted">' + esc(r.text.slice(0, 90)) + '</div><ul class="steps">' + list.map(function (s, j) {
+        return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('')
+      + '</ul><div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + metricLine(r) + '</div>';
+  }
+
+  function cardHtml(r) {
+    var p = r.proposal, ed = !!editing[r.id];
+    if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
+      + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
+    var c = p.client || {}, e = p.event || {}, t = p.totals || {}, cv = r.canvas || {};
+    var h = '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake</div>'
+      + '<b style="font-size:17px;color:#fff">' + esc(c.company || 'Unknown client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>';
+    (r.similar || []).forEach(function (s) { h += '<div class="warn">Possible duplicate: ' + esc(s.name) + ', ' + esc(s.account) + ', ' + esc(s.date) + ' (' + esc(s.why) + ')</div>'; });
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    var f = [['Contact', ed ? inp('client.contact', c.contact, 1) : esc([c.contact, c.email, c.phone].filter(Boolean).join(', ') || 'Not given')],
+      ['Client', ed ? inp('client.company', c.company, 1) : esc(c.company || 'Not given')],
+      ['Event name', ed ? inp('event.name', e.name, 1) : esc(e.name || 'Not given')],
+      ['Date', ed ? inp('event.date', e.date, 1, 'YYYY-MM-DD') : esc(e.date || 'Not given')],
+      ['Venue', ed ? inp('event.venue', e.venue, 1) : esc([e.venue, e.city].filter(Boolean).join(', ') || 'Not given')],
+      ['Pax', ed ? inp('event.pax', e.pax || '', 0) : esc(e.pax || 'Not given')],
+      ['Known cost', peso(t.known_cost) + ' <span class="muted small">(' + esc(t.lines_without_cost) + ' line(s) still need a price)</span>'],
+      ['BSE price', t.known_price ? peso(t.known_price) + ' <span class="muted small">(' + esc(t.lines_with_bse_price) + ' line(s) from BSE packages or price list)</span>' : 'No BSE package or price list match'],
+      ['Split', esc(t.in_house) + ' in house, ' + esc(t.outsourced) + ' outsourced'],
+      ['Run', metricLine(r)]];
+    h += '<table class="facts">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
+    h += '<div class="label">Lines</div><div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Run by</th><th>Unit cost</th><th>BSE price</th></tr>';
+    p.lines.forEach(function (l) {
+      var sup = (l.suppliers || []).map(function (s) { return esc(s.name) + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + (s.preferred ? ' <span class="tag pref">preferred</span>' : ''); }).join(', ');
+      h += '<tr data-line="' + esc(l.key) + '"><td>' + esc(l.key) + (ed ? '<br><label class="small"><input type="checkbox" data-f="remove" style="width:auto"> remove</label>' : '') + '</td>'
+        + '<td><b>' + esc(l.description) + '</b><div class="small muted">' + esc(l.category) + '</div><div class="small">' + esc(l.why) + '</div>'
+        + (l.note ? '<div class="small muted">' + esc(l.note) + '</div>' : '') + (l.flags || []).map(function (x) { return '<span class="tag flag">' + esc(x) + '</span>'; }).join('')
+        + (sup ? '<div class="small">Ask: ' + sup + '</div>' : '') + srcHtml(l) + '</td>'
+        + '<td>' + (ed ? '<input data-f="quantity" value="' + esc(l.quantity) + '">' : esc(l.quantity) + (l.occurrence > 1 ? ' × ' + esc(l.occurrence) : '')) + '</td>'
+        + '<td>' + (ed ? '<select data-f="execution"><option' + (l.execution === 'In House' ? ' selected' : '') + '>In House</option><option' + (l.execution === 'Outsourced' ? ' selected' : '') + '>Outsourced</option></select>' : esc(l.execution)) + '</td>'
+        + '<td>' + (ed ? '<input data-f="unit_cost" placeholder="' + esc(l.unit_cost) + '">' : (l.cost_basis === 'none' ? '<span class="muted">Unknown</span>' : peso(l.unit_cost)) + '<div class="small muted">' + esc(l.cost_basis) + '</div>') + '</td>'
+        + '<td>' + (l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + ' ' + esc(l.price_name) + '</div>' : '<span class="muted">None</span>') + '</td></tr>';
+    });
+    h += '</table></div>';
+    h += '<div class="label">RFQ drafts (' + p.rfqs.length + ')</div>' + (p.rfqs.length ? '' : '<div class="small muted">None yet.</div>');
+    p.rfqs.forEach(function (q, i) {
+      var s = (q.suppliers || [])[0] || {};
+      h += '<details><summary>' + (ed ? '<label onclick="event.stopPropagation()"><input type="checkbox" data-skip="' + i + '" style="width:auto"> skip </label>' : '')
+        + esc(s.name || 'Supplier') + (s.new ? ' <span class="tag new">new, unaccredited</span>' : '') + ' <span class="muted small">' + esc(s.email || 'no email on file') + ' · ' + esc(q.keys.join(', ')) + '</span></summary>'
+        + '<div class="small"><b>' + esc(q.subject) + '</b></div><pre>' + esc(q.body) + '</pre></details>';
+    });
+    if (p.study) h += '<div class="label">Claude\'s study</div><div class="small">' + esc(p.study) + '</div>';
+    if ((p.risks || []).length) h += '<div class="label">Risks</div><ul class="small">' + p.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if ((p.questions || []).length) h += '<div class="label">Ask the client</div><ul class="small">' + p.questions.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if (r.status === 'Done, drafts incomplete') {
+      h += '<div class="small">Recorded in Canvas as ' + esc(cv.project_number || cv.project_id) + '. Some Gmail drafts were not made.</div><div class="actions"><button class="btn" data-act="drafts" data-id="' + esc(r.id) + '">Make drafts again</button></div>';
+    } else if (r.status === 'Failed') {
+      h += '<div class="actions">' + (cv.submitted ? '<button class="btn" data-act="approve" data-id="' + esc(r.id) + '">Check Canvas and finish</button>'
+        : '<button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>')
+        + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
+    } else {
+      h += '<div class="actions">' + (ed ? '<button class="btn" data-act="approve-edits" data-id="' + esc(r.id) + '">Approve with edits</button><button class="btn ghost" data-act="cancel-edit" data-id="' + esc(r.id) + '">Cancel edits</button>'
+        : '<button class="btn" data-act="approve" data-id="' + esc(r.id) + '">Approve</button><button class="btn ghost" data-act="edit" data-id="' + esc(r.id) + '">Edit first</button>')
+        + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
+        + '<div class="small muted" style="margin-top:6px">Approve writes the project and lines to Canvas, then makes the RFQs as Gmail drafts. Nothing is sent.</div>';
+    }
+    return h + '</div>';
+  }
+  function inp(name, v, wide, ph) { return '<input class="' + (wide ? 'wide' : '') + '" data-field="' + name + '" value="' + esc(v) + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>'; }
+  function srcHtml(l) {
+    if (l.cost_basis === 'market research' && (l.sources || []).length) return '<div class="small">Seen at: ' + l.sources.map(function (u, i) {
+      return /^https:\/\//.test(u) ? '<a style="color:var(--act)" target="_blank" rel="noopener noreferrer" href="' + esc(u) + '">link ' + (i + 1) + '</a>' : ''; }).join(' ') + '</div>';
+    var st = l.stats; return st && st.count ? '<div class="small muted">History: ' + st.count + ' quote(s), median ' + peso(st.median) + ', range ' + peso(st.low) + ' to ' + peso(st.high) + '</div>' : '';
+  }
+
+  function collect(id) {
+    var card = document.querySelector('[data-card="' + id + '"]'), e = { event: {}, client: {}, lines: {}, skip_rfqs: [] };
+    card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
+    card.querySelectorAll('[data-line]').forEach(function (tr) {
+      var d = {}, k = tr.getAttribute('data-line');
+      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'remove') { if (x.checked) d.remove = true; } else if (x.value !== '') d[f] = f === 'execution' ? x.value : Number(x.value); });
+      e.lines[k] = d;
+    });
+    card.querySelectorAll('[data-skip]').forEach(function (x) { if (x.checked) e.skip_rfqs.push(Number(x.getAttribute('data-skip'))); });
+    return e;
+  }
+  function bind() {
+    document.querySelectorAll('[data-act]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+        if (act === 'edit') { editing[id] = 1; return renderWidgets(); }
+        if (act === 'cancel-edit') { delete editing[id]; return renderWidgets(); }
+        var done = function () { delete running[id]; delete editing[id]; refresh(); }, fail = function (e) { delete running[id]; alertErr(e); refresh(); };
+        if (act === 'reject') { var why = prompt('Reject this intake? Nothing goes to Canvas. Reason (optional):'); if (why === null) return; return call('cueReject', [id, why], done, fail); }
+        b.disabled = true; running[id] = 1; schedule();
+        if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
+        if (act === 'approve-edits') return call('cueApprove', [id, collect(id)], done, fail);
+        if (act === 'retry') return call('cueRetry', [id], done, fail);
+        if (act === 'drafts') return call('cueDrafts', [id], done, fail);
+      };
+    });
+  }
+  refresh();
+})();
+</script>
+</body>
+</html>

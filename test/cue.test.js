@@ -1,0 +1,252 @@
+// Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs). Apps Script services, GPT, Claude, the Canvas bridge
+// and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
+// schema in fixtures/ZapBridge.gs (copied from Canvas V183). Run: node test/cue.test.js
+const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueIntake.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
+vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
+const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
+const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRET = 'test-secret-not-real';
+
+function sheetMock() {
+  const rows = [];
+  return { rows, getLastRow: () => rows.length, appendRow: v => rows.push(v.slice()), setFrozenRows: () => {},
+    getRange: (r, c, nr = 1, nc = 1) => ({
+      getValues: () => rows.slice(r - 1, r - 1 + nr).map(x => { const y = x.slice(c - 1, c - 1 + nc); while (y.length < nc) y.push(''); return y; }),
+      setValues: v => v.forEach((vals, i) => { while (rows.length < r + i) rows.push([]); vals.forEach((x, j) => { rows[r - 1 + i][c - 1 + j] = x; }); }) }) };
+}
+const resp = (code, obj) => ({ getResponseCode: () => code, getContentText: () => (typeof obj === 'string' ? obj : JSON.stringify(obj)) });
+const gptOk = data => resp(200, { status: 'completed', model: 'gpt-5-mini', usage: { input_tokens: 900, output_tokens: 300 },
+  output: [{ type: 'web_search_call' }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(data) }] }] });
+const claudeOk = data => resp(200, { model: 'claude-sonnet-5-5', stop_reason: 'end_turn', usage: { input_tokens: 4000, output_tokens: 1500 },
+  content: [{ type: 'text', text: JSON.stringify(data) }] });
+
+const READ = { client: { company: 'Acme Corp', contact: 'Ana Reyes', email: 'ana@acme.example', phone: '0917 000 0000' },
+  event: { name: 'Acme Year-End Party', type: 'Party', date: '2026-12-12', venue: 'SMX Aura', city: 'Taguig', pax: 300, budget: '' },
+  requirements: [{ category: 'Lights and sound', description: 'LED wall 4m x 3m', quantity: 1, occurrence: 1, search_terms: 'led wall' },
+    { category: 'Activities', description: 'Photo booth with prints', quantity: 1, occurrence: 1, search_terms: 'photo booth' },
+    { category: 'Show', description: 'Drone light show, 100 drones', quantity: 1, occurrence: 1, search_terms: 'drone show' }],
+  questions: [] };
+const EVIDENCE = {
+  R1: { owned: [], ran: { in_house: 0, outsourced: 3 }, quotes: [{ entry_id: 'E1', project: 'S-1', date: '2026-05-01', supplier: 'Sonic Pro', description: 'LED wall 4x3', amount: 50000, qty: 1, occ: 1, unit: 50000, awarded: true }],
+    stats: { count: 1, low: 50000, median: 50000, high: 50000, awarded_median: 50000, latest: { unit: 50000, date: '2026-05-01', supplier: 'Sonic Pro' } },
+    bse: { packages: [], items: [] }, suppliers: [{ name: 'Sonic Pro', email: 'sales@sonicpro.example', accredited: true, preferred: true, quoted_before: true, new: false, why: 'preferred, accredited' }] },
+  R2: { owned: [], ran: {}, quotes: [], stats: { count: 0 }, bse: { packages: [{ id: 'PKG-7', name: 'Photo booth package', desc: '', price: 25000 }], items: [] }, suppliers: [] },
+  R3: { owned: [], ran: {}, quotes: [], stats: { count: 0 }, bse: { packages: [], items: [] }, suppliers: [] } };
+const COST = { lines: [
+  { key: 'R1', execution: 'Outsourced', why: 'Rented before from Sonic Pro.', price_source: '', unit_cost: 48000, cost_basis: 'past quotes', sources: ['E1', 'E999'], suppliers: ['Sonic Pro', 'Invented Co'], note: '' },
+  { key: 'R2', execution: 'Outsourced', why: 'BSE package covers it.', price_source: 'PKG-7', unit_cost: 0, cost_basis: 'none', sources: [], suppliers: [], note: '' },
+  { key: 'R3', execution: 'Outsourced', why: 'No history.', price_source: 'FAKE-1', unit_cost: 0, cost_basis: 'none', sources: [], suppliers: [], note: '' }],
+  study: 'Three outsourced scopes.', risks: ['Drone permits'], questions: ['Indoor or outdoor drone show?'] };
+const RESEARCH = { prices: [{ key: 'R3', unit_cost: 150000, what: '100-drone show', links: ['https://drones.example/ph-prices', 'http://insecure.example'] },
+  { key: 'R2', unit_cost: 9999, what: 'not asked', links: ['https://x.example/a'] }],
+  suppliers: [{ key: 'R3', name: 'SkyLights PH', email: 'hello@skylights.example', website: 'https://skylights.example', why: 'drone shows' },
+    { key: 'R1', name: 'Sonic Pro', email: '', website: '', why: 'dup' }, { key: 'R3', name: 'Guess Co', email: 'not an email', website: '', why: 'x' }] };
+const RFQS = { rfqs: [{ supplier: 'Sonic Pro', subject: 'RFQ: LED wall', body: 'Dear Sonic Pro,\nPlease quote...\nBlank Space Events' },
+  { supplier: 'SkyLights PH', subject: 'RFQ: Drone show\nBcc: x@y.z', body: 'Dear SkyLights,\nPlease quote... and send your company profile.\nBlank Space Events' },
+  { supplier: 'Guess Co', subject: 'RFQ', body: 'Dear Guess Co, ...' }, { supplier: 'Stranger Ltd', subject: 'x', body: 'not asked for' }] };
+
+function sandbox(o = {}) {
+  const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL, ...(o.props || {}) };
+  const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
+  const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] };
+  let now = Date.parse('2026-10-21T03:00:00Z');
+  const step = o.step == null ? 5000 : o.step;
+  const route = req => {
+    const u = req.url, body = JSON.parse(req.payload);
+    if (u.indexOf('api.openai.com') >= 0) {
+      const n = body.text.format.name; log.gpt.push(body);
+      if ((o.fail || {})[n]) return o.fail[n]();
+      return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
+    }
+    if (u.indexOf('api.anthropic.com') >= 0) { log.claude.push(body); return (o.fail || {}).cost ? o.fail.cost() : claudeOk(o.cost || COST); }
+    if (u.indexOf('script.google.com') >= 0) {
+      const sig = u.split('?sig=')[1], want = crypto.createHmac('sha256', SECRET).update(String(body.ts) + '.' + req.payload).digest('hex');
+      assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
+      const bad = bridgeCheck(body.action, body.args);
+      if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
+      if (body.action === 'intake_evidence') return resp(200, { ok: true, status: 'Completed', result: o.evidence || EVIDENCE });
+      if (body.action === 'submit_intake') {
+        const L = body.args.proposal.lines, price = { 'PKG-7': 25000 };
+        const t = { known_cost: L.reduce((s, l) => s + (l.cost_basis === 'none' ? 0 : l.unit_cost * l.quantity * l.occurrence), 0),
+          known_price: L.reduce((s, l) => s + (price[l.price_source] || 0) * l.quantity * l.occurrence, 0) };
+        if (o.canvasCost != null) t.known_cost = o.canvasCost;
+        log.submitted = body.args.proposal;
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, request_id: body.args.request_id, status: 'Waiting for Kiko', summary: 'summary',
+          proposal: { totals: t, lines: L.map(l => Object.assign({}, l, o.canvasCost != null ? { unit_cost: o.canvasCost } : {})) } } });
+      }
+      if (body.action === 'apply_intake') {
+        if (o.applyFails) return resp(200, { ok: false, status: 'Blocked', error: 'Apply failed after project S-99900001ZZ was made: boom' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', project_number: '052', req_ids: ['REQ-1'], rfqs: log.submitted.rfqs } });
+      }
+      if (body.action === 'make_rfq_drafts') {
+        log.canvasDrafts = (log.canvasDrafts || 0) + 1;
+        if (o.canvasDraftsFail && log.canvasDrafts === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Gmail busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, drafts: log.submitted.rfqs.map((q, i) => ({ k: i + ':0', supplier: q.suppliers[0].name,
+          to: q.suppliers[0].email, subject: q.subject, new: q.suppliers[0].new, id: 'info-draft-' + i, error: '' })) } });
+      }
+    }
+    if (u.indexOf('gmail.googleapis.com') >= 0) {
+      log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
+      return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
+    }
+    throw new Error('unexpected fetch ' + u);
+  };
+  const ctx = {
+    console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; } }) },
+    SpreadsheetApp: { openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [] },
+    Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
+      computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
+      newBlob: s => ({ getBytes: () => Array.from(Buffer.from(String(s), 'utf8')) }),
+      base64Encode: b => Buffer.from(b).toString('base64'), base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
+    UrlFetchApp: {
+      fetch: (u, req) => { now += step; return route(typeof u === 'string' ? Object.assign({ url: u }, req) : u); },
+      fetchAll: reqs => { now += (o.batchStep || step); log.batches.push(reqs.map(r => r.url.split('/')[2])); return reqs.map(route); } },
+    HtmlService: {}
+  };
+  vm.createContext(ctx); vm.runInContext(CODE, ctx);
+  ctx.cueNow_ = () => now;
+  return { ctx, props, tabs, log, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
+}
+const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
+function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ).request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
+
+const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
+const tests = [];
+const test = (n, f) => tests.push([n, f]);
+
+test('C1 bridge requests are signed like every other bridge caller and use only Cue\'s four actions', () => {
+  const t = startToCard();
+  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'intake_evidence']);
+  t.log.bridge.forEach(b => { assert.ok(/^[A-Za-z0-9:_-]{8,120}$/.test(b.command_id)); assert.strictEqual(b.task_id, t.id); assert.ok(b.ts > 0); });
+});
+test('C2 full run: 4 AI calls (GPT read, Claude cost + GPT research in parallel, GPT RFQs), card waiting for Kiko', () => {
+  const t = startToCard();
+  assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.metrics.ai_calls, 4);
+  assert.strictEqual(t.log.gpt.length, 3); assert.strictEqual(t.log.claude.length, 1);
+  deq(t.log.batches.map(b => b.slice().sort()), [['api.openai.com'], ['script.google.com', 'script.google.com'], ['api.anthropic.com', 'api.openai.com'], ['api.openai.com']]);
+  assert.ok(t.log.gpt[1].tools && t.log.gpt[1].tools[0].type === 'web_search', 'research uses web search');
+  assert.ok(!t.log.gpt[0].tools && !t.log.gpt[2].tools, 'read and RFQ calls do not search the web');
+  const rs = JSON.parse(t.log.gpt[1].input);
+  deq(rs.price_needed.map(x => x.key), ['R3'], 'only the line with no BSE price, quote or stock is researched');
+  deq(rs.known_suppliers, ['Sonic Pro']);
+});
+test('C3 Canvas rules applied before Kiko sees it: cited quotes, BSE price from the list, research labelled', () => {
+  const p = startToCard().v.proposal, [r1, r2, r3] = p.lines;
+  deq(r1.sources, ['E1']); assert.strictEqual(r1.cost_basis, 'past quotes'); assert.strictEqual(r1.unit_cost, 48000);
+  assert.strictEqual(r2.unit_price, 25000); assert.strictEqual(r2.price_basis, 'BSE package'); assert.strictEqual(r2.cost_basis, 'none', 'unasked research is ignored');
+  assert.strictEqual(r3.price_source, ''); assert.ok(r3.flags.some(f => /not shown/.test(f)));
+  assert.strictEqual(r3.cost_basis, 'market research'); assert.strictEqual(r3.unit_cost, 150000);
+  deq(r3.sources, ['https://drones.example/ph-prices']); assert.ok(r3.flags.indexOf('Research, not history: confirm with an RFQ') >= 0);
+  deq(p.totals, { known_cost: 198000, known_price: 25000, lines_with_bse_price: 1, lines_without_cost: 1, outsourced: 3, in_house: 0 });
+});
+test('C4 suppliers: Claude picks only from the Supplier DB; research adds new, unaccredited ones; no guessed emails', () => {
+  const p = startToCard().v.proposal;
+  deq(p.lines[0].suppliers.map(s => s.name), ['Sonic Pro']);
+  deq(p.lines[2].suppliers.map(s => [s.name, s.new, s.email]), [['SkyLights PH', true, 'hello@skylights.example'], ['Guess Co', true, '']]);
+  assert.ok(p.lines[1].flags.some(f => /No supplier/.test(f)));
+});
+test('C5 GPT drafts one RFQ per supplier from Claude\'s names plus research\'s; strangers dropped; subject cannot inject headers', () => {
+  const t = startToCard(), p = t.v.proposal, ask = JSON.parse(t.log.gpt[2].input);
+  deq(ask.suppliers.map(s => [s.supplier, s.keys.join(','), s.new]), [['Sonic Pro', 'R1', false], ['SkyLights PH', 'R3', true], ['Guess Co', 'R3', true]]);
+  assert.ok(!/Acme/.test(t.log.gpt[2].input), 'the client name is not given to the RFQ writer');
+  deq(p.rfqs.map(q => q.suppliers[0].name), ['Sonic Pro', 'SkyLights PH', 'Guess Co']);
+  assert.ok(!/[\r\n]/.test(p.rfqs[1].subject));
+});
+test('C6 no gaps and enough suppliers: research is skipped, 3 AI calls', () => {
+  const ev = JSON.parse(JSON.stringify(EVIDENCE)), sup = ['A', 'B', 'C'].map(n => ({ name: 'Sup ' + n, email: '', accredited: true, preferred: false }));
+  ev.R1.suppliers = sup; ev.R2.suppliers = sup; ev.R3 = JSON.parse(JSON.stringify(ev.R1));
+  const t = startToCard({ evidence: ev, cost: Object.assign({}, COST, { lines: COST.lines.map(l => Object.assign({}, l, { suppliers: ['Sup A'] })) }) });
+  assert.strictEqual(t.v.metrics.ai_calls, 3); assert.strictEqual(t.log.gpt.length, 2);
+});
+test('C7 metric: calls and seconds recorded; a run over 3 minutes is flagged', () => {
+  const fast = startToCard();
+  assert.ok(fast.v.metrics.seconds_total > 0 && fast.v.metrics.seconds_total <= 180); assert.strictEqual(fast.v.metrics.flag, '');
+  const row = fast.tabs.Requests.rows.find(r => r[0] === fast.id); assert.strictEqual(row[5], 4); assert.strictEqual(row[7], fast.v.metrics.seconds_total);
+  const slow = startToCard({ batchStep: 70000 });
+  assert.ok(/Over budget: .*s/.test(slow.v.metrics.flag), slow.v.metrics.flag);
+  assert.strictEqual(slow.tabs['AI Runs'].rows.length - 1, 4);
+});
+test('C8 CUE_DRAFTS_IN=canvas: Canvas re-checks (submit_intake, real bridge schema), writes once, then makes the RFQ drafts in info@', () => {
+  const t = startToCard({ props: { CUE_DRAFTS_IN: 'canvas' } }), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.canvas.project_number, '052');
+  deq(t.log.bridge.map(b => b.action).slice(2), ['submit_intake', 'apply_intake', 'make_rfq_drafts']);
+  assert.strictEqual(t.log.gmail.length, 0, 'Cue makes no drafts in the personal Gmail');
+  deq(v.drafts.map(d => [d.supplier, d.mailbox]), [['Sonic Pro', 'info@'], ['SkyLights PH', 'info@'], ['Guess Co', 'info@']]);
+  assert.throws(() => t.ctx.cueApprove(t.id, {}), /not waiting for you/);
+});
+test('C8b default (Kiko 03:25Z): one draft per supplier in Kiko\'s Gmail, To blank without an email, no header injection', () => {
+  const t = startToCard(), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.gmail.length, 3); assert.ok(!t.log.bridge.some(b => b.action === 'make_rfq_drafts'));
+  assert.ok(/^To: sales@sonicpro\.example\r\n/.test(t.log.gmail[0])); assert.ok(!/^To:/.test(t.log.gmail[2]), 'no email on file: To left blank');
+  assert.ok(/Subject: =\?UTF-8\?B\?/.test(t.log.gmail[1]) && !/Bcc/i.test(t.log.gmail[1].split('\r\n\r\n')[0]));
+});
+test('C9 edit first: Kiko\'s cost becomes "set by Kiko", removed line and skipped RFQ never reach Canvas', () => {
+  const t = startToCard();
+  const v = t.ctx.cueApprove(t.id, { event: { venue: 'SMX Aura Hall 2' }, lines: { R1: { unit_cost: 45000 }, R2: { remove: true } }, skip_rfqs: [2] });
+  const sp = t.log.submitted;
+  assert.strictEqual(v.status, 'Done'); deq(sp.lines.map(l => l.key), ['R1', 'R3']);
+  assert.strictEqual(sp.lines[0].cost_basis, 'set by Kiko'); deq(sp.lines[0].sources, []);
+  assert.strictEqual(sp.event.venue, 'SMX Aura Hall 2'); assert.strictEqual(sp.rfqs.length, 2);
+  assert.throws(() => { const u = startToCard(); u.ctx.cueApprove(u.id, { event: { date: '12/12/2026' } }); }, /2026-11-13/);
+});
+test('C10 Canvas changes a number on re-check: nothing written, card returns with Canvas\'s numbers', () => {
+  const t = startToCard({ canvasCost: 1 }), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Needs you'); assert.ok(!t.log.bridge.some(b => b.action === 'apply_intake'));
+  assert.ok(v.notes.some(n => /nothing was written/.test(n)));
+});
+test('C11 apply fails: stops "Failed", never retried by the trigger; "Check Canvas and finish" calls apply only', () => {
+  const t = startToCard({ applyFails: true }), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Failed'); assert.ok(/trying again never writes twice/.test(v.error));
+  const before = t.log.bridge.length; t.ctx.cueResume(); assert.strictEqual(t.log.bridge.length, before);
+  t.ctx.cueApprove(t.id, {}); deq(t.log.bridge.slice(before).map(b => b.action), ['apply_intake']);
+});
+test('C12 reject: nothing goes to Canvas', () => {
+  const t = startToCard(), v = t.ctx.cueReject(t.id, 'Duplicate');
+  assert.strictEqual(v.status, 'Rejected'); assert.strictEqual(t.log.bridge.length, 2);
+});
+test('C13 only the owner can use Cue', () => {
+  const t = sandbox({ viewer: 'someone@example.com' });
+  assert.throws(() => t.ctx.cueSend(INQ), /private/); assert.throws(() => t.ctx.cueState(), /private/);
+});
+test('C14 GPT read fails: Failed before Canvas; Try again resumes and counts the extra call', () => {
+  let n = 0; const t = sandbox({ fail: { intake: () => (n++ === 0 ? resp(400, { error: { message: 'bad request' } }) : gptOk(READ)) } });
+  const id = t.ctx.cueSend(INQ).request_id, v = t.ctx.cueRun(id);
+  assert.strictEqual(v.status, 'Failed'); assert.strictEqual(t.log.bridge.length, 0); assert.ok(/GPT \(read\): HTTP 400/.test(v.error));
+  const w = t.ctx.cueRetry(id); assert.strictEqual(w.status, 'Needs you'); assert.strictEqual(w.metrics.ai_calls, 5);
+});
+test('C15 research fails: the CE still comes back, gaps stay unknown, and Kiko is told', () => {
+  const t = startToCard({ fail: { research: () => resp(500, {}) } });
+  assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.proposal.lines[2].cost_basis, 'none');
+  assert.ok(t.v.notes.some(n => /Web research did not come back/.test(n))); assert.strictEqual(t.v.metrics.ai_calls, 5, 'one retry of the 500 is counted');
+});
+test('C16 a Gmail draft that fails is retried alone, never doubled', () => {
+  const t = startToCard({ gmailFail: true }), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Done, drafts incomplete');
+  const w = t.ctx.cueDrafts(t.id); assert.strictEqual(w.status, 'Done'); assert.strictEqual(t.log.gmail.length, 4);
+  deq(w.drafts.map(d => !!d.id), [true, true, true]);
+});
+test('C16b Canvas drafts fail once: "Make drafts again" asks Canvas again, and the project is not written twice', () => {
+  const t = startToCard({ canvasDraftsFail: true, props: { CUE_DRAFTS_IN: 'canvas' } }), v = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v.status, 'Done, drafts incomplete'); assert.strictEqual(v.canvas.project_id, 'S-99900001ZZ');
+  const w = t.ctx.cueDrafts(t.id); assert.strictEqual(w.status, 'Done'); assert.strictEqual(w.drafts.length, 3);
+  assert.strictEqual(t.log.bridge.filter(b => b.action === 'apply_intake').length, 1);
+});
+test('C17 an inquiry with no requirements stops with a clear message', () => {
+  const t = startToCard({ read: Object.assign({}, READ, { requirements: [] }) });
+  assert.strictEqual(t.v.status, 'Failed'); assert.ok(/no requirements/.test(t.v.error));
+});
+test('C18 page state hides keys and raw evidence', () => {
+  const t = startToCard(), s = JSON.stringify(t.ctx.cueState());
+  ['sk-test', 'sk-ant-test', SECRET, 'past_quotes'].forEach(x => assert.ok(s.indexOf(x) < 0, x));
+});
+
+let pass = 0;
+for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, 3).join('\n     ')); } }
+console.log(pass + '/' + tests.length + ' passed');
+process.exit(pass === tests.length ? 0 : 1);
