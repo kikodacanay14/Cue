@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.18.1';
+const CUE_VERSION_ = 'Cue 1.18.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -308,6 +308,7 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
         about: { type: 'string', description: 'Self-contained: what the email must say, with every fact Kiko gave' },
         audience: { type: 'string', enum: ['supplier', 'client', 'team', 'other'] }, project: { type: 'string', description: 'The project or event it is about, or ""' } } } } };
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
+  + 'Reply in English unless Kiko\'s own message is in Tagalog or Taglish. '
   + 'Never guess which command Kiko wants: when you cannot tell, or two fit about equally, set sure to false and name the two best in choices; '
   + 'Cue then asks Kiko with buttons and starts nothing, so reply in one short line without saying you started anything. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
@@ -398,7 +399,11 @@ function cueTalk_(t, ref, force) {
   if (r.ok && !acts && claims.test(reply))
     reply += '\n\n(Correction: nothing is running yet and no card was made. Say "start intake" and I will run it; its card will show in the thread.)';
   // Teach Cue add-on (Kiko 17:00Z): not sure which command, or two fit about equally: start nothing and ask. Never guess.
-  const choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
+  let choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
+  // PC test 17:30Z: "LED wall for AMI Group" started a supplier search, and a bare "LED wall" re-ran one in an open thread. A short
+  // item-and-name message in the main chat that the call would act on always asks project intake or supplier search, whatever GPT says.
+  if (r.ok && !force && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t) && (r.data.start_intake || (r.data.vendor && r.data.vendor.job) || pick || r.data.readiness || r.data.start_ar || (r.data.email && r.data.email.job)))
+    { choices = ['intake', 'vendor']; reply = ''; }
   if (choices.some(c => c !== 'chat')) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
     const cands = { intake: String(r.data.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(r.data.readiness || '').trim(),

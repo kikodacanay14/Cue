@@ -2924,6 +2924,28 @@ test('TC11 My rules: lists Memory newest first (learned rules show at once); Kik
   deq([t.tabs.Memory.rows.length, v.rows.length, v.rows[v.rows.length - 1].row], [6, 5, 2]);
 });
 
+test('TC12 PC test 17:30Z: a short item-and-name message GPT would act on asks intake or supplier search through cueSend, even when GPT is sure; greetings and clear asks do not; replies are English unless Kiko writes Tagalog', () => {
+  const sure = Object.assign(VTALK(), { sure: true, choices: [] });
+  const t = sandbox({ talk: sure }); const out = t.ctx.cueSend('LED wall for AMI Group', [], '');
+  deq([out.chat, !!out.ask, t.tabs.Requests.rows.length, t.log.gpt.length], [true, true, 1, 1]);
+  const q = askLine(t); assert.ok(/:intake,vendor,chat$/.test(q[3]) && /Did you mean Project intake or Supplier search\?/.test(q[2]), q[2]);
+  const go = t.ctx.cueAskPick(askId(q), 'vendor'); deq(t.ctx.cueLoad_(go.request_id).s.kind, 'vendor');
+  const b = sandbox({ talk: sure }); b.ctx.cueSend('LED wall', [], ''); assert.ok(/:intake,vendor,chat$/.test(askLine(b)[3]));
+  const c = sandbox({ talk: sure }); const o2 = c.ctx.cueSend('find suppliers for an LED wall in Cebu', [], ''); assert.ok(!askLine(c) && o2.request_id, 'a clear ask starts at once');
+  const d = sandbox(); d.ctx.cueSend('good morning', [], ''); assert.ok(!askLine(d), 'a plain chat reply asks nothing');
+  assert.ok(/Reply in English unless Kiko's own message is in Tagalog or Taglish/.test(t.log.gpt[0].instructions));
+});
+
+test('TC13 "remember:" for a rule that was switched off turns it back on and asks Keep or Undo; one already on says where to find it', () => {
+  const t = sandbox();
+  t.ctx.cueSend('remember: RFQs never go out from info@', [], ''); t.ctx.cueAskPick(askId(askLine(t)), 'undo');
+  deq(t.tabs.Memory.rows[1][0], false);
+  t.ctx.cueSend('remember: RFQs never go out from info@', [], '');
+  deq([t.tabs.Memory.rows.length, t.tabs.Memory.rows[1][0]], [2, true]); assert.ok(/^Learned: /.test(askLine(t)[2]) && !/^!/.test(String(t.tabs.Chat.rows.pop()[3])));
+  t.ctx.cueSend('remember: RFQs never go out from info@', [], '');
+  assert.ok(/already have that rule, and it is on\. See it under My rules/.test(t.tabs.Chat.rows.pop()[2]));
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

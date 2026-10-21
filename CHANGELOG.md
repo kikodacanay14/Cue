@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.18.2: fixes from the PC test (not deployed)
+
+PC test of 1.18.1 on /dev, 21 Oct 17:30Z.
+
+- A short main-chat message with no verb or question, like "LED wall for AMI Group" or "LED wall", no longer starts a task or joins an open thread. Cue asks "Project intake or Supplier search?" with buttons plus Just chat. This is decided in code, so it happens even when GPT is sure. Greetings and clear asks ("find suppliers for an LED wall in Cebu") work as before.
+- Chat replies are in English unless Kiko writes in Tagalog or Taglish.
+- "remember:" for a rule that was switched off turns it back on and shows Learned with Keep/Undo. For a rule that is already on, the reply says so and points to My rules.
+- The thread's ✕ closes the pane. "Threads ›" is still the way back to the list.
+- Tests: 211 of 211 pass (new TC12, TC13).
+
 ## Cue 1.18.1: My rules (not deployed)
 
 Kiko 17:12Z: "we should have custom rules area and it should pick up these rules as we go".
