@@ -444,3 +444,48 @@ function cueChatsRead_(s) {
   if (!P.facts.length) throw new Error('Claude found nothing new to remember in those chats.');
   cueChat_('Cue', P.facts.length + ' things to remember from your chats. Untick any on the card, then approve to save them.', s.id);
 }
+
+/* ---------- My rules (Kiko 17:12Z "custom rules area ... pick up these rules as we go") ----------
+ * The Memory tab shown in the Threads pane: rules first, then the other facts. Kiko switches one on or off, edits, deletes or adds
+ * one by hand. One store, so a rule Cue learns shows here as soon as it is saved. */
+function cueMyRules() {
+  cueOwner_();
+  cueTeachSeed_();
+  const sh = cueTeachTab_(), n = sh.getLastRow() - 1;
+  const rows = n > 0 ? sh.getRange(2, 1, n, 6).getValues().map((r, i) => ({ row: i + 2, on: cueStyleOn_(r[0]), topic: String(r[1] || '').trim() || 'rules',
+    text: String(r[2] || '').trim(), always: cueStyleOn_(r[3]), saved: r[4] instanceof Date ? r[4].toISOString().slice(0, 10) : String(r[4] || '').slice(0, 10), from: String(r[5] || '') }))
+    .filter(x => x.text) : [];
+  return { rows: rows.reverse() };   // newest first
+}
+
+/** One change from the My rules list. o = { add } or { row, was, on?, text?, del? }. was = the text Kiko saw, so a row that moved
+ * underneath (someone edited the tab) is never changed by mistake. */
+function cueMyRuleSave(o) {
+  cueOwner_();
+  o = o || {};
+  const clean = t => cueStr_(String(t || '').replace(/\s+/g, ' ').trim(), CUE_TEACH_MAX_.fact);
+  cueLocked_(() => {
+    const sh = cueTeachTab_();
+    if (o.add != null) {
+      const text = clean(o.add);
+      if (text.length < 8) throw new Error('Write the rule in a few words.');
+      if (CUE_TEACH_SECRET_RE_.test(text)) throw new Error('That looks like a password or key. Cue does not save those.');
+      const n = sh.getLastRow();
+      if (n > 1 && sh.getRange(2, 3, n - 1, 1).getValues().some(r => cueName_(r[0]) === cueName_(text))) throw new Error('That rule is already in the list.');
+      sh.appendRow([true, 'rules', text, true, new Date(cueNow_()), 'Kiko']);
+      return;
+    }
+    const row = Number(o.row);
+    if (!(row >= 2 && row <= sh.getLastRow()) || cueName_(sh.getRange(row, 3).getValues()[0][0]) !== cueName_(o.was)) throw new Error('The Memory tab changed since this list loaded. Nothing was changed; the list is reloaded.');
+    if (o.del) { sh.deleteRow(row); return; }
+    if (o.text != null) {
+      const text = clean(o.text);
+      if (text.length < 8) throw new Error('Write the rule in a few words.');
+      if (CUE_TEACH_SECRET_RE_.test(text)) throw new Error('That looks like a password or key. Cue does not save those.');
+      sh.getRange(row, 3).setValues([[text]]);
+    }
+    if (o.on != null) sh.getRange(row, 1).setValues([[!!o.on]]);
+  });
+  cueTeachReset_();
+  return cueMyRules();
+}

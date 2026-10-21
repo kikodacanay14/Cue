@@ -10,7 +10,7 @@ const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRE
 
 function sheetMock() {
   const rows = [];
-  return { rows, getLastRow: () => rows.length, appendRow: v => rows.push(v.slice()), setFrozenRows: () => {},
+  return { rows, getLastRow: () => rows.length, appendRow: v => rows.push(v.slice()), setFrozenRows: () => {}, deleteRow: r => rows.splice(r - 1, 1),
     getRange: (r, c, nr = 1, nc = 1) => ({
       getValues: () => rows.slice(r - 1, r - 1 + nr).map(x => { const y = x.slice(c - 1, c - 1 + nc); while (y.length < nc) y.push(''); return y; }),
       setValues: v => v.forEach((vals, i) => { while (rows.length < r + i) rows.push([]); vals.forEach((x, j) => { rows[r - 1 + i][c - 1 + j] = x; }); }) }) };
@@ -2900,6 +2900,28 @@ test('TC10 "learn from chats": the page sends the newest chats; Claude reads the
   deq(t.tabs.Memory.rows.slice(1).map(r => [r[1], r[2], r[3]]), [['rules', 'Kiko wants costing per requirement, not per item.', true]]);
   deq(t.tabs['Routing examples'].rows.slice(1).map(r => r.slice(1)), [['quote this for me', 'intake']]);
   assert.throws(() => sandbox().ctx.cueLearnChats({ chats: [] }), /no conversations/);
+});
+
+test('TC11 My rules: lists Memory newest first (learned rules show at once); Kiko adds, edits, switches off and deletes; a moved row is never changed', () => {
+  const t = sandbox({ props: { CUE_MEMORY_SEEDED: '' } });
+  let v = t.ctx.cueMyRules();
+  deq([v.rows.length, v.rows[0].row, v.rows[0].on, v.rows[0].topic, v.rows[0].from], [4, 5, true, 'rules', 'seed']);
+  t.ctx.cueLearnNow_('Cost per requirement unless Kiko asks for item level.', '');
+  v = t.ctx.cueMyRules(); deq([v.rows.length, v.rows[0].text, v.rows[0].from], [5, 'Cost per requirement unless Kiko asks for item level.', 'chat']);
+  v = t.ctx.cueMyRuleSave({ add: '  RFQs   never go out from info@. ' });
+  deq([v.rows[0].text, v.rows[0].from, v.rows[0].always, v.rows[0].on], ['RFQs never go out from info@.', 'Kiko', true, true]);
+  assert.ok(/never go out from info@/.test(t.ctx.cueTeachFor_('anything')), 'used from the next call');
+  assert.throws(() => t.ctx.cueMyRuleSave({ add: 'rfqs never go out from INFO@.' }), /already in the list/);
+  assert.throws(() => t.ctx.cueMyRuleSave({ add: 'short' }), /few words/);
+  const r = v.rows[0];
+  v = t.ctx.cueMyRuleSave({ row: r.row, was: r.text, text: 'RFQs and CEs never go out from info@.' });
+  deq(t.tabs.Memory.rows[r.row - 1][2], 'RFQs and CEs never go out from info@.');
+  v = t.ctx.cueMyRuleSave({ row: r.row, was: 'RFQs and CEs never go out from info@.', on: false });
+  deq(t.tabs.Memory.rows[r.row - 1][0], false); assert.ok(!/info@/.test(t.ctx.cueTeachFor_('anything')), 'switched off is not used');
+  assert.throws(() => t.ctx.cueMyRuleSave({ row: r.row, was: 'something else', del: true }), /changed since this list loaded/);
+  deq(t.tabs.Memory.rows.length, 7);
+  v = t.ctx.cueMyRuleSave({ row: 2, was: t.tabs.Memory.rows[1][2], del: true });
+  deq([t.tabs.Memory.rows.length, v.rows.length, v.rows[v.rows.length - 1].row], [6, 5, 2]);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
