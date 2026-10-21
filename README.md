@@ -25,7 +25,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 - No email address is ever guessed.
 - The RFQs leave out prices, budgets, the client's name and signatures.
 
-## Morning batch (chasing sweep, Cue 1.9)
+## Morning batch (chasing sweep)
 
 | # | Who | What happens | AI call? |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.9 (on branch claude/project-thread-mrch2a, not deployed)
+## Unreleased (chasing sweep)
 
 The chasing sweep engine and task basics (backlog task 1; spec `canvas-integration/specs/sweep-engine.md`, approved by Kiko 21 Oct 07:31Z).
 
