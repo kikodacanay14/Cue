@@ -4,7 +4,8 @@
  * submit_intake (Canvas re-checks and stores the proposal "Waiting for Kiko"), apply_intake (Canvas writes it once) and save_project_file.
  * RFQs are never made in info@ (Kiko 07:45Z), so make_rfq_drafts is not used.
  * The expense pair: expense_evidence (read) and record_expense (one expense Kiko approved; CueExpense.gs).
- * Supplier registration (CueSupplier.gs) adds supplier_check (read), register_supplier and save_supplier_file. */
+ * Supplier registration (CueSupplier.gs) adds supplier_check (read), register_supplier and save_supplier_file.
+ * The signature chaser adds list_unsigned_docs (read) and send_doc_reminder (one approved reminder from freelancers@). */
 
 function cueBridgeReq_(s, action, args, pid) {
   const url = cueKey_('CUE_BRIDGE_URL'), secret = cueKey_('ZAD_SECRET');
