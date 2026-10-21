@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.23.2: Open in Canvas fixes from the PC test (not deployed)
+
+The PC test of 1.23.1 at 19:40Z passed: Canvas opens signed in inside Cue's right-hand pane. Fixes from it:
+
+- The supplier card's "Open in Canvas" button showed as a blank blue bar. Links on cards were coloured the same blue as the button. The label is now dark on blue (light on the outline buttons).
+- "add scope LED wall to …" now also sends the scope name. Canvas picks the Requirement when one matches that name; otherwise it fills Scope. Description is filled as before. Filling Scope and Requirement together needs one line in the next Canvas release (Cue already sends `scope` for it).
+- The Canvas pane shows "Loading Canvas… a project can take up to 30 seconds." It goes away after 30 seconds or when Kiko clicks into Canvas.
+- Why the 12-second "Open in a new tab" note never showed: Canvas sends its "ready" signal as soon as its page starts, before the project's data loads. So sign-in worked and the note correctly stayed hidden; the wait after that was Canvas loading the project.
+- Tests: 254 of 254 pass (new CV9: a supplier's bank, account, IBAN and SWIFT never go into the Add supplier link; new CV10: the button label and the loading line).
+
 ## Cue 1.23.1: bid check polish from the PC test (not deployed)
 
 The PC test of 1.22.1 at 19:32Z passed (5 new notices, 8 of 9 checks, 49 s). Three small fixes from it:

@@ -105,6 +105,7 @@
   .vstage.cv { position:relative; background:#fff; }
   .cvnote { position:absolute; left:12px; right:12px; top:12px; z-index:2; padding:12px 14px; border:1px solid var(--line2); border-radius:8px; background:var(--panel); color:var(--text); font-size:14px; }
   .cvnote a { color:var(--act); font-weight:600; }
+  .cvnote.cvload { pointer-events:none; width:max-content; max-width:calc(100% - 24px); padding:8px 12px; color:var(--muted); }
   .cvrow { margin-top:10px; }
   .vstage .vmsg { margin:auto; color:var(--muted); padding:20px; text-align:center; }
   .vfoot { flex:none; display:flex; align-items:center; gap:8px; padding:10px 16px; color:var(--text); font-size:14px; }
@@ -180,6 +181,7 @@
   textarea { flex:1; min-height:44px; max-height:200px; resize:vertical; }
   textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
   .card a { color:var(--act); }
+  .card a.btn { color:#0b1320; } .card a.btn.ghost { color:var(--text); }   /* an Open in Canvas button is a link: keep its label readable */
   .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px var(--font); cursor:pointer; background:var(--act); color:#0b1320; }
   .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
   .btn.bad { background:transparent; color:#ff9b7a; border:1px solid #6a3a2c; }
@@ -467,7 +469,7 @@
   // Mirrors cueCanvasParse_ (CueCanvas.gs): these go to the server as Canvas commands, never to the expense shortcut ("open Globe expenses").
   var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
   var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
-  var cvWait = 0, cvReady = false;
+  var cvWait = 0, cvGone = 0, cvReady = false;
   function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
   function cvLink(l, primary) {
     if (!l || !CV_URL.test(l.url || '')) return '';
@@ -482,17 +484,24 @@
     $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
     $('v-name').textContent = f.name; $('v-name').title = f.name; $('v-ic').textContent = '🗂'; $('v-open').href = f.url;
     $('v-type').textContent = 'Canvas · save there'; $('v-pos').textContent = ''; $('v-prev').disabled = true; $('v-next').disabled = true; $('v-pct').textContent = '';
-    cvReady = false;
-    $('v-stage').innerHTML = '<iframe id="v-cv" title="' + esc(f.name) + '" allow="clipboard-read; clipboard-write" src="' + esc(f.url) + '"></iframe>';
+    cvReady = false; clearTimeout(cvGone);
+    // Canvas sends "ready" as soon as its page starts, before the project's data comes in (that can take 30 s), so the
+    // loading line stays until 30 s or until Kiko clicks into Canvas. No "ready" in 12 s: the sign-in note instead.
+    $('v-stage').innerHTML = '<iframe id="v-cv" title="' + esc(f.name) + '" allow="clipboard-read; clipboard-write" src="' + esc(f.url) + '"></iframe>'
+      + '<div class="cvnote cvload" role="status">Loading Canvas… a project can take up to 30 seconds.</div>';
     cvWait = setTimeout(function () {
       if (cvReady || !$('v-cv')) return;
+      cvUnload();
       $('v-stage').insertAdjacentHTML('afterbegin', '<div class="cvnote" role="status">Canvas hasn\'t shown up here yet. It may need you to sign in, which Google only allows in its own tab. '
         + '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in a new tab</a></div>');
     }, 12000);
+    cvGone = setTimeout(cvUnload, 30000);
   }
+  function cvUnload() { var n = $('v-stage').querySelector('.cvload'); if (n) n.remove(); }
+  window.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement && document.activeElement.id === 'v-cv') cvUnload(); }, 0); });
   window.addEventListener('message', function (e) {
     var d = e.data, fr = $('v-cv'); if (!d || d.canvasWs !== 'ready' || !fr) return;
-    for (var w = e.source, i = 0; w && i < 4; i++, w = w.parent) if (w === fr.contentWindow) { cvReady = true; var n = $('v-stage').querySelector('.cvnote'); if (n) n.remove(); return; }
+    for (var w = e.source, i = 0; w && i < 4; i++, w = w.parent) if (w === fr.contentWindow) { cvReady = true; var n = $('v-stage').querySelector('.cvnote:not(.cvload)'); if (n) n.remove(); return; }
   });
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[data-canvas]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button || PHONE) return;
@@ -533,7 +542,7 @@
   }
   function viewShow() {
     var f = vlist[vat]; if (!f) return viewClose();
-    $('v-dl').hidden = !!f.canvas; $('v-zoom').hidden = !!f.canvas; $('v-stage').classList.toggle('cv', !!f.canvas); clearTimeout(cvWait);
+    $('v-dl').hidden = !!f.canvas; $('v-zoom').hidden = !!f.canvas; $('v-stage').classList.toggle('cv', !!f.canvas); clearTimeout(cvWait); clearTimeout(cvGone);
     if (f.canvas) return canvasShow(f);
     var k = fileKind(f), id = fileId(f);
     vz = 0; vrot = 0; $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
