@@ -238,6 +238,18 @@ const ZB_ACTIONS_ = {
       const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
       return aiExpenseRecord_(r.args.request_id, r.project_id, p, f); }
   },
+  finance_snapshot: {
+    // CUE-FINANCE-2026-10-21 (Kiko 07:41Z approved specs/cfo-advisor.md). Cue's CFO Advisor: CE, billings, collections and
+    // payment requests per project (canvas-ai/AiFinance.gs). Read only; no bank details, payees' accounts or personal expenses.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 50 }, account: { type: 'string', max: 200 },
+      from: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, to: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return aiFinanceSnapshot_({ project_ids: ids, account: r.args.account || '', from: r.args.from || '', to: r.args.to || '' });
+    }
+  },
   get_project_board: {
     kind: 'read', needsProject: false, schema: {},
     run: () => getProjectBoard()

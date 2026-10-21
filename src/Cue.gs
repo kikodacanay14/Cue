@@ -147,6 +147,10 @@ function cueSend(text, files, mode, ref) {
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
+  // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
+  // A reply in a money thread stays a money question; a reply in any other task's thread never becomes one.
+  if (!has && mode !== 'intake' && String(text || '').trim() && !/^\s*new project intake/i.test(String(text || ''))
+    && (ref ? (cueLoad_(ref) || { s: {} }).s.kind === 'finance' : cueFinAsk_(text))) return cueFinance_(String(text).trim(), ref);
   let asked = '', reopened = '';
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
@@ -210,7 +214,8 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
-  + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
+  + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), answer money '
+  + 'questions (profit, margins, who owes BSE, supplier payments, 13-week cash) from Canvas numbers when Kiko asks one directly, and show what '
   + 'needs Kiko in the Widgets tab. Prepare acknowledgement receipts (ARs) for a project: Canvas lists who was paid, Kiko ticks and '
   + 'approves, Canvas makes the receipts and can email supplier receipts from AccountsPayables@; set start_ar for that. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
@@ -291,6 +296,7 @@ function cueTaskName_(x) {
   if (x.kind === 'readiness') return (x.ready && ((x.ready.match && x.ready.match.name) || x.ready.ask)) || 'the readiness check';
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
   if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
+  if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -309,7 +315,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline'); } catch (e) { return ''; }
+  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance'); } catch (e) { return ''; }   // a pipeline review or money answer never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -333,6 +339,7 @@ function cueTaskLine_(id) {
       + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
   if (s.kind === 'ar') return 'acknowledgement receipts for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
+  if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -396,6 +403,7 @@ function cueRetry(id) {
   cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
+    if (L.s.kind === 'finance') throw new Error('Ask the money question again in its thread.');
     if (L.s.status !== 'Failed' || (L.s.canvas && L.s.canvas.submitted)) throw new Error('Only a request that stopped before Canvas can be tried again here.');
     if (L.s.kind === 'expense') throw new Error('Send the expense again with its files; Cue does not keep them.');
     L.s.status = 'Working'; L.s.error = ''; cueSave_(L.sh, L.row, L.s);
@@ -570,6 +578,7 @@ function cueView_(s) {
       items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
         has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
+    fin: s.kind === 'finance' ? (s.fin || null) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

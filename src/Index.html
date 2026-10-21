@@ -158,6 +158,7 @@
     <div class="chips">
       <button class="chip" data-fill="New project intake. Client inquiry:&#10;">New project intake</button>
       <button class="chip" id="chip-need">What needs me?</button>
+      <button class="chip" data-fill="Who owes us money, and what do we owe suppliers?">Money check</button>
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
@@ -360,12 +361,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || ''; };
+    var nm = function (r) { return (r.fin && r.fin.title) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -419,7 +420,8 @@
     var h = taskBarHtml(t) + t.reqs.filter(function (r) { return WORK[r.status]; }).map(workHtmlOf).join('')
       + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
     t.reqs.forEach(function (r) {
-      if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      if (r.kind === 'finance') h += finHtml(r);
+      else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
       else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense') h += cardHtml(r);
@@ -438,6 +440,8 @@
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
   function doneHtml(r, reopen) {
+    if (r.kind === 'finance') return '<div class="card"><b>' + esc((r.fin && r.fin.title) || 'Money') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas;
     return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
@@ -883,7 +887,45 @@
       + (made ? '<button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish</button>' : '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
+  // CFO Advisor (Kiko 07:41Z): the answer, the numbers behind it, and what is missing. Read only; nothing here pays or sends.
+  function pct(n) { return n == null ? '' : (Math.round(n * 10) / 10) + '%'; }
+  function pesoF(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-₱' : '₱') + Math.abs(v).toLocaleString('en-US'); }
+  function finHtml(r) {
+    var f = r.fin;
+    if (!f) return '<div class="card need"><b>Money question stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="small muted">Nothing was changed. Ask again in this thread when Canvas is back.</div></div>';
+    var T = f.tables || {}, t = T.totals || {}, st = f.settings || {}, h = '<div class="card"><div class="label" style="margin-top:0">CFO Advisor · read only</div>'
+      + '<b style="font-size:17px;color:#fff">' + esc(f.title) + '</b>';
+    h += f.answer ? '<div style="margin-top:8px">' + esc(f.answer) + '</div>' : '<div class="warn">' + esc(/^failed/.test(f.checked) ? 'Claude\'s explanation used numbers that are not in Canvas (' + f.checked.replace(/^failed: /, '') + '), so it is left out. The tables below are exact.' : 'No explanation this time (' + f.checked + '). The tables below are exact.') + '</div>';
+    if ((f.points || []).length) h += '<ul class="small" style="margin:8px 0 0;padding-left:18px">' + f.points.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if ((f.flags || []).length) h += '<div class="warn">' + f.flags.map(esc).join('<br>') + '</div>';
+    h += '<table class="facts" style="margin-top:8px">' + [['Projects', t.projects], ['Billed', pesoF(t.billed)], ['Collected (gross)', pesoF(t.collected)], ['Costs requested', pesoF(t.costs)],
+      ['Contribution', pesoF(t.contribution) + (t.margin != null ? ' · ' + pct(t.margin) : '')], ['Clients owe', pesoF(t.receivables) + (t.dso != null ? ' · DSO ' + t.dso + ' days' : '')],
+      ['Suppliers still to pay', pesoF(t.payables)], ['Won, not billed yet', pesoF(t.not_billed_yet)]].concat(T.company ? [['Break-even billings a month', T.company.break_even_billings_month == null ? 'n/a' : pesoF(T.company.break_even_billings_month)]] : [])
+      .map(function (x) { return '<tr><td>' + esc(x[0]) + '</td><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>';
+    var P = T.projects || [];
+    if (P.length) h += '<details' + (P.length <= 3 ? ' open' : '') + '><summary>Projects (' + P.length + ')</summary><table><tr><th>Project</th><th>Billed or CE</th><th>Contribution</th><th>Margin</th></tr>'
+      + P.map(function (x) { return '<tr><td>' + esc(x.name) + '<div class="small muted">' + esc(x.account) + ' · ' + esc(x.date) + '</div></td><td>' + esc(pesoF(x.billed || x.price)) + (x.on && x.on !== 'billed' ? '<div class="small muted">CE, not billed</div>' : '')
+        + '</td><td>' + esc(x.contribution == null ? '' : pesoF(x.contribution)) + '<div class="small muted">costs ' + esc(pesoF(x.cost)) + '</div></td><td>' + esc(pct(x.margin)) + (x.planned != null ? '<div class="small muted">CE ' + esc(pct(x.planned)) + '</div>' : '') + '</td></tr>'; }).join('') + '</table></details>';
+    var B = T.buckets || {}, A = T.ar || [];
+    if (A.length) h += '<details><summary>Clients owe (' + A.length + ')</summary><div class="small muted" style="margin-top:6px">Not due ' + esc(pesoF(B.current)) + ' · 1-30 days ' + esc(pesoF(B.d1_30)) + ' · 31-60 ' + esc(pesoF(B.d31_60)) + ' · 61-90 ' + esc(pesoF(B.d61_90)) + ' · over 90 ' + esc(pesoF(B.d90_plus)) + '</div>'
+      + '<table><tr><th>Client</th><th>BI</th><th>Open</th><th>Due</th></tr>' + A.map(function (x) { return '<tr><td>' + esc(x.account) + '<div class="small muted">' + esc(x.project) + '</div></td><td>' + esc(x.bi) + (x.not_sent ? ' <span class="tag new">not sent</span>' : '') + '</td><td>' + esc(pesoF(x.open)) + '</td><td>' + esc(x.due) + (x.days_late ? ' <span class="tag flag">' + esc(x.days_late) + ' days late</span>' : '') + '</td></tr>'; }).join('') + '</table></details>';
+    var D = T.ap || [];
+    if (D.length) h += '<details><summary>Suppliers still to pay (' + D.length + ')</summary><table><tr><th>Supplier</th><th>Open</th><th>Date</th></tr>' + D.map(function (x) { return '<tr><td>' + esc(x.supplier) + '<div class="small muted">' + esc(x.project) + '</div></td><td>' + esc(pesoF(x.open)) + '</td><td>' + esc(x.due) + '</td></tr>'; }).join('') + '</table></details>';
+    var W = T.weeks || [];
+    if (W.length) h += '<details><summary>Cash, next 13 weeks' + (T.cash_known ? '' : ' (movement only)') + '</summary><div style="overflow-x:auto"><table><tr><th>Week of</th><th>In</th><th>Out</th><th>' + (T.cash_known ? 'Cash' : 'Running total') + '</th></tr>'
+      + W.map(function (w) { var low = T.cash_known && st.buffer != null && w.closing < st.buffer; return '<tr><td style="white-space:nowrap">' + esc(new Date(w.week + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</td><td>' + esc(pesoF(w.collections + w.expected_billings)) + (w.expected_billings ? '<div class="small muted">' + esc(pesoF(w.expected_billings)) + ' estimate</div>' : '') + '</td><td>' + esc(pesoF(w.suppliers + w.overhead)) + '</td><td style="white-space:nowrap' + (low ? ';color:#f07bd9;font-weight:700' : '') + '">' + esc(pesoF(w.closing)) + '</td></tr>'; }).join('') + '</table></div></details>';
+    if ((f.outside || []).length) h += '<details><summary>Web research (' + f.outside.length + ')</summary><ul class="small" style="padding-left:18px">' + f.outside.map(function (x) { return '<li>' + esc(x.fact) + (x.source ? ' <a href="' + esc(x.source) + '" target="_blank" rel="noopener">source</a>' : '') + '</li>'; }).join('') + '</ul></details>';
+    if ((f.missing || []).length) h += '<div class="small muted" style="margin-top:8px"><b>Missing or estimated:</b> ' + f.missing.map(esc).join('; ') + '</div>';
+    h += '<details><summary>Your numbers</summary><div class="small muted" style="margin:6px 0">Canvas has no bank balance or overhead. You can also type "cash on hand is 1,250,000" in the chat.</div>'
+      + [['cash', 'Cash on hand', st.cash], ['overhead', 'Monthly overhead', st.overhead], ['min_margin', 'Minimum margin %', st.min_margin], ['buffer', 'Cash buffer', st.buffer]].map(function (x) {
+        return '<label class="small" style="display:block;margin-top:6px">' + esc(x[1]) + (x[0] === 'cash' && st.cash_date ? ' <span class="muted">(as of ' + esc(st.cash_date) + ')</span>' : '') + '<br><input inputmode="decimal" data-fin="' + esc(r.id) + '" data-k="' + x[0] + '" value="' + esc(x[2] == null ? '' : x[2]) + '"></label>'; }).join('')
+      + '<div class="actions"><button class="btn ghost" data-act="fin-save" data-id="' + esc(r.id) + '">Save my numbers</button></div><div class="small muted">Saved numbers apply from the next question.</div></details>';
+    h += '<div class="actions">' + (f.sheet_url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.sheet_url) + '" target="_blank" rel="noopener">Open the sheet</a>' : '<button class="btn ghost" data-act="fin-sheet" data-id="' + esc(r.id) + '">Save as Sheet</button>') + '</div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
+    if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
@@ -1046,6 +1088,9 @@
           if (!keys.length) return addLocal('Cue', 'Tick at least one deal first.');
           b.disabled = true; running[id] = 1; schedule(); return call('cuePipeFollowUps', [id, keys], done, fail);
         }
+        if (act === 'fin-sheet') { b.disabled = true; return call('cueFinSheet', [id], function (o) { addLocal('Cue', 'Sheet saved in your Drive: ' + o.url); done(); }, fail); }
+        if (act === 'fin-save') { var v = {}; scope.querySelectorAll('[data-fin="' + id + '"]').forEach(function (x) { v[x.getAttribute('data-k')] = x.value.trim() === '' ? null : x.value.trim(); });
+          b.disabled = true; return call('cueFinSave', [v], function () { addLocal('Cue', 'Saved your numbers. They apply from the next money question.'); done(); }, fail); }
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
