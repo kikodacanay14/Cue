@@ -17,7 +17,8 @@ const CUE_WF_WHO_ = ['Claude', 'ChatGPT', 'Code', 'Canvas', 'Zapier', 'Kiko'];
 // The owner a block must have. Blocks not listed here (Read email, Make Gmail draft, Save file, Schedule) can be Code or Zapier.
 const CUE_WF_OWNER_ = { 'Ask Claude': 'Claude', 'Ask ChatGPT': 'ChatGPT', 'Wait for Kiko': 'Kiko', 'Read Canvas': 'Canvas', 'Write to Canvas': 'Canvas' };
 const CUE_WF_MAX_ = { steps: 30, revisions: 8, aiCalls: 5, seconds: 180 };
-const CUE_WF_TAB_ = ['Saved', 'Name', 'Version', 'Target', 'Status', 'Trigger', 'Steps', 'Flags', 'AI calls', 'Zap build steps', 'Steps JSON', 'Request'];
+// Use in prompts (Teach Cue, CueTeach.gs): on for a process Kiko taught Cue, so matching tasks follow its Steps. Off for a mapped Zap.
+const CUE_WF_TAB_ = ['Saved', 'Name', 'Version', 'Target', 'Status', 'Trigger', 'Steps', 'Flags', 'AI calls', 'Zap build steps', 'Steps JSON', 'Request', 'Use in prompts'];
 const CUE_WF_MONEY_RE_ = /\b(pay|payment|invoice|billing|money|price|cash|contract|signature|sign|client)/i;
 
 const CUE_WF_SCHEMA_ = { type: 'object', additionalProperties: false,
@@ -218,7 +219,7 @@ function cueWorkflowApprove_(id) {
     const version = prev.reduce((v, r) => Math.max(v, Number(r[2]) || 0), 0) + 1;
     const lines = m.steps.map(x => x.n + '. ' + x.block + ' (' + x.who + '): ' + x.title).join('\n');
     sh.appendRow([new Date(cueNow_()), m.name, version, m.target, 'Approved', m.trigger, lines, (W.flags || []).map(f => (f.step ? 'Step ' + f.step + ': ' : '') + f.text).join('\n'),
-      m.steps.filter(x => x.who === 'Claude' || x.who === 'ChatGPT').length, m.zap_steps.join('\n'), JSON.stringify(m.steps), s.id]);
+      m.steps.filter(x => x.who === 'Claude' || x.who === 'ChatGPT').length, m.zap_steps.join('\n'), JSON.stringify(m.steps), s.id, false]);
     W.saved = { version, at: new Date(cueNow_()).toISOString() };
     s.status = 'Done'; s.stage = 'Done'; s.approved_at = W.saved.at; s.ready_at = cueNow_();
     cueMetrics_(s); cueSave_(L.sh, L.row, s);
@@ -234,6 +235,7 @@ function cueWorkflowTab_() {
   const ss = SpreadsheetApp.openById(cueKey_('CUE_SHEET_ID'));
   let sh = ss.getSheetByName('Workflows');
   if (!sh) { sh = ss.insertSheet('Workflows'); sh.appendRow(CUE_WF_TAB_); sh.setFrozenRows(1); }
+  else if (String(sh.getRange(1, CUE_WF_TAB_.length).getValues()[0][0]) !== CUE_WF_TAB_[CUE_WF_TAB_.length - 1]) sh.getRange(1, CUE_WF_TAB_.length).setValues([[CUE_WF_TAB_[CUE_WF_TAB_.length - 1]]]);   // a tab made before 1.16
   return sh;
 }
 
