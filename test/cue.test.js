@@ -823,6 +823,7 @@ test('TR6 triage inside the real Morning batch: 1 sort call + the engine\'s 1 dr
   assert.strictEqual(t.log.board, 1, 'one Canvas read shared with the other kinds');
   const raw = t.state(b.id), inbox = raw.batch.items.filter(i => i.kind === 'inbox'), g = k => inbox.filter(i => i.group === k);
   assert.ok(b.batch.items.some(i => i.kind === 'inbox' && i.group === 'inquiry' && i.action === 'start_intake' && i.sender), 'the card gets group, action and sender');
+  const vs = b.batch.items.find(i => i.kind === 'inbox' && i.group === 'skip'); assert.ok(vs && vs.summary === '2 skipped' && vs.skipped.length === 2 && vs.skipped[0].sender, 'the card can list skipped mail');
   deq(g('reply').map(i => i.thread_id), ['b2b2b2b2b2b2b2b2', '1010101010101010']);
   assert.ok(g('reply').every(i => i.selected && i.send_ok && /GPT nudge for/.test(i.body)), 'replies drafted by the engine, ready to approve');
   assert.ok(/meet Thursday/.test(t.log.gpt[1].input), 'the email excerpt is the draft call\'s facts');

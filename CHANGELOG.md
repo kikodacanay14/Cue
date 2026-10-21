@@ -11,16 +11,16 @@ The chasing sweep engine and task basics (backlog task 1; spec `canvas-integrati
 - **Task basics.** Every task has a due date, a priority (High, Normal or Low) and a reminder. Kiko can set them on the bar at the top of the thread, or by saying so in chat; that uses the same chat call, with no extra AI call. Needs you sorts by priority, then due date. A reminder posts in the thread and the main chat and puts the task in Needs you. Reminders that fall due in quiet hours (21:00 to 07:00) wait until 07:00. **Close** works on any task that isn't running. **Archive** hides a closed task, and **See archived** brings it back.
 - **No new Google scopes.** The 07:00 trigger is installed the next time Cue opens (`CUE_TRIGGERS_V=2`), so a deploy needs no setup step.
 - Tests: 13 new (S1 to S13), 50 of 50 pass.
-## Cue 1.8.2 (not deployed yet; best with Canvas V186)
-
-- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
-- Project folder honesty: Canvas V186 says when a project has no Drive folder yet (usually no event date). Cue then says the files went to Canvas Files for that project (shown in Canvas's Files tab) instead of claiming the project folder. Before V186, Cue keeps the old wording.
-
-## Inbox triage (on top of Cue 1.9, not deployed; ships with the sweep engine)
+## Unreleased (inbox triage; ships with the chasing sweep)
 
 - Inbox triage (Kiko 07:30Z asked, spec approved 07:34Z, specs/inbox-triage.md): `CueTriage.gs` is the sweep engine's "Inbox" kind. Code lists inbox mail since the last run that Kiko has not answered, drops threads other tasks own (intake source, requote threads, chase log, a Canvas project ID) and ones already shown, and skips junk with no AI (Promotions/Social/Forums, mailing lists, no-reply senders, muted senders). ChatGPT sorts the rest in one call into new inquiry, needs a reply, FYI or skip; if it fails, everything shows as FYI. Reply lines carry a brief for the engine's one draft call. Read only.
 - Start intake from an inquiry line (`cueTriageIntake`): the email and its photos, PDFs and text files become a normal intake linked to the thread.
 - Sender rules (`cueTriageTeach`): Mute this sender, Not junk, Not an inquiry. New sheet tabs Triage log and Triage rules (cueSetup adds them; rows in Triage rules can be deleted by hand).
+
+## Cue 1.8.2 (not deployed yet; best with Canvas V186)
+
+- Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".
+- Project folder honesty: Canvas V186 says when a project has no Drive folder yet (usually no event date). Cue then says the files went to Canvas Files for that project (shown in Canvas's Files tab) instead of claiming the project folder. Before V186, Cue keeps the old wording.
 
 ## Cue 1.8.1 (not deployed yet)
 
