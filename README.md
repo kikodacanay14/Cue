@@ -34,7 +34,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 | 3 | Code | Each chaser kind finds what is outstanding; the Chase log drops muted, skipped, recently chased and maxed-out lines | no |
 | 4 | ChatGPT | Drafts every nudge in one call (two if big); templates if it fails | 0 to 2 |
 | 5 | Kiko | Ticks, edits, skips or stops lines; Approve and send, or Drafts only | no |
-| 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); payments stay drafts | no |
+| 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); a kind's own send hook (payments via Canvas from info@) is used instead of Kiko's Gmail | no |
 
 ## Files
 
@@ -66,7 +66,6 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `CUE_CLAUDE_EFFORT` (default `medium`)
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
-     - `CUE_RFQ_CHASE_DAYS` (default 3: working days before an RFQ with no reply is chased; 1 when the event is within 7 days)
      - `CUE_RFQ_NEVER` (addresses or domains never to chase, comma list; default none)
 3. **Set spend limits** in the OpenAI and Claude consoles.
 4. **Run `cueSetup`** once from the editor. It makes the Cue spreadsheet and the 5-minute resume trigger, and lists any missing keys. Then authorize the scopes it asks for:

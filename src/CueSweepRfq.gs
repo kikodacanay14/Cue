@@ -5,11 +5,13 @@
  *   combined call (template if it fails), Kiko approves, code sends. Claude is not used. No AI call of its own.
  * - RFQs go out from Kiko's own Gmail only, never info@ (Kiko 07:45Z), so every RFQ is visible here.
  * - Chase when: Kiko's message is the last one in the thread, to an outside address; nobody outside BSE answered (in the thread, or
- *   a new email from that address since); 3 working days (Mon to Fri, PH time) since Kiko's last message or Cue's last nudge,
- *   1 working day when the event is within 7 days; no draft already waiting in the thread; project not lost, cancelled or past;
- *   address not in CUE_RFQ_NEVER. The engine stops at 2 nudges and hands the supplier to Kiko. */
+ *   a new email from that address since); the wait in Kiko's Chaser rules card has passed (default 3 working days, then every 3;
+ *   1 and 1 when the event is within 7 days); no draft already waiting in the thread; project not lost, cancelled or past;
+ *   address not in CUE_RFQ_NEVER. The engine stops at the rule's max (default 2) and hands the supplier to Kiko. */
 
-const CUE_RFQ_ = { lookbackDays: 30, maxThreads: 60, days: 3, soonDays: 7, soonWait: 1 };
+const CUE_RFQ_ = { lookbackDays: 30, maxThreads: 60, soonDays: 7 };
+// Used only when the Chaser rules card has no rfq rule (Kiko approved 3 / 3 / max 2 working days; event within 7 days: 1 and 1).
+const CUE_RFQ_RULE_ = { on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 };
 const CUE_RFQ_Q_ = '(RFQ OR RFQs OR requote OR "request for quotation" OR "request for quote")';
 const CUE_PUBLIC_MAIL_ = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
 
@@ -50,6 +52,8 @@ function cueRfqKnown_() {
 
 /** find(ctx) for the rfq kind. Gmail reads only; nothing is drafted, sent or written here. */
 function cueRfqFind_(ctx) {
+  const rule = Object.assign({}, CUE_RFQ_RULE_, ctx.rule ? ctx.rule('rfq') : {});
+  if (rule.on === false) return [];
   const me = cueMe_().toLowerCase(), own = me.split('@')[1] || '';
   const isUs = a => a === me || (!!own && CUE_PUBLIC_MAIL_.indexOf(own) < 0 && a.split('@')[1] === own);
   const never = cueProp_('CUE_RFQ_NEVER', '').toLowerCase().split(',').map(x => x.trim()).filter(String);
@@ -91,18 +95,21 @@ function cueRfqFind_(ctx) {
     catch (e) { ctx.s.notes.push('RFQ chasers: Canvas did not answer, so project status and event dates were not checked.'); board = {}; }
   }
   const log = cueChaseLog_(), out = [];
+  const count = (a, b) => (rule.unit === 'days' ? Math.round((Date.parse(b) - Date.parse(a)) / 864e5) : cueWorkDays_(a, b));
   waiting.forEach(w => {
     const p = board[w.pid] || null, event = p ? cueRfqDay_(p.date || p.eventDate || p['event date']) : '';
     if (p && /lost|cancel|not awarded|dropped|void/i.test(String(p.status || '') + ' ' + String(p.adminStatus || ''))) return;
     if (event && event < ctx.today) return;
     const soon = !!event && event <= cueAddDays_(ctx.today, CUE_RFQ_.soonDays);
-    const L = log['rfq:' + w.thread_id], lastDay = cuePh_(w.last_ms).day, since = L && L.last > lastDay ? L.last : lastDay;
-    const wait = soon ? CUE_RFQ_.soonWait : Math.max(1, Number(cueProp_('CUE_RFQ_CHASE_DAYS', String(CUE_RFQ_.days))) || CUE_RFQ_.days);
-    const gone = cueWorkDays_(since, ctx.today);
-    if (gone < wait) return;
+    // Timing from Kiko's Chaser rules card: first chase after rule.first, then rule.every (event soon: soon_first, soon_every).
+    // After Cue's own nudge the engine also holds the line until its Next due; a follow-up Kiko wrote himself restarts the wait.
+    const L = log['rfq:' + w.thread_id], lastDay = cuePh_(w.last_ms).day, nudged = !!(L && L.times && L.last >= lastDay), since = nudged ? L.last : lastDay;
+    const wait = soon ? (nudged ? rule.soon_every : rule.soon_first) : (L && L.times ? rule.every : rule.first);
+    const gone = count(since, ctx.today);
+    if (gone < Math.max(1, Number(wait) || 1)) return;
     out.push({ key: 'rfq:' + w.thread_id, project: (p && p.name) || w.project || cueRfqTopic_(w.subject) || 'your RFQ', project_id: w.pid, who: w.who, to: w.to,
       thread_id: w.thread_id, message_id: w.message_id, thread_subject: w.subject, due_since: since, priority: soon ? 'urgent' : 'normal', after_ms: w.last_ms,
-      why: 'No reply ' + gone + ' working day' + (gone === 1 ? '' : 's') + ' after your ' + (L && L.times ? 'last nudge' : 'RFQ') + (soon ? '; event on ' + event : ''),
+      why: 'No reply ' + gone + (rule.unit === 'days' ? ' day' : ' working day') + (gone === 1 ? '' : 's') + ' after your ' + (nudged ? 'last nudge' : 'RFQ') + (soon ? '; event on ' + event : ''),
       facts: { rfq_subject: cueStr_(w.subject, 200), rfq_sent: w.rfq_day, rfq_snippet: w.snippet, event_date: event, reply_by: cueRfqBy_(ctx.today) } });
   });
   // 4. A supplier who answered with a new email (not in the thread) since Kiko's last message is not chased.
@@ -118,7 +125,7 @@ function cueRfqBy_(today) {
     + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][dt.getUTCMonth()];
 }
 
-cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 1, max: 2, sendAllowed: true,
+cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, unit: 'working', sendAllowed: true,
   draftBrief: 'A supplier has not answered Kiko\'s request for quotation (RFQ). Write 2 to 3 short lines as a reply in the RFQ thread: '
     + 'a friendly nudge that names the item or project from rfq_subject, asks for the quotation by reply_by, and offers to clarify '
     + 'anything. No attachments, no prices, no other suppliers. If the event is soon, say the date is close.',
