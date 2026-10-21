@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.15.3: Leave blank per line; Reject on costing (not deployed)
+
+Kiko 15:48Z: "there should be an leave cost and price blank per item" and "why is there no Cancel or Reject?" on the phase 3 costing card.
+
+- Each costing line has a "Leave blank" tick. Save prices then writes that line to Canvas with no unit cost and no unit price, whatever was suggested or typed on it. Its sources and BSE price link are cleared, so Canvas does not fill a price back in.
+- The costing card has Reject (one tap, no reason) next to Save prices and Edit. Edit becomes Cancel edits while editing. Reject keeps the project and its lines in Canvas with no costs, and the chat says so.
+- Tests: 192 of 192 pass (new PH11).
+
 ## Cue 1.15.2: one save per tap; task errors stay in the thread (not deployed)
 
 Kiko's live test at 15:43Z: "Approve, add to Canvas" showed "Canvas refused intake_add_project (Blocked): request is Adding project" twice in the main chat, then the same for intake_add_lines. Canvas had in fact added the project (S-11267432UN, 15:42:57Z) and the lines (15:45:38Z) on the first tap; the AI Queue ledger shows both.

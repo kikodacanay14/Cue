@@ -2660,6 +2660,19 @@ test('PH10 live 15:43Z: a tap while the phase is saving is not an error; Canvas 
   deq([x.ph.phase, x.canvas.project_id, x.error || ''], [2, 'S-99900001ZZ', '']);
 });
 
+test('PH11 Kiko 15:48Z: Leave blank per line saves no cost and no price, over any suggested or typed number; phase 3 has a one-tap Reject', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); const v3 = t.ctx.cueApprove(t.id, {});
+  assert.strictEqual(v3.ph.phase, 3);
+  const k = v3.ph.lines[0].key;
+  t.ctx.cueApprove(t.id, { lines: { [k]: { blank: true, unit_cost: 999, unit_price: 1500 } } });
+  const sent = t.log.phCosts[0].lines.find(l => l.key === k);
+  deq([sent.unit_cost, sent.cost_basis, sent.unit_price, sent.price_basis, sent.price_source, sent.sources.length], [0, 'none', 0, 'none', '', 0]);
+  const u = phStart(); u.ctx.cueApprove(u.id, {}); u.ctx.cueApprove(u.id, {});
+  const r = u.ctx.cueReject(u.id, '');
+  deq([r.status, u.log.phCosts || []], ['Rejected', []]);
+  assert.ok(u.tabs.Chat.rows.some(x => /stays in Canvas with its lines and no costs/.test(x[2])));
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

@@ -1665,12 +1665,13 @@
           + '<td>' + esc(l.quantity) + (l.days > 1 ? ' × ' + esc(l.days) : '') + '</td>'
           + '<td>' + (ed ? '<select data-f="execution"><option' + (l.execution === 'In House' ? ' selected' : '') + '>In House</option><option' + (l.execution === 'Outsourced' ? ' selected' : '') + '>Outsourced</option></select>' : esc(l.execution)) + '</td>'
           + '<td>' + (ed ? '<input data-f="unit_cost" placeholder="' + esc(l.unit_cost) + '">' : (l.cost_basis === 'none' ? '<span class="muted">Blank</span>' : peso(l.unit_cost)) + '<div class="small muted">' + esc(l.cost_basis) + '</div>') + '</td>'
-          + '<td>' + (ed ? '<input data-f="unit_price" placeholder="' + esc(l.unit_price || '') + '">' : l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + '</div>' : '<span class="muted">Blank</span>') + '</td></tr>';
+          + '<td>' + (ed ? '<input data-f="unit_price" placeholder="' + esc(l.unit_price || '') + '">' : l.unit_price ? peso(l.unit_price) + '<div class="small muted">' + esc(l.price_basis) + '</div>' : '<span class="muted">Blank</span>')
+          + '<label class="small muted" style="display:block;margin-top:6px;white-space:nowrap"><input type="checkbox" data-f="blank"' + (l.blank ? ' checked' : '') + '> Leave blank</label></td></tr>';
       });
       h += '<div class="small" style="margin-top:8px">Known cost ' + peso(t.known_cost) + (t.known_price ? ' · price ' + peso(t.known_price) : '') + ' · ' + esc(t.lines_without_cost || 0) + ' blank cost, ' + esc(t.lines_without_price || 0) + ' blank price'
         + (t.optional ? ' · ' + esc(t.optional) + ' optional not in totals' : '') + '</div>' + lh + '</table></div>';
       if ((P.risks || []).length) h += secHtml(r.id + '|risks', 'Risks (' + P.risks.length + ')', '<ul class="small">' + P.risks.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
-      h += '<div class="actions">' + btn('approve', 'Save prices') + editBtn + '</div><div class="small muted" style="margin-top:6px">Save prices writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Tap an item to see why.</div>';
+      h += '<div class="actions">' + btn('approve', 'Save prices') + editBtn + btn('reject', 'Reject', 'bad') + '</div><div class="small muted" style="margin-top:6px">Save prices writes unit cost and price on these lines in Canvas, then GPT drafts the RFQs. Leave blank saves that line with no cost and no price. Reject keeps the project and its lines in Canvas with no costs. Tap an item to see why.</div>';
     }
     if ((waiting && ph === 4) || (end && P.rfqs.length)) {
       h += '<div style="margin-top:8px">';
@@ -1699,7 +1700,7 @@
       e.rows[tr.getAttribute('data-row')] = d; });
     card.querySelectorAll('[data-add]').forEach(function (tr) { var d = {}; tr.querySelectorAll('[data-f]').forEach(function (x) { d[x.getAttribute('data-f')] = x.value; }); if (String(d.item || '').trim()) e.add.push(d); });
     card.querySelectorAll('[data-line]').forEach(function (tr) { var d = {}, k = tr.getAttribute('data-line'), add = {};
-      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (x.value === '') return;
+      tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'blank') { d.blank = x.checked; return; } if (x.value === '') return;
         if (f === 'add_supplier') add.name = x.value; else if (f === 'add_email') add.email = x.value; else d[f] = f === 'execution' ? x.value : Number(x.value); });
       e.lines[k] = d; if (add.name) e.suppliers[k] = { add: add }; });
     return e;
