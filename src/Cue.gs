@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.6';
+const CUE_VERSION_ = 'Cue 1.20';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -395,7 +395,17 @@ function cueSameTopic_(t, x) {
     .filter(w => !/^(morning|batch|plan|thread|check|review|search|map)$/.test(w));
   return about.some(w => want.indexOf(w) >= 0);
 }
-function cueTalk_(t, ref, force) {
+/** What the chat call filled in for each command, so a button can start it with no new AI call. */
+function cueTalkCands_(d, t, force) {
+  return { intake: String(d.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(d.readiness || '').trim(),
+    ar: String(d.start_ar || '').trim(), pipeline: d.command === 'pipeline' ? { client: String(d.command_client || '').trim().slice(0, 80) } : null,
+    vendor: d.vendor && d.vendor.job ? d.vendor : null, workflow: d.workflow && d.workflow.job === 'map' && !cuePlanAsk_(t, force) ? d.workflow : null,
+    email: d.email && d.email.job && String(d.email.to || '').trim() ? d.email : null };
+}
+/** opt (tutor mode, CueTutor.gs): replay = a plan Kiko approved with Go, used instead of a new AI call; quiet = Kiko's original message
+ * when t carries a correction to the plan (Kiko's line is already in the chat). */
+function cueTalk_(t, ref, force, opt) {
+  opt = opt || {};
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
@@ -410,8 +420,14 @@ function cueTalk_(t, ref, force) {
   // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
-  const found = cueLookup_(s, t), ex = cueRouteExamples_(t);
-  const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema: CUE_TALK_SCHEMA_, maxTokens: cuePlanAsk_(t, force) ? 4000 : 1500,
+  // Tutor mode (Kiko 17:46Z, CueTutor.gs): Claude plans instead of the GPT chat call, and a command waits on a plan card. A graduated
+  // pattern Kiko approved word for word before runs from its saved plan with no AI call.
+  const tutorOn = cueTutorOn_(), tutor = tutorOn && !force && !opt.replay, cached = tutor && !ref && !opt.quiet ? cueTutorCached_(t) : null;
+  const replay = opt.replay || (cached && cached.data) || null;
+  const found = cached ? 'none searched (saved plan)' : cueLookup_(s, t), ex = cueRouteExamples_(t);
+  const schema = tutorOn ? Object.assign({}, CUE_TALK_SCHEMA_, { required: CUE_TALK_SCHEMA_.required.concat(['plan']),
+    properties: Object.assign({}, CUE_TALK_SCHEMA_.properties, { plan: CUE_TUTOR_PLAN_SCHEMA_ }) }) : CUE_TALK_SCHEMA_;
+  const r = replay ? { ok: true, data: replay } : cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema, maxTokens: cuePlanAsk_(t, force) ? 4000 : tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
@@ -441,29 +457,35 @@ function cueTalk_(t, ref, force) {
   // PC test 17:30Z: "LED wall for AMI Group" started a supplier search, and a bare "LED wall" re-ran one in an open thread. A short
   // item-and-name message in the main chat always asks project intake or supplier search, whatever GPT says.
   // PC test 17:42Z: also when the call only answered (e.g. "no Canvas project matched AMI Group"): a vague message always asks.
-  if (r.ok && !force && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
+  // Tutor mode shows its plan card (or just answers) instead.
+  if (r.ok && !force && !tutorOn && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
     { choices = ['intake', 'vendor']; reply = ''; }
   if (choices.some(c => c !== 'chat')) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
-    const cands = { intake: String(r.data.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(r.data.readiness || '').trim(),
-      ar: String(r.data.start_ar || '').trim(), pipeline: r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null,
-      vendor: r.data.vendor && r.data.vendor.job ? r.data.vendor : null, workflow: r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null,
-      email: r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null };
+    const cands = cueTalkCands_(r.data, t, force);
     const keep = {}; choices.forEach(c => { if (cands[c]) keep[c] = cands[c]; });
-    cueChat_('Kiko', t, ref);
+    cueChat_('Kiko', opt.quiet ? 'Re-planned with your change.' : t, ref);
     if (ref) { cueChat_('Cue', (reply ? reply + '\n\n' : '') + 'Did you mean ' + ask + '? Say which and I will start it.', ref); return { chat: true, reply, task: '' }; }
     const q = /\?\s*$/.test(reply) ? reply : (reply ? reply + '\n\n' : '') + 'I am not sure what you want me to do. Did you mean ' + ask + '?';
     const id = cueAskOpen_({ type: 'route', text: t, choices: choices.filter(c => c !== 'chat').concat(['chat']), cands: keep, found: keep.email ? found : '' }, q,
       choices.filter(c => c !== 'chat').concat(['chat']));
     return { chat: true, reply: q, task: '', ask: id };
   }
+  let auto = cached ? cached.key : '';
+  if (r.ok && tutor && !replay) {
+    const g = cueTutorGate_(s, t, ref, r.data, cueTalkCands_(r.data, t, force), found, opt.quiet || '');
+    if (g && g.out) return g.out;
+    if (g && g.auto) auto = g.auto;
+    if (g && g.chatOnly) { ['start_intake', 'readiness', 'start_ar', 'command'].forEach(k => { r.data[k] = ''; }); ['vendor', 'workflow', 'email'].forEach(k => { r.data[k] = null; }); }
+  }
   const where = ref || pick;
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
     const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || (x.kind ? cueTaskName_(x) : '');
-    cueChat_('Kiko', t, ''); cueChat_('Cue', name ? 'Answered in the ' + String(name).replace(/^the\s+/i, '') + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
+    if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, ''); cueChat_('Cue', name ? 'Answered in the ' + String(name).replace(/^the\s+/i, '') + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
   }
-  if (!force) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
+  if (!force && !opt.replay && !opt.quiet) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);
+  if (auto) cueTutorRanOwn_(auto, where);
   // Kiko 17:03Z: a correction is saved at once, with Keep or Undo, and used from the next message.
   if (r.ok && !force && String(r.data.learn || '').trim()) { try { cueLearnNow_(r.data.learn, where); } catch (e) { console.warn('Learn: ' + e); } }
   // TickTick (Kiko 17:26Z): a to-do from the same chat call; created only when Kiko taps Add.

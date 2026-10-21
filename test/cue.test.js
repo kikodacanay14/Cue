@@ -123,7 +123,7 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off', CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1',   // the seeded intake rules and skills have their own tests (TC5, SK1)
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
        // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
@@ -153,11 +153,15 @@ function sandbox(o = {}) {
       if (n === 'triage') return gptOk(o.triage || { items: [] });
       if (n === 'personal') return gptOk(o.personal);
       if (n === 'email_draft') return (o.fail || {}).mail ? o.fail.mail() : gptOk(o.mailDraft || MAIL_DRAFT);
+      if (n === 'tiebreak') return gptOk(typeof o.tie === 'function' ? o.tie(body) : o.tie || { pick: 'neither', why: 'unclear' });
       if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
       if (n === 'finance_research') return gptOk(o.finResearch || { facts: [{ fact: 'A 10 kVA generator rents for about ₱6,500 a day in Metro Manila', source: 'https://rent.example/gen' }] });
       if (n === 'lookup') return gptOk(o.lookup || { found: [] });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You are Cue, the personal assistant/.test(body.system)) { log.claude.push(body); log.plans = (log.plans || 0) + 1;   // tutor mode's plan call
+      const g = o.plan || o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false };
+      return claudeOk(Array.isArray(g) ? g[Math.min(log.plans, g.length) - 1] : g); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn one event inquiry/.test(body.system)) { log.claude.push(body); log.breaks = (log.breaks || 0) + 1;
       if ((o.fail || {}).breakdown) return o.fail.breakdown();
       return claudeOk(Array.isArray(o.breakdown) ? o.breakdown[Math.min(log.breaks, o.breakdown.length) - 1] : (o.breakdown || BREAKDOWN)); }
@@ -3079,6 +3083,112 @@ test('TC15 Kiko 18:00Z: a pasted phrasebook or memory list starts Learn my memor
   assert.ok(/EXP_RE\.test\(t\) && !memPaste\(t\)/.test(page), 'the page does not send a pasted list to expense()');
   const fn = page.match(/function memPaste\(t\) \{[\s\S]*?\n  \}\n/)[0], box = {}; vm.runInNewContext(fn + 'out = [memPaste(a), memPaste(b), memPaste(c), memPaste(d)];', Object.assign(box, { a: book, b: list, c: brief, d: 'Record project expense 500 for AMI tarp' }));
   deq(box.out, [true, true, false, false], 'page and server agree');
+});
+
+/* ---------- tutor mode (CueTutor.gs, specs/tutor-mode.md option C, Kiko 17:46Z) ---------- */
+const PLAN = (v, pattern) => Object.assign(VTALK(v), { sure: true, choices: [], plan: { reading: 'Supplier search for an LED wall in Cebu', pattern: pattern || 'find suppliers for <item>',
+  steps: [{ do: 'List BSE suppliers for LED walls', who: 'Canvas' }, { do: 'Compare them', who: 'Claude' }] } });
+const chatCalls = t => t.log.gpt.filter(b => b.text.format.name === 'chat').length;
+const tieWins = cmd => body => ({ pick: /Plan 1: (.*)/.exec(body.input)[1] === cmd ? 'plan1' : 'plan2', why: 'fits' });
+
+test('TU1 tutor mode: Claude plans, nothing starts, one plan card with Go / Change / Not that; Go runs the same plan with no new AI call', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  const out = t.ctx.cueSend('Find LED wall suppliers in Cebu for 14 Nov', [], '');
+  deq([!!out.ask, t.tabs.Requests.rows.length, t.log.plans, chatCalls(t)], [true, 1, 1, 0], 'planned by Claude, nothing started, no GPT chat call');
+  const q = askLine(t); assert.ok(/:go,change,not$/.test(q[3]));
+  assert.ok(/^Here's what I'll do\nI think you want: Supplier search for an LED wall in Cebu\n1\. List BSE suppliers for LED walls \(Canvas\)\n2\. Compare them \(Claude\)\nLearning: approved 0 of 3/.test(q[2]), q[2]);
+  deq(t.tabs.Chat.rows.slice(-2).map(r => r[1]), ['Kiko', 'Cue']);
+  const go = t.ctx.cueAskPick(askId(q), 'go');
+  deq([t.ctx.cueLoad_(go.request_id).s.kind, t.log.plans], ['vendor', 1]);
+  deq(t.tabs.Patterns.rows.slice(1).map(r => r.slice(0, 4)), [['Supplier search: find suppliers for <item>', 'vendor', 1, false]]);
+  deq(t.tabs['Routing examples'].rows.slice(1).map(r => r.slice(1)), [['Find LED wall suppliers in Cebu for 14 Nov', 'vendor']]);
+  deq(t.tabs.Chat.rows.filter(r => r[1] === 'Kiko' && r[2] === 'Find LED wall suppliers in Cebu for 14 Nov').length, 1, 'Kiko\'s line shows once');
+  assert.throws(() => t.ctx.cueAskPick(askId(q), 'go'), /already answered/);
+  const u = sandbox({ tutor: true, talk: { reply: 'Doing well!', looks_like_inquiry: false, sure: true, choices: [], plan: { reading: '', steps: [], pattern: '' } } });
+  const c = u.ctx.cueSend('how are you', [], '');
+  deq([c.chat, !!c.ask, u.tabs.Chat.rows.pop()[2]], [true, false, 'Doing well!'], 'plain chat is answered, no card');
+});
+
+test('TU2 three Go taps in a row graduate a pattern: it runs on its own with "Ask me again next time"; the same words need no AI call; demote brings the card back', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  const msgs = ['Find LED wall suppliers in Cebu for 14 Nov', 'find LED wall suppliers in Manila', 'find stage suppliers in Cebu'];
+  msgs.forEach(m => { t.ctx.cueSend(m, [], ''); t.ctx.cueAskPick(askId(askLine(t)), 'go'); });
+  deq(t.tabs.Patterns.rows[1].slice(2, 4), [3, true]);
+  assert.ok(t.tabs.Chat.rows.some(r => /now runs without asking/.test(r[2])));
+  const n = t.tabs.Requests.rows.length;
+  const out = t.ctx.cueSend('find sound suppliers for the gala', [], '');
+  deq([!!out.request_id, t.tabs.Requests.rows.length, t.log.plans], [true, n + 1, 4], 'ran on its own after one plan call');
+  const q = askLine(t); assert.ok(/^Ran on its own: Supplier search: find suppliers for <item>/.test(q[2]) && /:again$/.test(q[3]));
+  t.ctx.cueSend('find LED wall suppliers in Manila', [], '');
+  deq([t.log.plans, t.tabs.Requests.rows.length], [4, n + 2], 'an approved phrasing of a graduated pattern runs from the saved plan, no AI call');
+  t.ctx.cueAskPick(askId(askLine(t)), 'again');
+  deq(t.tabs.Patterns.rows[1].slice(2, 4), [0, false]);
+  t.ctx.cueSend('find tent suppliers in Davao', [], '');
+  assert.ok(/:go,change,not$/.test(askLine(t)[3]), 'the card shows again');
+});
+
+test('TU3 Not that: the other commands as buttons plus Just chat; the pick is saved as a routing example and the count starts again', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  t.ctx.cueSend('Find LED wall suppliers in Cebu for 14 Nov', [], ''); t.ctx.cueAskPick(askId(askLine(t)), 'go');
+  t.ctx.cueSend('LED wall suppliers for AMI Group', [], '');
+  t.ctx.cueAskPick(askId(askLine(t)), 'not');
+  const q = askLine(t); deq([q[2], q[3].split(':')[1]], ['What did you want instead?', 'intake,readiness,email,chat']);
+  t.ctx.cueAskPick(askId(q), 'chat');
+  deq(t.tabs['Routing examples'].rows.slice(-1).map(r => r.slice(1)), [['LED wall suppliers for AMI Group', 'chat']]);
+  deq(t.tabs.Patterns.rows[1].slice(2, 4), [0, false]);
+  assert.throws(() => { t.ctx.cueSend('LED wall again please', [], ''); t.ctx.cueAskPick(askId(askLine(t)), 'maybe'); }, /not one of the choices/);
+  assert.ok(/:go,change,not$/.test(askLine(t)[3]), 'a wrong button keeps the card open');
+});
+
+test('TU4 Change: Kiko says what to do instead, Claude plans again with that correction, and a new card shows', () => {
+  const ready = { reply: 'Checking it in Canvas.', looks_like_inquiry: false, start_intake: '', task: '', readiness: 'AMI Group', sure: true, choices: [],
+    plan: { reading: 'Readiness check for AMI Group', pattern: 'is <project> ready?', steps: [{ do: 'Score the checklist', who: 'Canvas' }] } };
+  const t = sandbox({ tutor: true, plan: [PLAN(), ready] });
+  t.ctx.cueSend('LED wall for AMI Group', [], '');
+  const q = askLine(t);
+  assert.throws(() => t.ctx.cueAskPick(askId(q), 'change', ''), /Say what I should do instead/);
+  t.ctx.cueAskPick(askId(q), 'change', 'no, check if the AMI project is ready');
+  deq(t.log.plans, 2);
+  assert.ok(/Kiko corrected your plan for the message above: no, check if the AMI project is ready/.test(t.log.claude[1].messages[0].content));
+  const q2 = askLine(t); assert.ok(/I think you want: Readiness check for AMI Group/.test(q2[2]) && askId(q2) !== askId(q));
+  deq(t.tabs.Chat.rows.filter(r => r[1] === 'Kiko').map(r => r[2]), ['LED wall for AMI Group', 'Change: no, check if the AMI project is ready']);
+  const go = t.ctx.cueAskPick(askId(q2), 'go');
+  deq(t.ctx.cueLoad_(go.request_id).s.kind, 'readiness');
+});
+
+test('TU5 Claude and the code disagree: ChatGPT breaks the tie (2 of 3); still split, Kiko picks; two of three say chat, nothing starts', () => {
+  const seed = t => { t.ctx.cueRouteSave_('LED wall for AMI Group', 'intake'); };
+  const t = sandbox({ tutor: true, plan: PLAN(), tie: tieWins('Project intake') }); seed(t);
+  t.ctx.cueSend('LED wall for AMI Group', [], '');
+  const q = askLine(t);
+  assert.ok(/I think you want: Project intake/.test(q[2]) && /Checks: Claude says Supplier search, your past examples say Project intake\. ChatGPT broke the tie: Project intake \(2 of 3\)/.test(q[2]), q[2]);
+  deq(t.log.gpt.filter(b => b.text.format.name === 'tiebreak').length, 1);
+  assert.ok(!/Supplier search|Project intake/.test(t.log.gpt[0].instructions.split('What the commands do')[0]) && /Plan 1: .*\nPlan 2: /.test(t.log.gpt[0].input), 'no names on the plans');
+  const go = t.ctx.cueAskPick(askId(q), 'go');
+  deq(t.ctx.cueLoad_(go.request_id).s.kind, 'intake');
+  const u = sandbox({ tutor: true, plan: PLAN() }); seed(u);
+  u.ctx.cueSend('LED wall for AMI Group', [], '');
+  const s = askLine(u); assert.ok(/^Cue is split\. Claude says Supplier search, your past examples say Project intake, and ChatGPT could not pick/.test(s[2]) && /:vendor,intake,chat$/.test(s[3]));
+  const v = u.ctx.cueAskPick(askId(s), 'vendor'); deq([u.ctx.cueLoad_(v.request_id).s.kind, u.log.plans], ['vendor', 1], 'the button starts it from the same plan');
+  deq(u.tabs['Routing examples'].rows.slice(-1).map(r => r.slice(1)), [['LED wall for AMI Group', 'vendor']]);
+  const w = sandbox({ tutor: true, plan: PLAN(), tie: tieWins('Just chat') }); w.ctx.cueRouteSave_('LED wall for AMI Group', 'chat');
+  const c = w.ctx.cueSend('LED wall for AMI Group', [], '');
+  deq([!!c.request_id, w.tabs.Requests.rows.length], [false, 1], 'nothing starts');
+});
+
+test('TU6 an email never graduates; My rules lists the learned patterns and Demote sends one back to asking; CUE_TUTOR=off keeps the GPT chat call', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  for (let i = 0; i < 4; i++) t.ctx.cuePatApprove_('Email: reply to <supplier>', 'email', 'reply to mats co ' + i, null);
+  deq(t.tabs.Patterns.rows[1].slice(2, 4), [4, false]);
+  ['a', 'b', 'c'].forEach(x => t.ctx.cuePatApprove_('Supplier search: find suppliers for <item>', 'vendor', 'find ' + x, null));
+  let v = t.ctx.cueMyRules();
+  deq(v.patterns.map(x => [x.key, x.graduated, x.never]), [['Supplier search: find suppliers for <item>', true, false], ['Email: reply to <supplier>', false, true]]);
+  v = t.ctx.cueMyPatternDemote('Supplier search: find suppliers for <item>');
+  deq(v.patterns.map(x => x.graduated), [false, false]);
+  assert.throws(() => t.ctx.cueMyPatternDemote('nope'), /not in the Patterns tab/);
+  deq([t.ctx.cueSettings().tutor, t.ctx.cueTutorSet(false).tutor, t.props.CUE_TUTOR], [true, false, 'off'], 'the Settings switch');
+  const u = sandbox({ talk: VTALK() }); const out = u.ctx.cueSend('Find LED wall suppliers in Cebu for 14 Nov', [], '');
+  deq([!!out.request_id, chatCalls(u), u.log.plans || 0], [true, 1, 0], 'switch off: GPT routes and it starts at once, as before');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

@@ -520,7 +520,8 @@ function cueMyRules() {
     .filter(x => x.text) : [];
   const v = rows.filter(x => x.topic === CUE_VOICE_TOPIC_).pop();
   return { rows: rows.filter(x => x.topic !== CUE_VOICE_TOPIC_).reverse(),   // newest first
-    voice: v ? { row: v.row, on: v.on, text: v.text } : { row: 0, on: true, text: CUE_VOICE_DEFAULT_ } };
+    voice: v ? { row: v.row, on: v.on, text: v.text } : { row: 0, on: true, text: CUE_VOICE_DEFAULT_ },
+    patterns: cueMyPatterns_() };   // tutor mode (CueTutor.gs)
 }
 
 /** One change from the My rules list. o = { add } or { row, was, on?, text?, del? }. was = the text Kiko saw, so a row that moved
@@ -567,7 +568,7 @@ function cueMyRuleSave(o) {
  * Read only; no token or secret leaves the server, only whether it is there. */
 function cueSettings() {
   cueOwner_();
-  const id = cueProp_('CUE_SHEET_ID', ''), out = { processes: [], ticktick: !!cueProp_('CUE_TICKTICK_TOKEN', ''), hubspot: !!cueProp_('CUE_HUBSPOT_TOKEN', ''),
+  const id = cueProp_('CUE_SHEET_ID', ''), out = { processes: [], ticktick: !!cueProp_('CUE_TICKTICK_TOKEN', ''), hubspot: !!cueProp_('CUE_HUBSPOT_TOKEN', ''), tutor: cueTutorOn_(),
     sheet_url: /^[\w-]{10,}$/.test(id) ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : '' };
   try {
     const wf = id ? SpreadsheetApp.openById(id).getSheetByName('Workflows') : null, n = wf ? wf.getLastRow() - 1 : 0, seen = {};

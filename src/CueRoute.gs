@@ -81,8 +81,8 @@ function cueRouteStart_(text, cmd, forced) {
 }
 const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, pipeline: t.pipeline, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];
 
-/** Kiko taps a button under a question. pick is a command, or yes / no for "remember?". */
-function cueAskPick(id, pick) {
+/** Kiko taps a button under a question. pick is a command, or yes / no for "remember?". note = what Kiko typed for Change on a plan card. */
+function cueAskPick(id, pick, note) {
   cueOwner_();
   id = String(id || ''); pick = String(pick || '');
   if (!/^ask-[0-9a-z]{4,20}$/.test(id)) throw new Error('No such question.');
@@ -93,6 +93,9 @@ function cueAskPick(id, pick) {
   });
   if (!raw) throw new Error('That question was already answered.');
   const o = JSON.parse(raw), done = '!' + id + (o.where ? '@' + o.where : '');
+  const bad = o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' && pick !== 'again';
+  if (bad) { P.setProperty('CUE_ASK_' + id, raw); throw new Error(pick === 'change' ? 'Say what I should do instead.' : 'That is not one of the choices.'); }   // the question stays open
+  if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);   // tutor mode (CueTutor.gs)
   if (o.type === 'learned') {
     if (pick === 'undo') cueLocked_(() => { const sh = cueTeachTab_(); if (o.row >= 2 && cueName_(sh.getRange(o.row, 3).getValues()[0][0]) === cueName_(o.text)) sh.getRange(o.row, 1).setValues([[false]]); });
     cueTeachReset_();
@@ -116,6 +119,7 @@ function cueAskPick(id, pick) {
   }
   if ((o.choices || []).indexOf(pick) < 0) throw new Error('That is not one of the choices.');
   cueChat_('Kiko', CUE_ROUTE_CMDS_[pick], done);
+  if (o.learn) { try { cueRouteSave_(o.text, pick); } catch (e) { console.warn('Routing example: ' + e); } }   // tutor mode: Not that / a split teaches the code
   if (pick === 'chat') { cueChat_('Cue', 'OK, just chatting. Nothing was started.', done); return { chat: true }; }
   return cueRouteStart_(o.text, pick, pick === 'intake' ? null : cueRouteTalk_(pick, (o.cands || {})[pick], o.found));
 }
