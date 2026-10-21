@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.6 (not deployed yet)
+## Cue 1.6 (deployed as Version 15)
 
 - Edit and send (Kiko 06:17Z "show me drafts, allow me to edit it in that window, and when I approve it sends the emails"): every requote and RFQ is an editable text box on its card. "Approve and send" asks once, naming every recipient, then sends from Kiko's Gmail (change requests as replies in the original threads, with the ticked files). "Drafts only" still makes Gmail drafts and sends nothing. An RFQ supplier with no email stays a draft. A failed send keeps the draft and "Retry" sends only that one. Sending uses drafts.send, covered by the gmail.compose access Cue already has.
 - The chat model knows Cue sends only from a card's Approve and send, never from chat.
