@@ -333,7 +333,7 @@
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
-  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
+  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
   function threadState(th) {
     var need = th.reqs.filter(function (r) { return NEED[r.status]; }).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
@@ -417,11 +417,18 @@
       + '<div style="white-space:pre-wrap;margin-top:8px">' + esc(r.text) + '</div>'
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
-  function doneHtml(r) {
+  function doneHtml(r, reopen) {
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
     return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
-      + savedHtml(r) + metricLine(r) + '</div>';
+      + savedHtml(r) + metricLine(r)
+      + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
+  }
+  function reopenedHtml(r) {
+    var p = r.proposal || {}, c = p.client || {};
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+      + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
+      + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
   }
   // Files Cue put in the Canvas project folder (Kiko 06:45Z), each a link.
   function savedHtml(r) {
@@ -446,18 +453,19 @@
     var x = e.target.getAttribute && e.target.getAttribute('data-say'); if (x == null || e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); }); $('pinned').addEventListener('click', tapOpen);
   function renderWidgets() {
-    var need = state.requests.filter(function (r) { return r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Done, drafts incomplete'; });
+    var need = state.requests.filter(function (r) { return NEED[r.status]; });
     var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
     var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; });
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
-    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, cardHtml(r), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
+    var needHtml = (accessHtml() + need.map(function (r) { return inThread(r, r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r), 1); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
     var workHtml = work.map(function (r) { return inThread(r, workHtmlOf(r), 1); }).join('') || '<div class="card muted">Nothing running.</div>';
     setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
     setHtml($('p-need'), need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open their threads, or Widgets, to review.</div></div>' : '');
     setHtml($('p-work'), work.map(function (r) { return inThread(r, workHtmlOf(r)); }).join(''));
     // Kiko 06:28Z: three, then See more.
-    setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r), 1); }).join('') || '<div class="card muted">Nothing yet.</div>')
+    // Kiko 07:15Z: a Reopen button on each finished card instead of a reply box.
+    setHtml($('w-done'), (done.slice(0, moreDone ? 20 : 3).map(function (r) { return inThread(r, doneHtml(r, 1)); }).join('') || '<div class="card muted">Nothing yet.</div>')
       + (done.length > 3 ? '<button class="btn ghost" data-act="more-done" data-id="">' + (moreDone ? 'See less' : 'See more (' + (done.length - 3) + ')') + '</button>' : ''));
     bind();
   }
@@ -642,6 +650,8 @@
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
+        if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
+        if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }

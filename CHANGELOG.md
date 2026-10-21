@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.8.1 (not deployed yet)
+
+- Reopen (Kiko 07:15Z): Recently done cards have a Reopen button instead of a reply box. A reopened task waits in Needs you ("Tell Cue what to do next") with a reply box and a Close again button, and its thread opens. Reopening runs, writes and sends nothing. When a new run joins the thread, the reopened one goes back to how it finished.
+
 ## Cue 1.8 (deployed as Version 18, with Canvas main V185 / Client V43)
 
 - Files go in the project folder (Kiko 06:45Z): after Kiko approves, every file he attached is saved in the Canvas project folder through the new bridge action save_project_file (photos to Designs & Visuals; other files to Brief & Planning for a new project, Client Documents for a change). The card lists them with links. A failure is a note and is retried on the next approve; Canvas never makes a second copy.

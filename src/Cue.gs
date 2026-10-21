@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.8';
+const CUE_VERSION_ = 'Cue 1.8.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -155,6 +155,7 @@ function cueSend(text, files, mode, ref) {
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   if (reopened) s.ref_by = reopened;
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
+  cueSettleReopened_(ref);
   const line = t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : '');
   // Kiko 06:53Z: from the main chat, Cue answers there and names the thread it started (like Claude's project chat).
   const back = reopened ? 'This is about ' + cueTaskName_((cueLoad_(ref) || {}).s || {}) + ', so I reopened its thread.' : '';
@@ -192,7 +193,7 @@ function cueTalk_(t, ref) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
-  const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed')
+  const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Reopened')
     .map(r => ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
   // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
@@ -337,6 +338,44 @@ function cueAsNew(id) {
 }
 /** Kiko rejects. Nothing goes to Canvas. */
 function cueReject(id, why) { cueOwner_(); return cueView_(cueIntakeReject_(id, why)); }
+/** Kiko 07:15Z: Reopen on a Recently done card. The task waits in Needs you, with its reply box, until a new run joins its thread or
+ * Kiko closes it again. Nothing is re-run, written or sent by reopening. */
+function cueReopen(id) {
+  cueOwner_();
+  const s = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    if (L.s.status !== 'Done' && L.s.status !== 'Rejected') throw new Error('Only a finished task can be reopened.');
+    Object.assign(L.s, { closed_status: L.s.status, status: 'Reopened', reopened_at: new Date(cueNow_()).toISOString() });
+    cueSave_(L.sh, L.row, L.s); return L.s;
+  });
+  cueChat_('Cue', 'Reopened. Tell me what to do next here, or close it again.', id);
+  return cueView_(s);
+}
+/** Closes a reopened task: it goes back to how it finished. */
+function cueCloseTask(id) {
+  cueOwner_();
+  const s = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    if (L.s.status !== 'Reopened') return L.s;
+    L.s.status = L.s.closed_status || 'Done'; delete L.s.closed_status; cueSave_(L.sh, L.row, L.s); return L.s;
+  });
+  cueChat_('Cue', 'Closed again.', id);
+  return cueView_(s);
+}
+/** A new run joined the thread: a reopened run in it goes back to how it finished (the new run carries the work). */
+function cueSettleReopened_(ref) {
+  if (!ref) return;
+  try {
+    cueLocked_(() => {
+      const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
+      rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
+      const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
+      Object.keys(by).forEach(k => { const x = by[k]; if (x.status === 'Reopened' && root(k) === home) { x.status = x.closed_status || 'Done'; delete x.closed_status; cueSave_(sh, at[k], x); } });
+    });
+  } catch (e) { console.error('Settle reopened: ' + e); }
+}
 /** Retries only the Gmail drafts that did not get made. */
 function cueDrafts(id) { cueOwner_(); return cueView_(cueIntakeDrafts_(id)); }
 

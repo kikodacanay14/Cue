@@ -49,7 +49,7 @@ function cueChangeStart_(s) {
     const rel = cueRelated_('', m.project_id, s.id);
     if (rel && rel !== s.ref) {
       if (!s.ref) cueChat_('Cue', 'Same Canvas project as ' + m.name + ', so this continues in its thread.', '>' + s.id);
-      s.ref = rel; s.ref_by = 'project';
+      s.ref = rel; s.ref_by = 'project'; cueSettleReopened_(rel);
     }
   }
   c.attach = cueChangeAttach_(s, m && m.project_id);

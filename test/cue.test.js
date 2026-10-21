@@ -492,6 +492,21 @@ test('C34 task rules (Kiko 06:57Z): a new message about a task from the last 7 d
   assert.strictEqual(t.ctx.cueLoad_(n).s.ref, '');
 });
 
+test('C35 Reopen (Kiko 07:15Z): a finished task can be reopened into Needs you, closed again, and a new run in its thread settles it', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  t.ctx.cueApprove(id, { skip: ['T3'] });
+  assert.throws(() => t.ctx.cueCloseTask('cue-made-up-0000'), /No such request/);
+  let v = t.ctx.cueReopen(id); assert.strictEqual(v.status, 'Reopened');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Reopened\./.test(x[2])));
+  assert.throws(() => t.ctx.cueReopen(id), /Only a finished task/);
+  v = t.ctx.cueCloseTask(id); assert.strictEqual(v.status, 'Done');
+  t.ctx.cueReopen(id);
+  const r = t.ctx.cueSend('also add a photo booth for JBL', [], 'intake', id).request_id;
+  assert.strictEqual(t.ctx.cueLoad_(id).s.status, 'Done', 'the new run carries the work; the reopened one is settled');
+  assert.strictEqual(t.ctx.cueLoad_(r).s.ref, id);
+});
+
 test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat and its thread, from what happened', () => {
   const t = sandbox({ similar: JBL, read: CHANGE_READ });
   const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
