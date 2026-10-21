@@ -273,6 +273,7 @@
       <input type="search" class="tsearch" id="tsearch" placeholder="Search threads" aria-label="Search threads" hidden>
       <div id="w-access"></div>
       <div id="tlist"></div>
+      <div class="label" id="myrules-label">My rules</div><div id="w-myrules"></div>
       <div class="label" id="rules-label">Chaser rules</div><div id="w-rules"></div>
     </section>
     <section id="page-thread" hidden>
@@ -504,6 +505,7 @@
     wide: '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>',
     narrow: '<path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>',
     chev: '<path d="M6 9l6 6 6-6"/>',
     reply: '<path d="M9 10L4 15l5 5"/><path d="M4 15h11a5 5 0 0 0 5-5V4"/>'
   };
@@ -518,7 +520,7 @@
     if (p === 'close') return closeTab(pactive);
     if (p === 'search') { searching = !searching; $('tsearch').hidden = !searching; if (searching) $('tsearch').focus(); else if (tq) { $('tsearch').value = tq = ''; } return renderChat(); }
     if (p === 'archived') { showArchived = !showArchived; dirty(); return renderChat(); }
-    if (p === 'rules') return $('rules-label').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (p === 'rules') return $('myrules-label').scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (p === 'task') { tbOpen = !tbOpen; return renderChat(); }
     if (p === 'wide') { wide = !wide; $('pane').classList.toggle('wide', wide); return renderChat(); }
   });
@@ -529,7 +531,7 @@
       var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
       h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
-        + ib('data-p="rules"', 'more', 'Chaser rules') + x;
+        + ib('data-p="rules"', 'more', 'My rules and chaser rules') + x;
     } else {
       var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
@@ -787,7 +789,7 @@
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
-  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); schedule(); }, function () { if (after) after(); schedule(); }); }
+  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); schedule(); }, function () { if (after) after(); schedule(); }); }
   function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
@@ -1083,6 +1085,61 @@
     h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
     return h + metricLine(r) + '</div>';
   }
+  // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
+  // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----
+  var myRules = null, myOpen = true, myOther = false, myEdit = 0, myErr = '', mySig = null;
+  function loadMyRules() { call('cueMyRules', [], function (r) { myRules = r; myErr = ''; renderMyRules(); }, function () {}); }
+  function myRulesCheck() {
+    var sig = state.chat.filter(function (m) { return /^[?!]ask-/.test(m.request_id); }).length + ':'
+      + state.requests.filter(function (r) { return r.kind === 'memory' && r.status === 'Done'; }).length;
+    if (mySig !== null && sig !== mySig) loadMyRules();
+    mySig = sig;
+  }
+  function myRowHtml(x) {
+    var ed = myEdit === x.row, k = 'my' + x.row;
+    return '<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">'
+      + '<input type="checkbox" data-my="on" data-row="' + x.row + '"' + (x.on ? ' checked' : '') + ' aria-label="Use this rule" title="' + (x.on ? 'On: Cue follows this' : 'Off: Cue ignores this') + '">'
+      + '<span style="flex:1;min-width:0">' + (ed ? '<textarea data-say="' + k + '" style="display:block;width:100%;box-sizing:border-box" aria-label="Edit rule">' + esc(x.text) + '</textarea>'
+          + '<span class="actions" style="margin-top:4px"><button class="btn" data-my="save" data-row="' + x.row + '">Save</button><button class="btn ghost" data-my="cancel" data-row="' + x.row + '">Cancel</button></span>'
+        : '<div style="white-space:pre-wrap' + (x.on ? '' : ';opacity:.55;text-decoration:line-through') + '">' + esc(x.text) + '</div>'
+          + '<span class="small muted">' + (x.from === 'seed' ? 'from your corrections' : x.from === 'Kiko' ? 'added by you' : 'learned') + (x.saved ? ' · ' + esc(x.saved) : '') + '</span>')
+      + '</span>' + (ed ? '' : '<span style="display:flex;gap:2px">' + ib('data-my="edit" data-row="' + x.row + '"', 'edit', 'Edit') + ib('data-my="del" data-row="' + x.row + '"', 'x', 'Delete') + '</span>') + '</div>';
+  }
+  function renderMyRules() {
+    if (!myRules) return;
+    var R = myRules.rows.filter(function (x) { return x.topic === 'rules'; }), F = myRules.rows.filter(function (x) { return x.topic !== 'rules'; });
+    var on = R.filter(function (x) { return x.on; }).length;
+    var h = '<details class="card"' + (myOpen ? ' open' : '') + ' id="myrules-card"><summary><b>Rules Cue follows</b> <span class="small muted">' + on + ' on' + (R.length > on ? ', ' + (R.length - on) + ' off' : '') + '</span></summary>'
+      + '<div style="display:flex;gap:8px;margin-top:8px"><input data-say="my-add" placeholder="Add a rule, e.g. RFQs never go out from info@" style="flex:1;min-width:0" aria-label="New rule"><button class="btn" data-my="add">Add</button></div>'
+      + (myErr ? '<div class="err">' + esc(myErr) + '</div>' : '')
+      + (R.length ? R.map(myRowHtml).join('') : '<div class="small muted" style="margin-top:8px">No rules yet. Correct Cue in any thread, or start a message with "remember:", and the rule shows up here.</div>')
+      + (F.length ? '<details class="sec" id="myrules-other"' + (myOther ? ' open' : '') + '><summary>Other things Cue remembers (' + F.length + ')</summary>' + F.map(myRowHtml).join('') + '</details>' : '')
+      + '<div class="small muted" style="margin-top:8px">Changes apply from your next message. Same list as the Memory tab of your Cue sheet.</div></details>';
+    setHtml($('w-myrules'), h);
+    $('myrules-card').ontoggle = function () { myOpen = $('myrules-card').open; };
+    if ($('myrules-other')) $('myrules-other').ontoggle = function () { myOther = $('myrules-other').open; };
+  }
+  function mySave(o, b) {
+    if (b) b.disabled = true;
+    call('cueMyRuleSave', [o], function (r) { myRules = r; myErr = ''; myEdit = 0; $('w-myrules')._h = null; if (o.add != null) { var i = document.querySelector('[data-say="my-add"]'); if (i) i.value = ''; } renderMyRules(); },
+      function (e) { myErr = (e && e.message) || String(e); if (b) b.disabled = false; if (/changed since/.test(myErr)) { myEdit = 0; var keep = myErr; call('cueMyRules', [], function (r) { myRules = r; myErr = keep; renderMyRules(); }, function () {}); } else { $('w-myrules')._h = null; renderMyRules(); } });
+  }
+  $('w-myrules').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-my]'); if (!b || b.type === 'checkbox') return;
+    var act = b.getAttribute('data-my'), row = Number(b.getAttribute('data-row')), x = (myRules.rows.filter(function (y) { return y.row === row; })[0]) || {};
+    if (act === 'add') { var v = (document.querySelector('[data-say="my-add"]') || {}).value || ''; if (!v.trim()) return; return mySave({ add: v }, b); }
+    if (act === 'edit') { myEdit = row; myErr = ''; return renderMyRules(); }
+    if (act === 'cancel') { myEdit = 0; return renderMyRules(); }
+    if (act === 'save') { var t = document.querySelector('[data-say="my' + row + '"]'); return mySave({ row: row, was: x.text, text: t ? t.value : x.text }, b); }
+    if (act === 'del') return mySave({ row: row, was: x.text, del: true }, b);
+  });
+  $('w-myrules').addEventListener('change', function (e) {
+    var c = e.target.closest('[data-my="on"]'); if (!c) return;
+    var row = Number(c.getAttribute('data-row')), x = (myRules.rows.filter(function (y) { return y.row === row; })[0]) || {};
+    mySave({ row: row, was: x.text, on: c.checked }, c);
+  });
+  $('w-myrules').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.getAttribute('data-say') === 'my-add') { e.preventDefault(); var b = $('w-myrules').querySelector('[data-my="add"]'); if (b) b.click(); } });
+
   // ---- Chaser rules (Kiko 08:12Z, spec chaser-rules.md): timing per chaser, saved to the Rules tab, used from the next batch ----
   var rules = null, rulesOpen = false;
   function loadRules() { call('cueRules', [], function (r) { rules = r; renderRules(); }, function () {}); }
@@ -1669,7 +1726,7 @@
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Teach Cue</div><b style="font-size:17px;color:#fff">' + (mem ? 'Learn my memory' : 'Learn my process') + '</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
-    h += '<div class="small muted">' + (r.status === 'Done' ? (mem ? 'Saved to the Memory tab of your Cue sheet; edit or switch off any fact there.' : 'Saved to the Workflows tab of your Cue sheet; edit the Steps cell or switch off Use in prompts there.')
+    h += '<div class="small muted">' + (r.status === 'Done' ? (mem ? 'Saved. Change or switch off any of them under My rules in the Threads pane.' : 'Saved to the Workflows tab of your Cue sheet; edit the Steps cell or switch off Use in prompts there.')
       : r.status === 'Rejected' ? 'Rejected; nothing was saved.' : 'Nothing is saved until you approve.') + '</div>';
     if (T.summary) h += '<div style="margin-top:8px"><span class="small muted">Claude:</span> ' + esc(T.summary) + '</div>';
     if (mem) {
@@ -2165,7 +2222,7 @@
     });
   }
   paneShow();
-  refresh(); loadRules();
+  refresh(); loadRules(); loadMyRules();
 })();
 </script>
 </body>

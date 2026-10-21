@@ -89,7 +89,7 @@ function cueAskPick(id, pick) {
     if (pick === 'undo') cueLocked_(() => { const sh = cueTeachTab_(); if (o.row >= 2 && cueName_(sh.getRange(o.row, 3).getValues()[0][0]) === cueName_(o.text)) sh.getRange(o.row, 1).setValues([[false]]); });
     cueTeachReset_();
     cueChat_('Kiko', pick === 'undo' ? 'Undo' : 'Keep', done);
-    cueChat_('Cue', pick === 'undo' ? 'Undone. That rule is switched off.' : 'Kept. Edit it any time in the Memory tab.', done);
+    cueChat_('Cue', pick === 'undo' ? 'Undone. That rule is switched off.' : 'Kept. Change it any time under My rules in the Threads pane.', done);
     return { chat: true };
   }
   if (o.type === 'remember') {

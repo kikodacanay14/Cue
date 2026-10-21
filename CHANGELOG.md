@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.18.1: My rules (not deployed)
+
+Kiko 17:12Z: "we should have custom rules area and it should pick up these rules as we go".
+
+- A "My rules" card in the Threads pane, open by default, above Chaser rules. The pane's ⋯ button jumps to it.
+- It lists the rules Cue follows, newest first. Each one has a switch, Edit and Delete. An Add box at the top lets Kiko write a rule by hand; it is on and used in every task.
+- The other facts Cue remembers sit in a folded section below the rules, with the same controls.
+- It reads the Memory tab, so there is one store. A rule Cue learns shows in the list once its "Learned" question appears in the chat, and an approved "learn my memory" or "learn from chats" card refreshes it too.
+- Each change checks that the row still holds the text Kiko saw. If the tab changed underneath, nothing is changed and the list reloads.
+- Tests: 209 of 209 pass (new TC11).
+
 ## Cue 1.18: learn from exported chats (not deployed)
 
 Kiko 17:04Z: "i wanna be able to download chats and load it to him so he can learn". Spec: specs/teach-cue.md "Next".
