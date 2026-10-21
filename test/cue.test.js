@@ -2135,6 +2135,13 @@ test('LK5 "cost them by item" in an intake thread starts at costing: no GPT read
   const u = sandbox(); assert.ok(!u.ctx.cueSend('can you cost them by item?', [], '', '').request_id, 'no thread with a read: not a re-cost');
 });
 
+test('A10 the Chaser rules card drives the timing: first chaser after 1 business day; paused means no award lines', () => {
+  const t = awardBox({ projects: [AW({ awaiting: { since: '2026-10-20' } })] }); t.ctx.cueRulesSave({ 'award.first': 1 });
+  t.ctx.cueSweep(); const [it] = awItems(t); assert.ok(/, 1 business day with no award decision\. .*Chaser 1 of 3/.test(it.why), it.why);
+  const u = awardBox(); u.ctx.cueRulesSave({ 'award.on': false }); u.ctx.cueSweep();
+  assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2]))); assert.ok(!u.log.queries, 'no Gmail search when paused');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

@@ -4,14 +4,20 @@
  *   day the status changed, and the active CE total). Code finds the CE email in Kiko's Sent Gmail (CEs only go from Kiko's own
  *   Gmail, Kiko 08:10Z), checks for a client reply, counts chasers and applies the timing. ChatGPT drafts inside the sweep's one
  *   combined call (no AI call of its own). Kiko approves; client chasers never send on their own.
- * - Timing (Kiko 08:10Z, business days Mon to Fri): first chaser 3 business days after "waiting since", then every 5, at most 3.
+ * - Timing comes from Kiko's Chaser rules card (ctx.rule('award'); default, Kiko 08:10Z: first chaser 3 business days after
+ *   "waiting since", then every 5, at most 3; business days skip weekends). The engine also applies every and max from the Chase log.
  *   After 3: "call the client or mark Not Awarded", no draft. An event within 7 days (or past) is flagged urgent, no draft.
  *   A client reply after the CE or the last chaser: "Client replied", no draft. No CE email in Sent: "chase by hand", no draft.
  * - Chasers count Kiko's own later messages in the thread too, so a nudge sent by hand counts. The file name sorts after
  *   CueSweep.gs on purpose: Apps Script runs files in order, and cueKind_ must exist before this file registers. */
 
-const CUE_AWARD_ = { first: 3, every: 5, max: 3, urgentDays: 7, projects: 30, status: /^for client awarding$/i };
+const CUE_AWARD_ = { first: 3, every: 5, max: 3, unit: 'working', urgentDays: 7, projects: 30, status: /^for client awarding$/i };
 
+/** Days in the rule's unit after `from` up to `to` (both YYYY-MM-DD): working days skip weekends. */
+function cueAwardGap_(rule, from, to) {
+  if (rule.unit !== 'working') return Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 864e5);
+  return cueBizDays_(from, to);
+}
 /** Business days (Mon to Fri) after day `from` up to and including `to` (both YYYY-MM-DD). */
 function cueBizDays_(from, to) {
   let n = 0;
@@ -36,7 +42,8 @@ function cueAwardHeaders_(m) { const h = {}; ((m.payload && m.payload.headers) |
 /** find(ctx) for the sweep: one item per project in For Client Awarding that is due, flagged or needs Kiko's eye. */
 function cueAwardFind_(ctx) {
   const list = (((ctx.board() || {}).projects) || []).filter(p => p && p.id && CUE_AWARD_.status.test(String(p.status || '').trim())).slice(0, CUE_AWARD_.projects);
-  if (!list.length) return [];
+  const rule = Object.assign({}, CUE_AWARD_, ctx.rule ? ctx.rule('award') : {});   // Kiko's Chaser rules card (first, every, max, unit)
+  if (!list.length || rule.on === false) return [];
   const auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, own = cueOwnDomain_(), log = cueChaseLog_();
   const gmail = res => {
     if (res.getResponseCode() === 403 && /scope/i.test(res.getContentText())) throw new Error('Cue does not have Gmail access yet. Tap Fix Google access in Widgets.');
@@ -49,11 +56,12 @@ function cueAwardFind_(ctx) {
   const meta = ['From', 'To', 'Subject', 'Message-ID'].map(h => 'metadataHeaders=' + h).join('&');
   (want.length ? UrlFetchApp.fetchAll(want.map(t => ({ url: CUE_GMAIL_ + '/threads/' + encodeURIComponent(t) + '?format=metadata&' + meta, muteHttpExceptions: true, headers: auth }))) : [])
     .forEach((res, i) => { const o = gmail(res); if (o) threads[want[i]] = o; });
-  return list.map((p, i) => cueAwardItem_(p, threads[tids[i]] || null, log['award:' + String(p.id).trim()] || null, ctx.today, own)).filter(Boolean);
+  return list.map((p, i) => cueAwardItem_(p, threads[tids[i]] || null, log['award:' + String(p.id).trim()] || null, ctx.today, own, rule)).filter(Boolean);
 }
 
 /** One project → an item (a draft, or a flag with no email), or null when nothing is due today. */
-function cueAwardItem_(p, th, L, today, own) {
+function cueAwardItem_(p, th, L, today, own, rule) {
+  rule = rule || CUE_AWARD_;
   const pid = String(p.id).trim(), aw = p.awaiting || {}, ev = cueAwardDay_(p.date || p.eventDate);
   const facts = { account: cueStr_(p.account, 200), event_date: ev };   // the CE total stays out of facts: drafts never quote prices
   const ce$ = (aw.ce_no ? cueStr_(aw.ce_no, 60) : '') + (typeof aw.ce_total === 'number' ? (aw.ce_no ? ', ' : '') + 'PHP ' + aw.ce_total.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '');
@@ -71,7 +79,7 @@ function cueAwardItem_(p, th, L, today, own) {
     return flag(ev < today ? 'The event date (' + ev + ') has passed and there is still no award. Update the status in Canvas.'
       : 'Event on ' + ev + ' and still no award. Call the client today.', 'urgent');
   }
-  if (!ce) return since && cueBizDays_(since, today) < CUE_AWARD_.first ? null
+  if (!ce) return since && cueAwardGap_(rule, since, today) < rule.first ? null
     : flag('No CE email found in your Sent mail for this project. Chase the client by hand.');
   const addr = String(ce.h.to || '').split(',').map(a => ({ name: (a.match(/^\s*"?([^"<]*?)"?\s*</) || [])[1] || '', email: cueEmail_((a.match(/<([^>]+)>/) || [0, a])[1].trim()) }))
     .filter(a => a.email && (!own || a.email.toLowerCase().split('@')[1] !== own))[0];
@@ -80,13 +88,13 @@ function cueAwardItem_(p, th, L, today, own) {
   if (!last.sent) return flag('The client replied on ' + cuePh_(last.ms).day + '. Have a look and answer them.');
   const times = Math.max(kiko.length, L ? L.times : 0);
   const lastChase = [kiko.length ? cuePh_(kiko[kiko.length - 1].ms).day : '', L ? L.last : ''].sort().pop();
-  if (times >= CUE_AWARD_.max) return lastChase && cueBizDays_(lastChase, today) < CUE_AWARD_.every ? null
+  if (times >= rule.max) return lastChase && cueAwardGap_(rule, lastChase, today) < rule.every ? null
     : flag('Chased ' + times + ' times with no decision. Call the client, or mark it Not Awarded in Canvas.');
-  const waited = cueBizDays_(since, today);
-  if (times === 0 ? waited < CUE_AWARD_.first : !lastChase || cueBizDays_(lastChase, today) < CUE_AWARD_.every) return null;
-  facts.chaser_number = times + 1; facts.business_days_waiting = waited;
-  return Object.assign(base, { why: 'CE sent ' + ceDay + (ce$ ? ' (' + ce$ + ')' : '') + ', ' + waited + ' business days with no award decision'
-    + (ev ? '. Event ' + ev : '') + '. Chaser ' + (times + 1) + ' of ' + CUE_AWARD_.max });
+  const waited = cueAwardGap_(rule, since, today);
+  if (times === 0 ? waited < rule.first : !lastChase || cueAwardGap_(rule, lastChase, today) < rule.every) return null;
+  facts.chaser_number = times + 1; facts.days_waiting = waited;
+  return Object.assign(base, { why: 'CE sent ' + ceDay + (ce$ ? ' (' + ce$ + ')' : '') + ', ' + waited + ' ' + (rule.unit === 'working' ? 'business ' : '') + (waited === 1 ? 'day' : 'days') + ' with no award decision'
+    + (ev ? '. Event ' + ev : '') + '. Chaser ' + (times + 1) + ' of ' + rule.max });
 }
 
 /** The fallback draft when ChatGPT can't write one. */
@@ -97,7 +105,7 @@ function cueAwardTemplate_(it) {
   return { subject: 'Following up: cost estimate for ' + it.project, body: 'Hi ' + first + ',\n\n' + ask + (f.event_date ? ' The event is on ' + f.event_date + '.' : '') + '\n\nThank you,\nKiko\nBlank Space Events' };
 }
 
-cueKind_({ kind: 'award', label: 'CE award chasers', every: 1, max: 0, sendAllowed: true, find: cueAwardFind_, template: cueAwardTemplate_,
+cueKind_({ kind: 'award', label: 'CE award chasers', every: CUE_AWARD_.every, max: CUE_AWARD_.max, unit: CUE_AWARD_.unit, sendAllowed: true, find: cueAwardFind_, template: cueAwardTemplate_,
   draftBrief: 'The client received a cost estimate (CE) from BSE for this event and has not decided on the award. Reply in the CE thread: '
     + 'ask politely whether they have reviewed it and have a decision, and offer to revise the CE if anything needs to change. Name the '
     + 'project and the event date from facts. facts.chaser_number 1 is a gentle first follow-up; 2 and 3 are firmer but still warm. '
