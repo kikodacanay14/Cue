@@ -57,11 +57,16 @@
   .fview iframe { flex:1; min-height:60vh; width:100%; border:1px solid var(--line); border-radius:6px; background:#0e0f11; }
   .fhead { display:flex; gap:10px; align-items:center; margin-bottom:10px; } .fhead b { color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fhead a { color:var(--act); margin-left:auto; white-space:nowrap; font-size:13px; }
   .tcomposer { flex:none; background:var(--head); border-top:1px solid var(--line); padding:10px 12px; }
-  .only-phone { display:none; }
+  /* Narrow window (Kiko 13:58Z, the bubble's Cue window): the pane stays shut until Threads or Widgets is tapped, then sits beside
+     the chat, never over it; the Cue bubble 1.3 widens the window to make room and narrows it again on close. Only a real
+     phone-width screen with no room to grow gets the pane full-screen. */
   @media (max-width: 900px) {
-    .pane { position:fixed; inset:0; width:auto; min-width:0; max-width:none; z-index:20; border-left:0; }
+    .pane { width:50%; min-width:0; }
     .pane:not(.open) { display:none; }
-    .pane-x { display:inline-flex; } .only-phone { display:inline-block; }
+    .pane-x { display:inline-flex; }
+  }
+  @media (max-width: 640px) {
+    .pane.open { position:fixed; inset:0; width:auto; max-width:none; z-index:20; border-left:0; }
   }
   .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
@@ -149,22 +154,14 @@
 </header>
 <div class="split">
 <div class="left">
-<nav role="tablist">
-  <button class="tab" role="tab" id="tab-chat" aria-selected="true">Chat</button>
-  <button class="tab" role="tab" id="tab-widgets" aria-selected="false">Widgets<span class="badge" id="needCount" hidden></span></button>
-  <button class="tab only-phone" id="tab-threads">Threads</button>
+<nav>
+  <button class="tab" id="tab-threads" aria-controls="pane">Threads</button>
+  <button class="tab" id="tab-widgets" aria-controls="pane">Widgets<span class="badge" id="needCount" hidden></span></button>
 </nav>
 <div id="scroller">
 <main>
   <section class="col" id="page-chat">
     <div class="msgs" id="msgs"></div>
-  </section>
-  <section class="col" id="page-widgets" hidden>
-    <div class="label">Needs you</div><div id="w-need"></div>
-    <div class="label">Working on</div><div id="w-work"></div>
-
-    <div class="label">Recently done</div><div id="w-done"></div>
-    <div class="label">Chaser rules</div><div id="w-rules"></div>
   </section>
 </main>
 </div>
@@ -203,6 +200,12 @@
     <section id="page-threads">
       <input type="search" class="tsearch" id="tsearch" placeholder="Search threads" aria-label="Search threads">
       <div id="tlist"></div>
+    </section>
+    <section id="page-widgets" hidden>
+      <div class="label" style="margin-top:4px">Needs you</div><div id="w-need"></div>
+      <div class="label">Working on</div><div id="w-work"></div>
+      <div class="label">Recently done</div><div id="w-done"></div>
+      <div class="label">Chaser rules</div><div id="w-rules"></div>
     </section>
     <section id="page-thread" hidden>
       <div class="thread-head"><button class="back" id="back" aria-label="Back to the threads list">← Threads</button><i class="dot" id="t-dot"></i><span class="t" id="t-title"></span><span class="small muted" id="t-status"></span></div>
@@ -267,18 +270,22 @@
   function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: '', time: new Date().toISOString() }); renderChat(); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
-  // Left pane: the chat or widgets. Right pane (Kiko 12:59Z): tabs for the Threads list, each opened thread (openThread = its
-  // first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own reply box.
-  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8;
+  // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, Widgets, each opened thread
+  // (openThread = its first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own box.
+  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1, widgets: 1 };
   try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
-  function show(tab) {
-    $('tab-chat').setAttribute('aria-selected', tab === 'chat'); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
-    $('page-chat').hidden = tab !== 'chat'; $('page-widgets').hidden = tab !== 'widgets'; $('composer').hidden = tab !== 'chat';
-    lastChat = -1; renderChat();
+  // In a narrow window the pane opens beside the chat; the Cue bubble (1.3+) widens the window by the pane's width and gives it back on close.
+  var bubble = false, grown = 0, GROW = 440;
+  function paneOpen(on) {
+    var narrow = window.innerWidth <= 900, was = $('pane').classList.contains('open');
+    $('pane').classList.toggle('open', on);
+    if (on && !was && narrow && bubble && !grown) { grown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
+    if (!on && grown) { window.postMessage({ cueResize: -grown }, '*'); grown = 0; }
   }
   function openPane(it) {
-    if (!ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
-    pactive = it.key; $('pane').classList.add('open'); paneShow();
+    if (!FIXED[it.key] && !ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
+    pactive = it.key; paneOpen(true); paneShow();
+    if (it.key === 'widgets') loadRules();
   }
   function goThread(id) {
     openPane({ key: 't:' + id, type: 'thread', id: id });
@@ -293,9 +300,10 @@
   }
   function paneShow() {
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
-    if (!it) pactive = 'list';
+    if (!it && !FIXED[pactive]) pactive = 'list';
     openThread = it && it.type === 'thread' ? it.id : '';
-    $('page-threads').hidden = !!it; $('page-thread').hidden = !openThread; $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
+    $('page-threads').hidden = pactive !== 'list'; $('page-widgets').hidden = pactive !== 'widgets'; $('page-thread').hidden = !openThread;
+    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tab-widgets').setAttribute('aria-pressed', pactive === 'widgets'); $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
     if (!openThread && fileHost === 'tfiles') hostFiles('files');
     if (it && it.type === 'file' && $('f-frame').getAttribute('data-key') !== it.key) {
       $('f-frame').setAttribute('data-key', it.key); $('f-frame').src = it.preview || previewUrl(it.url) || 'about:blank';
@@ -318,16 +326,16 @@
   });
   $('ptabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    if (b.getAttribute('data-pclose') === 'pane') return $('pane').classList.remove('open');
+    if (b.getAttribute('data-pclose') === 'pane') return paneOpen(false);
     if (b.hasAttribute('data-pclose')) return closeTab(b.getAttribute('data-pclose'));
-    if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); }
+    if (b.hasAttribute('data-ptab')) { pactive = b.getAttribute('data-ptab'); paneShow(); if (pactive === 'widgets') loadRules(); }
   });
   function renderPaneTabs(th) {
     var need = Object.keys(th).filter(function (k) { return th[k].reqs.length && threadState(th[k]).need; }).length;
     var tab = function (key, label, x) { return '<span class="ptab" role="presentation" aria-selected="' + (pactive === key) + '"><button role="tab" data-ptab="' + esc(key) + '" title="' + esc(label) + '">' + x + esc(label) + '</button>'
-      + (key === 'list' ? '' : '<button class="x" data-pclose="' + esc(key) + '" aria-label="Close ' + esc(label) + '">×</button>') + '</span>'; };
-    setHtml($('ptabs'), '<button class="btn ghost pane-x" data-pclose="pane" style="min-height:36px;padding:0 12px">← Chat</button>'
-      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>')
+      + (FIXED[key] ? '' : '<button class="x" data-pclose="' + esc(key) + '" aria-label="Close ' + esc(label) + '">×</button>') + '</span>'; };
+    setHtml($('ptabs'), '<button class="btn ghost pane-x" data-pclose="pane" style="min-height:36px;padding:0 12px" aria-label="Close this pane">✕</button>'
+      + tab('list', 'Threads', '☰ ').replace('Threads</button>', 'Threads' + (need ? '<span class="badge">' + need + '</span>' : '') + '</button>') + tab('widgets', 'Widgets', '')
       + ptabs.map(function (k) { return tab(k.key, k.type === 'thread' ? (th[k.id] ? threadTitle(th[k.id]) : 'Thread') : k.name, k.type === 'file' ? '🖼 ' : ''); }).join(''));
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
@@ -362,11 +370,10 @@
     });
     setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : ''));
   }
-  $('tab-chat').onclick = function () { show('chat'); };
   $('back').onclick = function () { pactive = 'list'; paneShow(); };
-  $('tab-threads').onclick = function () { pactive = 'list'; $('pane').classList.add('open'); paneShow(); };
-  $('tab-widgets').onclick = function () { show('widgets'); loadRules(); };
-  $('chip-need').onclick = function () { show('widgets'); };
+  $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
+  $('tab-widgets').onclick = function () { openPane({ key: 'widgets' }); };
+  $('chip-need').onclick = function () { openPane({ key: 'widgets' }); };
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
@@ -432,7 +439,7 @@
   // 📷 and "Snap an area" show only when the bubble answers. A snapshot or "Send to Cue" text only fills the box; Enter sends.
   window.addEventListener('message', function (e) {
     if (e.source !== window || !e.data) return;
-    if (e.data.cueBubble) { $('snap').hidden = false; $('chip-area').hidden = false; }
+    if (e.data.cueBubble) { bubble = true; $('snap').hidden = false; $('chip-area').hidden = false; }
     var d = e.data.cueDrop; if (!d) return;
     if (d.error) return addLocal('Cue', String(d.error));
     var from = (d.title || d.url) ? String(d.title || 'a page') + (d.url ? ' (' + String(d.url) + ')' : '') : '';

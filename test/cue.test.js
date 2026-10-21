@@ -2052,7 +2052,7 @@ test('SN1 snapshots (Kiko 08:17Z): a Cue bubble screen snapshot goes with the br
 
 test('SN2 Cue bubble 1.2: manifest asks only for what snapshots need; scripts parse; the page only fills the box', () => {
   const ext = path.join(__dirname, '..', 'extension'), m = JSON.parse(fs.readFileSync(path.join(ext, 'manifest.json'), 'utf8'));
-  assert.strictEqual(m.version, '1.2.0');
+  assert.strictEqual(m.version, '1.3.0');
   deq(m.permissions.slice().sort(), ['activeTab', 'contextMenus', 'storage']); deq(m.host_permissions, ['<all_urls>']);
   assert.strictEqual(m.commands['cue-snap'].suggested_key.default, 'Alt+Shift+S');
   const drop = m.content_scripts.find(c => c.js.indexOf('cue-drop.js') >= 0);
