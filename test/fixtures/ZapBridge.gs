@@ -14,6 +14,7 @@
  *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas (it drives HubSpot stages).
  *   One exception (CUE-EXPENSE-2026-10-21): record_expense, for one expense Kiko approved on Cue's card, may add its supplier
  *   entry, award it when the scope has no award yet, and record the payment Kiko already made. It never moves an award.
+  },
  *   CUE-SUPPLIER-2026-10-21: register_supplier adds one NEW supplier Kiko approved on Cue's card (row, contacts, accreditation
  *   row); it never edits or deletes an existing supplier and never sets Accreditation Status or a verification column.
  * - A durable ledger (sheet in ZAD_LEDGER_ID, tab "_Zap Commands") keyed by command_id. Replays return the stored
@@ -178,6 +179,19 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] } },
     run: (r) => zbReadiness_(r.project_id, r.args.gate || 'auto')
   },
+  supplier_lookup: {
+    // CUE-VENDOR-2026-10-21 (Kiko 07:54Z approved specs/vendor-management.md). Cue's "Find, compare or assess suppliers":
+    // Supplier Database matches (Preferred first), past quotes for the item, named suppliers' history and a project's quotes
+    // (canvas-ai/AiVendor.gs). Read only; no bank details or TINs.
+    kind: 'read', needsProject: false,
+    schema: { item: { type: 'string', max: 120 }, city: { type: 'string', max: 100 }, names: { type: 'array', maxItems: 5 },
+      project_id: { type: 'string', re: ZB_PID_RE_ } },
+    run: (r) => {
+      const names = r.args.names || [];
+      if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
+      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
+    }
+  },
   /* CUE-HUBSPOT-2026-10-21 (Kiko 07:50Z approved specs/hubspot-cleanup.md). hubspot_scan reads HubSpot, the HubSpot Links tab and
    * Client Desk contacts and returns findings (canvas-ai/AiHubspot.gs, fixed rules, no AI). hubspot_fix applies the fixes Kiko
    * ticked on Cue's card, at most 50 record changes, each re-checked and read back. It never deletes for good (archive goes to
@@ -209,19 +223,6 @@ const ZB_ACTIONS_ = {
         if (x.op === 'set' && !(x.props && Object.keys(x.props).length)) return { ok: false, error: x.key + ': nothing to set' };
       }
       return aiHsApply_(f); }
-  },
-  supplier_lookup: {
-    // CUE-VENDOR-2026-10-21 (Kiko 07:54Z approved specs/vendor-management.md). Cue's "Find, compare or assess suppliers":
-    // Supplier Database matches (Preferred first), past quotes for the item, named suppliers' history and a project's quotes
-    // (canvas-ai/AiVendor.gs). Read only; no bank details or TINs.
-    kind: 'read', needsProject: false,
-    schema: { item: { type: 'string', max: 120 }, city: { type: 'string', max: 100 }, names: { type: 'array', maxItems: 5 },
-      project_id: { type: 'string', re: ZB_PID_RE_ } },
-    run: (r) => {
-      const names = r.args.names || [];
-      if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
-      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
-    }
   },
   save_project_file: {
     // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
@@ -256,6 +257,18 @@ const ZB_ACTIONS_ = {
     schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
       key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ } },
     run: (r) => zbArEmail_(r)
+  },
+  finance_snapshot: {
+    // CUE-FINANCE-2026-10-21 (Kiko 07:41Z approved specs/cfo-advisor.md). Cue's CFO Advisor: CE, billings, collections and
+    // payment requests per project (canvas-ai/AiFinance.gs). Read only; no bank details, payees' accounts or personal expenses.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 50 }, account: { type: 'string', max: 200 },
+      from: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, to: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return aiFinanceSnapshot_({ project_ids: ids, account: r.args.account || '', from: r.args.from || '', to: r.args.to || '' });
+    }
   },
   /* CUE-EXPENSE-2026-10-21 (Kiko 07:34Z approved specs/c3-project-expense.md). expense_evidence reads; record_expense writes one
    * expense Kiko approved on Cue's card, through Canvas's own functions (canvas-ai/AiExpense.gs). save_entry, award and pay stay
@@ -296,18 +309,6 @@ const ZB_ACTIONS_ = {
       const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
       return aiExpenseRecord_(r.args.request_id, r.project_id, p, f); }
   },
-  finance_snapshot: {
-    // CUE-FINANCE-2026-10-21 (Kiko 07:41Z approved specs/cfo-advisor.md). Cue's CFO Advisor: CE, billings, collections and
-    // payment requests per project (canvas-ai/AiFinance.gs). Read only; no bank details, payees' accounts or personal expenses.
-    kind: 'read', needsProject: false,
-    schema: { project_ids: { type: 'array', maxItems: 50 }, account: { type: 'string', max: 200 },
-      from: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, to: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
-    run: (r) => {
-      const ids = r.args.project_ids || [];
-      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
-      return aiFinanceSnapshot_({ project_ids: ids, account: r.args.account || '', from: r.args.from || '', to: r.args.to || '' });
-    }
-  },
   /* CUE-SUPPLIER-2026-10-21 (Kiko 07:55Z approved specs/supplier-registration.md). supplier_check reads; register_supplier adds
    * one new supplier through saveRecord_ (canvas-ai/AiSupplier.gs); save_supplier_file puts one document, or a shortcut to a
    * shared-drive file, into that supplier's folder. Values are text only, and AiSupplier.gs keeps them from becoming formulas. */
@@ -339,8 +340,9 @@ const ZB_ACTIONS_ = {
       return aiSupplierFile_(a.supplier_id, a.drive_id ? { drive_id: a.drive_id } : { name: a.name, mime: a.mime, data: a.data, request_id: a.request_id }); }
   },
   get_project_board: {
+    // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
     kind: 'read', needsProject: false, schema: {},
-    run: () => getProjectBoard()
+    run: () => zbBoardAwaiting_(getProjectBoard())
   },
   add_project: {
     // addProject (12289): Business Lead/Manager only; refuses a second project with the same name and date; makes folders
@@ -537,6 +539,40 @@ function zbCheck_(v, s, name) {
     if (s.minKeys && Object.keys(v).length < s.minKeys) return name + ' has nothing to write';
   }
   return '';
+}
+
+/**
+ * Cue's CE award chasers: each project in For Client Awarding gets awaiting = { since, ce_total, ce_no }. since (YYYY-MM-DD,
+ * Manila) is the latest Changes-tab entry that set PROJECT STATUS to For Client Awarding, the same log the Timeline reads
+ * (tsEnter_); '' when the log has none (Cue then uses the CE email date). ce_total and ce_no come from the active CE
+ * (ceActiveTotals_). Read only; any failure leaves the board as it was.
+ */
+function zbBoardAwaiting_(b) {
+  const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
+  if (!list.length) return b;
+  const key = v => String(v == null ? '' : v).trim().toLowerCase(), want = {}, since = {};
+  list.forEach(p => { want[key(p.id)] = 1; });
+  try {
+    const sh = logSheet_().getParent().getSheetByName(CHANGES_TAB_);
+    if (sh && sh.getLastRow() > 1) {
+      const last = sh.getLastRow(), n = Math.min(last - 1, 20000), v = sh.getRange(last - n + 1, 1, n, CHANGES_HEAD_.length).getValues();
+      v.forEach(r => {
+        const id = key(r[9]);
+        if (!want[id] || key(r[11]) !== 'project status' || key(String(r[13]).replace(/^'/, '')) !== 'for client awarding') return;
+        const t = String(r[0]).trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        const d = Object.prototype.toString.call(r[0]) === '[object Date]' ? Utilities.formatDate(r[0], 'Asia/Manila', 'yyyy-MM-dd')
+          : m ? m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0') : (t.match(/^\d{4}-\d{2}-\d{2}/) || [''])[0];
+        if (d && (!since[id] || d > since[id])) since[id] = d;
+      });
+    }
+  } catch (e) { /* the log is optional */ }
+  let ce = {};
+  try { ce = ceActiveTotals_(book_(TRACKER_ID)) || {}; } catch (e) { ce = {}; }
+  list.forEach(p => {
+    const c = ce[String(p.id).trim()] || {};
+    p.awaiting = { since: since[key(p.id)] || '', ce_total: typeof c.total === 'number' ? c.total : null, ce_no: String(c.ceNo || '') };
+  });
+  return b;
 }
 
 // Closure statuses (PROJECT_PHASES_ in Code.gs) and Completed get the Closeout gate.

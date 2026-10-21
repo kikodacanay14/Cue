@@ -126,6 +126,12 @@ Chasing sweep task 3 (spec `canvas-integration/specs/ce-award-chasers.md`, appro
 - The file name sorts after `CueSweep.gs` on purpose, because Apps Script runs files in order and `cueKind_` must exist first.
 - Tests: 9 new (A1 to A9), 61 of 61 pass. Other tests run with the award kind off (`CUE_CHASE_OFF=award`).
 
+## Cue 1.9.5 (costing starts mid-way; Kiko 08:55Z)
+
+- "Cost them", "re-cost" or "break it down by item" in a project's thread (an intake, or a change request that read requirements) now starts at the costing step, with the requirements and files GPT already read. There's no new GPT read, no duplicate check and no switch to a change request. The run joins the same thread.
+- "By item" asks Claude to list each requirement's items (quantity, unit cost and where the cost comes from) in the line's note. Writing those items into Canvas as sub-items is still to come.
+- "Start intake" or "full intake" still runs the whole intake.
+
 ## Cue 1.9.4 (chat never claims work; Kiko 08:53Z)
 
 - The chat no longer says "I'm working on it" or "costing next" when no run started. Work only happens in a run, which always shows a card. If GPT still claims it, Cue adds a plain correction that nothing is running and how to start it.
