@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.9';
+const CUE_VERSION_ = 'Cue 1.10';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -211,7 +211,7 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
-      + 'priority or reminder for the task he is replying about (or the task you put in task). Empty strings for anything he did not ask to change.',
+      + 'priority or reminder for the task Kiko is replying about (or the task you put in task). Empty strings for anything Kiko did not ask to change.',
       properties: { due: { type: 'string', description: 'YYYY-MM-DD, "none" to clear, or empty' }, priority: { type: 'string', description: 'High, Normal, Low, or empty' },
         remind: { type: 'string', description: 'YYYY-MM-DDTHH:mm in Philippine time, "none" to clear, or empty' } } },
     command: { type: 'string', enum: ['', 'pipeline'], description: '"pipeline" when Kiko asks about deals, the sales pipeline or who to follow up '
@@ -227,7 +227,7 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
     readiness: { type: 'string', description: 'Empty unless Kiko asks whether a project is ready, what is missing or blocking it, or for its readiness or '
       + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' },
     start_ar: { type: 'string', description: 'Empty unless Kiko asks Cue to prepare, make or generate acknowledgement receipts (ARs) for a project. '
-      + 'Then the project\'s name or Canvas id (S-...) exactly as Kiko gave it, or as the task he is replying about names it.' },
+      + 'Then the project\'s name or Canvas id (S-...) exactly as Kiko gave it, or as the task Kiko is replying about names it.' },
     vendor: { type: 'object', additionalProperties: false, required: ['job', 'item', 'city', 'event_date', 'suppliers', 'project', 'new_options', 'details'],
       description: 'job is "" unless Kiko asks to find, compare or assess suppliers or vendors (who can supply something, which supplier is better, '
         + 'how good or reliable a supplier is, or to compare the quotes on a project).',
@@ -259,13 +259,16 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + '"personal expense" (or "record this as personal") with the receipt or GCash/bank screenshot, Cue reads it, checks for duplicates and '
   + 'project expenses, and saves it to Kiko\'s Personal Expense 2 sheet after Kiko approves on the card. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
-  + 'and never ask Kiko to give access "to send". Pipeline review: when Kiko asks about his deals, the pipeline or which clients to follow '
-  + 'up, set command "pipeline" (and command_client if he names one client) and reply in one short line that you are checking; Cue then '
-  + 'reads HubSpot and his Gmail in a new thread. "Clean up HubSpot" and profit or cash-flow questions are not built yet: say so. '
+  + 'and never ask Kiko to give access "to send". Pipeline review: when Kiko asks about the deals, the pipeline or which clients to follow '
+  + 'up, set command "pipeline" (and command_client if Kiko names one client) and reply in one short line that you are checking; Cue then '
+  + 'reads HubSpot and Kiko\'s Gmail in a new thread. "Clean up HubSpot" and profit or cash-flow questions are not built yet: say so. '
   + 'Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
-  + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. You cannot change Canvas, look up Canvas records or '
-  + 'browse the web from chat: say so plainly when asked, and never pretend you did something. Every morning at 7:00 Cue builds a '
+  + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. Cue CAN look up Canvas projects: before you answer, Cue '
+  + 'searched Canvas for the names in Kiko\'s message, and the matches are listed under "Canvas projects" (ID, name, client, event date, '
+  + 'status). Answer questions about projects from that list. If the list says none matched, say no Canvas project matched those words and '
+  + 'ask for another name or the project ID. Never say you have no access to Canvas or cannot look up projects. You cannot change Canvas '
+  + 'or browse the web from chat, and never pretend you did something. Every morning at 7:00 Cue builds a '
   + 'Morning batch of follow-ups (approved emails go out at 9:00); set run_sweep when Kiko asks for it now. Each task can have a due date, '
   + 'a priority and a reminder: fill task_set when Kiko asks, using today\'s date given below, and confirm in one line. When Kiko asks you to run, redo or reload '
   + 'something now, set start_intake and reply in one short line that you are starting it. If the message reads like a client inquiry or '
@@ -287,8 +290,10 @@ function cueTalk_(t, ref) {
   // Kiko 06:29Z: a main-chat message about a task that already has a thread is answered in that thread. GPT picks the task.
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
+  const found = cueLookup_(s, t);
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
+      + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
   const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
@@ -328,6 +333,31 @@ function cueUnnudge_(id) {
   try { cueLocked_(() => { const L = cueRootOf_(id); if (L && L.s.nudge) { delete L.s.nudge; cueSave_(L.sh, L.row, L.s); } }); } catch (e) { console.error('Unnudge: ' + e); }
 }
 
+const CUE_LOOKUP_SKIP_ = ['lookup', 'look', 'find', 'check', 'show', 'open', 'can', 'you', 'access', 'now', 'have', 'does', 'what', 'which', 'where',
+  'when', 'status', 'please', 'pls', 'about', 'tell', 'give', 'list', 'all', 'our', 'any', 'how', 'are', 'was', 'were', 'there', 'want', 'need',
+  'requirements', 'requirement', 'cost', 'costs', 'costing', 'again', 'scope', 'reanalyze', 'analyze', 'details', 'info', 'canvas', 'hey', 'hello',
+  'thanks', 'thank', 'yes', 'okay', 'doing', 'gpt', 'claude', 'cue', 'ready', 'missing', 'readiness', 'done'];
+
+/** Kiko 08:23Z: chat can look up Canvas projects. One parallel bridge read per distinctive word (search_projects, read only),
+ * merged and ranked by how many words a project matched. Returns a short text list for the chat model; never throws. */
+function cueLookup_(s, t) {
+  const words = cueWords_(t).filter(w => CUE_LOOKUP_SKIP_.indexOf(w) < 0).filter((w, i, a) => a.indexOf(w) === i).slice(0, 4);
+  const ids = (String(t).match(/\b[A-Z]-\d{6,}[A-Z0-9]*\b/gi) || []).slice(0, 2);
+  const qs = ids.concat(words);
+  if (!qs.length) return 'none searched (no project name in the message)';
+  let res; try { res = cueBridgeAll_(s, qs.map(q => ['search_projects', { query: q, limit: 10 }])); }
+  catch (e) { return 'the Canvas search failed just now (' + String((e && e.message) || e).slice(0, 160) + '); say so and ask Kiko to try again'; }
+  const by = {};
+  res.forEach((r, i) => ((r && r.projects) || []).forEach(p => {
+    const k = p.project_id, w = i < ids.length ? 10 : 1;
+    if (!by[k]) by[k] = { p, n: 0 }; by[k].n += w;
+  }));
+  const top = Object.keys(by).map(k => by[k]).sort((a, b) => b.n - a.n), best = top.length ? top[0].n : 0;
+  const keep = top.filter(x => x.n === best || x.n >= 2).slice(0, 8);
+  if (!keep.length) return 'none matched "' + qs.join('", "') + '"';
+  return keep.map(x => x.p.project_id + ' | ' + x.p.name + ' | ' + (x.p.account || 'no client') + ' | ' + (x.p.date || 'no date') + ' | ' + (x.p.status || 'no status')).join('\n');
+}
+
 /** A task's display name: the matched project, the client and event, or what it is. */
 function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
@@ -363,8 +393,14 @@ function cueRelated_(text, pid, self) {
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
+  // Kiko 08:32Z: a Selecta message reopened the AMI Halloween gift boxes. The client's name ties a message to a task only when that
+  // client has one task this week; with several (AMI: BEKO, Halloween, Selecta) a word from the project name itself must match.
+  const client = x => { const c = x.change || {}, p = x.proposal || {}, k = (x.x && x.x.client) || p.client || {};
+    return cueWords_([(c.match && c.match.account) || '', k.company || '', (x.canvas && x.canvas.account) || ''].join(' ')); };
+  const roots = {}; list.forEach(x => { roots[root(x.id)] = x; });
+  const tasksOf = w => Object.keys(roots).filter(k => client(roots[k]).indexOf(w) >= 0).length;
   const hit = list.filter(x => pid ? (x.change && x.change.match && x.change.match.project_id === pid) || (x.canvas && x.canvas.project_id === pid)
-    : cueWords_(cueTaskName_(x)).some(w => words[w]))[0];
+    : (cl => cueWords_(cueTaskName_(x)).some(w => words[w] && (cl.indexOf(w) < 0 || tasksOf(w) <= 1)))(client(x)))[0];
   return hit ? list.filter(x => root(x.id) === root(hit.id))[0].id : '';
 }
 

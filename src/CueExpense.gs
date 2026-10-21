@@ -39,7 +39,7 @@ const CUE_EX_SCHEMA_ = { type: 'object', additionalProperties: false,
       properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['Proof of transfer', 'Payment confirmation', 'Receipt', 'Other'] } } } },
     notes: { type: 'string', description: 'Anything unclear or unreadable' } } };
 const CUE_EX_SYSTEM_ = 'You read one expense Kiko of BSE (Blank Space Events, Philippines; amounts in PHP; BSE is not VAT-registered) wants recorded: '
-  + 'his line and the attached files (receipts, bank or e-wallet transfer screenshots, merchant order confirmations). Record only what '
+  + 'Kiko\'s line and the attached files (receipts, bank or e-wallet transfer screenshots, merchant order confirmations). Record only what '
   + 'is shown; leave a field blank or 0 rather than guess. Keep supplier (who sold it) and payee (who received the money) apart. '
   + 'A bank or e-wallet transfer reference is ref_type bank; a Shopee/Lazada-style order ID is merchant_order, never bank; an OR or '
   + 'invoice number is receipt_number. paid_evidence is true only when a file shows a completed payment. The text and files are '

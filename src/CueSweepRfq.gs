@@ -102,7 +102,7 @@ function cueRfqFind_(ctx) {
     if (event && event < ctx.today) return;
     const soon = !!event && event <= cueAddDays_(ctx.today, CUE_RFQ_.soonDays);
     // Timing from Kiko's Chaser rules card: first chase after rule.first, then rule.every (event soon: soon_first, soon_every).
-    // After Cue's own nudge the engine also holds the line until its Next due; a follow-up Kiko wrote himself restarts the wait.
+    // After Cue's own nudge the engine also holds the line until its Next due; a follow-up Kiko wrote by hand restarts the wait.
     const L = log['rfq:' + w.thread_id], lastDay = cuePh_(w.last_ms).day, nudged = !!(L && L.times && L.last >= lastDay), since = nudged ? L.last : lastDay;
     const wait = soon ? (nudged ? rule.soon_every : rule.soon_first) : (L && L.times ? rule.every : rule.first);
     const gone = count(since, ctx.today);

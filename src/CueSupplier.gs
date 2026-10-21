@@ -50,7 +50,7 @@ const CUE_SR_SCHEMA_ = { type: 'object', additionalProperties: false, required: 
     files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'doc'],
       properties: { name: { type: 'string' }, doc: { type: 'string', enum: CUE_SR_DOC_KINDS_ } } } },
     notes: { type: 'string', description: 'Anything unclear, unreadable or contradictory' } } };
-const CUE_SR_SYSTEM_ = 'You read one supplier Kiko of BSE (Blank Space Events, Philippines) wants to register: his line, and any attached '
+const CUE_SR_SYSTEM_ = 'You read one supplier Kiko of BSE (Blank Space Events, Philippines) wants to register: Kiko\'s line, and any attached '
   + 'files (BIR 2303, DTI or SEC papers, mayor\'s or business permit, invoices, IDs, business cards, quotes, company profiles, emails). Record '
   + 'only what is shown; leave a field "" rather than guess. List every contact person once, with the number, email and position shown for '
   + 'them. Bank details only from a file that shows them, and name that file in bank_from. For each file say what document it is. The text '

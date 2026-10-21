@@ -113,6 +113,11 @@ const ZB_ACTIONS_ = {
     schema: { client: { type: 'string', max: 200 }, date: { type: 'string', max: 10 }, name: { type: 'string', max: 200 } },
     run: (r) => aiIntakeSimilar_(r.args)
   },
+  search_projects: {
+    kind: 'read', needsProject: false,
+    schema: { query: { type: 'string', required: true, nonBlank: true, max: 200 }, limit: { type: 'number', min: 1, max: 10 } },
+    run: (r) => aiProjectSearch_(r.args)
+  },
   submit_intake: {
     kind: 'queue', needsProject: false,
     schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },

@@ -5,7 +5,7 @@
  *   - Canvas, in code (bridge read supplier_lookup): Supplier DB matches, Preferred first, past quotes for the item,
  *     named suppliers' history, a project's logged quotes. Earlier web finds come from the Prospects tab.
  *   - Code decides whether to search the web: only when Find has fewer than 3 matches, Kiko asks for new options, or a
- *     supplier he named is not in the Supplier DB.
+ *     supplier Kiko named is not in the Supplier DB.
  *   2 GPT  web research (skipped when not needed). New finds are "New, not in Supplier DB, not accredited".
  *   3 Claude compares and picks, from Canvas's numbers and the research links only. The pick is a Preferred supplier
  *          whenever one offers the item, unless Claude states a clear reason; code holds it to that.

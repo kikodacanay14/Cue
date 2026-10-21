@@ -178,6 +178,7 @@ function sandbox(o = {}) {
       if (body.action === 'save_supplier_file') { log.supFiles = (log.supFiles || []).concat([body.args.drive_id ? 'shortcut:' + body.args.drive_id : body.args.name + ':' + Buffer.from(body.args.data, 'base64').toString()]);
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/s' + log.supFiles.length, existed: false } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
+      if (body.action === 'search_projects') { log.search = (log.search || []).concat(body.args.query); if (o.searchFail) return resp(200, { ok: false, status: 'Blocked', error: 'boom' }); return resp(200, { ok: true, status: 'Completed', result: (o.search || {})[body.args.query.toLowerCase()] || { projects: [], total: 0 } }); }
       if (body.action === 'list_project_files') {
         if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
         log.filesFor = body.project_id;
@@ -1081,7 +1082,8 @@ function readyRun(o) { const t = sandbox(Object.assign({ talk: ASK, similar: ACM
 test('RD1 readiness: chat names the project, Canvas scores it, Claude summarises; 1 AI call in the run, reads only, Canvas numbers untouched', () => {
   const t = readyRun(), v = t.v, R = v.ready;
   assert.strictEqual(v.kind, 'readiness'); assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.metrics.ai_calls, 1, 'only Claude in the run (the chat call is the message itself)');
-  deq(t.log.bridge.map(b => b.action).sort(), ['find_similar_projects', 'get_readiness', 'list_project_files'], 'reads only');
+  deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects').sort(), ['find_similar_projects', 'get_readiness', 'list_project_files'], 'reads only');
+  deq(t.log.search, ['acme', 'party'], 'the chat lookup, also a read');
   assert.strictEqual(t.log.readyFor, 'S-31628060SP', 'the open project, not the completed one from last year');
   deq(R.canvas.counts, READINESS.counts, 'Canvas\'s counts as given');
   deq(R.canvas.items.map(i => i.id), ['PER-1.05', 'PER-9.03', 'PER-1.04', 'PER-2.06'], 'blockers first, then by due date, undated last');
@@ -1136,7 +1138,7 @@ test('RD4 close follow-ups keeps the check; Re-check is a new run in the same th
 test('P1 pipeline review (C11): chat routes it, HubSpot + Gmail read in code, rules flag, one Claude call, card waits for Kiko; nothing written', () => {
   const t = pipeToCard(), v = t.v;
   assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'pipeline'); assert.strictEqual(v.metrics.ai_calls, 1, 'one Claude call in the run');
-  assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.bridge.length, 0, 'Canvas untouched');
+  assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0, 'Canvas untouched'); deq(t.log.search, ['deals', 'went', 'quiet'], 'the chat lookup, also a read');
   assert.ok(t.log.hs.every(c => c.method === 'get' || /\/search$|\/batch\/read$/.test(c.path)), 'HubSpot reads only');
   assert.ok(t.log.hs.every(c => c.auth === 'Bearer pat-test-not-real'));
   deq(t.log.hs.find(c => c.path === '/crm/v3/objects/deals/search').body.filterGroups[0].filters[0], { propertyName: 'dealstage', operator: 'NOT_IN', values: ['s3', 's4'] });
@@ -1174,7 +1176,7 @@ test('P2 follow-ups: one GPT call for ticked deals with a thread; Approve and se
   assert.ok(Buffer.from(pl.split('base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString().indexOf('edited by Kiko') >= 0);
   assert.ok(t.tabs.Chat.rows.some(x => /^Sent 1 follow-up from your Gmail.*HubSpot and Canvas were not changed/.test(x[2])));
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + t.id && /^Summary for Pipeline review: 5 open deals checked.*sent 1 follow-up/.test(x[2])));
-  assert.strictEqual(t.log.bridge.length, 0);
+  assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0); deq(t.log.search, ['deals', 'went', 'quiet'], 'the chat lookup, also a read');
   const u = pipeToCard(); u.ctx.cuePipeFollowUps(u.id, ['D3']); assert.strictEqual(u.ctx.cueApprove(u.id, {}).status, 'Done'); assert.ok(!u.log.sent, 'drafts only sends nothing');
   const w = pipeToCard(); const x = w.ctx.cuePipeDone(w.id); assert.strictEqual(x.status, 'Done'); assert.ok(!w.log.replies);
 });
@@ -1199,7 +1201,7 @@ test('AR1 ARs (Kiko 07:42Z): the chat call picks the command, Canvas lists, the 
   const r = t.ctx.cueSend('prepare ARs for the Globe year-end party', [], '');
   assert.ok(r.request_id); const v = t.ctx.cueRun(r.request_id);
   assert.strictEqual(v.kind, 'ar'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.ar.project_id, 'S-31628060SP');
-  deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'ar_list']); assert.strictEqual(t.log.arList, 'S-31628060SP');
+  deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['find_similar_projects', 'ar_list']); deq(t.log.search, ['prepare', 'ars', 'globe', 'year'], 'the chat lookup, also a read'); assert.strictEqual(t.log.arList, 'S-31628060SP');
   assert.strictEqual(v.metrics.ai_calls, 0, 'the run itself makes no AI call'); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.claude.length, 0);
   deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked and already-made ones are not ticked');
   assert.ok(t.tabs.Chat.rows.some(x => x[2] === 'Started a thread for it.' && x[3] === '>' + r.request_id), 'main chat points at the new thread');
@@ -1210,7 +1212,7 @@ test('AR1 ARs (Kiko 07:42Z): the chat call picks the command, Canvas lists, the 
 test('AR2 ARs: a Canvas id is used as given; an unknown name stops with a plain reason and Try again', () => {
   const t = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'S-31628060SP' } });
   const v = t.ctx.cueRun(t.ctx.cueSend('ARs for S-31628060SP please', [], '').request_id);
-  assert.strictEqual(v.status, 'Needs you'); deq(t.log.bridge.map(b => b.action), ['ar_list']);
+  assert.strictEqual(v.status, 'Needs you'); deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['ar_list']); deq(t.log.search, ['S-31628060SP', 'ars', '31628060sp'], 'the chat lookup, also a read');
   const u = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Nowhere Fest' } });
   const w = u.ctx.cueRun(u.ctx.cueSend('make the ARs for Nowhere Fest', [], '').request_id);
   assert.strictEqual(w.status, 'Failed'); assert.ok(/no project called "Nowhere Fest"/.test(w.error), w.error);
@@ -1621,7 +1623,7 @@ test('W1 a map ask: chat call + one Claude call, a card with blocks and owners, 
   const t = mapToCard(), v = t.v;
   assert.strictEqual(v.kind, 'workflow'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.metrics.ai_calls, 1, 'Claude only (the chat call is its own)');
   assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.log.gpt.length, 1, 'just the chat call');
-  assert.strictEqual(t.log.bridge.length, 0); assert.strictEqual(t.log.gmail.length, 0);
+  assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0); deq(t.log.search, ['map', 'chase', 'who', 'not'], 'the chat lookup, also a read'); assert.strictEqual(t.log.gmail.length, 0);
   deq(v.workflow.map.steps.map(x => [x.n, x.block, x.who]), [[1, 'Read email', 'Code'], [2, 'Ask Claude', 'Claude'], [3, 'Wait for Kiko', 'Kiko'], [4, 'Send email', 'Code']]);
   deq(v.workflow.flags, [], 'a clean map has no flags');
   const ask = JSON.parse(t.log.claude[0].messages[0].content);
@@ -1654,7 +1656,7 @@ test('W4 approve saves to the Workflows tab only; a second approval of the same 
   const rows = t.tabs.Workflows.rows; assert.strictEqual(rows.length, 2);
   deq(rows[1].slice(1, 6), ['RFQ chasers', 1, 'Zapier', 'Approved', 'Every weekday at 07:00']);
   assert.ok(/1\. Read email \(Code\): Find unanswered RFQs/.test(rows[1][6])); assert.strictEqual(JSON.parse(rows[1][10]).length, 4);
-  assert.strictEqual(t.log.bridge.length + t.log.gmail.length, 0, 'nothing written outside Cue');
+  assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length + t.log.gmail.length, 0, 'nothing written outside Cue'); deq(t.log.search, ['map', 'chase', 'who', 'not'], 'the chat lookup, also a read');
   assert.throws(() => t.ctx.cueApprove(t.id, {}), /not waiting/);
   const id2 = t.ctx.cueSend('Map the RFQ chasers zap again', [], '').request_id, v2 = t.ctx.cueRun(id2);
   assert.strictEqual(v2.workflow.updates.version, 1, 'finds the saved version');
@@ -2065,6 +2067,30 @@ test('PE8 same day and amount: a payment with no reference is "maybe recorded"; 
     Object.assign({}, PE_ITEM, { ref: '5550001112', payee: 'MCDO 474', date: '2026-10-16', total: 371, principal: 371 })];
   const v = peCard({ personal: { items, notes: '' } }).v.personal.items;
   deq(v.map(x => [x.state, x.selected]), [['maybe_duplicate', false], ['new', true]]);
+});
+
+test('LK1 chat looks up Canvas projects: one search per name word, matches go to GPT, the prompt never says no access; a failed search is said plainly', () => {
+  const SEL = { project_id: 'S-12345678AB', name: 'AMI - Selecta Merchandising Installation', account: 'AMI Group', date: '11/15/2026', status: 'For Client Awarding' };
+  const HAL = { project_id: 'S-22345678AB', name: 'AMI Group Customized Halloween Gift Boxes', account: 'AMI Group', date: '10/31/2026', status: 'For Production Start' };
+  const t = sandbox({ search: { ami: { projects: [SEL, HAL], total: 2 }, selecta: { projects: [SEL], total: 1 } } });
+  t.ctx.cueSend('lookup AMI Group - Selecta project');
+  deq(t.log.search, ['ami', 'selecta']); assert.strictEqual(t.log.gpt.length, 1);
+  const inp = t.log.gpt[0].input;
+  assert.ok(/Canvas projects: S-12345678AB \| AMI - Selecta/.test(inp), 'Selecta passed to GPT'); assert.ok(!/Halloween/.test(inp), 'one-word match dropped');
+  assert.ok(/CAN look up Canvas projects/.test(t.log.gpt[0].instructions) && !/cannot change Canvas, look up/.test(t.log.gpt[0].instructions));
+  const u = sandbox({ searchFail: true }); u.ctx.cueSend('what is the status of Selecta');
+  assert.ok(/Canvas search failed/.test(u.log.gpt[0].input));
+  const w = sandbox(); w.ctx.cueSend('find Zebra');
+  assert.ok(/none matched "zebra"/.test(w.log.gpt[0].input));
+});
+
+test('LK2 "run full project intake" stays an intake even with a Canvas name match, with a note; change search never uses the client name alone', () => {
+  const t = sandbox({ similar: JBL });
+  const id = t.ctx.cueSend('New project intake. JBL wants new mats, 3m x 2m. Run full project intake now.').request_id, v = t.ctx.cueRun(id);
+  assert.notStrictEqual(v.kind, 'change'); assert.ok(t.log.claude.length >= 1, 'costed');
+  assert.ok((v.notes || []).some(n => /Canvas already has JBL Launch/.test(n)), JSON.stringify(v.notes));
+  const u = sandbox({ similar: JBL, read: CHANGE_READ }), w = u.ctx.cueRun(u.ctx.cueSend('Start intake: JBL mats, 3m x 2m', [], 'intake').request_id);
+  assert.notStrictEqual(w.kind, 'change', 'Start intake wins even when GPT reads a change');
 });
 
 let pass = 0;

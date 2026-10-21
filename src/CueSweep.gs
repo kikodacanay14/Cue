@@ -385,7 +385,7 @@ function cueSweepDoneLine_(s) {
   cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
 }
 
-/** Before 09:00: Kiko changes his mind. The emails stay in Gmail Drafts; nothing is sent. */
+/** Before 09:00: Kiko changes plans. The emails stay in Gmail Drafts; nothing is sent. */
 function cueSweepCancel(id) {
   cueOwner_();
   const s = cueLocked_(() => {

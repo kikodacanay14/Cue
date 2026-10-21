@@ -179,7 +179,10 @@ function cueIntakeCost_(s, save) {
   if (s.reqs.length) look.push(['intake_evidence', { requirements: s.reqs.map(r => ({ key: r.key, search_terms: r.search_terms, category: r.category, description: r.description })) }]);
   const got = cueBridgeAll_(s, look);   // both at once: the duplicate check, and the evidence costing needs if it is new
   s.similar = (got[0] || []).slice(0, 5);
-  if (!s.as_new && (s.similar.length || s.said_change)) return cueChangeStart_(s);
+  // Kiko 08:37Z: "run full project intake" means an intake, even when Canvas has a project with that name (an earlier attempt).
+  const full = /\b(full|run|redo|re-?run|start|begin|do)\b[^.\n]{0,20}\bintake\b/i.test(String(s.text || ''));   // Kiko 08:38Z: "Start intake" too
+  if (full && s.similar.length) s.notes.push('Canvas already has ' + s.similar.map(x => x.name + ' (' + (x.date || 'no date') + ', ' + (x.status || 'no status') + ')').join('; ') + '. You asked for a full intake, so this runs as a new intake; reject it if it duplicates that project.');
+  if (!s.as_new && !full && (s.similar.length || s.said_change)) return cueChangeStart_(s);
   if (!s.reqs.length) throw new Error('GPT found no requirements in this message. Add what the client needs and send it again.');
   const ev = got[1] || {}, E = k => ev[k] || { owned: [], ran: {}, quotes: [], stats: null, bse: { packages: [], items: [] }, suppliers: [] };
   const priced = k => { const v = E(k), b = v.bse || {}; return (b.packages || []).length || (b.items || []).length || (v.quotes || []).length || (v.owned || []).length; };

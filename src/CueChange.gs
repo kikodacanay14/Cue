@@ -96,7 +96,10 @@ function cueChangeFiles_(s) {
 
 /** Stage "Finding past RFQs": Kiko's sent RFQ emails that mention the project, newest message per thread. */
 function cueChangeFind_(s) {
-  const c = s.change, terms = [c.match && c.match.name, c.match && c.match.account, c.project].concat(c.search_terms || []).map(cueTerm_).filter((t, i, a) => t && a.indexOf(t) === i).slice(0, 4);
+  // Kiko 08:37Z: RFQs for other AMI projects kept showing up. Search by the project's own name only, never the client's name alone.
+  const c = s.change, acct = cueWords_([c.match && c.match.account, s.x && s.x.client && s.x.client.company].join(' '));
+  const terms = [c.match && c.match.name, c.project].concat(c.search_terms || []).map(cueTerm_)
+    .filter((t, i, a) => t && a.indexOf(t) === i && (i === 0 || cueWords_(t).some(w => acct.indexOf(w) < 0))).slice(0, 4);   // the full project name always counts
   if (!terms.length) throw new Error('GPT could not tell which project changed. Say the client or project name and send it again.');
   const q = 'in:sent newer_than:1y (RFQ OR RFQs OR quotation OR quote OR requote) (' + terms.map(t => '"' + t + '"').join(' OR ') + ')';
   const list = cueGmail_('/messages?maxResults=50&q=' + encodeURIComponent(q)).messages || [];
