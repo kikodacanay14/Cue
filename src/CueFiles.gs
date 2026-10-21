@@ -101,3 +101,15 @@ function cueFilesParts_(s) {
 function cueGoogleWhy_(res) {
   try { const e = JSON.parse(res.getContentText()).error; return e && e.message ? ': ' + String(e.message).slice(0, 200) : ''; } catch (x) { return ''; }
 }
+
+/** PC test 17:42Z: a pasted screenshot (image.png) had no Drive thumbnail yet, so the viewer fell back to Drive's own preview with
+ * zoom and rotate off, and the card showed black. The page asks for the image itself instead: one of Cue's own uploads, 8 MB at most. */
+function cueFileData(id) {
+  cueOwner_();
+  id = String(id || '');
+  if (!/^[\w-]{10,}$/.test(id)) throw new Error('No such file.');
+  const meta = cueDrive_('get', CUE_DRIVE_ + '/' + id + '?fields=mimeType,size');
+  if (CUE_FILE_TYPES_[meta.mimeType] !== 'image') throw new Error('Not an image.');
+  if (Number(meta.size) > 8 * 1024 * 1024) throw new Error('Too big to show here.');
+  return 'data:' + meta.mimeType + ';base64,' + Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + id + '?alt=media', { raw: true }).getContent());
+}

@@ -3030,6 +3030,35 @@ test('SK2 "write a plan for …" is answered in chat with the Write a plan proce
   deq(t.ctx.cuePlanAsk_('brainstorm launch ideas'), true);
 });
 
+test('TC14 PC test 17:42Z + Personality: a vague message that GPT only answered still asks; the picked voice goes in the chat call only and can be edited or switched off; Settings shows processes and connections, never tokens', () => {
+  const t = sandbox({ talk: { reply: 'No Canvas project matched AMI Group, say the name or S-ID.', looks_like_inquiry: false, sure: true, choices: [] } });
+  t.ctx.cueSend('LED wall for AMI Group', [], '');
+  const q = askLine(t); assert.ok(q && /:intake,vendor,chat$/.test(q[3]) && !/No Canvas project/.test(q[2]), q && q[2]);
+  assert.ok(/Your voice in the reply field only.*Warm and witty/.test(t.log.gpt[0].instructions), 'default voice is the one Kiko picked');
+  let v = t.ctx.cueMyRules(); deq([v.voice.row, v.voice.on, /^Warm and witty/.test(v.voice.text)], [0, true, true]);
+  assert.ok(!v.rows.some(x => x.topic === 'personality'));
+  v = t.ctx.cueMyRuleSave({ voice: 'Crisp chief of staff: numbered, no small talk.', on: true });
+  deq([v.voice.on, v.voice.text, v.rows.length], [true, 'Crisp chief of staff: numbered, no small talk.', 0]);
+  t.ctx.cueSend('hello there', [], ''); assert.ok(/Crisp chief of staff/.test(t.log.gpt[1].instructions) && !/Warm and witty/.test(t.log.gpt[1].instructions));
+  assert.ok(!/Crisp chief/.test(t.ctx.cueTeachFor_('chief of staff numbered')), 'the voice is not a memory fact for other calls');
+  t.ctx.cueMyRuleSave({ voice: 'Crisp chief of staff: numbered, no small talk.', on: false });
+  t.ctx.cueSend('hello again', [], ''); assert.ok(!/Your voice in the reply field/.test(t.log.gpt[2].instructions), 'switched off: no voice');
+  deq(t.tabs.Memory.rows.filter(r => r[1] === 'personality').length, 1, 'one row, updated in place');
+  const st = sandbox({ props: { CUE_TICKTICK_TOKEN: 'secret-tt', CUE_HUBSPOT_TOKEN: '' } }).ctx.cueSettings();
+  deq([st.ticktick, st.hubspot, JSON.stringify(st).indexOf('secret-tt')], [true, false, -1]);
+  assert.throws(() => t.ctx.cueFileData('../x'), /No such file/);
+});
+
+test('SK3 a long written plan reaches the chat whole (no cut at 3,000), with room to finish (4,000 output tokens on plan asks only)', () => {
+  const plan = 'Plan for onboarding a new freelancer.\n' + Array.from({ length: 60 }, (_, i) => (i + 1) + '. Step ' + (i + 1) + ': I\'ll make Gmail drafts and a checklist for this part.').join('\n');
+  const t = sandbox({ talk: { reply: plan, looks_like_inquiry: false } });
+  t.ctx.cueSend('write a plan for onboarding a new freelancer', [], '');
+  assert.ok(plan.length > 3000); deq(t.tabs.Chat.rows.pop()[2], plan);
+  deq(t.log.gpt[0].max_output_tokens, 4000);
+  t.ctx.cueSend('how are you?', [], ''); deq(t.log.gpt[1].max_output_tokens, 1500, 'small talk keeps the small limit');
+  const cut = t.ctx.cueReplyCut_('One. Two. ' + 'x'.repeat(50), 14); deq(cut, 'One. Two.\n(cut short)');
+});
+
 /* ---------- tutor mode (CueTutor.gs, specs/tutor-mode.md option C, Kiko 17:46Z) ---------- */
 const PLAN = (v, pattern) => Object.assign(VTALK(v), { sure: true, choices: [], plan: { reading: 'Supplier search for an LED wall in Cebu', pattern: pattern || 'find suppliers for <item>',
   steps: [{ do: 'List BSE suppliers for LED walls', who: 'Canvas' }, { do: 'Compare them', who: 'Claude' }] } });
@@ -3131,6 +3160,7 @@ test('TU6 an email never graduates; My rules lists the learned patterns and Demo
   v = t.ctx.cueMyPatternDemote('Supplier search: find suppliers for <item>');
   deq(v.patterns.map(x => x.graduated), [false, false]);
   assert.throws(() => t.ctx.cueMyPatternDemote('nope'), /not in the Patterns tab/);
+  deq([t.ctx.cueSettings().tutor, t.ctx.cueTutorSet(false).tutor, t.props.CUE_TUTOR], [true, false, 'off'], 'the Settings switch');
   const u = sandbox({ talk: VTALK() }); const out = u.ctx.cueSend('Find LED wall suppliers in Cebu for 14 Nov', [], '');
   deq([!!out.request_id, chatCalls(u), u.log.plans || 0], [true, 1, 0], 'switch off: GPT routes and it starts at once, as before');
 });

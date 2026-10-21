@@ -214,3 +214,10 @@ function cueMyPatternDemote(key) {
   cuePatReset_(String(key));
   return cueMyRules();
 }
+
+/** The Tutor mode switch on the Settings page (Kiko 17:44Z: all settings live there). Writes Script Property CUE_TUTOR. */
+function cueTutorSet(on) {
+  cueOwner_();
+  PropertiesService.getScriptProperties().setProperty('CUE_TUTOR', on ? 'on' : 'off');
+  return cueSettings();
+}

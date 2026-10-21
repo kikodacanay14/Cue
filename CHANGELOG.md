@@ -13,8 +13,31 @@ Kiko 17:39Z-17:46Z: "rather than it doing things right away... it asks first Cla
 - My rules now has a "Learned patterns" section: each pattern, its Go count, and Demote for the graduated ones. Store: the new Patterns tab.
 - In tutor mode, the 1.19.1 rule (a short "LED wall for AMI Group" asks intake or supplier search) is replaced by the plan card.
 - Not changed in 1.20: explicit commands ("remember:", "learn my …", "connect ticktick"), replies to a phase card, and the keyword shortcuts. Those are money questions, personal expense, supplier registration, HubSpot clean-up and re-cost, and each still shows its own approval card before anything is saved.
-- Switch: Script Property CUE_TUTOR=off goes back to the GPT chat call that acts at once. CUE_TUTOR_EFFORT (default low) sets Claude's effort for the plan call.
-- Tests: 222 of 222 pass (new TU1 to TU6).
+- Switch: Settings > Tutor mode ("Show me the plan before Cue starts anything", Script Property CUE_TUTOR). Off goes back to the GPT chat call that acts at once. CUE_TUTOR_EFFORT (default low) sets Claude's effort for the plan call.
+- Tests: 224 of 224 pass (new TU1 to TU6), on top of 1.19.4.
+
+## Cue 1.19.4: long chat replies are not cut (not deployed)
+
+PC retest of 1.19.3 (17:52Z): the "Write a plan" reply stopped mid-sentence ("I'll make Gmail drafts and a").
+
+- Cause: Cue cut every chat reply at 3,000 characters (and the chat log at 5,000).
+- Chat replies now keep up to 8,000 characters, and the chat log up to 9,000. Anything longer ends at the last full sentence with "(cut short)", never mid-word.
+- Plan, checklist, brainstorm and analysis asks get up to 4,000 output tokens, so the model can finish. Other chat stays at 1,500.
+- Tests: 218 of 218 pass (new SK3).
+
+## Cue 1.19.3: PC regression fixes, Personality, Settings page, card minimize (not deployed)
+
+PC test of 1.19.1 (21 Oct 17:42Z), and Kiko's asks at 17:29Z, 17:42Z and 17:44Z.
+
+- "LED wall for AMI Group" shows Intake / Supplier search / Just chat even when the chat call only answered (for example "No Canvas project matched").
+- Thread ✕ closes the pane on a wide screen too. ☰ Threads opens it again.
+- Chat order: when Cue answers a main-chat message in an older thread, the "Answered in the … thread" line now shows under the message it answers, not only at the thread's first line.
+- Viewer: a fresh screenshot (image.png) with no Drive thumbnail yet is fetched from Cue itself, so zoom and rotate work, and file-card thumbnails no longer stay black. Transparent images sit on white.
+- Chat bubbles: file names under a main-chat message are links again and open the viewer.
+- A thread's task card can be minimized. It becomes a bar on top of the reply box showing the title and "Needs you"; tap the bar to open it again. This is remembered per thread.
+- Personality: Kiko picked "Warm and witty". It goes only into the chat call; cards, errors and emails stay plain. Edit it or switch it off at the top of My rules. It is stored as one Memory row, Topic "personality".
+- Settings page: the K avatar at the top right, or ⋯ in the Threads pane, opens it. It has Memory, rules and personality; Processes; Chaser rules; Connections (TickTick, HubSpot, Google: shows only whether each is set, never a token); and Auto-send (all off). My rules and Chaser rules moved here from the Threads pane.
+- Tests: 217 of 217 pass (new TC14).
 
 ## Cue 1.19.2: TickTick card always shows; "write a plan" is chat (not deployed)
 

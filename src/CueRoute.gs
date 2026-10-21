@@ -15,7 +15,7 @@ const CUE_ROUTE_MAX_ = { examples: 5, phrase: 300, rows: 300 };
 
 /* ---------- short, vague messages (PC test 17:30Z) ---------- */
 // No verb, question or command word: "LED wall", "LED wall for AMI Group". Could be a client's ask (intake) or a supplier search.
-const CUE_ROUTE_CLEAR_RE_ = /\?|\b(find|search|look|source|sourcing|compare|quote|quotation|rfq|rfqs|supplier|suppliers|vendor|vendors|intake|inquiry|email|reply|send|draft|ready|readiness|pipeline|ar|ars|receipt|receipts|map|workflow|remember|cost|costing|price|prices|how|what|why|when|who|where|is|are|can|could|would|please|pls|start|run|redo|check|show|status|update|hi|hello|thanks|thank|ok|okay|yes|no|good|morning|night)\b/i;
+const CUE_ROUTE_CLEAR_RE_ = /\?|\b(find|search|look|source|sourcing|compare|quote|quotation|rfq|rfqs|supplier|suppliers|vendor|vendors|intake|inquiry|email|reply|send|draft|ready|readiness|pipeline|ar|ars|receipt|receipts|map|workflow|remember|cost|costing|price|prices|how|what|why|when|who|where|is|are|can|could|would|please|pls|start|run|redo|check|show|status|update|hi|hello|thanks|thank|ok|okay|yes|no|good|morning|night|add|remind|todo|to-do|ticktick|task|tasks|my|me|i|connect|learn)\b/i;
 function cueRouteVague_(t) {
   const s = String(t || '').trim(), words = s.split(/\s+/).filter(Boolean);
   return words.length >= 1 && words.length <= 6 && /\p{L}/u.test(s) && !CUE_ROUTE_CLEAR_RE_.test(s);

@@ -142,7 +142,7 @@ function cueSave_(sh, row, s) {
     new Date(cueNow_())].concat(parts)]);
 }
 function cueChat_(who, text, id) {
-  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 5000), id || '']); } catch (e) { console.error('Chat log: ' + e); }
+  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || '']); } catch (e) { console.error('Chat log: ' + e); }
 }
 
 /* ---------- what the page calls ---------- */
@@ -379,6 +379,13 @@ function cuePlanAsk_(t, force) {
   return force !== 'workflow' && /\b(plan|checklist|to-?do list|brainstorm|analy[sz]e|analysis|roadmap|timeline)\b/i.test(String(t || ''))
     && !/\b(map|zap|zapier|workflow|automat\w*)\b/i.test(String(t || ''));
 }
+/** PC test 17:52Z: a written plan was cut mid-sentence at 3,000 characters. Long replies are kept whole up to n, and anything
+ * longer ends at the last full sentence with "(cut short)", never mid-word. */
+function cueReplyCut_(t, n) {
+  if (t.length <= n) return t;
+  const head = t.slice(0, n), end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('.\n'), head.lastIndexOf('\n'));
+  return (end > n / 2 ? head.slice(0, end + 1) : head).trim() + '\n(cut short)';
+}
 /** What the chat call filled in for each command, so a button can start it with no new AI call. */
 function cueTalkCands_(d, t, force) {
   return { intake: String(d.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(d.readiness || '').trim(),
@@ -411,7 +418,7 @@ function cueTalk_(t, ref, force, opt) {
   const found = cached ? 'none searched (saved plan)' : cueLookup_(s, t), ex = cueRouteExamples_(t);
   const schema = tutorOn ? Object.assign({}, CUE_TALK_SCHEMA_, { required: CUE_TALK_SCHEMA_.required.concat(['plan']),
     properties: Object.assign({}, CUE_TALK_SCHEMA_.properties, { plan: CUE_TUTOR_PLAN_SCHEMA_ }) }) : CUE_TALK_SCHEMA_;
-  const r = replay ? { ok: true, data: replay } : cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema, maxTokens: tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
+  const r = replay ? { ok: true, data: replay } : cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema, maxTokens: cuePlanAsk_(t, force) ? 4000 : tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
@@ -421,7 +428,7 @@ function cueTalk_(t, ref, force, opt) {
   const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
   const lookupOnly = /\b(look\s*up|lookup|find|search|check|show|where\s+is|what\s+is|status)\b/i.test(t) && !/\b(run|start|redo|re-?run|begin|cost|requote|intake|send|draft|proceed|go ahead)\b/i.test(t);
-  let reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
+  let reply = r.ok ? cueReplyCut_(String(r.data.reply || '').trim(), 8000) : 'I could not answer just now (' + r.error + ').';
   if (r.ok && lookupOnly && (r.data.start_intake || /\b(i('ve| have)? started|i'?m starting|starting the|running (the )?costing|i'?ll (start|run))\b/i.test(reply))) {
     r.data.start_intake = '';
     reply = /^none|failed/.test(found) ? 'I could not find that project in Canvas (' + found + '). Try another name or the project ID.'
@@ -436,9 +443,10 @@ function cueTalk_(t, ref, force, opt) {
   // Teach Cue add-on (Kiko 17:00Z): not sure which command, or two fit about equally: start nothing and ask. Never guess.
   let choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
   // PC test 17:30Z: "LED wall for AMI Group" started a supplier search, and a bare "LED wall" re-ran one in an open thread. A short
-  // item-and-name message in the main chat that the call would act on always asks project intake or supplier search, whatever GPT says.
-  // Tutor mode shows its plan card for these instead.
-  if (r.ok && !force && !tutorOn && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t) && (r.data.start_intake || (r.data.vendor && r.data.vendor.job) || pick || r.data.readiness || r.data.start_ar || (r.data.email && r.data.email.job)))
+  // item-and-name message in the main chat always asks project intake or supplier search, whatever GPT says.
+  // PC test 17:42Z: also when the call only answered (e.g. "no Canvas project matched AMI Group"): a vague message always asks.
+  // Tutor mode shows its plan card (or just answers) instead.
+  if (r.ok && !force && !tutorOn && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
     { choices = ['intake', 'vendor']; reply = ''; }
   if (choices.some(c => c !== 'chat')) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
