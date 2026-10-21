@@ -188,24 +188,36 @@ function cuePhApprove_(id, edits) {
   const L = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
+    if (L.s.busy_until > cueNow_()) return Object.assign(L, { busy: true });   // a second tap while the first is saving: not an error
     if (L.s.status !== 'Needs you' || [1, 2, 3].indexOf(L.s.phase) < 0) throw new Error('This intake is ' + L.s.status + (L.s.phase ? ' (phase ' + L.s.phase + ')' : '') + ', not waiting for that.');
-    if (L.s.busy_until > cueNow_()) throw new Error('Cue is already saving this phase.');
     L.s.busy_until = cueNow_() + CUE_LEASE_MS_; cueSave_(L.sh, L.row, L.s);
     return L;
   });
-  const s = L.s, save = () => cueSave_(L.sh, L.row, s), t0 = cueNow_();
+  if (L.busy) return L.s;
+  const s = L.s, save = () => cueSave_(L.sh, L.row, s), t0 = cueNow_(), stamp = s.updated;
   try {
+    delete s.error;
     if (s.phase === 1) cuePhProject_(s, edits || {});
     else if (s.phase === 2) cuePhLines_(s, edits || {});
     else cuePhPrices_(s, edits || {});
   } catch (e) {
-    s.error = cueStr_((e && e.message) || e, 400);
-    delete s.busy_until; s.work_ms = (s.work_ms || 0) + (cueNow_() - t0); save();
+    // Live 15:43Z: Canvas answers "request is Adding project" when an earlier tap is still saving that phase. That tap
+    // finishes the card; this one only says so. Never save this tap's copy over a newer one: it would undo the phase.
+    const m = cueStr_((e && e.message) || e, 400), still = /\(Blocked\): request is Adding (project|lines)\b/.test(m);
+    cueLocked_(() => {
+      const N = cueLoad_(id); if (!N) return;
+      const t = N.s.updated === stamp ? s : N.s;
+      if (t.phase === s.phase && t.status === 'Needs you') t.error = still ? CUE_PH_STILL_ : m;
+      if (t === s || t.busy_until === s.busy_until) delete t.busy_until;
+      t.work_ms = (t.work_ms || 0) + (cueNow_() - t0); cueSave_(N.sh, N.row, t);
+    });
+    if (still) return cueLoad_(id).s;
     throw e;
   }
   delete s.busy_until; s.work_ms = (s.work_ms || 0) + (cueNow_() - t0); s.approved_at = new Date(cueNow_()).toISOString(); save();
   return s.status === 'Working' ? cueRunLeased_(id) : s;
 }
+const CUE_PH_STILL_ = 'Canvas is still saving this from your earlier tap. The card moves on when it finishes; tapping again never adds it twice.';
 
 /** Phase 1 approve: Kiko's edits, then Canvas adds the project (once; a repeat returns the same project). */
 function cuePhProject_(s, edits) {

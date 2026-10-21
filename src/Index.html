@@ -247,6 +247,7 @@
 <div class="composer" id="composer" data-cue-app="1">
   <div class="in">
     <div class="files" id="files" aria-live="polite"></div>
+    <div class="small muted" id="hint" role="status" hidden></div>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
       <button class="btn ghost attach" id="snap" hidden title="Snap the page you were looking at (Alt+Shift+S works too)" aria-label="Snap the page you were looking at">📷</button>
@@ -339,7 +340,8 @@
     d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
     d.returnValue = ''; d.showModal(); if (placeholder !== null) $('ask-in').focus(); else $('ask-ok').focus();
   }
-  function alertErr(e) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m); }
+  // Kiko 15:43Z: an error about a task goes to that task's thread, never the main chat.
+  function alertErr(e, ref) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m, ref); }
   // Google access (Kiko 05:32Z): one button that checks Cue's access and, if some is missing, resets it so Google asks again.
   var ACCESS_RE = /access yet|insufficient authentication scopes/i, accessNeeded = false, accessUrl = '';
   function accessHtml() {
@@ -352,7 +354,9 @@
   // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
   // while Cue was busy, and Enter did nothing while the last send was still running).
   var outbox = [];
-  function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: '', time: new Date().toISOString() }); renderChat(); }
+  function addLocal(who, text, ref) { outbox.push({ who: who, text: text, request_id: ref || '', time: new Date().toISOString() }); renderChat(); }
+  var hintT = 0;
+  function hint(text) { var h = $('hint'); h.textContent = text; h.hidden = false; clearTimeout(hintT); hintT = setTimeout(function () { h.hidden = true; }, 12000); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
   // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, each opened thread
@@ -645,7 +649,7 @@
     if (e.source !== window || !e.data) return;
     if (e.data.cueBubble) { bubble = true; $('snap').hidden = false; $('chip-area').hidden = false; }
     var d = e.data.cueDrop; if (!d) return;
-    if (d.error) return addLocal('Cue', String(d.error));
+    if (d.error) return hint(String(d.error));   // Kiko 15:43Z: a snap note is not a chat message
     var from = (d.title || d.url) ? String(d.title || 'a page') + (d.url ? ' (' + String(d.url) + ')' : '') : '';
     if (d.file && d.file.data) {
       var bin = atob(String(d.file.data)), bytes = new Uint8Array(bin.length);
@@ -691,8 +695,8 @@
       if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(swap); }
       refresh(swap);
       running[r.request_id] = 1;
-      call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
-    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e); });
+      call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
+    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
   }
   function back(mine, t) { var b = mine && mine.box; if (b && !b.value) b.value = t; }
   // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
@@ -701,7 +705,7 @@
     if (bad.length) { unbox(mine); back(mine, t); return addLocal('Cue', bad[0].name + ': for an expense, attach photos or PDFs.'); }
     var dots = { who: 'Cue', text: 'Reading the expense…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueExpense', [t, files, ref], function (r) { held[r.id] = files; refresh(function () { unbox(mine, dots); }); },
-      function (e) { unbox(mine, dots); back(mine, t); alertErr(e); });
+      function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
   }
   // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
   function upload(t, files, mode, ref, mine) {
@@ -1615,7 +1619,8 @@
     if (busy) h += '<div class="small" style="margin-top:8px">✱ ' + esc(r.stage) + '…</div><div class="bar"><i style="width:' + Math.round((Math.max(ph, 1) - 0.5) / 4 * 100) + '%"></i></div>';
     if (r.status === 'Rejected') h += '<div class="small" style="margin-top:8px">' + esc((P.rejected && P.rejected.why) || 'Rejected') + '.' + (cv.project_id ? ' The project stays in Canvas.' : ' Nothing was written to Canvas.') + '</div>';
     if (r.status === 'Failed') h += '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
-    var btn = function (act, label, cls, extra) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '"' + (extra || '') + '>' + label + '</button>'; };
+    var saving = !!running[r.id];   // live 15:43Z: the poll redraws the card, so the tapped button must stay off until Canvas answers
+    var btn = function (act, label, cls, extra) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '"' + (extra || '') + (saving ? ' disabled' : '') + '>' + (saving && act === 'approve' ? 'Saving…' : label) + '</button>'; };
     var editBtn = ed ? btn('cancel-edit', 'Cancel edits', 'ghost') : btn('edit', 'Edit', 'ghost');
     if (waiting && ph === 1) {
       var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
@@ -1854,7 +1859,7 @@
           return pk.click(); }
         if (act === 'approve-expense') { var xe = collectExpense(id, scope); xe.files = held[id] || [];
           b.disabled = true; running[id] = 1; schedule();
-          return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e); refresh(); }); }
+          return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'ph-add-row') { phAdd[id] = (phAdd[id] || 0) + 1; return render(); }
@@ -1862,7 +1867,7 @@
         if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
         if (act === 'sup-rm-contact') { var row = b.closest('[data-sc]'); if (row) row.parentNode.removeChild(row); return; }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
-        var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
+        var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e, id); refresh(); };
         if (act === 'hs-approve') {
           var hx = { tick: [], keep: {}, values: {} }, hr = (state.requests.filter(function (q) { return q.id === id; })[0] || {}).hs || { groups: [] }, hm = 0;
           scope.querySelectorAll('[data-hck="' + id + '"]').forEach(function (x) { if (x.checked) hx.tick.push(x.value); });

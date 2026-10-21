@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.15.2: one save per tap; task errors stay in the thread (not deployed)
+
+Kiko's live test at 15:43Z: "Approve, add to Canvas" showed "Canvas refused intake_add_project (Blocked): request is Adding project" twice in the main chat, then the same for intake_add_lines. Canvas had in fact added the project (S-11267432UN, 15:42:57Z) and the lines (15:45:38Z) on the first tap; the AI Queue ledger shows both.
+
+- Cause: the card is redrawn every few seconds, so the tapped button came back on while Canvas was still saving (30 to 100 seconds). The later taps also got past Cue's "already saving" lease, because sheet writes were not flushed before the lock was released.
+- The lock now flushes before it lets go, so a second tap sees the lease and is ignored without an error.
+- The tapped button stays off and reads "Saving…" until Canvas answers.
+- If Canvas says an earlier tap is still saving, the card says so. That is not an error, and nothing is saved over the newer copy of the card.
+- A failed tap never saves its stale copy over a newer one, so a phase can no longer be undone by a late error.
+- Errors about a task go to that task's thread, not the main chat. The Chrome snap note shows under the chat box for 12 seconds and is not a chat message.
+- Tests: 191 of 191 pass (new PH10).
+
 ## File names open in the viewer; version label (not deployed)
 
 Kiko's live check of 1.15 at 15:35Z: tapping image.jpg in a chat bubble, or on the Project intake card, did nothing.

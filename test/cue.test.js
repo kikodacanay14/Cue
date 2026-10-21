@@ -217,6 +217,7 @@ function sandbox(o = {}) {
       // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
       if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);
         if (o.projectFail) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: Canvas busy' });
+        if (o.projectStill && log.phProject.length <= o.projectStill) return resp(200, { ok: false, status: 'Blocked', error: 'request is Adding project' });
         const e = body.args.project.event, tbc = !e.date;
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, replayed: log.phProject.length > 1, project_id: 'S-99900001ZZ', project_number: '052', name: e.name + (tbc ? ' (Date TBC)' : ''),
           date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [] } }); }
@@ -358,7 +359,7 @@ function sandbox(o = {}) {
   const ctx = {
     console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; } }) },
-    SpreadsheetApp: { openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
+    SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
     ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
@@ -2130,7 +2131,7 @@ function peBox(o = {}) {
   const tr = gridSheet([['Request ID', 'CONFIRMATION NUMBER', 'PAID AMOUNT', 'Merchant Reference', 'Invoice Number'], ['AP-TEN-ANN-1', 'BN-555666777', 27450, '', '']]);
   const pr = gridSheet([['Amount', 'Request ID', 'Payee'], [1580, 'AP-HOS-1', 'Thirst GK Mobile Beverage Services']]);
   const cue = t.ctx.SpreadsheetApp.openById;
-  t.ctx.SpreadsheetApp = { CopyPasteType: { PASTE_FORMAT: 'PASTE_FORMAT', PASTE_FORMULA: 'PASTE_FORMULA' },
+  t.ctx.SpreadsheetApp = { flush: () => {}, CopyPasteType: { PASTE_FORMAT: 'PASTE_FORMAT', PASTE_FORMULA: 'PASTE_FORMULA' },
     openById: id => id === '1w1W1KOwsDBXynNv9-_AFhvEyxqdyffgT4PVBGGSI_rQ' ? { getSheetByName: n => (n === 'Personal Expense 2' ? pe : null) }
       : id === '1Z9n6mrG_0kjzafkTxE_F9GzqU3IlQ0P388wV3wwny74' ? (o.bseFails ? (() => { throw new Error('no access'); })() : { getSheetByName: n => ({ Transfers: tr, 'Payment Request': pr })[n] || null }) : cue(id) };
   return Object.assign(t, { pe });
@@ -2644,6 +2645,19 @@ test('PH9 live 15:34Z: a second message about the same project goes into its wai
   const v = t.ctx.cueRun(t.id);
   deq([v.ph.phase, v.ph.x.client.contact, v.ph.x.event.venue], [1, 'Ana Reyes', 'Shangri-La The Fort, Grand Ballroom']);
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + t.id && /added it to its card/.test(x[2])));
+});
+
+test('PH10 live 15:43Z: a tap while the phase is saving is not an error; Canvas still saving shows on the card, not the main chat, and the next tap goes on', () => {
+  const t = phStart({ projectStill: 1 }), chat0 = t.tabs.Chat.rows.length;
+  const v = t.ctx.cueApprove(t.id, {});
+  deq([v.ph.phase, v.status, /still saving this from your earlier tap/.test(v.error)], [1, 'Needs you', true]);
+  deq(t.tabs.Chat.rows.length, chat0);
+  const L = t.ctx.cueLoad_(t.id); L.s.busy_until = Date.now() + 60000; t.ctx.cueSave_(L.sh, L.row, L.s);
+  const n = t.log.phProject.length, w = t.ctx.cueApprove(t.id, {});
+  deq([t.log.phProject.length, w.ph.phase], [n, 1]);
+  const M = t.ctx.cueLoad_(t.id); delete M.s.busy_until; t.ctx.cueSave_(M.sh, M.row, M.s);
+  const x = t.ctx.cueApprove(t.id, {});
+  deq([x.ph.phase, x.canvas.project_id, x.error || ''], [2, 'S-99900001ZZ', '']);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

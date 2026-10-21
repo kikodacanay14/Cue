@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.15.1';
+const CUE_VERSION_ = 'Cue 1.15.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -115,7 +115,8 @@ function cueSheet_(tab) {
 }
 function cueLocked_(fn) {
   const l = LockService.getScriptLock(); l.waitLock(20000);
-  try { return fn(); } finally { l.releaseLock(); }
+  // Writes are batched until a flush: without it the next run can read the old row and miss a lease (live 15:43Z, three saves for one tap).
+  try { return fn(); } finally { SpreadsheetApp.flush(); l.releaseLock(); }
 }
 function cueRows_(sh) { const n = sh.getLastRow() - 1; return n > 0 ? sh.getRange(2, 1, n, CUE_TABS_.Requests.length).getValues() : []; }
 
