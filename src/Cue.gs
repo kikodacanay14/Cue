@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.1';
+const CUE_VERSION_ = 'Cue 1.19.2';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -309,7 +309,8 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
         new_options: { type: 'boolean', description: 'true when Kiko asks for new or other suppliers beyond BSE\'s own list' },
         details: { type: 'string', description: 'Specs, quantities, dates and place exactly as Kiko gave them, for RFQs; "" when none' } } },
     workflow: { type: 'object', additionalProperties: false, required: ['job', 'name'],
-      description: 'job is "" unless Kiko asks to map, design or describe a workflow, process or Zap as steps (including a pasted Zap).',
+      description: 'job is "" unless Kiko asks to map, design or describe a workflow, process or Zap as steps (including a pasted Zap). '
+        + 'Not when Kiko asks Cue to write a plan, a checklist or a to-do list, to brainstorm, or to analyze something: answer those in reply.',
       properties: { job: { type: 'string', enum: ['', 'map'] }, name: { type: 'string', description: 'A short name for the workflow, e.g. "RFQ chasers", or ""' } } },
     email: { type: 'object', additionalProperties: false, required: ['job', 'to', 'about', 'audience', 'project'],
       description: 'job is "" unless Kiko asks Cue to write, draft or send one email to someone, or to reply to someone\'s email.',
@@ -346,7 +347,8 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'exports them (ChatGPT: Settings > Data controls > Export data) and types "learn from chats"; Cue then asks for the zip. Cue cannot read '
   + 'Kiko\'s ChatGPT history by itself. TickTick: when Kiko asks to add a to-do to TickTick or the to-do list, fill todo with job "add" and '
   + 'reply in one short line; Cue shows Add or Skip and creates it only when Kiko taps Add. When Kiko asks what is on TickTick, set job "list". '
-  + 'To connect TickTick, Kiko types "connect ticktick". Cue also drafts single emails: when Kiko asks to email, write to, '
+  + 'To connect TickTick, Kiko types "connect ticktick". When Kiko asks Cue to write a plan, a checklist, brainstorm or analyze, write it '
+  + 'in reply (short headings and numbered steps); that is chat, not a workflow map. Cue also drafts single emails: when Kiko asks to email, write to, '
   + 'message or reply to someone, fill email (new or reply, who, what to say, audience, project) and reply in one short line that you are '
   + 'drafting it in its own thread; the draft waits on a card for Kiko to edit and send. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
@@ -371,6 +373,12 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'event brief, set looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
 
 /** Small talk and questions: one GPT call with the recent chat and what is waiting on Kiko. Nothing else happens. */
+/** PC test 17:42Z: "write a plan for …" became a workflow map. Asking for a plan, checklist, brainstorm or analysis is answered in chat
+ * (the seeded Chat processes shape it); only map / Zap / workflow / automate words, or Kiko picking Workflow map, start a map. */
+function cuePlanAsk_(t, force) {
+  return force !== 'workflow' && /\b(plan|checklist|to-?do list|brainstorm|analy[sz]e|analysis|roadmap|timeline)\b/i.test(String(t || ''))
+    && !/\b(map|zap|zapier|workflow|automat\w*)\b/i.test(String(t || ''));
+}
 function cueTalk_(t, ref, force) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
@@ -419,7 +427,7 @@ function cueTalk_(t, ref, force) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
     const cands = { intake: String(r.data.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(r.data.readiness || '').trim(),
       ar: String(r.data.start_ar || '').trim(), pipeline: r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null,
-      vendor: r.data.vendor && r.data.vendor.job ? r.data.vendor : null, workflow: r.data.workflow && r.data.workflow.job === 'map' ? r.data.workflow : null,
+      vendor: r.data.vendor && r.data.vendor.job ? r.data.vendor : null, workflow: r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null,
       email: r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null };
     const keep = {}; choices.forEach(c => { if (cands[c]) keep[c] = cands[c]; });
     cueChat_('Kiko', t, ref);
@@ -458,7 +466,7 @@ function cueTalk_(t, ref, force) {
   const ar = r.ok ? cueStr_(r.data.start_ar, 200).trim() : '';
   const v = r.ok && !start && r.data.vendor && r.data.vendor.job ? r.data.vendor : null;
   const vendor = v && (String(v.item || '').trim() || (v.suppliers || []).some(x => String(x || '').trim()) || String(v.project || '').trim()) ? v : null;
-  const workflow = r.ok && !start && r.data.workflow && r.data.workflow.job === 'map' ? r.data.workflow : null;
+  const workflow = r.ok && !start && r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null;
   const email = r.ok && !start && r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null;
   const cmd = !!(ready || pipeline || ar || vendor || workflow || email);   // a command the chat call picked wins over an intake
   return { chat: true, reply, task: pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
