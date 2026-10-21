@@ -900,7 +900,8 @@
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
     var nm = function (r) { return (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
-    for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
+    // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
+    for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
