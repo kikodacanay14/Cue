@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.16: Teach Cue, memory and processes (not deployed)
+
+Kiko 16:26Z: "go build Teach Cue". Spec: canvas-integration/specs/teach-cue.md.
+
+- "learn my memory" followed by a pasted list (ChatGPT: Settings > Personalization > Manage memories) starts its own thread. One Claude call splits it into facts, tags a topic, and marks up to 5 as used in every task. Code drops repeats, facts already in the Memory tab, and anything that looks like a password, key or account number; long digit runs are masked before the text leaves Cue.
+- "learn my process" followed by pasted custom instructions, a GPT skill or a description: one Claude call writes each process as short steps with one owner each (Claude, ChatGPT, Code, Canvas, Kiko). The Process Mapper's rule check flags writes or sends with no Kiko step, Canvas writes not read back, and too many AI steps.
+- The card: tick, edit (facts, or steps as "Who: what" lines and when it applies), Approve and save, or one-tap Reject. Nothing is saved before Approve.
+- Facts go to a new Memory tab (On | Topic | Fact | Always | Saved | Request). A fact that updates an old one replaces its row. Processes go to the existing Workflows tab with a new "Use in prompts" column switched on; a re-taught process becomes the next version. Kiko edits or switches either off in the sheet.
+- Every GPT and Claude call now adds, after its own instructions: the Always facts, up to 8 facts that share words with the call's input (about 1,200 characters at most), and at most one process whose name or "when it applies" words match. No extra AI call. With no Memory tab and no process switched on, every call is exactly as before.
+- Tests: 196 of 196 pass (new TC1 to TC4).
+
 ## Cue 1.15.3: Leave blank per line; Reject on costing (not deployed)
 
 Kiko 15:48Z: "there should be an leave cost and price blank per item" and "why is there no Cancel or Reject?" on the phase 3 costing card.

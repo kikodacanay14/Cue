@@ -18,10 +18,13 @@ function cueKey_(name) {
   return k;
 }
 
-/** o = { step, system, user, schema, name, web?, maxTokens?, parts? } -> a call for cueAiAll_. parts = extra content (attachments). */
+/** Teach Cue (CueTeach.gs): Kiko's matching facts and process, added to every call's instructions. memory: false leaves them out. */
+function cueTeachAdd_(o) { return o.memory === false ? '' : cueTeachFor_(String(o.step || '') + ' ' + String(o.user || '')); }
+
+/** o = { step, system, user, schema, name, web?, maxTokens?, parts?, memory? } -> a call for cueAiAll_. parts = extra content (attachments). */
 function cueGpt_(o) {
   const model = cueProp_('OPENAI_MODEL', 'gpt-5-mini'), effort = cueProp_('CUE_GPT_REASONING', 'low');
-  const body = { model, instructions: String(o.system), input: o.parts && o.parts.length ? [{ role: 'user', content: [{ type: 'input_text', text: String(o.user) }].concat(o.parts) }] : String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
+  const body = { model, instructions: String(o.system) + cueTeachAdd_(o), input: o.parts && o.parts.length ? [{ role: 'user', content: [{ type: 'input_text', text: String(o.user) }].concat(o.parts) }] : String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
     text: { format: { type: 'json_schema', name: o.name || 'answer', strict: true, schema: o.schema } } };
   if (effort !== 'off') body.reasoning = { effort };
   if (o.web) body.tools = [{ type: cueProp_('CUE_GPT_WEB_TOOL', 'web_search') }];
@@ -45,7 +48,7 @@ function cueGptParse_(code, msg) {
  * (documents, images): after the text by default (supplier registration), before it when partsFirst (personal expense second look). */
 function cueClaude_(o) {
   const model = cueProp_('CUE_CLAUDE_MODEL', 'claude-sonnet-5-5');
-  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system), messages: [{ role: 'user', content: o.parts && o.parts.length
+  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system) + cueTeachAdd_(o), messages: [{ role: 'user', content: o.parts && o.parts.length
     ? (o.partsFirst ? o.parts.concat([{ type: 'text', text: String(o.user) }]) : [{ type: 'text', text: String(o.user) }].concat(o.parts)) : String(o.user) }],
     output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };
   return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_,
