@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.16.1: Same project? first, Cancel intake removes it from Canvas (not deployed)
+
+Kiko re-ran the Unilever intake at 16:45Z. Phase 1 failed with "is already in the Admin Directory", four times, and Cue never asked whether it was the same project.
+
+- Cause: Cue's "Same project?" check did run, but Canvas's similar-projects list came back empty for this project, so Cue did not ask. The Cue matcher accepts it (test SAME1), and so does the Canvas matcher in the repo (test SIM1).
+- Before phase 1, Cue now also asks Canvas for a project with exactly this name and an event date within one day (search_projects). A match shows the Same project? card.
+- If Canvas still refuses a project it already has, the refusal becomes the Same project? card in the thread, never an error.
+- On that card, "Remove it, add this one" asks once, then removes that project from Canvas (only a project a Cue intake made) and shows phase 1 again for approval.
+- Phased intakes now show the Same project? card. Before, the phase card covered it.
+- Cancel intake (Kiko 16:53Z: "when the whole thread gets cancelled it should delete and not save any record"): a button on the intake card, and the thread's Close button for an intake that saved something in Canvas. One confirm, then Canvas removes the project, its lines, contacts and folders (folders go to the Drive trash). Reject on one phase still only stops that phase.
+- A question asked in an intake thread gets an answer, not a re-read with the question as the note.
+- The same error shows once, not once per tap.
+- This needs the Canvas bridge step intake_remove (CanvasWorkspace branch claude/project-thread-q9uyhb). Until Canvas has it, Cancel intake says Canvas cannot remove projects yet, and removes nothing.
+- Tests: 202 of 202 pass (new SAME1 to SAME3, UNDO3, UNDO4, ASK1).
+
 ## Cue 1.16: Teach Cue, memory and processes (not deployed)
 
 Kiko 16:26Z: "go build Teach Cue". Spec: canvas-integration/specs/teach-cue.md.

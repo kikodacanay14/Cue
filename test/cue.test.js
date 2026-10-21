@@ -219,10 +219,14 @@ function sandbox(o = {}) {
       // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
       if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);
         if (o.projectFail) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: Canvas busy' });
+        if (o.projectDup && log.phProject.length <= o.projectDup) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: "ACME YEAR-END PARTY" on 12/12/2026 is already in the Admin Directory. Nothing was saved.' });
         if (o.projectStill && log.phProject.length <= o.projectStill) return resp(200, { ok: false, status: 'Blocked', error: 'request is Adding project' });
         const e = body.args.project.event, tbc = !e.date;
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, replayed: log.phProject.length > 1, project_id: 'S-99900001ZZ', project_number: '052', name: e.name + (tbc ? ' (Date TBC)' : ''),
           date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [] } }); }
+      if (body.action === 'intake_remove') { (log.phRemove = log.phRemove || []).push(body.args);
+        if (o.removeUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: body.args.project_id, lines_removed: 2, contacts_removed: 1, folders_trashed: ['a', 'b'], left: [] } }); }
       if (body.action === 'intake_add_lines') { (log.phLines = log.phLines || []).push(body.args.lines);
         const ids = {}; body.args.lines.forEach((l, i) => { ids[l.key] = 'REQ-' + (i + 1); });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: 'S-99900001ZZ', req_ids: ids, lines: body.args.lines.length } }); }
@@ -2755,6 +2759,51 @@ test('TC4 Teach Cue is invisible until Kiko approves: no tabs means every call i
   t.tabs.Workflows.appendRow(['', 'RFQ chasers', 1, 'Zapier', 'Approved', 'Every weekday', '1. Read email (Code): x', '', 0, '', '[]', 'cue-1', false]);
   t.ctx.cueTeachReset_(); deq(t.ctx.cueTeachFor_('RFQ chasers every weekday'), '');
   t.ctx.cueWorkflowTab_(); deq(t.tabs.Workflows.rows[0][12], 'Use in prompts', 'an old Workflows tab gets the new header');
+});
+
+test('SAME1 live 16:45Z: "new project intake" for a project Canvas already has asks Same project? before phase 1, never an error', () => {
+  const rd = JSON.parse(JSON.stringify(READ)); rd.client.company = 'AMI Group'; rd.event.name = 'UNILEVER YEAR END PARTY 2026'; rd.event.date = '2026-12-11';
+  const t = sandbox({ phased: true, gpt: { intake: rd }, similar: [{ project_id: 'S-11267432UN', name: 'Unilever Year End Party 2026', account: 'AMI Group', date: '12/11/2026', status: 'For Admin Completion', why: 'same client within 7 days, similar name' }] });
+  const up = t.ctx.cueUpload({ name: 'image.png', type: 'image/png', data: PNG });
+  const id = t.ctx.cueSend('new project intake', [{ id: up.id }], 'intake').request_id, v = t.ctx.cueRun(id);
+  deq([v.stage, v.status], ['Same project?', 'Needs you']);
+});
+
+const DUP = { 'acme year-end party': { projects: [{ project_id: 'S-11267432UN', name: 'Acme Year-End Party', account: 'Acme Corp', date: '12/12/2026', status: 'For Admin Completion' }], total: 1 } };
+test('SAME2 live 16:52Z: Canvas refusing a project it already has turns into the Same project? card in the thread, not an error', () => {
+  const later = {}, t = phStart({ projectDup: 9, search: later }), chat0 = t.tabs.Chat.rows.length; Object.assign(later, DUP);   // Canvas lists it only after the check
+  const v = t.ctx.cueApprove(t.id, {});
+  deq([v.stage, v.status, v.dup, v.error || '', v.same.map(x => x.project_id)], ['Same project?', 'Needs you', true, '', ['S-11267432UN']]);
+  assert.ok(t.tabs.Chat.rows.slice(chat0).every(x => x[3] === t.id), 'only in the thread');
+  assert.ok(/Canvas already has Acme Year-End Party \(S-11267432UN/.test(JSON.stringify(t.tabs.Chat.rows)));
+});
+test('UNDO3 Kiko 16:53Z: Cancel intake asks Canvas to remove what the intake wrote, closes the task, and a second tap changes nothing', () => {
+  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const v = t.ctx.cueCancelIntake(t.id, '');
+  deq([t.log.phRemove, v.status, v.stage, !!v.canvas.removed], [[{ request_id: t.id, project_id: 'S-99900001ZZ' }], 'Rejected', 'Cancelled', true]);
+  assert.ok(/Removed S-99900001ZZ from Canvas: the project, 2 requirement lines, 1 contact and its folders/.test(JSON.stringify(t.tabs.Chat.rows)));
+  t.ctx.cueCancelIntake(t.id, ''); deq(t.log.phRemove.length, 1);
+  const u = phStart(); u.ctx.cueReject(u.id); assert.throws(() => u.ctx.cueCancelIntake(u.id, ''), /Nothing from this intake is in Canvas/);
+  const w = phStart({ removeUnknown: true }); w.ctx.cueApprove(w.id, {});
+  const x = w.ctx.cueCancelIntake(w.id, ''); deq([x.status, /until its next update/.test(x.error)], ['Needs you', true]);
+});
+test('UNDO4 Same project? after a refusal: "Remove it, add this one" removes that project, then shows phase 1 again for one approval', () => {
+  const later = {}, t = phStart({ projectDup: 1, search: later }); Object.assign(later, DUP); t.ctx.cueApprove(t.id, {});
+  assert.throws(() => t.ctx.cueCancelIntake(t.id, 'S-1'), /not one of the choices/);
+  const v = t.ctx.cueCancelIntake(t.id, 'S-11267432UN');
+  deq([t.log.phRemove, v.stage, v.ph.phase, t.log.phProject.length], [[{ project_id: 'S-11267432UN' }], 'Project details', 1, 1]);
+  const w = t.ctx.cueApprove(t.id, {}); deq([w.ph.phase, w.canvas.project_id], [2, 'S-99900001ZZ']);
+});
+
+test('SAME3 live 17:03Z: an exact name and date match in Canvas asks Same project? before phase 1, even when the similar list is empty', () => {
+  const t = phStart({ search: DUP });
+  deq([t.v.stage, t.v.status, t.v.dup, (t.log.phProject || []).length], ['Same project?', 'Needs you', true, 0]);
+});
+test('ASK1 live 17:03Z: a question in an intake thread is answered, not used as a re-read note', () => {
+  const t = phStart(), n = t.log.gpt ? t.log.gpt.length : 0;
+  assert.strictEqual(t.ctx.cuePhReply_(t.id, 'shouldnt it ask me if they were the same?', []), null);
+  assert.strictEqual(t.ctx.cuePhReply_(t.id, 'why is it slow', []), null);
+  assert.ok(t.ctx.cuePhReply_(t.id, 'the venue is SMX Aura', []).in_place);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
