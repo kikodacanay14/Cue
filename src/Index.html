@@ -74,8 +74,37 @@
   .trow .chip svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; }
   .trow .tm { flex:none; color:var(--muted); font-size:13px; white-space:nowrap; padding-top:3px; min-width:26px; text-align:right; }
   .tmore { all:unset; cursor:pointer; display:block; width:100%; text-align:center; color:var(--act); font-size:13px; font-weight:600; padding:6px; }
-  .fview { display:flex; flex-direction:column; height:100%; }
-  .fview iframe { flex:1; min-height:60vh; width:100%; border:1px solid var(--line); border-radius:6px; background:#0e0f11; }
+  /* Kiko 14:54Z: three panes. Files and images open in a viewer on the right of the threads pane, like Claude's: name and ✕,
+     Download / Open externally / More, zoom − Fit + with a % readout, rotate, fullscreen, then the type and "1 of N" at the foot. */
+  .viewer { width:34%; min-width:360px; max-width:760px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:#17181c; }
+  .viewer[hidden] { display:none; }
+  body.v3 .pane { width:33%; min-width:340px; }
+  .viewer.max { position:fixed; inset:0; width:auto; max-width:none; z-index:40; border-left:0; }
+  .vhead { flex:none; display:flex; align-items:center; gap:10px; min-height:53px; padding:8px 10px 8px 16px; border-bottom:1px solid var(--line); background:var(--head); }
+  .vhead b { flex:1; min-width:0; font:600 16px var(--font); color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vhead .vic { font-size:20px; flex:none; }
+  .vbar { flex:none; display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .vbtn { all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:0 14px; border:1px solid var(--line2); border-radius:8px; color:var(--text); font:600 14px var(--font); white-space:nowrap; }
+  .vbtn:hover { background:var(--panel); color:var(--white); } .vbtn:focus-visible { outline:2px solid var(--act); }
+  .vbtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .vmore { position:relative; }
+  .vmenu { position:absolute; right:0; top:44px; z-index:5; min-width:180px; padding:6px; border:1px solid var(--line2); border-radius:8px; background:var(--panel); box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  .vmenu button { all:unset; box-sizing:border-box; cursor:pointer; display:block; width:100%; padding:8px 10px; border-radius:6px; font-size:14px; color:var(--text); }
+  .vmenu button:hover, .vmenu button:focus-visible { background:var(--head); color:var(--white); }
+  .vzoom { flex:none; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; }
+  .vzoom .vbtn { border-color:transparent; background:var(--panel); padding:0 16px; }
+  .vzoom #v-pct { min-width:58px; text-align:center; color:var(--text); font-size:14px; }
+  .vzoom .vsep { width:1px; height:22px; background:var(--line2); margin:0 6px; }
+  .vzoom .zc:disabled { opacity:.35; cursor:default; }
+  .vstage { flex:1; min-height:0; margin:0 12px; overflow:auto; border-radius:6px; background:#2a2d33; display:flex; }
+  .vstage img { margin:auto; display:block; transition:transform .15s; transform-origin:center; image-orientation:from-image; }
+  .vstage img.fit { max-width:100%; max-height:100%; object-fit:contain; }
+  .vstage iframe { flex:1; width:100%; border:0; background:#0e0f11; }
+  .vstage .vmsg { margin:auto; color:var(--muted); padding:20px; text-align:center; }
+  .vfoot { flex:none; display:flex; align-items:center; gap:8px; padding:10px 16px; color:var(--text); font-size:14px; }
+  .vfoot #v-pos { min-width:54px; text-align:center; }
+  .vfoot .ibtn { border:1px solid var(--line2); }
+  .vfoot .ibtn:disabled { opacity:.35; cursor:default; }
   /* An open thread reads like Claude's: Kiko's messages in bubbles on the right, Cue's as plain text, files as cards. */
   #tmsgs { gap:14px; }
   #tmsgs .msg .who { display:none; }
@@ -98,12 +127,15 @@
      the chat, never over it; the Cue bubble 1.3 widens the window to make room and narrows it again on close. Only a real
      phone-width screen with no room to grow gets the pane full-screen. */
   @media (max-width: 900px) {
+    body.v3 .pane { display:none; }
+    .viewer { width:50%; min-width:0; }
     .pane { width:50%; min-width:0; }
     .pane:not(.open) { display:none; }
     .pane-x { display:inline-flex; }
   }
   @media (max-width: 640px) {
     .pane.open { position:fixed; inset:0; width:auto; max-width:none; z-index:20; border-left:0; }
+    .viewer { position:fixed; inset:0; width:auto; max-width:none; z-index:30; border-left:0; }
   }
   .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
@@ -244,9 +276,6 @@
     <section id="page-thread" hidden>
       <div class="msgs" id="tmsgs"></div>
     </section>
-    <section class="fview" id="page-file" hidden>
-      <iframe id="f-frame" title="File preview" allow="autoplay"></iframe>
-    </section>
   </div>
   <div class="tcomposer" id="tcomposer" hidden>
     <div class="files" id="tfiles" aria-live="polite"></div>
@@ -256,6 +285,29 @@
     </div>
     <div class="rtools"><button class="ibtn" id="tattach" title="Attach files to this thread" aria-label="Attach files to this thread"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
   </div>
+</aside>
+<aside class="viewer" id="viewer" aria-label="File viewer" hidden>
+  <div class="vhead"><span class="vic" id="v-ic" aria-hidden="true">🖼</span><b id="v-name"></b>
+    <button class="ibtn" id="v-x" title="Close the viewer" aria-label="Close the viewer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="vbar">
+    <a class="vbtn" id="v-dl" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download</a>
+    <a class="vbtn" id="v-open" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open externally</a>
+    <span class="vmore"><button class="vbtn" id="v-more" aria-haspopup="true" aria-expanded="false">⋯ More</button>
+      <div class="vmenu" id="v-menu" role="menu" hidden><button role="menuitem" data-v="copy">Copy link</button><button role="menuitem" data-v="reset">Reset zoom and rotation</button></div></span>
+  </div>
+  <div class="vzoom" id="v-zoom">
+    <button class="ibtn zc" id="v-out" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="vbtn zc" id="v-fit">Fit</button>
+    <button class="ibtn zc" id="v-in" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <span class="vsep"></span><span id="v-pct" class="zc" aria-live="polite">100%</span>
+    <button class="ibtn zc" id="v-rot" title="Rotate" aria-label="Rotate"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg></button>
+    <button class="ibtn" id="v-full" title="Fullscreen" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+  <div class="vstage" id="v-stage"></div>
+  <div class="vfoot"><span id="v-type"></span><span style="flex:1"></span>
+    <button class="ibtn" id="v-prev" title="Previous file" aria-label="Previous file"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <span id="v-pos">1 of 1</span>
+    <button class="ibtn" id="v-next" title="Next file" aria-label="Next file"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
 </aside>
 </div>
 <script>
@@ -305,7 +357,7 @@
   // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, each opened thread
   // (openThread = its first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own box.
   var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1 };   // Kiko 14:03Z: no Widgets tab; what it showed lives in the Threads list and each thread
-  try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
+  try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.filter(function (k) { return k.type === 'thread'; }).slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
   // In a narrow window the pane opens beside the chat; the Cue bubble (1.3+) widens the window by the pane's width and gives it back on close.
   var bubble = false, grown = 0, GROW = 440;
   function paneOpen(on) {
@@ -322,7 +374,6 @@
     openPane({ key: 't:' + id, type: 'thread', id: id });
     $('pscroll').scrollTop = $('pscroll').scrollHeight; if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus();
   }
-  function goFile(id, name, url) { openPane({ key: 'f:' + id, type: 'file', id: id, name: name, url: url }); }
   function closeTab(key) {
     var i = ptabs.map(function (k) { return k.key; }).indexOf(key); if (i < 0) return;
     ptabs.splice(i, 1);
@@ -334,11 +385,8 @@
     if (!it && !FIXED[pactive]) pactive = 'list';
     openThread = it && it.type === 'thread' ? it.id : '';
     $('page-threads').hidden = pactive !== 'list'; $('page-thread').hidden = !openThread;
-    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('page-file').hidden = !(it && it.type === 'file'); $('tcomposer').hidden = !openThread;
+    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tcomposer').hidden = !openThread;
     if (!openThread && fileHost === 'tfiles') hostFiles('files');
-    if (it && it.type === 'file' && $('f-frame').getAttribute('data-key') !== it.key) {
-      $('f-frame').setAttribute('data-key', it.key); $('f-frame').src = it.preview || previewUrl(it.url) || 'about:blank';
-    }
     try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}
     lastThread = -1; renderChat();
   }
@@ -349,13 +397,98 @@
     var id = m[m.length - 1], kind = /\/(document|spreadsheets|presentation)\/d\//.exec(u);
     return kind ? 'https://docs.google.com/' + kind[1] + '/d/' + id + '/preview' : 'https://drive.google.com/file/d/' + id + '/preview';
   }
+  // Kiko 14:54Z: a Drive or Docs link opens in the viewer, the third pane. Its "1 of N" steps through the files in the same
+  // thread (or the main chat) it was opened from.
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
-    if (a.id === 'f-open' || !previewUrl(a.href)) return;
-    e.preventDefault(); goFile(previewUrl(a.href), (a.getAttribute('data-name') || a.textContent || 'File').trim(), a.href);
+    if (a.closest('#viewer') || !previewUrl(a.href)) return;
+    e.preventDefault();
+    var box = a.closest('#tmsgs, #msgs, #pscroll') || document, seen = {}, list = [];
+    box.querySelectorAll('a[href]').forEach(function (x) {
+      var pv = previewUrl(x.href); if (!pv || seen[pv]) return; seen[pv] = 1;
+      list.push({ preview: pv, url: x.href, name: (x.getAttribute('data-name') || x.textContent || 'File').trim() });
+    });
+    var pv = previewUrl(a.href), at = list.map(function (f) { return f.preview; }).indexOf(pv);
+    if (at < 0) { list = [{ preview: pv, url: a.href, name: (a.getAttribute('data-name') || a.textContent || 'File').trim() }]; at = 0; }
+    viewOpen(list, at);
+  });
+  var vlist = [], vat = 0, vz = 0, vrot = 0, vgrown = 0;   // vz 0 = Fit; otherwise the scale against the image's own size
+  function fileKind(f) {
+    var d = /\/(document|spreadsheets|presentation)\/d\//.exec(f.preview), ext = ((/\.(\w{1,5})$/.exec(f.name) || [])[1] || '').toLowerCase();
+    if (d) return { label: { document: 'DOC', spreadsheets: 'SHEET', presentation: 'SLIDES' }[d[1]], what: 'Document preview', docs: d[1] };
+    return { label: (ext || 'FILE').toUpperCase(), what: /^(png|jpe?g|gif|webp|heic|bmp)$/.test(ext) ? 'Image preview' : ext === 'pdf' ? 'PDF preview' : 'File preview', img: /^(png|jpe?g|gif|webp|heic|bmp)$/.test(ext) };
+  }
+  function fileId(f) { return (/\/d\/([\w-]{10,})\//.exec(f.preview) || [])[1] || ''; }
+  function viewOpen(list, at) {
+    vlist = list; vat = at; var was = !$('viewer').hidden;
+    $('viewer').hidden = false; document.body.classList.add('v3');
+    // The Cue bubble (1.4+) widens the window again so chat, threads and viewer all fit.
+    if (!was && bubble && !vgrown && window.innerWidth < 1200) { vgrown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
+    viewShow();
+  }
+  function viewClose() {
+    $('viewer').hidden = true; $('viewer').classList.remove('max'); document.body.classList.remove('v3'); $('v-stage').innerHTML = ''; vlist = [];
+    if (vgrown) { window.postMessage({ cueResize: -vgrown }, '*'); vgrown = 0; }
+  }
+  function viewShow() {
+    var f = vlist[vat]; if (!f) return viewClose();
+    var k = fileKind(f), id = fileId(f);
+    vz = 0; vrot = 0; $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
+    $('v-name').textContent = f.name; $('v-name').title = f.name; $('v-ic').textContent = k.img ? '🖼' : k.docs ? '📄' : '📎';
+    $('v-open').href = f.url;
+    $('v-dl').href = k.docs ? 'https://docs.google.com/' + k.docs + '/d/' + id + (k.docs === 'presentation' ? '/export/pptx' : '/export?format=' + (k.docs === 'spreadsheets' ? 'xlsx' : 'pdf')) : 'https://drive.google.com/uc?export=download&id=' + id;
+    $('v-type').textContent = k.label + ' • ' + k.what;
+    $('v-pos').textContent = (vat + 1) + ' of ' + vlist.length; $('v-prev').disabled = vat === 0; $('v-next').disabled = vat >= vlist.length - 1;
+    var st = $('v-stage');
+    if (k.img && id) {
+      st.innerHTML = '<img id="v-img" class="fit" alt="' + esc(f.name) + '" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(id) + '&amp;sz=w2400">';
+      $('v-img').onload = viewZoom;
+      $('v-img').onerror = function () { viewFrame(f); };   // no thumbnail (no access yet, or not an image after all): Drive's own preview
+      zoomOn(true);
+    } else viewFrame(f);
+    viewZoom();
+  }
+  function viewFrame(f) {
+    $('v-stage').innerHTML = '<iframe title="' + esc(f.name) + '" allow="autoplay" src="' + esc(f.preview) + '"></iframe>';
+    zoomOn(false); $('v-pct').textContent = '';   // Drive's preview zooms inside itself
+  }
+  function zoomOn(on) { $('v-zoom').querySelectorAll('button.zc').forEach(function (b) { b.disabled = !on; }); }
+  function viewZoom() {
+    var im = $('v-img'); if (!im) return;
+    im.classList.toggle('fit', !vz);
+    im.style.width = vz && im.naturalWidth ? Math.round(im.naturalWidth * vz) + 'px' : '';
+    im.style.transform = vrot ? 'rotate(' + vrot + 'deg)' : '';
+    var shown = vz || (im.naturalWidth ? im.clientWidth / im.naturalWidth : 1);
+    $('v-pct').textContent = Math.round(shown * 100) + '%';
+  }
+  function viewScale(by) { var im = $('v-img'); if (!im || !im.naturalWidth) return; var cur = vz || im.clientWidth / im.naturalWidth; vz = Math.max(0.1, Math.min(8, cur * by)); viewZoom(); }
+  $('v-x').onclick = viewClose;
+  $('v-in').onclick = function () { viewScale(1.25); };
+  $('v-out').onclick = function () { viewScale(0.8); };
+  $('v-fit').onclick = function () { vz = 0; viewZoom(); };
+  $('v-rot').onclick = function () { vrot = (vrot + 90) % 360; viewZoom(); };
+  $('v-prev').onclick = function () { if (vat > 0) { vat--; viewShow(); } };
+  $('v-next').onclick = function () { if (vat < vlist.length - 1) { vat++; viewShow(); } };
+  $('v-full').onclick = function () {
+    var v = $('viewer');
+    if (document.fullscreenElement) return document.exitFullscreen();
+    // The Apps Script frame may not allow real fullscreen; then the viewer fills the window instead (Esc or the button again restores it).
+    if (v.requestFullscreen && document.fullscreenEnabled) v.requestFullscreen().catch(function () { v.classList.toggle('max'); });
+    else v.classList.toggle('max');
+  };
+  $('v-more').onclick = function () { var m = $('v-menu'); m.hidden = !m.hidden; $('v-more').setAttribute('aria-expanded', String(!m.hidden)); };
+  $('v-menu').onclick = function (e) {
+    var b = e.target.closest('[data-v]'); if (!b) return; var f = vlist[vat]; $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
+    if (b.getAttribute('data-v') === 'reset') { vz = 0; vrot = 0; return viewZoom(); }
+    if (f && navigator.clipboard) navigator.clipboard.writeText(f.url).then(function () { b.textContent = 'Link copied'; setTimeout(function () { b.textContent = 'Copy link'; }, 1500); }, function () {});
+  };
+  document.addEventListener('keydown', function (e) {
+    if ($('viewer').hidden || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName || ''))) return;
+    if (e.key === 'Escape') { if (document.fullscreenElement) return; if ($('viewer').classList.contains('max')) $('viewer').classList.remove('max'); else if (!$('v-menu').hidden) $('v-menu').hidden = true; else viewClose(); }
+    else if (e.key === 'ArrowLeft') $('v-prev').click(); else if (e.key === 'ArrowRight') $('v-next').click();
   });
   // The pane's header (Kiko 14:38Z, like Claude's Threads panel). List: Threads + count, search, archived filter, more.
-  // A thread or file: "Threads › name" with resolve (✓), archive (⋯, closed threads), wider pane (⤢) and close (✕).
+  // A thread: "Threads › name" with resolve (✓), archive (⋯, closed threads), wider pane (⤢) and close (✕).
   var IC = {
     threads: '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8.2 6H13a3 3 0 0 1 3 3v6.8M6 8.2V15a3 3 0 0 0 3 3h6.8"/>',
     search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
@@ -364,7 +497,6 @@
     check: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.3l2.4 2.4 4.6-5"/>',
     wide: '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>',
     narrow: '<path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/>',
-    open: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     chev: '<path d="M6 9l6 6 6-6"/>',
     reply: '<path d="M9 10L4 15l5 5"/><path d="M4 15h11a5 5 0 0 0 5-5V4"/>'
@@ -393,13 +525,11 @@
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Chaser rules') + x;
     } else {
-      var t = it.type === 'thread' && th[it.id], name = it.type === 'thread' ? (t ? threadTitle(t) : 'Thread') : (it.name || 'File');
+      var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
       h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
-      if (it.type === 'thread') {
-        h += (last && !busy && !CLOSED[last.status] ? ib('data-act="close-task" data-id="' + esc(last.id) + '"', 'check', 'Close this task') : '')
-          + (t && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
-      } else h += '<a class="ibtn" id="f-open" href="' + esc(it.url || '') + '" target="_blank" rel="noopener" title="Open in a new tab" aria-label="Open in a new tab">' + icon('open') + '</a>';
+      h += (last && !busy && !CLOSED[last.status] ? ib('data-act="close-task" data-id="' + esc(last.id) + '"', 'check', 'Close this task') : '')
+        + (t && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
     }
     setHtml($('ptabs'), h);

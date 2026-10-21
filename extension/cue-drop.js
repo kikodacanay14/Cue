@@ -1,4 +1,4 @@
-// Cue bubble 1.3.0: runs only in Apps Script page frames, and acts only in the frame that holds Cue's message box.
+// Cue bubble 1.4.0: runs only in Apps Script page frames, and acts only in the frame that holds Cue's message box.
 // It passes a snapshot, selected text or an error from the extension into the box (window message to Cue's own page), and passes
 // Cue's 📷 button up to the extension. The page fills the box only; nothing is sent until Kiko presses Enter.
 (() => {

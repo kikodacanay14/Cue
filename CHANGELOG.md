@@ -1,5 +1,25 @@
 # Changelog
 
+## Three panes: a file and image viewer on the right; Cue bubble 1.4.0 (not deployed)
+
+Kiko 21 Oct 14:54Z: "3 pane window - 3rd pane is for file / image viewer", with a screenshot of Claude's file viewer.
+
+- Cue now has three panes: the chat on the left, threads in the middle and the viewer on the right. Any Drive or Docs link opens in the viewer, including a file card in a thread, a 📎 link or a link in the chat. Files no longer open as tabs in the threads pane.
+- The viewer is laid out like Claude's:
+  - The header shows the file name and ✕.
+  - A row of buttons holds Download, Open externally and ⋯ More (Copy link, Reset zoom and rotation).
+  - Image controls are − / Fit / + with a % readout, rotate and fullscreen.
+  - The foot shows the type ("PNG • Image preview") and ‹ 1 of N ›.
+- 1 of N steps through the files in the thread (or the chat) the file was opened from. ← and → step too, and Esc closes the viewer.
+- Images load from Drive's thumbnail service, so zoom and rotate work on them. If an image doesn't load, the viewer falls back to Drive's own preview. PDFs and other files always use Drive's preview, which zooms by itself, so the zoom buttons are greyed out. Download uses Drive's download link; a Google Doc, Sheet or Slides file downloads as PDF, XLSX or PPTX.
+- Fullscreen uses the browser's fullscreen when the Apps Script frame allows it. If not, the viewer fills the window.
+- Narrow screens:
+  - 900 px or less without the bubble: the viewer takes the threads pane's place until it is closed.
+  - Phone width: the viewer is full screen.
+  - With the bubble: when the window is under 1200 px, opening the viewer widens it by another 440 px, and ✕ gives that width back.
+- **Cue bubble 1.4.0:** window shifts now add up when both the threads pane and the viewer ask for room, and each gives back its own share. Kiko reloads the extension once; the zip in project files is updated.
+- Tests: 181 of 181 pass, and SN2 now expects 1.4.0. Playwright checks at 1440, 440 and 390 px covered open, zoom, rotate, next, fullscreen and Esc, with no page errors.
+
 ## Project intake card sections fold; only the first is open (not deployed)
 
 Kiko 21 Oct 14:49Z: "for Project Intake - can the sections become an expandable section. on load they are folded except for the 1st section".
