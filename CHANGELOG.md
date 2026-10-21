@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.22: Find and Screen Bid Opportunities (not deployed)
+
+Kiko 19:04Z-19:10Z, specs/bid-opportunities.md, Route B (ChatGPT through the API).
+
+- New command: any chat message about bid opportunities ("run bid opportunity check", "any new bids today?", "check philgeps", "look for tenders") starts a bid check in its own thread, with no chat call. It also runs by itself every day at 08:00 Manila (trigger cueBidsDaily, once per day).
+- ChatGPT searches Kiko's 11 sources in 3 parallel web-search calls, following the 8 recorded steps, and reports each source as Checked, Partial or Blocked.
+- Code applies Kiko's screen: ABC from ₱150,000 to ₱700,000; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan or Quezon; never Bataan; deadline still open. An unclear budget, place or deadline is marked "For verification", not dropped. Duplicates are merged, and earlier open notices are rechecked.
+- The card shows only new opportunities, plus an "Updated" line for an earlier one whose deadline or amendments changed. It also shows the 9-point process check and the sources list. There is no Pursue button: "do intake for <reference>" starts the normal intake with that notice and sets Intake?? = Yes.
+- New rows go to the "Web bid findings" tab of Kiko's bid sheet, and one row per source to "Web source scan log" (Script Property CUE_BIDS_SHEET_ID; the default is the BSE Inbox RFP & Bid History sheet). Nothing is emailed, written to Canvas, registered or submitted.
+- Limit: the API has no browser and no sign-in, so the new PhilGEPS signed-in search and locked files show as Blocked or "not opened".
+- Tests: 242 of 242 pass with 1.21.1 merged in (new BD1 to BD6; S1 now expects the 08:00 trigger).
+
 ## Cue 1.21.1: a thread keeps the name of its first task (not deployed)
 
 Kiko 19:20Z picked "First task names it". A thread's title comes from its first named task (a Morning batch never names it), so a later task filed into it, like an expense, no longer renames the LED wall thread "Expense · AMI Group".
