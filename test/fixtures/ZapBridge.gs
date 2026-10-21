@@ -197,6 +197,19 @@ const ZB_ACTIONS_ = {
       }
       return aiHsApply_(f); }
   },
+  supplier_lookup: {
+    // CUE-VENDOR-2026-10-21 (Kiko 07:54Z approved specs/vendor-management.md). Cue's "Find, compare or assess suppliers":
+    // Supplier Database matches (Preferred first), past quotes for the item, named suppliers' history and a project's quotes
+    // (canvas-ai/AiVendor.gs). Read only; no bank details or TINs.
+    kind: 'read', needsProject: false,
+    schema: { item: { type: 'string', max: 120 }, city: { type: 'string', max: 100 }, names: { type: 'array', maxItems: 5 },
+      project_id: { type: 'string', re: ZB_PID_RE_ } },
+    run: (r) => {
+      const names = r.args.names || [];
+      if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
+      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
+    }
+  },
   save_project_file: {
     // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
     // One file Kiko attached in Cue, into <project folder>/<type> through saveProjectFile_ (the Files tab's own save).
