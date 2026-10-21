@@ -135,6 +135,10 @@ function cueSend(text, files, mode, ref) {
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
+  // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
+  // A reply in a money thread stays a money question; a reply in any other task's thread never becomes one.
+  if (!has && mode !== 'intake' && String(text || '').trim() && !/^\s*new project intake/i.test(String(text || ''))
+    && (ref ? (cueLoad_(ref) || { s: {} }).s.kind === 'finance' : cueFinAsk_(text))) return cueFinance_(String(text).trim(), ref);
   let asked = '', reopened = '';
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
@@ -176,7 +180,8 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
-  + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
+  + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), answer money '
+  + 'questions (profit, margins, who owes BSE, supplier payments, 13-week cash) from Canvas numbers when Kiko asks one directly, and show what '
   + 'needs Kiko in the Widgets tab. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
   + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Facts: Cue sends email only when Kiko '
@@ -222,6 +227,7 @@ function cueTalk_(t, ref) {
 /** A task's display name: the matched project, the client and event, or what it is. */
 function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
+  if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -240,7 +246,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self); } catch (e) { return ''; }
+  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'finance'); } catch (e) { return ''; }   // a money answer never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -256,6 +262,7 @@ function cueNewest_(list, root, id) { const h = root(id), m = list.filter(x => r
 function cueTaskLine_(id) {
   const L = cueLoad_(id); if (!L) return '';
   const s = L.s, c = s.change || {}, p = s.proposal || {};
+  if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -314,6 +321,7 @@ function cueRetry(id) {
   cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
+    if (L.s.kind === 'finance') throw new Error('Ask the money question again in its thread.');
     if (L.s.status !== 'Failed' || (L.s.canvas && L.s.canvas.submitted)) throw new Error('Only a request that stopped before Canvas can be tried again here.');
     L.s.status = 'Working'; L.s.error = ''; cueSave_(L.sh, L.row, L.s);
   });
@@ -443,6 +451,7 @@ function cueView_(s) {
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
+    fin: s.kind === 'finance' ? (s.fin || null) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

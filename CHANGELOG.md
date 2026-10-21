@@ -1,5 +1,12 @@
 # Changelog
 
+## CFO Advisor (Cue 1.13 on the release train; not deployed; needs Canvas with finance_snapshot. Kiko said yes 21 Oct 08:17Z)
+
+- Money questions (Kiko 07:41Z approved specs/cfo-advisor.md; 07:38Z "quick questions can just have 1 API call"): profit on a project or client, who owes BSE, what is owed to suppliers, the next 13 weeks of cash. Cue's code spots the question and its scope (project id, client or project name, period), Canvas sends the numbers through the new read finance_snapshot, Cue's code does all the maths, and ONE Claude call answers. It replaces the chat call, so a quick question costs 1 AI call. Decisions that need outside prices add one GPT web search and a second Claude call (3 in all).
+- Number check: every amount and percent in Claude's text must be a number from the maths; otherwise the text is dropped and the tables stand alone.
+- Each answer gets its own "Money: ..." thread with a read-only card: the answer, flags, totals, projects, clients owe (aging), suppliers to pay, 13-week cash, what is missing, Your numbers (cash on hand, monthly overhead, minimum margin, cash buffer) and Save as Sheet (formulas, in Kiko's Drive). A reply in that thread is a follow-up on the same projects.
+- Kiko's numbers can also be typed in the chat ("cash on hand is 1.25M", "overhead is 300k a month", "minimum margin 25%"): saved by code, no AI call.
+- A "Money check" chip. Money threads never capture an intake, and a reply in an intake or change thread never becomes a money run.
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).
