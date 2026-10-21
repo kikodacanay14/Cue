@@ -727,6 +727,15 @@ test('C40 chat looks up Canvas projects: one search per name word, matches go to
   assert.ok(/none matched "zebra"/.test(w.log.gpt[0].input));
 });
 
+test('C41 "run full project intake" stays an intake even with a Canvas name match, with a note; change search never uses the client name alone', () => {
+  const t = sandbox({ similar: JBL });
+  const id = t.ctx.cueSend('New project intake. JBL wants new mats, 3m x 2m. Run full project intake now.').request_id, v = t.ctx.cueRun(id);
+  assert.notStrictEqual(v.kind, 'change'); assert.ok(t.log.claude.length >= 1, 'costed');
+  assert.ok((v.notes || []).some(n => /Canvas already has JBL Launch/.test(n)), JSON.stringify(v.notes));
+  const u = sandbox({ similar: JBL, read: CHANGE_READ }), w = u.ctx.cueRun(u.ctx.cueSend('Start intake: JBL mats, 3m x 2m', [], 'intake').request_id);
+  assert.notStrictEqual(w.kind, 'change', 'Start intake wins even when GPT reads a change');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

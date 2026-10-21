@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.9.2 (intake means intake; Kiko 08:37-08:38Z)
+
+- "Start intake", "run intake", "full intake" or "redo intake" always runs a new intake, even when Canvas has a project with a similar name (for example one left by an earlier attempt). The card notes the similar project so you can reject it if it really is a duplicate.
+- Change requests search your sent RFQs by the project's own name only, never the client's name alone, so RFQs from other AMI projects no longer show up.
+
 ## Cue 1.9.1 (project lookup in chat; Kiko 08:25Z "i need this fixed asap"; needs Canvas main V187)
 
 - Chat can look up Canvas projects. Ask "lookup AMI Group - Selecta" or "what's the status of S-…" and Cue searches Canvas by project name, client or ID (new bridge read search_projects, read only) before GPT answers, so the reply comes from real Canvas records. Cue no longer says it has no access to Canvas.
