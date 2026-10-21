@@ -134,7 +134,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
-      if ((o.gpt || {})[n]) return gptOk(o.gpt[n]);
+      if ((o.gpt || {})[n]) { const g = o.gpt[n]; if (!Array.isArray(g)) return gptOk(g); log.gptN = log.gptN || {}; log.gptN[n] = (log.gptN[n] || 0) + 1; return gptOk(g[Math.min(log.gptN[n], g.length) - 1]); }
       if (n === 'requotes') return gptOk(o.requotes || REQUOTES);
       if (n === 'chasers') {
         if ((o.fail || {}).chasers) return o.fail.chasers();
@@ -2633,6 +2633,17 @@ test('PH8 the same-project question still comes first; the switch CUE_PHASED=off
   deq([t.v.stage, t.v.ph.phase], ['Same project?', 0]);
   const v = t.ctx.cueSameAnswer(t.id, 'new'); deq([v.ph.phase, v.stage], [1, 'Project details']);
   const off = startToCard({}); deq([off.v.phased, !!off.v.proposal], [false, true]);
+});
+
+test('PH9 live 15:34Z: a second message about the same project goes into its waiting card, never a second card; both reads merge', () => {
+  const r1 = JSON.parse(JSON.stringify(READ)); r1.event.venue = '';
+  const r2 = JSON.parse(JSON.stringify(READ)); Object.assign(r2.client, { contact: '', email: '', phone: '' }); r2.event.venue = 'Shangri-La The Fort, Grand Ballroom';
+  const t = phStart({ gpt: { intake: [r1, r2] } }), before = t.tabs.Requests.rows.length;
+  const r = t.ctx.cueSend('Acme Year-End Party brief again, venue is Shangri-La The Fort Grand Ballroom', [], 'intake');
+  deq([r.request_id, r.in_place, t.tabs.Requests.rows.length], [t.id, true, before]);
+  const v = t.ctx.cueRun(t.id);
+  deq([v.ph.phase, v.ph.x.client.contact, v.ph.x.event.venue], [1, 'Ana Reyes', 'Shangri-La The Fort, Grand Ballroom']);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + t.id && /added it to its card/.test(x[2])));
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

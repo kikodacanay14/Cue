@@ -41,13 +41,32 @@ const CUE_B_SYSTEM_ = 'You turn one event inquiry sent to BSE (Blank Space Event
 function cuePhRun_(s, save) {
   const t0 = cueNow_();
   try {
-    if (s.stage === 'Received' || s.stage === 'GPT reading') { s.stage = 'GPT reading'; save(); cueIntakeRead_(s); save(); }
+    if (s.stage === 'Received' || s.stage === 'GPT reading') {
+      const prev = s.x; s.stage = 'GPT reading'; save(); cueIntakeRead_(s);
+      if (prev) cuePhMerge_(s.x, prev);   // a second read (Kiko's note or new files) only adds: what the first read found stays
+      save();
+    }
     if (s.stage === 'Checking Canvas') { cuePhCheck_(s, save); save(); }
     if (s.kind === 'change') return cueIntakeRun_(s, save);   // Kiko said it is the same project: the change function takes over
     if (s.stage === 'Claude reading requirements') { cuePhBreak_(s); save(); }
     if (s.stage === 'Costing' || s.stage === 'Claude costing') { cuePhCost_(s, save); save(); }
     if (s.stage === 'GPT drafting RFQs') { cuePhRfqs_(s); save(); }
   } finally { s.work_ms = (s.work_ms || 0) + (cueNow_() - t0); }
+}
+
+/** Fills the blanks of a new read from the earlier one: client, contacts, event fields, schedule and questions. */
+function cuePhMerge_(x, prev) {
+  const fill = (a, b, keys) => keys.forEach(k => { if ((a[k] === '' || a[k] == null || a[k] === 0) && b[k]) a[k] = b[k]; });
+  fill(x.client, prev.client || {}, ['company', 'contact', 'email', 'phone']);
+  const seen = (x.client.contacts || []).map(c => cueName_(c.email || c.name));
+  x.client.contacts = (x.client.contacts || []).concat(((prev.client || {}).contacts || []).filter(c => seen.indexOf(cueName_(c.email || c.name)) < 0)).slice(0, 10);
+  const pe = prev.event || {};
+  fill(x.event, pe, ['name', 'type', 'date', 'deadline', 'venue', 'city', 'pax', 'budget']);
+  x.event.date_tbc = !x.event.date;
+  fill(x.event.schedule || (x.event.schedule = {}), pe.schedule || {}, ['ingress', 'hours', 'egress']);
+  const qs = (x.questions || []).concat(prev.questions || []);
+  x.questions = qs.filter((q, i) => q && qs.indexOf(q) === i).slice(0, 10);
+  if (x.event.date && x.event.venue) x.questions = x.questions.filter(q => !/\b(venue|date)\b/i.test(q));
 }
 
 /** After GPT's read: Canvas checks for the same project (Kiko 14:26Z rule), then the phase 1 card. */

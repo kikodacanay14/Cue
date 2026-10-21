@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.15.1: one card per request (not deployed)
+
+Fixes a problem found in the live test at 15:34Z: one Unilever request made two intake cards, and the two cards disagreed.
+
+- Pasting or attaching a project again while its phased intake card is waiting no longer starts a second intake. The message goes into the same card, and Cue says so in the main chat.
+- A second read of the details (from a new message, a note or new files) now adds to the first read and never wipes it. Contacts, venue, dates, schedule and questions found by either read stay on the card.
+
 ## Cue 1.15: Project intake in four phases (not deployed; needs the Canvas release with it)
 
 Kiko 21 Oct 14:53Z asked for this, and said "build" at 14:57Z. Spec: specs/phased-intake.md.

@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.15';
+const CUE_VERSION_ = 'Cue 1.15.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -197,6 +197,12 @@ function cueSend(text, files, mode, ref) {
   // Kiko 06:57Z task rules: a new message about a task from the last 7 days reopens that task's thread instead of starting a new one.
   // First guess from the project or client name in the message (no AI call); Canvas's project match confirms or moves it later.
   if (!ref && !sup) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
+  // CUE-PHASED (live test 15:34Z: one Unilever request made two cards that disagreed). A message about a project whose phased
+  // intake card is waiting goes into that card, and both reads merge; it never starts a second intake.
+  if (reopened && !sup) { const ph = cuePhReply_(ref, t, files); if (ph) {
+    cueChat_('Kiko', t + ((files || []).length ? '\n📎 ' + files.map(f => f.name).join(', ') : ''), '');
+    cueChat_('Cue', 'This is about ' + cueTaskName_((cueLoad_(ph.request_id) || {}).s || {}) + ', so I added it to its card instead of starting another.', '>' + ph.request_id);
+    return ph; } }
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const saved = cueFilesSave_(files, id);
