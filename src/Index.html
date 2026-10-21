@@ -212,7 +212,8 @@
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e); refresh(); });
     }, function (e) { $('send').disabled = false; alertErr(e); });
   };
-  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('send').click(); });
+  // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
+  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
 
   function refresh() { call('cueState', [], function (s) { state = s; render(); schedule(); }, function () { schedule(); }); }
   function busy() { return state.requests.some(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas'; }) || Object.keys(running).length; }
