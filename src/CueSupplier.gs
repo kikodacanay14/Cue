@@ -382,6 +382,48 @@ function cueSupDraftMail_(to, cc, subject, body) {
   return o.id;
 }
 
+/* CUE-CANVAS (Kiko 18:57Z "it gets the details - opens canvas and populate the fields there"; spec specs/open-in-canvas.md).
+ * The card opens Canvas's Add supplier form with what GPT read, or the existing supplier when Canvas has one. Bank details stay
+ * out of the link (Kiko 19:20Z); the card shows them to copy. After Kiko saves in Canvas, "Saved in Canvas" finds the supplier
+ * there (supplier_check, a read), then files the documents and makes the documents request, as Approve does. */
+function cueSupCanvas_(s) {
+  const p = s.sup, r = p.record || {};
+  if (s.canvas && s.canvas.supplier_id) return cueCanvasLink_({ what: 'supplier', q: r['Supplier'] || s.canvas.supplier_id });
+  if (p.duplicates.length && !p.not_duplicate) return cueCanvasLink_({ what: 'supplier', q: p.duplicates[0].name });
+  if (!r['Supplier']) return null;
+  const c = p.contacts[0] || {};
+  return cueCanvasLink_({ what: 'addsupplier', name: r['Supplier'], details: { person: c.person, phone: c.number, email: c.email || r['Company Email'],
+    location: r['City'], service: r['Main Service'], tin: r['TIN'], types: String(r['Supplier Type'] || '').split(/\s*,\s*/).filter(Boolean) } });
+}
+function cueSupplierSaved_(id, edits) {
+  edits = edits || {};
+  const L = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L) throw new Error('No such request.');
+    const s = L.s, p = s.sup;
+    if (s.status !== 'Needs you' || !p) throw new Error('This supplier is ' + s.status + ', not waiting for you.');
+    cueSupEdit_(p, edits);
+    s.status = 'Working'; s.stage = 'Checking Canvas'; s.error = ''; cueSave_(L.sh, L.row, s);
+    return L;
+  });
+  const s = L.s, p = s.sup, save = () => cueSave_(L.sh, L.row, s), name = p.record['Supplier'];
+  let hit = null;
+  try { hit = ((cueBridge_(s, 'supplier_check', { name }) || {}).duplicates || []).filter(d => cueName_(d.name) === cueName_(name))[0] || null; }
+  catch (e) { s.status = 'Needs you'; s.stage = 'Needs you'; s.error = 'Canvas didn\'t answer: ' + cueStr_((e && e.message) || e, 300); save(); return s; }
+  if (!hit) { s.status = 'Needs you'; s.stage = 'Needs you'; s.error = 'Canvas has no supplier called ' + name + ' yet. Save it in Canvas first (or fix the name here to match), then tap Saved in Canvas again.'; save(); return s; }
+  s.canvas = { supplier_id: String(hit.id || ''), folder: /^https:\/\//.test(hit.folder || '') ? { url: hit.folder } : null, contacts: [], accreditation: { missing: cueSupMissing_(p) },
+    verify: { ok: true, problems: [] }, in_canvas: true };
+  cueChat_('Cue', 'Found ' + name + ' in the Supplier Database as ' + s.canvas.supplier_id + '.', s.id);
+  s.stage = 'Filing documents'; save();
+  cueSupFiles_(s); save();
+  if (p.send !== 'none' && p.email && s.canvas.accreditation.missing.length) { s.stage = 'Emailing the supplier'; save(); cueSupEmail_(s); save(); }
+  const bad = (p.saved || []).filter(x => x.error).length || (p.email && p.email.error);
+  s.status = bad ? 'Done, check Canvas' : 'Done'; s.stage = s.status; s.ready_at = cueNow_();
+  cueMetrics_(s); save();
+  cueSummary_(s);
+  return s;
+}
+
 /** What the page needs for the supplier card. */
 function cueSupView_(s) {
   const p = s.sup; if (!p) return null;

@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.23: Open in Canvas, filled (not deployed)
+
+Kiko 18:57Z and 18:59Z: when Canvas has the data or the process, Cue opens that Canvas page with the details filled in and shows it, instead of redoing it in a Cue card. Spec: specs/open-in-canvas.md (Kiko OK 19:20Z: no bank details in links).
+
+- Canvas shows inside Cue, in the right-hand viewer pane, on a PC. On a phone it opens in a new tab, because Google blocks the sign-in inside a frame there. If Canvas doesn't send its "ready" signal within 12 seconds, the pane says so and offers a new tab.
+- New commands, read in code with no AI call: "open <project>" (also "open <project> expenses / scope / checklist / timeline"), "request payment for <project>", "add scope <what> to <project>", "close task <task> in <project>", "price watch <item>" / "past prices of <item>", "open supplier <name>", "open finance / accounts / cost estimates / price list / suppliers / freelancers / canvas", and "make FSAs [for <project>]". Canvas finds the project with search_projects, then find_similar_projects (both reads). Several matches: Cue asks which, with one button each. A name Canvas doesn't know goes to the normal chat call.
+- Cue uses the links Canvas's own quick-command bar already uses, so this needs no Canvas release. The Canvas address is Canvas Workspace's main /exec (script property CUE_CANVAS_URL overrides it).
+- Register supplier: the card's main button opens Canvas's Add supplier form with the name, contact, type, city, service and TIN filled in. If Canvas already has the supplier, the button opens that supplier instead. Bank details never go in the link; the card shows them to copy. After saving in Canvas, **Saved in Canvas** finds the supplier there (supplier_check), then files the documents and drafts the documents request. Adding from Cue stays as a fallback.
+- Prepare ARs: the card's main button opens the project in Canvas, where Generate ARs is. Making receipts from Cue stays as a fallback.
+- Every card with a Canvas page gets an Open in Canvas button. Readiness opens the Checklist tab, an expense opens Request payment, a change request opens Scope, a supplier search opens Price Watch, and an intake opens its project once Canvas has it.
+- Tests: 251 of 251 pass (new CV1 to CV8), on top of 1.22.1.
+
 ## Cue 1.22.1: a bid check never shows as a Project intake (not deployed)
 
 PC test 19:23Z on /dev: "run bid opportunity check" posted the right summary ("4 new … Process check 7 of 9"), but the thread was titled "Project intake" and the card read "Project intake stopped" with Try again / Reject.
