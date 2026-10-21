@@ -57,7 +57,8 @@ function cueCanvasLink_(o) {
       return { title: 'Request payment · ' + nm, url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab: 'Scope', action: 'pay', qc: Object.keys(qc).length ? cueCanvasB64_(qc) : '' }) }; }
     case 'finance': { const view = ['ar', 'pay', 'proj', 'att'].indexOf(o.view) >= 0 ? o.view : '';
       return { title: 'Finance' + (view ? ' · ' + { ar: 'Sales', pay: 'Payables', proj: 'Projects', att: 'Needs attention' }[view] : '') + (o.client ? ' · ' + t(o.client) : ''),
-        url: base + '?' + cueCanvasQ_({ page: 'playbook', view, client: cueStr_(o.client, 120), q: cueStr_(o.q, 120) }) }; }
+        // 1.25.1 (PC test 20:33Z): page=playbook is Finance (Requests first); Sales, Payables and Projects with a client filter are Finance Desk.
+        url: base + '?' + cueCanvasQ_({ page: view || o.client || o.q ? 'financedesk' : 'playbook', view, client: cueStr_(o.client, 120), q: cueStr_(o.q, 120) }) }; }
     case 'accounts': return { title: 'Accounts · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'clientdesk', q: cueStr_(o.q, 120) }) };
     case 'cedesk': return { title: 'Cost Estimates · ' + t(o.q), url: base + '?' + cueCanvasQ_({ page: 'cedesk', q: cueStr_(o.q, 120) }) };
     // New scope: Canvas picks the Requirement whose name matches req, else puts req in Scope; desc fills Description.
