@@ -11,9 +11,9 @@
  * Pasted text is untrusted data, the same as a client inquiry. */
 
 const CUE_MEM_TAB_ = 'Memory', CUE_MEM_HEAD_ = ['On', 'Topic', 'Fact', 'Always', 'Saved', 'Request'];
-const CUE_MEM_TOPICS_ = ['about Kiko', 'BSE', 'clients', 'suppliers', 'team', 'money', 'preferences', 'tools', 'personal'];
+const CUE_MEM_TOPICS_ = ['rules', 'about Kiko', 'BSE', 'clients', 'suppliers', 'team', 'money', 'preferences', 'tools', 'personal'];
 const CUE_PROC_WHO_ = ['Claude', 'ChatGPT', 'Code', 'Canvas', 'Zapier', 'Kiko'];
-const CUE_TEACH_MAX_ = { pasted: 20000, facts: 60, fact: 400, known: 150, processes: 8, always: 5, pick: 8, memChars: 1200, procChars: 1500, input: 8000 };
+const CUE_TEACH_MAX_ = { pasted: 20000, facts: 60, fact: 400, known: 150, processes: 8, always: 12, pick: 8, memChars: 1800, procChars: 1500, input: 8000 };
 const CUE_MEM_RE_ = /^\s*(?:please\s+)?(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:memory|memories)\b[\s:.,!-]*/i;
 const CUE_PROC_RE_ = /^\s*(?:please\s+)?(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:process|processes|skills?|custom\s+instructions)\b[\s:.,!-]*/i;
 const CUE_TEACH_SECRET_RE_ = /\b(password|passcode|api[ _-]?key|secret key|token|otp|pin code|cvv)\b|\d(?:[ -]?\d){11,}/i;
@@ -81,6 +81,7 @@ function cueTeachLoad_() {
   try {
     if (!cueProp_('CUE_SHEET_ID', '')) return (CUE_TEACH_CACHE_ = out);
     const ss = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', ''));
+    cueTeachSeed_();
     const mem = ss.getSheetByName(CUE_MEM_TAB_), n = mem ? mem.getLastRow() - 1 : 0;
     if (n > 0) out.facts = mem.getRange(2, 1, n, 4).getValues().filter(r => cueStyleOn_(r[0]) && String(r[2] || '').trim())
       .map(r => ({ topic: String(r[1] || '').trim(), text: cueStr_(String(r[2]).trim(), CUE_TEACH_MAX_.fact), always: cueStyleOn_(r[3]) }));
@@ -101,7 +102,7 @@ function cueTeachFor_(input) {
   const want = cueTeachWords_(String(input || '').slice(0, CUE_TEACH_MAX_.input));
   const score = t => cueTeachWords_(t).filter(w => want.indexOf(w) >= 0).length;
   let out = '';
-  const always = T.facts.filter(f => f.always).slice(0, CUE_TEACH_MAX_.always);
+  const always = T.facts.filter(f => f.always).reverse().slice(0, CUE_TEACH_MAX_.always);   // newest first: a fresh correction wins
   const hits = T.facts.filter(f => !f.always).map((f, i) => ({ f, i, s: score(f.topic + ' ' + f.text) })).filter(x => x.s > 0)
     .sort((a, b) => b.s - a.s || b.i - a.i).slice(0, CUE_TEACH_MAX_.pick).map(x => x.f);
   let lines = '';
@@ -317,4 +318,47 @@ function cueTeachView_(s) {
     facts: (P.facts || []).map(f => ({ k: f.k, topic: f.topic, text: f.text, always: !!f.always, replaces: f.replaces_text || '', selected: !!f.selected })),
     procs: (P.procs || []).map(p => ({ k: p.k, name: p.name, goal: p.goal, trigger: p.trigger, updates: p.updates, version: p.version || 0, selected: !!p.selected,
       steps: cueProcLines_(p.steps).replace(/^\d+\. /gm, ''), questions: p.questions, flags: p.flags.map(f => (f.step ? 'Step ' + f.step + ': ' : '') + f.text) })) };
+}
+
+/* ---------- learning from corrections at once (Kiko 17:03Z "expedite how he learns") ---------- */
+// Kiko's intake rules from earlier corrections, written to the Memory tab once (Kiko can edit or switch them off there).
+const CUE_TEACH_SEED_ = [
+  'Before starting a new project intake, Cue checks Canvas for the same project (same name, account, event date within 30 days) and asks Kiko first.',
+  'When Kiko asks a question in a task\'s thread, Cue answers it; it does not rescan or redo the card unless Kiko asks for that.',
+  'Cue never saves anything to Canvas, HubSpot or Gmail before Kiko taps Approve.',
+  'When Kiko cancels or rejects an intake, the records that intake made in Canvas are to be deleted.'];
+const CUE_LEARN_RE_ = /^\s*(?:remember(?:\s+this|\s+that)?\s*[:,-]|rule\s*[:,-]|note\s+for\s+cue\s*[:,-]|from\s+now\s+on\b[\s:,-]*)/i;
+
+function cueTeachSeed_() {
+  try {
+    const P = PropertiesService.getScriptProperties();
+    if (P.getProperty('CUE_MEMORY_SEEDED') === '1' || !cueProp_('CUE_SHEET_ID', '')) return;
+    const sh = cueTeachTab_(), at = new Date(cueNow_());
+    CUE_TEACH_SEED_.forEach(t => sh.appendRow([true, 'rules', t, true, at, 'seed']));
+    P.setProperty('CUE_MEMORY_SEEDED', '1');
+  } catch (e) { console.warn('Memory seed: ' + e); }
+}
+
+/** Saves one rule straight away (on, used in every task) and asks Keep or Undo where Kiko said it. Returns the ask id. */
+function cueLearnNow_(rule, where) {
+  const text = cueStr_(String(rule || '').replace(/\s+/g, ' ').trim(), CUE_TEACH_MAX_.fact);
+  if (text.length < 8 || CUE_TEACH_SECRET_RE_.test(text)) return '';
+  const sh = cueTeachTab_(), n = sh.getLastRow();
+  const same = n > 1 ? sh.getRange(2, 1, n - 1, 3).getValues().some(r => cueStyleOn_(r[0]) && cueName_(r[2]) === cueName_(text)) : false;
+  if (same) return '';
+  sh.appendRow([true, 'rules', text, true, new Date(cueNow_()), where || 'chat']);
+  cueTeachReset_();
+  return cueAskOpen_({ type: 'learned', row: sh.getLastRow(), text }, 'Learned: "' + text + '" It applies from your next message.', ['keep', 'undo'], where);
+}
+
+/** "remember: …", "rule: …" or "from now on …": saved with no AI call, in any thread. */
+function cueLearnSaid_(text, ref) {
+  const t = String(text || '').trim();
+  if (!CUE_LEARN_RE_.test(t)) return null;
+  const rule = t.replace(CUE_LEARN_RE_, '').trim();
+  if (rule.length < 8) return null;
+  cueChat_('Kiko', t, ref || '');
+  const ask = cueLearnNow_(/^from\s+now\s+on/i.test(t) ? 'From now on, ' + rule : rule, ref || '');
+  if (!ask) cueChat_('Cue', 'I already have that rule.', ref || '');
+  return { chat: true, ask, task: ref || '' };
 }

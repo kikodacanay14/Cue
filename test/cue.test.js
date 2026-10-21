@@ -123,7 +123,8 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off',   // the one-card intake tests below run with the switch off; PH tests turn it on
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_MEMORY_SEEDED: '1',   // the seeded intake rules have their own test (TC5)
+       // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
   const log = { gpt: [], claude: [], bridge: [], gmail: [], batches: [] }, drive = { n: 0, files: {}, meta: {}, parent: {}, type: {} };
@@ -466,7 +467,7 @@ const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a dr
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
 // Every field of the chat call's strict schema, across all features (each one must also be required).
-const CHAT_FIELDS = ['command', 'command_client', 'email', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'task', 'task_set', 'vendor', 'workflow'];
+const CHAT_FIELDS = ['choices', 'command', 'command_client', 'email', 'learn', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'sure', 'task', 'task_set', 'vendor', 'workflow'];
 const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
@@ -2755,6 +2756,75 @@ test('TC4 Teach Cue is invisible until Kiko approves: no tabs means every call i
   t.tabs.Workflows.appendRow(['', 'RFQ chasers', 1, 'Zapier', 'Approved', 'Every weekday', '1. Read email (Code): x', '', 0, '', '[]', 'cue-1', false]);
   t.ctx.cueTeachReset_(); deq(t.ctx.cueTeachFor_('RFQ chasers every weekday'), '');
   t.ctx.cueWorkflowTab_(); deq(t.tabs.Workflows.rows[0][12], 'Use in prompts', 'an old Workflows tab gets the new header');
+});
+
+
+/* ---------- Teach Cue add-on: learning at once, asking when unsure, wrong command (CueTeach.gs, CueRoute.gs) ---------- */
+const askLine = t => t.tabs.Chat.rows.filter(r => /^\?ask-/.test(String(r[3]))).pop();
+const askId = r => String(r[3]).match(/^\?(ask-[0-9a-z]+)/)[1];
+
+test('TC5 Kiko\'s intake rules are seeded into Memory once, as rules used in every task', () => {
+  const t = sandbox({ props: { CUE_MEMORY_SEEDED: '' } });
+  const a = t.ctx.cueTeachFor_('hello'); t.ctx.cueTeachReset_(); t.ctx.cueTeachFor_('hello');
+  deq(t.tabs.Memory.rows.slice(1).map(r => [r[0], r[1], r[3], r[5]]), Array(4).fill([true, 'rules', true, 'seed']));
+  assert.ok(/same project/.test(a) && /instead of rescanning|does not rescan/.test(a) && /before Kiko taps Approve/.test(a) && /deleted/.test(a));
+  deq(t.props.CUE_MEMORY_SEEDED, '1');
+});
+
+test('TC6 a correction in chat is saved at once (same chat call, no extra AI call), used on the next call, and Undo switches it off', () => {
+  const t = sandbox({ talk: { reply: 'Got it, I will answer next time.', looks_like_inquiry: false, learn: 'When Kiko asks a question in a thread, Cue answers it instead of rescanning.' } });
+  t.ctx.cueSend('no, don\'t rescan when I ask a question, just answer', [], '');
+  deq(t.log.gpt.length, 1);
+  deq(t.tabs.Memory.rows.slice(1).map(r => [r[0], r[1], r[2], r[3]]), [[true, 'rules', 'When Kiko asks a question in a thread, Cue answers it instead of rescanning.', true]]);
+  const q = askLine(t); assert.ok(/^Learned: /.test(q[2]) && /:keep,undo$/.test(q[3]));
+  assert.ok(/answers it instead of rescanning/.test(t.ctx.cueTeachFor_('anything at all')), 'applies from the next call');
+  t.ctx.cueSend('ok thanks', [], '');
+  assert.ok(/answers it instead of rescanning/.test(t.log.gpt[1].instructions), 'the very next chat call carries it');
+  deq(t.tabs.Memory.rows.length, 2, 'the same rule is not saved twice');
+  t.ctx.cueAskPick(askId(q), 'undo');
+  deq(t.tabs.Memory.rows[1][0], false); assert.ok(!/rescanning/.test(t.ctx.cueTeachFor_('anything')));
+  assert.throws(() => t.ctx.cueAskPick(askId(q), 'keep'), /already answered/);
+});
+
+test('TC7 "remember: …" in a task\'s thread is saved with no AI call and asks Keep or Undo in that thread', () => {
+  const t = vendorRun(); const n = t.log.gpt.length + t.log.claude.length;
+  const out = t.ctx.cueSend('remember: always ask Sonic Pro first for LED walls', [], '', t.id);
+  deq([t.log.gpt.length + t.log.claude.length, out.task], [n, t.id]);
+  deq(t.tabs.Memory.rows[1].slice(0, 4), [true, 'rules', 'always ask Sonic Pro first for LED walls', true]);
+  assert.ok(new RegExp(':keep,undo@' + t.id + '$').test(askLine(t)[3]), 'the question shows in the thread');
+  t.ctx.cueSend('from now on cost per requirement', [], '', t.id);
+  deq(t.tabs.Memory.rows[2][2], 'From now on, cost per requirement');
+  t.ctx.cueSend('Remember: always ask Sonic Pro first for LED walls', [], '', t.id);
+  assert.ok(/already have that rule/.test(t.tabs.Chat.rows.pop()[2]));
+});
+
+test('TC8 not sure which command: nothing starts, the top 2 show as buttons plus Just chat; a button starts it from the same chat call', () => {
+  const talk = VTALK({}, 'Do you want suppliers or a readiness check?'); Object.assign(talk, { sure: false, choices: ['vendor', 'readiness'], readiness: 'Acme Party' });
+  const t = sandbox({ talk }); const out = t.ctx.cueSend('LED wall for Acme Party', [], '');
+  deq([out.chat, !!out.ask, t.tabs.Requests.rows.length, t.log.gpt.length], [true, true, 1, 1]);
+  const q = askLine(t); assert.ok(/:vendor,readiness,chat$/.test(q[3]) && /Did you mean Supplier search or Readiness check\?/.test(q[2]));
+  const go = t.ctx.cueAskPick(askId(q), 'vendor');
+  deq([t.log.gpt.length, t.ctx.cueLoad_(go.request_id).s.kind], [1, 'vendor']);
+  assert.throws(() => t.ctx.cueAskPick(askId(q), 'readiness'), /already answered/);
+  const u = sandbox({ talk }); u.ctx.cueSend('LED wall for Acme Party', [], ''); u.ctx.cueAskPick(askId(askLine(u)), 'chat');
+  deq(u.tabs.Requests.rows.length, 1); assert.ok(/Nothing was started/.test(u.tabs.Chat.rows.pop()[2]));
+  const w = vendorRun({ gpt: { chat: [VTALK(), talk] } }); w.ctx.cueSend('LED wall for Acme Party', [], '', w.id);   // in a thread it asks in words
+  assert.ok(/Did you mean Supplier search or Readiness check\? Say which/.test(w.tabs.Chat.rows.pop()[2]));
+});
+
+test('TC9 wrong command: the task closes, the right one starts from the same message, and Cue asks once to remember; Yes feeds the next chat calls', () => {
+  const ready = { reply: 'Checking Canvas.', looks_like_inquiry: false, start_intake: '', task: '', readiness: 'Acme Party', sure: true, choices: [] };
+  const t = mailRun({ gpt: { chat: [mailAsk({}), ready] } }); deq(t.v.status, 'Needs you'); assert.ok(t.v.can_redo);
+  const out = t.ctx.cueWrongCommand(t.id, 'readiness');
+  deq([t.ctx.cueLoad_(t.id).s.status, t.ctx.cueLoad_(out.request_id).s.kind], ['Closed', 'readiness']);
+  assert.ok(/Kiko corrected Cue: this message is a Readiness check request/.test(t.log.gpt.filter(b => b.text.format.name === 'chat')[1].input));
+  const q = askLine(t); assert.ok(/^Remember that "email Mats Co asking if they can deliver a day early" means Readiness check\?$/.test(q[2]) && /:yes,no$/.test(q[3]));
+  t.ctx.cueAskPick(askId(q), 'yes');
+  deq(t.tabs['Routing examples'].rows.slice(1).map(r => r.slice(1)), [['email Mats Co asking if they can deliver a day early', 'readiness']]);
+  deq([...t.ctx.cueRouteExamples_('can Mats Co deliver early')], ['"email Mats Co asking if they can deliver a day early" means Readiness check']);
+  assert.throws(() => t.ctx.cueWrongCommand(t.id, 'email'), /no longer be redone/);
+  t.ctx.cueSend('can Mats Co deliver early', [], '');
+  assert.ok(/What Kiko meant before/.test(t.log.gpt.filter(b => b.text.format.name === 'chat').pop().input));
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
