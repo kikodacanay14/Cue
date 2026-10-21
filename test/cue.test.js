@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueSweep.gs', 'CueSweepRfq.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -122,10 +122,19 @@ function sandbox(o = {}) {
     if (u.indexOf('oauth2.googleapis.com/tokeninfo') >= 0) { log.tokeninfo = req.payload; return resp(200, { scope: (o.scopes || ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file']).map(x => /^https/.test(x) ? x : 'https://www.googleapis.com/auth/' + x).join(' ') }); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
       if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
-      if (u.indexOf('/messages?') >= 0) { log.gmailQ = decodeURIComponent(u.split('q=')[1]); return resp(200, { messages: (o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) }); }
+      if (u.indexOf('/messages?') >= 0) {
+        const q = decodeURIComponent(u.split('q=')[1]);
+        if (/^from:/.test(q)) { (log.fromQ = log.fromQ || []).push(q); const after = Number((q.match(/after:(\d+)/) || [])[1]) || 0;
+          return resp(200, { messages: (o.inbound || []).filter(m => q.indexOf('from:' + m.from + ' ') === 0 && m.ms / 1000 > after).map(m => ({ id: m.id, threadId: 'x' })) }); }
+        log.gmailQ = q; return resp(200, { messages: (o.sentSearch || o.sent || SENT).map(m => ({ id: m.id, threadId: m.thread })) });
+      }
       const m = (o.sent || SENT).find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(m.ms), snippet: m.snippet,
         payload: { headers: [{ name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
+    }
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/threads/') >= 0) {
+      const id = u.split('/threads/')[1].split('?')[0]; (log.threads = log.threads || []).push(id);
+      return o.threads && o.threads[id] ? resp(200, { id, messages: o.threads[id] }) : resp(404, {});
     }
     if (u.indexOf('upload/gmail/v1/users/me/drafts') >= 0) {
       log.replies = log.replies || []; log.replies.push({ type: req.contentType, payload: req.payload });
@@ -161,6 +170,7 @@ function sandbox(o = {}) {
     HtmlService: {}
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
+  if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
@@ -223,13 +233,10 @@ test('C7 metric: calls and seconds recorded; a run over 3 minutes is flagged', (
   assert.ok(/Over budget: .*s/.test(slow.v.metrics.flag), slow.v.metrics.flag);
   assert.strictEqual(slow.tabs['AI Runs'].rows.length - 1, 4);
 });
-test('C8 CUE_DRAFTS_IN=canvas: Canvas re-checks (submit_intake, real bridge schema), writes once, then makes the RFQ drafts in info@', () => {
+test('C8 never info@ (Kiko 07:45Z): an old CUE_DRAFTS_IN=canvas setting is ignored; RFQs are drafted in Kiko\'s Gmail', () => {
   const t = startToCard({ props: { CUE_DRAFTS_IN: 'canvas' } }), v = t.ctx.cueApprove(t.id, {});
-  assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.canvas.project_number, '052');
-  deq(t.log.bridge.map(b => b.action).slice(2), ['submit_intake', 'apply_intake', 'make_rfq_drafts']);
-  assert.strictEqual(t.log.gmail.length, 0, 'Cue makes no drafts in the personal Gmail');
-  deq(v.drafts.map(d => [d.supplier, d.mailbox]), [['Sonic Pro', 'info@'], ['SkyLights PH', 'info@'], ['Guess Co', 'info@']]);
-  assert.throws(() => t.ctx.cueApprove(t.id, {}), /not waiting for you/);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.gmail.length, 3); assert.ok(!t.log.bridge.some(b => b.action === 'make_rfq_drafts'));
+  assert.ok(!v.drafts.some(d => d.mailbox));
 });
 test('C8b default (Kiko 03:25Z): one draft per supplier in Kiko\'s Gmail, To blank without an email, no header injection', () => {
   const t = startToCard(), v = t.ctx.cueApprove(t.id, {});
@@ -281,12 +288,6 @@ test('C16 a Gmail draft that fails is retried alone, never doubled', () => {
   assert.strictEqual(v.status, 'Done, drafts incomplete');
   const w = t.ctx.cueDrafts(t.id); assert.strictEqual(w.status, 'Done'); assert.strictEqual(t.log.gmail.length, 4);
   deq(w.drafts.map(d => !!d.id), [true, true, true]);
-});
-test('C16b Canvas drafts fail once: "Make drafts again" asks Canvas again, and the project is not written twice', () => {
-  const t = startToCard({ canvasDraftsFail: true, props: { CUE_DRAFTS_IN: 'canvas' } }), v = t.ctx.cueApprove(t.id, {});
-  assert.strictEqual(v.status, 'Done, drafts incomplete'); assert.strictEqual(v.canvas.project_id, 'S-99900001ZZ');
-  const w = t.ctx.cueDrafts(t.id); assert.strictEqual(w.status, 'Done'); assert.strictEqual(w.drafts.length, 3);
-  assert.strictEqual(t.log.bridge.filter(b => b.action === 'apply_intake').length, 1);
 });
 test('C17 an inquiry with no requirements stops with a clear message', () => {
   const t = startToCard({ read: Object.assign({}, READ, { requirements: [] }) });
@@ -704,6 +705,72 @@ test('S13 an older batch never approved is closed when the next one is built; Ap
   t.at('2026-10-22', 7, 0); t.ctx.cueSweep();
   assert.strictEqual(t.state(old).status, 'Closed'); assert.throws(() => t.ctx.cueApprove(old, { send: true }), /closed/);
   assert.strictEqual(batchOf(t).batch.items.length, 3, 'its lines come back today');
+});
+
+/* ---------- RFQ chasers (CueSweepRfq.gs, spec specs/rfq-chasers.md) ---------- */
+const KIKO = 'Kiko <kiko@example.com>';
+const gm = (id, at, from, to, subject, x = {}) => ({ id, internalDate: String(at), labelIds: x.draft ? ['DRAFT'] : ['SENT'], snippet: x.snippet || 'Please quote',
+  payload: { headers: [{ name: 'From', value: from }, { name: 'To', value: to }, { name: 'Subject', value: subject }, { name: 'Message-ID', value: '<' + id + '@mail>' }] } });
+const RFQ_THREADS = {
+  aaaa0000000000a1: [gm('r1', PH('2026-10-16', 10), KIKO, 'Sonic Pro <sales@sonicpro.example>', 'RFQ: LED wall 4x3')],                       // Fri: 3 working days, due
+  aaaa0000000000a2: [gm('r2', PH('2026-10-19', 10), KIKO, 'sales@stage.example', 'RFQ: Stage')],                                              // Mon: 2 days, not yet
+  aaaa0000000000a3: [gm('r3', PH('2026-10-15', 10), KIKO, 'q@tents.example', 'RFQ: Tent'), gm('r3b', PH('2026-10-17', 9), 'q@tents.example', KIKO, 'Re: RFQ: Tent')], // replied
+  aaaa0000000000a4: [gm('r4', PH('2026-10-14', 10), KIKO, 'hi@print.example', 'RFQ: Prints'), gm('r4d', PH('2026-10-20', 9), KIKO, 'hi@print.example', 'Re: RFQ: Prints', { draft: true })], // draft waiting
+  aaaa0000000000a5: [gm('r5', PH('2026-10-15', 10), KIKO, 'Mats Co <sales@matsco.example>', 'RFQ: Mats')],                                   // answered by a new email
+  aaaa0000000000a6: [gm('cue-sent-1', PH('2026-10-20', 10), KIKO, 'SkyLights PH <hello@skylights.example>', 'Quotation request: drone show')], // Cue's own RFQ, event soon
+  aaaa0000000000a7: [gm('r7', PH('2026-10-12', 10), KIKO, 'av@beta.example', 'RFQ: Beta AV')],                                               // project lost
+  aaaa0000000000a8: [gm('r8', PH('2026-10-12', 10), KIKO, 'partner@longtime.example', 'RFQ: Chairs')],                                       // never chase
+  aaaa0000000000a9: [gm('r9', PH('2026-10-12', 10), KIKO, 'Ana <ana@example.com>', 'RFQ internal')] };                                          // BSE only
+const RFQ_SENT = Object.keys(RFQ_THREADS).map(t => ({ id: RFQ_THREADS[t][0].id, thread: t, ms: Number(RFQ_THREADS[t][0].internalDate), to: '', subject: '', snippet: '' }));
+function rfqBox(o = {}) {
+  const t = sandbox(Object.assign({ rfq: true, threads: RFQ_THREADS, sent: RFQ_SENT, sentSearch: RFQ_SENT.filter(m => m.id !== 'cue-sent-1'),
+    inbound: [{ id: 'in1', from: 'sales@matsco.example', ms: PH('2026-10-18', 9) }], props: { CUE_RFQ_NEVER: 'longtime.example' },
+    projects: [{ id: 'S-1', name: 'Acme Party', status: 'For Production Start', date: '2026-10-25' }, { id: 'S-2', name: 'Beta Expo', status: 'Closed Lost', date: '2026-11-20' }] }, o));
+  let T = PH('2026-10-21', 7, 0); t.at = (d, h, m) => { T = PH(d, h, m); }; t.ctx.cueNow_ = () => T;
+  const add = x => { const sh = t.tabs.Requests; sh.appendRow([x.id]); t.ctx.cueSave_(sh, sh.rows.length, Object.assign({ created: new Date(PH('2026-10-20', 9)).toISOString(), status: 'Done', text: '', metrics: {} }, x)); };
+  add({ id: 'cue-intake-1', kind: 'intake', canvas: { project_id: 'S-1' }, read: { event: { name: 'Acme Party' } }, drafts: [{ k: '0:0', supplier: 'SkyLights PH', to: 'hello@skylights.example', id: 'd1', sent_id: 'cue-sent-1' }] });
+  add({ id: 'cue-change-1', kind: 'change', change: { match: { project_id: 'S-2', name: 'Beta Expo' }, found: [{ k: 'T1', thread_id: 'aaaa0000000000a7' }], drafts: [] } });
+  return t;
+}
+const rfqBatch = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0];
+
+test('R1 finds only RFQs still waiting: 3 working days, no reply in or out of the thread, no draft waiting, project open, not muted by setting, outside BSE', () => {
+  const t = rfqBox(); t.ctx.cueSweep(); const b = rfqBatch(t);
+  assert.strictEqual(b.status, 'Needs you');
+  deq(b.batch.items.map(i => [i.key, i.who, i.to, i.priority]), [['rfq:aaaa0000000000a6', 'SkyLights PH', 'hello@skylights.example', 'urgent'], ['rfq:aaaa0000000000a1', 'Sonic Pro', 'sales@sonicpro.example', 'normal']]);
+  const sky = b.batch.items[0], sonic = b.batch.items[1];
+  assert.strictEqual(sky.project, 'Acme Party', 'Canvas name for a thread Cue sent'); assert.ok(/event on 2026-10-25/.test(sky.why), sky.why);
+  assert.strictEqual(sonic.project, 'LED wall 4x3', 'no Canvas link: the RFQ subject'); assert.ok(/No reply 3 working days after your RFQ/.test(sonic.why), sonic.why);
+  assert.ok(/in:sent newer_than:30d \(RFQ OR RFQs OR requote/.test(t.log.gmailQ), 'searches only RFQ words, not client quotations');
+  assert.ok(t.log.threads.indexOf('aaaa0000000000a6') >= 0, 'Cue\'s own RFQ found by its sent message id, whatever its subject');
+  assert.strictEqual(t.log.board, 1, 'one Canvas read'); assert.strictEqual(t.log.gpt.length, 1, 'no AI call of its own: the engine\'s one draft call');
+  assert.strictEqual(b.metrics.ai_calls, 1); assert.ok(!t.log.replies && !t.log.sent, 'nothing drafted or sent before Kiko approves');
+});
+test('R2 approve and send: replies in the original thread (In-Reply-To the RFQ), logged; next nudge only 3 working days later; max 2 then Kiko decides', () => {
+  const t = rfqBox(); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
+  const v = t.ctx.cueApprove(rfqBatch(t).id, { send: true, skip: ['rfq:aaaa0000000000a6'] });
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.replies.length, 1); assert.strictEqual(t.log.sent.length, 1);
+  const p = t.log.replies[0].payload; assert.ok(p.indexOf('"threadId":"aaaa0000000000a1"') >= 0); assert.ok(/In-Reply-To: <r1@mail>/.test(p)); assert.ok(/To: sales@sonicpro\.example/.test(p));
+  const row = chase(t).find(r => r[0] === 'rfq:aaaa0000000000a1'); assert.strictEqual(row[5], 1); assert.strictEqual(row[8], 'sent');
+  for (const d of ['2026-10-22', '2026-10-23']) { t.at(d, 7, 0); t.ctx.cueSweep(); assert.ok(!(rfqBatch(t).batch || { items: [] }).items.some(i => i.key === 'rfq:aaaa0000000000a1'), d + ': inside 3 working days'); }
+  t.at('2026-10-26', 10, 0); t.ctx.cueSweep(); const b = rfqBatch(t), it = b.batch.items.find(i => i.key === 'rfq:aaaa0000000000a1');
+  assert.ok(it && /after your last nudge/.test(it.why), 'Mon 26: 3 working days after the nudge'); assert.ok(!b.batch.items.some(i => i.key === 'rfq:aaaa0000000000a6'), 'event passed: not chased');
+  t.ctx.cueApprove(b.id, { send: true });
+  t.at('2026-10-29', 7, 0); t.ctx.cueSweep(); const c = rfqBatch(t);
+  deq(c.batch.stopped.map(i => [i.key, i.times]), [['rfq:aaaa0000000000a1', 2]]); deq(c.batch.items.map(i => i.key), ['rfq:aaaa0000000000a2'], 'only the Stage RFQ, due since Thu 22 and never approved');
+});
+test('R3 Canvas down: a note, status and event dates unchecked, normal 3-day rule; Gmail without access: the kind is a note and the batch still comes', () => {
+  const t = rfqBox({ boardFail: true }); t.ctx.cueSweep(); const b = rfqBatch(t);
+  deq(b.batch.items.map(i => i.key).sort(), ['rfq:aaaa0000000000a1', 'rfq:aaaa0000000000a7'], 'no event date: SkyLights waits the normal 3 days; lost status unknown');
+  assert.ok(b.notes.some(n => /Canvas did not answer/.test(n)));
+  const u = rfqBox({ gmailScope: true }); u.ctx.cueSweep();
+  assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today.*RFQ chasers: could not check \(Cue does not have Gmail access/.test(r[2])));
+});
+test('R4 template when ChatGPT fails: names the supplier, project, RFQ date and a reply-by two working days out', () => {
+  const t = rfqBox({ fail: { chasers: () => resp(500, {}) } }); t.ctx.cueSweep(); const it = rfqBatch(t).batch.items.find(i => i.key === 'rfq:aaaa0000000000a1');
+  assert.strictEqual(it.drafted_by, 'template'); assert.ok(/^Hi Sonic Pro,/.test(it.body));
+  assert.ok(/our RFQ for LED wall 4x3, sent on 2026-10-16\. Could you send your quotation by Friday 23 October\?/.test(it.body), it.body);
+  deq([t.ctx.cueWorkDays_('2026-10-16', '2026-10-21'), t.ctx.cueWorkDays_('2026-10-23', '2026-10-26'), t.ctx.cueRfqDay_('2026-10-24T16:00:00.000Z'), t.ctx.cueRfqDay_('12/5/2026')], [3, 1, '2026-10-25', '2026-12-05']);
 });
 
 let pass = 0;

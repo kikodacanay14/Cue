@@ -406,19 +406,8 @@ function cueIntakeDrafts_(id) {
   return L.s;
 }
 /** One draft per RFQ supplier, from the RFQs Canvas stored. Drafts already made are skipped, so a retry never doubles one. */
-// Kiko's card (03:25Z): drafts go in Kiko's own Gmail, made here. CUE_DRAFTS_IN=canvas has Canvas make them in info@ instead.
+// Kiko's card (03:25Z): drafts go in Kiko's own Gmail, made here. Never info@ (Kiko 07:45Z): the old CUE_DRAFTS_IN=canvas switch is gone.
 function cueIntakeDraftsRun_(s) {
-  if (cueProp_('CUE_DRAFTS_IN', 'cue') === 'canvas') {
-    s.drafts_error = '';
-    try { s.drafts = (cueBridge_(s, 'make_rfq_drafts', { request_id: s.id }).drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: d.to,
-      subject: d.subject, new: !!d.new, id: d.id, error: d.error, mailbox: 'info@' })); }
-    catch (e) { s.drafts = s.drafts || []; s.drafts_error = cueStr_((e && e.message) || e, 300); }
-    const bad = s.drafts_error ? 1 : s.drafts.filter(d => !d.id).length;
-    s.status = bad ? 'Done, drafts incomplete' : 'Done'; s.stage = 'Done';
-    cueChat_('Cue', s.drafts_error ? 'Canvas could not make the RFQ drafts (' + s.drafts_error + '). Use "Make drafts again".'
-      : !s.drafts.length ? 'No RFQ drafts to make.' : (s.drafts.length - bad) + ' RFQ draft(s) are in the info@ Gmail, not sent.' + (bad ? ' ' + bad + ' could not be made; use "Make drafts again".' : ''), s.id);
-    return;
-  }
   const done = s.drafts || (s.drafts = []);
   (s.rfqs_final || []).forEach((q, i) => ((q.suppliers || []).length ? q.suppliers : [{ name: '', email: '' }]).forEach((x, j) => {
     const k = i + ':' + j, have = done.find(d => d.k === k);
