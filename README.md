@@ -36,7 +36,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 - `CueChange.gs`: change requests, started when Canvas's duplicate check finds the project (or Kiko says it is a change). Lists the project's folder files through Canvas, searches Kiko's **sent** Gmail (gmail.readonly) for RFQ emails about the project, then makes reply drafts in those threads with the attachments. Cue sees only Kiko's own mailbox, not info@.
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
-- `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page.
+- `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page. Bubble 1.2.0 also snaps the Chrome tab into Cue's message box (📷 in Cue, Alt+Shift+S, or right-click "Cue: snap this page / an area"); `cue-drop.js` runs only in Cue's page frame and fills the box, it never sends.
 - `test/cue.test.js`: 29 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V184. Refresh that copy whenever a Canvas release changes the bridge.
 
 ## Setup (Kiko, in your personal Google account)

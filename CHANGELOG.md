@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.9 with Cue bubble 1.2.0 (not deployed; spec screen-snapshot.md, Kiko approved 21 Oct 08:17Z)
+
+- Screen snapshots for intake. Tap 📷 in Cue's message box, press Alt+Shift+S, or right-click a page and pick "Cue: snap this page" or "Cue: snap an area". The bubble captures the visible part of the Chrome tab (the bubble itself steps out of the picture), shrinks it to 1800 px, and drops it into Cue's message box with "New project intake." and the page's title and address. Nothing is sent until Kiko presses Enter. GPT's read call reads it as before, so there are no extra AI calls.
+- "Send to Cue" on selected text puts the text in the message box with where it came from.
+- Snapshots (`Cue snapshot …` files) go to Brief & Planning (or Client Documents for a change) after approval, not Designs & Visuals.
+- The bubble asks Chrome for `activeTab`, `contextMenus` and access to all sites (to capture the tab behind Cue). Kiko reloads the extension and accepts the new permission once. 📷 shows in Cue only when bubble 1.2.0 is installed.
+- Chrome pages (chrome://, the Web Store) and desktop apps can't be snapped: use Win+Shift+S, then Ctrl+V in Cue.
+
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).

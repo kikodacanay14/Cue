@@ -1,5 +1,44 @@
 // Cue bubble (draft, 21 Oct): a round Cue button on every page. Drag it anywhere; tap it to open Cue.
 // It reads nothing on the page and sends nothing but "open Cue" and where the bubble sits.
+// 1.2.0: when Kiko snaps a page, the bubble steps out of the picture, and "Snap an area" lets Kiko drag a box (Esc cancels).
+let cueHost = null;
+if (window.top === window) chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (!msg || sender.id !== chrome.runtime.id) return;
+  if (msg.type === 'cue-hide') { if (cueHost) cueHost.style.visibility = 'hidden'; frames2(() => reply(true)); return true; }
+  if (msg.type === 'cue-show') { if (cueHost) cueHost.style.visibility = ''; reply(true); }
+  if (msg.type === 'cue-area') { pickArea(reply); return true; }
+});
+function frames2(fn) { requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(fn, 30))); }
+function pickArea(reply) {
+  const host = document.createElement('div');
+  host.style.cssText = 'all:initial;position:fixed;inset:0;z-index:2147483647';
+  const root = host.attachShadow({ mode: 'closed' });
+  root.innerHTML = `<style>
+    .o{position:fixed;inset:0;cursor:crosshair;background:rgba(20,21,24,.35)}
+    .r{position:fixed;display:none;border:2px solid #559fef;background:rgba(85,159,239,.12);box-shadow:0 0 0 9999px rgba(20,21,24,.35)}
+    .t{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#1d1f24;color:#e4e6ea;border:1px solid #34373f;border-radius:9999px;
+      padding:8px 16px;font:600 14px/1.4 'DM Sans','Segoe UI',system-ui,sans-serif;pointer-events:none}
+  </style><div class="o" tabindex="-1"></div><div class="r"></div><div class="t">Drag over what Cue should read. Esc cancels.</div>`;
+  const o = root.querySelector('.o'), r = root.querySelector('.r'), tip = root.querySelector('.t');
+  let a = null, box = null, done = false;
+  const finish = res => {
+    if (done) return; done = true; document.removeEventListener('keydown', key, true); host.remove();
+    if (!res) return reply({ cancel: true });
+    frames2(() => reply(res));                                     // the box is gone before the picture is taken
+  };
+  const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); } };
+  document.addEventListener('keydown', key, true);
+  o.addEventListener('pointerdown', e => { a = { x: e.clientX, y: e.clientY }; o.setPointerCapture(e.pointerId); tip.style.display = 'none'; o.style.background = 'transparent'; });
+  o.addEventListener('pointermove', e => {
+    if (!a) return;
+    box = { x: Math.min(a.x, e.clientX), y: Math.min(a.y, e.clientY), w: Math.abs(e.clientX - a.x), h: Math.abs(e.clientY - a.y) };
+    Object.assign(r.style, { display: 'block', left: box.x + 'px', top: box.y + 'px', width: box.w + 'px', height: box.h + 'px' });
+  });
+  o.addEventListener('pointerup', () => { finish(box && box.w > 8 && box.h > 8 ? Object.assign(box, { vw: window.innerWidth }) : null); });
+  document.documentElement.appendChild(host);
+  o.focus();
+}
+
 (async () => {
   if (window.top !== window) return;
   const { cueUrl = '', cueHidden = {}, cuePos = null } = await chrome.storage.local.get(['cueUrl', 'cueHidden', 'cuePos']);
@@ -30,7 +69,7 @@
   const place = () => { pos.left = clamp(pos.left, window.innerWidth); pos.top = clamp(pos.top, window.innerHeight);
     b.style.left = pos.left + 'px'; b.style.top = pos.top + 'px'; x.style.left = (pos.left + 40) + 'px'; x.style.top = (pos.top - 6) + 'px'; };
   place();
-  document.documentElement.appendChild(host);
+  document.documentElement.appendChild(host); cueHost = host;
   window.addEventListener('resize', place);
 
   let start = null, moved = false;
@@ -49,7 +88,7 @@
   b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   x.addEventListener('click', async () => {
     const { cueHidden: h = {} } = await chrome.storage.local.get('cueHidden');
-    h[location.hostname] = true; await chrome.storage.local.set({ cueHidden: h }); host.remove();
+    h[location.hostname] = true; await chrome.storage.local.set({ cueHidden: h }); host.remove(); cueHost = null;
   });
   // The Cue window opens beside the bubble, inside the screen.
   function open() {
