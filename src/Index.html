@@ -103,7 +103,7 @@
   <section class="col" id="page-widgets" hidden>
     <div class="label">Needs you</div><div id="w-need"></div>
     <div class="label">Working on</div><div id="w-work"></div>
-    <div class="label">Speed budget</div><div id="w-budget"></div>
+
     <div class="label">Recently done</div><div id="w-done"></div>
   </section>
   <aside id="pinned">
@@ -298,10 +298,6 @@
     $('w-need').innerHTML = needHtml; $('w-work').innerHTML = workHtml;
     $('p-need').innerHTML = need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open Widgets to review.</div></div>' : '';
     $('p-work').innerHTML = work.map(workHtmlOf).join('');
-    var m = state.metrics || {}, b = m.budget || { calls: 5, seconds: 180 };
-    $('w-budget').innerHTML = '<div class="card"><table class="facts"><tr><td>Target</td><td>' + b.calls + ' AI calls or fewer, ' + Math.round(b.seconds / 60) + ' minutes or less</td></tr>'
-      + '<tr><td>Average so far</td><td>' + (m.runs ? esc(m.avg_ai_calls) + ' calls, ' + esc(m.avg_seconds) + ' s over ' + esc(m.runs) + ' run(s)' : 'No runs yet') + '</td></tr>'
-      + '<tr><td>Over budget</td><td>' + esc(m.over_budget || 0) + '</td></tr></table></div>';
     $('w-done').innerHTML = done.map(function (r) {
       var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
       return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'

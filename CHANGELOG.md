@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.3.2 (deployed as Version 9)
+
+- Removed the Speed budget widget (Kiko 05:38Z). Runs still record AI calls and seconds on each card.
+
 ## Cue 1.3.1 (deployed as Version 8)
 
 - Fix Google access (Kiko 05:32Z): when Gmail or Drive says Cue lacks a scope, Widgets shows one button. It asks Google which access Cue's token has; if gmail.readonly, gmail.compose or drive.file is missing it resets Cue's authorization so the next open of Cue asks for all of them. Keys and requests stay. cueSetup now also reports missing Google access.
