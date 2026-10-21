@@ -21,6 +21,13 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - **No new scopes and no Canvas writes.** It uses Gmail read (already granted) and the engine's one `get_project_board` read.
 - Tests: R1 to R4 added. C8 now checks that the old switch is ignored, and C16b is removed. 54 of 54 pass.
 
+## Unreleased (readiness; Canvas V186 with get_readiness is live)
+
+- Readiness check (Kiko approved specs/project-readiness.md, 21 Oct 07:32Z). Ask "is X ready?" or "what's missing for X?" in the chat. The chat call names the project; Canvas finds it (several open matches: pick on the card; a project ID works too) and returns its readiness checklist exactly as the Checklist tab scores it (new bridge read get_readiness: Pre-Event Readiness before the event, Closeout after). Cue flags overdue items, missing owners and blockers within 7 days of the event, and looks in your Gmail (subjects and snippets, last 60 days) for proof Canvas hasn't recorded. One Claude call writes the summary, the top 3 risks, what closes each open blocker, and whether each email or file looks like proof. The card leads with Canvas's own count (Blockers clear X of Y), never an AI number.
+- Draft follow-ups on the card: one GPT call drafts a reply in the email thread for each item Waiting on Others. Edit, then Approve and send, or Drafts only, like requotes. Close follow-ups drops them and keeps the check. Re-check runs it again in the same thread.
+- Read only: nothing is written to Canvas. Marking Ready, verifying and gate approval stay on the Checklist tab.
+- Budget: 1 AI call per check (Claude), 2 with follow-ups, plus the chat call that reads the ask.
+
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).

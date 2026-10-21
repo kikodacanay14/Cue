@@ -148,6 +148,8 @@ function cueSend(text, files, mode, ref) {
   let asked = '', reopened = '';
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
+    // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
+    if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); if (!ref && !talk.task) cueChat_('Cue', 'Started a thread for it.', '>' + out.request_id); return out; }
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -176,7 +178,7 @@ function cueSend(text, files, mode, ref) {
   return { request_id: id, task: ref };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
@@ -187,14 +189,18 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
       + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
       + 'self-contained instruction for that run naming the client or project and what to do, e.g. "JBL Booth Fabrication: the designs changed; '
-      + 'requote with the suppliers from the first RFQ and attach all the new files".' } } };
+      + 'requote with the suppliers from the first RFQ and attach all the new files".' },
+    readiness: { type: 'string', description: 'Empty unless Kiko asks whether a project is ready, what is missing or blocking it, or for its readiness or '
+      + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' } } };
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
   + 'needs Kiko in the Widgets tab. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
-  + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Facts: Cue sends email only when Kiko '
+  + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Cue also checks project readiness: when '
+  + 'Kiko asks if a project is ready or what is missing, set readiness and reply in one short line that you are checking it in Canvas; Canvas '
+  + 'scores the checklist and Claude summarises it in the task\'s thread. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
   + 'and never ask Kiko to give access "to send". Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
@@ -211,7 +217,7 @@ function cueTalk_(t, ref) {
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Reopened')
-    .map(r => ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
+    .map(r => ((r.ready && r.ready.project && r.ready.project.name) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
   // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
   const by = {}; st.requests.forEach(r => { by[r.id] = r; });
@@ -246,7 +252,8 @@ function cueTalk_(t, ref) {
   }
   let sweep = '';
   if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
-  return { chat: true, reply, task: pick, sweep, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick), start_intake: start.length >= 20 ? start : '' };
+  const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
+  return { chat: true, reply, task: pick, sweep, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !ready), start_intake: start.length >= 20 ? start : '', readiness: ready.length >= 2 ? ready : '' };
 }
 
 /** Kiko answered in a task's thread: its reminder flag clears. */
@@ -258,6 +265,7 @@ function cueUnnudge_(id) {
 function cueTaskName_(x) {
   const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
   if (x.kind === 'sweep') return 'Morning batch ' + String(x.day || '').slice(5).replace('-', '/');
+  if (x.kind === 'readiness') return (x.ready && ((x.ready.match && x.ready.match.name) || x.ready.ask)) || 'the readiness check';
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -294,6 +302,7 @@ function cueTaskLine_(id) {
   const s = L.s, c = s.change || {}, p = s.proposal || {};
   if (s.kind === 'sweep') return 'morning chasing batch for ' + s.day + ', status ' + s.status + '; ' + ((s.batch && s.batch.items) || []).length + ' line(s): '
     + ((s.batch && s.batch.items) || []).slice(0, 10).map(it => it.label + ' ' + (it.project || it.who || '')).join('; ');
+  if (s.kind === 'readiness') return 'readiness check for ' + cueTaskName_(s) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -323,8 +332,10 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
-  try { (s.kind === 'sweep' ? cueSweepRun_ : cueIntakeRun_)(s, () => cueSave_(got.sh, got.row, s)); }
-  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', (s.kind === 'sweep' ? 'The morning sweep stopped: ' : 'The intake stopped: ') + s.error, s.id); }
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ' }[s.kind] || 'The intake stopped: ';
+  try { run(s, () => cueSave_(got.sh, got.row, s)); }
+  catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
   cueMetrics_(s);
   cueSave_(got.sh, got.row, s);
@@ -365,6 +376,7 @@ function cueApprove(id, edits) {
   const L = cueLoad_(id);
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
   if (L && L.s.kind === 'sweep') return cueView_(cueSweepApprove_(id, edits || {}));
+  if (L && L.s.kind === 'readiness') return cueView_(cueReadyApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -386,6 +398,7 @@ function cueReject(id, why) {
   cueOwner_();
   const L = cueLoad_(id);
   if (L && L.s.kind === 'sweep') return cueCloseTask(id);   // a batch is closed, never "rejected": nothing was sent
+  if (L && L.s.kind === 'readiness' && L.s.ready && L.s.ready.canvas) return cueView_(cueReadyClose_(id));   // closing follow-ups keeps the check
   return cueView_(cueIntakeReject_(id, why));
 }
 /** Kiko 07:15Z: Reopen on a Recently done card. The task waits in Needs you, with its reply box, until a new run joins its thread or
@@ -451,6 +464,7 @@ function cueState() {
  * Built from what happened (no AI call). The same line goes in the thread. */
 function cueSummary_(s) {
   try {
+    if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     const name = s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
@@ -498,6 +512,7 @@ function cueView_(s) {
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
+    ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

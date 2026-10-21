@@ -346,11 +346,11 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    var nm = function (r) { return (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     if (r && r.kind === 'sweep') return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/');
-    return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
+    return r ? (r.kind === 'change' ? 'Change request' : r.kind === 'readiness' ? 'Readiness check' : 'Project intake') : 'Earlier task';
   }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
@@ -408,7 +408,7 @@
       if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -424,8 +424,9 @@
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
   function doneHtml(r, reopen) {
-    var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas;
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
@@ -487,12 +488,15 @@
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
+  var READY = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading Canvas', 'Canvas', 'Canvas reads its readiness checklist and the project folder'],
+    ['Looking for evidence', 'Gmail', 'Cue looks in your Gmail for proof Canvas has not recorded'], ['Claude reviewing', 'Claude', 'Claude summarises what is open and what closes it'],
+    ['GPT drafting follow-ups', 'GPT', 'GPT drafts follow-ups for items waiting on others'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become replies in their threads']];
   function workHtmlOf(r) {
-    var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'readiness' ? READY : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
-      + '<b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<b>' + (r.kind === 'change' ? 'Change request' : r.kind === 'readiness' ? 'Readiness check' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
       + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
       + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
           return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
@@ -629,7 +633,61 @@
       + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
         + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
   }
+  // Readiness check (Kiko 07:32Z, specs/project-readiness.md). The numbers are Canvas's own; Claude's lines are marked as Claude's.
+  function readyCardHtml(r) {
+    var R = r.ready || {}, C = R.canvas, P = R.project || {}, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Readiness check</div><b style="font-size:17px;color:#fff">' + esc(P.name || R.ask || 'Project') + '</b>';
+    if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div></div>';
+    if (!C) {   // Canvas found several projects: Kiko picks one
+      return h + '<div class="small muted">Canvas found more than one project for "' + esc(R.ask) + '". Which one?</div><div class="actions" style="flex-wrap:wrap">'
+        + (R.options || []).map(function (o) { return '<button class="btn ghost" data-act="ready-pick" data-id="' + esc(r.id) + '" data-pid="' + esc(o.project_id) + '">' + esc(o.name) + (o.date ? ' · ' + esc(o.date) : '') + (o.status ? ' · ' + esc(o.status) : '') + '</button>'; }).join('')
+        + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
+    }
+    var n = C.counts || {}, rv = R.review || {}, closes = {};
+    (rv.blockers || []).forEach(function (b) { closes[b.id] = b; });
+    h += '<div class="small muted">' + esc(C.gate_name) + (C.project.event_date ? ' · event ' + esc(C.project.event_date) + (C.days_to_event != null ? ' (' + (C.days_to_event < 0 ? esc(-C.days_to_event) + ' days ago' : 'in ' + esc(C.days_to_event) + ' days') + ')' : '') : '') + (C.project.status ? ' · ' + esc(C.project.status) : '') + '</div>'
+      + '<div style="margin-top:8px;font-size:15px"><b>Blockers clear ' + esc(n.blockers_total - n.blockers_open) + ' of ' + esc(n.blockers_total) + '</b> <span class="small muted">(Canvas\'s count)</span>'
+      + ' · ' + esc(n.warnings_open) + ' warning' + (n.warnings_open === 1 ? '' : 's') + ' open' + (C.ready ? ' <span class="tag pref">gate can pass</span>' : '') + '</div>'
+      + '<div class="small">' + (C.auto || []).map(function (a) { return esc(a.label) + ': ' + (a.error ? '<span class="tag flag">can\'t check</span>' : a.open ? '<b>' + esc(a.open) + '</b>' : '✓'); }).join(' · ') + '</div>';
+    if (rv.summary) h += '<div style="margin-top:8px"><span class="small muted">Claude:</span> ' + esc(rv.summary) + '</div>';
+    if ((rv.risks || []).length) h += '<div class="small" style="margin-top:6px"><b>Top risks</b><ul style="margin:4px 0 0;padding-left:18px">' + rv.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+    var it = C.items || [], line = function (x) {
+      var b = closes[x.id];
+      return '<li style="margin:4px 0"><b>' + esc(x.id) + '</b> ' + esc(x.requirement) + ' <span class="muted">· ' + esc(x.status) + ' · ' + (x.owner ? esc(x.owner) : (b && b.owner_hint ? 'no owner (suggest: ' + esc(b.owner_hint) + ')' : 'no owner')) + (x.due ? ' · due ' + esc(x.due) : '') + '</span>'
+        + (x.flags || []).filter(function (f) { return f !== 'no owner' && !/^event in/.test(f); }).map(function (f) { return ' <span class="tag flag">' + esc(f) + '</span>'; }).join('')
+        + (b && b.closes ? '<div class="small muted">Closes it: ' + esc(b.closes) + '</div>' : x.next_action ? '<div class="small muted">Next: ' + esc(x.next_action) + '</div>' : '') + '</li>';
+    };
+    var group = function (title, list, open) { return list.length ? '<details' + (open ? ' open' : '') + ' style="margin-top:8px"><summary class="small"><b>' + esc(title) + '</b> (' + list.length + ')</summary><ul class="small" style="margin:4px 0 0;padding-left:18px">' + list.map(line).join('') + '</ul></details>' : ''; };
+    var mine = it.filter(function (x) { return x.status === 'Needs Kiko' || x.check === 'met, waiting for review'; });
+    h += group('Open blockers', it.filter(function (x) { return x.criticality === 'Blocker' && mine.indexOf(x) < 0; }), 1)
+      + group('Needs you', mine, 1)
+      + group('Waiting on others', it.filter(function (x) { return x.status === 'Waiting on Others'; }), 0)
+      + group('Open warnings', it.filter(function (x) { return x.criticality !== 'Blocker' && mine.indexOf(x) < 0; }), 0);
+    if ((R.evidence || []).length) h += '<details open style="margin-top:8px"><summary class="small"><b>Possible proof found</b> (' + R.evidence.length + ') <span class="muted">attach it in Canvas yourself</span></summary><ul class="small" style="margin:4px 0 0;padding-left:18px">'
+      + R.evidence.map(function (e) { return '<li>' + (e.verdict === 'looks like proof' ? '<span class="tag pref">looks like proof</span>' : '<span class="tag new">not proof</span>') + ' ' + esc(e.check) + ': '
+        + (e.url ? '<a href="' + esc(e.url) + '" target="_blank" rel="noopener">' + esc(e.name || e.ref) + '</a>' : esc(e.name || e.ref)) + ' <span class="muted">' + esc(e.why) + '</span></li>'; }).join('') + '</ul></details>';
+    if ((C.unchecked || []).length) h += '<div class="small" style="margin-top:6px"><b>Canvas can\'t confirm:</b> ' + C.unchecked.map(esc).join('; ') + '</div>';
+    (r.notes || []).forEach(function (x) { h += '<div class="small muted" style="margin-top:4px">' + esc(x) + '</div>'; });
+    if (R.note) h += '<div class="small muted" style="margin-top:4px">' + esc(R.note) + '</div>';
+    (R.followups || []).forEach(function (f) {
+      h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
+        + (waiting && !f.made ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(f.k) + '"' + (f.selected ? ' checked' : '') + '>' : '<span>' + (f.made ? '✓' : '•') + '</span>')
+        + '<span><b>' + esc(f.to) + '</b> ' + (f.sent ? '<span class="tag pref">sent</span>' : f.made ? '<span class="tag new">in Drafts</span>' : '') + '<br><span class="small muted">' + esc(f.subject) + ' · for ' + esc((f.checks || []).join(', '))
+        + (f.thread_url ? ' · <a href="' + esc(f.thread_url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '') + '</span></span></label>'
+        + (waiting && !f.made ? '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(f.k) + '" aria-label="Email to ' + esc(f.to) + '">' + esc(f.body) + '</textarea>' : '<pre style="margin-top:8px">' + esc(f.body) + '</pre>')
+        + (f.error ? '<div class="err">' + esc(f.error) + '</div>' : '') + '</div>';
+    });
+    var done = r.status === 'Done';
+    h += '<div class="actions">'
+      + (waiting ? '<button class="btn" data-act="send-ready" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-ready" data-id="' + esc(r.id) + '">Drafts only</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close follow-ups</button>' : '')
+      + (again ? '<button class="btn" data-act="approve-ready" data-id="' + esc(r.id) + '">' + (R.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
+      + (done && R.waiting && R.mails && !(R.followups || []).length ? '<button class="btn" data-act="ready-followups" data-id="' + esc(r.id) + '">Draft follow-ups (' + esc(R.waiting) + ' waiting on others)</button>' : '')
+      + (done ? '<button class="btn ghost" data-act="ready-recheck" data-id="' + esc(r.id) + '">Re-check</button>' : '') + '</div>'
+      + '<div class="small muted">Read only: Cue changed nothing in Canvas. Mark items Ready and verify them on the Checklist tab.</div>' + metricLine(r) + '</div>';
+    return h;
+  }
   function cardHtml(r) {
+    if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
@@ -777,6 +835,18 @@
           return { skip: ck.filter(function (x) { return !x.checked; }).map(function (x) { return x.value; }), bodies: bodies, send: send,
             files_skip: Array.prototype.filter.call(scope.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; }) };
         };
+        if (act === 'ready-pick') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyPick', [id, b.getAttribute('data-pid')], done, fail); }
+        if (act === 'ready-followups') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyFollowups', [id], done, fail); }
+        if (act === 'ready-recheck') { b.disabled = true; schedule(); return call('cueReadyRecheck', [id], done, fail); }
+        if (act === 'approve-ready') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, change(false)], done, fail); }
+        if (act === 'send-ready') {
+          var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, edr = change(true);
+          var to = (((rq.ready || {}).followups) || []).filter(function (f) { return edr.skip.indexOf(f.k) < 0; }).map(function (f) { return f.to; });
+          if (!to.length) return addLocal('Cue', 'Tick at least one email first.');
+          return ask('Send ' + to.length + ' email' + (to.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + to.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, change(true)], done, fail);
+          });
+        }
         if (act === 'send-change' || act === 'approve-send') {
           var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, who = [];
           if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
