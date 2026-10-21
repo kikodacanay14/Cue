@@ -48,7 +48,7 @@ const cueBidsDay_ = () => Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila
 function cueBidsStart_(text, how) {
   const d = new Date(cueNow_());
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
-  const title = (how === 'daily' ? 'Bid opportunities ' : 'Bid check ') + Utilities.formatDate(d, 'Asia/Manila', 'MM/dd');
+  const title = (how === 'daily' ? 'Bid opportunities ' : 'Bid check ') + Utilities.formatDate(d, 'Asia/Manila', 'MM/dd HH:mm');   // two runs on one day get different names (PC test 19:32Z)
   const s = { id, version: CUE_VERSION_, kind: 'bids', how: how || 'chat', created: d.toISOString(), started: cueNow_(), text: cueStr_(text || 'Run bid opportunity check', 2000), files: [],
     status: 'Working', stage: 'Searching', ref: '', bids: { title, day: cueBidsDay_() }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
@@ -126,7 +126,7 @@ function cueBidsSearch_(s) {
 /** Earlier rows still waiting for Kiko (Intake?? blank) with a deadline not yet past: rechecked each run (step 5). */
 function cueBidsOpenRows_(s) {
   const rows = cueBidsRows_(s);
-  return rows.filter(r => !r.intake && !(r.deadline_ms && r.deadline_ms < cueNow_()));
+  return rows.filter(r => (r.ref || r.project) && !r.intake && !(r.deadline_ms && r.deadline_ms < cueNow_()));   // blank sheet rows are not notices
 }
 /** Kiko's findings tab as objects. Never throws: an unreadable sheet is a note and an empty list. */
 function cueBidsRows_(s) {
@@ -177,9 +177,9 @@ function cueBidsCheck_(s) {
     { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: out.dropped.area ? out.dropped.area + ' outside the area left out' : '' },
     { id: 5, label: 'Deadline still open', ok: true, detail: out.dropped.closed ? out.dropped.closed + ' closed notices left out' : '' },
     { id: 6, label: 'No duplicates', ok: true, detail: out.dup ? out.dup + ' duplicates merged' : '' },
-    { id: 7, label: 'Earlier open notices rechecked', ok: !notRe.length, detail: notRe.length ? 'Not rechecked: ' + notRe.slice(0, 6).map(r => r.ref || r.project).join(', ') : '' },
+    { id: 7, label: 'Earlier open notices rechecked', ok: !notRe.length, detail: notRe.length ? 'Not rechecked: ' + notRe.slice(0, 6).map(r => r.ref || r.project).filter(Boolean).join(', ') : '' },
     { id: 8, label: 'Every document marked read or not opened', ok: !nodocs.length, detail: nodocs.length ? 'No document list: ' + nodocs.slice(0, 6).join(', ') : '' },
-    { id: 9, label: 'Intake?? left for you', ok: true, detail: '' }];
+    { id: 9, label: 'You pick which ones go to intake (Cue never marks them)', ok: true, detail: '' }];
   B.items = out.fresh; B.updated = out.updated; B.dropped = out.dropped;
   cueBidsWrite_(s);
   const passed = B.checks.filter(c => c.ok).length, part = B.sources.filter(x => x.status !== 'Checked').length;
