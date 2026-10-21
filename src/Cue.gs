@@ -336,14 +336,16 @@ function cueUnnudge_(id) {
 const CUE_LOOKUP_SKIP_ = ['lookup', 'look', 'find', 'check', 'show', 'open', 'can', 'you', 'access', 'now', 'have', 'does', 'what', 'which', 'where',
   'when', 'status', 'please', 'pls', 'about', 'tell', 'give', 'list', 'all', 'our', 'any', 'how', 'are', 'was', 'were', 'there', 'want', 'need',
   'requirements', 'requirement', 'cost', 'costs', 'costing', 'again', 'scope', 'reanalyze', 'analyze', 'details', 'info', 'canvas', 'hey', 'hello',
-  'thanks', 'thank', 'yes', 'okay', 'doing', 'gpt', 'claude', 'cue', 'ready', 'missing', 'readiness', 'done'];
+  'thanks', 'thank', 'yes', 'okay', 'doing', 'gpt', 'claude', 'cue', 'ready', 'missing', 'readiness', 'done',
+  'went', 'quiet', 'who', 'not', 'prepare', 'ars', 'deal', 'deals', 'pipeline', 'review', 'chase', 'chasers', 'follow', 'today', 'week', 'pay', 'paid',
+  'expense', 'expenses', 'record', 'receipt', 'supplier', 'suppliers', 'register', 'hubspot', 'clean', 'cleanup', 'inbox', 'triage', 'snapshot', 'screen', 'personal', 'map', 'process', 'workflow'];
 
 /** Kiko 08:23Z: chat can look up Canvas projects. One parallel bridge read per distinctive word (search_projects, read only),
  * merged and ranked by how many words a project matched. Returns a short text list for the chat model; never throws. */
 function cueLookup_(s, t) {
   const words = cueWords_(t).filter(w => CUE_LOOKUP_SKIP_.indexOf(w) < 0).filter((w, i, a) => a.indexOf(w) === i).slice(0, 4);
   const ids = (String(t).match(/\b[A-Z]-\d{6,}[A-Z0-9]*\b/gi) || []).slice(0, 2);
-  const qs = ids.concat(words);
+  const qs = ids.concat(words.filter(w => !ids.some(i => i.toLowerCase().indexOf(w) >= 0)));   // an ID is searched once
   if (!qs.length) return 'none searched (no project name in the message)';
   let res; try { res = cueBridgeAll_(s, qs.map(q => ['search_projects', { query: q, limit: 10 }])); }
   catch (e) { return 'the Canvas search failed just now (' + String((e && e.message) || e).slice(0, 160) + '); say so and ask Kiko to try again'; }
