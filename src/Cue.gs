@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.4';
+const CUE_VERSION_ = 'Cue 1.19.5';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -386,6 +386,14 @@ function cueReplyCut_(t, n) {
   const head = t.slice(0, n), end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('.\n'), head.lastIndexOf('\n'));
   return (end > n / 2 ? head.slice(0, end + 1) : head).trim() + '\n(cut short)';
 }
+/** The message shares a distinctive word (not a stop word) with the task's name, client or project. */
+function cueSameTopic_(t, x) {
+  if (!x) return false;
+  const p = x.proposal || {}, c = x.change || {}, want = cueTeachWords_(t);
+  const about = cueTeachWords_([cueTaskName_(x), p.client && p.client.company, p.event && p.event.name, c.project, x.x && x.x.client && x.x.client.company].filter(Boolean).join(' '))
+    .filter(w => !/^(morning|batch|plan|thread|check|review|search|map)$/.test(w));
+  return about.some(w => want.indexOf(w) >= 0);
+}
 function cueTalk_(t, ref, force) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
@@ -409,7 +417,10 @@ function cueTalk_(t, ref, force) {
       + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
       + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
-  const pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  let pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  // PC retest 17:58Z: "write a plan for a year-end campaign" joined the Morning batch thread. A plan, brainstorm or analysis ask
+  // joins a task's thread only when it names that task's project or topic; otherwise it is answered in the main chat.
+  if (pick && cuePlanAsk_(t, force) && !cueSameTopic_(t, by[pick])) pick = '';
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
   const lookupOnly = /\b(look\s*up|lookup|find|search|check|show|where\s+is|what\s+is|status)\b/i.test(t) && !/\b(run|start|redo|re-?run|begin|cost|requote|intake|send|draft|proceed|go ahead)\b/i.test(t);
   let reply = r.ok ? cueReplyCut_(String(r.data.reply || '').trim(), 8000) : 'I could not answer just now (' + r.error + ').';
@@ -447,8 +458,8 @@ function cueTalk_(t, ref, force) {
   }
   const where = ref || pick;
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
-    const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || 'that task';
-    cueChat_('Kiko', t, ''); cueChat_('Cue', 'Answered in the ' + name + ' thread.', '>' + pick);
+    const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || (x.kind ? cueTaskName_(x) : '');
+    cueChat_('Kiko', t, ''); cueChat_('Cue', name ? 'Answered in the ' + String(name).replace(/^the\s+/i, '') + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
   }
   if (!force) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);

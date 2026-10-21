@@ -3055,6 +3055,17 @@ test('SK3 a long written plan reaches the chat whole (no cut at 3,000), with roo
   const cut = t.ctx.cueReplyCut_('One. Two. ' + 'x'.repeat(50), 14); deq(cut, 'One. Two.\n(cut short)');
 });
 
+test('SK4 a plan ask about another topic never joins an open task thread (main chat answers); one naming the task\'s client does; no "the that" line', () => {
+  const t = startToCard();
+  t.opts.talk = { reply: 'Here is the plan.', looks_like_inquiry: false, task: t.id };
+  const n = t.tabs.Chat.rows.length;
+  const out = t.ctx.cueSend('Write a plan for a client thank-you campaign', [], '');
+  deq(out.task, ''); deq(t.tabs.Chat.rows.slice(n).map(r => [r[1], r[3]]), [['Kiko', ''], ['Cue', '']], 'answered in the main chat');
+  const back = t.ctx.cueSend('write a plan for the Acme party setup', [], '');
+  deq(back.task, t.id); const line = t.tabs.Chat.rows.filter(r => r[3] === '>' + t.id).pop()[2];
+  assert.ok(/^Answered in the Acme Corp/.test(line) && !/the that/.test(line), line);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
