@@ -1,5 +1,16 @@
 # Changelog
 
+## The right pane looks like Claude's Threads panel; no Due / Priority / Remind row (not deployed)
+
+Kiko 21 Oct 14:38Z sent two screenshots of Claude's Threads panel: "2 pane window how should look like". Kiko 14:42Z on the Due / Priority / Remind row: "remove this. i dont need this".
+
+- Threads list: a header with a threads icon, "Threads" and a blue count of threads waiting on Kiko, then search, an archived filter and ⋯ (jumps to Chaser rules). Below it: "Welcome back, Kiko." and "N threads are waiting on you."
+- Groups are rounded bars that collapse: Waiting on you, Working on and Recent. Each row has a dot, a bold title and a status of up to two lines; "Needs you" and "Failed" show in amber. A message-count chip and the time sit on the right.
+- An open thread has a breadcrumb header, "Threads › name", with ✓ (close the task), ⋯ (Archive, closed threads only), ⤢ (wider pane, wide screens only) and ✕. Kiko's messages are bubbles on the right. Cue's messages are plain text. Attached files show as cards with a type label and a Drive thumbnail, and they open in the pane.
+- The reply box spans the pane, with a ↵ send button inside it and + (attach) below it. A file opened in the pane has the same breadcrumb, plus ↗ to open it in a new tab.
+- The Due / Priority / Remind row is gone from every thread. Close moved to ✓ in the header, and Archive moved to ⋯.
+- Tests: 181 of 181 pass. Playwright screenshots were taken at 1440, 900 and 390 px with no page errors.
+
 ## Cue 1.14 (Kiko said deploy 14:36Z): 1.13.1 match fix, 1.13.2 ask first, ☰ Threads on the right (PR #23), one line per task and no double-Reject error (PR #24)
 
 ## A task shows once in the chat; a second Reject is a no-op (in Cue 1.14)
