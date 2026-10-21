@@ -517,7 +517,7 @@
     var p = b.getAttribute('data-p');
     if (p === 'pane') return paneOpen(false);
     if (p === 'list') { pactive = 'list'; return paneShow(); }
-    if (p === 'close') return closeTab(pactive);
+    if (p === 'close') { closeTab(pactive); pactive = 'list'; paneShow(); return paneOpen(false); }   // PC test 17:30Z: ✕ closes the pane; "Threads ›" goes back
     if (p === 'search') { searching = !searching; $('tsearch').hidden = !searching; if (searching) $('tsearch').focus(); else if (tq) { $('tsearch').value = tq = ''; } return renderChat(); }
     if (p === 'archived') { showArchived = !showArchived; dirty(); return renderChat(); }
     if (p === 'rules') return $('myrules-label').scrollIntoView({ behavior: 'smooth', block: 'start' });

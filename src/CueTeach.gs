@@ -382,11 +382,13 @@ function cueLearnNow_(rule, where) {
   const text = cueStr_(String(rule || '').replace(/\s+/g, ' ').trim(), CUE_TEACH_MAX_.fact);
   if (text.length < 8 || CUE_TEACH_SECRET_RE_.test(text)) return '';
   const sh = cueTeachTab_(), n = sh.getLastRow();
-  const same = n > 1 ? sh.getRange(2, 1, n - 1, 3).getValues().some(r => cueStyleOn_(r[0]) && cueName_(r[2]) === cueName_(text)) : false;
-  if (same) return '';
-  sh.appendRow([true, 'rules', text, true, new Date(cueNow_()), where || 'chat']);
+  const rows = n > 1 ? sh.getRange(2, 1, n - 1, 3).getValues() : [], at = rows.findIndex(r => cueName_(r[2]) === cueName_(text));
+  if (at >= 0 && cueStyleOn_(rows[at][0])) return '';
+  let row;
+  if (at >= 0) { row = at + 2; sh.getRange(row, 1).setValues([[true]]); }   // switched off before: back on, and asked again
+  else { sh.appendRow([true, 'rules', text, true, new Date(cueNow_()), where || 'chat']); row = sh.getLastRow(); }
   cueTeachReset_();
-  return cueAskOpen_({ type: 'learned', row: sh.getLastRow(), text }, 'Learned: "' + text + '" It applies from your next message.', ['keep', 'undo'], where);
+  return cueAskOpen_({ type: 'learned', row, text }, 'Learned: "' + text + '" It applies from your next message.', ['keep', 'undo'], where);
 }
 
 /** "remember: …", "rule: …" or "from now on …": saved with no AI call, in any thread. */
@@ -397,7 +399,7 @@ function cueLearnSaid_(text, ref) {
   if (rule.length < 8) return null;
   cueChat_('Kiko', t, ref || '');
   const ask = cueLearnNow_(/^from\s+now\s+on/i.test(t) ? 'From now on, ' + rule : rule, ref || '');
-  if (!ask) cueChat_('Cue', 'I already have that rule.', ref || '');
+  if (!ask) cueChat_('Cue', 'I already have that rule, and it is on. See it under My rules in the Threads pane.', ref || '');
   return { chat: true, ask, task: ref || '' };
 }
 
