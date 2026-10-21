@@ -127,14 +127,18 @@ function cueTutorTie_(s, t, a, b) {
  *   { auto: key }        a graduated pattern: cueTalk_ goes on and starts it, then shows "Ran on its own"
  *   { out }              a plan card (or a split question) was posted; cueTalk_ returns out and starts nothing
  */
-function cueTutorGate_(s, t, ref, d, cands, found, orig) {
-  const msg = orig || t, cmd = cueTutorCmd_(d, msg);
-  if (!cmd) return null;
-  const plan = d.plan || {}, key = cuePatKey_(cmd, plan.pattern), pat = cuePatFind_(key);
+function cueTutorGate_(s, t, ref, d, cands, found, orig, unsure) {
+  const msg = orig || t, picked = cueTutorCmd_(d, msg);
+  // PC test 18:15Z: when Claude is not sure (or a short "LED wall for AMI Group" names no command), the plan card shows Cue's best
+  // guess and Not that lists the other guesses first, instead of the old "I am not sure" buttons.
+  const alts = (unsure || []).filter((c, i, a) => c !== 'chat' && CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i);
   const code = cueTutorCode_(msg);
-  if (pat && pat.graduated && CUE_TUTOR_NEVER_.indexOf(cmd) < 0 && (!code || code === cmd)) return { auto: key };
+  const cmd = alts.length ? (alts.indexOf(code) >= 0 ? code : alts.indexOf(picked) >= 0 ? picked : alts[0]) : picked;
+  if (!cmd) return null;
+  const plan = d.plan || {}, key = cuePatKey_(cmd, cmd === picked ? plan.pattern : ''), pat = cuePatFind_(key);
+  if (!alts.length && pat && pat.graduated && CUE_TUTOR_NEVER_.indexOf(cmd) < 0 && (!code || code === cmd)) return { auto: key };
   let use = cmd, checks = '';
-  if (code && code !== cmd) {
+  if (!alts.length && code && code !== cmd) {
     const tie = cueTutorTie_(s, t, cmd, code);
     const said = 'Claude says ' + CUE_ROUTE_CMDS_[cmd] + ', your past examples say ' + CUE_ROUTE_CMDS_[code];
     if (!tie) {   // still split: Kiko picks
@@ -150,17 +154,20 @@ function cueTutorGate_(s, t, ref, d, cands, found, orig) {
     checks = said + '. ChatGPT broke the tie: ' + CUE_ROUTE_CMDS_[tie] + ' (2 of 3).';
   }
   if (use === 'chat') return { chatOnly: true };   // two of three say just chat: answered, nothing starts
+  const filled = use === picked;   // Claude filled this command's fields, so Go needs no new AI call
   const ukey = use === cmd ? key : cuePatKey_(use, ''), upat = use === cmd ? pat : cuePatFind_(ukey);
-  const steps = use === cmd ? (plan.steps || []).filter(x => x && String(x.do || '').trim()).slice(0, CUE_TUTOR_MAX_.steps) : [];
-  const reading = use === cmd ? cueStr_(String(plan.reading || '').trim(), CUE_TUTOR_MAX_.reading) : '';
-  const text = 'Here\'s what I\'ll do\nI think you want: ' + (reading || CUE_ROUTE_CMDS_[use])
+  const steps = filled ? (plan.steps || []).filter(x => x && String(x.do || '').trim()).slice(0, CUE_TUTOR_MAX_.steps) : [];
+  const reading = filled ? cueStr_(String(plan.reading || '').trim(), CUE_TUTOR_MAX_.reading) : '';
+  const others = alts.filter(c => c !== use);
+  const text = 'Here\'s what I\'ll do\nI think you want: ' + (reading || CUE_ROUTE_CMDS_[use] + ' for "' + cueStr_(msg, 120) + '"')
     + (steps.length ? '\n' + steps.map((x, i) => (i + 1) + '. ' + cueStr_(String(x.do).trim(), CUE_TUTOR_MAX_.step) + ' (' + (CUE_TUTOR_WHO_.indexOf(x.who) >= 0 ? x.who : 'code') + ')').join('\n') : '')
+    + (alts.length ? '\nNot sure: ' + (others.length ? 'it could also be ' + others.map(c => CUE_ROUTE_CMDS_[c]).join(' or ') + '. ' : '') + 'Tap Not that to pick another.' : '')
     + (checks ? '\nChecks: ' + checks : '')
     + (CUE_TUTOR_NEVER_.indexOf(use) >= 0 ? '\nEmails always ask first.' : '\nLearning: approved ' + (upat ? upat.n : 0) + ' of ' + CUE_TUTOR_MAX_.graduate + ' times so far.');
   if (!orig) cueChat_('Kiko', msg, ref);
-  const keepData = use === cmd && JSON.stringify(d).length < 6000;   // a Script Property holds 9 KB; a bigger plan is re-planned on Go
+  const keepData = filled && JSON.stringify(d).length < 6000;   // a Script Property holds 9 KB; a bigger plan is re-planned on Go
   const id = cueAskOpen_({ type: 'plan', text: msg, ref: ref || '', cmd: use, key: ukey, data: keepData ? d : null, cands: cands[use] ? { [use]: cands[use] } : {},
-    found: use === 'email' ? found : '' }, text, ['go', 'change', 'not'], ref);
+    found: use === 'email' ? found : '', alts: others }, text, ['go', 'change', 'not'], ref);
   return { out: { chat: true, reply: text, task: '', ask: id } };
 }
 
@@ -196,7 +203,7 @@ function cueTutorPick_(o, pick, note, done) {
   }
   // Not that: the other commands as buttons plus Just chat; the pick is saved so the code learns it.
   cueChat_('Kiko', 'Not that', done);
-  const code = cueTutorCode_(o.text), order = [code, 'intake', 'vendor', 'readiness', 'email', 'pipeline', 'money'];
+  const code = cueTutorCode_(o.text), order = (o.alts || []).concat([code, 'intake', 'vendor', 'readiness', 'email', 'pipeline', 'money']);
   const choices = order.filter((c, i) => c && c !== o.cmd && c !== 'chat' && CUE_ROUTE_CMDS_[c] && order.indexOf(c) === i).slice(0, 3).concat(['chat']);
   const id = cueAskOpen_({ type: 'route', text: o.text, choices, cands: {}, found: '', learn: true }, 'What did you want instead?', choices, o.ref);
   return { chat: true, ask: id };

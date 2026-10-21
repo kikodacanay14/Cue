@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.20.2: tutor mode fixes from the PC test (not deployed)
+
+PC test of 1.20 on /dev, 21 Oct 18:15Z.
+
+- "LED wall for AMI Group" showed the old "I am not sure… Supplier search / Project intake / Just chat" buttons, with a recap of an earlier search. Tutor mode now shows the plan card in both cases: when Claude is not sure, and when a short main-chat message names no command. The card shows Cue's best guess (a phrasing Kiko taught wins), plus "Not sure: it could also be …". Not that lists those other guesses first. Go on the best guess needs no second AI call when Claude filled it in.
+- A rejected expense's summary read "Summary for Project intake: rejected". It now names the expense, for example "Summary for ₱500.00 tarp for AMI Group".
+- A thread showing the Unilever intake was titled "Morning batch 10/22". Phased intakes now carry their client name for the thread title, and a morning batch never names a thread that holds other tasks.
+- Expenses still start their own flow with no plan card. Their own approval card comes before anything is saved, as the spec says.
+- Tests: 229 of 229 pass (new TU7, TU8), on top of 1.20.1.
+
 ## Cue 1.20.1: a table pasted with tabs is learned, not run (not deployed)
 
 PC test of 1.19.6 (18:17Z): three "phrase<TAB>meaning" rows starting "Record project expense" still started an expense, and one row did too. 1.19.6 only looked at pastes of 5 lines or more.
