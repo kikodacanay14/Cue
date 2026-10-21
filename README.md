@@ -37,7 +37,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 - `CueIntake.gs`: the pipeline, the prompts and schemas, edits, approve and reject, and the RFQ drafts.
 - `Index.html`: the graphite UI. Chat is page 1. Widgets is page 2, with Needs you, Working on (the GPT → Canvas → Claude + GPT → GPT hand-off), the speed budget and recently done.
 - `extension/`: the Cue bubble, a Chrome extension (Manifest V3). Load it unpacked from `chrome://extensions`, then set your Cue `/exec` address on its Options page.
-- `test/cue.test.js`: 28 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V184. Refresh that copy whenever a Canvas release changes the bridge.
+- `test/cue.test.js`: 29 local tests (`node test/cue.test.js`). The proposal is checked against the bridge schema in `test/fixtures/ZapBridge.gs`, which is a copy of the Canvas bridge as of main V184. Refresh that copy whenever a Canvas release changes the bridge.
 
 ## Setup (Kiko, in your personal Google account)
 

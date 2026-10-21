@@ -48,9 +48,13 @@ function cueClaude_(o) {
     output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };
   return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_,
     req: { url: CUE_CLAUDE_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
-      headers: { 'x-api-key': cueKey_('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' } } };
+      headers: Object.assign({ 'x-api-key': cueKey_('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' },
+        // An organization-wide key must name its workspace (Kiko's key at 05:47Z said so); a workspace key needs nothing.
+        cueProp_('ANTHROPIC_WORKSPACE_ID', '') ? { 'anthropic-workspace-id': cueProp_('ANTHROPIC_WORKSPACE_ID', '') } : {}) } };
 }
 function cueClaudeParse_(code, msg) {
+  if (code === 400 && msg && msg.error && /workspace/i.test(String(msg.error.message || ''))) throw new Error('the Anthropic key is not tied to a workspace. '
+    + 'Either make a new key inside a workspace at console.anthropic.com and save it as ANTHROPIC_API_KEY, or add the Script Property ANTHROPIC_WORKSPACE_ID with the workspace ID (wrkspc_...).');
   if (code !== 200 || !msg) throw new Error('HTTP ' + code + (msg && msg.error ? ' ' + msg.error.type + ': ' + String(msg.error.message || '').slice(0, 200) : ''));
   if (msg.stop_reason === 'refusal' || msg.stop_reason === 'max_tokens') throw new Error('Claude did not finish the answer (' + msg.stop_reason + ')');
   const text = (msg.content || []).filter(b => b && b.type === 'text').map(b => b.text).join('');

@@ -37,6 +37,12 @@
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg.me { align-self:flex-end; background:#22344d; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
+  .msg .task { display:inline-flex; align-items:center; gap:5px; margin-left:6px; color:var(--text); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
+  .msg .reply { all:unset; display:block; margin-top:6px; font-size:12px; color:var(--muted); cursor:pointer; }
+  .msg .reply:hover, .msg .reply:focus-visible { color:var(--act); }
+  .replying { display:flex; align-items:center; gap:8px; font-size:13px; padding:6px 10px; margin-bottom:6px; border-left:3px solid var(--act); background:var(--input); border-radius:6px; }
+  .replying button { all:unset; margin-left:auto; cursor:pointer; color:var(--muted); padding:0 4px; }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
   .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
   .composer .in { max-width:1200px; margin:0 auto; }
@@ -125,6 +131,7 @@
 </dialog>
 <div class="composer" id="composer">
   <div class="in">
+    <div class="replying" id="replying" hidden></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
@@ -248,10 +255,11 @@
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   function send(t, files, mode) {
     $('send').disabled = true; $('chip-intake').hidden = true;
-    if (!files.length && mode !== 'intake') { addLocal('Kiko', t); addLocal('Cue', '…'); $('box').value = ''; }
+    if (!files.length && mode !== 'intake') { state.chat.push({ who: 'Kiko', text: t, request_id: replyTo, time: '' }); addLocal('Cue', '…'); $('box').value = ''; }
     if (files.length && !files[0].id) return upload(t, files, mode);
-    call('cueSend', [t, files, mode], function (r) {
-      $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false;
+    var ref = replyTo;
+    call('cueSend', [t, files, mode, ref], function (r) {
+      $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false; replyTo = ''; renderReply();
       if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(); }
       refresh();
       running[r.request_id] = 1;
@@ -287,9 +295,30 @@
   }
   function renderChatHtml() {
     $('msgs').innerHTML = state.chat.map(function (m) {
-      return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
+      var t = m.request_id ? taskOf(m.request_id) : null;
+      return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who)
+        + (t ? ' <span class="task"><i class="dot" style="background:' + t.color + '"></i>' + esc(t.label) + '</span>' : '') + '</span>' + esc(m.text)
+        + (m.request_id && m.who !== 'Kiko' ? '<button class="reply" data-reply="' + esc(m.request_id) + '" aria-label="Reply about this task">↩ Reply</button>' : '') + '</div>';
     }).join('') || '<div class="muted">Paste a client inquiry to start a project intake.</div>';
   }
+  // Reply to a task (Kiko 05:49Z, like ChatGPT's reply dots): each task gets a coloured dot; a reply goes to that task.
+  var DOTS = ['#559fef', '#b00c98', '#e9d151', '#cd5023', '#3fb27f', '#9b7bff'], replyTo = '';
+  function taskOf(id) {
+    var r = state.requests.filter(function (x) { return x.id === id; })[0], h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    var label = r ? ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.text.slice(0, 28)) : 'Earlier task';
+    return { label: label, color: DOTS[h % DOTS.length] };
+  }
+  function renderReply() {
+    var t = replyTo ? taskOf(replyTo) : null;
+    $('replying').hidden = !t;
+    if (t) $('replying').innerHTML = '<i class="dot" style="background:' + t.color + '"></i><span>Replying about <b>' + esc(t.label) + '</b></span><button id="reply-x" aria-label="Stop replying">✕</button>';
+    if (t) $('reply-x').onclick = function () { replyTo = ''; renderReply(); };
+  }
+  $('msgs').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-reply]'); if (!b) return;
+    replyTo = b.getAttribute('data-reply'); renderReply(); $('box').focus();
+  });
   function renderWidgets() {
     var need = state.requests.filter(function (r) { return r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Done, drafts incomplete'; });
     var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
@@ -339,7 +368,7 @@
         + ((c.others || []).length ? '. Also close: ' + c.others.map(esc).join(', ') : '') + '</div>' : '<div class="small muted">Canvas found no matching project.</div>')
       + '<div class="small" style="margin-top:6px">' + esc(c.what_changed) + '</div>'
       + filesHtml(c)
-      + ((r.files || []).length ? '<div class="small muted">📎 ' + r.files.map(function (f) { return esc(f.name); }).join(', ') + ' (attached to every reply)</div>' : '')
+      + attachHtml(r, again || r.status !== 'Needs you')
       + '<div class="small muted" style="margin-top:6px">Found ' + esc(c.found) + ' RFQ thread(s) in your sent mail. ' + esc(c.note || '') + '</div>';
     c.drafts.forEach(function (d) {
       h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
@@ -353,6 +382,17 @@
       + (waiting && c.can_run_new ? '<button class="btn ghost" data-act="as-new" data-id="' + esc(r.id) + '">Not this project: run as new</button>' : '')
       + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">' + (has ? 'Reject' : 'Close') + '</button>' : '') + '</div>' + metricLine(r) + '</div>';
     return h;
+  }
+  // Files attached to every requote: this message's, the task replied to, and this project's from the last day. Untick to leave one out.
+  function attachHtml(r, locked) {
+    var a = (r.change && r.change.attach) || (r.files || []).map(function (f) { return { id: f.name, name: f.name, size: f.size, from: 'this message', selected: true }; });
+    if (!a.length) return '<div class="small muted" style="margin-top:6px">📎 No files attached.</div>';
+    var on = a.filter(function (f) { return f.selected; }), mb = on.reduce(function (t, f) { return t + (Number(f.size) || 0); }, 0) / 1048576;
+    return '<details open style="margin-top:8px"><summary class="small">📎 ' + on.length + ' of ' + a.length + ' file' + (a.length === 1 ? '' : 's') + ' attached to every reply (' + mb.toFixed(1) + ' MB)</summary>'
+      + '<div class="small" style="margin-top:4px">' + a.map(function (f) {
+        return '<label style="display:flex;gap:8px;align-items:center;padding:2px 0">' + (locked ? '<span>' + (f.selected ? '✓' : '–') + '</span>'
+          : '<input type="checkbox" data-fk="' + esc(r.id) + '" value="' + esc(f.id) + '"' + (f.selected ? ' checked' : '') + '>')
+          + '<span>' + esc(f.name) + ' <span class="muted">' + esc(f.from || '') + '</span></span></label>'; }).join('') + '</div></details>';
   }
   // The matched project's folder (from Canvas): newest first, each a link that opens in Drive.
   function filesHtml(c) {
@@ -460,7 +500,8 @@
         if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change') {
           var skip = Array.prototype.filter.call(document.querySelectorAll('[data-ck="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
-          return call('cueApprove', [id, { skip: skip }], done, fail);
+          var fskip = Array.prototype.filter.call(document.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
+          return call('cueApprove', [id, { skip: skip, files_skip: fskip }], done, fail);
         }
         if (act === 'approve-edits') return call('cueApprove', [id, collect(id)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);

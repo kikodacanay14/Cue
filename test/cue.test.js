@@ -422,6 +422,28 @@ test('C26 missing Gmail access: a plain message, and Fix Google access resets on
   assert.ok(/Google access still missing: gmail.readonly/.test(sandbox({ scopes: ['gmail.compose', 'drive.file'] }).ctx.cueSetup()));
 });
 
+test('C27 requotes carry every file Kiko sent for the project in the last day; a reply to a task can start the run from chat', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ,
+    talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: 'JBL Booth Fabrication: the designs changed; requote with all the new files attached' } });
+  const up = n => ({ id: t.ctx.cueUpload({ name: n, type: 'image/png', data: PNG }).id });
+  const id1 = t.ctx.cueSend('JBL new mats, requote please', [up('a.png'), up('b.png')]).request_id;
+  assert.strictEqual(t.ctx.cueRun(id1).status, 'Needs you'); t.ctx.cueReject(id1, 'load again with new files');
+  const id2 = t.ctx.cueSend('more images for JBL', [up('b.png'), up('c.png')]).request_id;
+  const v2 = t.ctx.cueRun(id2);
+  deq(v2.change.attach.map(f => [f.name, f.from === 'this message']), [['b.png', true], ['c.png', true], ['a.png', false]], 'newest copy of b wins');
+  // Kiko replies to the JBL task in chat: "load again with new files". Cue starts the run itself, tied to that task.
+  const r = t.ctx.cueSend('load again with new files', [], '', id2);
+  assert.ok(r.request_id, 'started a run, no extra tap'); assert.ok(t.log.gpt.some(g => /replying about this task: change request for JBL Launch/.test(JSON.stringify(g))), 'the chat call saw the task');
+  const v3 = t.ctx.cueRun(r.request_id);
+  assert.strictEqual(v3.kind, 'change'); deq(v3.change.attach.map(f => f.name).sort(), ['a.png', 'b.png', 'c.png']);
+  assert.ok(t.tabs.Chat.rows.some(x => x[1] === 'Kiko' && x[3] === id2), 'Kiko\'s reply is filed under the task');
+  const aId = v3.change.attach.filter(f => f.name === 'a.png')[0].id, before = (t.log.replies || []).length;
+  const d = t.ctx.cueApprove(r.request_id, { files_skip: [aId] });
+  assert.strictEqual(d.status, 'Done');
+  const pl = t.log.replies[before].payload;
+  assert.ok(pl.indexOf('filename="b.png"') > 0 && pl.indexOf('filename="c.png"') > 0 && pl.indexOf('filename="a.png"') < 0, 'unticked file left out');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, 3).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

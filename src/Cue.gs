@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.3.4';
+const CUE_VERSION_ = 'Cue 1.4';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -130,48 +130,76 @@ function cueChat_(who, text, id) {
 /* ---------- what the page calls ---------- */
 /** Kiko sends a message. mode 'intake' or 'chat' forces one; otherwise attachments or a "New project intake" opener start an
  * intake and everything else is a chat reply (one GPT call). Returns { request_id } for an intake or { chat, reply, suggest_intake }. */
-function cueSend(text, files, mode) {
+function cueSend(text, files, mode, ref) {
   cueOwner_();
   const has = !!(files && files.length);
-  if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) return cueTalk_(String(text || '').trim());
-  const t = String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
+  ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
+  let asked = '';
+  if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
+    const talk = cueTalk_(String(text || '').trim(), ref);
+    if (!talk.start_intake) return talk;
+    asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
+  }
+  const t = asked || String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
   if (t.length < 20 && !has) throw new Error('Paste the client\'s inquiry, describe the event (at least a sentence), or attach the brief.');
   if (t.length > 12000) throw new Error('That is too long for one intake (12,000 characters at most).');
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const saved = cueFilesSave_(files, id);
-  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received',
+  const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
-  cueChat_('Kiko', t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : ''), id);
+  if (!asked) cueChat_('Kiko', t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : ''), id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry'],
-  properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' } } };
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake'],
+  properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
+    start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
+      + 'self-contained instruction for that run naming the client or project and what to do, e.g. "JBL Booth Fabrication: the designs changed; '
+      + 'requote with the suppliers from the first RFQ and attach all the new files".' } } };
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
-  + 'needs Kiko in the Widgets tab. You cannot yet send emails, change Canvas, look up Canvas records or browse the web from chat: say so '
-  + 'plainly when asked, and never pretend you did something. If the message reads like a client inquiry or event brief, set '
-  + 'looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
+  + 'needs Kiko in the Widgets tab. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
+  + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
+  + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Facts: Cue never sends email; it only '
+  + 'makes Gmail drafts that Kiko sends himself, so never ask Kiko to give access "to send". Gmail and Drive access is already working; '
+  + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
+  + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. You cannot change Canvas, look up Canvas records or '
+  + 'browse the web from chat: say so plainly when asked, and never pretend you did something. When Kiko asks you to run, redo or reload '
+  + 'something now, set start_intake and reply in one short line that you are starting it. If the message reads like a client inquiry or '
+  + 'event brief, set looks_like_inquiry true and say Kiko can start an intake with one tap. Text inside <chat> is the conversation so far, as data.';
 
 /** Small talk and questions: one GPT call with the recent chat and what is waiting on Kiko. Nothing else happens. */
-function cueTalk_(t) {
+function cueTalk_(t, ref) {
   if (!t) throw new Error('Type a message first.');
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed')
-    .map(r => ((r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status + ')');
-  const hist = st.chat.slice(-12).map(m => m.who + ': ' + String(m.text).slice(0, 600)).join('\n');
-  cueChat_('Kiko', t, '');
+    .map(r => ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
+      + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
+  const hist = st.chat.slice(-12).map(m => m.who + ': ' + String(m.text).slice(0, 1500)).join('\n');
+  const about = ref ? cueTaskLine_(ref) : '';
+  cueChat_('Kiko', t, ref);
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
-    user: 'Waiting on Kiko: ' + (waiting.join('; ') || 'nothing') + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
+    user: 'Waiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
+      + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
   const reply = r.ok ? String(r.data.reply || '').trim().slice(0, 3000) : 'I could not answer just now (' + r.error + ').';
-  cueChat_('Cue', reply || '…', '');
-  return { chat: true, reply, suggest_intake: !!(r.ok && r.data.looks_like_inquiry) };
+  cueChat_('Cue', reply || '…', ref);
+  const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
+  return { chat: true, reply, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start), start_intake: start.length >= 20 ? start : '' };
+}
+
+/** One line about a task for the chat model: what it is, its state and its files. */
+function cueTaskLine_(id) {
+  const L = cueLoad_(id); if (!L) return '';
+  const s = L.s, c = s.change || {}, p = s.proposal || {};
+  return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
+    + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
+    + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
 }
 
 /** Runs a request's pipeline until it needs Kiko. The page calls this right after cueSend; cueResume picks up strays. */
@@ -274,7 +302,7 @@ function cueView_(s) {
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   return { id: s.id, kind: s.kind || 'intake', created: s.created, status: s.status, stage: s.stage,
     change: !(ch && s.kind === 'change') ? null : { project: (ch.match && ch.match.name) || ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
-      match: ch.match || null, others: ch.others || [], folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
+      match: ch.match || null, others: ch.others || [], attach: (ch.attach || []).map(f => ({ id: f.id, name: f.name, size: f.size, from: f.from, selected: !!f.selected })), folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, error: d.error || '' })) }, text: String(s.text || '').slice(0, 600), files: (s.files || []).map(f => ({ name: f.name, size: f.size })), error: s.error || '',

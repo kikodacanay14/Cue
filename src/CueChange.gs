@@ -44,10 +44,31 @@ function cueChangeStart_(s) {
   if (!c.what_changed) c.what_changed = cueStr_(s.text, 2000);
   c.match = m && { project_id: m.project_id, name: m.name, account: m.account, date: m.date, status: m.status, why: m.why };
   c.others = (s.similar || []).slice(1).map(x => x.name + ' (' + x.why + ')');
+  c.attach = cueChangeAttach_(s, m && m.project_id);
   s.stage = m ? 'Opening project files' : 'Finding past RFQs';
   cueChat_('Cue', m ? 'Canvas already has this project: ' + m.name + (m.date ? ', ' + m.date : '') + ' (' + m.why + '). Treating it as a change: opening the project files and your past RFQs.'
     : 'Canvas found no matching project, but you said this is a change. Looking for the RFQ emails you sent before.', s.id);
 }
+
+/** Files for the requotes (Kiko 05:47Z "load again with new files"): this message's files, the task Kiko replied to, and every
+ * file Kiko sent for the same Canvas project in the last 24 hours, newest first, one per file name. All ticked up to 20 MB. */
+function cueChangeAttach_(s, pid) {
+  const since = cueNow_() - 24 * 3600e3, out = [], seen = {};
+  let others = [];
+  try {
+    others = cueRows_(cueSheet_('Requests')).slice(-40).map(r => { try { return JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return null; } })
+      .filter(x => x && x.id !== s.id && (x.id === s.ref || (pid && x.change && x.change.match && x.change.match.project_id === pid && Date.parse(x.created) >= since)))
+      .sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  } catch (e) { others = []; }
+  let total = 0;
+  [s].concat(others).forEach(x => (x.files || []).forEach(f => {
+    const k = String(f.name).toLowerCase(); if (seen[k]) return; seen[k] = 1;
+    total += Number(f.size) || 0;
+    out.push({ id: f.id, name: f.name, type: f.type, size: f.size, from: x.id === s.id ? 'this message' : 'sent ' + String(x.created).slice(0, 16).replace('T', ' '), selected: total <= 20 * 1024 * 1024 });
+  }));
+  return out.slice(0, 30);
+}
+const cueChangeFilesOf_ = (s) => s.change && s.change.attach ? s.change.attach.filter(f => f.selected) : (s.files || []);
 
 /** Stage "Opening project files": the matched project's folder, from Canvas. A failure is a note, not a stop. */
 function cueChangeFiles_(s) {
@@ -98,7 +119,7 @@ function cueChangeDraft_(s) {
   const c = s.change, days = Math.max(1, Number(cueProp_('CUE_RFQ_DAYS', '3')) || 3);
   const by = Utilities.formatDate(new Date(cueNow_() + days * 864e5), 'Asia/Manila', 'EEEE d MMMM');
   const r = cueAiAll_(s, [cueGpt_({ step: 'requotes', name: 'requotes', system: CUE_CH_SYSTEM_, schema: CUE_CH_SCHEMA_, maxTokens: 6000,
-    user: JSON.stringify({ project: (c.match && c.match.name) || c.project, what_changed: c.what_changed, suppliers_named: c.suppliers, files_attached: (s.files || []).map(f => f.name),
+    user: JSON.stringify({ project: (c.match && c.match.name) || c.project, what_changed: c.what_changed, suppliers_named: c.suppliers, files_attached: cueChangeFilesOf_(s).map(f => f.name),
       project_folder_files: (c.project_files || []).slice(0, 30).map(f => f.folder + ' / ' + f.name),
       reply_by: by, sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'),
       candidates: c.found.map(f => ({ k: f.k, to: f.to, subject: f.subject, date: f.date, snippet: f.snippet })) }) })])[0];
@@ -123,7 +144,8 @@ function cueChangeApprove_(id, edits) {
     const s = L.s, again = s.status === 'Done, drafts incomplete';
     if (s.status !== 'Needs you' && !again) throw new Error('This change request is ' + s.status + ', not waiting for you.');
     if (!again) {
-      const skip = (edits && edits.skip) || [];
+      const skip = (edits && edits.skip) || [], fskip = (edits && edits.files_skip) || [];
+      (s.change.attach || []).forEach(f => { f.selected = fskip.indexOf(f.id) < 0; });
       s.change.drafts.forEach(d => { d.selected = skip.indexOf(d.k) < 0; });
       if (!s.change.drafts.some(d => d.selected)) throw new Error('Tick at least one supplier, or reject the change request.');
     }
@@ -137,7 +159,7 @@ function cueChangeApprove_(id, edits) {
   const bad = [];
   c.drafts.filter(d => d.selected && !d.draft_id).forEach(d => {
     try {
-      files = files || (s.files || []).map(f => ({ name: f.name, type: f.type, b64: Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + f.id + '?alt=media', { raw: true }).getContent()) }));
+      files = files || cueChangeFilesOf_(s).map(f => ({ name: f.name, type: f.type, b64: Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + f.id + '?alt=media', { raw: true }).getContent()) }));
       d.draft_id = cueGmailReply_(keys[d.k], d.body, files); d.error = '';
     } catch (e) { d.error = String((e && e.message) || e).slice(0, 200); bad.push(d.supplier); }
     cueLocked_(() => cueSave_(L.sh, L.row, s));
@@ -146,7 +168,7 @@ function cueChangeApprove_(id, edits) {
   s.status = bad.length ? 'Done, drafts incomplete' : 'Done'; s.stage = s.status; s.ready_at = s.ready_at || cueNow_();
   cueMetrics_(s);
   cueLocked_(() => cueSave_(L.sh, L.row, s));
-  cueChat_('Cue', 'Made ' + made + ' requote draft' + (made === 1 ? '' : 's') + ' in your Gmail, each in its original thread' + ((s.files || []).length ? ' with the files attached' : '')
+  cueChat_('Cue', 'Made ' + made + ' requote draft' + (made === 1 ? '' : 's') + ' in your Gmail, each in its original thread' + (cueChangeFilesOf_(s).length ? ' with ' + cueChangeFilesOf_(s).length + ' file(s) attached' : '')
     + '. Nothing was sent and nothing changed in Canvas.' + (bad.length ? ' Not made yet: ' + bad.join(', ') + '. Approve again to retry those.' : ''), s.id);
   return s;
 }
