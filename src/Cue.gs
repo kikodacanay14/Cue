@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.19.2';
+const CUE_VERSION_ = 'Cue 1.19.3';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -395,7 +395,7 @@ function cueTalk_(t, ref, force) {
   const tasks = ref ? [] : st.requests.filter(x => x.id === root(x.id)).slice(0, 10).map(x => ({ id: x.id, line: cueTaskLine_(x.id) }));
   const today = cuePh_(now), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.parse(today.day + 'T00:00:00Z')).getUTCDay()];
   const found = cueLookup_(s, t), ex = cueRouteExamples_(t);
-  const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
+  const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
@@ -420,8 +420,9 @@ function cueTalk_(t, ref, force) {
   // Teach Cue add-on (Kiko 17:00Z): not sure which command, or two fit about equally: start nothing and ask. Never guess.
   let choices = r.ok && !force && r.data.sure === false ? (r.data.choices || []).filter((c, i, a) => CUE_ROUTE_CMDS_[c] && a.indexOf(c) === i).slice(0, 2) : [];
   // PC test 17:30Z: "LED wall for AMI Group" started a supplier search, and a bare "LED wall" re-ran one in an open thread. A short
-  // item-and-name message in the main chat that the call would act on always asks project intake or supplier search, whatever GPT says.
-  if (r.ok && !force && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t) && (r.data.start_intake || (r.data.vendor && r.data.vendor.job) || pick || r.data.readiness || r.data.start_ar || (r.data.email && r.data.email.job)))
+  // item-and-name message in the main chat always asks project intake or supplier search, whatever GPT says.
+  // PC test 17:42Z: also when the call only answered (e.g. "no Canvas project matched AMI Group"): a vague message always asks.
+  if (r.ok && !force && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
     { choices = ['intake', 'vendor']; reply = ''; }
   if (choices.some(c => c !== 'chat')) {
     const ask = choices.filter(c => c !== 'chat').map(c => CUE_ROUTE_CMDS_[c]).join(' or ');
