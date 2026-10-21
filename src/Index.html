@@ -364,12 +364,12 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || ''; };
+    var nm = function (r) { return (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -427,7 +427,7 @@
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map)) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -443,6 +443,7 @@
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
   function doneHtml(r, reopen) {
+    if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r, reopen);
     if (r.kind === 'finance') return '<div class="card"><b>' + esc((r.fin && r.fin.title) || 'Money') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
@@ -525,7 +526,7 @@
   var WORKFLOW = [['GPT reading', 'GPT', 'GPT reads the screenshots or files'], ['Claude mapping', 'Claude', 'Claude maps the steps and who handles each'],
     ['Claude revising', 'Claude', 'Claude changes the map as you asked'], ['GPT checking', 'GPT', 'ChatGPT gives a second opinion'], ['Needs you', 'Kiko', 'Waiting for your approval']];
   function workHtmlOf(r) {
-    var list = r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -634,6 +635,84 @@
     var b = e.target.closest && e.target.closest('[data-open-task]'); if (!b) return;
     e.stopPropagation(); goThread(rootOf(b.getAttribute('data-open-task'), byId()));
   }, true);
+  // Supplier registration (CueSupplier.gs, Kiko 07:55Z): what GPT read and Canvas found, as editable fields; every contact; old files
+  // from the shared drives to tick; the documents request. Approve adds it to the Supplier Database; nothing is written before.
+  var SUPPLIER = [['GPT reading', 'GPT', 'GPT reads the message and the documents'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates and history; Cue searches the shared drives'],
+    ['Claude reviewing', 'Claude', 'Claude fits the values and reads old files'], ['GPT drafting', 'GPT', 'GPT drafts the request for missing documents'],
+    ['Needs you', 'Kiko', 'Waiting for your approval'], ['Writing to Canvas', 'Canvas', 'Canvas adds the supplier and every contact'],
+    ['Filing documents', 'Canvas', 'Documents go in the supplier folder'], ['Emailing the supplier', 'Gmail', 'The documents request from your Gmail']];
+  var supExtra = {};
+  function supField(id, h, v, lists, lock) {
+    var l = lists[h], at = ' data-sf="' + esc(h) + '" aria-label="' + esc(h) + '"' + (lock ? ' disabled' : '');
+    var box = l && h !== 'Supplier Type' ? '<select' + at + ' style="width:100%"><option value="">Pick one</option>' + l.map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>'
+      : '<input' + at + ' value="' + esc(v || '') + '" style="width:100%"' + (l ? ' list="sl-' + esc(id) + '-' + esc(h.replace(/\W/g, '')) + '"' : '') + '>'
+        + (l ? '<datalist id="sl-' + esc(id) + '-' + esc(h.replace(/\W/g, '')) + '">' + l.map(function (o) { return '<option value="' + esc(o) + '">'; }).join('') + '</datalist>' : '');
+    return '<label class="small" style="display:block;margin-top:6px">' + esc(h) + box + '</label>';
+  }
+  function supDocSel(attr, v, docs, lock) { return '<select ' + attr + (lock ? ' disabled' : '') + ' aria-label="What it is"><option value="">Not an accreditation document</option>' + docs.map(function (d) { return '<option' + (d === v ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>'; }
+  function supplierCardHtml(r, reopen) {
+    var x = r.supplier, rec = x.record, cv = x.canvas || {}, waiting = r.status === 'Needs you', lock = !waiting, L = x.lists || {}, H = x.history || {};
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-scard="' + esc(r.id) + '"><div class="label" style="margin-top:0">Supplier registration</div>'
+      + '<b style="font-size:17px;color:#fff">' + esc(rec.Supplier || 'New supplier') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '');
+    if (cv.supplier_id) {
+      var v = cv.verify || {}, a = cv.accreditation || {}, m = x.email || {};
+      h += '<div class="small" style="margin-top:6px">In the Supplier Database as <b>' + esc(cv.supplier_id) + '</b>' + ((cv.contacts || []).length ? ' with ' + cv.contacts.map(function (c) { return esc(c.person); }).join(', ') : '') + '.'
+        + (cv.folder && /^https:\/\//.test(cv.folder.url || '') ? ' <a href="' + esc(cv.folder.url) + '" target="_blank" rel="noopener">Supplier folder</a>' : '') + '</div>'
+        + '<div class="small">' + ((a.missing || []).length ? 'Still missing for accreditation: ' + esc(a.missing.join(', ')) + '. The accreditation chaser follows up.' : 'Nothing missing for accreditation.') + '</div>'
+        + ((x.saved || []).length ? '<div class="small">📁 ' + x.saved.map(function (f) { return f.url ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' : esc(f.name) + ' <span class="muted">(not filed: ' + esc(f.error) + ')</span>'; }).join(', ') + '</div>' : '')
+        + (m.sent_id ? '<div class="small">Documents request sent to ' + esc(m.to) + '.</div>' : m.draft_id ? '<div class="small">Documents request is in your Gmail Drafts.</div>' : m.error ? '<div class="small err">Documents request: ' + esc(m.error) + '</div>' : '')
+        + '<div class="small ' + (v.ok ? 'muted' : 'err') + '">' + (v.ok ? 'Every cell read back correctly.' : 'Read back: ' + esc((v.problems || []).join(' '))) + '</div>'
+        + (r.notes || []).map(function (n) { return '<div class="small muted">' + esc(n) + '</div>'; }).join('');
+      return h + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + metricLine(r) + '</div>';
+    }
+    if (!waiting) return h + (r.status === 'Failed' ? '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>' : '') + metricLine(r) + '</div>';
+    (x.duplicates || []).forEach(function (d) {
+      h += '<div class="err">Canvas already has <b>' + esc(d.name) + '</b> (' + esc(d.id) + ', ' + esc(d.why.join(' and ')) + (d.accreditation ? ', ' + esc(d.accreditation) : '') + ')'
+        + (/^https:\/\//.test(d.folder || '') ? ' · <a href="' + esc(d.folder) + '" target="_blank" rel="noopener">its folder</a>' : '') + '. Open it in Canvas instead.</div>'; });
+    if ((x.duplicates || []).length) h += '<label class="small" style="display:flex;gap:8px"><input type="checkbox" data-snd' + (x.not_duplicate ? ' checked' : '') + '> Not the same supplier: register this one anyway</label>';
+    if ((H.payments || []).length || (H.quotes || {}).count) h += '<div class="small" style="margin-top:6px"><span class="tag new">Old supplier, never registered</span> '
+      + (H.payments || []).map(function (g) { return esc(g.name) + ': ' + g.count + ' payment request' + (g.count === 1 ? '' : 's') + ', last ' + esc(g.last) + (g.projects.length ? ' (' + esc(g.projects.join(', ')) + ')' : ''); }).join('; ')
+      + ((H.quotes || {}).count ? (H.payments.length ? '; ' : '') + H.quotes.count + ' quote' + (H.quotes.count === 1 ? '' : 's') + ' on Supplier Entries' : '') + '</div>';
+    (r.notes || []).forEach(function (n) { h += '<div class="small muted">' + esc(n) + '</div>'; });
+    var F = x.fields || [], grp = [['Supplier details', ['Supplier', 'Common / Display Name', 'Address', 'City', 'Province', 'Owner/Manager', 'Website/Social Media', 'Main Service', 'Secondary Service', 'Supplier Type']],
+      ['Business details', ['Business Type', 'TIN', 'TIN Status', 'Company Email']], ['Bank details', ['Bank', 'Account Name', 'AccountNumber']]];
+    grp.forEach(function (g) {
+      h += '<div class="label">' + g[0] + '</div>' + (g[0] === 'Bank details' ? '<div class="small muted">' + (x.bank_from ? 'From ' + esc(x.bank_from) + '. Check against the file.' : 'Only from a document you trust.') + '</div>' : '')
+        + g[1].filter(function (k) { return F.indexOf(k) >= 0; }).map(function (k) { return supField(r.id, k, rec[k], L, lock); }).join(''); });
+    var cs = (x.contacts || []).concat(Array.apply(null, Array(supExtra[r.id] || 0)).map(function () { return { person: '', number: '', email: '', position: '' }; }));
+    h += '<div class="label">Contacts</div>' + (cs.length ? '' : '<div class="small muted">No contact person found. Add one.</div>') + cs.map(function (c, i) {
+      return '<div class="row" data-sc="' + i + '" style="flex-wrap:wrap;gap:6px;margin-top:6px">' + ['person', 'number', 'email', 'position'].map(function (k) {
+        return '<input data-sck="' + k + '" value="' + esc(c[k] || '') + '" placeholder="' + { person: 'Name', number: 'Number', email: 'Email', position: 'Position' }[k] + '" aria-label="Contact ' + k + '" style="flex:1;min-width:120px">'; }).join('')
+        + (c.from ? '<span class="tag new">' + esc(c.from) + '</span>' : '') + '<button class="btn ghost" data-act="sup-rm-contact" data-id="' + esc(r.id) + '" data-i="' + i + '">Remove</button></div>'; }).join('')
+      + '<button class="btn ghost" data-act="sup-add-contact" data-id="' + esc(r.id) + '" style="margin-top:6px">Add a contact</button>';
+    if ((x.files || []).length) h += '<div class="label">Attached documents</div>' + x.files.map(function (f) {
+      return '<label class="small" style="display:block;margin-top:4px">' + (/^[\w-]{10,}$/.test(f.id) ? '<a href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>' : esc(f.name))
+        + (f.read && !f.doc ? ' <span class="muted">(' + esc(f.read) + ')</span>' : '') + supDocSel('data-sdoc="' + esc(f.id) + '"', f.doc, x.all_docs || [], lock) + '</label>'; }).join('');
+    h += '<div class="label">Found in shared drives</div>' + (x.search ? '<div class="small muted">' + esc(x.search) + '</div>' : '') + ((x.found || []).length ? x.found.map(function (f) {
+      return '<div class="small" style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap"><input type="checkbox" data-sfd="' + esc(f.id) + '"' + (f.tick ? ' checked' : '') + ' aria-label="Add to the supplier folder">'
+        + (f.url ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' : esc(f.name)) + ' <span class="muted">' + esc(f.modified) + '</span>'
+        + supDocSel('data-sfdoc="' + esc(f.id) + '"', f.doc, x.all_docs || [], lock) + '</div>'; }).join('') + '<div class="small muted">Ticked files are added to the supplier folder as shortcuts; the originals stay where they are.</div>'
+      : x.search ? '' : '<div class="small muted">Nothing found.</div>');
+    h += '<div class="label">Accreditation</div><div class="small">' + ((x.missing || []).length ? 'Still missing: ' + esc(x.missing.join(', ')) : 'Nothing missing.') + '</div>';
+    var em = x.email;
+    if (em) h += '<div class="label">Request for the missing documents</div><input data-sem="to" value="' + esc(em.to) + '" aria-label="To" style="width:100%">'
+      + '<input data-sem="subject" value="' + esc(em.subject) + '" aria-label="Subject" style="width:100%;margin-top:6px"><textarea class="mail" data-sem="body" aria-label="Email">' + esc(em.body) + '</textarea>'
+      + '<div class="small muted">From your Gmail, with suppliers@ in CC.</div>';
+    return h + '<div class="actions">' + (em ? '<button class="btn" data-act="send-supplier" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-supplier" data-id="' + esc(r.id) + '">Approve, request as a draft</button>'
+        : '<button class="btn" data-act="approve-supplier" data-id="' + esc(r.id) + '">Approve and add</button>') + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
+      + '<div class="small muted" style="margin-top:6px">Approve adds the supplier and its contacts to the Canvas Supplier Database and files the documents in its folder.</div>' + metricLine(r) + '</div>';
+  }
+  function collectSupplier(id, scope, send) {
+    var card = (scope || document).querySelector('[data-scard="' + id + '"]') || document.createElement('div'), e = { record: {}, contacts: [], docs: {}, found: {}, email: {}, send: send };
+    card.querySelectorAll('[data-sf]').forEach(function (el) { e.record[el.getAttribute('data-sf')] = el.value; });
+    card.querySelectorAll('[data-sc]').forEach(function (row) { var c = {}; row.querySelectorAll('[data-sck]').forEach(function (el) { c[el.getAttribute('data-sck')] = el.value.trim(); }); e.contacts.push(c); });
+    card.querySelectorAll('[data-sdoc]').forEach(function (el) { e.docs[el.getAttribute('data-sdoc')] = el.value; });
+    card.querySelectorAll('[data-sfd]').forEach(function (el) { var k = el.getAttribute('data-sfd'), d = card.querySelector('[data-sfdoc="' + k + '"]'); e.found[k] = { tick: el.checked, doc: d ? d.value : '' }; });
+    card.querySelectorAll('[data-sem]').forEach(function (el) { e.email[el.getAttribute('data-sem')] = el.value; });
+    var nd = card.querySelector('[data-snd]'); if (nd) e.not_duplicate = nd.checked;
+    return e;
+  }
 
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
@@ -1051,6 +1130,7 @@
     return h;
   }
   function cardHtml(r) {
+    if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
@@ -1192,6 +1272,8 @@
           box.value = ''; return send(txt, [], '', ref); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
+        if (act === 'sup-add-contact') { supExtra[id] = (supExtra[id] || 0) + 1; return render(); }
+        if (act === 'sup-rm-contact') { var row = b.closest('[data-sc]'); if (row) row.parentNode.removeChild(row); return; }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
         if (act === 'hs-approve') {
@@ -1293,7 +1375,14 @@
           var who = ((req.ar || {}).items || []).filter(function (x) { return em.indexOf(x.key) >= 0; }).map(function (x) { return x.name; });
           return ask('Email ' + who.length + ' receipt' + (who.length === 1 ? '' : 's') + ' now?', 'From AccountsPayables@ to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () { go({ email: em }); });
         }
+        if (act === 'send-supplier') {
+          var sx = collectSupplier(id, scope, 'send');
+          if (!sx.email.to) return addLocal('Cue', 'Add the supplier\'s email to send the request, or approve it as a draft.');
+          return ask('Add the supplier and send the request?', 'Canvas adds it to the Supplier Database, then your Gmail sends the documents request to ' + sx.email.to + ' (suppliers@ in CC). Sent emails cannot be called back.', null, 'Approve and send', function () {
+            b.disabled = true; running[id] = 1; schedule(); delete supExtra[id]; call('cueApprove', [id, sx], done, fail); });
+        }
         b.disabled = true; running[id] = 1; schedule();
+        if (act === 'approve-supplier') { var sd = collectSupplier(id, scope, 'draft'); delete supExtra[id]; return call('cueApprove', [id, sd], done, fail); }
         if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
         if (act === 'approve-workflow') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
