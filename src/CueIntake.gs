@@ -179,7 +179,10 @@ function cueIntakeCost_(s, save) {
   if (s.reqs.length) look.push(['intake_evidence', { requirements: s.reqs.map(r => ({ key: r.key, search_terms: r.search_terms, category: r.category, description: r.description })) }]);
   const got = cueBridgeAll_(s, look);   // both at once: the duplicate check, and the evidence costing needs if it is new
   s.similar = (got[0] || []).slice(0, 5);
-  if (!s.as_new && (s.similar.length || s.said_change)) return cueChangeStart_(s);
+  // Kiko 08:37Z: "run full project intake" means an intake, even when Canvas has a project with that name (an earlier attempt).
+  const full = /\b(full|run|redo|re-?run|start|begin|do)\b[^.\n]{0,20}\bintake\b/i.test(String(s.text || ''));   // Kiko 08:38Z: "Start intake" too
+  if (full && s.similar.length) s.notes.push('Canvas already has ' + s.similar.map(x => x.name + ' (' + (x.date || 'no date') + ', ' + (x.status || 'no status') + ')').join('; ') + '. You asked for a full intake, so this runs as a new intake; reject it if it duplicates that project.');
+  if (!s.as_new && !full && (s.similar.length || s.said_change)) return cueChangeStart_(s);
   if (!s.reqs.length) throw new Error('GPT found no requirements in this message. Add what the client needs and send it again.');
   const ev = got[1] || {}, E = k => ev[k] || { owned: [], ran: {}, quotes: [], stats: null, bse: { packages: [], items: [] }, suppliers: [] };
   const priced = k => { const v = E(k), b = v.bse || {}; return (b.packages || []).length || (b.items || []).length || (v.quotes || []).length || (v.owned || []).length; };
@@ -203,7 +206,7 @@ function cueIntakeCost_(s, save) {
 }
 
 function cueCostPrompt_(s, E) {
-  return '<inquiry>\n' + s.text + '\n</inquiry>\n\nEvent (as read): ' + JSON.stringify(s.x.event) + '\n\nRequirements with Canvas evidence (JSON):\n'
+  return '<inquiry>\n' + s.text + '\n</inquiry>\n\n' + (s.item_level ? 'Kiko asked for item-level costing. In each line\'s note, break the requirement into the items it is made of, one per line: item, quantity, unit cost in PHP and where the cost comes from (a quote, owned stock, or "no price"). Keep unit_cost as the total per unit of the requirement.\n\n' : '') + 'Event (as read): ' + JSON.stringify(s.x.event) + '\n\nRequirements with Canvas evidence (JSON):\n'
     + JSON.stringify(s.reqs.map(r => { const v = E(r.key); return { key: r.key, category: r.category, description: r.description,
       quantity: r.quantity, occurrence: r.occurrence, bse_packages: (v.bse || {}).packages || [], bse_price_list: (v.bse || {}).items || [],
       owned_stock: v.owned || [], past_scopes_run: v.ran || {}, quote_stats: v.stats || null, status: r.status || 'included',
@@ -220,7 +223,7 @@ function cueIntakeBuild_(s, E, a, research, asked) {
     const v = E(r.key), shown = (v.quotes || []).map(q => String(q.entry_id)), flags = [];
     const exec = l.execution === 'In House' ? 'In House' : 'Outsourced';
     let basis = ['past quotes', 'owned stock', 'none'].indexOf(l.cost_basis) >= 0 ? l.cost_basis : 'none';
-    let unit = Math.max(0, Number(l.unit_cost) || 0), note = cueStr_(l.note, 600);
+    let unit = Math.max(0, Number(l.unit_cost) || 0), note = cueStr_(l.note, s.item_level ? 2000 : 600);
     let sources = (l.sources || []).map(String).filter((x, i, all) => shown.indexOf(x) >= 0 && all.indexOf(x) === i);
     if (basis === 'past quotes' && !sources.length) { basis = 'none'; flags.push('Claude cited no quote it was shown, so the cost was cleared'); }
     if (basis !== 'past quotes') sources = [];
@@ -465,7 +468,7 @@ function cueIntakeReject_(id, why) {
     if (['Needs you', 'Failed'].indexOf(L.s.status) < 0) throw new Error('This intake is ' + L.s.status + ' and can no longer be rejected here.');
     L.s.status = 'Rejected'; L.s.stage = 'Rejected'; L.s.rejected = { at: new Date(cueNow_()).toISOString(), why: cueStr_(why, 500) };
     cueSave_(L.sh, L.row, L.s);
-    cueChat_('Cue', 'Rejected. Nothing was written to Canvas.' + (why ? ' Reason: ' + cueStr_(why, 300) : ''), id);
+    cueChat_('Cue', (L.s.kind === 'personal' ? 'Closed. Nothing was saved.' : 'Rejected. Nothing was written to Canvas.') + (why ? ' Reason: ' + cueStr_(why, 300) : ''), id);
     cueSummary_(L.s);
     return L.s;
   });
@@ -484,19 +487,8 @@ function cueIntakeDrafts_(id) {
   return L.s;
 }
 /** One draft per RFQ supplier, from the RFQs Canvas stored. Drafts already made are skipped, so a retry never doubles one. */
-// Kiko's card (03:25Z): drafts go in Kiko's own Gmail, made here. CUE_DRAFTS_IN=canvas has Canvas make them in info@ instead.
+// Kiko's card (03:25Z): drafts go in Kiko's own Gmail, made here. Never info@ (Kiko 07:45Z): the old CUE_DRAFTS_IN=canvas switch is gone.
 function cueIntakeDraftsRun_(s) {
-  if (cueProp_('CUE_DRAFTS_IN', 'cue') === 'canvas') {
-    s.drafts_error = '';
-    try { s.drafts = (cueBridge_(s, 'make_rfq_drafts', { request_id: s.id }).drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: d.to,
-      subject: d.subject, new: !!d.new, id: d.id, error: d.error, mailbox: 'info@' })); }
-    catch (e) { s.drafts = s.drafts || []; s.drafts_error = cueStr_((e && e.message) || e, 300); }
-    const bad = s.drafts_error ? 1 : s.drafts.filter(d => !d.id).length;
-    s.status = bad ? 'Done, drafts incomplete' : 'Done'; s.stage = 'Done';
-    cueChat_('Cue', s.drafts_error ? 'Canvas could not make the RFQ drafts (' + s.drafts_error + '). Use "Make drafts again".'
-      : !s.drafts.length ? 'No RFQ drafts to make.' : (s.drafts.length - bad) + ' RFQ draft(s) are in the info@ Gmail, not sent.' + (bad ? ' ' + bad + ' could not be made; use "Make drafts again".' : ''), s.id);
-    return;
-  }
   const done = s.drafts || (s.drafts = []);
   (s.rfqs_final || []).forEach((q, i) => ((q.suppliers || []).length ? q.suppliers : [{ name: '', email: '' }]).forEach((x, j) => {
     const k = i + ':' + j, have = done.find(d => d.k === k);

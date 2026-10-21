@@ -1,12 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Cue bubble",
-  "version": "1.1.0",
-  "description": "A movable Cue bubble on every page. Tap it to open Cue in its own small window.",
+  "version": "1.2.0",
+  "description": "A movable Cue bubble on every page. Tap it to open Cue. Snap a page into Cue's message box when you ask.",
   "icons": { "16": "icons/cue-16.png", "48": "icons/cue-48.png", "128": "icons/cue-128.png" },
   "action": { "default_title": "Open Cue", "default_icon": { "16": "icons/cue-16.png", "48": "icons/cue-48.png" } },
   "background": { "service_worker": "background.js" },
-  "permissions": ["storage"],
+  "permissions": ["storage", "activeTab", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "cue-snap": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Snap this page into Cue" }
+  },
   "options_page": "options.html",
-  "content_scripts": [{ "matches": ["http://*/*", "https://*/*"], "js": ["content.js"], "run_at": "document_idle" }]
+  "content_scripts": [
+    { "matches": ["http://*/*", "https://*/*"], "js": ["content.js"], "run_at": "document_idle" },
+    { "matches": ["https://*.googleusercontent.com/*"], "js": ["cue-drop.js"], "all_frames": true, "match_about_blank": true,
+      "match_origin_as_fallback": true, "run_at": "document_idle" }
+  ]
 }

@@ -12,6 +12,11 @@
  *   the address a sheet row with no Google account behind it, so nobody can sign in as it.
  * - Only the actions in ZB_ACTIONS_ run, with strict arguments. Nothing sets project status, files a CE, changes the
  *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas (it drives HubSpot stages).
+ *   One exception (CUE-EXPENSE-2026-10-21): record_expense, for one expense Kiko approved on Cue's card, may add its supplier
+ *   entry, award it when the scope has no award yet, and record the payment Kiko already made. It never moves an award.
+  },
+ *   CUE-SUPPLIER-2026-10-21: register_supplier adds one NEW supplier Kiko approved on Cue's card (row, contacts, accreditation
+ *   row); it never edits or deletes an existing supplier and never sets Accreditation Status or a verification column.
  * - A durable ledger (sheet in ZAD_LEDGER_ID, tab "_Zap Commands") keyed by command_id. Replays return the stored
  *   answer. add_project is also keyed by intake_key, so one inquiry arriving by Gmail and by HubSpot makes one project.
  * - A write whose outcome is unknown is recorded Uncertain. Retries reconcile first; non-idempotent writes
@@ -56,6 +61,12 @@ const ZB_FORBIDDEN_ = {
 // Files Cue may put in a project folder: what Cue accepts as attachments, into a Files-tab type folder.
 const ZB_FILE_MIMES_ = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/csv', 'message/rfc822'];
 const ZB_FILE_TYPES_ = ['Brief & Planning', 'Client Documents', 'Designs & Visuals', 'Visual Materials', 'Other Documents'];
+// Supplier Database columns Cue may fill on a new supplier (AIS_FIELDS_ in canvas-ai/AiSupplier.gs) and the accreditation documents (ACCR_DOC_ labels).
+const ZB_SUP_FIELDS_ = ['Supplier', 'Common / Display Name', 'Address', 'City', 'Province', 'Owner/Manager', 'Website/Social Media', 'Main Service',
+  'Secondary Service', 'Supplier Type', 'Business Type', 'TIN', 'TIN Status', 'Company Email', 'Bank', 'Account Name', 'AccountNumber']
+  .reduce((o, h) => { o[h] = { type: 'string', max: h === 'Address' ? 500 : 200 }; return o; }, {});
+ZB_SUP_FIELDS_['Supplier'] = { type: 'string', required: true, nonBlank: true, max: 200 };
+const ZB_SUP_DOCS_ = ['DTI permit', 'SEC certificate', 'Business Permit', 'Sample invoice', 'Government ID 1', 'Government ID 2'];
 const ZB_ACTIONS_ = {
   claim_plan: {
     // Review 05:36Z: an atomic claim of one task's plan, under the app's lock. The first plan for a task wins; a second,
@@ -102,6 +113,11 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: false,
     schema: { client: { type: 'string', max: 200 }, date: { type: 'string', max: 10 }, name: { type: 'string', max: 200 } },
     run: (r) => aiIntakeSimilar_(r.args)
+  },
+  search_projects: {
+    kind: 'read', needsProject: false,
+    schema: { query: { type: 'string', required: true, nonBlank: true, max: 200 }, limit: { type: 'number', min: 1, max: 10 } },
+    run: (r) => aiProjectSearch_(r.args)
   },
   submit_intake: {
     kind: 'queue', needsProject: false,
@@ -163,6 +179,51 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] } },
     run: (r) => zbReadiness_(r.project_id, r.args.gate || 'auto')
   },
+  supplier_lookup: {
+    // CUE-VENDOR-2026-10-21 (Kiko 07:54Z approved specs/vendor-management.md). Cue's "Find, compare or assess suppliers":
+    // Supplier Database matches (Preferred first), past quotes for the item, named suppliers' history and a project's quotes
+    // (canvas-ai/AiVendor.gs). Read only; no bank details or TINs.
+    kind: 'read', needsProject: false,
+    schema: { item: { type: 'string', max: 120 }, city: { type: 'string', max: 100 }, names: { type: 'array', maxItems: 5 },
+      project_id: { type: 'string', re: ZB_PID_RE_ } },
+    run: (r) => {
+      const names = r.args.names || [];
+      if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
+      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
+    }
+  },
+  /* CUE-HUBSPOT-2026-10-21 (Kiko 07:50Z approved specs/hubspot-cleanup.md). hubspot_scan reads HubSpot, the HubSpot Links tab and
+   * Client Desk contacts and returns findings (canvas-ai/AiHubspot.gs, fixed rules, no AI). hubspot_fix applies the fixes Kiko
+   * ticked on Cue's card, at most 50 record changes, each re-checked and read back. It never deletes for good (archive goes to
+   * HubSpot's recycle bin), never touches a Canvas deal, and edits Canvas fields only in Client Desk (P0 Contacts). */
+  hubspot_scan: {
+    kind: 'read', needsProject: false, schema: { old_days: { type: 'number', min: 90 } },
+    run: (r) => aiHsScan_(r.args)
+  },
+  hubspot_fix: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      fixes: { type: 'array', required: true, minItems: 1, maxItems: 50, items: {
+        key: { type: 'string', required: true, re: /^H\d{1,4}$/ },
+        op: { type: 'string', required: true, oneOf: ['set', 'link', 'owner', 'archive', 'merge', 'canvas_contact'] },
+        type: { type: 'string', oneOf: ['companies', 'contacts', 'deals'] }, id: { type: 'string', re: /^\d{1,20}$/ },
+        keep: { type: 'string', re: /^\d{1,20}$/ }, merge: { type: 'array', maxItems: 5 },
+        company: { type: 'string', max: 200 }, owner: { type: 'string', re: /^\d{1,20}$/ }, ids: { type: 'array', maxItems: 50 },
+        props: { type: 'object', fields: { domain: { type: 'string', max: 200 }, industry: { type: 'string', max: 100 }, city: { type: 'string', max: 100 },
+          country: { type: 'string', max: 100 }, hubspot_owner_id: { type: 'string', re: /^\d{1,20}$/ }, name: { type: 'string', max: 200 },
+          firstname: { type: 'string', max: 100 }, lastname: { type: 'string', max: 100 }, jobtitle: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } },
+        email: { type: 'string', max: 200 }, field: { type: 'string', oneOf: ['name', 'title', 'phone'] }, from: { type: 'string', max: 300 }, to: { type: 'string', max: 300 } } } },
+    run: (r) => { const f = r.args.fixes, idRe = /^\d{1,20}$/;
+      for (const x of f) {
+        if (x.op === 'canvas_contact' ? !(x.email && x.company && x.field) : !x.type) return { ok: false, error: x.key + ': the fix is missing its record' };
+        if ((x.op === 'set' || x.op === 'link' || x.op === 'archive') && !x.id) return { ok: false, error: x.key + ': the fix is missing its record' };
+        if (x.op === 'link' && !idRe.test(String(x.company || ''))) return { ok: false, error: x.key + ': link needs a company ID' };
+        if (x.op === 'merge' && !(x.keep && (x.merge || []).length && x.merge.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': merge needs the record to keep and the ones to merge' };
+        if (x.op === 'owner' && !(x.owner && (x.ids || []).length && x.ids.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': owner needs the owner and the records' };
+        if (x.op === 'set' && !(x.props && Object.keys(x.props).length)) return { ok: false, error: x.key + ': nothing to set' };
+      }
+      return aiHsApply_(f); }
+  },
   save_project_file: {
     // CUE-2026-10-21 (Kiko 06:45Z: "the files should be in the Project Folder - that's a critical part of the intake").
     // One file Kiko attached in Cue, into <project folder>/<type> through saveProjectFile_ (the Files tab's own save).
@@ -174,9 +235,114 @@ const ZB_ACTIONS_ = {
       data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } },
     run: (r) => zbSaveFile_(r)
   },
+  /* CUE-AR-2026-10-21 (Kiko 07:42Z approved specs/supplier-ars.md): Cue's "Prepare ARs" command. Canvas's own AR generator
+   * (arPeople, arMake, arEmail_) does all the work; these only expose it to Cue, one receipt per call, after Kiko ticks it. */
+  ar_list: {
+    // The Generate window's list: who can get a receipt, the current one if made, and why the rest can't. No bank details.
+    kind: 'read', needsProject: true, schema: {},
+    run: (r) => zbArList_(r.project_id)
+  },
+  ar_make: {
+    // One receipt. A repeat returns the receipt already there, so a retry never makes a second PDF. remake (Kiko's tick
+    // only) makes a new one and keeps a signed copy, like the page's Remake; a remake retried within 10 minutes is a repeat.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ }, remake: { type: 'boolean' } },
+    run: (r) => zbArMake_(r)
+  },
+  ar_email: {
+    // Emails a supplier or talent their current receipt through arEmail_: from AccountsPayables@ only, Event Specialist and
+    // Kiko in CC. Sent once: a receipt already marked "Sent to" is not sent again. Freelancer receipts are never emailed.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ } },
+    run: (r) => zbArEmail_(r)
+  },
+  finance_snapshot: {
+    // CUE-FINANCE-2026-10-21 (Kiko 07:41Z approved specs/cfo-advisor.md). Cue's CFO Advisor: CE, billings, collections and
+    // payment requests per project (canvas-ai/AiFinance.gs). Read only; no bank details, payees' accounts or personal expenses.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 50 }, account: { type: 'string', max: 200 },
+      from: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, to: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return aiFinanceSnapshot_({ project_ids: ids, account: r.args.account || '', from: r.args.from || '', to: r.args.to || '' });
+    }
+  },
+  /* CUE-EXPENSE-2026-10-21 (Kiko 07:34Z approved specs/c3-project-expense.md). expense_evidence reads; record_expense writes one
+   * expense Kiko approved on Cue's card, through Canvas's own functions (canvas-ai/AiExpense.gs). save_entry, award and pay stay
+   * forbidden as actions of their own: record_expense adds an entry, awards it or records a payment only for that one card. */
+  expense_evidence: {
+    kind: 'read', needsProject: false,
+    schema: { project_id: { type: 'string', re: ZB_PID_RE_ }, project_hint: { type: 'string', max: 200 },
+      fields: { type: 'object', required: true, fields: { kind: { type: 'string', max: 40 }, amount: { type: 'number', min: 0 }, date: { type: 'string', max: 10 },
+        ref: { type: 'string', max: 120 }, payee: { type: 'string', max: 200 }, supplier: { type: 'string', max: 200 }, item: { type: 'string', max: 300 },
+        category: { type: 'string', max: 200 }, text: { type: 'string', max: 4000 } } } },
+    run: (r) => aiExpenseEvidence_(r.args)
+  },
+  record_expense: {
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      plan: { type: 'object', required: true, fields: {
+        kind: { type: 'string', required: true, oneOf: ['Proof of transfer', 'Payment confirmation', 'Receipt'] }, amount: { type: 'number', required: true, positive: true },
+        date: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, ref: { type: 'string', max: 120 }, payee: { type: 'string', max: 200 },
+        paid: { type: 'string', required: true, oneOf: ['proof', 'cash', 'no'] },
+        request_id: { type: 'string', re: /^AP-[A-Za-z0-9-]{3,40}$/ }, scope_id: { type: 'string', re: /^SCP\d{2}-\d{3,}-\d{2,}$/ },
+        entry_id: { type: 'string', re: /^ENT-\d{2,}-\d{2,}-\d{1,4}$/ }, award: { type: 'boolean' },
+        new_scope: { type: 'object', fields: { requirement_id: { type: 'string', required: true, nonBlank: true, max: 60 },
+          category: { type: 'string', required: true, nonBlank: true, max: 200 }, description: { type: 'string', required: true, nonBlank: true, max: 500 },
+          quantity: { type: 'number', positive: true }, occurrence: { type: 'number', positive: true }, expense_type: { type: 'string', max: 100 } } },
+        new_entry: { type: 'object', fields: { supplier: { type: 'string', required: true, nonBlank: true, max: 200 },
+          description: { type: 'string', max: 500 }, amount: { type: 'number', positive: true } } },
+        cost_type: { type: 'string', max: 40 }, expense_type: { type: 'string', max: 100 }, item: { type: 'string', max: 300 },
+        stage: { type: 'string', oneOf: ['Initial Deposit', 'Progress Payment', 'Final Balance', 'Full Payment'] } } },
+      files: { type: 'array', maxItems: 4, items: { name: { type: 'string', required: true, nonBlank: true, max: 150 },
+        mime: { type: 'string', required: true, oneOf: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'] },
+        role: { type: 'string', required: true, oneOf: ['proof', 'receipt'] },
+        data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } } } },
+    run: (r) => { const p = r.args.plan, f = r.args.files || [];
+      if (f.filter(x => x.role === 'proof').length > 1 || f.filter(x => x.role === 'receipt').length > 1) return { ok: false, error: 'one proof and one receipt at most' };
+      if (!p.request_id && !p.scope_id && !p.new_scope) return { ok: false, error: 'plan needs request_id, scope_id or new_scope' };
+      if (p.request_id && (p.scope_id || p.new_scope || p.entry_id || p.new_entry)) return { ok: false, error: 'an existing request takes evidence only' };
+      if ((p.scope_id && p.new_scope) || (p.entry_id && p.new_entry)) return { ok: false, error: 'pick an existing record or a new one, not both' };
+      const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
+      return aiExpenseRecord_(r.args.request_id, r.project_id, p, f); }
+  },
+  /* CUE-SUPPLIER-2026-10-21 (Kiko 07:55Z approved specs/supplier-registration.md). supplier_check reads; register_supplier adds
+   * one new supplier through saveRecord_ (canvas-ai/AiSupplier.gs); save_supplier_file puts one document, or a shortcut to a
+   * shared-drive file, into that supplier's folder. Values are text only, and AiSupplier.gs keeps them from becoming formulas. */
+  supplier_check: {
+    kind: 'read', needsProject: false,
+    schema: { name: { type: 'string', required: true, nonBlank: true, max: 200 }, display_name: { type: 'string', max: 200 },
+      tin: { type: 'string', max: 40 }, emails: { type: 'array', maxItems: 10, items: { email: { type: 'string', required: true, max: 200 } } },
+      business_type: { type: 'string', max: 100 } },
+    run: (r) => aiSupplierCheck_(Object.assign({}, r.args, { emails: (r.args.emails || []).map(e => e.email) }))
+  },
+  register_supplier: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      record: { type: 'object', required: true, fields: ZB_SUP_FIELDS_ },
+      contacts: { type: 'array', maxItems: 10, items: { person: { type: 'string', required: true, nonBlank: true, max: 200 },
+        number: { type: 'string', max: 60 }, email: { type: 'string', max: 200 }, position: { type: 'string', max: 120 } } },
+      docs: { type: 'array', maxItems: 10, items: { label: { type: 'string', required: true, oneOf: ZB_SUP_DOCS_ } } } },
+    run: (r) => aiSupplierRegister_(r.args.request_id, r.args.record, r.args.contacts || [], r.args.docs || [])
+  },
+  save_supplier_file: {
+    kind: 'queue', needsProject: false,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      supplier_id: { type: 'string', required: true, nonBlank: true, max: 40, re: /^[A-Za-z0-9#._-]+$/ },
+      name: { type: 'string', max: 150 }, mime: { type: 'string', oneOf: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'] },
+      data: { type: 'string', nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ },
+      drive_id: { type: 'string', re: /^[A-Za-z0-9_-]{15,80}$/ } },
+    run: (r) => { const a = r.args;
+      if (a.drive_id ? (a.data || a.name || a.mime) : !(a.data && a.name && a.mime)) return { ok: false, error: 'send a file (name, mime, data) or a drive_id, not both' };
+      return aiSupplierFile_(a.supplier_id, a.drive_id ? { drive_id: a.drive_id } : { name: a.name, mime: a.mime, data: a.data, request_id: a.request_id }); }
+  },
   get_project_board: {
+    // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
     kind: 'read', needsProject: false, schema: {},
-    run: () => getProjectBoard()
+    run: () => zbBoardAwaiting_(getProjectBoard())
   },
   add_project: {
     // addProject (12289): Business Lead/Manager only; refuses a second project with the same name and date; makes folders
@@ -375,6 +541,40 @@ function zbCheck_(v, s, name) {
   return '';
 }
 
+/**
+ * Cue's CE award chasers: each project in For Client Awarding gets awaiting = { since, ce_total, ce_no }. since (YYYY-MM-DD,
+ * Manila) is the latest Changes-tab entry that set PROJECT STATUS to For Client Awarding, the same log the Timeline reads
+ * (tsEnter_); '' when the log has none (Cue then uses the CE email date). ce_total and ce_no come from the active CE
+ * (ceActiveTotals_). Read only; any failure leaves the board as it was.
+ */
+function zbBoardAwaiting_(b) {
+  const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
+  if (!list.length) return b;
+  const key = v => String(v == null ? '' : v).trim().toLowerCase(), want = {}, since = {};
+  list.forEach(p => { want[key(p.id)] = 1; });
+  try {
+    const sh = logSheet_().getParent().getSheetByName(CHANGES_TAB_);
+    if (sh && sh.getLastRow() > 1) {
+      const last = sh.getLastRow(), n = Math.min(last - 1, 20000), v = sh.getRange(last - n + 1, 1, n, CHANGES_HEAD_.length).getValues();
+      v.forEach(r => {
+        const id = key(r[9]);
+        if (!want[id] || key(r[11]) !== 'project status' || key(String(r[13]).replace(/^'/, '')) !== 'for client awarding') return;
+        const t = String(r[0]).trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        const d = Object.prototype.toString.call(r[0]) === '[object Date]' ? Utilities.formatDate(r[0], 'Asia/Manila', 'yyyy-MM-dd')
+          : m ? m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0') : (t.match(/^\d{4}-\d{2}-\d{2}/) || [''])[0];
+        if (d && (!since[id] || d > since[id])) since[id] = d;
+      });
+    }
+  } catch (e) { /* the log is optional */ }
+  let ce = {};
+  try { ce = ceActiveTotals_(book_(TRACKER_ID)) || {}; } catch (e) { ce = {}; }
+  list.forEach(p => {
+    const c = ce[String(p.id).trim()] || {};
+    p.awaiting = { since: since[key(p.id)] || '', ce_total: typeof c.total === 'number' ? c.total : null, ce_no: String(c.ceNo || '') };
+  });
+  return b;
+}
+
 // Closure statuses (PROJECT_PHASES_ in Code.gs) and Completed get the Closeout gate.
 const ZB_CLOSE_RE_ = /invoic|project review|billing|payment advice|^complete/i;
 function zbReadiness_(pid, want) {
@@ -411,6 +611,57 @@ function zbSaveFile_(r) {
   try { up.file.setDescription('Linked to: Project · Added by: Cue (' + a.request_id + ')'); } catch (e) { /* the note is optional */ }
   try { logEvent('Uploaded document', 'Projects', r.project_id + ': ' + up.name + ' (' + a.type + ', from Cue)'); } catch (e) { /* logging never blocks */ }
   return { ok: true, url: up.url, name: up.name, type: a.type, existed: false, in_project_folder: own };
+}
+
+/* ---------- CUE-AR-2026-10-21: acknowledgement receipts ---------- */
+const zbArView_ = a => a ? { ar_id: a.id, status: a.status, url: a.url, generated: a.generated, emailed: a.emailed, signed_at: a.signedAt || '', signed_url: a.signedUrl || '' } : null;
+function zbArList_(pid) {
+  const o = arPeople(pid), items = (o.items || []).slice(0, 200);
+  return { more: (o.items || []).length > 200, items: items.map(p => ({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount,
+    paid_on: p.paidOn || '', request_id: p.requestId || '', has_email: !!p.hasEmail, why: p.why || '', ar: zbArView_(p.ar) })) };
+}
+// A receipt made in the last 10 minutes (the AR Receipts tab's "Generated", script time zone).
+function zbArFresh_(generated, now) {
+  let d = null; try { d = Utilities.parseDate(String(generated || ''), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'); } catch (e) { return false; }
+  return !!d && (now || Date.now()) - d.getTime() < 10 * 60 * 1000;
+}
+function zbArItem_(r) {
+  const x = zbProject_(r); if (x.error) return { error: x.error };
+  const p = arFind_(arItems_(r.project_id), r.args.key);
+  if (!p) return { error: 'That person or payment is no longer on this project. Refresh the list.' };
+  return { p };
+}
+function zbArMake_(r) {
+  const it = zbArItem_(r); if (it.error) return { ok: false, error: it.error };
+  const p = it.p, pid = r.project_id;
+  if (p.why) return { ok: false, error: p.name + ': ' + p.why };
+  const cur = arStatus_(pid).filter(a => arMine_(p, a.key))[0];
+  if (cur && arCovers_(cur, p) && (!r.args.remake || zbArFresh_(cur.generated))) return { ok: true, existed: true, name: p.name, kind: p.kind, ar: zbArView_(cur) };
+  const res = arMake(pid, p.key, { redo: !!r.args.remake });
+  // Read back: the new row must be on the AR Receipts tab as the current receipt.
+  const made = (res.ar || []).filter(a => a.id === res.made.id)[0];
+  if (!made) return { ok: false, error: 'Canvas made ' + res.made.file + ' but it is not on the AR Receipts tab. Check the project in Canvas.' };
+  return { ok: true, existed: false, name: p.name, kind: p.kind, ar: zbArView_(made), folder_url: res.folderUrl || '' };
+}
+function zbArEmail_(r) {
+  const it = zbArItem_(r); if (it.error) return { ok: false, error: it.error };
+  const p = it.p, pid = r.project_id;
+  if (p.kind === 'Resource') return { ok: false, error: 'Freelancer receipts are signed in Canvas Client, not emailed.' };
+  let out = null;
+  locked_(() => {   // under the app's lock, so two taps can't both send
+    const sh = arTab_(false), o = arRows_(sh).filter(v => norm_(v.r[AR_C_['Project ID']]) === norm_(pid) && arMine_(p, v.r[AR_C_['Key']])
+      && !/replaced/i.test(v.r[AR_C_['Status']]))[0];
+    if (!o) { out = { ok: false, error: 'No receipt for ' + p.name + ' yet. Make it first.' }; return; }
+    const g = h => o.r[AR_C_[h]];
+    if (!arCovers_({ reqs: g('Request ID') }, p)) { out = { ok: false, error: p.name + ' was paid again since this receipt was made. Make it again first.' }; return; }
+    if (/^Sent to /.test(g('Emailed'))) { out = { ok: true, existed: true, name: p.name, ar_id: g('AR ID'), emailed: g('Emailed') }; return; }
+    if (!g('PDF ID')) { out = { ok: false, error: 'This receipt has no PDF. Make it again.' }; return; }
+    const sent = arEmail_(p, arEvent_(pid), DriveApp.getFileById(g('PDF ID')));
+    sh.getRange(o.row, AR_C_['Emailed'] + 1).setValue(safe_(sent));
+    out = /^Sent to /.test(sent) ? { ok: true, existed: false, name: p.name, ar_id: g('AR ID'), emailed: sent } : { ok: false, error: sent };
+  });
+  if (out.ok && !out.existed) try { logEvent('Emailed AR', 'Projects', pid + ': ' + p.name + ' (from Cue)'); } catch (e) { /* logging never blocks */ }
+  return out;
 }
 
 // The project must exist in the Admin Directory and, when the caller names a number, carry it.

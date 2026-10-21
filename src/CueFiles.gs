@@ -45,6 +45,7 @@ function cueFilesSave_(files, id) {
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
 const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';
 
+const CUE_SNAPSHOT_RE_ = /^Cue snapshot /;   // the Cue bubble names its snapshots this way
 /** Kiko 06:45Z: the files Kiko attaches belong in the Canvas project folder ("a critical part of the intake"). Cue sends each
  * one through the bridge (save_project_file) after Kiko approves. Photos go to Designs & Visuals, the rest to `other`.
  * A file already saved is skipped, and a repeat on Canvas's side returns the same file. A failure is a note, not a stop. */
@@ -57,7 +58,8 @@ function cueSaveToProject_(s, pid, files, other) {
     const rec = was || { id: f.id, name: f.name }; if (!was) saved.push(rec);
     try {
       const data = Utilities.base64Encode(cueDrive_('get', CUE_DRIVE_ + '/' + f.id + '?alt=media', { raw: true }).getContent());
-      const type = /^image\//.test(f.type) ? 'Designs & Visuals' : other;
+      // A snapshot of Kiko's screen (Cue bubble 1.2) is evidence, not a design: it goes with the brief (Kiko 08:17Z).
+      const type = /^image\//.test(f.type) && !CUE_SNAPSHOT_RE_.test(f.name) ? 'Designs & Visuals' : other;
       const r = cueBridge_(s, 'save_project_file', { request_id: s.id, name: f.name, mime: f.type, type, data }, pid) || {};
       rec.url = String(r.url || ''); rec.folder = r.in_project_folder === false ? 'Canvas Files, ' + type : type; rec.error = ''; ok.push(f.name);
       if (r.in_project_folder === false) loose = true;
