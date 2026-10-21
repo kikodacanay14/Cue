@@ -171,7 +171,7 @@
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
-  var pending = [], reading = 0, MAX = { count: 8, each: 10 * 1048576, total: 15 * 1048576 };
+  var pending = [], reading = 0, MAX = { count: 10, each: 10 * 1048576, total: 20 * 1048576 };
   var TYPES = { 'image/png': 1, 'image/jpeg': 1, 'image/webp': 1, 'image/gif': 1, 'application/pdf': 1, 'text/plain': 1, 'text/csv': 1, 'message/rfc822': 1 };
   var BY_EXT = { eml: 'message/rfc822', txt: 'text/plain', csv: 'text/csv', pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
   function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
@@ -205,7 +205,7 @@
           reading--;
           var used = pending.reduce(function (s, x) { return s + x.size; }, 0);
           if (f.size > MAX.each) addLocal('Cue', f.name + ' is over 10 MB.');
-          else if (used + f.size > MAX.total) addLocal('Cue', 'The attachments would add up to more than 15 MB.');
+          else if (used + f.size > MAX.total) addLocal('Cue', 'The attachments would add up to more than 20 MB.');
           else pending.push({ name: f.name || 'pasted image.png', type: TYPES[f.type] ? f.type : type, size: f.size, data: String(r.result).split(',')[1] || '' });
           renderFiles();
         };

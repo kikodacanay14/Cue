@@ -26,7 +26,7 @@ const CUE_CH_SYSTEM_ = 'You help BSE (Blank Space Events, Philippines) send a ch
 /* ---------- Gmail, read only ---------- */
 function cueGmail_(path) {
   const res = UrlFetchApp.fetch(CUE_GMAIL_ + path, { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
-  if (res.getResponseCode() !== 200) throw new Error('Gmail search said HTTP ' + res.getResponseCode() + (res.getResponseCode() === 403 ? ' (run cueSetup once to allow Gmail reading)' : ''));
+  if (res.getResponseCode() !== 200) throw new Error('Gmail search said HTTP ' + res.getResponseCode() + cueGoogleWhy_(res));
   return JSON.parse(res.getContentText() || '{}');
 }
 const cueTerm_ = t => String(t || '').replace(/[^\p{L}\p{N} .&'-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
@@ -137,6 +137,6 @@ function cueGmailReply_(f, body, files) {
   const res = UrlFetchApp.fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/drafts?uploadType=multipart', { method: 'post',
     contentType: 'multipart/related; boundary=' + rel, payload, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
   let o = null; try { o = JSON.parse(res.getContentText()); } catch (e) { o = null; }
-  if (res.getResponseCode() !== 200 || !o || !o.id) throw new Error('Gmail did not make the draft (HTTP ' + res.getResponseCode() + ')');
+  if (res.getResponseCode() !== 200 || !o || !o.id) throw new Error('Gmail did not make the draft (HTTP ' + res.getResponseCode() + ')' + cueGoogleWhy_(res));
   return o.id;
 }

@@ -308,7 +308,7 @@ test('C20 attachment limits: type, size, count, empty; a short message with no f
   const t = sandbox(), send = (txt, f) => () => t.ctx.cueSend(txt, f, 'intake');
   assert.throws(send(INQ, [{ name: 'x.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', data: PDF }]), /Save it as a PDF/);
   assert.throws(send(INQ, [{ name: 'big.pdf', type: 'application/pdf', data: Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64') }]), /over 10 MB/);
-  assert.throws(send(INQ, Array(9).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /8 files at most/);
+  assert.throws(send(INQ, Array(11).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /10 files at most/);
   assert.throws(send(INQ, [{ name: 'e.txt', type: 'text/plain', data: '' }]), /empty/);
   assert.throws(send('hi', []), /at least a sentence/);
   assert.strictEqual(t.tabs.Requests.rows.length, 1, 'nothing saved for refused sends');

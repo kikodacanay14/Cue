@@ -5,7 +5,7 @@
 
 const CUE_FILE_TYPES_ = { 'image/png': 'image', 'image/jpeg': 'image', 'image/webp': 'image', 'image/gif': 'image',
   'application/pdf': 'pdf', 'text/plain': 'text', 'text/csv': 'text', 'message/rfc822': 'text' };
-const CUE_FILES_MAX_ = { count: 8, each: 10 * 1024 * 1024, total: 15 * 1024 * 1024, text: 40000 };
+const CUE_FILES_MAX_ = { count: 10, each: 10 * 1024 * 1024, total: 20 * 1024 * 1024, text: 40000 };
 
 /** The page uploads each file on its own (one big call with everything silently failed at ~10 MB), then sends the ids. */
 function cueUpload(file) {
@@ -39,7 +39,7 @@ function cueFilesSave_(files, id) {
   });
   const blobs = files.filter(f => !(f && f.id)).map(cueBlob_);
   const total = known.reduce((n, f) => n + f.size, 0) + blobs.reduce((n, b) => n + b.getBytes().length, 0);
-  if (total > CUE_FILES_MAX_.total) throw new Error('The attachments add up to more than 15 MB. Send fewer or smaller files.');
+  if (total > CUE_FILES_MAX_.total) throw new Error('The attachments add up to more than 20 MB. Send fewer or smaller files.');
   return known.concat(blobs.map(b => cueDriveSave_(b, 'Cue request ' + id)));
 }
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
@@ -49,7 +49,7 @@ function cueDrive_(method, url, o) {
   delete opt.raw;
   const res = UrlFetchApp.fetch(url, opt);
   const code = res.getResponseCode();
-  if (code !== 200) throw new Error('Drive said HTTP ' + code + ' (' + method.toUpperCase() + ' ' + url.split('?')[0].split('/').slice(-1)[0] + ')');
+  if (code !== 200) throw new Error('Drive said HTTP ' + code + ' (' + method.toUpperCase() + ' ' + url.split('?')[0].split('/').slice(-1)[0] + ')' + cueGoogleWhy_(res));
   return o && o.raw ? res : JSON.parse(res.getContentText() || '{}');
 }
 function cueUploads_() {
@@ -68,4 +68,8 @@ function cueFilesParts_(s) {
     if (kind === 'pdf') return { type: 'input_file', filename: f.name, file_data: 'data:application/pdf;base64,' + b64() };
     return { type: 'input_text', text: '<attachment name="' + f.name.replace(/"/g, "'") + '">\n' + res.getContentText().slice(0, CUE_FILES_MAX_.text) + '\n</attachment>' };
   });
+}
+/** Google's own reason for a refusal (e.g. "Drive API has not been used in project ..."), short. */
+function cueGoogleWhy_(res) {
+  try { const e = JSON.parse(res.getContentText()).error; return e && e.message ? ': ' + String(e.message).slice(0, 200) : ''; } catch (x) { return ''; }
 }
