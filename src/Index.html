@@ -687,6 +687,7 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
+    if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
     if (mode !== 'intake' && EXP_RE.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
@@ -698,6 +699,69 @@
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
     }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+  }
+  // Learn from exported chats (Kiko 17:04Z): the export is read here, on Kiko's computer. Only the newest conversations, cut short, go to Cue.
+  var CHATS_RE = /^\s*(?:please\s+)?learn\s+from\s+(?:my\s+)?(?:chatgpt\s+|claude\s+|old\s+)?(?:chats?|conversations?)\b/i;
+  function learnChats(t, mine) {
+    var n = Math.max(1, Math.min(200, Number((t.match(/\b(\d{1,3})\b/) || [])[1]) || 50));
+    var pk = document.createElement('input'); pk.type = 'file'; pk.accept = '.zip,.json,application/zip,application/json';
+    pk.onchange = function () {
+      var f = pk.files && pk.files[0]; if (!f) { unbox(mine); return; }
+      var dots = { who: 'Cue', text: 'Reading ' + f.name + ' on your computer…', request_id: '', time: '' }; outbox.push(dots); renderChat();
+      chatsFrom(f).then(function (json) {
+        var p = chatsPick(JSON.parse(json), n);
+        if (!p.chats.length) throw new Error('I found no conversations in ' + f.name + '. Pick the zip from ChatGPT or Claude\'s data export, or its conversations.json.');
+        call('cueLearnChats', [p], function (r) { refresh(function () { unbox(mine, dots); }); running[r.request_id] = 1;
+          call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); }); },
+          function (e) { unbox(mine, dots); alertErr(e); });
+      }).catch(function (e) { unbox(mine, dots); addLocal('Cue', String((e && e.message) || e)); });
+    };
+    pk.click();
+  }
+  // conversations.json from the export zip, read straight from the zip's directory so a large export never loads whole.
+  function chatsFrom(f) {
+    if (!/\.zip$/i.test(f.name) && f.type !== 'application/zip') return f.text();
+    var u16 = function (b, o) { return b[o] | b[o + 1] << 8; }, u32 = function (b, o) { return (b[o] | b[o + 1] << 8 | b[o + 2] << 16 | b[o + 3] << 24) >>> 0; };
+    var bytes = function (a, z) { return f.slice(a, z).arrayBuffer().then(function (x) { return new Uint8Array(x); }); };
+    var tail = Math.max(0, f.size - 66000);
+    return bytes(tail, f.size).then(function (b) {
+      for (var i = b.length - 22; i >= 0; i--) if (u32(b, i) === 0x06054b50) return bytes(u32(b, i + 16), u32(b, i + 16) + u32(b, i + 12));
+      throw new Error('That zip could not be read. Unzip it and pick conversations.json instead.');
+    }).then(function (cd) {
+      var best = null;
+      for (var o = 0; o + 46 <= cd.length && u32(cd, o) === 0x02014b50;) {
+        var nl = u16(cd, o + 28), name = new TextDecoder().decode(cd.subarray(o + 46, o + 46 + nl));
+        if (/(^|\/)conversations\.json$/i.test(name) && (!best || name.length < best.name.length)) best = { name: name, method: u16(cd, o + 10), size: u32(cd, o + 20), at: u32(cd, o + 42) };
+        o += 46 + nl + u16(cd, o + 30) + u16(cd, o + 32);
+      }
+      if (!best) throw new Error('No conversations.json in that zip. Is it the data export from ChatGPT or Claude?');
+      return bytes(best.at, best.at + 30).then(function (h) {
+        var start = best.at + 30 + u16(h, 26) + u16(h, 28), data = f.slice(start, start + best.size);
+        if (best.method === 0) return data.text();
+        if (best.method !== 8 || typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unzip it. Unzip it and pick conversations.json instead.');
+        return new Response(data.stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+      });
+    });
+  }
+  // ChatGPT (mapping tree) or Claude (chat_messages): the newest n, Kiko's words in full and a little of each answer, ~3,000 characters a chat.
+  function chatsPick(all, n) {
+    var list = Array.isArray(all) ? all : (all && all.conversations) || [], claude = list.some(function (c) { return c && c.chat_messages; });
+    var when = function (c) { return claude ? Date.parse(c.updated_at || c.created_at) || 0 : (Number(c.update_time || c.create_time) || 0) * 1000; };
+    var chats = list.filter(function (c) { return c && typeof c === 'object'; }).sort(function (a, b) { return when(b) - when(a); }).slice(0, n).map(function (c) {
+      var msgs = claude ? (c.chat_messages || []).map(function (m) { return { me: m.sender === 'human', t: String(m.text || ((m.content || []).filter(function (x) { return x && x.type === 'text'; }).map(function (x) { return x.text; }).join('\n')) || '') }; })
+        : Object.keys(c.mapping || {}).map(function (k) { return (c.mapping[k] || {}).message; }).filter(function (m) { return m && m.author && /^(user|assistant)$/.test(m.author.role); })
+          .sort(function (a, b) { return (a.create_time || 0) - (b.create_time || 0); })
+          .map(function (m) { return { me: m.author.role === 'user', t: ((m.content && m.content.parts) || []).filter(function (x) { return typeof x === 'string'; }).join('\n') }; });
+      var text = '';
+      msgs.forEach(function (m) {
+        var x = m.t.replace(/```[\s\S]*?```/g, '[code]').replace(/\s+/g, ' ').trim(); if (!x) return;
+        var line = (m.me ? 'Kiko: ' + x.slice(0, 600) : 'AI: ' + x.slice(0, 160)) + '\n';
+        if (text.length + line.length <= 3000) text += line;
+      });
+      var d = when(c);
+      return { title: String(c.title || c.name || '').slice(0, 150), date: d ? new Date(d).toISOString().slice(0, 10) : '', text: text };
+    }).filter(function (c) { return /Kiko: /.test(c.text); });
+    return { source: claude ? 'Claude' : 'ChatGPT', total: list.length, chats: chats };
   }
   function back(mine, t) { var b = mine && mine.box; if (b && !b.value) b.value = t; }
   // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
@@ -1615,9 +1679,9 @@
         h += '<details' + (ti === 0 ? ' open' : '') + ' class="sec" style="margin-top:8px"><summary><b>' + esc(tp) + '</b> (' + list.length + ')</summary>' + list.map(function (f) {
           return '<div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">'
             + (waiting ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(f.k) + '"' + (f.selected ? ' checked' : '') + ' aria-label="Keep fact ' + esc(f.k) + '">' : '<span>✓</span>')
-            + '<span style="flex:1">' + (waiting ? '<textarea style="display:block;width:100%" data-body="' + esc(r.id) + '" data-k="' + esc(f.k) + '" aria-label="Fact ' + esc(f.k) + '">' + esc(f.text) + '</textarea>'
+            + '<span style="flex:1">' + (waiting && !f.phrase ? '<textarea style="display:block;width:100%" data-body="' + esc(r.id) + '" data-k="' + esc(f.k) + '" aria-label="Fact ' + esc(f.k) + '">' + esc(f.text) + '</textarea>'
               : '<div style="white-space:pre-wrap">' + esc(f.text) + '</div>')
-            + '<span class="small muted">' + (waiting ? '<label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-al="' + esc(r.id) + '" value="' + esc(f.k) + '"' + (f.always ? ' checked' : '') + '> Use in every task</label>'
+            + '<span class="small muted">' + (waiting && !f.phrase ? '<label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-al="' + esc(r.id) + '" value="' + esc(f.k) + '"' + (f.always ? ' checked' : '') + '> Use in every task</label>'
               : f.always ? 'Used in every task' : '') + (f.replaces ? ' · updates "' + esc(f.replaces) + '"' : '') + '</span></span></div>';
         }).join('') + '</details>';
       });

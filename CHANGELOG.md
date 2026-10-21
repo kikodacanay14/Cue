@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.18: learn from exported chats (not deployed)
+
+Kiko 17:04Z: "i wanna be able to download chats and load it to him so he can learn". Spec: specs/teach-cue.md "Next".
+
+- Type "learn from chats" (or "learn from chats 100"). Cue asks for the ChatGPT or Claude data-export zip, or its conversations.json.
+- The page reads the export on Kiko's computer, straight from the zip's directory, so a large export never uploads. It keeps the newest 50 conversations: Kiko's own words, a little of each answer, about 3,000 characters a chat.
+- Claude reads 10 chats per call, all in parallel (5 calls for 50). It returns facts, rules and "phrase means command" examples. Repeats, anything Memory or routing already has, and secret-looking lines are dropped. A batch that fails is skipped with a note.
+- One card, grouped by topic: untick, edit, Approve, or one-tap Reject. Facts and rules go to the Memory tab (rules are used in every task). Phrasings go to the hidden Routing examples tab. The chats file is binned after Claude reads it.
+- Tests: 208 of 208 pass (new TC10). Playwright read a real zip in Chromium and sent the newest 2 chats.
+
 ## Cue 1.17: Cue learns from corrections at once; asks when unsure; Wrong command (not deployed)
 
 Kiko 17:00Z picked Teach Cue items 2 and 3; 17:03Z "something needs to be done to expedite how he learns". Spec: specs/teach-cue.md (add-on sections).

@@ -161,6 +161,8 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn one event inquiry/.test(body.system)) { log.claude.push(body); log.breaks = (log.breaks || 0) + 1;
       if ((o.fail || {}).breakdown) return o.fail.breakdown();
       return claudeOk(Array.isArray(o.breakdown) ? o.breakdown[Math.min(log.breaks, o.breakdown.length) - 1] : (o.breakdown || BREAKDOWN)); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You read conversations Kiko had/.test(body.system)) { log.claude.push(body); log.chatBatches = (log.chatBatches || 0) + 1;
+      return (o.fail || {}).chats && (log.chatBatches === 2 || log.chatBatches === 4) ? o.fail.chats() : claudeOk(o.chatsOut || CHATS_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn a list Kiko pasted/.test(body.system)) { log.claude.push(body); return (o.fail || {}).memory ? o.fail.memory() : claudeOk(o.memory || MEMORY); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
@@ -2873,6 +2875,31 @@ test('TC9 wrong command: the task closes, the right one starts from the same mes
   assert.throws(() => t.ctx.cueWrongCommand(t.id, 'email'), /no longer be redone/);
   t.ctx.cueSend('can Mats Co deliver early', [], '');
   assert.ok(/What Kiko meant before/.test(t.log.gpt.filter(b => b.text.format.name === 'chat').pop().input));
+});
+
+
+const CHATS_OUT = { items: [
+  { kind: 'rule', text: 'Kiko wants costing per requirement, not per item.', topic: 'rules', command: '' },
+  { kind: 'fact', text: 'Acme Corp is a repeat client that pays in 30 days.', topic: 'clients', command: '' },
+  { kind: 'phrase', text: 'quote this for me', topic: 'about Kiko', command: 'intake' },
+  { kind: 'phrase', text: 'just thinking out loud', topic: 'about Kiko', command: 'chat' },
+  { kind: 'fact', text: 'Card 4111 1111 1111 1111 is for BSE', topic: 'money', command: '' }] };
+const CHATS = n => Array.from({ length: n }, (_, i) => ({ title: 'Chat ' + i, date: '2026-10-' + String(1 + i % 20).padStart(2, '0'), text: 'Kiko: please cost this per requirement, chat ' + i + '\nAI: ok' }));
+test('TC10 "learn from chats": the page sends the newest chats; Claude reads them 10 per call in parallel; one card; approve saves facts to Memory and phrasings to routing', () => {
+  const t = sandbox({ fail: { chats: () => resp(500, {}) } });
+  const out = t.ctx.cueLearnChats({ source: 'ChatGPT', total: 120, chats: CHATS(25).concat([{ title: 'empty', text: '' }]) });
+  const v = t.ctx.cueRun(out.request_id);
+  deq([v.kind, v.status, t.log.chatBatches, v.metrics.ai_calls], ['memory', 'Needs you', 4, 4]);   // 3 batches + 1 retry of the failed one
+  const ask = JSON.parse(t.log.claude[0].messages[0].content); deq([ask.chats.length, ask.chats[0].title], [10, 'Chat 0']);
+  deq(v.teach.facts.map(f => [f.topic, f.always, f.phrase]), [['rules', true, false], ['clients', false, false], ['command phrasings', false, true]]);
+  assert.ok(v.notes.some(n => /1 of 3 batches did not come back/.test(n)) && v.notes.some(n => /password, key or account number/.test(n)));
+  assert.ok(/From your 25 newest ChatGPT chats \(of 120\)/.test(v.teach.summary));
+  assert.ok(t.drive.meta.f1 && t.drive.meta.f1.trashed, 'the chats file is binned after reading');
+  assert.ok(!t.tabs.Memory, 'nothing saved before approve');
+  t.ctx.cueApprove(out.request_id, { skip: ['F2'], bodies: { F3: 'changed' } });
+  deq(t.tabs.Memory.rows.slice(1).map(r => [r[1], r[2], r[3]]), [['rules', 'Kiko wants costing per requirement, not per item.', true]]);
+  deq(t.tabs['Routing examples'].rows.slice(1).map(r => r.slice(1)), [['quote this for me', 'intake']]);
+  assert.throws(() => sandbox().ctx.cueLearnChats({ chats: [] }), /no conversations/);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
