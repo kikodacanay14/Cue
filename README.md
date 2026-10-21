@@ -34,7 +34,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 | 3 | Code | Each chaser kind finds what is outstanding; the Chase log drops muted, skipped, recently chased and maxed-out lines | no |
 | 4 | ChatGPT | Drafts every nudge in one call (two if big); templates if it fails | 0 to 2 |
 | 5 | Kiko | Ticks, edits, skips or stops lines; Approve and send, or Drafts only | no |
-| 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); payments stay drafts | no |
+| 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); a kind's own send hook (payments via Canvas from info@) is used instead of Kiko's Gmail | no |
 
 ## Files
 

@@ -543,7 +543,7 @@
     if (again) h += '<button class="btn" data-act="sweep-drafts" data-id="' + esc(r.id) + '">Retry the ones that failed</button>';
     if (r.status === 'Scheduled') h += '<button class="btn bad" data-act="sweep-cancel" data-id="' + esc(r.id) + '">Cancel the 9:00 send</button>';
     if (waiting) h += '<button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">' + (mail ? 'Close without sending' : 'Got it') + '</button>';
-    h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Payment lines always stay drafts. Drafts only sends nothing.</div>' : '');
+    h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
     return h + metricLine(r) + '</div>';
   }
   // ---- Task basics (Kiko 07:31Z): due date, priority, reminder, Close, Archive ----
