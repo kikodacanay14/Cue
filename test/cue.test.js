@@ -3511,7 +3511,7 @@ test('CV7 cards open their Canvas page: ARs on the project, readiness on Checkli
   deq(cvQ(t.ctx.cueCanvasFor_(s).url), { page: 'canvas', project: 'S-31628060SP', tab: 'Checklist' });
   deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'expense', expense: { project: { id: 'S-25506500TR', name: 'Trick or Treat' } } }).url), { page: 'canvas', project: 'S-25506500TR', tab: 'Scope', action: 'pay' });
   deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'finance' }).url), { page: 'playbook' });
-  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'payment' }).url), { page: 'playbook', view: 'ar' });
+  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'payment' }).url), { page: 'financedesk', view: 'ar' }, 'Sales is on Finance Desk (PC test 20:33Z)');
   assert.strictEqual(t.ctx.cueCanvasFor_({ kind: 'ar', ar: { project_id: 'not-an-id' } }), null, 'a bad id never makes a link');
 });
 test('CV9 qcadd never carries bank, account, IBAN or SWIFT, whatever the supplier has (Kiko 19:20Z)', () => {
@@ -3537,8 +3537,8 @@ test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable lab
 test('CV11 Canvas 194 links (Kiko "Go" 19:46Z): FSA generator, Request payment filled, Finance by client, Accounts, Cost Estimates', () => {
   const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
   deq(cvQ(t.ctx.cueSend('make FSAs for Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', action: 'fsa' });
-  deq(cvQ(t.ctx.cueSend('open receivables for Telus', [], '').canvas.url), { page: 'playbook', view: 'ar', client: 'Telus' });
-  deq(cvQ(t.ctx.cueSend('open payables for Sonic Pro', [], '').canvas.url), { page: 'playbook', view: 'pay', client: 'Sonic Pro' });
+  deq(cvQ(t.ctx.cueSend('open receivables for Telus', [], '').canvas.url), { page: 'financedesk', view: 'ar', client: 'Telus' });
+  deq(cvQ(t.ctx.cueSend('open payables for Sonic Pro', [], '').canvas.url), { page: 'financedesk', view: 'pay', client: 'Sonic Pro' });
   deq(cvQ(t.ctx.cueSend('open account Unilever', [], '').canvas.url), { page: 'clientdesk', q: 'Unilever' });
   deq(cvQ(t.ctx.cueSend('open CE for Globe party', [], '').canvas.url), { page: 'cedesk', q: 'Globe party' });
   assert.strictEqual(t.log.gpt.length, 0, 'no AI call');
@@ -3561,6 +3561,15 @@ test('CV12 supplier card Open in Canvas (Canvas 194): every column filled, bank 
   assert.ok(!cvQ(v.url).h && /Copy them from the card/.test(v.note), 'Canvas without handoff: the plain link and a note');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
   assert.ok(/call\('cueSupplierCanvas', \[hand\]/.test(html) && /d\.canvasWs !== 'saved'/.test(html), 'page asks for the code on tap and hears "saved"');
+});
+test('CV13 PC test 20:33Z: "Record project expense 979 ... for <project>" with no file: Kiko\'s amount counts, and Canvas\'s project search finds the project', () => {
+  const read = Object.assign({}, XREAD, { amount: 0, project_hint: '', files: [] });
+  const t = sandbox({ xread: read, search: { "trick or treat manila": { projects: [{ project_id: 'S-25506500TR', name: 'Trick or Treat – Manila', account: 'Telus', date: '2026-10-31' }], total: 1 } },
+    xev: a => (a.project_id === 'S-25506500TR' ? XPROJ : { project: null, candidates: [] }) });
+  const v = t.ctx.cueExpense("Record project expense 979 Fresh N' Famous snack packs for Trick or Treat Manila", [], '');
+  assert.strictEqual(v.expense.read.amount, 979, 'the typed amount');
+  assert.ok(v.expense.project, 'project found by search_projects'); assert.strictEqual(t.log.xev[t.log.xev.length - 1].project_id, 'S-25506500TR');
+  assert.ok(v.expense.plan, 'Claude planned it, so the card has Request payment and Approve');
 });
 test('CV8 the page sends every Canvas command to the server, never to the expense shortcut (CV_SAY mirrors cueCanvasParse_)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), m = /var CV_SAY = (\/.+\/i);/.exec(html);

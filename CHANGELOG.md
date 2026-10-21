@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.25.1: fixes from the 1.25 PC test (not deployed)
+
+The PC test at 20:33Z passed ARs, FSAs and New scope. Two fixes:
+
+- "open receivables for Telus" opened Finance on Requests. Finance (page=playbook) starts on Requests; Sales, Payables and Projects with a client filter are on Finance Desk, so these links now open Finance Desk on the right tab, filtered to the client. "open finance" alone still opens Finance.
+- "Record project expense 979 Fresh N' Famous snack packs for Trick or Treat Manila" (no file) showed PHP 0 and "Project not found". GPT was told to record only what a file shows, so it skipped the typed amount; it now reads Kiko's own line too, and code takes the typed amount if GPT still gives 0. When Canvas's expense lookup finds no project, Cue now runs the same project search as "open <project>" and uses what it finds (marked best guess when there are several).
+- Tests: 263 of 263 pass (new CV13).
+
 ## Cue 1.25: Canvas opens filled, for everything Canvas 194 can take (not deployed; needs Canvas 194 live first)
 
 Kiko's "Go" at 19:46Z, specs/open-in-canvas.md "Release" rows. Every link still works on an older Canvas: it opens the page without the new fill-ins.
