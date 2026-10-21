@@ -134,7 +134,8 @@ function cueSend(text, files, mode, ref) {
   cueOwner_();
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
-  let asked = '';
+  const inThread = !!ref;
+  let asked = '', reopened = '';
   if (mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = cueTalk_(String(text || '').trim(), ref);
     if (!talk.start_intake) return talk;
@@ -144,16 +145,21 @@ function cueSend(text, files, mode, ref) {
   const t = asked || String(text || '').trim() || (has ? 'New project intake. The inquiry is in the attached files.' : '');
   if (t.length < 20 && !has) throw new Error('Paste the client\'s inquiry, describe the event (at least a sentence), or attach the brief.');
   if (t.length > 12000) throw new Error('That is too long for one intake (12,000 characters at most).');
+  // Kiko 06:57Z task rules: a new message about a task from the last 7 days reopens that task's thread instead of starting a new one.
+  // First guess from the project or client name in the message (no AI call); Canvas's project match confirms or moves it later.
+  if (!ref) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const saved = cueFilesSave_(files, id);
   const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
+  if (reopened) s.ref_by = reopened;
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   const line = t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : '');
   // Kiko 06:53Z: from the main chat, Cue answers there and names the thread it started (like Claude's project chat).
-  if (!ref && !asked) { cueChat_('Kiko', line, ''); cueChat_('Cue', 'On it. I started a thread for this, and GPT is reading it first.', '>' + id); }
-  if (!ref && asked) cueChat_('Cue', 'Started a thread for it.', '>' + id);
+  const back = reopened ? 'This is about ' + cueTaskName_((cueLoad_(ref) || {}).s || {}) + ', so I reopened its thread.' : '';
+  if (!inThread && !asked && !(ref && !reopened)) { cueChat_('Kiko', line, ''); cueChat_('Cue', back ? 'On it. ' + back : 'On it. I started a thread for this, and GPT is reading it first.', '>' + id); }
+  if (!inThread && asked && (!ref || reopened)) cueChat_('Cue', back || 'Started a thread for it.', '>' + id);
   if (!asked) cueChat_('Kiko', line, id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id, task: ref };
@@ -210,6 +216,36 @@ function cueTalk_(t, ref) {
   cueChat_('Cue', reply || '…', where);
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
   return { chat: true, reply, task: pick, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick), start_intake: start.length >= 20 ? start : '' };
+}
+
+/** A task's display name: the matched project, the client and event, or what it is. */
+function cueTaskName_(x) {
+  const c = x.change || {}, p = x.proposal || {}, e = (x.x && x.x.event) || p.event || {}, cl = (x.x && x.x.client) || p.client || {};
+  return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
+}
+
+/** Requests created in the last `days` days, newest first. */
+function cueRecent_(days) {
+  const since = cueNow_() - days * 864e5;
+  return cueRows_(cueSheet_('Requests')).slice(-60).map(r => { try { return JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return null; } })
+    .filter(x => x && Date.parse(x.created) >= since).sort((a, b) => String(b.created).localeCompare(String(a.created)));
+}
+
+const CUE_NAME_SKIP_ = ['booth', 'event', 'events', 'project', 'projects', 'fabrication', 'group', 'corp', 'corporation', 'company', 'launch', 'philippines',
+  'manila', 'the', 'and', 'for', 'new', 'inc', 'ltd', 'opc', 'corp', 'booth', 'stage', 'intake', 'change', 'request', 'with', 'from', 'this', 'that', 'these', 'those', 'again', 'send', 'suppliers', 'supplier', 'files', 'design', 'designs'];
+const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3 && CUE_NAME_SKIP_.indexOf(w) < 0);
+
+/** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
+ * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
+function cueRelated_(text, pid, self) {
+  let list = [];
+  try { list = cueRecent_(7).filter(x => x.id !== self); } catch (e) { return ''; }
+  const by = {}; list.forEach(x => { by[x.id] = x; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
+  const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
+  const hit = list.filter(x => pid ? (x.change && x.change.match && x.change.match.project_id === pid) || (x.canvas && x.canvas.project_id === pid)
+    : cueWords_(cueTaskName_(x)).some(w => words[w]))[0];
+  return hit ? list.filter(x => root(x.id) === root(hit.id))[0].id : '';
 }
 
 /** The newest run in the thread rooted at id, so a reply sees the latest state. */
@@ -317,6 +353,35 @@ function cueState() {
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
   return { version: CUE_VERSION_, requests: list, chat, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
+}
+
+/** Kiko 06:55Z: when a task finishes or something goes out, a short summary in the main chat, linked to its thread.
+ * Built from what happened (no AI call). The same line goes in the thread. */
+function cueSummary_(s) {
+  try {
+    const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
+    const name = s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
+    const out = [];
+    if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
+    else if (s.kind === 'change') {
+      const sel = (c.drafts || []).filter(d => d.selected), sent = sel.filter(d => d.sent_id), drafts = sel.filter(d => d.draft_id && !d.sent_id), bad = sel.filter(d => d.error);
+      if (sent.length) out.push('sent ' + sent.length + ' requote' + (sent.length === 1 ? '' : 's') + ' (' + list(sent.map(d => d.supplier)) + ')');
+      if (drafts.length) out.push(drafts.length + ' requote' + (drafts.length === 1 ? '' : 's') + ' waiting in your Gmail Drafts (' + list(drafts.map(d => d.supplier)) + ')');
+      if (bad.length) out.push(bad.length + ' did not go through (' + list(bad.map(d => d.supplier)) + ')');
+      const nf = cueChangeFilesOf_(s).length; if (nf) out.push(nf + ' file' + (nf === 1 ? '' : 's') + ' attached');
+    } else {
+      if (cv.project_id) out.push('recorded in Canvas as ' + (cv.project_number || cv.project_id) + ' with ' + ((cv.req_ids || []).length || (p.lines || []).length) + ' lines');
+      const d = s.drafts || [], sent = d.filter(x => x.sent_id), wait = d.filter(x => x.id && !x.sent_id), bad = d.filter(x => !x.id || x.error);
+      if (sent.length) out.push('sent ' + sent.length + ' RFQ' + (sent.length === 1 ? '' : 's') + ' (' + list(sent.map(x => x.supplier)) + ')');
+      if (wait.length) out.push(wait.length + ' RFQ' + (wait.length === 1 ? '' : 's') + ' in your Gmail Drafts');
+      if (bad.length) out.push(bad.length + ' RFQ' + (bad.length === 1 ? '' : 's') + ' did not go through');
+    }
+    const saved = (s.project_saved || []).filter(x => x.url).length; if (saved) out.push(saved + ' file' + (saved === 1 ? '' : 's') + ' saved to the project folder');
+    const open = s.status === 'Done, drafts incomplete' ? ' Still open: retry the ones that did not go through.' : '';
+    const line = 'Summary for ' + name + ': ' + (out.join('; ') || s.status.toLowerCase()) + '.' + open;
+    cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+  } catch (e) { console.error('Summary: ' + e); }
 }
 
 function cueMe_() { try { return Session.getEffectiveUser().getEmail() || ''; } catch (e) { return ''; } }

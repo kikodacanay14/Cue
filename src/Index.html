@@ -341,9 +341,11 @@
     if (work) return { color: 'var(--act)', text: 'Working' };
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
-  function threadTitle(th) {
+  function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
+    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
-    return r ? ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.kind === 'change' ? 'Change request' : 'Project intake')) : 'Earlier task';
+    return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
   }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }

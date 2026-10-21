@@ -329,6 +329,7 @@ function cueIntakeApprove_(id, edits) {
   cueSaveToProject_(s, s.canvas.project_id, s.files, 'Brief & Planning'); save();
   s.stage = 'Making Gmail drafts'; save();
   cueIntakeDraftsRun_(s); save();
+  cueSummary_(s);
   return s;
 }
 
@@ -387,6 +388,7 @@ function cueIntakeReject_(id, why) {
     L.s.status = 'Rejected'; L.s.stage = 'Rejected'; L.s.rejected = { at: new Date(cueNow_()).toISOString(), why: cueStr_(why, 500) };
     cueSave_(L.sh, L.row, L.s);
     cueChat_('Cue', 'Rejected. Nothing was written to Canvas.' + (why ? ' Reason: ' + cueStr_(why, 300) : ''), id);
+    cueSummary_(L.s);
     return L.s;
   });
 }
@@ -400,6 +402,7 @@ function cueIntakeDrafts_(id) {
     return L;
   });
   cueIntakeDraftsRun_(L.s); cueSave_(L.sh, L.row, L.s);
+  cueSummary_(L.s);
   return L.s;
 }
 /** One draft per RFQ supplier, from the RFQs Canvas stored. Drafts already made are skipped, so a retry never doubles one. */

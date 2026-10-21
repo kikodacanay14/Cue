@@ -44,6 +44,14 @@ function cueChangeStart_(s) {
   if (!c.what_changed) c.what_changed = cueStr_(s.text, 2000);
   c.match = m && { project_id: m.project_id, name: m.name, account: m.account, date: m.date, status: m.status, why: m.why };
   c.others = (s.similar || []).slice(1).map(x => x.name + ' (' + x.why + ')');
+  // Kiko 06:57Z task rules: the same Canvas project worked on in the last 7 days means this joins (reopens) that task's thread.
+  if (m && m.project_id && (!s.ref || s.ref_by === 'name')) {
+    const rel = cueRelated_('', m.project_id, s.id);
+    if (rel && rel !== s.ref) {
+      if (!s.ref) cueChat_('Cue', 'Same Canvas project as ' + m.name + ', so this continues in its thread.', '>' + s.id);
+      s.ref = rel; s.ref_by = 'project';
+    }
+  }
   c.attach = cueChangeAttach_(s, m && m.project_id);
   s.stage = m ? 'Opening project files' : 'Finding past RFQs';
   cueChat_('Cue', m ? 'Canvas already has this project: ' + m.name + (m.date ? ', ' + m.date : '') + ' (' + m.why + '). Treating it as a change: opening the project files and your past RFQs.'
@@ -186,6 +194,7 @@ function cueChangeApprove_(id, edits) {
   cueChat_('Cue', (s.send ? 'Sent ' + sent + ' requote' + (sent === 1 ? '' : 's') + ' from your Gmail, each as a reply in its original thread' + att + '. Canvas was not changed.'
     : 'Made ' + made + ' requote draft' + (made === 1 ? '' : 's') + ' in your Gmail, each in its original thread' + att + '. Nothing was sent and nothing changed in Canvas.')
     + (bad.length ? ' Not done yet: ' + bad.join(', ') + '. Tap the button again to retry those.' : ''), s.id);
+  cueSummary_(s);
   return s;
 }
 

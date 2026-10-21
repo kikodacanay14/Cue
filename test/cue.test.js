@@ -472,6 +472,36 @@ test('C32 a task started from the main chat: Kiko\'s line and Cue\'s acknowledge
   const r = t.ctx.cueSend('also add a photo booth', [], 'intake', id).request_id;
   assert.ok(!t.tabs.Chat.rows.some(x => x[3] === '>' + r), 'a run started inside a thread needs no pointer');
 });
+
+test('C34 task rules (Kiko 06:57Z): a new message about a task from the last 7 days reopens its thread, by name or by Canvas project', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  t.ctx.cueApprove(id, { skip: ['T3'] });
+  // By name, before any AI call: files plus "JBL" in the text join the JBL thread, and the main chat says so.
+  const r = t.ctx.cueSend('add these to JBL as well and send again', [{ name: 'S9.png', type: 'image/png', data: PNG }]).request_id;
+  assert.strictEqual(t.ctx.cueLoad_(r).s.ref, id);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + r && /reopened its thread/.test(x[2])), 'main chat names the reopened thread');
+  // By Canvas project: no name in the text, but Canvas matches the same project, so the run moves into the thread.
+  const q = t.ctx.cueSend('New project intake. the floor mats changed again, requote please', [], 'intake').request_id;
+  assert.strictEqual(t.ctx.cueLoad_(q).s.ref, '');
+  t.ctx.cueRun(q);
+  const s = t.ctx.cueLoad_(q).s; assert.ok(s.ref === r || s.ref === id, 'joined the JBL thread: ' + s.ref);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + q && /continues in its thread/.test(x[2])));
+  // Unrelated work still gets its own thread.
+  const n = t.ctx.cueSend(INQ, [], 'intake').request_id;
+  assert.strictEqual(t.ctx.cueLoad_(n).s.ref, '');
+});
+
+test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat and its thread, from what happened', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ });
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  t.ctx.cueApprove(id, { skip: ['T3'], send: true });
+  const main = t.tabs.Chat.rows.filter(x => x[3] === '>' + id && /^Summary for/.test(x[2]));
+  assert.strictEqual(main.length, 1); assert.ok(/sent 1 requote \(/.test(main[0][2]), main[0][2]);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Summary for/.test(x[2])), 'also in the thread');
+  const w = startToCard(); w.ctx.cueReject(w.id, 'client cancelled');
+  assert.ok(w.tabs.Chat.rows.some(x => x[3] === '>' + w.id && /rejected; nothing was written or sent/.test(x[2])));
+});
   const up = n => ({ id: t.ctx.cueUpload({ name: n, type: n.endsWith('.pdf') ? 'application/pdf' : 'image/png', data: n.endsWith('.pdf') ? PDF : PNG }).id });
   const id = t.ctx.cueSend('JBL new mats, requote please', [up('S1.png'), up('brief.pdf')]).request_id; t.ctx.cueRun(id);
   assert.ok(!t.log.saved, 'nothing saved before Kiko approves');
