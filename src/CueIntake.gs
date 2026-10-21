@@ -301,10 +301,10 @@ function cueIntakeRfqs_(s) {
     if (e.deadline) { const pd = Date.parse(e.deadline + 'T00:00:00+08:00') - 864e5; if (pd < due) due = Math.max(pd, cueNow_() + 864e5); }
     const deadline = Utilities.formatDate(new Date(due), 'Asia/Manila', 'EEEE, d MMMM yyyy');
     const user = JSON.stringify({ event: { type: e.type, date: e.date, venue: e.venue, city: e.city, pax: e.pax }, quote_deadline: deadline,
-      sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'),
+      sign_off: cueStyleSignOff_('supplier'),
       lines: p.lines.filter(l => l.execution === 'Outsourced').map(l => ({ key: l.key, category: l.category, description: l.description, quantity: l.quantity, occurrence: l.occurrence })),
       suppliers: sups.map(x => ({ supplier: x.name, keys: x.keys, new: x.new })) });
-    const r = cueAiAll_(s, [cueGpt_({ step: 'rfqs', name: 'rfqs', system: CUE_R_SYSTEM_, schema: CUE_R_SCHEMA_, maxTokens: 12000, user })])[0];
+    const r = cueAiAll_(s, [cueGpt_({ step: 'rfqs', name: 'rfqs', system: CUE_R_SYSTEM_ + cueStyleFor_('supplier'), schema: CUE_R_SCHEMA_, maxTokens: 12000, user })])[0];
     if (!r.ok) s.notes.push('GPT could not draft the RFQs (' + r.error + '). Approving still records the intake in Canvas, with no drafts.');
     else {
       sups.forEach(x => {

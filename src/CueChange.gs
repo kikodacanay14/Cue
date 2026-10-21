@@ -132,10 +132,10 @@ function cueOwnDomain_() { try { return String(Session.getEffectiveUser().getEma
 function cueChangeDraft_(s) {
   const c = s.change, days = Math.max(1, Number(cueProp_('CUE_RFQ_DAYS', '3')) || 3);
   const by = Utilities.formatDate(new Date(cueNow_() + days * 864e5), 'Asia/Manila', 'EEEE d MMMM');
-  const r = cueAiAll_(s, [cueGpt_({ step: 'requotes', name: 'requotes', system: CUE_CH_SYSTEM_, schema: CUE_CH_SCHEMA_, maxTokens: 6000,
+  const r = cueAiAll_(s, [cueGpt_({ step: 'requotes', name: 'requotes', system: CUE_CH_SYSTEM_ + cueStyleFor_('supplier'), schema: CUE_CH_SCHEMA_, maxTokens: 6000,
     user: JSON.stringify({ project: (c.match && c.match.name) || c.project, what_changed: c.what_changed, suppliers_named: c.suppliers, files_attached: cueChangeFilesOf_(s).map(f => f.name),
       project_folder_files: (c.project_files || []).slice(0, 30).map(f => f.folder + ' / ' + f.name),
-      reply_by: by, sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'),
+      reply_by: by, sign_off: cueStyleSignOff_('supplier'),
       candidates: c.found.map(f => ({ k: f.k, to: f.to, subject: f.subject, date: f.date, snippet: f.snippet })) }) })])[0];
   if (!r.ok) throw new Error(r.error);
   const keys = {}, mailbox = {};

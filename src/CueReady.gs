@@ -209,8 +209,8 @@ const cueReadyWaiting_ = R => ((R.canvas && R.canvas.items) || []).filter(it => 
 function cueReadyDraft_(s) {
   const R = s.ready, waiting = cueReadyWaiting_(R), days = Math.max(1, Number(cueProp_('CUE_RFQ_DAYS', '3')) || 3);
   const by = Utilities.formatDate(new Date(cueNow_() + days * 864e5), 'Asia/Manila', 'EEEE d MMMM');
-  const r = cueAiAll_(s, [cueGpt_({ step: 'follow-ups', name: 'followups', system: CUE_RF_SYSTEM_, schema: CUE_RF_SCHEMA_, maxTokens: 5000,
-    user: JSON.stringify({ project: R.match.name, event_date: R.canvas.project.event_date, reply_by: by, sign_off: cueProp_('CUE_SIGNOFF', 'Blank Space Events'),
+  const r = cueAiAll_(s, [cueGpt_({ step: 'follow-ups', name: 'followups', system: CUE_RF_SYSTEM_ + cueStyleFor_('any'), schema: CUE_RF_SCHEMA_, maxTokens: 5000,
+    user: JSON.stringify({ project: R.match.name, event_date: R.canvas.project.event_date, reply_by: by, sign_off: cueStyleSignOff_('all'),
       items: waiting.map(it => ({ id: it.id, requirement: it.requirement, owner: it.owner, next_action: it.next_action })),
       threads: R.mails.map(m => ({ k: m.k, with: m.to, last: m.inbound ? 'they wrote' : 'Kiko wrote', date: m.date, subject: m.subject, snippet: m.snippet })) }) })])[0];
   if (!r.ok) throw new Error(r.error);
