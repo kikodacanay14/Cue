@@ -1,6 +1,13 @@
 # Changelog
 
-## Cue 1.4.2 (not deployed yet)
+## Cue 1.5 (not deployed yet)
+
+- Threads per task (Kiko 06:03-06:07Z, "reply counter", like Claude's project chat): the chat shows Kiko's general messages and each task's first message with "↩ N replies", its status (Needs you, Working, Done) and when it last moved. Tapping it opens the thread: every message for that task, then its cards (review, progress or result). Typing in a thread files the message under that task's newest run, and a redo started there stays in the same thread. Widgets cards have "Open its thread". The reply dots and the Reply bar are gone.
+- The chat model sees only the thread Kiko is in (or only the main chat), not every task mixed together.
+- Cue keeps the last 300 chat lines (was 40) so older threads keep their history.
+- A poll that changes nothing no longer redraws cards, so ticks and edits are not lost while Cue is busy.
+
+## Cue 1.4.2 (not deployed yet, ships with 1.5)
 
 - Change request card (Kiko 06:02Z): the requote texts are labelled "Preview only. Not in Gmail yet", and the button is now "Save to Gmail drafts", so it no longer reads as making the drafts twice.
 

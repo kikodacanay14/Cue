@@ -444,6 +444,17 @@ test('C27 requotes carry every file Kiko sent for the project in the last day; a
   assert.ok(pl.indexOf('filename="b.png"') > 0 && pl.indexOf('filename="c.png"') > 0 && pl.indexOf('filename="a.png"') < 0, 'unticked file left out');
 });
 
+test('C28 threads: the redo run points at its task, and a reply in a thread sees only that thread, not the main chat', () => {
+  const t = sandbox({ similar: JBL, read: CHANGE_READ, talk: { reply: 'Noted.', looks_like_inquiry: false, start_intake: '' } });
+  t.ctx.cueSend('main chat secret line about lunch', [], 'chat');
+  const id = t.ctx.cueSend('New project intake. JBL mats changed, requote please', [], 'intake').request_id; t.ctx.cueRun(id);
+  const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.ref, '', 'a new task starts its own thread');
+  const before = t.log.gpt.length; t.ctx.cueSend('also cc Joy please', [], '', id);
+  const seen = JSON.stringify(t.log.gpt.slice(before));
+  assert.ok(/JBL mats changed/.test(seen), 'thread history included'); assert.ok(!/secret line about lunch/.test(seen), 'main chat left out');
+  assert.ok(t.tabs.Chat.rows.filter(x => x[3] === id).length >= 3, 'reply and answer filed under the task');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, 3).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');

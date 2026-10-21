@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.4.2';
+const CUE_VERSION_ = 'Cue 1.5';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -181,7 +181,10 @@ function cueTalk_(t, ref) {
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed')
     .map(r => ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
-  const hist = st.chat.slice(-12).map(m => m.who + ': ' + String(m.text).slice(0, 1500)).join('\n');
+  // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
+  const by = {}; st.requests.forEach(r => { by[r.id] = r; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = ref ? root(ref) : '';
+  const hist = st.chat.filter(m => ref ? m.request_id && root(m.request_id) === home : !m.request_id).slice(-12).map(m => m.who + ': ' + String(m.text).slice(0, 1500)).join('\n');
   const about = ref ? cueTaskLine_(ref) : '';
   cueChat_('Kiko', t, ref);
   const r = cueAiAll_(s, [cueGpt_({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_, schema: CUE_TALK_SCHEMA_, maxTokens: 1500,
@@ -288,7 +291,7 @@ function cueState() {
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
-  const chat = n > 0 ? ch.getRange(Math.max(2, n - 38), 1, Math.min(n, 40), 4).getValues()
+  const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 4).getValues()
     .map(r => ({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) })) : [];
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
@@ -300,7 +303,7 @@ function cueState() {
 function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
-  return { id: s.id, kind: s.kind || 'intake', created: s.created, status: s.status, stage: s.stage,
+  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
     change: !(ch && s.kind === 'change') ? null : { project: (ch.match && ch.match.name) || ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
       match: ch.match || null, others: ch.others || [], attach: (ch.attach || []).map(f => ({ id: f.id, name: f.name, size: f.size, from: f.from, selected: !!f.selected })), folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,
       can_run_new: !!(s.reqs || []).length,

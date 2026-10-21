@@ -37,12 +37,18 @@
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg.me { align-self:flex-end; background:#22344d; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
-  .msg .task { display:inline-flex; align-items:center; gap:5px; margin-left:6px; color:var(--text); }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
-  .msg .reply { all:unset; display:block; margin-top:6px; font-size:12px; color:var(--muted); cursor:pointer; }
-  .msg .reply:hover, .msg .reply:focus-visible { color:var(--act); }
-  .replying { display:flex; align-items:center; gap:8px; font-size:13px; padding:6px 10px; margin-bottom:6px; border-left:3px solid var(--act); background:var(--input); border-radius:6px; }
-  .replying button { all:unset; margin-left:auto; cursor:pointer; color:var(--muted); padding:0 4px; }
+  /* Threads (Kiko 06:07Z, like Claude's project chat): a task's first message shows in the chat with a reply counter; its replies and cards live in the thread. */
+  .thread-row { all:unset; box-sizing:border-box; align-self:flex-start; display:flex; align-items:center; gap:8px; margin:-4px 0 4px; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--muted); max-width:85%; }
+  .msg.me + .thread-row { align-self:flex-end; }
+  .thread-row:hover, .thread-row:focus-visible { background:var(--panel); color:var(--text); }
+  .thread-row b { color:var(--act); font-weight:700; }
+  .thread-row .need { color:#f07bd9; font-weight:700; }
+  .thread-head { position:sticky; top:0; z-index:2; background:var(--bg); display:flex; align-items:center; gap:10px; margin:-16px -4px 14px; padding:12px 4px 8px; }
+  .thread-head .back { all:unset; cursor:pointer; color:var(--act); font-weight:700; padding:8px 4px; }
+  .thread-head .back:focus-visible { outline:2px solid var(--act); border-radius:6px; }
+  .thread-head .t { font-weight:700; color:var(--white); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .open-thread { all:unset; cursor:pointer; color:var(--act); font-size:13px; font-weight:600; display:inline-block; margin:-6px 0 12px 4px; }
   .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
   .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
   .composer .in { max-width:1200px; margin:0 auto; }
@@ -97,7 +103,7 @@
 <body>
 <header>
   <div class="logo" aria-hidden="true"></div>
-  <div><h1>Cue</h1><div class="sub">One chat. Everything else is a widget.</div></div>
+  <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread.</div></div>
   <span class="dot" id="dot" title="Connected"></span>
 </header>
 <nav role="tablist">
@@ -108,6 +114,10 @@
 <main>
   <section class="col" id="page-chat">
     <div class="msgs" id="msgs"></div>
+  </section>
+  <section class="col" id="page-thread" hidden>
+    <div class="thread-head"><button class="back" id="back" aria-label="Back to the chat">← Chat</button><i class="dot" id="t-dot"></i><span class="t" id="t-title"></span><span class="small muted" id="t-status"></span></div>
+    <div class="msgs" id="tmsgs"></div>
   </section>
   <section class="col" id="page-widgets" hidden>
     <div class="label">Needs you</div><div id="w-need"></div>
@@ -131,7 +141,6 @@
 </dialog>
 <div class="composer" id="composer">
   <div class="in">
-    <div class="replying" id="replying" hidden></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
@@ -181,15 +190,23 @@
   // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
   // while Cue was busy, and Enter did nothing while the last send was still running).
   var outbox = [];
-  function addLocal(who, text) { outbox.push({ who: who, text: text, time: new Date().toISOString() }); renderChat(); }
+  function addLocal(who, text) { outbox.push({ who: who, text: text, request_id: threadRef(), time: new Date().toISOString() }); renderChat(); }
   function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
 
+  // Pages: the chat, one task's thread (openThread = its first task's id), or widgets. The composer serves the chat and threads.
+  var openThread = '';
   function show(tab) {
-    $('tab-chat').setAttribute('aria-selected', tab === 'chat'); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
-    $('page-chat').hidden = tab !== 'chat'; $('page-widgets').hidden = tab !== 'widgets';
-    $('composer').hidden = tab !== 'chat'; $('pinned').hidden = tab !== 'chat';
+    var talk = tab === 'chat' || tab === 'thread';
+    $('tab-chat').setAttribute('aria-selected', talk); $('tab-widgets').setAttribute('aria-selected', tab === 'widgets');
+    $('page-chat').hidden = tab !== 'chat'; $('page-thread').hidden = tab !== 'thread'; $('page-widgets').hidden = tab !== 'widgets';
+    $('composer').hidden = !talk; $('pinned').hidden = !talk;
+    $('box').placeholder = tab === 'thread' ? 'Reply in this thread. Cue keeps it with this task.' : 'Ask Cue, or paste an inquiry. 📎 adds briefs, photos and plans.';
+    lastChat = -1; renderChat();
   }
-  $('tab-chat').onclick = function () { show('chat'); };
+  function goThread(id) { openThread = id; show('thread'); $('scroller').scrollTop = $('scroller').scrollHeight; $('box').focus(); }
+  function goChat() { openThread = ''; show('chat'); }
+  $('tab-chat').onclick = goChat;
+  $('back').onclick = goChat;
   $('tab-widgets').onclick = function () { show('widgets'); };
   $('chip-need').onclick = function () { show('widgets'); };
   document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
@@ -259,7 +276,7 @@
   function send(t, files, mode, ref, mine) {
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let him keep typing
-      ref = replyTo; replyTo = ''; renderReply();
+      ref = threadRef();
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '' };
       outbox.push(mine); $('box').value = ''; pending = []; renderFiles(); renderChat();
     }
@@ -292,56 +309,98 @@
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
   function render() { renderChat(); renderWidgets(); }
+  function setHtml(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } }   // a poll that changes nothing keeps ticks and edits
+  function dirty() { ['msgs', 'tmsgs', 'w-need', 'w-work', 'w-done', 'p-need', 'p-work'].forEach(function (k) { $(k)._h = null; }); }
+
+  // Threads. A task started from another task's thread (s.ref) joins that thread, so a redo stays with its project.
+  function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
+  function rootOf(id, by) { for (var i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }
+  function threads() {
+    var by = byId(), t = {};
+    function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
+    state.chat.concat(outbox).forEach(function (m) { if (m.request_id) get(rootOf(m.request_id, by)).lines.push(m); });
+    state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
+    return t;
+  }
+  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
+  function threadState(th) {
+    var need = th.reqs.filter(function (r) { return NEED[r.status]; }).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
+    var last = th.reqs[th.reqs.length - 1];
+    if (need) return { color: 'var(--need)', text: 'Needs you', need: 1 };
+    if (work) return { color: 'var(--act)', text: 'Working' };
+    return { color: 'var(--muted)', text: last ? last.status : '' };
+  }
+  function threadTitle(th) {
+    var r = th.reqs[th.reqs.length - 1];
+    return r ? ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.kind === 'change' ? 'Change request' : 'Project intake')) : 'Earlier task';
+  }
+  // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
+  function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
+  function ago(iso) {
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+  }
+  function msgHtml(m) {
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who) + '</span>' + esc(m.text) + '</div>';
+  }
+
   var lastChat = -1;
   function renderChat() {
-    var n = state.chat.length + outbox.length, sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, grew = n !== lastChat;
+    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    var n = openThread ? (th[openThread] ? th[openThread].lines.length : 0) : state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
-    renderChatHtml();
-    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
+    if (openThread) renderThread(th[openThread] || { root: openThread, lines: [], reqs: [] }); else renderMain(th);
+    if ((!$('page-chat').hidden || !$('page-thread').hidden) && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
   }
-  function renderChatHtml() {
-    $('msgs').innerHTML = state.chat.concat(outbox).map(function (m) {
-      var t = m.request_id ? taskOf(m.request_id) : null;
-      return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + '"><span class="who">' + esc(m.who)
-        + (t ? ' <span class="task"><i class="dot" style="background:' + t.color + '"></i>' + esc(t.label) + '</span>' : '') + '</span>' + esc(m.text)
-        + (m.request_id && m.who !== 'Kiko' ? '<button class="reply" data-reply="' + esc(m.request_id) + '" aria-label="Reply about this task">↩ Reply</button>' : '') + '</div>';
-    }).join('') || '<div class="muted">Paste a client inquiry to start a project intake.</div>';
+  // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
+  function renderMain(th) {
+    var by = byId(), seen = {}, h = '';
+    state.chat.concat(outbox).forEach(function (m) {
+      if (!m.request_id) { h += msgHtml(m); return; }
+      var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
+      var t = th[root], st = threadState(t), n = t.lines.length - 1, last = t.lines[t.lines.length - 1];
+      h += msgHtml(m) + '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
+        + '<i class="dot" style="background:' + st.color + '"></i><b>↩ ' + (n > 0 ? n + ' repl' + (n === 1 ? 'y' : 'ies') : 'Open thread') + '</b>'
+        + '<span>' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
+        + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</button>';
+    });
+    setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
   }
-  // Reply to a task (Kiko 05:49Z, like ChatGPT's reply dots): each task gets a coloured dot; a reply goes to that task.
-  var DOTS = ['#559fef', '#b00c98', '#e9d151', '#cd5023', '#3fb27f', '#9b7bff'], replyTo = '';
-  function taskOf(id) {
-    var r = state.requests.filter(function (x) { return x.id === id; })[0], h = 0;
-    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    var label = r ? ((r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.text.slice(0, 28)) : 'Earlier task';
-    return { label: label, color: DOTS[h % DOTS.length] };
-  }
-  function renderReply() {
-    var t = replyTo ? taskOf(replyTo) : null;
-    $('replying').hidden = !t;
-    if (t) $('replying').innerHTML = '<i class="dot" style="background:' + t.color + '"></i><span>Replying about <b>' + esc(t.label) + '</b></span><button id="reply-x" aria-label="Stop replying">✕</button>';
-    if (t) $('reply-x').onclick = function () { replyTo = ''; renderReply(); };
+  // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
+  function renderThread(t) {
+    var st = threadState(t);
+    $('t-dot').style.background = st.color; $('t-title').textContent = threadTitle(t); $('t-status').textContent = st.text;
+    var h = t.lines.map(msgHtml).join('');
+    t.reqs.forEach(function (r) {
+      if (NEED[r.status]) h += cardHtml(r);
+      else if (WORK[r.status]) h += workHtmlOf(r);
+      else h += doneHtml(r);
+    });
+    setHtml($('tmsgs'), h);
+    bind();
   }
   $('msgs').addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-reply]'); if (!b) return;
-    replyTo = b.getAttribute('data-reply'); renderReply(); $('box').focus();
+    var b = e.target.closest && e.target.closest('[data-thread]'); if (b) goThread(b.getAttribute('data-thread'));
   });
+  function doneHtml(r) {
+    var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
+      + metricLine(r) + '</div>';
+  }
+  function openLink(r) { var by = byId(); return '<button class="open-thread" data-act="open-thread" data-id="' + esc(rootOf(r.id, by)) + '">Open its thread →</button>'; }
   function renderWidgets() {
     var need = state.requests.filter(function (r) { return r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Done, drafts incomplete'; });
     var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
     var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; }).slice(0, 5);
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
-    var needHtml = (accessHtml() + need.map(cardHtml).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
-    var workHtml = work.map(workHtmlOf).join('') || '<div class="card muted">Nothing running.</div>';
-    $('w-need').innerHTML = needHtml; $('w-work').innerHTML = workHtml;
-    $('p-need').innerHTML = need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open Widgets to review.</div></div>' : '';
-    $('p-work').innerHTML = work.map(workHtmlOf).join('');
-    $('w-done').innerHTML = done.map(function (r) {
-      var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-      return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
-        + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
-        + metricLine(r) + '</div>';
-    }).join('') || '<div class="card muted">Nothing yet.</div>';
+    var needHtml = (accessHtml() + need.map(function (r) { return cardHtml(r) + openLink(r); }).join('')) || '<div class="card muted">Nothing needs you right now.</div>';
+    var workHtml = work.map(function (r) { return workHtmlOf(r) + openLink(r); }).join('') || '<div class="card muted">Nothing running.</div>';
+    setHtml($('w-need'), needHtml); setHtml($('w-work'), workHtml);
+    setHtml($('p-need'), need.length ? '<div class="card need"><b>' + need.length + ' need you</b><div class="small muted">Open their threads, or Widgets, to review.</div></div>' : '');
+    setHtml($('p-work'), work.map(workHtmlOf).join(''));
+    setHtml($('w-done'), done.map(function (r) { return doneHtml(r) + openLink(r); }).join('') || '<div class="card muted">Nothing yet.</div>');
     bind();
   }
   function metricLine(r) {
@@ -480,8 +539,8 @@
     var st = l.stats; return st && st.count ? '<div class="small muted">History: ' + st.count + ' quote(s), median ' + peso(st.median) + ', range ' + peso(st.low) + ' to ' + peso(st.high) + '</div>' : '';
   }
 
-  function collect(id) {
-    var card = document.querySelector('[data-card="' + id + '"]'), e = { event: {}, client: {}, lines: {}, skip_rfqs: [] };
+  function collect(id, scope) {
+    var card = (scope || document).querySelector('[data-card="' + id + '"]'), e = { event: {}, client: {}, lines: {}, skip_rfqs: [] };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
     card.querySelectorAll('[data-line]').forEach(function (tr) {
       var d = {}, k = tr.getAttribute('data-line');
@@ -494,11 +553,12 @@
   function bind() {
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
-        var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
-        if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return renderWidgets(); }
-        if (act === 'edit') { editing[id] = 1; return renderWidgets(); }
-        if (act === 'cancel-edit') { delete editing[id]; return renderWidgets(); }
-        var done = function () { delete running[id]; delete editing[id]; refresh(); }, fail = function (e) { delete running[id]; alertErr(e); refresh(); };
+        var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
+        if (act === 'open-thread') return goThread(id);
+        if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
+        if (act === 'edit') { editing[id] = 1; return render(); }
+        if (act === 'cancel-edit') { delete editing[id]; return render(); }
+        var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
         if (act === 'fix-access') { b.disabled = true; return call('cueFixAccess', [], function (a) {
           if (a.reset) { accessUrl = a.url; addLocal('Cue', 'Google had not given Cue: ' + a.missing.join(', ') + '. I reset Cue\'s access. Tap "Open Cue again" in Widgets and click Allow.'); }
@@ -507,11 +567,11 @@
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, {}], done, fail);
         if (act === 'approve-change') {
-          var skip = Array.prototype.filter.call(document.querySelectorAll('[data-ck="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
-          var fskip = Array.prototype.filter.call(document.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
+          var skip = Array.prototype.filter.call(scope.querySelectorAll('[data-ck="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
+          var fskip = Array.prototype.filter.call(scope.querySelectorAll('[data-fk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
           return call('cueApprove', [id, { skip: skip, files_skip: fskip }], done, fail);
         }
-        if (act === 'approve-edits') return call('cueApprove', [id, collect(id)], done, fail);
+        if (act === 'approve-edits') return call('cueApprove', [id, collect(id, scope)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
