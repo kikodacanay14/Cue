@@ -6,7 +6,7 @@
  *   every kind's nudges in one call (two when the batch is big) and each kind's template covers a ChatGPT failure, so the batch
  *   never depends on ChatGPT. Claude is not in the daily run.
  * - Chaser kinds plug in with cueKind_({ kind, label, find(ctx), draftBrief, template(item), every, max, sendAllowed,
- *   send?(item, s), act?(item, s), posted?(ctx, items), chase? }). ctx = { now, today, s (the sweep run), board() (one Canvas read,
+ *   send?(item, s), draft?(item, s) (makes the draft somewhere other than Kiko's Gmail, e.g. info@), act?(item, s), posted?(ctx, items), chase? }). ctx = { now, today, s (the sweep run), board() (one Canvas read,
  *   cached), tasks() }. The engine applies every/max from the Chase log tab, so find() returns everything outstanding; chase: false
  *   skips the log (inbox triage). A kind's own AI call in find() must go through cueAiAll_(ctx.s) so it counts in the run.
  *   Items: { key (put the Gmail thread id in it), project, project_id, who, to, thread_id, message_id, thread_subject, why, due_since,
@@ -242,7 +242,7 @@ function cueSweepApprove_(id, edits) {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     try {
       if (typeof k.send === 'function' && b.send && it.send_ok) return;   // the kind sends through Canvas at send time; no Gmail draft
-      it.draft_id = it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
+      it.draft_id = typeof k.draft === 'function' ? String(k.draft(it, s) || '') : it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
         : cueGmailDraft_(it.to, it.subject, it.body);
       it.error = '';
       if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueAddDays_(today, k.every || 1), note: 'draft' });

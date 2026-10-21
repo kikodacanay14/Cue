@@ -648,6 +648,15 @@ test('S5 approved after 9:00 sends at once; a kind with sendAllowed false (payme
   assert.strictEqual(u.ctx.cueApprove(batchOf(u).id, { send: true, skip: ['rfq:cccccccccccccccc'] }).status, 'Done'); assert.strictEqual(u.log.sent.length, 2);
   assert.strictEqual(chase(u).length, 2, 'the skipped line is not logged as chased');
 });
+test('S5b a kind with its own send and draft hooks (payments from info@ via Canvas): no Gmail draft in Kiko\'s account; sent at 9:00 by the hook', () => {
+  const sent = [], drafted = [];
+  const t = sweepBox({}, { send: it => { sent.push(it.key); return 'canvas-' + it.key; }, draft: it => { drafted.push(it.key); return 'info-draft'; } });
+  t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: true, skip: ['rfq:cccccccccccccccc'] });
+  assert.ok(!t.log.replies && !t.log.gmail.length, 'nothing in Kiko\'s Gmail'); assert.strictEqual(sent.length, 0, 'held for 9:00');
+  t.at('2026-10-21', 9, 0); t.ctx.cueResume(); assert.strictEqual(sent.length, 2); assert.strictEqual(batchOf(t).status, 'Done');
+  const u = sweepBox({}, { send: () => 'x', draft: it => { drafted.push(it.key); return 'info-draft'; } }); u.ctx.cueSweep();
+  u.ctx.cueApprove(batchOf(u).id, { send: false }); assert.strictEqual(drafted.length, 3); assert.ok(!u.log.gmail.length);
+});
 test('S6 ChatGPT fails: every line gets its template and the batch still arrives (scheduled jobs never depend on ChatGPT)', () => {
   const t = sweepBox({ fail: { chasers: () => resp(400, { error: { message: 'bad' } }) } }); t.ctx.cueSweep(); const b = batchOf(t);
   assert.strictEqual(b.status, 'Needs you'); deq(b.batch.items.map(i => i.drafted_by), ['template', 'template', 'template']);
