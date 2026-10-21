@@ -1,6 +1,6 @@
 # Changelog
 
-## Side pane in a narrow window, Cue bubble 1.3.0 (not deployed)
+## Cue 1.13: side pane in a narrow window, no Widgets page, Cue bubble 1.3.0 (Kiko said deploy 14:18Z)
 
 Kiko 21 Oct 13:58Z: in the narrow Cue window, the pane must slide in on the right without covering the chat.
 
