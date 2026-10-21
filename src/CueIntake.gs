@@ -465,7 +465,7 @@ function cueIntakeReject_(id, why) {
     if (['Needs you', 'Failed'].indexOf(L.s.status) < 0) throw new Error('This intake is ' + L.s.status + ' and can no longer be rejected here.');
     L.s.status = 'Rejected'; L.s.stage = 'Rejected'; L.s.rejected = { at: new Date(cueNow_()).toISOString(), why: cueStr_(why, 500) };
     cueSave_(L.sh, L.row, L.s);
-    cueChat_('Cue', 'Rejected. Nothing was written to Canvas.' + (why ? ' Reason: ' + cueStr_(why, 300) : ''), id);
+    cueChat_('Cue', (L.s.kind === 'personal' ? 'Closed. Nothing was saved.' : 'Rejected. Nothing was written to Canvas.') + (why ? ' Reason: ' + cueStr_(why, 300) : ''), id);
     cueSummary_(L.s);
     return L.s;
   });

@@ -310,7 +310,7 @@
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); schedule(); }, function () { if (after) after(); schedule(); }); }
-  function busy() { return state.requests.some(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; }) || Object.keys(running).length; }
+  function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
   function render() { renderChat(); renderWidgets(); }
@@ -333,7 +333,7 @@
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
-  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1 };
+  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
   function threadState(th) {
     var need = th.reqs.filter(function (r) { return NEED[r.status]; }).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
@@ -342,10 +342,10 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    var nm = function (r) { return (r.kind === 'personal' && personalName(r)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
-    return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
+    return r ? kindName(r) : 'Earlier task';
   }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
@@ -402,7 +402,7 @@
     t.reqs.forEach(function (r) {
       if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || (r.kind === 'personal' && r.personal) || r.proposal) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -419,7 +419,7 @@
   }
   function doneHtml(r, reopen) {
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || personalName(r) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
@@ -454,7 +454,7 @@
     e.preventDefault(); var b = e.target.parentNode.querySelector('[data-act="say"]'); if (b) b.click(); }); $('pinned').addEventListener('click', tapOpen);
   function renderWidgets() {
     var need = state.requests.filter(function (r) { return NEED[r.status]; });
-    var work = state.requests.filter(function (r) { return r.status === 'Working' || r.status === 'Writing to Canvas' || r.status === 'Making drafts'; });
+    var work = state.requests.filter(function (r) { return WORK[r.status]; });
     var done = state.requests.filter(function (r) { return r.status === 'Done' || r.status === 'Rejected'; });
     $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
@@ -477,12 +477,17 @@
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
+  var PERSONAL = [['GPT reading', 'GPT', 'GPT reads your line and the proofs'], ['Second look', 'Claude', 'Claude re-reads the unclear items'],
+    ['Checking records', 'Code', 'Cue checks Personal Expense 2 and BSE Scopes and Transfers'], ['Needs you', 'Kiko', 'Waiting for your approval'],
+    ['Saving', 'Sheets', 'Cue saves the rows and reads them back']];
+  function kindName(r) { return r.kind === 'personal' ? 'Personal expense' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function personalName(r) { var x = ((r.personal || {}).items || [])[0]; return r.kind === 'personal' ? 'Personal expense' + (x && x.payee ? ': ' + x.payee : '') : ''; }
   function workHtmlOf(r) {
-    var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'personal' ? PERSONAL : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
-      + '<b>' + (r.kind === 'change' ? 'Change request' : 'Project intake') + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<b>' + kindName(r) + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
       + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
       + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
           return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
@@ -549,10 +554,41 @@
       + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
         + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
   }
+  // Personal expense card: one row per payment GPT read. Edit and untick before saving; nothing is saved until you approve.
+  var PE_STATE = { 'new': ['new', 'New'], evidence: ['new', 'Evidence only'], duplicate: ['flag', 'Already recorded'], maybe_duplicate: ['flag', 'Maybe recorded'],
+    project: ['flag', 'Looks like a project expense'], not_expense: ['flag', 'Not an expense'] };
+  function personalCardHtml(r) {
+    var pe = r.personal, waiting = r.status === 'Needs you', again = r.status === 'Done, not all saved';
+    var amt = function (v) { return v == null ? '<span class="muted">not shown</span>' : 'PHP ' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Personal expense</div>'
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    pe.items.forEach(function (x, i) {
+      var st = PE_STATE[x.state] || ['new', x.state], open = waiting || (again && !x.saved_row);
+      var f = function (k, v, ph) { return '<label class="small">' + ph + '<input data-pi="' + esc(r.id) + '" data-i="' + i + '" data-f="' + k + '" value="' + esc(v == null ? '' : v) + '" style="width:100%"></label>'; };
+      h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
+        + (open ? '<input type="checkbox" data-pi="' + esc(r.id) + '" data-i="' + i + '" data-f="selected"' + (x.selected ? ' checked' : '') + '>' : '<span>' + (x.saved_row && x.verified ? '✓' : x.selected ? '!' : '–') + '</span>')
+        + '<span><b>' + esc(x.payee || 'Unknown payee') + '</b> ' + amt(x.total != null ? x.total : x.principal) + ' <span class="tag ' + st[0] + '">' + esc(st[1]) + '</span>'
+        + (x.saved_row ? ' <span class="tag ' + (x.verified ? 'pref' : 'flag') + '">row ' + esc(x.saved_row) + (x.verified ? '' : ', check it') + '</span>' : '')
+        + '<br><span class="small muted">' + esc([x.date + (x.time ? ' ' + x.time : ''), x.txn_type, x.bank, x.ref ? 'ref ' + x.ref : '', x.evidence.replace(/_/g, ' '), x.confidence + ' confidence'].filter(Boolean).join(' · ')) + '</span></span></label>'
+        + (x.why ? '<div class="warn">' + esc(x.why) + '</div>' : '') + (x.unsure ? '<div class="warn">Unsure' + (x.checked ? ' after Claude\'s second look' : '') + ': ' + esc(x.unsure_why) + '</div>' : '')
+        + (x.save_error ? '<div class="err">' + esc(x.save_error) + '</div>' : '')
+        + (open ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:8px">' + f('date', x.date, 'Date') + f('payee', x.payee, 'Payee')
+            + f('principal', x.principal, 'Amount') + f('fee', x.fee, 'Fee') + f('total', x.total, 'Total') + f('cost_type', x.cost_type, 'Type of cost') + '</div>' + f('description', x.description, 'Description')
+          : '<div class="small" style="margin-top:6px">' + esc(x.cost_type) + ' · ' + esc(x.description) + '</div>')
+        + (x.proof_links.length ? '<div class="small">📎 ' + x.proof_links.map(function (u, j) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">proof ' + (j + 1) + '</a>'; }).join(' ') + '</div>' : '') + '</div>';
+    });
+    h += '<div class="small muted" style="margin-top:8px">Checked: ' + esc(pe.checked.join('; ') || 'nothing yet') + '. <a href="' + esc(pe.sheet_url) + '" target="_blank" rel="noopener">Open Personal Expense 2</a></div>';
+    if (waiting) h += '<div class="small muted" style="margin-top:6px">Save writes one row per ticked item to Personal Expense 2 and moves its proofs to "Personal expense proofs" in your Drive, then reads every row back. Nothing goes to Canvas.</div>';
+    h += '<div class="actions">' + (waiting ? '<button class="btn" data-act="approve-personal" data-id="' + esc(r.id) + '">Save ticked items</button>' : '')
+      + (again ? '<button class="btn" data-act="approve-personal" data-id="' + esc(r.id) + '">Retry the ones not saved</button>' : '')
+      + (waiting ? '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>' : '') + '</div>' + metricLine(r) + '</div>';
+    return h;
+  }
   function cardHtml(r) {
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
+    if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
-    if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+    if (!p) return '<div class="card need"><b>' + kindName(r) + ' stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
     var c = p.client || {}, e = p.event || {}, t = p.totals || {}, cv = r.canvas || {};
@@ -695,6 +731,13 @@
         b.disabled = true; running[id] = 1; schedule();
         if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
         if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
+        if (act === 'approve-personal') {
+          var items = {};
+          scope.querySelectorAll('[data-pi="' + id + '"]').forEach(function (x) { var i = x.getAttribute('data-i'), k = x.getAttribute('data-f');
+            (items[i] = items[i] || {})[k] = k === 'selected' ? x.checked : x.value; });
+          b.disabled = true; running[id] = 1; schedule();
+          return call('cueApprove', [id, { items: items }], done, fail);
+        }
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
