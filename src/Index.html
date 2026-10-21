@@ -155,6 +155,7 @@
     <div class="chips">
       <button class="chip" data-fill="New project intake. Client inquiry:&#10;">New project intake</button>
       <button class="chip" id="chip-need">What needs me?</button>
+      <button class="chip" data-fill="Clean up HubSpot">Clean up HubSpot</button>
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
@@ -167,6 +168,8 @@
     ['Needs you', 'Kiko', 'Waiting for your approval']];
   var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
     ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Done', 'Done', 'Done']];
+  var HSTEPS = [['Reading HubSpot', 'Canvas', 'Canvas reads HubSpot and Client Desk (changes nothing)'], ['Claude checking', 'Claude', 'Claude checks the look-alikes and names'],
+    ['GPT looking up', 'GPT', 'ChatGPT looks up missing websites'], ['Fixing', 'Canvas', 'Canvas applies the ticked fixes and reads them back'], ['Needs you', 'Kiko', 'Waiting for your approval']];
   var $ = function (id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
@@ -342,7 +345,7 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || ''; };
+    var nm = function (r) { return (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.hs && r.hs.title) || ''; };
     for (var i = th.reqs.length - 1; i >= 0; i--) if (nm(th.reqs[i])) return nm(th.reqs[i]);
     var r = th.reqs[th.reqs.length - 1];
     return r ? (r.kind === 'change' ? 'Change request' : 'Project intake') : 'Earlier task';
@@ -402,7 +405,7 @@
     t.reqs.forEach(function (r) {
       if (NEED[r.status]) h += cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.kind === 'change' && r.change) || r.proposal) h += cardHtml(r);
+      else if ((r.kind === 'change' && r.change) || r.proposal || (r.kind === 'hubspot' && r.hs)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     setHtml($('tmsgs'), h);
@@ -419,7 +422,7 @@
   }
   function doneHtml(r, reopen) {
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {};
-    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.change && r.change.project) || (r.hs && r.hs.title) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')</div>' : '')
       + savedHtml(r) + metricLine(r)
       + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
@@ -478,7 +481,7 @@
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
     ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
   function workHtmlOf(r) {
-    var list = r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'hubspot' ? HSTEPS : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -549,10 +552,46 @@
       + f.map(function (x) { return '<li>' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name))
         + ' <span class="muted">' + esc(String(x.folder || '').replace(/^Project folder( › )?/, '') || 'top') + (x.modified ? ' · ' + esc(x.modified) : '') + '</span></li>'; }).join('') + '</ul></details>';
   }
+  // Command C12 (Kiko 07:50Z): one card, grouped findings, a tick per fix. Nothing changes until Approve.
+  function hsCardHtml(r) {
+    var H = r.hs, waiting = r.status === 'Needs you', sc = H.scanned || {}, n = 0;
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">HubSpot clean-up</div><b style="font-size:17px;color:#fff">' + esc(H.title) + '</b>'
+      + '<div class="small muted">Checked ' + esc(sc.companies || 0) + ' companies, ' + esc(sc.contacts || 0) + ' contacts and ' + esc(sc.deals || 0) + ' deals.' + (H.fixed ? ' ' + esc(H.fixed) + ' fixed so far.' : '') + '</div>'
+      + (H.summary ? '<div class="small" style="margin-top:6px">' + esc(H.summary) + '</div>' : '');
+    (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
+    if (!H.groups.length) h += '<div class="small" style="margin-top:8px">Nothing to fix.</div>';
+    H.groups.forEach(function (g) {
+      h += '<details' + (g.id !== 'flag' ? ' open' : '') + ' style="margin-top:10px"><summary class="label" style="display:inline">' + esc(g.label) + ' (' + g.items.length + ')</summary>';
+      g.items.forEach(function (x) {
+        var done = x.result && x.result.ok, can = waiting && x.can_fix && !done;
+        if (x.can_fix && !done) n++;
+        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
+          + (can ? '<input type="checkbox" data-hck="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (x.tick ? ' checked' : '') + '>' : '<span>' + (done ? '✓' : x.can_fix ? '•' : '–') + '</span>')
+          + '<span><b>' + esc(x.title) + '</b>' + (x.permanent ? ' <span class="tag flag">cannot be undone</span>' : '') + (x.unsure ? ' <span class="tag new">unsure</span>' : '')
+          + '<br><span class="small muted">' + esc(x.why) + '</span>' + (x.claude ? '<br><span class="small">' + esc(x.claude) + '</span>' : '')
+          + (x.fix_text ? '<br><span class="small">Fix: ' + esc(x.fix_text) + '</span>' : '') + '</span></label>';
+        h += '<ul class="small" style="margin:6px 0 0;padding-left:18px">' + x.recs.map(function (q) {
+          return '<li>' + (can && x.keep ? '<label><input type="radio" style="width:auto" name="keep-' + esc(r.id) + '-' + esc(x.key) + '" data-hkeep="' + esc(r.id) + '" data-k="' + esc(x.key) + '" value="' + esc(q.id) + '"' + (q.id === x.keep ? ' checked' : '') + '> keep </label>' : '')
+            + (q.url ? '<a href="' + esc(q.url) + '" target="_blank" rel="noopener">' + esc(q.name) + '</a>' : esc(q.name)) + ' <span class="muted">' + esc(q.type) + (q.sub ? ' · ' + esc(q.sub) : '') + '</span>'
+            + (q.canvas ? ' <span class="tag pref">Canvas</span>' : '') + '</li>'; }).join('') + '</ul>';
+        if (can && x.edit) h += '<input class="wide" style="margin-top:6px" data-hval="' + esc(r.id) + '" data-k="' + esc(x.key) + '" data-edit="' + esc(x.edit) + '" value="' + esc(x.value) + '" placeholder="' + (x.edit === 'domain' ? 'example.com' : 'First and last name') + '">';
+        if (x.source) h += '<div class="small muted">Seen at: ' + (/^https:\/\//.test(x.source) ? '<a href="' + esc(x.source) + '" target="_blank" rel="noopener">' + esc(x.source) + '</a>' : esc(x.source)) + '</div>';
+        if (x.result) h += x.result.ok ? '<div class="small" style="margin-top:4px">✓ Fixed' + (x.result.note ? '. ' + esc(x.result.note) : '') + '</div>' : '<div class="err">' + esc(x.result.error) + '</div>';
+        h += '</div>';
+      });
+      h += '</details>';
+    });
+    if (waiting) h += '<div class="small muted" style="margin-top:8px">Tick what to fix. Canvas applies only the ticked ones (up to 50 record changes at a time) and reads each one back. Archived records can be restored in HubSpot for 90 days; merges cannot be undone.</div>'
+      + '<div class="actions">' + (n ? '<button class="btn" data-act="hs-approve" data-id="' + esc(r.id) + '">Approve ticked fixes</button>' : '')
+      + (H.lookups && !H.looked ? '<button class="btn ghost" data-act="hs-lookup" data-id="' + esc(r.id) + '">Look up ' + esc(H.lookups) + ' missing website' + (H.lookups === 1 ? '' : 's') + '</button>' : '')
+      + '<button class="btn ghost" data-act="hs-close" data-id="' + esc(r.id) + '">Done for now</button></div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
+    if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
-    if (!p) return '<div class="card need"><b>Project intake stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+    if (!p) return '<div class="card need"><b>' + (r.kind === 'hubspot' ? 'HubSpot clean-up stopped' : 'Project intake stopped') + '</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
     var c = p.client || {}, e = p.event || {}, t = p.totals || {}, cv = r.canvas || {};
@@ -650,6 +689,16 @@
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e); refresh(); };
+        if (act === 'hs-approve') {
+          var hx = { tick: [], keep: {}, values: {} }, hr = (state.requests.filter(function (q) { return q.id === id; })[0] || {}).hs || { groups: [] }, hm = 0;
+          scope.querySelectorAll('[data-hck="' + id + '"]').forEach(function (x) { if (x.checked) hx.tick.push(x.value); });
+          scope.querySelectorAll('[data-hkeep="' + id + '"]').forEach(function (x) { if (x.checked) hx.keep[x.getAttribute('data-k')] = x.value; });
+          scope.querySelectorAll('[data-hval="' + id + '"]').forEach(function (x) { var v = {}; v[x.getAttribute('data-edit')] = x.value.trim(); hx.values[x.getAttribute('data-k')] = v; });
+          if (!hx.tick.length) return addLocal('Cue', 'Tick at least one fix first.');
+          hr.groups.forEach(function (g) { g.items.forEach(function (it) { if (it.permanent && hx.tick.indexOf(it.key) >= 0) hm++; }); });
+          return ask('Apply ' + hx.tick.length + ' fix' + (hx.tick.length === 1 ? '' : 'es') + ' in HubSpot?', (hm ? hm + ' of them merge records, which cannot be undone. ' : '') + 'Archived records can be restored for 90 days.', null, 'Apply', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, hx], done, fail); });
+        }
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
         if (act === 'reject') return ask('Reject this?', 'Nothing goes to Canvas and no drafts are made.', 'Reason (optional)', 'Reject', function (why) { call('cueReject', [id, why], done, fail); });
@@ -679,6 +728,8 @@
         if (act === 'approve') return call('cueApprove', [id, collect(id, scope)], done, fail);
         if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'retry') return call('cueRetry', [id], done, fail);
+        if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
+        if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'drafts') return call('cueDrafts', [id], done, fail);
       };

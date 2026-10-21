@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: HubSpot clean-up (command C12; needs the Canvas release with hubspot_scan / hubspot_fix)
+
+- "Clean up HubSpot" (Kiko approved specs/hubspot-cleanup.md 07:50Z): typed in the chat or tapped as a chip, it starts its own thread without a chat call. Canvas scans HubSpot, the HubSpot Links tab and Client Desk with fixed rules (read only), Claude checks look-alike companies and contacts and reads real names from email addresses (1 call, skipped when nothing is unsure), and the card lists Duplicates, Fix in Canvas, Missing links, Missing info, Old records and Needs a look, each with a tick box.
+- "Look up N missing websites" asks ChatGPT once, with web search; found websites come back unticked with their source.
+- Approve ticked fixes: Canvas applies only those, at most 50 record changes at a time, re-checks each against live HubSpot and reads it back. Merges are marked "cannot be undone" and confirmed; archive goes to HubSpot's recycle bin (90 days); a Canvas deal is never merged or archived; a Canvas contact's name is fixed in Client Desk and reaches HubSpot on the hourly sync. Every change is logged in the Cue sheet's HubSpot Cleanup tab.
+- Every Monday at 06:00 (trigger cueHsWeekly, installed by cueSetup or the first clean-up) Cue runs the scan by itself; the card waits in Needs you and nothing changes without Kiko. When the sweep engine is in, the waiting card also shows as one line in the Monday morning batch.
+
 ## Cue 1.8.2 (not deployed yet; best with Canvas V186)
 
 - Budget (Kiko 07:19Z): the 3-minute budget counts Cue's own time only (the run to the card plus the work after Kiko approves), not the time a card waits for him. Cards show "Cue worked N s".

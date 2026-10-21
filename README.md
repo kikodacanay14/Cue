@@ -66,6 +66,10 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
 5. **Deploy.** Deploy → Web app, execute as **Me**, access **Only myself**.
 6. **First test.** Run it with Kiko watching, on one real inquiry. Check the card, the AI calls and the seconds, then approve and confirm the project and lines in Canvas.
 
+## HubSpot clean-up (command C12)
+
+Type "clean up HubSpot" or tap the chip. Canvas reads HubSpot with its own key through the bridge (`hubspot_scan`, read only) and applies only the fixes ticked on the card (`hubspot_fix`, at most 50 record changes, each read back). Cue holds no HubSpot key for this. Claude checks the unsure look-alikes in one call; ChatGPT looks up missing websites only when asked. Fields Canvas owns are never edited in HubSpot: a Canvas contact's name is fixed in Client Desk. Every change goes to the HubSpot Cleanup tab. A Monday 06:00 scan (`cueHsWeekly`) only prepares the card.
+
 ## Canvas side
 
 Cue talks to Canvas only through the signed bridge. That is in place: main **V183** and Client **V41** were deployed on 21 Oct 2026. The Canvas code itself lives in the CanvasWorkspace repo, not here.

@@ -2,7 +2,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueHubspot.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -59,6 +59,7 @@ function sandbox(o = {}) {
       if ((o.fail || {})[n]) return o.fail[n]();
       if (n === 'requotes') return gptOk(o.requotes || REQUOTES);
       if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
+      if (n === 'lookup') return gptOk(o.lookup || { found: [] });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
     if (u.indexOf('api.anthropic.com') >= 0) { log.claude.push(body); return (o.fail || {}).cost ? o.fail.cost() : claudeOk(o.cost || COST); }
@@ -67,6 +68,9 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      if (body.action === 'hubspot_scan') return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.hsScan || HS_SCAN)) });
+      if (body.action === 'hubspot_fix') { (log.hsFix = log.hsFix || []).push(body.args.fixes);
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, results: body.args.fixes.map(f => (o.hsFail || []).indexOf(f.key) >= 0 ? { key: f.key, ok: false, error: 'HubSpot 400: refused' } : { key: f.key, ok: true }) } }); }
       if (body.action === 'find_similar_projects') return resp(200, { ok: true, status: 'Completed', result: o.similar || [] });
       if (body.action === 'list_project_files') {
         if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
@@ -140,7 +144,7 @@ function sandbox(o = {}) {
     SpreadsheetApp: { openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
-    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [], newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => ({}) }) }) }), invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [], newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => ({}) }), onWeekDay: d => ({ atHour: h => ({ create: () => { log.weekly = [d, h]; } }) }) }) }), WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
@@ -157,6 +161,25 @@ function sandbox(o = {}) {
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
+const HSU = id => 'https://app-na2.hubspot.com/contacts/1/record/0-2/' + id;
+const HS_SCAN = { scanned: { companies: 6, contacts: 5, deals: 2 }, read_at: '2026-10-21T03:00:00Z', old_days: 365, lookups: ['3'], notes: ['1 Client Desk contact(s) have no company link in HubSpot yet.'],
+  items: [
+    { key: 'H1', group: 'dup', title: 'Duplicate company: Acme Corp', why: 'Same name.', tick: true, permanent: true, unsure: false,
+      recs: [{ type: 'Company', id: '1', name: 'Acme Corp', url: HSU(1), canvas: true }, { type: 'Company', id: '3', name: 'Acme, Inc.', url: HSU(3), canvas: false }], fix: { op: 'merge', type: 'companies', keep: '1', merge: ['3'] } },
+    { key: 'H2', group: 'dup', title: 'Duplicate company: Bravo', why: 'Similar names.', tick: false, permanent: true, unsure: true,
+      recs: [{ type: 'Company', id: '2', name: 'Bravo', url: HSU(2), canvas: true }, { type: 'Company', id: '4', name: 'Bravo Holdings', url: 'javascript:alert(1)', canvas: false }], fix: { op: 'merge', type: 'companies', keep: '4', merge: ['2'] } },
+    { key: 'H3', group: 'canvas', title: 'No real name for jdc@acme.example', why: 'Client Desk shows "N/A".', needs_name: true, edit: 'name', recs: [{ type: 'Contact', id: '10', name: 'jdc@acme.example', canvas: true }],
+      fix: { op: 'canvas_contact', company: 'Acme Corp', email: 'juan.delacruz@acme.example', field: 'name', from: 'N/A', to: '' } },
+    { key: 'H4', group: 'info', title: 'Delta has a personal email domain as its website', why: 'Its contacts email from delta.example.', tick: true, edit: 'domain',
+      recs: [{ type: 'Company', id: '5', name: 'Delta' }], fix: { op: 'set', type: 'companies', id: '5', props: { domain: 'delta.example' } } },
+    { key: 'H5', group: 'info', title: 'Acme, Inc. has no website', why: 'No work email.', lookup: true, edit: 'domain', recs: [{ type: 'Company', id: '3', name: 'Acme, Inc.' }],
+      fix: { op: 'set', type: 'companies', id: '3', props: { domain: '' } } },
+    { key: 'H6', group: 'info', title: '48 contacts have no owner', why: 'Set the owner to Kiko.', tick: true, count: 48, recs: [], fix: { op: 'owner', type: 'contacts', ids: Array.from({ length: 48 }, (_, i) => String(100 + i)), owner: '77' } },
+    { key: 'H7', group: 'flag', title: 'Deal made outside Canvas: Side deal', why: 'No Canvas project ID.', recs: [{ type: 'Deal', id: '21', name: 'Side deal' }], fix: { op: 'archive', type: 'deals', id: '21' } },
+    { key: 'X9', group: 'evil', title: 'not a finding' }] };
+const HS_CHECK = { checks: [{ key: 'H2', same: true, keep: '4', reason: 'Bravo Holdings is the same business.' }, { key: 'H1', same: false, keep: '3', reason: 'ignored: not unsure' }],
+  names: [{ key: 'H3', first: 'Juan', last: 'Dela Cruz' }], summary: 'Mostly tidy. A few duplicates from the October import.' };
+function hsToCard(o = {}) { const t = sandbox(Object.assign({ cost: HS_CHECK }, o)); const r = t.ctx.cueSend('can you clean up hubspot? lots of duplicates', [], ''); const v = t.ctx.cueRun(r.request_id); return Object.assign(t, { id: r.request_id, v }); }
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
@@ -585,6 +608,61 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
   const seen = JSON.stringify(t.log.gpt.slice(before));
   assert.ok(/JBL mats changed/.test(seen), 'thread history included'); assert.ok(!/secret line about lunch/.test(seen), 'main chat left out');
   assert.ok(t.tabs.Chat.rows.filter(x => x[3] === id).length >= 3, 'reply and answer filed under the task');
+});
+
+test('C40 HubSpot clean-up: the ask starts its own thread with no chat call; Canvas scans; Claude checks the unsure ones in 1 call', () => {
+  const t = hsToCard(), H = t.v.hs;
+  assert.strictEqual(t.log.gpt.length, 0, 'recognised without a GPT call'); assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.v.metrics.ai_calls, 1);
+  deq(t.log.bridge.map(b => b.action), ['hubspot_scan']); assert.strictEqual(t.log.bridge[0].args.old_days, 365);
+  assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.kind, 'hubspot');
+  const all = [].concat.apply([], H.groups.map(g => g.items)), it = k => all.filter(x => x.key === k)[0];
+  assert.ok(!it('X9'), 'unknown groups dropped');
+  assert.strictEqual(it('H2').tick, true, 'Claude said same'); assert.strictEqual(it('H2').keep, '2', 'the Canvas company is kept whatever Claude says');
+  assert.strictEqual(it('H2').recs[1].url, '', 'only HubSpot links'); assert.strictEqual(it('H1').keep, '1'); assert.ok(!/ignored/.test(it('H1').claude), 'Claude cannot touch sure ones');
+  assert.strictEqual(it('H3').value, 'Juan Dela Cruz'); assert.strictEqual(it('H3').tick, true);
+  assert.ok(/cannot be undone/.test(it('H1').fix_text)); assert.strictEqual(H.summary, 'Mostly tidy. A few duplicates from the October import.');
+  const claudeIn = t.log.claude[0].messages[0].content; assert.ok(/<records>/.test(claudeIn) && !/H4/.test(claudeIn), 'only the unsure groups and names go to Claude');
+  assert.ok(t.tabs.Chat.rows.some(r => /Started a HubSpot clean-up/.test(r[2]) && r[3] === '>' + t.id));
+});
+test('C41 HubSpot approve: only ticked fixes go to Canvas, with Kiko\'s keep and edits; 50-change cap; log tab; Done when all fixed', () => {
+  const t = hsToCard();
+  const v = t.ctx.cueApprove(t.id, { tick: ['H1', 'H2', 'H3', 'H4', 'H6'], keep: { H2: '2', H1: '3' }, values: { H4: { domain: 'Delta.example' }, H3: { name: 'Juan D. Cruz' } } });
+  const f = t.log.hsFix[0], by = k => f.filter(x => x.key === k)[0];
+  deq(f.map(x => x.key), ['H1', 'H2', 'H3', 'H4'], 'H6 (48 owners) would pass 50 changes, so it waits');
+  deq([by('H1').keep, by('H1').merge], ['3', ['1']], 'Kiko picked which to keep; Canvas re-checks it');
+  assert.strictEqual(by('H3').to, 'Juan D. Cruz'); deq(by('H4').props, { domain: 'delta.example' });
+  assert.strictEqual(v.status, 'Needs you', 'the rest wait'); assert.ok(v.notes.some(n => /over the 50-change limit/.test(n)));
+  assert.strictEqual(t.tabs['HubSpot Cleanup'].rows.length, 5, 'header + 4 changes');
+  const v2 = t.ctx.cueApprove(t.id, { tick: ['H6'] });
+  deq(t.log.hsFix[1].map(x => x.key), ['H6']); assert.strictEqual(v2.status, 'Done'); assert.strictEqual(v2.hs.fixed, 5);
+  assert.ok(t.tabs.Chat.rows.some(r => /Summary for HubSpot clean-up: 7 findings, 5 fixed/.test(r[2])));
+});
+test('C42 HubSpot: a refused fix shows on the card and keeps it open; empty values are not sent; Done for now closes; nothing ticked is refused', () => {
+  const t = hsToCard({ hsFail: ['H4'] });
+  assert.throws(() => t.ctx.cueApprove(t.id, { tick: [] }), /Tick at least one/);
+  assert.strictEqual(t.state(t.id).status, 'Needs you', 'a refused approve leaves the card waiting');
+  const v = t.ctx.cueApprove(t.id, { tick: ['H4', 'H5'] });
+  deq(t.log.hsFix[0].map(x => x.key), ['H4'], 'H5 has no website typed, so it is not sent');
+  const all = [].concat.apply([], v.hs.groups.map(g => g.items));
+  assert.ok(/refused/.test(all.filter(x => x.key === 'H4')[0].result.error)); assert.ok(/Type the value/.test(all.filter(x => x.key === 'H5')[0].result.error));
+  assert.strictEqual(v.status, 'Needs you');
+  assert.strictEqual(t.ctx.cueHsClose(t.id).status, 'Done');
+});
+test('C43 HubSpot lookup: one ChatGPT web call on Kiko\'s tap; found websites are proposed unticked with an https source; once only', () => {
+  const t = hsToCard({ lookup: { found: [{ key: 'H5', domain: 'https://www.acme-inc.example/about', industry: 'Retail', source: 'https://acme-inc.example/about' }, { key: 'H4', domain: 'evil.example', industry: '', source: '' }] } });
+  const v = t.ctx.cueHsLookup(t.id), all = [].concat.apply([], v.hs.groups.map(g => g.items)), h5 = all.filter(x => x.key === 'H5')[0], h4 = all.filter(x => x.key === 'H4')[0];
+  assert.strictEqual(t.log.gpt.length, 1); assert.ok(t.log.gpt[0].tools && t.log.gpt[0].tools[0].type === 'web_search');
+  assert.strictEqual(h5.value, 'acme-inc.example'); assert.strictEqual(h5.tick, false); assert.strictEqual(h5.source, 'https://acme-inc.example/about');
+  assert.strictEqual(h4.value, 'delta.example', 'only items flagged for lookup change'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.metrics.ai_calls, 2);
+  assert.throws(() => t.ctx.cueHsLookup(t.id), /already looked/);
+});
+test('C44 HubSpot: a clean scan needs no AI call; Claude failing leaves the unsure ones unticked; the Monday run happens once a day', () => {
+  const clean = hsToCard({ hsScan: { scanned: { companies: 1, contacts: 1, deals: 0 }, items: [], lookups: [], notes: [] } });
+  assert.strictEqual(clean.log.claude.length, 0); assert.strictEqual(clean.v.status, 'Needs you'); assert.ok(clean.tabs.Chat.rows.some(r => /looks clean/.test(r[2])));
+  const t = hsToCard({ fail: { cost: () => resp(500, {}) } }), all = [].concat.apply([], t.v.hs.groups.map(g => g.items));
+  assert.strictEqual(all.filter(x => x.key === 'H2')[0].tick, false); assert.ok(t.v.notes.some(n => /Claude could not check/.test(n)));
+  const w = sandbox({ cost: HS_CHECK }); const a = w.ctx.cueHsWeekly(); assert.strictEqual(a.status, 'Needs you'); assert.strictEqual(a.hs.title, 'Monday HubSpot check');
+  assert.strictEqual(w.ctx.cueHsWeekly(), null, 'second run the same day does nothing'); deq(w.log.weekly, ['MONDAY', 6], 'Monday 06:00 trigger (Cue runs on Manila time)'); assert.ok(!w.log.hsFix, 'the weekly run never fixes');
 });
 
 let pass = 0;
