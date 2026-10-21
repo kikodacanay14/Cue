@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.18.2';
+const CUE_VERSION_ = 'Cue 1.19.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -24,8 +24,10 @@ const CUE_BUDGET_ = { calls: 5, seconds: 180 };
 const CUE_LEASE_MS_ = 5 * 60 * 1000;               // one run at a time per request; a stuck run is resumed after this
 
 /* ---------- page ---------- */
-function doGet() {
+function doGet(e) {
   cueOwner_();
+  const q = (e && e.parameter) || {};
+  if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   const out = HtmlService.createHtmlOutputFromFile('Index').setTitle('Cue')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
@@ -155,6 +157,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   const inThread = !!ref;
   // Kiko 17:03Z "expedite how he learns": "remember: …" / "from now on …" anywhere is saved as a rule at once (no AI call).
   if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
+  // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
+  if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
   // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
   if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
   // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
@@ -264,11 +268,16 @@ function cueRecostStart_(t, ref) {
   return { request_id: id, task: base.id };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn', 'todo'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     learn: { type: 'string', description: 'When Kiko corrects how Cue works or states a rule for next time (e.g. "no, check if it is the same project first", '
       + '"don\'t rescan, just answer me", "always cost per requirement"), that rule in one short sentence about what Cue should do, e.g. '
       + '"When Kiko asks a question in a thread, Cue answers it instead of rescanning." Empty for anything else, including one-off requests.' },
+    todo: { type: 'object', additionalProperties: false, required: ['job', 'title', 'due', 'note'], description: 'Kiko\'s TickTick to-do list. job is "" '
+      + 'unless Kiko asks to add a to-do, task or reminder to TickTick or to Kiko\'s to-do list ("add", with title), or asks what is on it ("list"). '
+      + 'Not for due dates or reminders on a Cue task (that is task_set).',
+      properties: { job: { type: 'string', enum: ['', 'add', 'list'] }, title: { type: 'string', description: 'The to-do in a few words, e.g. "Call Ana about the Acme brief"' },
+        due: { type: 'string', description: 'YYYY-MM-DD in Philippine time, or ""' }, note: { type: 'string', description: 'Extra detail Kiko gave, or ""' } } },
     sure: { type: 'boolean', description: 'false when Kiko seems to ask Cue to do something but you cannot tell which command, or two fit about equally. true otherwise, including plain chat.' },
     choices: { type: 'array', items: { type: 'string', enum: ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email', 'money', 'chat'] },
       description: 'When sure is false: the two commands that fit best, best first, with the fields of both filled in. Empty when sure is true.' },
@@ -335,7 +344,9 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'Kiko\'s memories, custom instructions, skills or a process, say to type "learn my memory" or "learn my process" followed by the pasted '
   + 'list or text; Claude splits it on a card and nothing is saved until Kiko approves. To learn from old ChatGPT or Claude chats, Kiko '
   + 'exports them (ChatGPT: Settings > Data controls > Export data) and types "learn from chats"; Cue then asks for the zip. Cue cannot read '
-  + 'Kiko\'s ChatGPT history by itself. Cue also drafts single emails: when Kiko asks to email, write to, '
+  + 'Kiko\'s ChatGPT history by itself. TickTick: when Kiko asks to add a to-do to TickTick or the to-do list, fill todo with job "add" and '
+  + 'reply in one short line; Cue shows Add or Skip and creates it only when Kiko taps Add. When Kiko asks what is on TickTick, set job "list". '
+  + 'To connect TickTick, Kiko types "connect ticktick". Cue also drafts single emails: when Kiko asks to email, write to, '
   + 'message or reply to someone, fill email (new or reply, who, what to say, audience, project) and reply in one short line that you are '
   + 'drafting it in its own thread; the draft waits on a card for Kiko to edit and send. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
@@ -427,6 +438,8 @@ function cueTalk_(t, ref, force) {
   cueChat_('Cue', reply || '…', where);
   // Kiko 17:03Z: a correction is saved at once, with Keep or Undo, and used from the next message.
   if (r.ok && !force && String(r.data.learn || '').trim()) { try { cueLearnNow_(r.data.learn, where); } catch (e) { console.warn('Learn: ' + e); } }
+  // TickTick (Kiko 17:26Z): a to-do from the same chat call; created only when Kiko taps Add.
+  if (r.ok && !force && r.data.todo && r.data.todo.job) { try { cueTtFromTalk_(r.data.todo, where); } catch (e) { console.warn('TickTick: ' + e); } }
   const start = r.ok ? String(r.data.start_intake || '').trim().slice(0, 2000) : '';
   if (where) cueUnnudge_(where);
   // Kiko 07:31Z task basics: a due date, priority or reminder said in chat is set on the task (no extra AI call).

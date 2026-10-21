@@ -123,7 +123,7 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off', CUE_MEMORY_SEEDED: '1',   // the seeded intake rules have their own test (TC5)
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1',   // the seeded intake rules and skills have their own tests (TC5, SK1)
        // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
@@ -363,6 +363,14 @@ function sandbox(o = {}) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
     }
+    if (u.indexOf('ticktick.com') >= 0) {   // CueTickTick.gs
+      (log.tt = log.tt || []).push({ url: u, method: (req.method || 'get').toLowerCase(), body: body || req.payload, auth: (req.headers || {}).Authorization });
+      if (o.tt) return o.tt(u, req, body);
+      if (/\/oauth\/token$/.test(u)) return resp(200, { access_token: 'tt-token-not-real', token_type: 'bearer' });
+      if (/\/open\/v1\/task$/.test(u)) return resp(200, { id: 'tt1', title: body.title });
+      if (/\/project\/inbox\/data$/.test(u)) return resp(200, { tasks: [{ title: 'Pay Sonic Pro', status: 0, dueDate: '2026-10-25T16:00:00.000+0000' }, { title: 'Done one', status: 2 }, { title: 'Call Ana', status: 0 }] });
+      return resp(404, {});
+    }
     throw new Error('unexpected fetch ' + u);
   };
   const ctx = {
@@ -371,7 +379,7 @@ function sandbox(o = {}) {
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
-    ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeDigest: (_a, v) => Array.from(crypto.createHash('sha256').update(Buffer.from(v.map(x => x & 255))).digest()).map(b => (b > 127 ? b - 256 : b)),
@@ -381,11 +389,11 @@ function sandbox(o = {}) {
         return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name, getDataAsString: () => b.toString('utf8') }; },
       base64Decode: t => Array.from(Buffer.from(String(t), 'base64')).map(b => (b > 127 ? b - 256 : b)),
       base64DecodeWebSafe: t => Array.from(Buffer.from(String(t), 'base64url')).map(b => (b > 127 ? b - 256 : b)),
-      base64Encode: b => Buffer.from(b.map(x => x & 255)).toString('base64'), base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
+      base64Encode: b => (typeof b === 'string' ? Buffer.from(b, 'utf8') : Buffer.from(b.map(x => x & 255))).toString('base64'), getUuid: () => '1234abcd-0000-4000-8000-00000000beef', base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
     UrlFetchApp: {
       fetch: (u, req) => { now += step; return route(typeof u === 'string' ? Object.assign({ url: u }, req) : u); },
       fetchAll: reqs => { now += (o.batchStep || step); log.batches.push(reqs.map(r => r.url.split('/')[2])); return reqs.map(route); } },
-    HtmlService: {}
+    HtmlService: { createHtmlOutput: h => ({ html: h, setTitle() { return this; } }) }
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
   if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
@@ -473,7 +481,7 @@ const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a dr
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
 // Every field of the chat call's strict schema, across all features (each one must also be required).
-const CHAT_FIELDS = ['choices', 'command', 'command_client', 'email', 'learn', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'sure', 'task', 'task_set', 'vendor', 'workflow'];
+const CHAT_FIELDS = ['choices', 'command', 'command_client', 'email', 'learn', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'sure', 'task', 'task_set', 'todo', 'vendor', 'workflow'];
 const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
@@ -2922,6 +2930,63 @@ test('TC11 My rules: lists Memory newest first (learned rules show at once); Kik
   deq(t.tabs.Memory.rows.length, 7);
   v = t.ctx.cueMyRuleSave({ row: 2, was: t.tabs.Memory.rows[1][2], del: true });
   deq([t.tabs.Memory.rows.length, v.rows.length, v.rows[v.rows.length - 1].row], [6, 5, 2]);
+});
+
+/* ---------- skills and TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md) ---------- */
+test('SK1 the Data, Superpowers and Product design skills are seeded once as Chat processes; they shape the chat reply only, never intake or costing calls', () => {
+  const t = sandbox({ props: { CUE_SKILLS_SEEDED: '' } });
+  t.ctx.cueTeachLoad_();
+  deq(t.tabs.Workflows.rows.slice(1).map(r => [r[1], r[3], r[12]]), [['Analyze data', 'Chat', true], ['Brainstorm an idea', 'Chat', true], ['Write a plan', 'Chat', true], ['Review a design', 'Chat', true]]);
+  assert.ok(/^1\. Code: Read the sheet/.test(t.tabs.Workflows.rows[1][6]));
+  t.ctx.cueTeachReset_(); t.ctx.cueTeachLoad_(); deq(t.tabs.Workflows.rows.length, 5, 'written once');
+  assert.ok(/approved process "Brainstorm an idea"/.test(t.ctx.cueTeachFor_('brainstorm some ideas for a launch concept', 'chat')));
+  deq(t.ctx.cueTeachFor_('brainstorm some ideas for a launch concept', 'cost'), '', 'not on other calls');
+  t.ctx.cueSend('can you brainstorm ideas for the Acme launch concept?', [], '');
+  assert.ok(/Brainstorm an idea/.test(t.log.gpt[0].instructions), 'the chat call carries it');
+  const u = sandbox({ props: { CUE_SKILLS_SEEDED: '' }, before: null }); u.tabs.Workflows = sheetMock(); u.tabs.Workflows.appendRow(['h']); u.tabs.Workflows.appendRow(['', 'Write a plan', 3]);
+  u.ctx.cueTeachLoad_(); deq(u.tabs.Workflows.rows.filter(r => r[1] === 'Write a plan').length, 1, 'Kiko\'s own version is never doubled');
+});
+
+const TTALK = todo => ({ reply: 'Sure.', looks_like_inquiry: false, todo: Object.assign({ job: 'add', title: 'Call Ana about the Acme brief', due: '2026-10-23', note: 'ask for pax' }, todo) });
+test('TT1 a to-do from the same chat call (no extra AI call): Add or Skip; nothing reaches TickTick before Add; Add creates it once, as shown', () => {
+  const t = sandbox({ talk: TTALK(), props: { CUE_TICKTICK_TOKEN: 'tt-token-not-real' } });
+  t.ctx.cueSend('add to my ticktick: call Ana about the Acme brief on Friday, ask for pax', [], '');
+  deq([t.log.gpt.length, t.log.claude.length, (t.log.tt || []).length], [1, 0, 0]);
+  const q = askLine(t); assert.ok(/^Add to TickTick: "Call Ana about the Acme brief", due 2026-10-23\?$/.test(q[2]) && /:add,skip$/.test(q[3]));
+  t.ctx.cueAskPick(askId(q), 'add');
+  deq(t.log.tt.map(x => [x.method, x.url.replace(/^.*open\/v1/, ''), x.auth]), [['post', '/task', 'Bearer tt-token-not-real']]);
+  deq(t.log.tt[0].body, { title: 'Call Ana about the Acme brief', content: 'ask for pax', timeZone: 'Asia/Manila', dueDate: '2026-10-23T00:00:00+0800', startDate: '2026-10-23T00:00:00+0800', isAllDay: true });
+  assert.ok(/^Added to TickTick/.test(t.tabs.Chat.rows.pop()[2]));
+  assert.throws(() => t.ctx.cueAskPick(askId(q), 'add'), /already answered/); deq(t.log.tt.length, 1, 'never twice');
+  const k = sandbox({ talk: TTALK(), props: { CUE_TICKTICK_TOKEN: 'x' } }); k.ctx.cueSend('add call Ana to ticktick', [], ''); k.ctx.cueAskPick(askId(askLine(k)), 'skip');
+  deq((k.log.tt || []).length, 0); assert.ok(/not added/.test(k.tabs.Chat.rows.pop()[2]));
+  const e = sandbox({ talk: TTALK(), props: { CUE_TICKTICK_TOKEN: 'old' }, tt: () => resp(401, {}) }); e.ctx.cueSend('add call Ana to ticktick', [], ''); e.ctx.cueAskPick(askId(askLine(e)), 'add');
+  assert.ok(/sign-in expired/.test(e.tabs.Chat.rows.pop()[2]), 'a TickTick error is said plainly');
+});
+
+test('TT2 not connected: no question, says how; "connect ticktick" (no AI call) gives setup steps, then a sign-in link; the callback checks state and keeps the token out of chat', () => {
+  const t = sandbox({ talk: TTALK() });
+  t.ctx.cueSend('add call Ana to ticktick', [], '');
+  assert.ok(!askLine(t) && /not connected yet/.test(t.tabs.Chat.rows.pop()[2]));
+  t.ctx.cueSend('connect ticktick', [], ''); deq(t.log.gpt.length, 1, 'no AI call');
+  assert.ok(/developer\.ticktick\.com/.test(t.tabs.Chat.rows.pop()[2]));
+  t.ctx.PropertiesService.getScriptProperties().setProperty('CUE_TICKTICK_CLIENT_ID', 'cid'); t.ctx.PropertiesService.getScriptProperties().setProperty('CUE_TICKTICK_CLIENT_SECRET', 'csecret');
+  t.ctx.cueSend('Connect TickTick', [], '');
+  const link = t.tabs.Chat.rows.pop()[2]; assert.ok(/https:\/\/ticktick\.com\/oauth\/authorize\?scope=tasks%3Awrite%20tasks%3Aread&client_id=cid&state=1234abcd000040008000/.test(link) && /redirect_uri=https%3A%2F%2Fscript\.google\.com/.test(link));
+  assert.ok(/old/.test(t.ctx.doGet({ parameter: { code: 'c1', state: 'wrong' } }).html)); deq((t.log.tt || []).length, 0, 'a wrong state never trades the code');
+  const ok = t.ctx.doGet({ parameter: { code: 'c1', state: '1234abcd00004000800000000000beef' } });
+  assert.ok(/connected/.test(ok.html)); deq(t.log.tt[0].auth, 'Basic ' + Buffer.from('cid:csecret').toString('base64'));
+  deq(t.ctx.PropertiesService.getScriptProperties().getProperty('CUE_TICKTICK_TOKEN'), 'tt-token-not-real');
+  assert.ok(!t.tabs.Chat.rows.some(r => /tt-token-not-real/.test(r[2])), 'the token never shows in chat');
+  assert.ok(/old/.test(t.ctx.doGet({ parameter: { code: 'c1', state: '1234abcd00004000800000000000beef' } }).html), 'one use per link');
+});
+
+test('TT3 "what\'s on my TickTick": open tasks only, soonest due first; read only', () => {
+  const t = sandbox({ talk: TTALK({ job: 'list', title: '', due: '', note: '' }), props: { CUE_TICKTICK_TOKEN: 'x' } });
+  t.ctx.cueSend('what\'s on my ticktick?', [], '');
+  const out = t.tabs.Chat.rows.pop()[2];
+  assert.ok(/^On your TickTick \(2 open\):\n- Pay Sonic Pro \(due 2026-10-2\d\)\n- Call Ana$/.test(out), out);
+  deq(t.log.tt.map(x => x.method), ['get']); assert.ok(!askLine(t));
 });
 
 test('TC12 PC test 17:30Z: a short item-and-name message GPT would act on asks intake or supplier search through cueSend, even when GPT is sure; greetings and clear asks do not; replies are English unless Kiko writes Tagalog', () => {

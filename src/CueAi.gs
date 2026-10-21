@@ -19,7 +19,7 @@ function cueKey_(name) {
 }
 
 /** Teach Cue (CueTeach.gs): Kiko's matching facts and process, added to every call's instructions. memory: false leaves them out. */
-function cueTeachAdd_(o) { return o.memory === false ? '' : cueTeachFor_(String(o.step || '') + ' ' + String(o.user || '')); }
+function cueTeachAdd_(o) { return o.memory === false ? '' : cueTeachFor_(String(o.step || '') + ' ' + String(o.user || ''), String(o.step || '')); }
 
 /** o = { step, system, user, schema, name, web?, maxTokens?, parts?, memory? } -> a call for cueAiAll_. parts = extra content (attachments). */
 function cueGpt_(o) {
