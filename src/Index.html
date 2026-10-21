@@ -236,6 +236,8 @@
   function send(t, files, mode) {
     $('send').disabled = true; $('chip-intake').hidden = true;
     if (!files.length && mode !== 'intake') { addLocal('Kiko', t); addLocal('Cue', '…'); $('box').value = ''; }
+    else if (files.length) { var mb = files.reduce(function (n, f) { return n + f.data.length * 0.75; }, 0) / 1048576;
+      addLocal('Cue', 'Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + ' (' + mb.toFixed(1) + ' MB). This can take a moment, then the intake starts.'); }
     call('cueSend', [t, files, mode], function (r) {
       $('box').value = ''; pending = []; renderFiles(); $('send').disabled = false;
       if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(); }
