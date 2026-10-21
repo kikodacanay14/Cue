@@ -284,6 +284,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
+  // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
+  if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
   try { cueIntakeRun_(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', 'The intake stopped: ' + s.error, s.id); }
   delete s.lease_until;
@@ -315,6 +317,7 @@ function cueRetry(id) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (L.s.status !== 'Failed' || (L.s.canvas && L.s.canvas.submitted)) throw new Error('Only a request that stopped before Canvas can be tried again here.');
+    if (L.s.kind === 'expense') throw new Error('Send the expense again with its files; Cue does not keep them.');
     L.s.status = 'Working'; L.s.error = ''; cueSave_(L.sh, L.row, L.s);
   });
   return cueView_(cueRunLeased_(id));
@@ -325,6 +328,7 @@ function cueApprove(id, edits) {
   cueOwner_();
   const L = cueLoad_(id);
   if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
+  if (L && L.s.kind === 'expense') return cueView_(cueExpenseApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -409,6 +413,16 @@ function cueSummary_(s) {
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
+    else if (s.kind === 'expense') {
+      const e = s.expense || {}, v = cv.verify || {}, st = cv.steps || {};
+      if (cv.request_id) out.push('recorded in Canvas as ' + cv.request_id + (st.scope && st.scope.id ? ' on new scope ' + st.scope.id : '')
+        + (st.transfer || (st.request && st.request.transfer) || st.proof ? ', paid' : ', not marked paid'));
+      out.push(v.ok ? 'every row read back correctly' : 'read back found a problem: ' + (v.problems || []).join(' '));
+      const fl = ['proof', 'receipt'].filter(k => st[k] || (k === 'proof' && st.request && st.request.transfer)); if (fl.length) out.push(fl.join(' and ') + ' filed in the project\'s Admin folder');
+      const line = 'Summary for ' + cueExpLine_(s) + ': ' + out.join('; ') + '.';
+      cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+      return;
+    }
     else if (s.kind === 'change') {
       const sel = (c.drafts || []).filter(d => d.selected), sent = sel.filter(d => d.sent_id), drafts = sel.filter(d => d.draft_id && !d.sent_id), bad = sel.filter(d => d.error);
       if (sent.length) out.push('sent ' + sent.length + ' requote' + (sent.length === 1 ? '' : 's') + ' (' + list(sent.map(d => d.supplier)) + ')');
@@ -443,6 +457,7 @@ function cueView_(s) {
       can_run_new: !!(s.reqs || []).length,
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
+    expense: s.kind === 'expense' ? cueExpView_(s) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };

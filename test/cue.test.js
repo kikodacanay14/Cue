@@ -1,8 +1,8 @@
 // Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs). Apps Script services, GPT, Claude, the Canvas bridge
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
-// schema in fixtures/ZapBridge.gs (copied from Canvas V185). Run: node test/cue.test.js
+// schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-xzc68a: V185 + expense_evidence / record_expense). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
-const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+const CODE = ['Cue.gs', 'CueAi.gs', 'CueBridge.gs', 'CueFiles.gs', 'CueIntake.gs', 'CueChange.gs', 'CueExpense.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
@@ -58,9 +58,11 @@ function sandbox(o = {}) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
       if (n === 'requotes') return gptOk(o.requotes || REQUOTES);
+      if (n === 'expense') return (o.fail || {}).xread ? o.fail.xread() : gptOk(o.xread || XREAD);
       if (n === 'chat') return gptOk(o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false });
       return gptOk(n === 'intake' ? (o.read || READ) : n === 'research' ? (o.research || RESEARCH) : o.rfqs || RFQS);
     }
+    if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
     if (u.indexOf('api.anthropic.com') >= 0) { log.claude.push(body); return (o.fail || {}).cost ? o.fail.cost() : claudeOk(o.cost || COST); }
     if (u.indexOf('script.google.com') >= 0) {
       const sig = u.split('?sig=')[1], want = crypto.createHmac('sha256', SECRET).update(String(body.ts) + '.' + req.payload).digest('hex');
@@ -75,6 +77,9 @@ function sandbox(o = {}) {
           files: [{ name: 'JBL mats v2.pdf', url: 'https://drive.google.com/file/d/x1/view', mime: 'application/pdf', size: 5, modified: '2026-10-20T01:00:00Z', folder: 'Project folder › Visual Materials' },
             { name: 'evil.pdf', url: 'javascript:alert(1)', mime: 'application/pdf', size: 5, modified: '2026-10-19', folder: 'Project folder' }] } });
       }
+      if (body.action === 'expense_evidence') { log.xev = (log.xev || []).concat([body.args]); return resp(200, { ok: true, status: 'Completed', result: (o.xev || XEV)(body.args) }); }
+      if (body.action === 'record_expense') { log.recorded = (log.recorded || []).concat([{ pid: body.project_id, args: body.args }]);
+        return resp(200, { ok: true, status: 'Completed', result: o.xrec ? o.xrec(log.recorded.length) : XREC }); }
       if (body.action === 'intake_evidence') return resp(200, { ok: true, status: 'Completed', result: o.evidence || EVIDENCE });
       if (body.action === 'submit_intake') {
         const L = body.args.proposal.lines, price = { 'PKG-7': 25000 };
@@ -150,6 +155,8 @@ function sandbox(o = {}) {
     ScriptApp: { getOAuthToken: () => 'oauth-token', getProjectTriggers: () => [], newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => ({}) }) }) }), invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
+      computeDigest: (_a, v) => Array.from(crypto.createHash('sha256').update(Buffer.from(v.map(x => x & 255))).digest()).map(b => (b > 127 ? b - 256 : b)),
+      DigestAlgorithm: { SHA_256: 'sha256' },
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
       newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
         return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name }; },
@@ -164,6 +171,28 @@ function sandbox(o = {}) {
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
+// CUE-EXPENSE: what GPT reads, what Canvas has, what Claude proposes, what Canvas records.
+const XREAD = { project_hint: 'Telus Trick or Treat Manila', category: 'Venue Styling', item: 'Duct tapes', quantity: 3, unit: 'rolls', supplier: 'Ace Hardware',
+  payee: 'Ace Hardware', amount: 450, date: '2026-10-20', ref: 'OR 1234', ref_type: 'receipt_number', paid_evidence: false,
+  files: [{ name: 'or-1234.jpg', kind: 'Receipt' }], notes: 'Receipt says CASH.' };
+const XPROJ = { project: { id: 'S-25506500TR', name: 'Trick or Treat – Manila', number: '017' }, candidates: [{ id: 'S-25506500TR', name: 'Trick or Treat – Manila', score: 100 }],
+  matches: [], lists: { kinds: ['Proof of transfer', 'Payment confirmation', 'Receipt'], cost_types: ['Planned', 'Unplanned', 'Contingency'], expense_types: ['Materials', 'Services'] },
+  requirements: [{ id: 'REQ26-10017-05', category: 'Venue Styling' }], scopes: [{ id: 'SCP26-017-46', requirement_id: 'REQ26-10017-05', category: 'Venue Styling', description: 'Grass Carpet', status: 'For Payment Request' }],
+  entries: [{ id: 'ENT-017-46-01', scope_id: 'SCP26-017-46', supplier: 'Turf PH', amount: 12000, awarded: true }],
+  requests: [{ id: 'AP-TUR-TRI-1', item: 'Grass Carpet', payee: 'Turf PH', amount: 12000, payment: 'Requested' }], ready: [] };
+const XEV = () => XPROJ;
+const XPLAN = { route: 'new_scope', request_id: '', scope_id: '', entry_id: '',
+  new_scope: { requirement_id: 'REQ26-10017-05', category: 'Venue Styling', description: 'Duct Tapes', quantity: 3, occurrence: 1, expense_type: 'Materials' },
+  new_entry: { supplier: 'Ace Hardware', description: 'Duct Tapes', amount: 450 }, award: true, kind: 'Receipt', amount: 450, date: '2026-10-20', ref: 'OR 1234',
+  payee: 'Ace Hardware', paid: 'cash', cost_type: 'Unplanned', expense_type: 'Materials', item: 'Duct Tapes', file_roles: [{ name: 'or-1234.jpg', role: 'receipt' }],
+  doubts: ['Duct tape is not part of Grass Carpet, so it gets its own scope.'], why: 'An unplanned cash purchase under Venue Styling.' };
+const XREC = { recorded: true, request_id: 'AP-ACE-TRI-1', steps: { check: { ok: true }, scope: { ok: true, id: 'SCP26-017-47' }, request: { ok: true, id: 'AP-ACE-TRI-1' }, transfer: { ok: true }, receipt: { ok: true, linked: true } },
+  verify: { ok: true, problems: [], scope: { id: 'SCP26-017-47', status: 'For Payment Request' }, entry: { id: 'ENT-017-47-01', supplier: 'Ace Hardware', awarded: true },
+    transfers: [{ status: 'Paid', amount: 450, date: '2026-10-20', proof: true, receipt: true }] } };
+const JPG = { name: 'or-1234.jpg', type: 'image/jpeg', data: Buffer.from('fake receipt photo').toString('base64') };
+const XTEXT = 'Receipt for Telus Trick or Treat Manila > Venue Styling, duct tapes';
+function expenseCard(o) { const t = sandbox(o); const v = t.ctx.cueExpense(XTEXT, [JPG], ''); return Object.assign(t, { id: v.id, v }); }
+
 const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a drone show for our year-end party on 12 December at SMX Aura, 300 pax.';
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
@@ -623,6 +652,68 @@ test('C33 summary (Kiko 06:55Z): a finished task posts one line in the main chat
   const seen = JSON.stringify(t.log.gpt.slice(before));
   assert.ok(/JBL mats changed/.test(seen), 'thread history included'); assert.ok(!/secret line about lunch/.test(seen), 'main chat left out');
   assert.ok(t.tabs.Chat.rows.filter(x => x[3] === id).length >= 3, 'reply and answer filed under the task');
+});
+
+test('X1 an expense is recognised from Kiko\'s own words, in code; an inquiry is not', () => {
+  const t = sandbox();
+  [XTEXT, 'record this payment: gcash to Ace 450', 'proof of transfer for the LED wall', 'liquidation for Telus', 'paid cash for tapes'].forEach(x => assert.ok(t.ctx.cueIsExpense_(x), x));
+  [INQ, 'Hi, how are you?', 'new project intake for JBL'].forEach(x => assert.ok(!t.ctx.cueIsExpense_(x), x));
+});
+test('X2 expense read: 2 AI calls (GPT reads the photo, Claude matches), Canvas looked up by name, nothing saved or uploaded', () => {
+  const t = expenseCard();
+  assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.kind, 'expense'); assert.strictEqual(t.v.metrics.ai_calls, 2);
+  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.claude.length, 1);
+  assert.strictEqual(t.log.gpt[0].input[0].content[1].type, 'input_image');
+  deq(t.log.bridge.map(b => b.action), ['expense_evidence']); assert.strictEqual(t.log.xev[0].project_hint, 'Telus Trick or Treat Manila');
+  assert.ok(!t.log.drive, 'no Drive call: the file is never uploaded to Cue uploads');
+  const st = t.state(t.id); assert.ok(!JSON.stringify(st).includes(JPG.data), 'file bytes are not stored'); assert.strictEqual(st.files[0].sha.length, 64);
+  assert.strictEqual(t.v.expense.plan.route, 'new_scope'); assert.strictEqual(t.v.expense.project.number, '017');
+});
+test('X3 Claude\'s plan keeps only ids Canvas listed; invented ones become doubts and block the route', () => {
+  const t = expenseCard({ xplan: Object.assign({}, XPLAN, { route: 'existing_scope', scope_id: 'SCP26-017-99', doubts: [] }) });
+  const p = t.v.expense.plan; assert.strictEqual(p.route, 'cannot_record'); assert.ok(p.doubts.some(d => /not in Canvas/.test(d)));
+  const t2 = expenseCard({ xplan: Object.assign({}, XPLAN, { new_scope: Object.assign({}, XPLAN.new_scope, { requirement_id: 'REQ-FAKE' }), doubts: [] }) });
+  assert.strictEqual(t2.v.expense.plan.new_scope.requirement_id, ''); assert.ok(t2.v.expense.plan.doubts.some(d => /CE category/.test(d)));
+});
+test('X4 approve needs every doubt ticked and the same files; then Canvas records it once with the bridge schema, and the summary says what landed', () => {
+  const t = expenseCard();
+  assert.throws(() => t.ctx.cueApprove(t.id, { files: [JPG] }), /Tick each point/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { cleared: [0], files: [] }), /not in this page any more/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { cleared: [0], files: [Object.assign({}, JPG, { data: Buffer.from('another photo').toString('base64') })] }), /not in this page any more/);
+  assert.ok(!t.log.recorded);
+  const v = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG], amount: '450' });
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.recorded.length, 1);
+  const a = t.log.recorded[0].args; assert.strictEqual(t.log.recorded[0].pid, 'S-25506500TR');
+  deq([a.plan.new_scope.requirement_id, a.plan.award, a.plan.paid, a.files[0].role, a.files[0].mime], ['REQ26-10017-05', true, 'cash', 'receipt', 'image/jpeg']);
+  assert.ok(t.tabs.Chat.rows.some(r => /Summary for ₱450\.00 Duct Tapes for Trick or Treat – Manila: recorded in Canvas as AP-ACE-TRI-1 on new scope SCP26-017-47, paid; every row read back correctly; receipt filed/.test(r[2])));
+});
+test('X5 a stop at a Canvas step comes back to the card; approving again carries on with the same request', () => {
+  const t = expenseCard({ xrec: n => n === 1 ? { recorded: false, stopped_at: 'award', error: 'Fill in the Venue survey first.', steps: { scope: { ok: true, id: 'SCP26-017-47' } } } : XREC });
+  const v = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });
+  assert.strictEqual(v.status, 'Needs you'); assert.ok(/stopped at the award: Fill in the Venue survey/.test(v.error));
+  const v2 = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });
+  assert.strictEqual(v2.status, 'Done'); assert.strictEqual(t.log.recorded[1].args.request_id, t.id);
+});
+test('X6 Canvas can\'t tell the project: card asks for it, Claude is not called, Approve refuses', () => {
+  const t = expenseCard({ xev: () => ({ project: null, candidates: [], matches: [], lists: {} }) });
+  assert.strictEqual(t.v.status, 'Needs you'); assert.ok(/could not tell which project/.test(t.v.error)); assert.strictEqual(t.v.metrics.ai_calls, 1);
+  assert.throws(() => t.ctx.cueApprove(t.id, { files: [JPG] }), /not waiting for you/);
+});
+test('X7 an expense is never resumed or retried without its files', () => {
+  const t = expenseCard({ fail: { xread: () => resp(500, {}) } });
+  assert.strictEqual(t.v.status, 'Failed'); assert.throws(() => t.ctx.cueRetry(t.id), /Send the expense again/);
+  const st = t.state(t.id); st.status = 'Working'; const row = t.tabs.Requests.rows.findIndex(r => r[0] === t.id) + 1;
+  t.ctx.cueSave_(t.tabs.Requests, row, st); assert.strictEqual(t.ctx.cueRun(t.id).status, 'Failed');
+});
+test('X8 a reply in an expense thread keeps that thread\'s Canvas project', () => {
+  const t = expenseCard(); const v = t.ctx.cueExpense('paid cash 200 more for tapes, receipt attached', [], t.id);
+  assert.strictEqual(t.log.xev[1].project_id, 'S-25506500TR'); assert.ok(!('project_hint' in t.log.xev[1])); assert.strictEqual(v.ref, t.id);
+});
+test('X9 unsupported or too many files are refused before any AI call', () => {
+  const t = sandbox();
+  assert.throws(() => t.ctx.cueExpense(XTEXT, [{ name: 'a.txt', type: 'text/plain', data: 'aGk=' }], ''), /photos .* or PDFs/);
+  assert.throws(() => t.ctx.cueExpense(XTEXT, [JPG, JPG, JPG, JPG, JPG], ''), /4 files at most/);
+  assert.strictEqual(t.log.gpt.length, 0);
 });
 
 let pass = 0;
