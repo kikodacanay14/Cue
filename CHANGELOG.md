@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.9.3 (a lookup only answers; Kiko 08:51Z)
+
+- Asking Cue to look up, find or check a project only answers with what Canvas has. It never starts an intake or costing, and never says it did, unless that same message asks for it ("start intake", "requote"...). Earlier chat is history, not instructions.
+
 ## Cue 1.9.2 (intake means intake; Kiko 08:37-08:38Z)
 
 - "Start intake", "run intake", "full intake" or "redo intake" always runs a new intake, even when Canvas has a project with a similar name (for example one left by an earlier attempt). The card notes the similar project so you can reject it if it really is a duplicate.

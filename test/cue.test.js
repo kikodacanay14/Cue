@@ -736,6 +736,17 @@ test('C41 "run full project intake" stays an intake even with a Canvas name matc
   assert.notStrictEqual(w.kind, 'change', 'Start intake wins even when GPT reads a change');
 });
 
+test('C42 a lookup only answers: GPT setting start_intake or claiming a start is overridden with what Canvas has', () => {
+  const SEL = { project_id: 'S-15364680AM', name: 'AMI - Selecta Merchandising Installation Project', account: 'AMI Group', date: '12/15/2026', status: 'For Admin Completion' };
+  const t = sandbox({ search: { selecta: { projects: [SEL], total: 1 }, ami: { projects: [SEL], total: 1 } },
+    talk: { reply: 'Found it. I\'ve started the intake and I\'m running costing now.', looks_like_inquiry: false, start_intake: 'AMI - Selecta: run full project intake now with the attached files', task: '', readiness: '' } });
+  const r = t.ctx.cueSend('can you look up the selecta project from AMI');
+  assert.strictEqual(r.start_intake, ''); assert.ok(/S-15364680AM/.test(r.reply) && /Nothing was started/.test(r.reply), r.reply);
+  assert.strictEqual(t.tabs.Requests.rows.length, 1, 'no request made');
+  const u = sandbox({ talk: { reply: 'Starting it now.', looks_like_inquiry: false, start_intake: 'AMI - Selecta: run full project intake now with the attached files', task: '', readiness: '' } });
+  const x = u.ctx.cueSend('start intake for selecta'); assert.ok(x.start_intake || x.request_id, 'an explicit ask still starts');
+});
+
 let pass = 0;
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
