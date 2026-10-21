@@ -66,6 +66,12 @@ RFQ chasers, a kind in the morning batch (backlog task 2; spec `canvas-integrati
 - The bubble asks Chrome for `activeTab`, `contextMenus` and access to all sites (to capture the tab behind Cue). Kiko reloads the extension and accepts the new permission once. 📷 shows in Cue only when bubble 1.2.0 is installed.
 - Chrome pages (chrome://, the Web Store) and desktop apps can't be snapped: use Win+Shift+S, then Ctrl+V in Cue.
 
+## Unreleased
+
+- Record personal expense (Kiko 08:15Z approved specs/personal-expense.md; new file CuePersonal.gs). A message with "personal expense" or "record this as personal" (matched in code, no AI call) starts its own thread. GPT reads the line and the proofs (call 1). Claude looks again with the same files only when GPT marks an item unsure (call 2, else skipped). Code then checks Personal Expense 2 for the same reference (or the same day, amount and payee when there is no reference), and reads BSE Scopes and Transfers (Transfers by reference, Payment Request by amount and payee) read-only. Credits, refunds and own-wallet moves are set apart and unticked; receipt-only items are saved as evidence with no paid amount. The card lists each item to edit and tick. Approve moves each proof from Cue uploads into "Personal expense proofs" in Kiko's My Drive, writes one row per ticked item by live header name (formulas and formats from the row above, references as text, unknown fees blank), and reads every row back. A reference already in the sheet is never written twice. Nothing goes to Canvas, HubSpot or email.
+- Claude calls can now take files (images and PDFs), used by the second look above.
+- Optional Script Properties: CUE_PERSONAL_SHEET, CUE_PERSONAL_TAB, CUE_PERSONAL_BSE_SHEET (defaults are Kiko's sheets); CUE_PERSONAL_FOLDER is set by Cue.
+
 ## Cue 1.8.3 (deployed as Version 19 with 1.8.1 and 1.8.2, Canvas main V186 / Client V44)
 
 - New projects start at For Admin Completion with Kiko Dacanay as Account Owner (Kiko 08:06Z; set by Canvas).

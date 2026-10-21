@@ -150,6 +150,8 @@ function cueSend(text, files, mode, ref) {
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
+  // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
+  if (mode !== 'chat' && mode !== 'intake' && cueIsPersonal_(text)) return cuePersonalStart_(String(text || '').trim(), files, ref);
   // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
   // A reply in a money thread stays a money question; a reply in any other task's thread never becomes one.
   if (!has && mode !== 'intake' && String(text || '').trim() && !/^\s*new project intake/i.test(String(text || ''))
@@ -253,7 +255,9 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'GPT searches the web only when needed, and Claude compares them in the task\'s thread. Cue also maps workflows: when Kiko asks to '
   + 'map a workflow, process or Zap as steps, or pastes a Zap, set workflow.job to "map" and reply in one short line that Claude is mapping '
   + 'it in its own thread; Claude names each step\'s block and owner and Cue checks it against Kiko\'s rules. "Register a supplier" (with their '
-  + 'documents attached) adds a new supplier to the Canvas Supplier Database with every contact person, after Kiko approves the card. Facts: Cue sends email only when Kiko '
+  + 'documents attached) adds a new supplier to the Canvas Supplier Database with every contact person, after Kiko approves the card. Personal expenses: when Kiko says '
+  + '"personal expense" (or "record this as personal") with the receipt or GCash/bank screenshot, Cue reads it, checks for duplicates and '
+  + 'project expenses, and saves it to Kiko\'s Personal Expense 2 sheet after Kiko approves on the card. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
   + 'and never ask Kiko to give access "to send". Pipeline review: when Kiko asks about his deals, the pipeline or which clients to follow '
   + 'up, set command "pipeline" (and command_client if he names one client) and reply in one short line that you are checking; Cue then '
@@ -273,7 +277,7 @@ function cueTalk_(t, ref) {
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Reopened')
-    .map(r => ((r.ready && r.ready.project && r.ready.project.name) || (r.vendor && 'supplier search for ' + r.vendor.ask) || (r.workflow && 'workflow map ' + (r.workflow.name || '')) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || 'an intake') + ' (' + r.status
+    .map(r => ((r.kind === 'personal' && 'a personal expense') || (r.ready && r.ready.project && r.ready.project.name) || (r.vendor && 'supplier search for ' + r.vendor.ask) || (r.workflow && 'workflow map ' + (r.workflow.name || '')) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
   // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
   const by = {}; st.requests.forEach(r => { by[r.id] = r; });
@@ -336,6 +340,7 @@ function cueTaskName_(x) {
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
   if (x.kind === 'workflow') return 'the ' + ((x.workflow && ((x.workflow.map && x.workflow.map.name) || x.workflow.name)) || 'workflow') + ' map';
   if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
+  if (x.kind === 'personal') return 'Personal expense' + ((x.items || [])[0] && x.items[0].payee ? ': ' + x.items[0].payee + (x.items.length > 1 ? ' and ' + (x.items.length - 1) + ' more' : '') : '');
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -384,6 +389,8 @@ function cueTaskLine_(id) {
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'workflow') return 'workflow map ' + ((s.workflow && ((s.workflow.map && s.workflow.map.name) || s.workflow.name)) || '') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
+  if (s.kind === 'personal') return cueTaskName_(s) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
+    + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none');
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -415,8 +422,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -469,6 +476,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'vendor') return cueView_(cueVendorApprove_(id, edits || {}));
   if (L && L.s.kind === 'workflow') return cueView_(cueWorkflowApprove_(id));
   if (L && L.s.kind === 'supplier') return cueView_(cueSupplierApprove_(id, edits || {}));
+  if (L && L.s.kind === 'personal') return cueView_(cuePersonalApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -564,6 +572,14 @@ function cueSummary_(s) {
     const name = s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
+    if (s.kind === 'personal') {
+      const ok = (s.items || []).filter(x => x.saved_row && x.verified), miss = (s.items || []).filter(x => x.selected && !(x.saved_row && x.verified));
+      const line = 'Summary for ' + cueTaskName_(s) + ': ' + (s.status === 'Rejected' ? 'closed; nothing was saved'
+        : (ok.length ? 'saved ' + ok.length + ' row' + (ok.length === 1 ? '' : 's') + ' to Personal Expense 2 (' + ok.map(x => 'row ' + x.saved_row).join(', ') + '), read back correctly' : 'nothing saved')
+          + (miss.length ? '; ' + miss.length + ' not saved' : '')) + '.';
+      cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+      return;
+    }
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
     else if (s.kind === 'expense') {
       const e = s.expense || {}, v = cv.verify || {}, st = cv.steps || {};
@@ -643,6 +659,7 @@ function cueView_(s) {
     vendor: s.kind === 'vendor' ? cueVendorView_(s) : null,
     workflow: s.kind === 'workflow' ? cueWorkflowView_(s) : null,
     supplier: s.kind === 'supplier' ? cueSupView_(s) : null,
+    personal: s.kind === 'personal' ? cuePeView_(s) : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
