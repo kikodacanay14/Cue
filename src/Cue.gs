@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.6';
+const CUE_VERSION_ = 'Cue 1.6.1';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -296,7 +296,8 @@ function cueState() {
     .map(r => ({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) })) : [];
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
-  return { version: CUE_VERSION_, requests: list, chat, metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  const up = cueProp_('CUE_UPLOADS_FOLDER', '');
+  return { version: CUE_VERSION_, requests: list, chat, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

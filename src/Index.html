@@ -463,7 +463,9 @@
       + '<div class="small" style="margin-top:4px">' + a.map(function (f) {
         return '<label style="display:flex;gap:8px;align-items:center;padding:2px 0">' + (locked ? '<span>' + (f.selected ? '✓' : '–') + '</span>'
           : '<input type="checkbox" data-fk="' + esc(r.id) + '" value="' + esc(f.id) + '"' + (f.selected ? ' checked' : '') + '>')
-          + '<span>' + esc(f.name) + ' <span class="muted">' + esc(f.from || '') + '</span></span></label>'; }).join('') + '</div></details>';
+          + '<span>' + (/^[\w-]{10,}$/.test(f.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>' : esc(f.name))
+          + ' <span class="muted">' + esc(f.from || '') + '</span></span></label>'; }).join('')
+      + '<div class="muted" style="margin-top:4px">Your uploads are saved in your own Google Drive' + (state.uploads_url ? ', in <a href="' + esc(state.uploads_url) + '" target="_blank" rel="noopener">Cue uploads</a>' : ', in the Cue uploads folder') + '. Tap a name to open it.</div></div></details>';
   }
   // The matched project's folder (from Canvas): newest first, each a link that opens in Drive.
   function filesHtml(c) {

@@ -60,11 +60,14 @@ function cueChangeAttach_(s, pid) {
       .filter(x => x && x.id !== s.id && (x.id === s.ref || (pid && x.change && x.change.match && x.change.match.project_id === pid && Date.parse(x.created) >= since)))
       .sort((a, b) => String(b.created).localeCompare(String(a.created)));
   } catch (e) { others = []; }
+  // Kiko 06:25Z "kept on attaching the old files": only the newest batch is ticked (this message's files, or else the newest earlier
+  // message that had files). Older files are listed unticked, so Kiko can add one back.
+  const batch = [s].concat(others).filter(x => (x.files || []).length)[0];
   let total = 0;
   [s].concat(others).forEach(x => (x.files || []).forEach(f => {
     const k = String(f.name).toLowerCase(); if (seen[k]) return; seen[k] = 1;
-    total += Number(f.size) || 0;
-    out.push({ id: f.id, name: f.name, type: f.type, size: f.size, from: x.id === s.id ? 'this message' : 'sent ' + String(x.created).slice(0, 16).replace('T', ' '), selected: total <= 20 * 1024 * 1024 });
+    const on = x === batch && total + (Number(f.size) || 0) <= 20 * 1024 * 1024; if (on) total += Number(f.size) || 0;
+    out.push({ id: f.id, name: f.name, type: f.type, size: f.size, from: x.id === s.id ? 'this message' : 'sent ' + String(x.created).slice(0, 16).replace('T', ' '), selected: on });
   }));
   return out.slice(0, 30);
 }
