@@ -1104,6 +1104,12 @@ test('AR6 ARs: the bridge fixture accepts exactly what Cue sends (ar_list, ar_ma
   assert.ok(bridgeCheck('ar_email', { request_id: 'cue-20261021080000-ab12', key: 'Q|PR-001', remake: true }));
 });
 
+test('Q5 timing comes from Kiko\'s Chaser rules card: first chase after 2 shows the Monday RFQ; paused shows none', () => {
+  const t = rfqBox(); t.ctx.cueRulesSave({ 'rfq.first': 2 }); t.ctx.cueSweep();
+  assert.ok(rfqBatch(t).batch.items.some(i => i.key === 'rfq:aaaa0000000000a2' && /No reply 2 working days after your RFQ/.test(i.why)));
+  const u = rfqBox(); u.ctx.cueRulesSave({ 'rfq.on': false }); u.ctx.cueSweep();
+  assert.ok(!u.log.threads, 'paused: Gmail is not even read'); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
+});
 /* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ---------- */
 test('R1 defaults are the ones each chaser agreed; nothing saved yet', () => {
   const t = sandbox(), r = t.ctx.cueRules();

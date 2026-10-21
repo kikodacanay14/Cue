@@ -69,7 +69,6 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `CUE_CLAUDE_EFFORT` (default `medium`)
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
-     - `CUE_RFQ_CHASE_DAYS` (default 3: working days before an RFQ with no reply is chased; 1 when the event is within 7 days)
      - `CUE_RFQ_NEVER` (addresses or domains never to chase, comma list; default none)
      - `CUE_HUBSPOT_TOKEN`: needed for pipeline reviews. A HubSpot **private app** token with read scopes only: `crm.objects.deals.read`, `crm.objects.contacts.read` (HubSpot → Settings → Integrations → Private Apps). Cue never writes to HubSpot.
      - `CUE_PIPE_QUIET_DAYS` (default 7) and `CUE_PIPE_AWARD_DAYS` (default 3 working days once the CE is with the client): when a deal counts as quiet.
