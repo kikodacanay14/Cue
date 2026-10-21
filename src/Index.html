@@ -580,13 +580,17 @@
   }
   // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
   function renderMain(th) {
-    var by = byId(), seen = {}, h = '';
+    var by = byId(), seen = {}, shown = {}, h = '';
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     state.chat.concat(outbox).forEach(function (m) {
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
+        // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
+        // pointers (updates, "Summary for …") live in the thread only.
+        if (pt && shown[to]) return;
+        if (pt) shown[to] = 1;
         h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
         return;
       }

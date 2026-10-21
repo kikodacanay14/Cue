@@ -1,5 +1,13 @@
 # Changelog
 
+## A task shows once in the chat; a second Reject is a no-op (not deployed)
+
+Kiko 21 Oct 14:32Z: "can the update not appear again? like the Pipeline Telus 4 replies. changes can appear on the first line since it updates anyway".
+
+- In the main chat, each task appears once: its first line and its row, which keeps updating (replies, status, time). Later Cue lines that point to the same thread, such as "Summary for …", now show only in the thread.
+- Rejecting a task that is already Rejected now changes nothing and posts nothing. It used to show "Something went wrong: This intake is Rejected and can no longer be rejected here." Other closed states still refuse as before.
+- Tests: 181 of 181 pass, and the intake Reject test now also checks a second Reject.
+
 ## Cue 1.13.2 (Cue asks first when a project looks the same; Kiko 14:26-14:27Z; not deployed)
 
 - Similar now means the Project Name, Account and Event Date all match: the client words overlap, the distinctive name words mostly match, and the event dates are within 30 days (or one side has no date yet).
