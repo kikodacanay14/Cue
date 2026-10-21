@@ -7,6 +7,7 @@
 - Threads hold everything (Kiko 06:50Z): the request and its files, the conversation, and the full card for every run, also after it is done. Finished requotes are one line per supplier with sent / in Drafts, and expand in place to the whole email with an Open in Gmail link. Links open in a new tab.
 - The progress tracker sits at the top of the thread (Kiko 06:51Z).
 - Cue's messages point to the thread instead of Widgets.
+- Cue answers in the main chat (Kiko 06:53Z): a task started there gets "On it. I started a thread for this" under Kiko's message, with the thread's reply count, title and status; a message filed into an existing thread gets "Answered in the <project> thread".
 
 ## Cue 1.7 (deployed as Version 17)
 

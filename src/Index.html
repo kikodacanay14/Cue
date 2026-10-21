@@ -366,21 +366,27 @@
   // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
   function renderMain(th) {
     var by = byId(), seen = {}, h = '';
+    // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
+    state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     state.chat.concat(outbox).forEach(function (m) {
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
-        h += msgHtml(m) + (pt ? '<button class="thread-row" data-thread="' + esc(to) + '"><i class="dot" style="background:' + threadState(pt).color + '"></i><b>↩ Open thread</b><span>' + esc(threadTitle(pt)) + '</span></button>' : '');
+        h += msgHtml(m) + (pt ? rowHtml(to, pt) : '');
         return;
       }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
-      var t = th[root], st = threadState(t), n = t.lines.length - 1, last = t.lines[t.lines.length - 1];
-      h += msgHtml(m) + '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
-        + '<i class="dot" style="background:' + st.color + '"></i><b>↩ ' + (n > 0 ? n + ' repl' + (n === 1 ? 'y' : 'ies') : 'Open thread') + '</b>'
-        + '<span>' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
-        + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</button>';
+      h += msgHtml(m) + rowHtml(root, th[root], 1);
     });
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+  }
+  // The "↩ N replies · title · status · when" line under a message in the chat; tap to open the thread.
+  function rowHtml(root, t, head) {
+    var st = threadState(t), n = t.lines.length - (head ? 1 : 0), last = t.lines[t.lines.length - 1];
+    return '<button class="thread-row" data-thread="' + esc(root) + '" aria-label="Open the thread for ' + esc(threadTitle(t)) + '">'
+      + '<i class="dot" style="background:' + st.color + '"></i><b>↩ ' + (n > 0 ? n + ' repl' + (n === 1 ? 'y' : 'ies') : 'Open thread') + '</b>'
+      + '<span>' + esc(threadTitle(t)) + '</span>' + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
+      + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</button>';
   }
   // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
   function renderThread(t) {

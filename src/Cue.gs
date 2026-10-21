@@ -150,7 +150,11 @@ function cueSend(text, files, mode, ref) {
   const s = { id, version: CUE_VERSION_, kind: 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
-  if (!asked) cueChat_('Kiko', t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : ''), id);
+  const line = t + (saved.length ? '\n📎 ' + saved.map(f => f.name).join(', ') : '');
+  // Kiko 06:53Z: from the main chat, Cue answers there and names the thread it started (like Claude's project chat).
+  if (!ref && !asked) { cueChat_('Kiko', line, ''); cueChat_('Cue', 'On it. I started a thread for this, and GPT is reading it first.', '>' + id); }
+  if (!ref && asked) cueChat_('Cue', 'Started a thread for it.', '>' + id);
+  if (!asked) cueChat_('Kiko', line, id);
   cueChat_('Cue', 'Starting a project intake. GPT is reading it first.', id);
   return { request_id: id, task: ref };
 }

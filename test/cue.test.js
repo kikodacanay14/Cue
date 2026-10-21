@@ -464,6 +464,14 @@ test('C30 a main-chat message about an existing task: Kiko\'s line stays with a 
 
 test('C31 project folder (Kiko 06:45Z): approved files go into the Canvas project folder; photos to Designs & Visuals; a failure is a note and retries once', () => {
   const t = sandbox({ similar: JBL, read: CHANGE_READ, saveFail: true });
+
+test('C32 a task started from the main chat: Kiko\'s line and Cue\'s acknowledgement stay in the chat, pointing at the new thread', () => {
+  const t = sandbox(), id = t.ctx.cueSend(INQ, [], 'intake').request_id;
+  deq(t.tabs.Chat.rows.slice(-4).map(x => [x[1], x[3]]), [['Kiko', ''], ['Cue', '>' + id], ['Kiko', id], ['Cue', id]]);
+  assert.ok(/started a thread/.test(t.tabs.Chat.rows.slice(-3)[0][2]));
+  const r = t.ctx.cueSend('also add a photo booth', [], 'intake', id).request_id;
+  assert.ok(!t.tabs.Chat.rows.some(x => x[3] === '>' + r), 'a run started inside a thread needs no pointer');
+});
   const up = n => ({ id: t.ctx.cueUpload({ name: n, type: n.endsWith('.pdf') ? 'application/pdf' : 'image/png', data: n.endsWith('.pdf') ? PDF : PNG }).id });
   const id = t.ctx.cueSend('JBL new mats, requote please', [up('S1.png'), up('brief.pdf')]).request_id; t.ctx.cueRun(id);
   assert.ok(!t.log.saved, 'nothing saved before Kiko approves');
