@@ -152,6 +152,11 @@ function cueSend(text, files, mode, ref) {
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
     if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); if (!ref && !talk.task) cueChat_('Cue', 'Started a thread for it.', '>' + out.request_id); return out; }
     if (talk.pipeline) return cuePipeStart_(String(text || '').trim(), talk.pipeline.client);   // command C11, its own thread
+    if (talk.start_ar) {   // CUE-AR: "prepare ARs for <project>" (GPT picked it in the same chat call)
+      const home = ref || talk.task || '', id = cueArStart_(talk.start_ar, String(text || '').trim(), home);
+      if (!home) cueChat_('Cue', 'Started a thread for it.', '>' + id);
+      return { request_id: id, task: home };
+    }
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -180,7 +185,7 @@ function cueSend(text, files, mode, ref) {
   return { request_id: id, task: ref };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
@@ -198,12 +203,15 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
       + 'self-contained instruction for that run naming the client or project and what to do, e.g. "JBL Booth Fabrication: the designs changed; '
       + 'requote with the suppliers from the first RFQ and attach all the new files".' },
     readiness: { type: 'string', description: 'Empty unless Kiko asks whether a project is ready, what is missing or blocking it, or for its readiness or '
-      + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' } } };
+      + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' },
+    start_ar: { type: 'string', description: 'Empty unless Kiko asks Cue to prepare, make or generate acknowledgement receipts (ARs) for a project. '
+      + 'Then the project\'s name or Canvas id (S-...) exactly as Kiko gave it, or as the task he is replying about names it.' } } };
 const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Talk like a warm, capable colleague: brief, direct, a little playful, never stiff. Reply in the language Kiko writes in. '
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), and show what '
-  + 'needs Kiko in the Widgets tab. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
+  + 'needs Kiko in the Widgets tab. Prepare acknowledgement receipts (ARs) for a project: Canvas lists who was paid, Kiko ticks and '
+  + 'approves, Canvas makes the receipts and can email supplier receipts from AccountsPayables@; set start_ar for that. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
   + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Cue also checks project readiness: when '
   + 'Kiko asks if a project is ready or what is missing, set readiness and reply in one short line that you are checking it in Canvas; Canvas '
@@ -264,7 +272,10 @@ function cueTalk_(t, ref) {
   if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
   const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
   const pipeline = r.ok && r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null;
-  return { chat: true, reply, task: pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !ready && !pipeline), start_intake: start.length >= 20 && !pipeline ? start : '', readiness: ready.length >= 2 ? ready : '' };
+  const ar = r.ok ? cueStr_(r.data.start_ar, 200).trim() : '';
+  const cmd = !!(ready || pipeline || ar);   // a command the chat call picked wins over an intake
+  return { chat: true, reply, task: pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
+    readiness: ready.length >= 2 ? ready : '', start_ar: ar.length >= 2 ? ar : '' };
 }
 
 /** Kiko answered in a task's thread: its reminder flag clears. */
@@ -278,6 +289,7 @@ function cueTaskName_(x) {
   if (x.kind === 'sweep') return 'Morning batch ' + String(x.day || '').slice(5).replace('-', '/');
   if (x.kind === 'readiness') return (x.ready && ((x.ready.match && x.ready.match.name) || x.ready.ask)) || 'the readiness check';
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
+  if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
 }
 
@@ -318,6 +330,8 @@ function cueTaskLine_(id) {
   if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
     return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
       + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
+  if (s.kind === 'ar') return 'acknowledgement receipts for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
+    + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   return (s.kind === 'change' ? 'change request for ' + ((c.match && c.match.name) || c.project || 'a project') : 'project intake for ' + ((p.client && p.client.company) || 'a client'))
     + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
@@ -347,8 +361,8 @@ function cueRunLeased_(id) {
   });
   if (got.busy) return got.s;
   const s = got.s;
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -393,6 +407,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'sweep') return cueView_(cueSweepApprove_(id, edits || {}));
   if (L && L.s.kind === 'readiness') return cueView_(cueReadyApprove_(id, edits || {}));
   if (L && L.s.kind === 'pipeline') return cueView_(cuePipeApprove_(id, edits || {}));
+  if (L && L.s.kind === 'ar') return cueView_(cueArApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
 /** Kiko says the project Canvas matched is not this one: run the request as a new project intake (costing and RFQs). */
@@ -482,10 +497,11 @@ function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
-    const name = s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.status === 'Rejected') out.push('rejected; nothing was written or sent');
+    else if (s.kind === 'ar') out.push.apply(out, cueArSummary_(s));
     else if (s.kind === 'pipeline') {
       const P = s.pipe || {}, k = P.counts || {}, d = P.drafts || [], sent = d.filter(x => x.sent_id), wait = d.filter(x => x.draft_id && !x.sent_id), bad = d.filter(x => x.selected && x.error);
       out.push((P.deals || []).length + ' open deal' + ((P.deals || []).length === 1 ? '' : 's') + ' checked: ' + (k.act || 0) + ' to act on, ' + (k.chase || 0) + ' to chase, ' + (k.data || 0) + ' to fix');
@@ -535,6 +551,9 @@ function cueView_(s) {
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
+    ar: s.kind === 'ar' && s.ar ? { project: s.ar.project || s.ar.asked || '', project_id: s.ar.project_id || '', others: s.ar.others || [], more: !!s.ar.more, max: CUE_AR_MAX_,
+      items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
+        has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
