@@ -81,14 +81,14 @@ function cueTeachLoad_() {
   try {
     if (!cueProp_('CUE_SHEET_ID', '')) return (CUE_TEACH_CACHE_ = out);
     const ss = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', ''));
-    cueTeachSeed_();
+    cueTeachSeed_(); cueSkillsSeed_();
     const mem = ss.getSheetByName(CUE_MEM_TAB_), n = mem ? mem.getLastRow() - 1 : 0;
     if (n > 0) out.facts = mem.getRange(2, 1, n, 4).getValues().filter(r => cueStyleOn_(r[0]) && String(r[2] || '').trim())
       .map(r => ({ topic: String(r[1] || '').trim(), text: cueStr_(String(r[2]).trim(), CUE_TEACH_MAX_.fact), always: cueStyleOn_(r[3]) }));
     const wf = ss.getSheetByName('Workflows'), m = wf ? wf.getLastRow() - 1 : 0, seen = {};
     if (m > 0) wf.getRange(2, 1, m, CUE_WF_TAB_.length).getValues().reverse().forEach(r => {   // newest version of each name
       const key = cueName_(r[1]); if (!key || seen[key]) return; seen[key] = 1;
-      if (cueStyleOn_(r[12]) && String(r[6] || '').trim()) out.procs.push({ name: cueStr_(String(r[1]).trim(), 120), trigger: cueStr_(String(r[5] || ''), 300), steps: cueStr_(String(r[6]), CUE_TEACH_MAX_.procChars) });
+      if (cueStyleOn_(r[12]) && String(r[6] || '').trim()) out.procs.push({ name: cueStr_(String(r[1]).trim(), 120), chat: String(r[3] || '') === 'Chat', trigger: cueStr_(String(r[5] || ''), 300), steps: cueStr_(String(r[6]), CUE_TEACH_MAX_.procChars) });
     });
   } catch (e) { console.warn('Teach Cue: ' + e); }
   return (CUE_TEACH_CACHE_ = out);
@@ -96,7 +96,7 @@ function cueTeachLoad_() {
 
 /** Text added to a call's instructions: the facts marked Always, the facts that share words with the input, and the best matching
  * process. Empty when nothing matches, so the call is exactly what it was before. */
-function cueTeachFor_(input) {
+function cueTeachFor_(input, step) {
   const T = cueTeachLoad_();
   if (!T.facts.length && !T.procs.length) return '';
   const want = cueTeachWords_(String(input || '').slice(0, CUE_TEACH_MAX_.input));
@@ -108,7 +108,7 @@ function cueTeachFor_(input) {
   let lines = '';
   always.concat(hits).forEach(f => { const l = '\n- ' + f.text; if (lines.length + l.length <= CUE_TEACH_MAX_.memChars) lines += l; });
   if (lines) out += '\n\nWhat Kiko told Cue to remember (Kiko approved these; background only: the instructions above win, and use a fact only where it helps):' + lines;
-  const best = T.procs.map(p => {
+  const best = T.procs.filter(p => !p.chat || step === 'chat').map(p => {   // a Chat process (the seeded skills) shapes chat replies only
     const name = cueTeachWords_(p.name), s = score(p.name + ' ' + p.trigger);
     return { p, s: name.length && name.every(w => want.indexOf(w) >= 0) ? s + 2 : s };
   }).filter(x => x.s >= 2).sort((a, b) => b.s - a.s)[0];
@@ -340,6 +340,41 @@ function cueTeachSeed_() {
     CUE_TEACH_SEED_.forEach(t => sh.appendRow([true, 'rules', t, true, at, 'seed']));
     P.setProperty('CUE_MEMORY_SEEDED', '1');
   } catch (e) { console.warn('Memory seed: ' + e); }
+}
+
+/* Kiko 17:26Z approved step 1 of specs/cue-skills-connectors.md: the useful parts of the Data, Superpowers and Product design
+ * skills Kiko uses in Claude, as approved processes in the Workflows tab (Use in prompts on). Written once; Kiko edits or switches
+ * them off there. Target "Chat": cueTeachFor_ adds one only to the chat call, and only when Kiko's words match its trigger,
+ * so an intake brief that says "booth design" never pulls the design review into costing. */
+const CUE_SKILLS_SEED_ = [
+  { name: 'Analyze data', trigger: 'analyze data, numbers, figures, sheet, spreadsheet, trend, compare, totals, breakdown, report, metrics',
+    steps: ['Code: Read the sheet or Canvas numbers the question names; nothing else', 'Claude: Say what the question really asks and which numbers answer it',
+      'Claude: Check the data first: blanks, duplicates, odd values, date range; say what was left out', 'Claude: Answer with the key number first, then 2 to 4 points behind it',
+      'Claude: Show the math for every total or percentage; never guess a missing number, flag it', 'Kiko: Decide what to do with it; Cue changes no data'] },
+  { name: 'Brainstorm an idea', trigger: 'brainstorm, ideas, idea, think through, options, concept, what if, explore, new approach',
+    steps: ['Claude: Ask at most 3 short questions about the goal, budget and limits, one at a time', 'Claude: Give 2 or 3 different approaches with the trade-offs of each',
+      'Claude: Recommend one and say why in one line', 'Kiko: Pick one or push back', 'Claude: Write the chosen idea as a short summary for Kiko to approve'] },
+  { name: 'Write a plan', trigger: 'plan, step by step, roadmap, timeline, checklist, to-do, rollout, how do I get this done',
+    steps: ['Claude: State the goal and what done looks like in one line each', 'Claude: Break the work into small steps, each with one owner (Claude, ChatGPT, Code, Canvas or Kiko) and a date when known',
+      'Claude: Put a Kiko approval before any step that sends, pays, signs or writes to Canvas or HubSpot', 'Claude: List risks and open questions, at most 3',
+      'Kiko: Approve the plan before any step starts'] },
+  { name: 'Review a design', trigger: 'design, review design, critique, layout, mockup, deck, slide, poster, booth design, ux copy, button text, screen',
+    steps: ['Claude: Say what the design must achieve and for whom', 'Claude: Check hierarchy, readability, spacing, colour contrast and brand fit',
+      'Claude: Point out the 3 biggest problems first, each with a concrete fix', 'Claude: Rewrite unclear text (headings, buttons, errors) in plain words',
+      'Kiko: Choose which fixes to make'] }];
+
+function cueSkillsSeed_() {
+  try {
+    const P = PropertiesService.getScriptProperties();
+    if (P.getProperty('CUE_SKILLS_SEEDED') === '1' || !cueProp_('CUE_SHEET_ID', '')) return;
+    const sh = cueWorkflowTab_(), at = new Date(cueNow_()), n = sh.getLastRow() - 1;
+    const have = n > 0 ? sh.getRange(2, 2, n, 1).getValues().map(r => cueName_(r[0])) : [];
+    CUE_SKILLS_SEED_.filter(p => have.indexOf(cueName_(p.name)) < 0).forEach(p => {
+      const steps = p.steps.map((x, i) => { const k = x.indexOf(': '); return { n: i + 1, who: x.slice(0, k), title: x.slice(k + 2), writes: '', sends: false, readback: false }; });
+      sh.appendRow([at, p.name, 1, 'Chat', 'Approved', p.trigger, cueProcLines_(steps), '', steps.filter(x => x.who === 'Claude' || x.who === 'ChatGPT').length, '', JSON.stringify(steps), 'seed', true]);
+    });
+    P.setProperty('CUE_SKILLS_SEEDED', '1');
+  } catch (e) { console.warn('Skills seed: ' + e); }
 }
 
 /** Saves one rule straight away (on, used in every task) and asks Keep or Undo where Kiko said it. Returns the ask id. */
