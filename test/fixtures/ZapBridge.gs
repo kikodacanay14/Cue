@@ -107,18 +107,26 @@ const ZB_ACTIONS_ = {
     kind: 'queue', needsProject: false,
     schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
       proposal: { type: 'object', required: true, fields: {
+        // C1 (Kiko approved the intake spec 07:46Z): every contact (G2), the proposal deadline and schedule (G1, G3), and an
+        // empty date for a Date TBC project (G4). Canvas cleans and re-checks all of it in aiIntakeSubmit_.
         client: { type: 'object', required: true, fields: { company: { type: 'string', max: 200 }, contact: { type: 'string', max: 200 },
-          email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } },
+          email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 },
+          contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, role: { type: 'string', max: 100 },
+            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } } } },
         event: { type: 'object', required: true, fields: { name: { type: 'string', max: 200 }, type: { type: 'string', max: 100 },
-          date: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ }, venue: { type: 'string', max: 200 }, city: { type: 'string', max: 100 },
-          pax: { type: 'number', min: 0 }, budget: { type: 'string', max: 100 } } },
+          date: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ }, deadline: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
+          schedule: { type: 'object', fields: { ingress: { type: 'string', max: 100 }, hours: { type: 'string', max: 100 }, egress: { type: 'string', max: 100 } } },
+          venue: { type: 'string', max: 200 }, city: { type: 'string', max: 100 },
+          pax: { type: 'number', min: 0 }, budget: { type: 'string', max: 100 }, date_tbc: { type: 'boolean' } } },
         lines: { type: 'array', required: true, minItems: 1, maxItems: 40, items: {
           key: { type: 'string', required: true, re: /^R\d{1,3}$/ }, category: { type: 'string', max: 200 },
           description: { type: 'string', required: true, nonBlank: true, max: 2000 }, search_terms: { type: 'string', max: 80 },
           quantity: { type: 'number', required: true, positive: true }, occurrence: { type: 'number', positive: true },
           execution: { type: 'string', required: true, oneOf: ['In House', 'Outsourced'] }, why: { type: 'string', max: 600 },
           unit_cost: { type: 'number', min: 0 }, cost_basis: { type: 'string', required: true, oneOf: ['past quotes', 'owned stock', 'none', 'set by Kiko', 'market research'] },
-          price_source: { type: 'string', max: 60 },
+          price_source: { type: 'string', max: 60 }, status: { type: 'string', oneOf: ['included', 'optional', 'excluded'] },
+          unit_price: { type: 'number', min: 0 }, price_basis: { type: 'string', oneOf: ['BSE package', 'BSE price list', 'past CE prices', 'market research', 'set by Kiko', 'none'] },
+          price_sources: { type: 'array', maxItems: 8 },
           sources: { type: 'array', maxItems: 8 }, note: { type: 'string', max: 600 } } },
         rfqs: { type: 'array', maxItems: 20, items: { category: { type: 'string', max: 200 }, keys: { type: 'array', required: true, maxItems: 40 },
           subject: { type: 'string', max: 200 }, body: { type: 'string', required: true, max: 5000 }, suppliers: { type: 'array', maxItems: 10 } } },
@@ -129,6 +137,12 @@ const ZB_ACTIONS_ = {
     // RFQ drafts in info@ for an Applied intake (canvas-ai/AiIntake.gs aiIntakeDrafts_). Drafts only, never sent.
     kind: 'queue', needsProject: false, schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ } },
     run: (r) => aiIntakeDrafts_(r.args.request_id)
+  },
+  make_project_folders: {
+    // C1 G6 "Make folders again": Canvas's own pfEnsure_ (the folders Add New Project makes) for a project whose folders are
+    // missing, then every folder link read back. It only adds missing folders and fills empty link cells; nothing is moved.
+    kind: 'queue', needsProject: true, schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ } },
+    run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : aiIntakeMakeFolders_(r.project_id); }
   },
   get_project: {
     kind: 'read', needsProject: true, schema: { parts: { type: 'array', maxItems: 10 } },
