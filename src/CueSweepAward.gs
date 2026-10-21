@@ -1,6 +1,6 @@
 /* CUE-2026-10-21. CE award chasers, chasing sweep task 3 (spec: specs/ce-award-chasers.md, Kiko approved 08:11Z).
  * Clients with a CE and no award decision get a polite follow-up in the thread Kiko sent the CE in.
- * - Who does what: Canvas lists the projects in For Client Awarding (get_project_board; Canvas V187+ adds awaiting.since, the
+ * - Who does what: Canvas lists the projects in For Client Awarding (get_project_board; the next Canvas release adds awaiting.since, the
  *   day the status changed, and the active CE total). Code finds the CE email in Kiko's Sent Gmail (CEs only go from Kiko's own
  *   Gmail, Kiko 08:10Z), checks for a client reply, counts chasers and applies the timing. ChatGPT drafts inside the sweep's one
  *   combined call (no AI call of its own). Kiko approves; client chasers never send on their own.

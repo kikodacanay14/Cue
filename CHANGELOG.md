@@ -16,7 +16,7 @@ The chasing sweep engine and task basics (backlog task 1; spec `canvas-integrati
 Chasing sweep task 3 (spec `canvas-integration/specs/ce-award-chasers.md`, approved by Kiko 21 Oct 08:11Z). New file `src/CueSweepAward.gs`, a sweep kind.
 
 - **What it finds.** Projects in **For Client Awarding** on the Canvas board. For each, Cue searches Kiko's Sent Gmail for the CE email (CEs only go from Kiko's own Gmail, Kiko 08:10Z) and reads that thread's headers.
-- **When.** First chaser 3 business days after "waiting since" (from Canvas V187's `awaiting.since`, or the CE email date before V187), then every 5 business days, at most 3. Chasers Kiko sent by hand in the thread count, and so does a chaser saved with Drafts only.
+- **When.** First chaser 3 business days after "waiting since" (from `awaiting.since` in the next Canvas release, or the CE email date until then), then every 5 business days, at most 3. Chasers Kiko sent by hand in the thread count, and so does a chaser saved with Drafts only.
 - **Flags with no draft.** The client replied: "have a look". Chased 3 times: "call the client or mark Not Awarded". Event within 7 days or past: urgent. No CE email found: chase by hand.
 - **Who does what.** Canvas: the board read the sweep already makes. Code: Gmail search and timing. ChatGPT: the sweep's one combined draft call, with no call of its own. The CE number and total show on the card line but are kept out of the facts given to ChatGPT. Client chasers only go out when Kiko approves.
 - The file name sorts after `CueSweep.gs` on purpose, because Apps Script runs files in order and `cueKind_` must exist first.

@@ -783,7 +783,7 @@ test('A7 no CE email in Sent: chase by hand (only once it is due); projects in o
   const u = awardBox({ thread: null, projects: [AW({ awaiting: { since: '2026-10-20' } })] }); u.ctx.cueSweep();
   assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])));
 });
-test('A8 Canvas before V187 (no awaiting): waiting since falls back to the CE email date; Drafts only counts as a chaser in the log', () => {
+test('A8 Canvas without awaiting (before the next release): waiting since falls back to the CE email date; Drafts only counts as a chaser in the log', () => {
   const t = awardBox({ projects: [AW({ awaiting: undefined })] }); t.ctx.cueSweep(); const [it] = awItems(t);
   assert.strictEqual(it.due_since, '2026-10-15'); assert.ok(/CE sent 2026-10-15, 4 business days/.test(it.why));
   t.ctx.cueApprove(batchOf(t).id, { send: false }); assert.ok(!t.log.sent);
