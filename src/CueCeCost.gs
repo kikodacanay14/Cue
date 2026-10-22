@@ -88,6 +88,10 @@ function cueCecFind_(s) {
   }
   c.project = { id: m.project_id, name: m.name || m.project_id };
   c.others = hits.slice(1, 5).map(h => ({ id: h.project_id, name: h.name }));
+  // PC recheck 22 Oct 05:00Z: an older CE costs card for the same project stayed open at Needs you next to the new one.
+  // The new check replaces it; only a card never approved closes (an approved one may have saved lines).
+  cueCloseSuperseded_(x => x.id !== s.id && x.kind === 'cecost' && !x.approved_at && x.cec && x.cec.project && x.cec.project.id === c.project.id,
+    'Closed. A newer CE costs check for ' + c.project.name + ' replaced this one. Nothing was written to Canvas.');
   s.stage = 'Reading the email';
 }
 

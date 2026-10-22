@@ -4144,6 +4144,53 @@ test('CC11 a readiness check started from the main chat into an earlier thread s
   assert.ok(u.tabs.Chat.rows.some(r => /^>/.test(r[3]) && /^On it\. Continuing in the .+ thread\.$/.test(r[2])), JSON.stringify(u.tabs.Chat.rows.slice(-3)));
 });
 
+/* ---------- 1.26.4: PC recheck of 1.26.3 on /dev (22 Oct 05:00Z) ---------- */
+test('CC12 "redo bid check" in a Bid check thread that already holds a phase 1 intake card runs a fresh bid check; the stray card closes; Kiko\'s line shows in the thread', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put({ id: 'cue-20261022104400-b1d5', kind: 'bids', created: '2026-10-21T02:44:00.000Z', status: 'Done', bids: { title: 'Bid check 10/22 10:44', items: [] }, text: 'check bids' });
+  put({ id: 'cue-20261022104900-a1a1', kind: 'intake', phased: true, phase: 1, ref: 'cue-20261022104400-b1d5', created: '2026-10-21T02:49:00.000Z', status: 'Needs you', stage: 'Phase 1', text: 'redo bid check', notes: [] });
+  const out = t.ctx.cueSend('redo bid check', [], '', 'cue-20261022104900-a1a1');
+  const b = t.ctx.cueLoad_(out.request_id).s;
+  deq([b.kind, b.ref, t.log.plans || 0, chatCalls(t)], ['bids', '', 0, 0], 'a bid check, no plan card, no chat call');
+  deq(t.ctx.cueLoad_('cue-20261022104900-a1a1').s.status, 'Closed');
+  assert.ok(t.tabs.Chat.rows.some(r => r[1] === 'Kiko' && r[2] === 'redo bid check' && r[3] === 'cue-20261022104900-a1a1'), 'Kiko\'s line shows in the thread');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === 'cue-20261022104900-a1a1' && /bid check, not a project intake\. Nothing was written to Canvas/.test(r[2])));
+  const w = sandbox({ tutor: true, plan: PLAN() }), ws = w.tabs.Requests;
+  [{ id: 'cue-20261022104400-b1d5', kind: 'bids', status: 'Done', bids: { title: 'Bid check', items: [] }, text: 'x' },
+   { id: 'cue-20261022104900-a1a2', kind: 'intake', phased: true, phase: 2, ref: 'cue-20261022104400-b1d5', status: 'Needs you', canvas: { project_id: 'S-31628060SP' }, text: 'x', notes: [] }]
+    .forEach(s => { ws.appendRow([s.id]); w.ctx.cueSave_(ws, ws.getLastRow(), s); });
+  w.ctx.cueSend('run it again', [], '', 'cue-20261022104900-a1a2');
+  deq(w.ctx.cueLoad_('cue-20261022104900-a1a2').s.status, 'Needs you', 'a card that already saved to Canvas stays open');
+});
+
+test('CC13 Go on a readiness plan card that joins an earlier thread: one "On it. Continuing in …" line in the main chat, and the page shows it', () => {
+  const t = readyRun();
+  const plan = Object.assign({}, ASK, { task: t.id, sure: true, choices: [], plan: { reading: 'Readiness check for Acme', pattern: 'is <project> ready?', steps: [{ do: 'Read Canvas', who: 'Canvas' }] } });
+  const u = sandbox({ tutor: true, plan, similar: ACME, sent: READY_MAIL });
+  const sh = u.tabs.Requests; sh.appendRow([t.id]); u.ctx.cueSave_(sh, sh.getLastRow(), t.ctx.cueLoad_(t.id).s);
+  u.ctx.cueSend('is the Acme party ready?', [], '');
+  const go = u.ctx.cueAskPick(askId(askLine(u)), 'go');
+  deq(u.ctx.cueLoad_(go.request_id).s.kind, 'readiness');
+  const ptr = u.tabs.Chat.rows.filter(r => /^>/.test(r[3]));
+  deq(ptr.map(r => r[2]), ['On it. Continuing in the Acme Year-End Party thread.'], 'one pointer, never also "Answered in"');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const a = html.indexOf('function renderMain('), body = html.slice(a, html.indexOf('\n  }\n', a) + 4);
+  assert.ok(/pq && !pq\.open && !pq\.where/.test(body), 'a pointer right after a main-chat Go tap shows even when the thread showed before');
+});
+
+test('CC14 a new CE costs check for the same project closes the older card that was never approved; an approved one stays', () => {
+  const t = cecRun();
+  const old = t.v; deq(old.status, 'Needs you');
+  const out = t.ctx.cueSend(CEC_ASK, [], '');
+  t.ctx.cueRun(out.request_id);
+  deq([t.ctx.cueLoad_(old.id).s.status, t.ctx.cueLoad_(out.request_id).s.status], ['Closed', 'Needs you']);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === old.id && /A newer CE costs check for JBL Booth Fabrication replaced this one\. Nothing was written to Canvas/.test(r[2])));
+  t.ctx.cueApprove(out.request_id, {});
+  const again = t.ctx.cueSend(CEC_ASK, [], ''); t.ctx.cueRun(again.request_id);
+  assert.notStrictEqual(t.ctx.cueLoad_(out.request_id).s.status, 'Closed', 'an approved card is never closed');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

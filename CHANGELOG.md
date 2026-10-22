@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.26.4: fixes from the /dev PC recheck of 1.26.3 (22 Oct 05:00Z)
+
+- "redo bid check" in the "Bid check 10/22 10:44" thread still re-ran the PHASE 1 intake card that 1.26.2 had left there, and Kiko's message never showed. The waiting card took the reply before the bid route saw it. Now bid words in any thread whose root is a Bid check run a fresh bid check first, before any waiting card. Kiko's line shows in that thread. The stray intake card there is closed with "This thread is a bid check, not a project intake", but only when it was never approved and saved nothing to Canvas.
+- After Go on a readiness plan card into the Trick or Treat – Manila thread, the main chat showed no "On it" line. The server wrote it, but the page shows each thread only once in the main chat, and the line came after other lines. Now the chat call's own pointer says "On it. Continuing in the <name> thread." when a readiness check, email, supplier search or map joins a thread, and no second line is added. The page also shows a pointer that comes right after a Go tap in the main chat.
+- The old CE costs card for JBL Booth stayed open at Needs you next to the new one. A new CE costs check for the same project now closes an older card that was never approved, with "A newer CE costs check replaced this one. Nothing was written to Canvas." A card that was approved stays open.
+- Tests: new CC12 to CC14 (303/303). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
 ## Cue 1.26.3: fixes from the /dev PC check of 1.26.2 (22 Oct 04:45Z)
 
 - CE costs: Zaina Yu's quote for JBL Booth (AMI-66858OJB-V1) is one VAT-inclusive lot of ₱616,000. Cue had ticked Booth Area and Flooring ₱615,000 to ₱616,000 and left every other line blank. A price the email gives for several lines or the whole job is now a lot: the card shows it as one price, with what those lines add up to now, and ticks nothing, so Kiko types each line's unit cost or asks for a breakdown. ChatGPT is told to list lots separately. If it still puts a lot, package, all-in or VAT-inclusive total on a single line while the others are blank, code takes it off that line.

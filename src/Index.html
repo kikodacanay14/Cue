@@ -1072,7 +1072,8 @@
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
         // pointers (updates, "Summary for …") live in the thread only.
         // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
-        var answers = prev && prev.who === 'Kiko' && !prev.request_id;
+        // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
+        var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
