@@ -187,9 +187,11 @@ function cueTutorPick_(o, pick, note, done) {
   }
   if (pick === 'go') {
     cueChat_('Kiko', 'Go', done);
-    try { const p = cuePatApprove_(o.key, o.cmd, o.text, o.data); if (p.graduated && p.n === CUE_TUTOR_MAX_.graduate) cueChat_('Cue', 'That is 3 in a row, so "' + o.key + '" now runs without asking. Tap "Ask me again next time" under any run to undo it.', done); }
-    catch (e) { console.warn('Pattern: ' + e); }
-    try { cueRouteSave_(o.text, o.cmd); } catch (e) { console.warn('Routing example: ' + e); }
+    if (!CUE_DEV_) {   // a test build's taps don't teach Kiko's real patterns or routing examples
+      try { const p = cuePatApprove_(o.key, o.cmd, o.text, o.data); if (p.graduated && p.n === CUE_TUTOR_MAX_.graduate) cueChat_('Cue', 'That is 3 in a row, so "' + o.key + '" now runs without asking. Tap "Ask me again next time" under any run to undo it.', done); }
+      catch (e) { console.warn('Pattern: ' + e); }
+      try { cueRouteSave_(o.text, o.cmd); } catch (e) { console.warn('Routing example: ' + e); }
+    }
     if (o.data) return cueSendWith_(o.text, [], '', o.ref, cueTalk_(o.text, o.ref, '', { replay: o.data }));
     return cueRouteStart_(o.text, o.cmd, o.cmd === 'intake' ? null : cueRouteTalk_(o.cmd, (o.cands || {})[o.cmd], o.found));
   }

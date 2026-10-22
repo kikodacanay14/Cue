@@ -260,13 +260,14 @@
   <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
       <section data-sec="procs" hidden><div class="label" style="margin-top:0">Processes</div><div id="w-procs"></div></section>
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
+      <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
@@ -977,14 +978,14 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -999,7 +1000,7 @@
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -1117,7 +1118,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -1280,6 +1281,7 @@
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
     if (sec === 'usage') loadUsage();
+    if (sec === 'sched') loadSched();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -1294,6 +1296,39 @@
   }
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
+  var schedList = null, schedErr = '';
+  function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }
+  function renderSched() {
+    var L = schedList || [];
+    setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
+      + L.map(function (x) {
+        return '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px">' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
+          + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
+          + '<div class="small muted" style="margin-top:4px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
+          + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
+          + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
+          + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
+          + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>';
+      }).join('')
+      + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
+      + 'Add one in the chat, e.g. "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".</div>');
+  }
+  function schedDone(r) { schedList = r; schedErr = ''; $('w-sched')._h = null; renderSched(); }
+  function schedFail(e) { schedErr = (e && e.message) || String(e); $('w-sched')._h = null; renderSched(); }
+  $('w-sched').addEventListener('change', function (e) { var c = e.target.closest('[data-sc-on]'); if (!c) return; c.disabled = true;
+    call('cueSchedSet', [c.getAttribute('data-sc-on'), { on: c.checked }], schedDone, schedFail); });
+  $('w-sched').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sc-act]'); if (!b) return;
+    var act = b.getAttribute('data-sc-act'), id = b.getAttribute('data-id'), x = (schedList || []).filter(function (y) { return y.id === id; })[0] || {};
+    if (act === 'open') { $('settings').hidden = true; return goThread(rootOf(id, byId())); }
+    if (act === 'run') return ask('Run "' + x.name + '" now?', 'It starts the same task as at its time. Nothing sends without your Approve.', null, 'Run now',
+      function () { b.disabled = true; call('cueSchedRunNow', [id], function (r) { schedDone(r); refresh(); }, schedFail); });
+    if (act === 'edit') return ask('New time for "' + x.name + '"', 'Now: ' + x.when + ' (Manila). Say the days and time.', 'e.g. weekdays 8am, every Tue 9am, 15th of the month 4pm', 'Save',
+      function (v) { if (!v) return; b.disabled = true; call('cueSchedSet', [id, { when: v }], schedDone, schedFail); });
+    if (act === 'del') return ask('Delete "' + x.name + '"?', 'It stops running. Tasks it already started stay.', null, 'Delete',
+      function () { b.disabled = true; call('cueSchedDelete', [id], schedDone, schedFail); });
+  });
   $('avatar').onclick = function () { settingsOpen(); };
   $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
   $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };
@@ -1908,6 +1943,45 @@
       + (waiting ? '<button class="btn ghost" data-act="bids-close" data-id="' + esc(r.id) + '">Done for now</button>' : '') + '</div>';
     return h + metricLine(r) + '</div>';
   }
+  // ChatGPT scheduled tasks (CueGptTasks.gs, specs/lead-gen-tasks.md + cleanup-review-tasks.md). Only new findings; every tap is Kiko's.
+  function gtCardHtml(r) {
+    var G = r.gt || { checks: [], items: [], steps: [], groups: [] }, waiting = r.status === 'Needs you', passed = G.checks.filter(function (c) { return c.ok; }).length;
+    if (r.status === 'Failed') return '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task</div><b>' + esc(G.task || 'ChatGPT task') + ' stopped</b>'
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="small muted">Nothing was sent or changed.</div>'
+      + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div>' + metricLine(r) + '</div>';
+    if (r.status === 'Working') return '<div class="card" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task</div><b>' + esc(G.title || G.task) + '</b><div class="small muted">' + esc(r.stage || 'Working') + '…</div></div>';
+    var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t || 'link') + '</a>' : esc(t); };
+    var item = function (f) {
+      var h = '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(f.title || f.company) + '</b>' + (f.confidence === 'low' ? ' <span class="tag flag">low confidence</span>' : '')
+        + '<div class="small muted">' + esc([f.company, f.person, f.due ? 'Due ' + f.due : ''].filter(Boolean).join(' · ')) + '</div>'
+        + (f.detail ? '<div class="small" style="margin-top:4px">' + esc(f.detail) + '</div>' : '')
+        + (f.evidence.length ? '<div class="small muted" style="margin-top:4px">' + f.evidence.map(function (e) { return link(e.url, e.label || 'source'); }).join(' · ') + '</div>' : '')
+        + (f.next_action ? '<div class="small" style="margin-top:4px">Next: ' + esc(f.next_action) + '</div>' : '');
+      if (f.email && f.email.body) h += '<details style="margin-top:6px"><summary class="small" style="display:inline">Email' + (f.email.to ? ' to ' + esc(f.email.to) : ' (no address)') + ': ' + esc(f.email.subject) + '</summary>'
+        + '<div class="small" style="white-space:pre-wrap;margin-top:4px">' + esc(f.email.body) + '</div></details>';
+      if (f.error) h += '<div class="err">' + esc(f.error) + '</div>';
+      var b = [];
+      if (f.email && f.email.body) b.push(f.drafted ? '<span class="tag pref">Draft in Gmail</span>' : '<button class="btn ghost" data-act="gt-draft" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Draft email</button>');
+      if (f.hubspot && f.hubspot !== 'none') b.push(f.in_hubspot ? '<span class="tag pref">In HubSpot</span>' : '<button class="btn ghost" data-act="gt-hubspot" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Add ' + (f.hubspot === 'task' ? 'task' : 'note') + ' to HubSpot</button>');
+      if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">Open in Canvas</a>');
+      return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
+    };
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task · ' + esc(G.when) + '</div><b style="font-size:17px;color:#fff">' + esc(G.title) + '</b>'
+      + '<div class="small muted">' + esc(G.summary) + '</div>' + (G.said ? '<div class="small" style="margin-top:4px">' + esc(G.said) + '</div>' : '');
+    (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
+    h += '<details style="margin-top:8px"><summary class="small" style="display:inline">Process check: ' + passed + ' of ' + G.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + G.checks.map(function (c) { return '<li>' + (c.ok ? '✓ ' : '✗ ') + esc(c.label) + (c.detail ? ' <span class="muted">' + esc(c.detail) + '</span>' : '') + '</li>'; }).join('')
+      + G.steps.map(function (x) { return '<li class="muted">Step ' + x.step + (x.done ? ' done' : ' not done') + (x.note ? ': ' + esc(x.note) : '') + '</li>'; }).join('') + '</ul></details>';
+    G.groups.forEach(function (g) { var list = G.items.filter(function (f) { return f.group === g; });
+      if (list.length) h += '<div class="label">' + esc(g) + ' (' + list.length + ')</div>' + list.map(item).join(''); });
+    h += '<details style="margin-top:10px"><summary class="small" style="display:inline">What was checked</summary><div class="small" style="margin-top:4px">' + esc(G.read) + '</div>'
+      + (G.coverage.checked ? '<div class="small" style="margin-top:4px">' + esc(G.coverage.checked) + '</div>' : '')
+      + (G.coverage.not_checked ? '<div class="small muted" style="margin-top:4px">Not checked: ' + esc(G.coverage.not_checked) + '</div>' : '') + '</details>';
+    var drafts = G.items.filter(function (f) { return f.email && f.email.body && !f.drafted; }).length;
+    if (waiting) h += '<div class="actions">' + (drafts > 1 ? '<button class="btn" data-act="gt-drafts" data-id="' + esc(r.id) + '">Draft all ' + drafts + ' emails</button>' : '')
+      + '<button class="btn ghost" data-act="gt-close" data-id="' + esc(r.id) + '">Done for now</button></div>';
+    return h + metricLine(r) + '</div>';
+  }
   // Supplier search (Kiko 07:54Z, specs/vendor-management.md). Canvas's facts first; Claude's lines are marked as Claude's.
   function vendorCardHtml(r) {
     var V = r.vendor || {}, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', done = r.status === 'Done';
@@ -2290,6 +2364,7 @@
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
+    if (r.kind === 'gtask') return gtCardHtml(r);
     if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
@@ -2595,6 +2670,9 @@
         if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
         if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
+        if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
+        if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
+        if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);

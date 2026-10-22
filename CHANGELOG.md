@@ -26,6 +26,37 @@
 - When Cue sees a stored trigger version other than its own, it reinstalls every timed job it uses. That covers the sweep, the 07:00 bid check and now the Monday HubSpot check (`cueHsWeekly`). Rolling back from the single-trigger scheduler build (CUE_TRIGGERS_V 5) to this version therefore brings all three back the next time Cue is opened. Nothing changes while the stored version is 4.
 - Tests: new S1b; S1 and BD9 now expect the Monday HubSpot trigger.
 
+## Cue 1.26: fixes from the /dev PC test (01:41Z)
+
+- Settings, Scheduled tasks showed every time as "Sat Dec 30 1899 07:00:00 GMT+0800". Sheets had turned the Time cell into a date. Cue now reads such a cell back as HH:mm and writes times as text, so the cell stays a time of day. Rows already in the sheet read correctly without being changed.
+- Test taps on the test link (/dev) graduated Kiko's real tutor pattern for readiness. A preview now marks the copy it pushes to /dev as the test build (`CUE_DEV_`), and Go there never counts toward graduation or saves a routing example. src/ and every live version keep `CUE_DEV_ = false`.
+- Tests: new SC9 and TU21; SC2 expects the time written as text.
+
+## Cue 1.26: task scheduler (not deployed)
+
+Kiko 21 Oct 19:12Z "we need a task scheduler", 19:13Z "run a command and tell Cue to Schedule a task followed by the task we want it to do". Spec: `specs/task-scheduler.md`, Kiko "Go" 22 Oct 00:57Z.
+
+- **Chat:** `Schedule <when> <command>` (for example "Schedule every Monday 9am pipeline review", "Schedule Friday 3pm remind me to send the invoice", "Schedule 15th of the month 4pm …") shows a Save / Not that card. The time is read in code, so there is no AI call. Cue asks when the time is missing or already passed, and refuses intake because an intake needs an inquiry. `show my schedules` lists every schedule.
+- **Settings > Scheduled tasks:** every timed job, both Cue's own and Kiko's, with on/off, Change time (in words), Run now, Open last result, and Delete (Kiko's only).
+- **One trigger:** a new Schedule tab in the Cue sheet holds every timed job. The existing 5-minute `cueResume` starts due rows, at most 3 per tick, after its other work. The `cueSweep`, `cueBidsDaily` and `cueHsWeekly` triggers are removed (`CUE_TRIGGERS_V` = 5), so Cue keeps only `cueResume`. Their jobs are system rows: Morning sweep daily 07:00, Bid opportunities daily 07:00 and Monday HubSpot check Mon 06:00, all on. HubSpot sales review Thu 08:00 starts off because it needs CUE_HUBSPOT_TOKEN. The sweep row's hour and Chaser rules' "build at" stay in step.
+- **ChatGPT tasks:** when `cueGtSchedules_` is in Cue (CueGptTasks.gs, separate branch), its tasks become system rows, off until Kiko turns them on, and each run calls `cueGtScheduled(key)`.
+- **What a run does:** a reminder posts "⏰ Reminder: …" with no AI call. Sweep, bids, HubSpot and pipeline start their tasks directly with no routing call. Any other command runs as if Kiko had typed it (one chat call, and the tutor card if tutor mode is on). A run only prepares: drafts and approval cards, nothing sent. A late run says how late it was, and a missed time runs once, never piled up. A tick with nothing due reads one Script Property and does not open the sheet.
+- Tests: 271 of 271 pass (new SC1 to SC7; S1, R6, C44 and BD9 updated for the single trigger).
+
+## Cue 1.26: ChatGPT scheduled tasks (ships with the task scheduler)
+
+Kiko's "Go" 22 Oct 00:55Z on specs/lead-gen-tasks.md and specs/cleanup-review-tasks.md. New `src/CueGptTasks.gs`, kind `gtask`.
+
+- 12 scheduled skills from Kiko's Lead Generation Handbook and Cleanup and Review Schedule, plus 2 on request. Each one: code reads the records the skill names (corporate funnel workbook, Shared Task Tracker, TRI, Supplier Database, Admin Directory, BSE transfers, personal expense sheets, Kiko's work Gmail, Canvas board and readiness), ChatGPT follows the skill's numbered steps in one call (web search for the research skills), and code checks the steps were followed.
+- Process check on every card: every step reported, coverage stated, evidence on every finding, no guessed email address (removed when not in any record), nothing claimed as sent or changed, only new findings (the new "ChatGPT findings" tab in the Cue sheet). Friday readiness also checks every eligible project was rated.
+- Taps per finding: Draft email (a Gmail draft, never sent), Draft all (separate drafts), Add note or task to HubSpot (Kiko 19:54Z: HubSpot + Canvas; needs CUE_HUBSPOT_TOKEN with write access for companies, notes and tasks), Open in Canvas (Accounts, Suppliers or the project).
+- Outreach holds (Accenture, IBM) never get a draft. LinkedIn, Facebook and sign-in pages are listed as not checked.
+- Scheduler entry `cueGtScheduled(key)` (once per Manila day per key) and `cueGtSchedules_()` for the Schedule rows: repeat events 15th 07:00, moved contacts 16th 09:00, account research Tue 09:00, prospect follow-ups weekdays 08:00, monthly email 15th 16:00, daily plan 08:00, supplier files Mon 09:00, payment records Tue 09:00, project records Wed 09:00, funnel records Thu 09:00, production readiness Fri 09:00, personal spending 19:00. No trigger of its own.
+- Chat words start each one with no chat call ("plan my day", "prospect follow-ups", "account research", "friday readiness", "personal spending report"...).
+- PC test fixes (22 Oct, /dev): a record that could not be read now fails a new check "Every record read" and the card says "Incomplete: N records could not be read", status Needs you, never "Nothing new, all passed". Project records and Friday readiness retry Canvas's project list once, then stop with Try again (the test saw get_project_board answer HTTP 404 with no JSON; the action exists in Canvas V195). "What was checked" drops ChatGPT's talk of its instructions or the records tags.
+- A ChatGPT task's thread and its summary line carry the skill's name (for example "Daily plan 10/22"), never the "Project intake" default.
+- Tests: 275 of 275 pass (new GT1 to GT11).
+
 ## Cue 1.25.2: Request payment fill-ins from the 1.25.1 PC test (not deployed)
 
 - Request payment now passes the card's expense type (`etype`) as well as the scope. Canvas fills Expense type from it once the CUE-LINKS etype patch ships (CanvasWorkspace, same branch); an older Canvas ignores it.

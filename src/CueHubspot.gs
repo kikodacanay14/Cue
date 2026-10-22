@@ -246,7 +246,7 @@ function cueHsView_(s) {
 }
 
 /* ---------- every Monday ---------- */
-/** Time trigger, Mondays 06:00 Manila. Starts one scan a week; never applies anything. */
+/** Was the Monday 06:00 trigger; the scheduler's "Monday HubSpot check" row replaced it (CueSchedule.gs). Starts one scan a week; never applies anything. */
 function cueHsWeekly() {
   const today = Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila', 'yyyy-MM-dd');
   const props = PropertiesService.getScriptProperties();
@@ -255,9 +255,5 @@ function cueHsWeekly() {
   const id = cueHsStart_('Monday HubSpot check', 'weekly').request_id;
   return cueRunLeased_(id);
 }
-function cueHsTrigger_() {
-  try {
-    if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueHsWeekly'))
-      ScriptApp.newTrigger('cueHsWeekly').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(6).create();
-  } catch (e) { console.warn('HubSpot weekly trigger: ' + e); }
-}
+/** The Monday 06:00 run is the "Monday HubSpot check" row of the task scheduler (CueSchedule.gs), so there is no trigger to install. */
+function cueHsTrigger_() {}

@@ -188,7 +188,7 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
       if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
-      if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
+      if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; if (o.board404 && log.board <= o.board404) return resp(404, '<html>Not Found</html>'); return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
       if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
       if (body.action === 'finance_snapshot') { log.snapArgs = body.args; return resp(200, { ok: true, status: 'Completed', result: o.snap || SNAP }); }
@@ -322,6 +322,8 @@ function sandbox(o = {}) {
       if (pth === '/crm/v4/associations/deals/contacts/batch/read') return resp(207, { results: body.inputs.map(x => ({ from: { id: x.id }, to: (HS.assoc[x.id] || []).map(c => ({ toObjectId: Number(c) })) })) });
       if (pth === '/crm/v3/objects/contacts/batch/read') return resp(200, { results: body.inputs.map(x => ({ id: x.id, properties: { email: HS.contacts[x.id] } })) });
       if (pth === '/account-info/v3/details') return resp(200, { portalId: 247723523 });
+      if (pth === '/crm/v3/objects/companies/search') { const q = body.filterGroups[0].filters[0].value; return resp(200, { results: (o.hsCompanies || []).filter(c => c.name.toLowerCase().indexOf(q.toLowerCase()) >= 0).map(c => ({ id: c.id, properties: { name: c.name } })) }); }
+      if (pth === '/crm/v3/objects/notes' || pth === '/crm/v3/objects/tasks') return o.hsWrite403 ? resp(403, { message: 'scope' }) : resp(201, { id: 'hs-' + log.hs.length });
       throw new Error('unexpected HubSpot call ' + pth);
     }
     if (o.pipeMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
@@ -963,14 +965,10 @@ function sweepBox(o = {}, kind) {
 const chase = t => (t.tabs['Chase log'] ? t.tabs['Chase log'].rows.slice(1) : []);
 const batchOf = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0];
 
-test('S1 the 07:00 PH sweep trigger is installed by setup and when Cue opens; the resume trigger stays', () => {
+test('S1 Cue has one trigger, the 5-minute resume, installed by setup and when Cue opens (the 07:00 sweep is a Schedule row since the scheduler)', () => {
   const t = sandbox(); t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila'], 'bid check at 07:00 (Kiko 19:50Z)');
-  t.ctx.cueSetup(); deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep'], 'not installed twice (setup also adds the Monday HubSpot check)');
-});
-test('S1b rollback from a single-trigger build (stored CUE_TRIGGERS_V newer than 4) reinstalls the sweep, bid and Monday HubSpot triggers', () => {
-  const t = sandbox(); t.props.CUE_TRIGGERS_V = '5'; t.log.triggers = ['cueResume']; t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
+  deq(t.log.triggers.slice(), ['cueResume']);
+  t.ctx.cueSetup(); deq(t.log.triggers.slice(), ['cueResume'], 'not installed twice, and setup adds no Monday HubSpot trigger');
 });
 test('S2 nothing to chase: no card, one chat line, no AI call, no Canvas read when no kind asks', () => {
   const t = sweepBox({}, null); t.ctx.cueSweep();
@@ -1494,9 +1492,9 @@ test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 
   t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
   assert.strictEqual(chase(t)[0][6], '2026-10-22');
 });
-test('R6 moving the build time moves the 07:00 trigger', () => {
+test('R6 moving the build time moves the sweep\'s Schedule row (no trigger)', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
-  assert.strictEqual(t.log.triggers.filter(h => h === 'cueSweep').length, 1); deq(t.log.triggerTz.cueSweep, [6, 'Asia/Manila']);
+  assert.ok(!t.log.triggers.some(h => h === 'cueSweep')); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Daily 06:00');
 });
 
 test('X1 an expense is recognised from Kiko\'s own words, in code; an inquiry is not', () => {
@@ -1724,7 +1722,7 @@ test('C44 HubSpot: a clean scan needs no AI call; Claude failing leaves the unsu
   const t = hsToCard({ fail: { cost: () => resp(500, {}) } }), all = [].concat.apply([], t.v.hs.groups.map(g => g.items));
   assert.strictEqual(all.filter(x => x.key === 'H2')[0].tick, false); assert.ok(t.v.notes.some(n => /Claude could not check/.test(n)));
   const w = sandbox({ cost: HS_CHECK }); const a = w.ctx.cueHsWeekly(); assert.strictEqual(a.status, 'Needs you'); assert.strictEqual(a.hs.title, 'Monday HubSpot check');
-  assert.strictEqual(w.ctx.cueHsWeekly(), null, 'second run the same day does nothing'); deq(w.log.weekly, ['MONDAY', 6], 'Monday 06:00 trigger (Cue runs on Manila time)'); assert.ok(!w.log.hsFix, 'the weekly run never fixes');
+  assert.strictEqual(w.ctx.cueHsWeekly(), null, 'second run the same day does nothing'); assert.ok(!w.log.weekly, 'no Monday trigger: the scheduler\'s row starts it'); assert.ok(!w.log.hsFix, 'the weekly run never fixes');
 });
 
 test('V1 supplier search: the chat call starts it; Canvas lookup, no web search when the DB has 3+; 1 AI call in the run; Preferred first', () => {
@@ -3690,10 +3688,239 @@ test('UG5 Settings page: AI usage and cost section loads only when opened, shows
   ['ESTIMATE', 'Likely by month end', 'platform.openai.com', 'console.anthropic.com', 'rough: under 7 days of data'].forEach(x => assert.ok(html.indexOf(x) > 0, x));
 });
 
-test('BD9 Kiko 19:50Z: the bid check moves to 07:00; the 08:00 trigger from version 3 is replaced once, other triggers stay', () => {
-  const t = sandbox({ props: { CUE_TRIGGERS_V: '3' } }); t.log.triggers = ['cueResume', 'cueSweep', 'cueBidsDaily']; t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila']);
-  assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
+test('BD9 Kiko 19:50Z: the bid check runs at 07:00; since the scheduler its trigger, the sweep\'s and the Monday HubSpot one are removed once', () => {
+  const t = sandbox({ props: { CUE_TRIGGERS_V: '4' } }); t.log.triggers = ['cueResume', 'cueSweep', 'cueBidsDaily', 'cueHsWeekly']; t.ctx.cueState();
+  deq(t.log.triggers.slice(), ['cueResume']); assert.strictEqual(t.props.CUE_TRIGGERS_V, '5');
+  assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-bids')[0].when, 'Daily 07:00');
+});
+
+// Task scheduler (Kiko 22 Oct 00:57Z "Go", specs/task-scheduler.md). Sandbox "now" is Wed 21 Oct 2026, 11:00 Manila (03:00Z).
+const phMs = (day, hm) => Date.parse(day + 'T' + hm + ':00+08:00');
+const sched = t => (t.tabs.Schedule ? t.tabs.Schedule.rows.slice(1) : []);
+const schAsk = t => { const r = t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).pop(); return r ? String(r[3]).match(/^\?(ask-[0-9a-z]+)/)[1] : ''; };
+test('SC1 the when is read in code: every/weekdays/monthly/once/in N, times in am-pm or 24h; a missing or passed time is asked, never guessed', () => {
+  const t = sandbox(), now = Date.parse('2026-10-21T03:00:00Z'), P = x => JSON.parse(JSON.stringify(t.ctx.cueSchedParse_(x, now)));
+  deq(P('every Monday 9am pipeline review'), { when: { repeat: 'weekly', days: ['Mon'], dom: 0, date: '', time: '09:00' }, rest: 'pipeline review' });
+  deq(P('weekdays 8am check bids').when.repeat, 'weekdays'); deq(P('weekdays 8am check bids').rest, 'check bids');
+  deq(P('Friday 3pm remind me to send the Telus invoice'), { when: { repeat: 'once', days: [], dom: 0, date: '2026-10-23', time: '15:00' }, rest: 'remind me to send the Telus invoice' });
+  deq(P('15th of the month 4pm send the engagement email').when, { repeat: 'monthly', days: [], dom: 15, date: '', time: '16:00' });
+  deq(P('16th day of the month at 9am moved contacts').when.dom, 16);
+  deq(P('tomorrow 10am readiness for JBL Booth'), { when: { repeat: 'once', days: [], dom: 0, date: '2026-10-22', time: '10:00' }, rest: 'readiness for JBL Booth' });
+  deq(P('every Tue and Thu at 9:30 am admin check').when.days, ['Tue', 'Thu']); deq(P('every Tue and Thu at 9:30 am admin check').when.time, '09:30');
+  deq(P('daily 19:00 review my spending').when, { repeat: 'daily', days: [], dom: 0, date: '', time: '19:00' });
+  deq(P('pipeline review every Monday at 9am').rest, 'pipeline review', 'the when can come after the command');
+  deq(P('Wednesday 9am weekly plan').when.date, '2026-10-28', 'today is Wednesday and 9am has passed: next week');
+  deq(P('in 2 hours remind me to call Ana').when, { repeat: 'once', days: [], dom: 0, date: '2026-10-21', time: '13:00' });
+  assert.ok(/when/.test(P('pipeline review').error)); assert.ok(/What time/.test(P('every Monday pipeline review').error));
+  assert.ok(/already passed/.test(P('today 9am pipeline review').error));
+  assert.strictEqual(t.ctx.cueSchedNextAt_({ repeat: 'monthly', dom: 31, days: [], time: '09:00' }, phMs('2026-11-01', '00:00')), phMs('2026-11-30', '09:00'), 'a 31st runs on a short month\'s last day');
+  assert.strictEqual(t.ctx.cueSchedNextAt_({ repeat: 'weekdays', days: [], time: '08:00' }, phMs('2026-10-23', '09:00')), phMs('2026-10-26', '08:00'), 'Friday after 8: Monday');
+});
+test('SC2 "Schedule every Monday 9am pipeline review": no AI call, a Save card; Save makes one row, Not that makes none; intake is refused', () => {
+  const t = sandbox(); t.ctx.cueSend('Schedule every Monday 9am pipeline review');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  const q = t.tabs.Chat.rows.filter(r => /^\?ask-/.test(String(r[3]))).pop();
+  assert.ok(/:save,not$/.test(q[3]) && /Mon 09:00/.test(q[2]) && /First run: Mon 2026-10-26 09:00/.test(q[2]) && /Pipeline review/.test(q[2]) && /Nothing sends without your Approve/.test(q[2]));
+  assert.strictEqual(sched(t).filter(r => /^sch-/.test(r[0])).length, 0, 'nothing saved before Save');
+  t.ctx.cueAskPick(schAsk(t), 'save');
+  const row = sched(t).filter(r => /^sch-/.test(r[0]));
+  assert.strictEqual(row.length, 1); deq([row[0][1], row[0][3], row[0][4], row[0][7], row[0][9], row[0][10]], ['Pipeline review', 'weekly', 'Mon', "'09:00", 'pipeline', true]);   // PC test 01:41Z: written as text so Sheets keeps it a time of day, not a date
+  assert.strictEqual(row[0][11].getTime(), phMs('2026-10-26', '09:00'));
+  assert.ok(/^Saved\. Pipeline review, Mon 09:00\. Next run Mon 2026-10-26 09:00/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
+  assert.throws(() => t.ctx.cueAskPick(schAsk(t), 'save'), /already answered/);
+  t.ctx.cueSend('Schedule tomorrow 9am check bids'); t.ctx.cueAskPick(schAsk(t), 'not');
+  assert.strictEqual(sched(t).filter(r => /^sch-/.test(r[0])).length, 1); assert.ok(/not scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
+  const n = t.tabs.Chat.rows.length; t.ctx.cueSend('Schedule tomorrow 9am run intake for Acme');
+  assert.ok(/Intake cannot be scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2])); assert.ok(!t.tabs.Chat.rows.slice(n).some(r => /^\?ask-/.test(String(r[3]))), 'no Save card');
+  t.ctx.cueSend('Schedule pipeline review'); assert.ok(/could not tell when/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
+  t.ctx.cueSend('show my schedules'); const l = t.tabs.Chat.rows.slice(-1)[0][2];
+  assert.ok(/Morning sweep: Daily 07:00/.test(l) && /Bid opportunities: Daily 07:00/.test(l) && /Monday HubSpot check: Mon 06:00/.test(l) && /Pipeline review: Mon 09:00, next Mon 2026-10-26 09:00/.test(l) && /HubSpot sales review: Thu 08:00, off/.test(l));
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'still no AI call');
+});
+test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time row turns off; nothing due means the sheet is not even read', () => {
+  const t = sandbox(); t.ctx.cueSend('Schedule in 1 hour remind me to call Ana'); t.ctx.cueAskPick(schAsk(t), 'save');
+  t.ctx.cueResume(); assert.ok(!t.tabs.Chat.rows.some(r => /⏰ Reminder/.test(r[2])), 'not yet');
+  const read = t.tabs.Schedule.getRange; t.tabs.Schedule.getRange = () => { throw new Error('read while nothing is due'); };
+  deq(t.ctx.cueSchedTick_(), [], 'nothing due: the property alone answers'); t.tabs.Schedule.getRange = read;
+  t.ctx.__wait(61 * 60000); t.ctx.cueResume();
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[2] === '⏰ Reminder: call Ana').length, 1);
+  const r = sched(t).filter(x => /^sch-/.test(x[0]))[0]; assert.strictEqual(r[10], false); assert.strictEqual(r[13], 'Reminded');
+  t.ctx.__wait(5 * 60000); t.ctx.cueResume(); assert.strictEqual(t.tabs.Chat.rows.filter(r => r[2] === '⏰ Reminder: call Ana').length, 1, 'once');
+});
+test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
+  const t = sandbox(); t.ctx.cueState();
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false]]);
+  t.ctx.cueSchedSet('sys-sweep', { on: false });
+  t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
+  const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');
+  assert.strictEqual(bids.length, 1); assert.strictEqual(bids[0].how, 'daily'); assert.strictEqual(t.props.CUE_BIDS_DAY, '2026-10-22');
+  const row = t.ctx.cueSchedules().filter(x => x.id === 'sys-bids')[0];
+  assert.strictEqual(row.result, 'Started (late by 3 h)'); assert.strictEqual(row.task, bids[0].id); assert.strictEqual(row.next, 'Fri 2026-10-23 07:00');
+  assert.strictEqual(t.ctx.cueBidsDaily(), null, 'an old 07:00 trigger firing after this does nothing');
+  assert.ok(!t.tabs.Requests.rows.slice(1).some(r => t.state(r[0]).kind === 'sweep'), 'the sweep row is off');
+});
+test('SC5 Settings: on/off, a new time in words, Run now, Delete; Cue\'s own rows cannot be deleted; the sweep\'s hour is Chaser rules\' build hour', () => {
+  const t = sandbox(); t.ctx.cueSend('Schedule every Monday 9am pipeline review'); t.ctx.cueAskPick(schAsk(t), 'save');
+  const id = t.ctx.cueSchedules().filter(x => !x.system)[0].id;
+  assert.strictEqual(t.ctx.cueSchedSet(id, { when: 'weekdays 8am' }).filter(x => x.id === id)[0].when, 'Weekdays 08:00');
+  assert.throws(() => t.ctx.cueSchedSet(id, { when: 'weekdays 8am email Ana' }), /Only the time and days/);
+  assert.strictEqual(t.ctx.cueSchedSet(id, { on: false }).filter(x => x.id === id)[0].next, '');
+  assert.throws(() => t.ctx.cueSchedDelete('sys-bids'), /cannot be deleted|not deleted/);
+  assert.throws(() => t.ctx.cueSchedSet('sys-sweep', { when: 'daily 6:30am' }), /on the hour/);
+  t.ctx.cueSchedSet('sys-sweep', { when: 'daily 6am' }); assert.strictEqual(t.ctx.cueRules().general.build, 6);
+  assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Daily 06:00');
+  const r = t.ctx.cueSchedRunNow(id).filter(x => x.id === id)[0]; assert.strictEqual(r.result, 'Started');
+  assert.strictEqual(t.state(r.task).kind, 'pipeline');
+  assert.strictEqual(t.ctx.cueSchedDelete(id).filter(x => x.id === id).length, 0);
+  const s = sandbox({ viewer: 'someone@example.com' });
+  ['cueSchedules', 'cueSchedRunNow', 'cueSchedSet', 'cueSchedDelete'].forEach(f => assert.throws(() => s.ctx[f]('sys-bids', {}), /private/, f));
+});
+test('SC6 the ChatGPT lead-gen and review tasks register as rows (off until Kiko turns them on) and run through cueGtScheduled', () => {
+  const t = sandbox(); t.ctx.cueGtSchedules_ = () => [{ key: 'followups', name: 'Prospect follow-up check', repeat: 'weekdays', days: [], time: '08:00', command: 'Prospect follow-ups' },
+    { key: 'monthly_email', name: 'Monthly engagement email', repeat: 'monthly', day_of_month: 15, time: '16:00', command: 'Monthly email' },
+    { key: 'admin_payments', name: 'Admin Tuesday', repeat: 'weekly', days: ['Tue'], time: '09:00', command: 'Payment records' }];
+  t.ctx.cueGtScheduled = k => { (t.log.gt = t.log.gt || []).push(k); return t.log.gt.length > 1 ? null : { request_id: 'cue-gt-1' }; };
+  const v = t.ctx.cueSchedules().filter(x => /^sys-gt-/.test(x.id));
+  deq(v.map(x => [x.name, x.when, x.on, x.runs]), [['Prospect follow-up check', 'Weekdays 08:00', false, 'ChatGPT'], ['Monthly engagement email', '15th monthly 16:00', false, 'ChatGPT'], ['Admin Tuesday', 'Tue 09:00', false, 'ChatGPT']]);
+  t.ctx.__wait(24 * 3600000); t.ctx.cueResume(); assert.ok(!t.log.gt, 'off rows never run');
+  t.ctx.cueSchedSet('sys-gt-followups', { on: true }); t.ctx.__wait(phMs('2026-10-23', '08:01') - phMs('2026-10-22', '11:00')); t.ctx.cueResume();
+  deq(t.log.gt, ['followups']); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-gt-followups')[0].task, 'cue-gt-1');
+  assert.strictEqual(t.ctx.cueSchedRunNow('sys-gt-followups').filter(x => x.id === 'sys-gt-followups')[0].result, 'Already ran today');
+});
+test('SC7 any other command runs as if typed, even from the trigger with no page user; the result is the usual chat answer or task', () => {
+  const t = sandbox({ viewer: 'nobody@example.com' }), x = { id: 'sch-1', name: 'How many projects', time: '09:00', command: 'how many projects this week?', run: 'say' };
+  deq(JSON.parse(JSON.stringify(t.ctx.cueSchedResolve_('how many projects this week?'))), { run: 'say', text: 'how many projects this week?' });
+  const out = t.ctx.cueSchedRun_(x, false); assert.strictEqual(out.result, 'Answered in chat'); assert.strictEqual(t.log.gpt.length, 1, 'one chat call, as when typed');
+  assert.ok(t.tabs.Chat.rows.some(r => /^⏰ How many projects \(scheduled 09:00\)/.test(r[2])));
+  assert.throws(() => t.ctx.cueSend('hello'), /private/, 'the page still checks the user');
+  deq(['remind me to pay Sonic', 'run the morning sweep', 'check bids', 'pipeline review', 'clean up hubspot'].map(c => t.ctx.cueSchedResolve_(c).run), ['remind', 'sweep', 'bids', 'pipeline', 'hubspot']);
+});
+
+/* ---------- ChatGPT scheduled tasks (CueGptTasks.gs, Kiko "Go" 22 Oct 00:55Z) ---------- */
+function p0Tab(rows) {   // the funnel P0 tab: title rows, headers on row 4, data from row 5
+  const f = sheetMock(); f.appendRow(['P0 company master']); f.appendRow(['']); f.appendRow(['note']);
+  f.appendRow(['Priority', 'Company', 'Outreach Status', 'First Outreach Date', 'Last Outreach Date', 'Reply Status', 'Next Follow-up Date', 'Known Email Addresses']);
+  rows.forEach(r => f.appendRow(r)); return f;
+}
+const GT_P0 = [['P1', 'Acme Corp', 'Sent', '2026-09-20', '2026-10-01', 'No Reply', '', 'ana@acme.example'],
+  ['P1', 'Beta Inc', 'Sent', '2026-10-15', '2026-10-15', 'No Reply', '', ''],
+  ['P2', 'Gamma Co', 'Sent', '2026-09-10', '2026-09-10', 'No Reply', '', ''],
+  ['P4', 'Delta Ltd', 'Sent', '2026-10-18', '2026-10-18', 'No Reply', '', ''],
+  ['P1', 'Accenture', 'Sent', '2026-09-01', '2026-09-01', 'No Reply', '', 'x@accenture.example'],
+  ['P1', 'Echo PH', 'Sent', '2026-09-01', '2026-09-01', 'Replied', '', ''],
+  ['P3', 'Foxtrot', 'Paused', '', '', '', '', ''],
+  ['P3', 'Golf Group', 'Sent', '', '', 'No Reply', '2026-10-21', '']];
+const GT_F = (o) => Object.assign({ key: 'acme-followup', group: 'Follow-up', title: 'Follow up Acme proposal', company: 'Acme Corp', person: 'Ana', detail: 'No reply since 1 Oct.',
+  evidence: [{ label: 'P0 row 5', url: '' }], next_action: 'Send the follow-up', due: '2026-10-22', email: { to: 'ana@acme.example', subject: 'Following up', body: 'Hi Ana,\nJust checking in.\nKiko' },
+  hubspot: 'task', canvas: 'client', project_id: '', confidence: 'high' }, o);
+const GT_ANS = { summary: 'Three prospects are due.', coverage: { checked: 'P0 due list and Gmail', not_checked: 'LinkedIn' },
+  steps: [1, 2, 3, 4].map(n => ({ step: n, done: true, note: '' })),
+  findings: [GT_F(), GT_F({ key: 'gamma', title: 'Second outreach Gamma', company: 'Gamma Co', email: { to: 'guess@gamma.example', subject: 'Hello again', body: 'Hi,\nKiko' } }),
+    GT_F({ key: 'delta', title: 'Delta requirements', company: 'Delta Ltd', evidence: [], detail: 'I sent the reminder yesterday.', email: { to: '', subject: '', body: '' }, hubspot: 'none', canvas: 'none' })] };
+function gtBox(o = {}) {
+  const t = sandbox(Object.assign({ gpt: { gtask: GT_ANS }, props: { CUE_HUBSPOT_TOKEN: 'hs-test' },
+    gmailList: q => (/from:acme\.example/.test(q) ? [{ id: 'g1', thread: 't1' }] : []),
+    msgs: [{ id: 'g1', thread: 't1', ms: Date.parse('2026-10-02T02:00:00Z'), from: 'Ana <ana@acme.example>', to: 'kiko@example.com', subject: 'Re: proposal', snippet: 'Thanks, will review' }] }, o));
+  t.tabs.P0 = p0Tab(o.p0 || GT_P0);
+  return t;
+}
+test('GT1 prospect follow-ups: chat words, no chat call; code picks who is due (P1 15 days, P2 one month, P4 2 days, recorded date; holds, replied, paused out); one ChatGPT call; the process check catches a skipped step, a guessed address, no evidence and a claimed send', () => {
+  const t = gtBox(); const r = t.ctx.cueSend('run prospect follow-ups', [], '');
+  assert.strictEqual(t.log.gpt.length, 0, 'plain words, no chat call');
+  const v = t.ctx.cueRun(r.request_id);
+  assert.strictEqual(t.log.gpt.length, 1); assert.ok(!t.log.gpt[0].tools, 'no web search for follow-ups');
+  const inp = t.log.gpt[0].input;
+  ['Gamma Co', 'Acme Corp', 'Delta Ltd', 'Golf Group'].forEach(c => assert.ok(inp.indexOf(c) >= 0, c + ' is due'));
+  ['Beta Inc', 'Accenture', 'Echo PH', 'Foxtrot'].forEach(c => assert.ok(inp.indexOf(c) < 0, c + ' is not due'));
+  assert.ok(/P2, one month after first outreach \(2026-10-10\)/.test(inp) && /P4, 2 days after requirements were sent \(2026-10-20\)/.test(inp) && /recorded review date \(2026-10-21\)/.test(inp));
+  assert.ok(/Re: proposal/.test(inp), 'the latest email with the company goes to ChatGPT');
+  assert.ok(/1\. Take the prospects Cue found due/.test(t.log.gpt[0].instructions), 'the skill steps are the instructions');
+  assert.strictEqual(v.kind, 'gtask'); assert.strictEqual(v.status, 'Needs you');
+  deq(v.gt.checks.map(c => c.ok), [false, true, false, false, false, true, true], "check 8: P0 and Gmail read");
+  assert.ok(/step 5/.test(v.gt.checks[0].detail) && /guess@gamma\.example/.test(v.gt.checks[3].detail));
+  const g = v.gt.items.find(f => f.company === 'Gamma Co'); assert.strictEqual(g.email.to, '', 'a guessed address is removed');
+  assert.strictEqual(v.gt.items.find(f => f.company === 'Acme Corp').email.to, 'ana@acme.example', 'an address in the records stays');
+  assert.ok(/^3 new findings\. Process check: 3 of 7 passed\.$/.test(v.gt.summary), v.gt.summary);
+  assert.strictEqual(t.tabs['ChatGPT findings'].rows.length, 4, 'header and three shown findings');
+});
+test('GT2 only new findings: the same answer next time shows nothing new and the task is Done', () => {
+  const t = gtBox(); t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id);
+  const v = t.ctx.cueRun(t.ctx.cueSend('prospect follow-ups', [], '').request_id);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.gt.items.length, 0); assert.ok(/^Nothing new \(3 already shown\)/.test(v.gt.summary), v.gt.summary);
+});
+test('GT3 Kiko\'s taps: Draft email makes a Gmail draft (never sent); Add to HubSpot puts a task on the company; a token without write access says so', () => {
+  const t = gtBox({ hsCompanies: [{ id: '77', name: 'Acme Corp' }] }); const v = t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id);
+  const acme = v.gt.items.find(f => f.company === 'Acme Corp');
+  const d = t.ctx.cueGtAct(v.id, acme.id, 'draft'); assert.ok(/To: ana@acme\.example/.test(t.log.gmail[0])); assert.ok(d.gt.items.find(f => f.id === acme.id).drafted);
+  assert.ok(!(t.log.sent || []).length, 'nothing sent');
+  const h = t.ctx.cueGtAct(v.id, acme.id, 'hubspot'); const w = t.log.hs.find(x => x.path === '/crm/v3/objects/tasks');
+  assert.ok(w && w.body.associations[0].to.id === '77' && w.body.associations[0].types[0].associationTypeId === 192 && w.body.properties.hs_task_status === 'NOT_STARTED');
+  assert.ok(/task "Send the follow-up" on Acme Corp, due 2026-10-22/.test(h.gt.items.find(f => f.id === acme.id).in_hubspot));
+  t.ctx.cueGtAct(v.id, acme.id, 'hubspot'); assert.strictEqual(t.log.hs.filter(x => x.path === '/crm/v3/objects/tasks').length, 1, 'never twice');
+  const u = gtBox({ hsCompanies: [{ id: '77', name: 'Acme Corp' }], hsWrite403: true }); const x = u.ctx.cueRun(u.ctx.cueSend('run prospect follow-ups', [], '').request_id);
+  assert.throws(() => u.ctx.cueGtAct(x.id, x.gt.items.find(f => f.company === 'Acme Corp').id, 'hubspot'), /read and write access/);
+  assert.ok(acme.canvas && /page=clientdesk/.test(acme.canvas.url), 'company changes open Canvas Accounts');
+});
+test('GT4 Draft all: one separate draft per email on the card; findings without a body are skipped', () => {
+  const t = gtBox(); const v = t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id);
+  t.ctx.cueGtDraftAll(v.id); assert.strictEqual(t.log.gmail.length, 2); t.ctx.cueGtDraftAll(v.id); assert.strictEqual(t.log.gmail.length, 2, 'not drafted twice');
+});
+test('GT5 the scheduler entry runs a task once per Manila day; the rows match Kiko\'s times', () => {
+  const t = gtBox(); const a = t.ctx.cueGtScheduled('followups'); assert.ok(a && a.request_id); assert.strictEqual(t.ctx.cueGtScheduled('followups'), null);
+  t.ctx.__wait(864e5); assert.ok(t.ctx.cueGtScheduled('followups'));
+  const rows = {}; t.ctx.cueGtSchedules_().forEach(x => { rows[x.key] = [x.repeat, x.day_of_month || (x.days || []).join(','), x.time]; });
+  deq(rows, { followups: ['weekdays', '', '08:00'], repeat_events: ['monthly', 15, '07:00'], moved_contacts: ['monthly', 16, '09:00'], account_research: ['weekly', 'Tue', '09:00'],
+    monthly_email: ['monthly', 15, '16:00'], daily_plan: ['daily', '', '08:00'], admin_suppliers: ['weekly', 'Mon', '09:00'], admin_payments: ['weekly', 'Tue', '09:00'],
+    admin_projects: ['weekly', 'Wed', '09:00'], admin_funnel: ['weekly', 'Thu', '09:00'], production_readiness: ['weekly', 'Fri', '09:00'], personal_spending: ['daily', '', '19:00'] });
+  assert.throws(() => t.ctx.cueGtScheduled('nope'), /No ChatGPT task/);
+});
+test('GT6 chat words start the right task and leave other commands alone', () => {
+  const t = gtBox(); const k = x => t.ctx.cueGtAsked_(x);
+  deq(['plan my day', 'run the repeat event review', 'moved contacts', 'account research', 'monthly engagement email', 'prospecting for BPO companies', 'find contacts at Concentrix',
+    'supplier files review', 'reconcile payments', 'project records review', 'funnel review', 'friday readiness', 'personal spending report'].map(k),
+    ['daily_plan', 'repeat_events', 'moved_contacts', 'account_research', 'monthly_email', 'prospecting', 'contact_research', 'admin_suppliers', 'admin_payments', 'admin_projects', 'admin_funnel', 'production_readiness', 'personal_spending']);
+  ['how\'s the pipeline?', 'is JBL booth ready?', 'check bids', 'record personal expense 500 Jollibee', 'LED wall for AMI Group', 'who do I need to chase'].forEach(x => assert.strictEqual(k(x), '', x));
+});
+test('GT7 Friday readiness: only For Production Start and For Event Execution projects, Canvas checklist for each; an unrated project fails the check', () => {
+  const t = gtBox({ projects: [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }, { id: 'S-10000002BB', name: 'Beta Launch', status: 'For Event Execution', eventDate: '2026-10-24' },
+    { id: 'S-10000003CC', name: 'Gamma Party', status: 'For Client Awarding' }],
+    gpt: { gtask: { summary: 'One at risk.', coverage: { checked: 'Canvas checklists', not_checked: 'none' }, steps: [1, 2, 3, 4, 5].map(n => ({ step: n, done: true, note: '' })),
+      findings: [GT_F({ key: 'acme-gala', group: 'At Risk', title: 'Acme Gala: supplier not confirmed', company: 'Acme Corp', project_id: 'S-10000001AA', canvas: 'project', hubspot: 'none', email: { to: '', subject: '', body: '' } })] } } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('friday readiness', [], '').request_id);
+  deq(t.log.bridge.filter(b => b.action === 'get_readiness').map(b => b.project_id), ['S-10000001AA', 'S-10000002BB']);
+  assert.ok(t.log.gpt[0].input.indexOf('Gamma Party') < 0);
+  const c7 = v.gt.checks.find(c => c.id === 7); assert.ok(!c7.ok && /S-10000002BB Beta Launch/.test(c7.detail), JSON.stringify(c7));
+  assert.ok(/page=canvas&project=S-10000001AA/.test(v.gt.items[0].canvas.url));
+});
+test('GT8 web search is on for research tasks; an unreadable records tab is a note, not a stop; ChatGPT failing stops the task with Try again', () => {
+  const t = gtBox(); const v = t.ctx.cueRun(t.ctx.cueSend('account research', [], '').request_id);
+  assert.ok(t.log.gpt[0].tools && t.log.gpt[0].tools[0].type === 'web_search'); assert.ok(v.notes.some(x => /P0 Contacts/.test(x)), 'P0 Contacts tab missing is a note');
+  const c8 = v.gt.checks.find(c => c.id === 8); assert.ok(!c8.ok && /P0 Contacts/.test(c8.detail), 'a failed read fails the check: ' + JSON.stringify(c8));
+  assert.ok(/^Incomplete: 1 record could not be read\./.test(v.gt.summary), v.gt.summary); assert.strictEqual(v.status, 'Needs you', 'an incomplete run is never Done');
+  const f = gtBox({ fail: { gtask: () => resp(500, {}) } }); const w = f.ctx.cueRun(f.ctx.cueSend('account research', [], '').request_id);
+  assert.strictEqual(w.status, 'Failed'); assert.ok(/ChatGPT could not run it/.test(w.error));
+});
+test('GT9 PC test 22 Oct: Canvas not answering the project list is tried once more, then stops with Try again (never "Nothing new, all passed"); one miss recovers', () => {
+  const P = [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }];
+  const t = gtBox({ board404: 9, projects: P }); const v = t.ctx.cueRun(t.ctx.cueSend('friday readiness', [], '').request_id);
+  assert.strictEqual(t.log.board, 2, 'tried twice'); assert.strictEqual(v.status, 'Failed'); assert.ok(/Canvas projects could not be read: Canvas did not answer get_project_board \(HTTP 404\)/.test(v.error), v.error);
+  assert.strictEqual(t.log.gpt.length, 0, 'no ChatGPT call on nothing');
+  const u = gtBox({ board404: 1, projects: P, gpt: { gtask: { summary: 'Fine.', coverage: { checked: 'Canvas checklists', not_checked: 'none' }, steps: [1, 2, 3, 4, 5].map(n => ({ step: n, done: true, note: '' })), findings: [] } } });
+  const w = u.ctx.cueRun(u.ctx.cueSend('friday readiness', [], '').request_id);
+  assert.strictEqual(u.log.board, 2); assert.ok(!(w.gt.fails || []).length || !/Canvas/.test(w.gt.checks.find(c => c.id === 8).detail)); assert.ok(u.log.gpt[0].input.indexOf('Acme Gala') >= 0);
+});
+test('GT11 PC test 22 Oct: a ChatGPT task\'s thread is named for its skill and its chat lines never say "Project intake"', () => {
+  const t = gtBox(); const id = t.ctx.cueSend('plan my day', [], '').request_id; const v = t.ctx.cueRun(id);
+  assert.ok(/^Daily plan \d\d\/\d\d$/i.test(v.name) || v.name === v.gt.title, 'name: ' + v.name); assert.strictEqual(v.name, v.gt.title);
+  t.ctx.cueGtClose(id);
+  const lines = t.tabs.Chat.rows.filter(x => x[3] === id || x[3] === '>' + id).map(x => x[2]);
+  assert.ok(lines.length && !lines.some(x => /Project intake/.test(x)), lines.join(' | '));
+});
+test('GT10 PC test 22 Oct: "What was checked" keeps ChatGPT\'s plain words and drops talk of its instructions or the records tags', () => {
+  const t = gtBox({ gpt: { gtask: Object.assign({}, GT_ANS, { coverage: { checked: 'All records between <records> tags were reviewed. The Tasks tab and TRI rows due today.', not_checked: 'LinkedIn (sign-in). Nothing outside the prompt.' } }) } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('plan my day', [], '').request_id);
+  assert.strictEqual(v.gt.coverage.checked, 'The Tasks tab and TRI rows due today.'); assert.strictEqual(v.gt.coverage.not_checked, 'LinkedIn (sign-in).');
+  assert.ok(/Never mention tags/.test(t.log.gpt[0].instructions || JSON.stringify(t.log.gpt[0])));
 });
 
 test('TU20 live 01:22Z: Go or Change on a plan card runs the started request right away, like a send', () => {
@@ -3701,6 +3928,24 @@ test('TU20 live 01:22Z: Go or Change on a plan card runs the started request rig
   assert.ok(/call\('cueAskPick', \[id, b\.getAttribute\('data-pick'\)\], started, fail\)/.test(html), 'Go/Not that use started');
   assert.ok(/call\('cueAskPick', \[id, 'change', v\], started, fail\)/.test(html), 'Change uses started');
   assert.ok(/var started = function \(r\) \{ done\(\); if \(!r \|\| r\.chat \|\| !r\.request_id\) return;[\s\S]{0,80}call\('cueRun', \[r\.request_id\]/.test(html), 'started kicks cueRun only for a run');
+});
+
+test('SC9 PC test 01:41Z: a Time cell Sheets turned into a date reads back as HH:mm, not "Sat Dec 30 1899"', () => {
+  const t = sandbox({});
+  t.ctx.cueSchedSeed_();
+  const rows = t.tabs.Schedule.rows, i = rows.findIndex((r, k) => k > 0 && r[0]);
+  rows[i][7] = new Date(1899, 11, 30, 7, 5, 0);
+  const x = t.ctx.cueSchedRead_(t.tabs.Schedule).filter(y => y.id === rows[i][0])[0];
+  assert.strictEqual(x.time, '07:05');
+  rows[i][7] = "'16:00"; assert.strictEqual(t.ctx.cueSchedRead_(t.tabs.Schedule).filter(y => y.id === rows[i][0])[0].time, '16:00');
+});
+
+test('TU21 PC test 01:41Z: a preview marks the pushed Cue.gs as the test build, and its Go taps never count toward graduation', () => {
+  const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8'), cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/^const CUE_DEV_ = false;$/m.test(cue), 'src keeps the live value');
+  assert.ok(/if \(mode === 'preview'\) \{[\s\S]{0,400}replace\(\/\^const CUE_DEV_ = false;\/m, 'const CUE_DEV_ = true;'\)[\s\S]{0,200}want\['Cue\.gs'\] = md5\(f\)/.test(tool), 'preview stamps only the pushed copy and checks head against it');
+  const tut = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueTutor.gs'), 'utf8');
+  assert.ok(/if \(!CUE_DEV_\) \{[^\n]*\n\s+try \{ const p = cuePatApprove_/.test(tut), 'graduation counted only off /dev');
 });
 
 test('RD20 live 01:29Z: the readiness card returns what it built, and cardHtml survives a card that draws nothing', () => {

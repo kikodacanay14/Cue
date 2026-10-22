@@ -99,11 +99,8 @@ function cueRulesSave(changes) {
 const cueRuleName_ = f => ({ on: 'on', first: 'first chase after', every: 'then every', max: 'stop after', soon_first: 'event-soon first chase after', soon_every: 'event-soon every',
   build: 'build at', send: 'send at', quiet_from: 'quiet from', quiet_to: 'quiet until', per_kind: 'lines per chaser', per_batch: 'lines per batch' }[f] || f);
 const cueRuleShow_ = (f, v) => f === 'on' ? (v ? 'on' : 'off') : /^(build|send|quiet_from|quiet_to)$/.test(f) ? String(v).padStart(2, '0') + ':00' : String(v);
-/** Moves the morning sweep trigger to a new hour. */
-function cueSweepTrigger_(hour) {
-  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'cueSweep').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('cueSweep').timeBased().atHour(hour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-}
+/** Moves the morning sweep to a new hour: its row in the Schedule tab (CueSchedule.gs; it has no trigger of its own since the scheduler). */
+function cueSweepTrigger_(hour) { cueSchedSweepHour_(hour); }
 /** Adds n working days (Monday to Friday) to a PH day. */
 function cueAddWork_(day, n) {
   let d = day;

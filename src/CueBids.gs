@@ -274,7 +274,7 @@ function cueBidsView_(s) {
     written: !!B.written, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
 }
 
-/* ---------- every day at 07:00 Manila (Kiko 19:50Z; was 08:00) ---------- */
+/* ---------- every day at 07:00 Manila (Kiko 19:50Z); started by the scheduler's "Bid opportunities" row (CueSchedule.gs) ---------- */
 function cueBidsDaily() {
   const today = cueBidsDay_(), props = PropertiesService.getScriptProperties();
   if (props.getProperty('CUE_BIDS_DAY') === today) return null;
