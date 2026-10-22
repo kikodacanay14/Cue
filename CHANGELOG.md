@@ -1,5 +1,17 @@
 # Changelog
 
+## ChatGPT scheduled tasks (unreleased; version number set when it merges)
+
+Kiko's "Go" 22 Oct 00:55Z on specs/lead-gen-tasks.md and specs/cleanup-review-tasks.md. New `src/CueGptTasks.gs`, kind `gtask`.
+
+- 12 scheduled skills from Kiko's Lead Generation Handbook and Cleanup and Review Schedule, plus 2 on request. Each one: code reads the records the skill names (corporate funnel workbook, Shared Task Tracker, TRI, Supplier Database, Admin Directory, BSE transfers, personal expense sheets, Kiko's work Gmail, Canvas board and readiness), ChatGPT follows the skill's numbered steps in one call (web search for the research skills), and code checks the steps were followed.
+- Process check on every card: every step reported, coverage stated, evidence on every finding, no guessed email address (removed when not in any record), nothing claimed as sent or changed, only new findings (the new "ChatGPT findings" tab in the Cue sheet). Friday readiness also checks every eligible project was rated.
+- Taps per finding: Draft email (a Gmail draft, never sent), Draft all (separate drafts), Add note or task to HubSpot (Kiko 19:54Z: HubSpot + Canvas; needs CUE_HUBSPOT_TOKEN with write access for companies, notes and tasks), Open in Canvas (Accounts, Suppliers or the project).
+- Outreach holds (Accenture, IBM) never get a draft. LinkedIn, Facebook and sign-in pages are listed as not checked.
+- Scheduler entry `cueGtScheduled(key)` (once per Manila day per key) and `cueGtSchedules_()` for the Schedule rows: repeat events 15th 07:00, moved contacts 16th 09:00, account research Tue 09:00, prospect follow-ups weekdays 08:00, monthly email 15th 16:00, daily plan 08:00, supplier files Mon 09:00, payment records Tue 09:00, project records Wed 09:00, funnel records Thu 09:00, production readiness Fri 09:00, personal spending 19:00. No trigger of its own.
+- Chat words start each one with no chat call ("plan my day", "prospect follow-ups", "account research", "friday readiness", "personal spending report"...).
+- Tests: 272 of 272 pass (new GT1 to GT8).
+
 ## Cue 1.25.2: Request payment fill-ins from the 1.25.1 PC test (not deployed)
 
 - Request payment now passes the card's expense type (`etype`) as well as the scope. Canvas fills Expense type from it once the CUE-LINKS etype patch ships (CanvasWorkspace, same branch); an older Canvas ignores it.

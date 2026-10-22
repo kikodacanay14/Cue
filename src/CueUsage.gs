@@ -9,7 +9,7 @@ const cueUsageDefaults_ = () => ({ models: Object.assign({ 'gpt-5-mini': [0.25, 
 const CUE_USAGE_MANILA_ = 8 * 3600000;
 const CUE_USAGE_KINDS_ = { intake: 'Project intake', supplier: 'Supplier registration', email: 'Email', style: 'Writing style', memory: 'Teach Cue',
   process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search', hubspot: 'HubSpot clean-up',
-  bids: 'Bid check', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch', pipeline: 'Pipeline review',
+  bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch', pipeline: 'Pipeline review',
   readiness: 'Readiness check', change: 'Change request' };
 const CUE_USAGE_TOP_ = 8;
 

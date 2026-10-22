@@ -175,6 +175,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (mode !== 'intake' && !has && cueMemPaste_(text)) return cueTeachStart_('memory', text);
   // Teach Cue add-on (Kiko 17:00Z): a phrase Kiko taught Cue word for word is a money question with no AI call routing it.
   if (!forced && !has && mode !== 'intake' && !inThread && cueRouteExact_(text) === 'money') return cueFinance_(String(text).trim(), '');
+  // ChatGPT scheduled tasks (CueGptTasks.gs, Kiko "Go" 22 Oct 00:55Z): "run daily plan", "prospect follow-ups"... start one in its own thread, no chat call.
+  if (mode !== 'intake' && !has && !ref && cueGtAsked_(text)) return cueGtStart_(cueGtAsked_(text), String(text || '').trim(), 'chat');
   // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
   if (mode !== 'chat' && mode !== 'intake' && cueIsPersonal_(text)) return cuePersonalStart_(String(text || '').trim(), files, ref);
   // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
@@ -574,6 +576,7 @@ function cueTaskName_(x) {
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
+  if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
   if (x.kind === 'workflow') return 'the ' + ((x.workflow && ((x.workflow.map && x.workflow.map.name) || x.workflow.name)) || 'workflow') + ' map';
   if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
@@ -596,7 +599,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance' && x.kind !== 'hubspot' && x.kind !== 'bids'); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance' && x.kind !== 'hubspot' && x.kind !== 'bids' && x.kind !== 'gtask'); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -631,6 +634,7 @@ function cueTaskLine_(id) {
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'bids') { const B = s.bids || {}; return (B.title || 'bid check') + ', status ' + s.status + '; ' + (B.summary || '') + ((B.items || []).length ? ' New: ' + B.items.map(x => x.agency + ' ' + x.reference + ' ' + x.project).join('; ').slice(0, 600) : ''); }
+  if (s.kind === 'gtask') { const G = s.gt || {}; return (G.title || 'ChatGPT task') + ', status ' + s.status + '; ' + (G.summary || '') + ((G.items || []).length ? ' Findings: ' + G.items.map(f => f.title).join('; ').slice(0, 600) : ''); }
   if (s.kind === 'hubspot') { const H = s.hs || {}; return (H.title || 'HubSpot clean-up') + ', status ' + s.status + '; ' + (H.items || []).length + ' finding(s), ' + (H.fixed || 0) + ' fixed'; }
   if (s.kind === 'vendor') return 'supplier search for ' + cueVendorAsk_(s.vendor || {}) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '')
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
@@ -669,8 +673,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -923,7 +927,7 @@ function cueView_(s) {
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
   return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
-    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null,
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',
