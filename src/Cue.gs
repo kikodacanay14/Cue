@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.26.1';
+const CUE_VERSION_ = 'Cue 1.26.2';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -170,6 +170,10 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const sc = cueSchedSaid_(text, ref); if (sc) return sc; }
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
+  // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
+  // or a change request, and needs no tutor plan card (nothing is written before Approve). A reply to its question carries on.
+  if (!has && mode !== 'intake') { const cr = cueCecReply_(ref, text); if (cr) return cr; }
+  if (!has && mode !== 'intake' && cueCecAsked_(text)) return cueCecStart_(text, ref);
   if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
   // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
   if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
@@ -313,7 +317,8 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
       + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
       + 'self-contained instruction for that run naming the client or project and what to do, e.g. "JBL Booth Fabrication: the designs changed; '
-      + 'requote with the suppliers from the first RFQ and attach all the new files".' },
+      + 'requote with the suppliers from the first RFQ and attach all the new files". Never for updating costs on an existing CE from an email '
+      + '(Cue has its own task for that; tell Kiko to say "update CE cost for <project> from <person>\'s email").' },
     readiness: { type: 'string', description: 'Empty unless Kiko asks whether a project is ready, what is missing or blocking it, or for its readiness or '
       + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' },
     start_ar: { type: 'string', description: 'Empty unless Kiko asks Cue to prepare, make or generate acknowledgement receipts (ARs) for a project. '
@@ -579,6 +584,7 @@ function cueTaskName_(x) {
   if (x.kind === 'email') return 'the email to ' + ((x.mail && (x.mail.to || x.mail.to_addr)) || 'someone');
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
   if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
+  if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
@@ -601,11 +607,14 @@ const CUE_NAME_SKIP_ = ['booth', 'event', 'events', 'project', 'projects', 'fabr
   'manila', 'the', 'and', 'for', 'new', 'inc', 'ltd', 'opc', 'corp', 'booth', 'stage', 'intake', 'change', 'request', 'with', 'from', 'this', 'that', 'these', 'those', 'again', 'send', 'suppliers', 'supplier', 'files', 'design', 'designs'];
 const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3 && CUE_NAME_SKIP_.indexOf(w) < 0);
 
+// Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
+// readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
+const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier'];
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && x.kind !== 'pipeline' && x.kind !== 'finance' && x.kind !== 'hubspot' && x.kind !== 'bids' && x.kind !== 'gtask'); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
@@ -630,6 +639,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'sweep') return 'morning chasing batch for ' + s.day + ', status ' + s.status + '; ' + ((s.batch && s.batch.items) || []).length + ' line(s): '
     + ((s.batch && s.batch.items) || []).slice(0, 10).map(it => it.label + ' ' + (it.project || it.who || '')).join('; ');
   if (s.kind === 'readiness') return 'readiness check for ' + cueTaskName_(s) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
+  if (s.kind === 'cecost') return 'CE cost update for ' + cueTaskName_(s).replace(/^CE costs for /, '') + ' from ' + ((s.cec && s.cec.person) || 'an email') + '\'s email, status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'email') return 'email draft to ' + ((s.mail && (s.mail.to || s.mail.to_addr)) || 'someone') + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'style') return 'learning Kiko\'s writing style guide, status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'memory' || s.kind === 'process') return 'learning Kiko\'s ' + s.kind + ' (Teach Cue), status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
@@ -682,8 +692,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -735,6 +745,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'pipeline') return cueView_(cuePipeApprove_(id, edits || {}));
   if (L && L.s.kind === 'ar') return cueView_(cueArApprove_(id, edits || {}));
   if (L && L.s.kind === 'expense') return cueView_(cueExpenseApprove_(id, edits || {}));
+  if (L && L.s.kind === 'cecost') return cueView_(cueCecApprove_(id, edits || {}));
   if (L && L.s.kind === 'hubspot') return cueView_(cueHsApprove_(id, edits || {}));
   if (L && L.s.kind === 'vendor') return cueView_(cueVendorApprove_(id, edits || {}));
   if (L && L.s.kind === 'workflow') return cueView_(cueWorkflowApprove_(id));
@@ -862,6 +873,7 @@ function cueState() {
 function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
+    if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
@@ -954,6 +966,7 @@ function cueView_(s) {
       items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
         has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
+    cec: s.kind === 'cecost' ? cueCecView_(s) : null,
     fin: s.kind === 'finance' ? (s.fin || null) : null,
     vendor: s.kind === 'vendor' ? cueVendorView_(s) : null,
     workflow: s.kind === 'workflow' ? cueWorkflowView_(s) : null,

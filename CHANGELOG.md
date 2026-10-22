@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.26.2: update CE costs from an email, with Kiko's approval
+
+- Live 22 Oct 02:35Z: "Can you update CE Cost for JBL Booth? get cost from Zaina Yu's email and update the CE." showed a plan card promising "Write the approved CE cost in Canvas", then after Go said "I can't update the CE from chat", started a change request, said "This is about the email to Rommel, so I reopened its thread", and labelled the thread "Project intake". Cue had no CE cost command.
+- New task "CE costs" (CueCeCost.gs). Kiko's words name the project and the person (no AI call, no plan card; nothing is written before Approve). Canvas finds the project (the thread's own project first) and lists its CE lines (new bridge read `ce_lines`). Cue finds that person's newest email in the last 120 days, preferring one that names the project, and reads its text, PDFs and photos. One ChatGPT call matches each quoted cost to a CE line (a line total is divided by qty x occurrence). The card shows every CE line's unit cost, old to new, ticked and editable, plus email items that fit no line, and Open in Canvas (CE Desk) as the other way.
+- Approve and update CE writes only the ticked unit costs through the new bridge write `ce_update_costs` (CE Desk's own save, audit log, project-done lock). Canvas refuses a line whose cost changed since the card was read, reads every line back, and Cue reports each line. Prices, quantities, filed CE versions and the active CE are never changed. A reply in the thread ("from zaina@...", or the project) carries the same task on.
+- An intake or change never "reopens" an email draft, style guide, Teach Cue, personal expense, workflow map, supplier registration or morning batch thread any more; only project threads take a new message.
+- Tutor plans: the plan call is told to list only steps the command really does, and that CE cost changes are not a Project intake.
+- Needs Canvas with `ce_lines` and `ce_update_costs` (CanvasWorkspace, same branch name). Until that Canvas release is live, the task stops at reading the CE lines with "Canvas refused ce_lines".
+- Tests: new CC1 to CC7 (296/296). Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.26.1: Morning batch inbox lines say what they are and what to do; missing tabs are made on first use
 
 - Live 22 Oct 02:30Z: inbox lines on the Morning batch (for example "SALES TEAM", "Happi Party") showed only the sender, a "none" button, and Skip today / Stop chasing. The card read only a line's `why`, which inbox triage leaves empty, and drew the triage action `none` as a button. Inbox lines now show a tag (New inquiry, Needs your reply, FYI), the email's subject, ChatGPT's one-line summary, and what to do. The `none` button is gone.

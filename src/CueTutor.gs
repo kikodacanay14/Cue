@@ -21,7 +21,9 @@ function cueTutorOn_() { return cueProp_('CUE_TUTOR', 'on') !== 'off'; }
 /** The plan fields the chat call fills (added to CUE_TALK_SCHEMA_). */
 const CUE_TUTOR_PLAN_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reading', 'steps', 'pattern'],
   description: 'What you think Kiko wants and how Cue will do it. Cue shows it to Kiko on a card before anything starts. Fill it whenever you '
-    + 'fill a command (start_intake, readiness, command, start_ar, vendor, workflow or email); empty strings and [] for plain chat.',
+    + 'fill a command (start_intake, readiness, command, start_ar, vendor, workflow or email); empty strings and [] for plain chat. '
+    + 'List only steps that command really does; never promise a step it cannot do. Changing costs or prices on an existing CE is not '
+    + 'a command here (Cue has its own "update CE costs" task for it), so never plan it under Project intake.',
   properties: { reading: { type: 'string', description: 'One line: the command and what it is about, e.g. "Supplier search for an LED wall in Cebu"' },
     steps: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['do', 'who'],
       properties: { do: { type: 'string', description: 'One short step' }, who: { type: 'string', enum: CUE_TUTOR_WHO_ } } },
