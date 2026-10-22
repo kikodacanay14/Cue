@@ -5,7 +5,9 @@
 
 const CUE_FILE_TYPES_ = { 'image/png': 'image', 'image/jpeg': 'image', 'image/webp': 'image', 'image/gif': 'image',
   'application/pdf': 'pdf', 'text/plain': 'text', 'text/csv': 'text', 'message/rfc822': 'text' };
-const CUE_FILES_MAX_ = { count: 10, each: 10 * 1024 * 1024, total: 20 * 1024 * 1024, text: 40000 };
+// Kiko 22 Oct 03:03Z (specs/image-batches.md): 30 files and 30 MB for one task, was 10 and 20 MB. Each file still uploads on its own call;
+// a 30-photo GPT call is about 40 MB as base64, under Apps Script's 50 MB request limit.
+const CUE_FILES_MAX_ = { count: 30, each: 10 * 1024 * 1024, total: 30 * 1024 * 1024, text: 40000 };
 
 /** The page uploads each file on its own (one big call with everything silently failed at ~10 MB), then sends the ids. */
 function cueUpload(file) {
@@ -32,15 +34,17 @@ function cueFilesSave_(files, id) {
   if (!files || !files.length) return [];
   if (!Array.isArray(files) || files.length > CUE_FILES_MAX_.count) throw new Error('Attach ' + CUE_FILES_MAX_.count + ' files at most.');
   const folder = files.some(f => f && f.id) ? cueUploads_() : '';
-  const known = files.filter(f => f && f.id).map(f => {
-    let m; try { m = cueDrive_('get', CUE_DRIVE_ + '/' + encodeURIComponent(String(f.id)) + '?fields=id,name,mimeType,size,parents'); } catch (e) { throw new Error('An attachment did not finish uploading. Attach it again.'); }
-    if ((m.parents || []).indexOf(folder) < 0 || !CUE_FILE_TYPES_[m.mimeType]) throw new Error('That attachment is not one Cue uploaded. Attach it again.');
-    return { id: m.id, name: cueStr_(m.name, 120), type: m.mimeType, size: Number(m.size) || 0 };
-  });
+  const known = files.filter(f => f && f.id).map(f => cueFileKnown_(f.id, folder));
   const blobs = files.filter(f => !(f && f.id)).map(cueBlob_);
   const total = known.reduce((n, f) => n + f.size, 0) + blobs.reduce((n, b) => n + b.getBytes().length, 0);
-  if (total > CUE_FILES_MAX_.total) throw new Error('The attachments add up to more than 20 MB. Send fewer or smaller files.');
+  if (total > CUE_FILES_MAX_.total) throw new Error('The attachments add up to more than ' + (CUE_FILES_MAX_.total / 1048576) + ' MB. Send fewer or smaller files.');
   return known.concat(blobs.map(b => cueDriveSave_(b, 'Cue request ' + id)));
+}
+/** A file id the page says it uploaded: only one in Cue's own uploads folder, of a type Cue reads. */
+function cueFileKnown_(fid, folder) {
+  let m; try { m = cueDrive_('get', CUE_DRIVE_ + '/' + encodeURIComponent(String(fid)) + '?fields=id,name,mimeType,size,parents'); } catch (e) { throw new Error('An attachment did not finish uploading. Attach it again.'); }
+  if ((m.parents || []).indexOf(folder) < 0 || !CUE_FILE_TYPES_[m.mimeType]) throw new Error('That attachment is not one Cue uploaded. Attach it again.');
+  return { id: m.id, name: cueStr_(m.name, 120), type: m.mimeType, size: Number(m.size) || 0 };
 }
 // Drive over REST with Cue's own token: the drive.file scope means Cue can only see the files and folder it made.
 const CUE_DRIVE_ = 'https://www.googleapis.com/drive/v3/files';

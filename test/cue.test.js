@@ -666,7 +666,7 @@ test('C20 attachment limits: type, size, count, empty; a short message with no f
   const t = sandbox(), send = (txt, f) => () => t.ctx.cueSend(txt, f, 'intake');
   assert.throws(send(INQ, [{ name: 'x.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', data: PDF }]), /Save it as a PDF/);
   assert.throws(send(INQ, [{ name: 'big.pdf', type: 'application/pdf', data: Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64') }]), /over 10 MB/);
-  assert.throws(send(INQ, Array(11).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /10 files at most/);
+  assert.throws(send(INQ, Array(31).fill({ name: 'a.txt', type: 'text/plain', data: TXT })), /30 files at most/);   // 1.27.5: was 10
   assert.throws(send(INQ, [{ name: 'e.txt', type: 'text/plain', data: '' }]), /empty/);
   assert.throws(send('hi', []), /at least a sentence/);
   assert.strictEqual(t.tabs.Requests.rows.length, 1, 'nothing saved for refused sends');
@@ -674,6 +674,56 @@ test('C20 attachment limits: type, size, count, empty; a short message with no f
   assert.strictEqual(u.props.CUE_UPLOADS_FOLDER, 'folder-1');
   const w = sandbox({ props: { CUE_UPLOADS_FOLDER: 'kept' } }); w.ctx.cueSend('', [{ name: 'a.txt', type: 'text/plain', data: TXT }]);
   assert.strictEqual(w.drive.parent.f1, 'kept');
+});
+
+test('C20b image batches: "more coming" holds files across messages, Done sends one task with all of them, no AI call until then', () => {
+  const t = sandbox(), up = n => ({ id: t.ctx.cueUpload({ name: n, type: 'image/png', data: PNG }).id });
+  const ids1 = Array.from({ length: 10 }, (_, i) => up('p' + i + '.png')), ids2 = Array.from({ length: 10 }, (_, i) => up('q' + i + '.png'));
+  let v = t.ctx.cueBatchAdd('', 'New project intake for the Acme launch', ids1);
+  deq([v.main.count, v.main.msgs, v.main.asked], [10, 1, false]);
+  v = t.ctx.cueBatchAdd('', '', ids2.concat(ids1.slice(0, 2)));   // a file sent twice counts once
+  deq([v.main.count, v.main.msgs], [20, 2]);
+  assert.strictEqual(t.ctx.cueState().batches.main.count, 20, 'the page sees it after a reload');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call while holding');
+  assert.strictEqual(t.tabs.Requests.rows.length, 1, 'no task yet');
+  const r = t.ctx.cueBatchTake('', 'this is the stage');
+  assert.strictEqual(r.text, 'New project intake for the Acme launch\n\nthis is the stage'); assert.strictEqual(r.files.length, 20); deq(r.batches, {});
+  const id = t.ctx.cueSend(r.text, r.files.map(f => ({ id: f.id }))).request_id, s = t.ctx.cueRun(id);
+  assert.strictEqual(s.files.length, 20); assert.strictEqual(t.log.gpt[0].input[0].content.filter(c => c.type === 'input_image').length, 20, 'one read call gets all 20');
+  // The cap: 30 files for one task.
+  const u = sandbox(), uu = n => ({ id: u.ctx.cueUpload({ name: n, type: 'image/png', data: PNG }).id });
+  u.ctx.cueBatchAdd('', 'x', Array.from({ length: 25 }, (_, i) => uu('a' + i + '.png')));
+  assert.throws(() => u.ctx.cueBatchAdd('', '', Array.from({ length: 6 }, (_, i) => uu('b' + i + '.png'))), /most for one task \(30 files\)\. I am holding 25/);
+  assert.strictEqual(u.ctx.cueState().batches.main.count, 25, 'a refused message adds nothing');
+  // A file Cue did not upload is refused.
+  assert.throws(() => u.ctx.cueBatchAdd('', '', [{ id: 'someone-elses' }]), /did not finish uploading|not one Cue uploaded/);
+});
+test('C20c image batches: Done with no instruction asks once; threads keep their own batch; Cancel and the 2-hour drop say nothing was sent', () => {
+  const t = sandbox(), up = n => ({ id: t.ctx.cueUpload({ name: n, type: 'image/png', data: PNG }).id });
+  t.ctx.cueBatchStart(''); deq(t.ctx.cueState().batches.main, { count: 0, msgs: 0, mb: 0, texts: 0, asked: false });
+  t.ctx.cueBatchAdd('', '', [up('a.png'), up('b.png')]);
+  const a = t.ctx.cueBatchTake('', ''); deq([a.ask, a.count, a.batches.main.asked], [true, 2, true]);
+  const b = t.ctx.cueBatchTake('', 'record these as receipts'); assert.strictEqual(b.text, 'record these as receipts'); assert.strictEqual(b.files.length, 2);
+  assert.throws(() => t.ctx.cueBatchTake('', 'x'), /No batch is open/);
+  t.ctx.cueBatchAdd('cue-20261022000000-abcd', 'for this thread', [up('c.png')]); t.ctx.cueBatchAdd('', 'main one', [up('d.png')]);
+  const st = t.ctx.cueState().batches; deq([st.main.count, st['cue-20261022000000-abcd'].count], [1, 1]);
+  deq(t.ctx.cueBatchCancel('').dropped, 1); deq(Object.keys(t.ctx.cueState().batches), ['cue-20261022000000-abcd']);
+  assert.throws(() => t.ctx.cueBatchAdd('', 'y'.repeat(5001)), /more text than a batch can hold/);
+  t.ctx.__wait(2 * 3600000 + 1000); deq(t.ctx.cueState().batches, {});
+  const line = t.tabs.Chat.rows.filter(r => /Dropped the batch of 1 file/.test(r[2]))[0];
+  assert.ok(line && /Nothing was sent/.test(line[2]) && line[3] === 'cue-20261022000000-abcd', 'the drop is said in its thread');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0);
+});
+test('C20d page: phrases that start, finish and cancel a batch', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const BATCH_RE = eval(html.match(/var BATCH_RE = (\/.*\/i);/)[1]), CANCEL = eval(html.match(/var BCANCEL_RE = (\/.*\/i);/)[1]);
+  const doneSaid = eval('(' + html.match(/function doneSaid\(t\) \{[\s\S]*?\n  \}/)[0] + ')');
+  ['more coming', 'New intake for Unilever, more coming', "I'm sending images in batches", 'sending them in batches', 'more photos to come', 'batch mode'].forEach(x => assert.ok(BATCH_RE.test(x), x));
+  ['what is coming next week?', 'send the batch report', 'more'].forEach(x => assert.ok(!BATCH_RE.test(x), x));
+  deq(['done', 'Done.', "that's all", 'go', 'done, this is for the Unilever launch', 'all sent!', 'done with the photos', 'go to the venue'].map(doneSaid),
+    ['', '', '', '', 'this is for the Unilever launch', '', 'with the photos', null]);
+  assert.strictEqual(doneSaid('donee'), null); assert.strictEqual(doneSaid('these are done designs'), null);
+  assert.ok(CANCEL.test('cancel batch') && CANCEL.test('Cancel') && !CANCEL.test('cancel the RFQ'));
 });
 
 test('C21 small talk: one GPT call, no intake, both lines in the chat; an inquiry-looking message offers the intake; the opener still starts one', () => {
