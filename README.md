@@ -73,7 +73,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
      - `CUE_RFQ_NEVER` (addresses or domains never to chase, comma list; default none)
-     - `CUE_HUBSPOT_TOKEN`: needed for pipeline reviews. A HubSpot **private app** token with read scopes only: `crm.objects.deals.read`, `crm.objects.contacts.read` (HubSpot → Settings → Integrations → Private Apps). Cue never writes to HubSpot.
+     - `CUE_HUBSPOT_TOKEN`: needed for pipeline reviews and HubSpot cleanup. One HubSpot **service key** named "Cue" with these scopes: deals read; contacts and companies read and write; notes and tasks write.
      - `CUE_PIPE_QUIET_DAYS` (default 7) and `CUE_PIPE_AWARD_DAYS` (default 3 working days once the CE is with the client): when a deal counts as quiet.
 3. **Set spend limits** in the OpenAI and Claude consoles.
 4. **Run `cueSetup`** once from the editor. It makes the Cue spreadsheet and the 5-minute resume trigger, and lists any missing keys. Then authorize the scopes it asks for:
