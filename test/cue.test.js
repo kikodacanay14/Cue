@@ -3441,27 +3441,40 @@ test('BD10 a question about the PhilGEPS sign-in or a "did not ask" complaint ne
   });
   assert.ok(t.ctx.cueBidsAsked_('refresh bid opportunities based on new rules') && t.ctx.cueBidsAsked_('check philgeps'));
 });
-test('BD11 one Bid check thread per day: a second run that day joins the first thread and replaces its waiting card; the one-time tidy groups older runs (Kiko 22 Oct 05:52Z)', () => {
+test('BD11 one Bid check thread per day: a later run that day joins the first thread and leaves earlier cards as they are; the one-time tidy groups older runs (Kiko 22 Oct 05:52Z)', () => {
   const t = sandbox();
   const a = t.ctx.cueBidsStart_('check bids', 'chat').request_id;
   const L = t.ctx.cueLoad_(a); L.s.status = 'Needs you'; t.ctx.cueSave_(L.sh, L.row, L.s);
   const b = t.ctx.cueBidsStart_('check bids again', 'chat').request_id, c = t.ctx.cueBidsStart_('Daily bid opportunity check', 'daily').request_id;
   deq([t.ctx.cueLoad_(b).s.ref, t.ctx.cueLoad_(c).s.ref], [a, a], 'later runs live in the first run\'s thread');
-  deq([t.ctx.cueLoad_(a).s.status, t.ctx.cueLoad_(a).s.replaced], ['Done', true], 'the earlier waiting card closes');
+  assert.strictEqual(t.ctx.cueLoad_(a).s.status, 'Needs you', 'an earlier card keeps its own notices (a later run lists only new ones)');
   assert.strictEqual(t.tabs.Chat.rows.filter(r => /Started a bid opportunity check in its own thread/.test(r[2])).length, 1, 'one new thread only');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + a && /^7:00 bid check: Running the bid check again in today's Bid check thread/.test(r[2])));
-  // Runs made before 1.27.2 (each its own thread, several waiting): the tidy puts them in one thread and only the latest waits.
   const w = sandbox(), ws = w.tabs.Requests, put = s => { ws.appendRow([s.id]); w.ctx.cueSave_(ws, ws.getLastRow(), s); };
-  [['cue-20261022131046-66cc', '05:10'], ['cue-20261022132725-ad32', '05:27'], ['cue-20261022132800-2de3', '05:28'], ['cue-20261022132940-738a', '05:29']].forEach(([id, hm]) =>
-    put({ id, kind: 'bids', created: '2026-10-22T' + hm + ':00.000Z', status: 'Needs you', ref: '', bids: { title: 'Bid check', day: '2026-10-22', items: [] }, text: 'x' }));
+  [['cue-20261022131046-66cc', '05:10', 'Done'], ['cue-20261022131900-1919', '05:19', 'Needs you'], ['cue-20261022132725-ad32', '05:27', 'Done']].forEach(([id, hm, st]) =>
+    put({ id, kind: 'bids', created: '2026-10-22T' + hm + ':00.000Z', status: st, ref: '', bids: { title: 'Bid check', day: '2026-10-22', items: [] }, text: 'x' }));
   put({ id: 'cue-20261021190000-aaaa', kind: 'bids', created: '2026-10-21T11:00:00.000Z', status: 'Needs you', ref: '', bids: { title: 'Bid check', day: '2026-10-21', items: [] }, text: 'x' });
   assert.strictEqual(w.ctx.cueBidsTidyAll_(), 1);
   const st = id => w.ctx.cueLoad_(id).s;
-  deq(['cue-20261022132725-ad32', 'cue-20261022132800-2de3', 'cue-20261022132940-738a'].map(id => st(id).ref), Array(3).fill('cue-20261022131046-66cc'));
-  deq(['cue-20261022131046-66cc', 'cue-20261022132725-ad32', 'cue-20261022132800-2de3', 'cue-20261022132940-738a'].map(id => st(id).status), ['Done', 'Done', 'Done', 'Needs you']);
+  deq(['cue-20261022131900-1919', 'cue-20261022132725-ad32'].map(id => st(id).ref), ['cue-20261022131046-66cc', 'cue-20261022131046-66cc']);
+  deq(['cue-20261022131046-66cc', 'cue-20261022131900-1919', 'cue-20261022132725-ad32'].map(id => st(id).status), ['Done', 'Needs you', 'Done'], 'nothing closed or reopened');
   deq([st('cue-20261021190000-aaaa').status, st('cue-20261021190000-aaaa').ref], ['Needs you', ''], 'a day with one run is left alone');
-  assert.ok(w.tabs.Chat.rows.some(r => r[3] === 'cue-20261022131046-66cc' && /4 bid checks in this one thread and closed 3 older cards/.test(r[2])));
+  assert.ok(w.tabs.Chat.rows.some(r => r[3] === 'cue-20261022131046-66cc' && /3 bid checks in this one thread\. Nothing was closed or changed/.test(r[2])));
   assert.strictEqual(w.ctx.cueBidsTidyAll_(), 0, 'once only');
+});
+test('BD12 in a Bid check thread only an explicit redo runs again; questions and other replies are answered there (PC 22 Oct 05:58Z)', () => {
+  ['redo bid check', 'refresh bid opportunities based on new rules', 'run it again', 'check again', 'Re-run the bid check'].forEach(x => assert.ok(t0.ctx.cueBidsRedo_(x), x));
+  ['check the RFPs if they are still valid. see months when they were sent if not current month then those are probably done',
+   'the inland transporation is invalid file says its March 2026', 'can you check bids again?', 'why are there so many bid checks',
+   'i did not ask this chat to run the bid opportunities again', 'do intake for 2026-0404', 'thanks'].forEach(x => assert.ok(!t0.ctx.cueBidsRedo_(x), x));
+  const t = sandbox();
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put({ id: 'cue-20261022131046-66cc', kind: 'bids', created: '2026-10-22T05:10:46.000Z', status: 'Needs you', bids: { title: 'Bid check 10/22 13:10', items: [] }, text: 'check bids' });
+  const n = () => sh.rows.filter(r => { try { return JSON.parse(r.slice(10).join('')).kind === 'bids'; } catch (e) { return false; } }).length, was = n();
+  try { t.ctx.cueSend('check the RFPs if they are still valid', [], '', 'cue-20261022131046-66cc'); } catch (e) { /* the chat answer has no mock here */ }
+  assert.strictEqual(n(), was, 'a question in the thread starts no check');
+  t.ctx.cueSend('redo bid check', [], '', 'cue-20261022131046-66cc');
+  assert.strictEqual(n(), was + 1, 'an explicit redo does');
 });
 test('BD3 nothing new: Done with one line; every ChatGPT call failing stops the check; a missing sheet is a note', () => {
   const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }] } });
