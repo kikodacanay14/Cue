@@ -965,8 +965,12 @@ const batchOf = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0
 
 test('S1 the 07:00 PH sweep trigger is installed by setup and when Cue opens; the resume trigger stays', () => {
   const t = sandbox(); t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila'], 'bid check at 07:00 (Kiko 19:50Z)');
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueSweep, [7, 'Asia/Manila']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila'], 'bid check at 07:00 (Kiko 19:50Z)');
   t.ctx.cueSetup(); deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep'], 'not installed twice (setup also adds the Monday HubSpot check)');
+});
+test('S1b rollback from a single-trigger build (stored CUE_TRIGGERS_V newer than 4) reinstalls the sweep, bid and Monday HubSpot triggers', () => {
+  const t = sandbox(); t.props.CUE_TRIGGERS_V = '5'; t.log.triggers = ['cueResume']; t.ctx.cueState();
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
 });
 test('S2 nothing to chase: no card, one chat line, no AI call, no Canvas read when no kind asks', () => {
   const t = sweepBox({}, null); t.ctx.cueSweep();
@@ -3670,7 +3674,7 @@ test('UG5 Settings page: AI usage and cost section loads only when opened, shows
 
 test('BD9 Kiko 19:50Z: the bid check moves to 07:00; the 08:00 trigger from version 3 is replaced once, other triggers stay', () => {
   const t = sandbox({ props: { CUE_TRIGGERS_V: '3' } }); t.log.triggers = ['cueResume', 'cueSweep', 'cueBidsDaily']; t.ctx.cueState();
-  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila']);
+  deq(t.log.triggers.slice().sort(), ['cueBidsDaily', 'cueHsWeekly', 'cueResume', 'cueSweep']); deq(t.log.triggerTz.cueBidsDaily, [7, 'Asia/Manila']);
   assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
 });
 
