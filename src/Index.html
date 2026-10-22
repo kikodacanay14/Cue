@@ -193,6 +193,10 @@
   .file button { border:0; background:transparent; color:var(--muted); cursor:pointer; font:700 14px system-ui, sans-serif; width:24px; height:24px; border-radius:50%; }
   .file button:hover { color:var(--text); background:var(--line); }
   .composer.drop { outline:2px dashed var(--act); outline-offset:-6px; }
+  /* Image batches (1.27.5): the held count, kept up to date, above the box it belongs to */
+  .batchbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:13px; }
+  .batchbar[hidden] { display:none; }
+  .batchbar span { flex:1; min-width:0; }
   dialog { background:var(--panel); color:var(--text); border:1px solid var(--line2); border-radius:8px; padding:18px; width:min(420px, calc(100vw - 48px)); }
   dialog::backdrop { background:rgba(0,0,0,.55); }
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
@@ -297,6 +301,7 @@
 </dialog>
 <div class="composer" id="composer" data-cue-app="1">
   <div class="in">
+    <div class="batchbar" id="batchbar" role="status" hidden></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="small muted" id="hint" role="status" hidden></div>
     <div class="row">
@@ -308,6 +313,7 @@
     </div>
     <div class="chips">
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
+      <button class="chip" id="chip-batch" hidden title="Hold these and wait for more files for the same task">More coming</button>
     </div>
   </div>
 </div>
@@ -326,12 +332,14 @@
   </div>
   <div class="tcomposer" id="tcomposer" hidden>
     <div id="tdock"></div>
+    <div class="batchbar" id="tbatchbar" role="status" hidden></div>
     <div class="files" id="tfiles" aria-live="polite"></div>
     <div class="rbox">
       <textarea id="tbox" placeholder="Reply in this thread" aria-label="Reply in this thread"></textarea>
       <button class="ibtn" id="tsend" title="Send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M20 5v7a3 3 0 0 1-3 3H5"/><path d="M9 11l-4 4 4 4"/></svg></button>
     </div>
-    <div class="rtools"><button class="ibtn" id="tattach" title="Attach files to this thread" aria-label="Attach files to this thread"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+    <div class="rtools"><button class="ibtn" id="tattach" title="Attach files to this thread" aria-label="Attach files to this thread"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="chip" id="tchip-batch" hidden title="Hold these and wait for more files for the same task">More coming</button></div>
   </div>
 </aside>
 <aside class="viewer" id="viewer" aria-label="File viewer" hidden>
@@ -719,7 +727,7 @@
   $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
-  var pending = [], reading = 0, MAX = { count: 10, each: 10 * 1048576, total: 20 * 1048576 };
+  var pending = [], reading = 0, MAX = { count: 30, each: 10 * 1048576, total: 30 * 1048576 };   // 1.27.5: was 10 files, 20 MB
   var TYPES = { 'image/png': 1, 'image/jpeg': 1, 'image/webp': 1, 'image/gif': 1, 'application/pdf': 1, 'text/plain': 1, 'text/csv': 1, 'message/rfc822': 1 };
   var BY_EXT = { eml: 'message/rfc822', txt: 'text/plain', csv: 'text/csv', pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
   function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
@@ -729,6 +737,7 @@
     $(fileHost).innerHTML = pending.map(function (f, i) {
       return '<span class="file">📎 ' + esc(f.name) + ' <span class="muted">' + kb(f.size) + '</span><button data-rm="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button></span>';
     }).join('') + (reading ? '<span class="file muted">Reading…</span>' : '');
+    renderBatch();
   }
   $('files').onclick = $('tfiles').onclick = function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-rm'); if (i != null) { pending.splice(Number(i), 1); renderFiles(); } };
   function shrink(file, done) {
@@ -755,7 +764,7 @@
           reading--;
           var used = pending.reduce(function (s, x) { return s + x.size; }, 0);
           if (f.size > MAX.each) addLocal('Cue', f.name + ' is over 10 MB.');
-          else if (used + f.size > MAX.total) addLocal('Cue', 'The attachments would add up to more than 20 MB.');
+          else if (used + f.size > MAX.total) addLocal('Cue', 'The attachments would add up to more than ' + MAX.total / 1048576 + ' MB.');
           else pending.push({ name: f.name || 'pasted image.png', type: TYPES[f.type] ? f.type : type, size: f.size, data: String(r.result).split(',')[1] || '' });
           renderFiles();
         };
@@ -805,8 +814,87 @@
     var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+    var b = batchOf(ref);
+    if (b && !files.length && BCANCEL_RE.test(t)) { box.value = ''; return batchCancel(ref); }
+    var dn = b ? doneSaid(t) : null;
+    if (dn !== null && !files.length) { box.value = ''; return batchDone(ref, dn); }
+    if (dn !== null) return batchSend(dn, files, ref, box, host, true);   // the last files and "done" in one message
+    if (b && b.asked && !files.length && !BATCH_RE.test(t)) { box.value = ''; return batchDone(ref, t); }   // the answer to "what should I do"
+    if (b || BATCH_RE.test(t)) return batchSend(t, files, ref, box, host);
     send(t, files, '', ref, undefined, box);
   }
+  // Image batches (Kiko 22 Oct 03:03Z, specs/image-batches.md): "more coming" or the More coming chip holds the files and text of
+  // several messages for one task; "done" or Done sends them as one message. Cue keeps the held list (state.batches), so a reload
+  // keeps it. This page also keeps the photos themselves, because an expense needs them and not their Drive copies.
+  var BATCH_RE = /\b(?:more (?:coming|to come|(?:images|photos|pics|files|screenshots) (?:coming|to come))|(?:sending|send|i'?ll send|i am sending|i'?m sending) (?:them |it |the |my )?(?:images |photos |pics |files |screenshots )?in batch(?:es)?|batch mode)\b[.,!]*/i;
+  var BCANCEL_RE = /^\s*cancel(?: the)?(?: batch)?\s*[.!]*\s*$/i;
+  var braw = {};   // box -> the photos as attached, for an expense
+  function bkey(ref) { return /^cue-[0-9A-Za-z-]{6,40}$/.test(ref || '') ? ref : 'main'; }
+  function batchOf(ref) { return (state.batches || {})[bkey(ref)]; }
+  // "done", "that's all", "go": null if it is not one. Text after "done" ("done, this is for the Unilever launch") is the instruction.
+  function doneSaid(t) {
+    if (/^\s*(?:go|send (?:them|it))\s*[.!]*\s*$/i.test(t)) return '';
+    var m = /^\s*(?:done|that'?s all|that'?s it|all sent)\b[\s.,!:;-]*([\s\S]*)$/i.exec(t);
+    return m ? m[1].trim() : null;
+  }
+  function batchSend(t, files, ref, box, host, thenDone) {
+    var key = bkey(ref), rest = t.replace(BATCH_RE, ' ').replace(/^[\s,.;:!-]+|[\s,;:-]+$/g, '');
+    var mine = { who: 'Kiko', text: [t, files.length ? '📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''].filter(Boolean).join('\n'), request_id: ref || '', time: new Date().toISOString(), box: box };
+    outbox.push(mine); box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
+    var ids = [], i = 0, note = { who: 'Cue', text: '', request_id: ref || '', time: '' };
+    if (files.length) outbox.push(note);
+    var fail = function (e) { unbox(note, mine); back(mine, t); if (files.length && !pending.length) { hostFiles(host); pending = files; renderFiles(); } alertErr(e, ref); };
+    (function next() {
+      if (i < files.length) {
+        note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
+        return call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); }, fail);
+      }
+      unbox(note);
+      call('cueBatchAdd', [ref || '', rest, ids], function (v) { state.batches = v; braw[key] = (braw[key] || []).concat(files); renderBatch(); if (thenDone) batchDone(ref, ''); }, fail);
+    })();
+  }
+  function batchDone(ref, extra) {
+    var key = bkey(ref);
+    call('cueBatchTake', [ref || '', extra || ''], function (r) {
+      state.batches = r.batches; renderBatch();
+      if (r.ask) return addLocal('Cue', 'What should I do with these ' + r.count + ' files? Type it and send.', ref);
+      var raw = braw[key]; delete braw[key];
+      if (isExpense(r.text)) {
+        if (raw && raw.length === r.files.length) return send(r.text, raw, '', ref);
+        return addLocal('Cue', 'This looks like an expense, but the page was reloaded, so the receipts are not in this page any more. Attach them again with the expense.', ref);
+      }
+      send(r.text, r.files, '', ref);
+    }, function (e) { alertErr(e, ref); });
+  }
+  function batchCancel(ref) {
+    var key = bkey(ref);
+    call('cueBatchCancel', [ref || ''], function (r) {
+      state.batches = r.batches; delete braw[key]; renderBatch();
+      addLocal('Cue', 'Dropped the ' + r.dropped + ' held file' + (r.dropped === 1 ? '' : 's') + '. Nothing was sent.', ref);
+    }, function (e) { alertErr(e, ref); });
+  }
+  function renderBatch() {
+    [['batchbar', 'chip-batch', '', 'files'], ['tbatchbar', 'tchip-batch', openThread ? threadRef() : null, 'tfiles']].forEach(function (k) {
+      var bar = $(k[0]), chip = $(k[1]);
+      if (k[2] === null) { bar.hidden = chip.hidden = true; return; }
+      var b = batchOf(k[2]), n = b ? b.count + ' file' + (b.count === 1 ? '' : 's') : '';
+      chip.hidden = !!b || !(fileHost === k[3] && pending.length);
+      bar.hidden = !b; if (!b) return;
+      setHtml(bar, '<span>' + (b.asked ? 'What should I do with these ' + n + '? Type it and send.'
+        : 'Holding ' + n + ' from ' + b.msgs + ' message' + (b.msgs === 1 ? '' : 's') + ' for one task' + (b.mb ? ' (' + b.mb + ' MB)' : '') + '. Send more, or say done.')
+        + '</span><button class="btn" data-batch="done">Done</button><button class="btn ghost" data-batch="cancel">Cancel</button>');
+    });
+  }
+  [['batchbar', 'chip-batch', 'box', 'files'], ['tbatchbar', 'tchip-batch', 'tbox', 'tfiles']].forEach(function (k) {
+    var ref = function () { return k[0] === 'batchbar' ? '' : threadRef(); };
+    $(k[0]).onclick = function (e) { var a = e.target.getAttribute && e.target.getAttribute('data-batch'); if (a === 'done') batchDone(ref(), ''); else if (a === 'cancel') batchCancel(ref()); };
+    $(k[1]).onclick = function () {
+      if (reading) return addLocal('Cue', 'Still reading the attachments. Tap again in a moment.');
+      var files = fileHost === k[3] ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+      if (files.length) return batchSend($(k[2]).value.trim(), files, ref(), $(k[2]), k[3]);
+      call('cueBatchStart', [ref()], function (v) { state.batches = v; renderBatch(); }, function (e) { alertErr(e, ref()); });
+    };
+  });
   $('send').onclick = function () { sendFrom($('box'), 'files', ''); };
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
   var lastTalk = '';
@@ -820,7 +908,7 @@
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && EXP_RE.test(t) && !memPaste(t) && !CV_SAY.test(t) && !/\bpersonal\b/i.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     call('cueSend', [t, files, mode, ref], function (r) {
@@ -910,6 +998,7 @@
     }).filter(function (c) { return /Kiko: /.test(c.text); });
     return { source: claude ? 'Claude' : 'ChatGPT', total: list.length, chats: chats };
   }
+  function isExpense(t) { return EXP_RE.test(t) && !memPaste(t) && !CV_SAY.test(t) && !/\bpersonal\b/i.test(t); }
   function back(mine, t) { var b = mine && mine.box; if (b && !b.value) b.value = t; }
   // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
   function expense(t, files, ref, mine) {
@@ -938,7 +1027,7 @@
   function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
-  function render() { renderChat(); renderWidgets(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
+  function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
   function setHtml(el, h) {
     if (el._h === h) return;
     var keep = {}, f = document.activeElement, fk = f && f.getAttribute && f.getAttribute('data-say');

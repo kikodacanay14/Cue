@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.4';
+const CUE_VERSION_ = 'Cue 1.27.5';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -922,13 +922,14 @@ function cueState() {
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day (Kiko 22 Oct 05:52Z)
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
+  let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
   const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 4).getValues()
     .map(r => ({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) })) : [];
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
-  return { version: CUE_VERSION_, requests: list, chat, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, requests: list, chat, batches, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

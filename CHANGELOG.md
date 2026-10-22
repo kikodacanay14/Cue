@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27.5: image batches for one task (not deployed)
+
+Kiko 22 Oct 03:03Z, spec specs/image-batches.md (approved 12:39Z).
+
+- One task now takes up to 30 files and 30 MB (was 10 and 20 MB), in one message or across several. Files from a client email (inbox triage) stay at 10 and 20 MB.
+- "more coming", "sending images in batches" or the **More coming** chip (shown once files are attached) holds the files and text of each message instead of running a task. A line above the box keeps the count ("Holding 14 files from 2 messages for one task") with **Done** and **Cancel**.
+- "done", "that's all", "go" or Done sends everything as one normal message: all typed text in order, plus all files. Text after "done" ("done, this is for the Unilever launch") is part of the instruction. With no text at all, Cue asks once what to do with the files, and the answer starts the task.
+- "cancel batch" or Cancel drops the held list; nothing went to any AI. The last files and "done" can come in one message.
+- One batch per box: the main chat or a thread. The held list is kept by Cue (one script property per box), so a reload keeps it. A batch untouched for 2 hours is dropped with a line in its chat.
+- No AI call until Done. Expenses work too while the page stays open (an expense needs the photos themselves); after a reload, Cue asks to attach the receipts again.
+
 ## Cue 1.27.4: expense card doubts start ticked (not deployed)
 
 - Kiko 22 Oct 06:09Z: every "Check these first" box on the expense card starts ticked; Kiko can still untick one before Approve. The ones Cue's own checks raise stay unticked with a note: a missing amount, date, expense type, CE category or proof file, an id Claude named that Canvas doesn't have, Canvas unsure of the project, a possible duplicate, or a scope that already has an award.
