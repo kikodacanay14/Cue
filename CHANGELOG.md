@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.27.1: bid check only when asked (not deployed)
+
+/dev 22 Oct 05:27-05:29Z: five bid checks in 3 minutes, about 15 AI calls. Each one was started by a Kiko message that only mentioned bids: "refresh bid opportunities based on new rules" (a real ask), two questions about giving the PhilGEPS username and password, and twice "i did not ask this chat to run the bid opportunities again". The word "philgeps", or "again" inside a Bid check thread, was enough to start a run.
+
+- A message that says no ("did not", "don't", "never", "stop", "no more", "not ask/want/need") or asks about a sign-in (username, password, login, sign in, credentials, account) never starts a bid check, in the main chat or in a Bid check thread. It gets a normal chat answer instead.
+- Tests: 309 of 309 pass (new BD10 with Kiko's four messages).
+
 ## Cue 1.27: unscheduled alarm (not deployed)
 
 Kiko 22 Oct 05:20Z: "can this alarm me if there's any task that is unscheduled". At 05:21Z Kiko picked Both.

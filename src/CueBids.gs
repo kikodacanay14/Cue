@@ -38,7 +38,12 @@ const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
 const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
 /** True when Kiko's message asks for the bid check (plain words, no AI call). An intake request for a found bid is not one. */
-function cueBidsAsked_(t) { t = String(t || ''); return CUE_BIDS_RE_.test(t) && !CUE_BIDS_INTAKE_RE_.test(t); }
+function cueBidsAsked_(t) { t = String(t || ''); return CUE_BIDS_RE_.test(t) && !CUE_BIDS_INTAKE_RE_.test(t) && !cueBidsNotRun_(t); }
+/** /dev 22 Oct 05:27Z: five checks in 3 minutes, each started by a message that only mentioned bids: a question about the PhilGEPS
+ * sign-in ("can i give my username and password...") and a complaint ("i did not ask this chat to run the bid opportunities again").
+ * A message that says no, or asks about a sign-in or password, never starts a check. */
+const CUE_BIDS_NOT_RE_ = /\b(did\s*n[o']?t|didn'?t|don'?t|do\s+not|never|stop|no\s+more|not\s+(?:ask|want|need))\b|\b(user\s?name|password|passcode|log\s?-?in|sign\s?-?in|credentials?|account)\b/i;
+function cueBidsNotRun_(t) { return CUE_BIDS_NOT_RE_.test(String(t || '')); }
 
 function cueBidsSheet_() { return SpreadsheetApp.openById(cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_)); }
 const cueBidsKey_ = (ref, agency, project) => { const r = String(ref || '').toLowerCase().replace(/[^a-z0-9]/g, '');
