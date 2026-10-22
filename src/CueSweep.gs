@@ -422,6 +422,8 @@ function cueSweepItem(id, key, what) {
     const b = L.s.batch, it = b.items.concat(b.stopped).filter(x => x.key === key)[0];
     if (!it) throw new Error('That line is not in this batch.');
     const log = cueChaseLog_(), today = cuePh_(cueNow_()).day;
+    // An inbox line's "Mute this sender" adds a Triage rule, so that sender's mail is skipped from now on.
+    if (what === 'mute' && it.kind === 'inbox' && it.sender && typeof cueTriageTeach === 'function') cueTriageTeach(it.sender, 'mute', 'muted from the Morning batch ' + today);
     if (what === 'mute') cueChaseWrite_(log, it, { muted: true, note: 'stopped by Kiko' });
     else cueChaseWrite_(log, it, { next: cueAddDays_(today, 1), note: 'skipped ' + today });
     it.removed = what; it.selected = false;

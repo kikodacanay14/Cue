@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.26.1: Morning batch inbox lines say what they are and what to do; missing tabs are made on first use
+
+- Live 22 Oct 02:30Z: inbox lines on the Morning batch (for example "SALES TEAM", "Happi Party") showed only the sender, a "none" button, and Skip today / Stop chasing. The card read only a line's `why`, which inbox triage leaves empty, and drew the triage action `none` as a button. Inbox lines now show a tag (New inquiry, Needs your reply, FYI), the email's subject, ChatGPT's one-line summary, and what to do. The `none` button is gone.
+- Inbox lines are not chasers, so their buttons are now Done (Got it on FYI lines) and Mute this sender. Muting adds a mute rule to the Triage rules tab, so that sender's mail is skipped from then on.
+- Live 22 Oct 02:31Z: the card said "Inbox: The Cue sheet has no Triage log tab. Run cueSetup again." Any registered Cue tab that is missing (Triage log included) is now made, with its header row, the first time Cue needs it. Kiko never has to run cueSetup for a new tab.
+- Tests: new TR7. Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.25.7: Reset a learned pattern's count
 
 - My rules > Learned patterns: any pattern with a count above 0 that has not graduated now has a Reset button, which puts its Go count back to 0. Graduated patterns keep Demote, which does the same and brings the plan card back. PC tests had left "Supplier search" at 2 of 3 and "ARs: prepare ARs" at 1 of 3 on the real Patterns tab, with no way to clear them.

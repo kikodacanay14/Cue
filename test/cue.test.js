@@ -2050,6 +2050,16 @@ test('TR6 triage inside the real Morning batch: 1 sort call + the engine\'s 1 dr
   t.at('2026-10-22', 7, 0); t.ctx.cueSweep(); assert.ok(!batchOf(t).batch || !batchOf(t).batch.items.some(i => i.kind === 'inbox'), 'yesterday\'s mail is not shown again');
 });
 
+test('TR7 a missing Triage log tab is made on first use (no "run cueSetup"); Mute this sender on an inbox line adds a Triage rule', () => {
+  const t = sweepBox({ inbox: INBOX, triage: TRIAGE, projects: BOARD.projects }, null); delete t.tabs['Triage log'];
+  t.ctx.cueSweep(); const b = batchOf(t);
+  assert.ok(!(b.notes || []).some(n => /cueSetup|no Triage log/.test(n)), 'no setup message on the card');
+  assert.ok(t.tabs['Triage log'] && t.tabs['Triage log'].rows[0][1] === 'Message' && t.tabs['Triage log'].rows.length > 1, 'tab made with its header, then logged');
+  const f = b.batch.items.find(i => i.kind === 'inbox' && i.group === 'fyi' && i.sender);
+  t.ctx.cueSweepItem(b.id, f.key, 'mute');
+  assert.ok(t.tabs['Triage rules'].rows.some(r => r[0] === f.sender && r[1] === 'mute'));
+});
+
 /* ---------- CE award chasers (spec specs/ce-award-chasers.md, Kiko approved 08:11Z) ---------- */
 const AW = (o = {}) => Object.assign({ id: 'S-1', name: 'Acme Party', account: 'Acme Corp', status: 'For Client Awarding', date: '12/12/2026',
   awaiting: { since: '2026-10-15', ce_total: 1250000, ce_no: 'CE-26-047' } }, o);
