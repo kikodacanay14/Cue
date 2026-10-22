@@ -3425,6 +3425,22 @@ test('BD2 bid words: asks route to the check; an intake ask or plain words do no
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
   ['do intake for 2026-0999', 'LED wall for AMI Group', 'can you clean up hubspot?', 'new RFP from Acme'].forEach(x => assert.ok(!t.ctx.cueBidsAsked_(x), x));
 });
+test('BD10 a question about the PhilGEPS sign-in or a "did not ask" complaint never starts a bid check, in the main chat or a Bid check thread (/dev 22 Oct 05:27Z)', () => {
+  const t = sandbox();
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put({ id: 'cue-20261022131046-66cc', kind: 'bids', created: '2026-10-22T05:10:46.000Z', status: 'Needs you', bids: { title: 'Bid check 10/22 13:10', items: [] }, text: 'check bids' });
+  const bids = () => sh.rows.filter(r => { try { return JSON.parse(r.slice(10).join('')).kind === 'bids'; } catch (e) { return false; } }).length;
+  const n = bids();
+  [['can i give my philgeps username and password so that opportunities can be accessed from the philgeps website', ''],
+   ['can i give my username and password so that the philgeps site can be accessed properly', 'cue-20261022131046-66cc'],
+   ['i did not ask this chat to run the bid opportunities again', 'cue-20261022131046-66cc'],
+   ['i did not ask this chat to run the bid opportunities again', '']].forEach(([x, ref]) => {
+    assert.ok(!t.ctx.cueBidsAsked_(x), x);
+    try { t.ctx.cueSend(x, [], '', ref); } catch (e) { /* the chat call has no mock here; only the bid check count matters */ }
+    assert.strictEqual(bids(), n, 'no new bid check for: ' + x);
+  });
+  assert.ok(t.ctx.cueBidsAsked_('refresh bid opportunities based on new rules') && t.ctx.cueBidsAsked_('check philgeps'));
+});
 test('BD3 nothing new: Done with one line; every ChatGPT call failing stops the check; a missing sheet is a note', () => {
   const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }] } });
   const v = t.ctx.cueRun(t.ctx.cueSend('any new bids today?', [], '').request_id);
