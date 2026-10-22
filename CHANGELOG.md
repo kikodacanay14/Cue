@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.25.3: trigger rollback safety
+
+- When Cue sees a stored trigger version other than its own, it reinstalls every timed job it uses. That covers the sweep, the 07:00 bid check and now the Monday HubSpot check (`cueHsWeekly`). Rolling back from the single-trigger scheduler build (CUE_TRIGGERS_V 5) to this version therefore brings all three back the next time Cue is opened. Nothing changes while the stored version is 4.
+- Tests: new S1b; S1 and BD9 now expect the Monday HubSpot trigger.
+
 ## Cue 1.26: task scheduler (not deployed)
 
 Kiko 21 Oct 19:12Z "we need a task scheduler", 19:13Z "run a command and tell Cue to Schedule a task followed by the task we want it to do". Spec: `specs/task-scheduler.md`, Kiko "Go" 22 Oct 00:57Z.
