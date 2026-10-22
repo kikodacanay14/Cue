@@ -10,7 +10,7 @@ const CUE_USAGE_MANILA_ = 8 * 3600000;
 const CUE_USAGE_KINDS_ = { intake: 'Project intake', supplier: 'Supplier registration', email: 'Email', style: 'Writing style', memory: 'Teach Cue',
   process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search', hubspot: 'HubSpot clean-up',
   bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch', pipeline: 'Pipeline review',
-  readiness: 'Readiness check', change: 'Change request' };
+  readiness: 'Readiness check', change: 'Change request', skillobs: 'Skill observer' };
 const CUE_USAGE_TOP_ = 8;
 
 /** A dated model id ("gpt-5-mini-2025-08-07", "claude-x-20251001") prices as its plain name. */

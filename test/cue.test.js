@@ -162,6 +162,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You are Cue, the personal assistant/.test(body.system)) { log.claude.push(body); log.plans = (log.plans || 0) + 1;   // tutor mode's plan call
       const g = o.plan || o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false };
       return claudeOk(Array.isArray(g) ? g[Math.min(log.plans, g.length) - 1] : g); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You review how Cue's skills ran/.test(body.system)) { log.claude.push(body); log.skillfix = (log.skillfix || 0) + 1; return claudeOk(o.skillfix || { fixes: [] }); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn one event inquiry/.test(body.system)) { log.claude.push(body); log.breaks = (log.breaks || 0) + 1;
       if ((o.fail || {}).breakdown) return o.fail.breakdown();
       return claudeOk(Array.isArray(o.breakdown) ? o.breakdown[Math.min(log.breaks, o.breakdown.length) - 1] : (o.breakdown || BREAKDOWN)); }
@@ -3849,7 +3850,7 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
 });
 test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-unsched', 'Daily 07:00', true]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-unsched', 'Daily 07:00', true], ['sys-skillobs', 'Mon 08:00', true]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
   t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');
@@ -4336,6 +4337,101 @@ test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will n
   const u = sandbox(); u.ctx.cueState(); u.ctx.cueSchedules().filter(x => !x.on).forEach(x => u.ctx.cueSchedSet(x.id, { on: true }));
   u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); u.ctx.cueResume(); u.ctx.__wait(5 * 60000); u.ctx.cueResume();   // Wednesday 19:00 was missed too: 3 rows per tick
   assert.strictEqual(u.ctx.cueSchedules().filter(x => x.id === 'sys-unsched')[0].result, 'All scheduled'); assert.ok(!u.tabs.Chat.rows.some(r => /Unscheduled check/.test(r[2])));
+});
+
+// ---- Skill observer (Kiko 22 Oct 05:22Z; spec skill-observer.md, Kiko "ok" 12:39Z) ----
+const SO_SCHEMA = { type: 'object', additionalProperties: false, required: ['answer'], properties: { answer: { type: 'string' } } };
+function soProc(t, steps, extra) {
+  t.ctx.cueState(); t.ctx.cueSchedules();
+  t.tabs.Workflows = sheetMock(); t.tabs.Workflows.appendRow(['Saved', 'Name', 'Version', 'Target', 'Status', 'Trigger', 'Steps', 'Flags', 'AI calls', 'Zap build steps', 'Steps JSON', 'Request', 'Use in prompts']);
+  t.tabs.Workflows.appendRow(['', 'Quote follow-up', 1, 'Cue', 'Approved', 'quote follow up supplier', steps || '1. Code: Find the quote\n2. ChatGPT: Draft the follow-up\n3. Kiko: Approve and send', '', 0, '', '[]', 'cue-1', true]);
+  (extra || []).forEach(r => t.tabs.Workflows.appendRow(r));
+}
+const soChecks = t => (t.tabs['Skill checks'] ? t.tabs['Skill checks'].rows.slice(1) : []);
+test('SO1 a call that follows a Teach Cue process reports each step; code checks it and takes skill_steps out before the caller reads the answer; memory:false and switched off leave the call as before', () => {
+  const t = sandbox({ gpt: { x: { answer: 'hi', skill_steps: [{ step: 1, status: 'not this call', why: 'code' }, { step: 2, status: 'skipped', why: 'no quote date' }] } } }); soProc(t);
+  const s = { id: 'cue-so1', metrics: { ai_calls: 0, calls: [] } }, c = t.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA });
+  const body = JSON.parse(c.req.payload);
+  deq(body.text.format.schema.required, ['answer', 'skill_steps']); deq(SO_SCHEMA.required, ['answer'], 'the caller\'s schema is not changed');
+  assert.ok(/skill_steps: one entry per numbered step of "Quote follow-up" \(3 steps\)/.test(body.instructions));
+  const r = t.ctx.cueAiAll_(s, [c])[0]; deq(r.data, { answer: 'hi' });
+  const row = soChecks(t)[0]; deq(row.slice(1, 10), ['cue-so1', 'Quote follow-up', 1, 'process', 3, 1, 2, 0, 0]);
+  deq(JSON.parse(row[10]).f, [[2, 'no quote date'], [3, 'not reported']]);
+  const m = JSON.parse(t.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA, memory: false }).req.payload);
+  deq(m.text.format.schema.required, ['answer']);
+  const u = sandbox({ props: { CUE_SKILLOBS: 'off' } }); soProc(u);
+  deq(JSON.parse(u.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA }).req.payload).text.format.schema.required, ['answer'], 'switched off');
+  assert.strictEqual(t.log.gpt.length, 1, 'no extra AI call');
+});
+test('SO2 rule check on a command skill: an email address in nothing Cue gave the call is flagged at once in the task thread; Kiko\'s own address and given ones are not; attachments skip the check', () => {
+  const t = sandbox({ cost: { answer: 'Ask sales@sonicpro.example and made.up@foo.example; Kiko kikodacanay@blankspaceevent.com' } });
+  const s = { id: 'cue-so2', metrics: { ai_calls: 0, calls: [] } };
+  t.ctx.cueAiAll_(s, [t.ctx.cueClaude_({ step: 'cost', system: 'You cost.', user: 'Suppliers: Sonic Pro sales@sonicpro.example', schema: SO_SCHEMA })]);
+  const flag = t.tabs.Chat.rows.filter(r => /Skill observer/.test(r[2])).pop();
+  assert.ok(flag && flag[3] === 'cue-so2' && /made\.up@foo\.example/.test(flag[2]) && !/sonicpro|kikodacanay/.test(flag[2]), flag && flag[2]);
+  deq(soChecks(t)[0].slice(2, 10), ['Project intake: costing', '', 'rules', 0, 0, 0, 0, 1]);
+  const n = soChecks(t).length;
+  t.ctx.cueAiAll_(s, [t.ctx.cueClaude_({ step: 'cost', system: 'You cost.', user: 'see file', schema: SO_SCHEMA, parts: [{ type: 'text', text: 'x' }] })]);
+  t.ctx.cueAiAll_(s, [t.ctx.cueClaude_({ step: 'check', system: 'You cost.', user: 'x', schema: SO_SCHEMA })]);
+  assert.strictEqual(soChecks(t).length, n, 'attachments, and steps outside the list, are not checked');
+});
+function soGt(o = {}) { const t = gtBox(o); t.ctx.cueSchedules(); const run = () => t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id); return { t, run }; }
+test('SO3 ChatGPT tasks: each run\'s process check is kept; Monday\'s thread lists the repeat, the blocker and the broken rules; one Claude call drafts a change; Approve saves version 2 and the next run uses it; Undo brings the old step back', () => {
+  const GTB = Object.assign({}, GT_ANS, { steps: [1, 2, 3].map(n => ({ step: n, done: true, note: '' })).concat([{ step: 4, done: false, note: 'LinkedIn needs sign-in' }]) });
+  const { t, run } = soGt({ gpt: { gtask: GTB }, skillfix: { fixes: [{ skill: 'ChatGPT task: Prospect follow-ups', step: 5, new_text: 'Report step 5 every time, even when nothing is due.', why: 'Step 5 was never reported.' },
+    { skill: 'Something else', step: 1, new_text: 'x', why: 'y' }] } });
+  const v = run(); run(); run();
+  const rows = soChecks(t); assert.strictEqual(rows.length, 3);
+  deq(rows[0].slice(2, 10), ['ChatGPT task: ' + v.gt.title.replace(/ \d\d\/\d\d$/, ''), 1, 'chatgpt task', 5, 3, 2, 1, 2]);
+  const title = rows[0][2];
+  const k = t.log.claude.length; t.ctx.cueSchedRunNow('sys-skillobs');
+  assert.strictEqual(t.log.claude.length - k, 1, 'one Claude call'); assert.ok(/<skills>[\s\S]*step 5, 3 times/.test(JSON.parse(JSON.stringify(t.log.claude.slice(-1)[0])).messages[0].content));
+  const so = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(x => x.kind === 'skillobs')[0];
+  assert.ok(so && so.status === 'Needs you' && so.how === 'weekly' && /^Skill observer \d\d\/\d\d$/.test(so.title));
+  const lines = t.tabs.Chat.rows.filter(r => r[3] === so.id || String(r[3]).indexOf('@' + so.id) > 0).map(r => r[2]).join('\n');
+  assert.ok(/0 of 3 runs clean\. Most often: step 5 \(3x\)/.test(lines) && /step 4 "LinkedIn needs sign-in" \(3x\)\. Needs your signed-in browser/.test(lines) && /a guessed email address \(removed from the card\) \(3x\)/.test(lines), lines);
+  const cards = t.tabs.Chat.rows.filter(r => /^\?ask-.*:approve,edit,reject@/.test(String(r[3])));
+  assert.strictEqual(cards.length, 1, 'a fix for a skill not on the list is dropped'); assert.ok(/step 5:\nNow: .+\nNew: Report step 5 every time/.test(cards[0][2]));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + so.id && /1 change to approve/.test(r[2])), 'a line in the main chat opens the thread');
+  t.ctx.cueAskPick(String(cards[0][3]).match(/^\?(ask-[0-9a-z]+)/)[1], 'approve');
+  const w = t.tabs.Workflows.rows.slice(-1)[0]; deq([w[1], w[2], w[3], w[4], w[12]], [title, 2, 'ChatGPT task', 'Approved by Kiko', false]);
+  assert.strictEqual(t.state(so.id).status, 'Done');
+  const g = t.log.gpt.length; run(); assert.ok(/5\. Report step 5 every time, even when nothing is due\./.test(t.log.gpt[g].instructions));
+  assert.strictEqual(soChecks(t).slice(-1)[0][3], 2, 'runs now log version 2');
+  const view = t.ctx.cueSkillObs(), me = view.skills.filter(x => x.name === title)[0]; deq([me.ver, me.runs, me.undo], [2, 4, true]);
+  t.ctx.cueSkillObsUndo(title); deq(t.tabs.Workflows.rows.slice(-1)[0][2], 3);
+  const h = t.log.gpt.length; run(); assert.ok(!/Report step 5 every time/.test(t.log.gpt[h].instructions), 'back to the shipped step');
+});
+test('SO4 Edit saves Kiko\'s wording, Reject saves nothing, a skill changed since the proposal is not overwritten; a quiet week is one line with no thread and no AI call', () => {
+  const fix = n => ({ skill: 'Quote follow-up', step: n, new_text: 'Draft the follow-up with the quote date.', why: 'Skipped 3 times.' });
+  const t = sandbox({ gpt: { x: { answer: 'hi', skill_steps: [{ step: 1, status: 'done', why: '' }, { step: 2, status: 'skipped', why: 'no date' }, { step: 3, status: 'not this call', why: '' }] } }, skillfix: { fixes: [fix(2), fix(0)] } }); soProc(t);
+  const call = () => t.ctx.cueAiAll_({ id: 'cue-x', metrics: {} }, [t.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA })]);
+  call(); call(); call(); t.ctx.cueSchedRunNow('sys-skillobs');
+  const ids = t.tabs.Chat.rows.filter(r => /:approve,edit,reject@/.test(String(r[3]))).map(r => String(r[3]).match(/^\?(ask-[0-9a-z]+)/)[1]); assert.strictEqual(ids.length, 2);
+  assert.throws(() => t.ctx.cueAskPick(ids[0], 'edit', ''), /Type the step/);
+  t.ctx.cueAskPick(ids[0], 'edit', 'ChatGPT: Draft the follow-up, quote date first');
+  let w = t.tabs.Workflows.rows.slice(-1)[0]; deq([w[1], w[2], w[12]], ['Quote follow-up', 2, true]); assert.ok(/2\. ChatGPT: Draft the follow-up, quote date first\n3\. Kiko: Approve and send$/.test(w[6]), w[6]);
+  t.ctx.cueAskPick(ids[1], 'approve');
+  assert.strictEqual(t.tabs.Workflows.rows.length, 3, 'proposed for version 1, skill is now version 2: not saved'); assert.ok(/changed since this was proposed/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
+  const u = sandbox({ skillfix: { fixes: [fix(2)] } }); soProc(u);
+  u.ctx.cueSchedRunNow('sys-skillobs'); assert.ok(/no skill runs this week/.test(u.tabs.Chat.rows.slice(-1)[0][2]));
+  assert.ok(!u.tabs.Requests.rows.slice(1).some(r => u.state(r[0]).kind === 'skillobs')); assert.strictEqual(u.log.claude.length, 0);
+  const r = sandbox({ skillfix: { fixes: [fix(2)] }, gpt: { x: { answer: 'hi', skill_steps: [{ step: 1, status: 'done', why: '' }, { step: 2, status: 'skipped', why: 'x' }, { step: 3, status: 'done', why: '' }] } } }); soProc(r);
+  r.ctx.cueAiAll_({ id: 'cue-y', metrics: {} }, [r.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA })]);
+  r.ctx.cueSchedRunNow('sys-skillobs');
+  assert.strictEqual(r.log.claude.length, 0, 'one deviation under the threshold: no Claude call');
+  const rid = r.tabs.Chat.rows.filter(x => /:approve,edit,reject@/.test(String(x[3])));
+  assert.strictEqual(rid.length, 0);
+  r.ctx.cueSkillObsSet({ repeat: 2 }); assert.strictEqual(r.ctx.cueSkillObs().repeat, 2); assert.throws(() => r.ctx.cueSkillObsSet({ repeat: 40 }), /2 to 10/);
+  r.ctx.cueSkillObsSet({ on: false }); deq(r.ctx.cueSchedRunNow('sys-skillobs').filter(x => x.id === 'sys-skillobs')[0].result, 'Skill observer is off');
+});
+test('SO5 Reject on a change: nothing saved; the week\'s thread is Done once every card is answered', () => {
+  const t = sandbox({ gpt: { x: { answer: 'hi', skill_steps: [{ step: 1, status: 'done', why: '' }] } }, skillfix: { fixes: [{ skill: 'Quote follow-up', step: 2, new_text: 'Draft it.', why: 'x' }] } }); soProc(t);
+  for (let i = 0; i < 3; i++) t.ctx.cueAiAll_({ id: 'cue-z', metrics: {} }, [t.ctx.cueGpt_({ step: 'x', name: 'x', system: 'You test.', user: 'quote follow up for supplier Sonic', schema: SO_SCHEMA })]);
+  t.ctx.cueSchedRunNow('sys-skillobs');
+  const c = t.tabs.Chat.rows.filter(r => /:approve,edit,reject@/.test(String(r[3])))[0], so = String(c[3]).split('@')[1];
+  t.ctx.cueAskPick(String(c[3]).match(/^\?(ask-[0-9a-z]+)/)[1], 'reject');
+  assert.strictEqual(t.tabs.Workflows.rows.length, 2); assert.strictEqual(t.state(so).status, 'Done');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

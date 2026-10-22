@@ -123,7 +123,7 @@ function cueTeachLoad_() {
     const wf = ss.getSheetByName('Workflows'), m = wf ? wf.getLastRow() - 1 : 0, seen = {};
     if (m > 0) wf.getRange(2, 1, m, CUE_WF_TAB_.length).getValues().reverse().forEach(r => {   // newest version of each name
       const key = cueName_(r[1]); if (!key || seen[key]) return; seen[key] = 1;
-      if (cueStyleOn_(r[12]) && String(r[6] || '').trim()) out.procs.push({ name: cueStr_(String(r[1]).trim(), 120), chat: String(r[3] || '') === 'Chat', trigger: cueStr_(String(r[5] || ''), 300), steps: cueStr_(String(r[6]), CUE_TEACH_MAX_.procChars) });
+      if (cueStyleOn_(r[12]) && String(r[6] || '').trim()) out.procs.push({ name: cueStr_(String(r[1]).trim(), 120), version: Number(r[2]) || 1, chat: String(r[3] || '') === 'Chat', trigger: cueStr_(String(r[5] || ''), 300), steps: cueStr_(String(r[6]), CUE_TEACH_MAX_.procChars) });
     });
   } catch (e) { console.warn('Teach Cue: ' + e); }
   return (CUE_TEACH_CACHE_ = out);
@@ -131,7 +131,7 @@ function cueTeachLoad_() {
 
 /** Text added to a call's instructions: the facts marked Always, the facts that share words with the input, and the best matching
  * process. Empty when nothing matches, so the call is exactly what it was before. */
-function cueTeachFor_(input, step) {
+function cueTeachFor_(input, step, picked) {
   const T = cueTeachLoad_();
   if (!T.facts.length && !T.procs.length) return '';
   const want = cueTeachWords_(String(input || '').slice(0, CUE_TEACH_MAX_.input));
@@ -147,6 +147,7 @@ function cueTeachFor_(input, step) {
     const name = cueTeachWords_(p.name), s = score(p.name + ' ' + p.trigger);
     return { p, s: name.length && name.every(w => want.indexOf(w) >= 0) ? s + 2 : s };
   }).filter(x => x.s >= 2).sort((a, b) => b.s - a.s)[0];
+  if (best && picked) picked.proc = best.p;   // the skill observer checks the call followed it
   if (best) out += '\n\nKiko\'s approved process "' + best.p.name + '" applies here. Follow its order and its rules for the part this call does; '
     + 'the instructions above still win on format, facts and what waits for Kiko:\n' + best.p.steps;
   return out;

@@ -150,6 +150,13 @@ function cueGtSchedules_() {
   return CUE_GT_ORDER_.filter(k => CUE_GT_[k].sched).map(k => Object.assign({ key: k, name: CUE_GT_[k].title, command: 'run ' + CUE_GT_[k].title.toLowerCase(), entry: 'cueGtScheduled' }, CUE_GT_[k].sched));
 }
 
+/** A task's definition with the steps Kiko last approved through the skill observer (Workflows tab), else the steps it shipped with. */
+function cueGtDef_(key) {
+  const D = CUE_GT_[key]; if (!D) return D;
+  let o = null; try { o = cueSoOverride_(CUE_SO_GT_ + D.title); } catch (e) { o = null; }
+  return Object.assign({}, D, o ? { steps: o.steps, ver: o.ver } : { ver: 1 });
+}
+
 /** The scheduler's entry: starts the task once per Manila day per key. Returns { request_id } or null when it already ran today. */
 function cueGtScheduled(key) {
   if (!CUE_GT_[key]) throw new Error('No ChatGPT task called ' + key);
@@ -381,7 +388,7 @@ function cueGtPrompt_(D) {
     + '- summary: two short sentences for Kiko. Answer only with the JSON.';
 }
 function cueGtAsk_(s) {
-  const G = s.gt, D = CUE_GT_[G.key], wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(G.day + 'T00:00:00Z').getUTCDay()];
+  const G = s.gt, D = cueGtDef_(G.key), wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(G.day + 'T00:00:00Z').getUTCDay()];
   const r = cueAiAll_(s, [cueGpt_({ step: D.title, name: 'gtask', web: D.web, memory: D.memory, maxTokens: 16000, system: cueGtPrompt_(D), schema: CUE_GT_SCHEMA_,
     user: 'Today (Manila): ' + G.day + ' (' + wd + ')\n' + (s.how === 'chat' ? 'Kiko asked: "' + cueStr_(s.text, 500) + '"\n' : '') + '<records>\n' + (G.ctx || 'none given') + '\n</records>' })])[0];
   if (!r.ok) throw new Error('ChatGPT could not run it: ' + r.error);
@@ -396,7 +403,7 @@ function cueGtPlain_(t) {
   return cueStr_(keep.join('').trim(), 600);
 }
 function cueGtCheck_(s, a) {
-  const G = s.gt, D = CUE_GT_[G.key], https = u => /^https:\/\/[^\s"<>]+$/.test(String(u || '')) ? String(u).slice(0, 500) : '';
+  const G = s.gt, D = cueGtDef_(G.key), https = u => /^https:\/\/[^\s"<>]+$/.test(String(u || '')) ? String(u).slice(0, 500) : '';
   const known = {}; String(G.ctx || '').toLowerCase().replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g, m => { known[m] = 1; return m; });
   const claims = /\b(i|we) (have )?(sent|emailed|updated|changed|saved|deleted|submitted|filed|registered)\b/i;
   const bad = { evidence: [], guessed: [], claimed: [] }, keys = {}, list = [];
@@ -434,6 +441,7 @@ function cueGtCheck_(s, a) {
   G.checks.push({ id: 8, label: 'Every record read', ok: !fails.length, detail: fails.length ? fails.slice(0, 5).join('; ') : '' });
   G.items = fresh; G.total = list.length; G.summary_ai = cueGtPlain_(a.summary);
   cueGtSeenAdd_(s, fresh);
+  cueSoGt_(s, D, G, bad);   // the skill observer keeps this check for the Monday roll-up (CueSkillObs.gs)
   const passed = G.checks.filter(c => c.ok).length;
   G.summary = (fails.length ? 'Incomplete: ' + fails.length + ' record' + (fails.length === 1 ? '' : 's') + ' could not be read. ' : '')
     + (fresh.length ? fresh.length + ' new finding' + (fresh.length === 1 ? '' : 's') : fails.length ? 'Nothing new in what was read' : 'Nothing new') + (list.length > fresh.length ? ' (' + (list.length - fresh.length) + ' already shown)' : '')

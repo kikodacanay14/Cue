@@ -19,16 +19,17 @@ function cueKey_(name) {
 }
 
 /** Teach Cue (CueTeach.gs): Kiko's matching facts and process, added to every call's instructions. memory: false leaves them out. */
-function cueTeachAdd_(o) { return o.memory === false ? '' : cueTeachFor_(String(o.step || '') + ' ' + String(o.user || ''), String(o.step || '')); }
+function cueTeachAdd_(o, out) { return o.memory === false ? '' : cueTeachFor_(String(o.step || '') + ' ' + String(o.user || ''), String(o.step || ''), out); }
 
 /** o = { step, system, user, schema, name, web?, maxTokens?, parts?, memory? } -> a call for cueAiAll_. parts = extra content (attachments). */
 function cueGpt_(o) {
   const model = cueProp_('OPENAI_MODEL', 'gpt-5-mini'), effort = cueProp_('CUE_GPT_REASONING', 'low');
-  const body = { model, instructions: String(o.system) + cueTeachAdd_(o), input: o.parts && o.parts.length ? [{ role: 'user', content: [{ type: 'input_text', text: String(o.user) }].concat(o.parts) }] : String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
-    text: { format: { type: 'json_schema', name: o.name || 'answer', strict: true, schema: o.schema } } };
+  const so = {}, teach = cueTeachAdd_(o, so), w = cueSoWrap_(o, so.proc);   // skill observer (CueSkillObs.gs): the process's steps come back as skill_steps
+  const body = { model, instructions: String(o.system) + teach + (w ? w.text : ''), input: o.parts && o.parts.length ? [{ role: 'user', content: [{ type: 'input_text', text: String(o.user) }].concat(o.parts) }] : String(o.user), store: false, max_output_tokens: o.maxTokens || 6000,
+    text: { format: { type: 'json_schema', name: o.name || 'answer', strict: true, schema: w ? w.schema : o.schema } } };
   if (effort !== 'off') body.reasoning = { effort };
   if (o.web) body.tools = [{ type: cueProp_('CUE_GPT_WEB_TOOL', 'web_search') }];
-  return { step: o.step, provider: 'GPT', model, parse: cueGptParse_,
+  return { step: o.step, provider: 'GPT', model, parse: cueGptParse_, so: cueSoMark_(o, w, String(o.system) + '\n' + String(o.user) + teach),
     req: { url: CUE_OPENAI_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
       headers: { Authorization: 'Bearer ' + cueKey_('OPENAI_API_KEY') } } };
 }
@@ -48,10 +49,11 @@ function cueGptParse_(code, msg) {
  * (documents, images): after the text by default (supplier registration), before it when partsFirst (personal expense second look). */
 function cueClaude_(o) {
   const model = cueProp_('CUE_CLAUDE_MODEL', 'claude-sonnet-5-5');
-  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system) + cueTeachAdd_(o), messages: [{ role: 'user', content: o.parts && o.parts.length
+  const so = {}, teach = cueTeachAdd_(o, so), w = cueSoWrap_(o, so.proc);
+  const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system) + teach + (w ? w.text : ''), messages: [{ role: 'user', content: o.parts && o.parts.length
     ? (o.partsFirst ? o.parts.concat([{ type: 'text', text: String(o.user) }]) : [{ type: 'text', text: String(o.user) }].concat(o.parts)) : String(o.user) }],
-    output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };
-  return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_,
+    output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: w ? w.schema : o.schema } } };
+  return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_, so: cueSoMark_(o, w, String(o.system) + '\n' + String(o.user) + teach),
     req: { url: CUE_CLAUDE_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
       headers: Object.assign({ 'x-api-key': cueKey_('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' },
         // An organization-wide key must name its workspace (Kiko's key at 05:47Z said so); a workspace key needs nothing.
@@ -91,6 +93,7 @@ function cueAiAll_(s, calls) {
     try {
       const out = c.parse(code, msg);
       cueAiLog_(s, c, out.model || c.model, out.input, out.output, secs, 'OK', out.web ? out.web + ' web searches' : '');
+      if (c.so) try { cueSoAfter_(s, c, out.data); } catch (e) { console.warn('Skill observer: ' + e); }   // takes skill_steps out before the caller reads data
       return { ok: true, data: out.data };
     } catch (e) {
       const why = String((e && e.message) || e).slice(0, 300);

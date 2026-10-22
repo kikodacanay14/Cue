@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28: skill observer (not deployed)
+
+Kiko 22 Oct 05:22Z: "a skill observer - makes sure that chatgpt and claude follows the skills as documented. verifies if there are blockers and updates the skills based on approved modification". Spec specs/skill-observer.md; Kiko "ok" 12:39Z (Monday 08:00, recommended scope).
+
+- Every run that follows a skill is checked by code and kept in a new hidden tab, **Skill checks**. There is no extra AI call per run.
+  - ChatGPT tasks: the process check they already run is kept.
+  - Teach Cue processes (Workflows tab, "Use in prompts"): when Cue adds a process to a call, the answer also says, step by step, done, skipped, blocked or "not this call". Code checks it and takes it out before the command reads the answer. This adds about 50-100 output tokens to those calls.
+  - Command skills (intake requirements and costing, writing style, email drafts, Teach Cue): rule checks only. An email address in the answer that is in nothing Cue gave the call is flagged at once in the task's thread. Kiko's own address is not flagged. Calls with attachments are skipped.
+- New system row **Skill observer**, Mondays 08:00, on. If every run that week followed its skill, Cue posts one line in the chat. Otherwise Cue opens one thread for the week. The thread lists each skill's clean runs, the most common deviation, rules broken, and blockers, such as a sign-in or a missing token, with the fix where Cue knows it. A step that fails 3 runs in a row also counts as a blocker.
+- A skill with one deviation 3+ times that week, or that matches one of Kiko's corrections from that week, goes to one Claude call. Claude drafts at most 2 step edits per skill and 6 in all. Each edit is a card: **Approve**, **Edit** (type the step as it should read) or **Reject**. Nothing changes before the tap.
+- Approve saves the skill's next version as a new row in the Workflows tab, and older versions stay below it. For a ChatGPT task the row is named "ChatGPT task: <title>" and Use in prompts is off. The task reads its steps from that row at run time, so the change applies from the next run with no deploy. A proposal for a skill that changed since it was drafted is not saved.
+- Settings > **Skill observer**: on/off, how many repeats before Cue proposes a change (default 3), each skill's version and clean runs over 4 weeks, and **Undo last change**.
+- Tests: 317 of 317 pass (new SO1 to SO5; SC4 lists the new row).
+
 ## Cue 1.27.4: expense card doubts start ticked (not deployed)
 
 - Kiko 22 Oct 06:09Z: every "Check these first" box on the expense card starts ticked; Kiko can still untick one before Approve. The ones Cue's own checks raise stay unticked with a note: a missing amount, date, expense type, CE category or proof file, an id Claude named that Canvas doesn't have, Canvas unsure of the project, a possible duplicate, or a scope that already has an award.

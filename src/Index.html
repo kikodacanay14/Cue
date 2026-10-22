@@ -261,7 +261,7 @@
   <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="skillobs">Skill observer</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -270,6 +270,7 @@
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
+      <section data-sec="skillobs" hidden><div class="label" style="margin-top:0">Skill observer</div><div id="w-skillobs"><div class="small muted">Loading…</div></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
     </div>
@@ -971,14 +972,14 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'skillobs' && r.name) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'skillobs' ? 'Skill observer' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -993,7 +994,7 @@
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time', approve: 'Approve', edit: 'Edit', reject: 'Reject' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -1002,7 +1003,7 @@
     var q = askOf(m); if (!q || !q.open) return '';
     if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
     return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
-      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
+      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' || c === 'reject' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
     }).join('') + '</div>';
   }
   // "Wrong command?" (Kiko 17:00Z): on a waiting task that came from a message. Pick the right one; Cue redoes it and asks once to remember.
@@ -1289,6 +1290,7 @@
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
     if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
+    if (sec === 'skillobs') loadSkillObs();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -1335,6 +1337,33 @@
       function (v) { if (!v) return; b.disabled = true; call('cueSchedSet', [id, { when: v }], schedDone, schedFail); });
     if (act === 'del') return ask('Delete "' + x.name + '"?', 'It stops running. Tasks it already started stay.', null, 'Delete',
       function () { b.disabled = true; call('cueSchedDelete', [id], schedDone, schedFail); });
+  });
+  // ---- Skill observer (Kiko 22 Oct 05:22Z, spec skill-observer.md, CueSkillObs.gs): how often each skill ran clean, and Undo for an approved edit ----
+  var soData = null, soErr = '';
+  function loadSkillObs() { call('cueSkillObs', [], function (r) { soData = r; soErr = ''; renderSkillObs(); }, function (e) { soErr = (e && e.message) || String(e); renderSkillObs(); }); }
+  function renderSkillObs() {
+    var S = soData || {}, L = S.skills || [];
+    setHtml($('w-skillobs'), (soErr ? '<div class="err">' + esc(soErr) + '</div>' : '') + (soData ? '' : '<div class="small muted">Loading…</div>')
+      + (soData ? '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-so-on="1"' + (S.on ? ' checked' : '') + '> <b>Check that ChatGPT and Claude follow your skills</b></label>'
+        + '<div class="small muted" style="margin-top:6px">Code checks every run, with no extra AI call. Every Monday 08:00 you get one thread with what went wrong and what is blocked; change the time in Scheduled tasks. '
+        + 'Claude drafts a step change only when one deviation repeats, and nothing changes until you tap Approve.</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="small">Propose a change after</span><input type="number" min="2" max="10" data-so-repeat="1" value="' + esc(S.repeat || 3) + '" style="width:56px"><span class="small">repeats in a week</span></div></div>'
+        + '<div class="card"><b>Skills, last 4 weeks</b>' + L.map(function (x) {
+          return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-top:8px"><span style="flex:1;min-width:180px">' + esc(x.name) + ' <span class="small muted">· ' + esc(x.kind) + (x.ver ? ' · v' + esc(x.ver) : '') + '</span></span>'
+            + '<span class="small' + (x.runs && x.pass < 100 ? '' : ' muted') + '">' + (x.runs ? x.clean + ' of ' + x.runs + ' clean (' + x.pass + '%)' : 'No runs yet') + '</span>'
+            + (x.undo ? '<button class="btn ghost" data-so-undo="' + esc(x.name) + '">Undo last change</button>' : '') + '</div>'; }).join('') + '</div>' : ''));
+  }
+  function soDone(r) { soData = r; soErr = ''; $('w-skillobs')._h = null; renderSkillObs(); }
+  function soFail(e) { soErr = (e && e.message) || String(e); $('w-skillobs')._h = null; renderSkillObs(); }
+  $('w-skillobs').addEventListener('change', function (e) {
+    var c = e.target.closest('[data-so-on]'), n = e.target.closest('[data-so-repeat]');
+    if (c) { c.disabled = true; call('cueSkillObsSet', [{ on: c.checked }], soDone, soFail); }
+    if (n) { n.disabled = true; call('cueSkillObsSet', [{ repeat: Number(n.value) }], soDone, soFail); }
+  });
+  $('w-skillobs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-so-undo]'); if (!b) return; var name = b.getAttribute('data-so-undo');
+    ask('Undo the last change to "' + name + '"?', 'Its steps go back to the version before. The next run uses them.', null, 'Undo',
+      function () { b.disabled = true; call('cueSkillObsUndo', [name], soDone, soFail); });
   });
   $('avatar').onclick = function () { settingsOpen(); };
   $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
@@ -2638,6 +2667,9 @@
         if (act === 'ask-pick' && b.getAttribute('data-pick') === 'change')   // tutor mode: Change asks what to do instead, then Claude re-plans
           return ask('What should I do instead?', 'Cue plans again with your words. Nothing has started.', 'e.g. find LED wall suppliers instead', 'Re-plan',
             function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], started, fail); });
+        if (act === 'ask-pick' && b.getAttribute('data-pick') === 'edit')   // skill observer: Edit asks for the step as Kiko wants it; nothing is saved before Save
+          return ask('How should this step read?', 'Cue saves your wording as the skill\'s next version. It applies from the next run.', 'Type the whole step', 'Save',
+            function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'edit', v], started, fail); });
         if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], started, fail); }
         if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
           return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }
