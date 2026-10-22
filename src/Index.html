@@ -1711,6 +1711,7 @@
       + (done && R.waiting && R.mails && !(R.followups || []).length ? '<button class="btn" data-act="ready-followups" data-id="' + esc(r.id) + '">Draft follow-ups (' + esc(R.waiting) + ' waiting on others)</button>' : '')
       + (done ? '<button class="btn ghost" data-act="ready-recheck" data-id="' + esc(r.id) + '">Re-check</button>' : '') + '</div>'
       + '<div class="small muted">Read only: Cue changed nothing in Canvas. Mark items Ready and verify them on the Checklist tab.</div>' + metricLine(r) + '</div>';
+    return h;   // live 01:29Z: without it a finished readiness thread was blank, and the error stopped the chat from updating
   }
 
   // Pipeline review (command C11, Kiko 07:34Z): open deals grouped by what they need, each with why and the next step. Read only.
@@ -2272,7 +2273,7 @@
   }
   // CUE-CANVAS: every card with a Canvas page gets "Open in Canvas" above its buttons. AR and supplier cards place their own.
   function cardHtml(r) {
-    var h = cardBody(r);
+    var h = cardBody(r) || '';   // a card that draws nothing must not stop the whole page drawing
     if (!r.open || r.kind === 'ar' || r.kind === 'supplier') return h;
     var b = '<div class="cvrow">' + cvLink(r.open) + '</div>' + (r.open.note ? '<div class="small muted" style="margin-top:4px">' + esc(r.open.note) + '</div>' : ''), at = h.indexOf('<div class="actions">');
     if (at < 0) at = h.lastIndexOf('</div>');
