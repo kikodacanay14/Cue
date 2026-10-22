@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.26.3';
+const CUE_VERSION_ = 'Cue 1.26.4';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -172,6 +172,16 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
   // or a change request, and needs no tutor plan card (nothing is written before Approve). A reply to its question carries on.
+  // PC recheck 22 Oct 05:00Z: in a Bid check thread that an earlier build had turned into an intake card, "redo bid check" re-ran
+  // that card. Bid words in any thread whose root is a Bid check run a fresh check before any waiting card sees them, and the
+  // stray intake card there (nothing approved, nothing in Canvas) is closed.
+  const bidsHome = !has && mode !== 'intake' ? cueBidsThread_(ref) : '';
+  if (bidsHome && !cueBidsFor_(text) && (cueBidsAsked_(text) || CUE_BIDS_AGAIN_RE_.test(String(text || '')))) {
+    const out = cueBidsStart_(String(text || '').trim(), 'chat', ref);
+    cueCloseSuperseded_((x, root) => root === bidsHome && x.kind === 'intake' && !(x.canvas && x.canvas.project_id) && !x.approved_at && (!x.phased || (x.phase || 1) === 1),
+      'Closed. This thread is a bid check, not a project intake. Nothing was written to Canvas.');
+    return out;
+  }
   if (!has && mode !== 'intake') { const cr = cueCecReply_(ref, text); if (cr) return cr; }
   if (!has && mode !== 'intake' && cueCecAsked_(text)) return cueCecStart_(text, ref);
   if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
@@ -202,18 +212,17 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
   if (mode !== 'chat' && mode !== 'intake' && !has && cueBidsFor_(text)) return cueBidsIntake_(String(text).trim(), ref);
   // PC check 22 Oct 04:45Z: "redo bid check" in a Bid check thread became a Project intake plan. A bid ask there (or "again", "redo",
-  // "re-run") runs a fresh bid check in its own thread, with no AI call.
-  const bidsHere = ref && ((cueLoad_(ref) || {}).s || {}).kind === 'bids';
-  if (mode !== 'intake' && !has && (!ref || bidsHere) && (cueBidsAsked_(text) || (bidsHere && CUE_BIDS_AGAIN_RE_.test(String(text || ''))))) return cueBidsStart_(String(text || '').trim(), 'chat', bidsHere ? ref : '');
+  // "re-run") runs a fresh bid check in its own thread, with no AI call. (Its thread check runs first, near the top.)
+  if (mode !== 'intake' && !has && !ref && cueBidsAsked_(text)) return cueBidsStart_(String(text || '').trim(), 'chat', '');
   // A supplier to register (CueSupplier.gs) skips the chat call: Kiko's own words say what it is.
   // Kiko 08:55Z: "can you cost them by item?" restarted the whole intake. Costing starts mid-way when the thread already has the read.
   if (!has && mode !== 'chat') { const rc = cueRecostStart_(String(text || '').trim(), ref); if (rc) return rc; }
   let sup = mode !== 'intake' && mode !== 'chat' && cueIsSupplier_(text);
   if (!sup && mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = forced || cueTalk_(String(text || '').trim(), ref);
-    if (talk.workflow) { const out = cueWorkflowStart_(talk.workflow, ref || talk.task || '', String(text || '').trim(), []); cueOnIt_(ref, talk.task, 'Started a thread to map it.', out.request_id); return out; }
+    if (talk.workflow) { const out = cueWorkflowStart_(talk.workflow, ref || talk.task || '', String(text || '').trim(), []); cueOnIt_(ref, talk.task, 'Started a thread to map it.', out.request_id, talk.pointed); return out; }
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
-    if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id); return out; }
+    if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
     if (talk.pipeline) return cuePipeStart_(String(text || '').trim(), talk.pipeline.client);   // command C11, its own thread
     if (talk.start_ar) {   // CUE-AR: "prepare ARs for <project>" (GPT picked it in the same chat call)
       const home = ref || talk.task || '', id = cueArStart_(talk.start_ar, String(text || '').trim(), home);
@@ -222,8 +231,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
     }
     // Kiko 07:54Z (specs/vendor-management.md): "find / compare / assess suppliers" starts a supplier search in its own thread.
     // Kiko 08:21Z (specs/write-like-me.md step 2): "email X about Y" / "reply to X" drafts one email in Kiko's style in its own thread.
-    if (talk.email) { const out = cueMailStart_(talk.email, ref || talk.task || '', String(text || '').trim(), talk.lookup); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id); return out; }
-    if (talk.vendor) { const out = cueVendorStart_(talk.vendor, ref || talk.task || '', String(text || '').trim()); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id); return out; }
+    if (talk.email) { const out = cueMailStart_(talk.email, ref || talk.task || '', String(text || '').trim(), talk.lookup); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
+    if (talk.vendor) { const out = cueVendorStart_(talk.vendor, ref || talk.task || '', String(text || '').trim()); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -270,8 +279,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
 
 /** PC check 22 Oct 04:45Z: after Go on a plan card, a readiness check that joined an earlier thread left the main chat silent.
  * From the main chat, every started task says so there, naming the thread it went to. Inside a thread, nothing extra is said. */
-function cueOnIt_(ref, task, line, id) {
-  if (ref) return;
+function cueOnIt_(ref, task, line, id, pointed) {
+  if (ref || pointed) return;   // pointed: the chat call already put "On it. Continuing in the … thread." under Kiko's line
   let name = ''; if (task) { try { name = cueTaskName_((cueLoad_(task) || {}).s || {}); } catch (e) { name = ''; } }
   cueChat_('Cue', task ? 'On it. Continuing in the ' + (name || 'earlier') + ' thread.' : line, '>' + id);
 }
@@ -525,7 +534,12 @@ function cueTalk_(t, ref, force, opt) {
   const where = ref || pick;
   if (pick) {   // like Claude's project chat: Kiko's line stays where Kiko wrote it, with a pointer; the answer goes in the thread
     const x = by[pick] || {}, name = (x.change && x.change.project) || (x.proposal && x.proposal.client && x.proposal.client.company) || (x.kind ? cueTaskName_(x) : '');
-    if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, ''); cueChat_('Cue', name ? 'Answered in the ' + String(name).replace(/^the\s+/i, '') + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
+    // PC recheck 22 Oct 05:00Z: a readiness check (or email, supplier search, map) that joins the thread says "On it" here, once.
+    const d = r.ok ? r.data : {}, joins = !String(d.start_intake || '').trim() && (String(d.readiness || '').trim().length >= 2 || !!(d.vendor && d.vendor.job)
+      || !!(d.workflow && d.workflow.job === 'map' && !cuePlanAsk_(t, force)) || !!(d.email && d.email.job && String(d.email.to || '').trim()));
+    const nm = name ? String(name).replace(/^the\s+/i, '') : '';
+    if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, '');
+    cueChat_('Cue', joins ? 'On it. Continuing in the ' + (nm || 'earlier') + ' thread.' : nm ? 'Answered in the ' + nm + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
   }
   if (!force && !opt.replay && !opt.quiet) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);
@@ -555,7 +569,7 @@ function cueTalk_(t, ref, force, opt) {
   const workflow = r.ok && !start && r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null;
   const email = r.ok && !start && r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null;
   const cmd = !!(ready || pipeline || ar || vendor || workflow || email);   // a command the chat call picked wins over an intake
-  return { chat: true, reply, task: pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
+  return { chat: true, reply, task: pick, pointed: !!pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
     readiness: ready.length >= 2 ? ready : '', start_ar: ar.length >= 2 ? ar : '', vendor, workflow, email, lookup: email ? found : '' };
 }
 
@@ -864,6 +878,30 @@ function cueSettleReopened_(ref) {
       Object.keys(by).forEach(k => { const x = by[k]; if (x.status === 'Reopened' && root(k) === home) { x.status = x.closed_status || 'Done'; delete x.closed_status; cueSave_(sh, at[k], x); } });
     });
   } catch (e) { console.error('Settle reopened: ' + e); }
+}
+/** PC recheck 22 Oct 05:00Z: an older card that a newer task replaced stayed open at Needs you. Closes every task at Needs you
+ * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread. Only for cards that wrote
+ * nothing: callers pick tasks not yet approved. Returns the ids closed. */
+function cueCloseSuperseded_(keep, line) {
+  const closed = [];
+  try {
+    cueLocked_(() => {
+      const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
+      rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
+      const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
+      Object.keys(by).forEach(k => { const x = by[k]; if (x.status === 'Needs you' && keep(x, root(k))) {
+        x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); } });
+    });
+  } catch (e) { console.error('Close superseded: ' + e); }
+  closed.forEach(k => cueChat_('Cue', line, k));
+  return closed;
+}
+/** The root of ref's thread is a Bid check (or the thread holds one): Kiko's bid words there are about bids, whatever card is waiting. */
+function cueBidsThread_(ref) {
+  if (!ref) return '';
+  let L = cueLoad_(ref);
+  for (let i = 0; i < 8 && L; i++) { if (L.s.kind === 'bids') return L.s.id; if (!L.s.ref) break; L = cueLoad_(L.s.ref); }
+  return '';
 }
 /** Retries only the Gmail drafts that did not get made. */
 function cueDrafts(id) { cueOwner_(); return cueView_(cueIntakeDrafts_(id)); }
