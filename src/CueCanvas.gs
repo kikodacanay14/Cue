@@ -163,6 +163,8 @@ function cueCanvasFor_(s) {
       if (l && st && st.toLowerCase() !== 'for payment request')
         l.note = p.scope_id + ' is "' + st + '" in Canvas. Request payment lists only scope cards marked For Payment Request, so set that on Scope first.';
       return l; }
+    // CE costs: CE Desk on that project's CE, the other way to change its costs.
+    if (k === 'cecost' && s.cec && s.cec.project) return cueCanvasLink_({ what: 'cedesk', q: s.cec.project.name || s.cec.project.id });
     if (k === 'finance') return cueCanvasLink_({ what: 'finance' });
     if (k === 'payment') return cueCanvasLink_({ what: 'finance', view: 'ar' });
     if (k === 'change' && s.change && s.change.match && CUE_PID_RE_.test(s.change.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.change.match.project_id, name: s.change.match.name, tab: 'Scope' });
