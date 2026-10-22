@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27: unscheduled alarm (not deployed)
+
+Kiko 22 Oct 05:20Z: "can this alarm me if there's any task that is unscheduled". At 05:21Z Kiko picked Both.
+
+- New system row **Unscheduled check**, daily 07:00, on. Code only, no AI call.
+- It lists scheduled jobs that will not run: switched off, on with no next run, missed by more than 30 minutes, or last run failed.
+- It also lists open tasks waiting on Kiko (Needs you, Failed or Reopened) that have no due date and no reminder. Reports that a schedule made (bids, the Monday check, ChatGPT tasks) are left out, because they come back on their own.
+- One card in the main chat, only when something is found, with Got it and Mute these buttons. Mute these keeps those items off later cards. A new failure or missed run still shows. Run now says "everything is scheduled" when all is fine.
+- Day one note: the HubSpot sales review and the ChatGPT tasks ship switched off, so the first card lists them. Turn them on in Settings, or tap Mute these.
+- Tests: 307 of 307 pass (new SC8; SC4 and SC6 updated for the new row and the 3-rows-per-tick limit).
+
 ## Cue 1.26.6: answered questions no longer leave blank CUE_ASK_ Script Properties
 
 - Kiko 22 Oct 02:49Z: the Apps Script Script Properties page listed many `CUE_ASK_ask-…` keys with empty values ("Value is required"). Each question with buttons (plan cards, Remember?, Learned, TickTick, schedule, which-command) is kept as a `CUE_ASK_<id>` property until it is answered. Answering set the value to blank instead of deleting it, so one blank key was left behind per answered question. Script Properties have a 500 KB cap, so these would keep growing.

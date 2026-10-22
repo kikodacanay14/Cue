@@ -146,7 +146,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:run\s+|do\s+|check\s+)?(?:the\s+|a\s+|my\s+)?(?:sales\s+)?pipeline(?:\s+(?:review|check|health))?$/i.test(t)) return { run: 'pipeline', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -154,7 +154,8 @@ function cueSchedSystem_() {
     { id: 'sys-sweep', name: 'Morning sweep', repeat: 'daily', time: String(cueRules_().general.build).padStart(2, '0') + ':00', run: 'sweep', command: 'Morning sweep and chasers', on: true },
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: String(CUE_BIDS_RULES_.hour).padStart(2, '0') + ':00', run: 'bids', command: 'Bid opportunity check', on: true },
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
-    { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false }];
+    { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
+    { id: 'sys-unsched', name: 'Unscheduled check', repeat: 'daily', time: '07:00', run: 'unsched', command: 'Alarm me about anything unscheduled', on: true }];
   // The lead-gen and review tasks (CueGptTasks.gs, kind gtask) register through cueGtSchedules_ when that file is in Cue.
   if (typeof cueGtSchedules_ === 'function') {
     try {
@@ -166,9 +167,9 @@ function cueSchedSystem_() {
 }
 /** Adds any system row the tab does not have yet. Cheap: skipped while the list of system rows is unchanged. */
 function cueSchedSeed_() {
-  // Read every 5 minutes, so the check costs one property read: Cue's own 4 rows, plus the ChatGPT task keys when that file is in.
+  // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v1:' + gt;
+  const sig = 'v2:' + gt;
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -206,6 +207,7 @@ function cueSchedRun_(x, manual) {
       P.setProperty('CUE_HSC_WEEK', today);
       return { result: 'Started', task: id(cueHsStart_('Monday HubSpot check', 'weekly')) };
     }
+    if (x.run === 'unsched') { const n = cueUnschedCheck_(manual); return { result: n ? n + ' to look at' : 'All scheduled', task: '' }; }
     if (x.run === 'pipeline') return { result: 'Started', task: id(cuePipeStart_(x.command || 'Pipeline review', '')) };
     if (/^gtask:/.test(x.run)) {
       if (typeof cueGtScheduled !== 'function') return { result: 'Not in this Cue yet', task: '' };
@@ -372,4 +374,53 @@ function cueSchedSweepHour_(hour) {
       x.time = String(hour).padStart(2, '0') + ':00'; x.next = x.on ? cueSchedNextAt_(x, cueNow_()) : 0; cueSchedWrite_(sh, x); cueSchedNextSave_(list);
     });
   } catch (e) { console.warn('Sweep schedule: ' + e); }
+}
+
+/* ---------- "unscheduled" alarm (Kiko 22 Oct 05:20Z "alarm me if there's any task that is unscheduled"; picked Both 05:21Z) ----------
+ * Daily 07:00 (its own row). Scheduled jobs that will not run: switched off, on with no next time, last run failed, or overdue (the
+ * tick did not start it). Open tasks waiting on Kiko with no due date and no reminder. One card in the main chat only when something
+ * is found; Mute these hides those items from later cards. Code only, no AI call. */
+const CUE_UNSCHED_WAIT_ = ['Needs you', 'Failed', 'Reopened'];
+function cueUnschedFind_() {
+  const now = cueNow_(), out = [];
+  cueSchedRead_(cueSchedSheet_()).filter(x => x.id !== 'sys-unsched').forEach(x => {
+    const w = x.name + ' (' + cueSchedWhen_(x) + ')';
+    if (!x.on) out.push({ key: 'off:' + x.id, line: w + ': switched off' });
+    else if (!x.next) out.push({ key: 'none:' + x.id, line: w + ': on, but has no next run' });
+    else if (x.next < now - CUE_SCHED_MAX_.late_min * 60000) out.push({ key: 'late:' + x.id + ':' + x.next, line: w + ': missed its ' + cueSchedShow_(x.next) + ' run' });
+    if (/^Failed/.test(x.result)) out.push({ key: 'fail:' + x.id + ':' + x.last, line: w + ': last run failed (' + x.result.replace(/^Failed:\s*/, '').slice(0, 120) + ')' });
+  });
+  const list = cueRows_(cueSheet_('Requests')).slice(-60).map(r => { try { return JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return null; } }).filter(Boolean);
+  const by = {}; list.forEach(x => { by[x.id] = x; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, seen = {};
+  list.slice().reverse().forEach(x => {   // newest run per thread decides
+    const r = root(x.id); if (seen[r]) return; seen[r] = 1;
+    const R = by[r] || x;
+    // A report a schedule made (bids, the Monday check, a ChatGPT task) comes back on its own time, so it is not "unscheduled".
+    if (R.archived || x.kind === 'sweep' || R.how === 'daily' || R.how === 'weekly' || R.how === 'scheduled' || CUE_UNSCHED_WAIT_.indexOf(x.status) < 0 || R.due || R.remind_at) return;
+    out.push({ key: 'task:' + r, line: cueTaskName_(R) + ': waiting on you (' + x.status + '), no due date or reminder', task: r });
+  });
+  return out;
+}
+function cueUnschedMuted_() { try { return JSON.parse(cueProp_('CUE_UNSCHED_MUTE', '[]')); } catch (e) { return []; } }
+/** Posts the card when something is found (or, from Run now, says all is scheduled). Returns how many items it listed. */
+function cueUnschedCheck_(manual) {
+  const mute = cueUnschedMuted_(), items = cueUnschedFind_().filter(x => mute.indexOf(x.key) < 0);
+  if (!items.length) { if (manual) cueChat_('Cue', 'Unscheduled check: everything is scheduled.', ''); return 0; }
+  const jobs = items.filter(x => !x.task), tasks = items.filter(x => x.task);
+  const q = '⚠️ Unscheduled check: ' + items.length + ' to look at.'
+    + (jobs.length ? '\nScheduled tasks that will not run:\n' + jobs.map(x => '- ' + x.line).join('\n') + '\nFix them in Settings > Scheduled tasks.' : '')
+    + (tasks.length ? '\nTasks waiting on you with no due date or reminder:\n' + tasks.map(x => '- ' + x.line).join('\n') + '\nReply in a task\'s thread with a date, e.g. "remind me Friday 3pm".' : '');
+  cueAskOpen_({ type: 'unsched', keys: items.map(x => x.key) }, q, ['ok', 'mute'], '');
+  return items.length;
+}
+/** Got it, or Mute these: the listed items stay out of later cards (a new failure or missed run has a new key, so it still shows). */
+function cueUnschedPick_(o, pick, done) {
+  cueChat_('Kiko', pick === 'mute' ? 'Mute these' : 'Got it', done);
+  if (pick === 'mute') {
+    const keep = cueUnschedMuted_().concat(o.keys || []).filter((k, i, a) => a.indexOf(k) === i).slice(-300);
+    PropertiesService.getScriptProperties().setProperty('CUE_UNSCHED_MUTE', JSON.stringify(keep));
+    cueChat_('Cue', 'Muted. Those ' + (o.keys || []).length + ' will not show again; anything new still will.', done);
+  }
+  return { chat: true };
 }
