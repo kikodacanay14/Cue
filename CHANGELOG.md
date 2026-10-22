@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.25.3: trigger rollback safety
+
+- When Cue sees a stored trigger version other than its own, it reinstalls every timed job it uses. That covers the sweep, the 07:00 bid check and now the Monday HubSpot check (`cueHsWeekly`). Rolling back from the single-trigger scheduler build (CUE_TRIGGERS_V 5) to this version therefore brings all three back the next time Cue is opened. Nothing changes while the stored version is 4.
+- Tests: new S1b; S1 and BD9 now expect the Monday HubSpot trigger.
+
 ## Cue 1.25.2: Request payment fill-ins from the 1.25.1 PC test (not deployed)
 
 - Request payment now passes the card's expense type (`etype`) as well as the scope. Canvas fills Expense type from it once the CUE-LINKS etype patch ships (CanvasWorkspace, same branch); an older Canvas ignores it.
