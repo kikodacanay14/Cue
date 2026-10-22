@@ -4,7 +4,8 @@
  *   "Routing examples" (Saved | Phrase | Command). The chat call then gets the 5 closest examples (picked in code, no extra call).
  *   Asking when unsure: when the chat call is not sure, or two commands fit about equally, Cue starts nothing and shows the top 2 as
  *   buttons plus "Just chat". A button starts that command from the details the same chat call already filled.
- * An open question waits in Script Property CUE_ASK_<id>; its chat line carries "?<id>:<choices>" and the answer "!<id>". */
+ * An open question waits in Script Property CUE_ASK_<id>; its chat line carries "?<id>:<choices>" and the answer "!<id>".
+ * Answering deletes the property. cueAskTidy_ removes blank ones left by Cue before 1.26.2 and questions unanswered for 30 days. */
 
 const CUE_ROUTE_TAB_ = 'Routing examples', CUE_ROUTE_HEAD_ = ['Saved', 'Phrase', 'Command'];
 const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search',
@@ -55,9 +56,25 @@ function cueRouteSave_(phrase, cmd) {
 function cueAskOpen_(o, question, choices, where) {
   const id = 'ask-' + cueNow_().toString(36) + Math.floor(Math.random() * 4096).toString(36);
   o.where = where || '';
+  try { cueAskTidy_(); } catch (e) { console.warn('cueAskTidy_: ' + e); }
   PropertiesService.getScriptProperties().setProperty('CUE_ASK_' + id, JSON.stringify(o));
   cueChat_('Cue', question, '?' + id + ':' + choices.join(',') + (where ? '@' + where : ''));
   return id;
+}
+
+/** Removes CUE_ASK_ properties that are blank (answered before 1.26.2) or whose question is over 30 days old. Script Properties cap at 500 KB.
+ *  The id's first 8 characters are the time it was asked, in base 36. Returns how many it removed. */
+const CUE_ASK_KEEP_MS_ = 30 * 86400000;
+function cueAskTidy_() {
+  const P = PropertiesService.getScriptProperties(), all = P.getProperties(), now = cueNow_();
+  const old = Object.keys(all).filter(k => {
+    if (k.indexOf('CUE_ASK_') !== 0) return false;
+    if (!String(all[k] || '').trim()) return true;
+    const m = /^CUE_ASK_ask-([0-9a-z]{8})/.exec(k), at = m ? parseInt(m[1], 36) : 0;
+    return at > 0 && now - at > CUE_ASK_KEEP_MS_;
+  });
+  old.forEach(k => P.deleteProperty(k));
+  return old.length;
 }
 
 /** The talk result for one command, from what the chat call filled in (cands), so a button needs no new AI call. */
@@ -88,12 +105,12 @@ function cueAskPick(id, pick, note) {
   if (!/^ask-[0-9a-z]{4,20}$/.test(id)) throw new Error('No such question.');
   const P = PropertiesService.getScriptProperties(), raw = cueLocked_(() => {
     const v = P.getProperty('CUE_ASK_' + id);
-    if (v) P.setProperty('CUE_ASK_' + id, '');   // one answer per question
+    if (v) P.deleteProperty('CUE_ASK_' + id);   // one answer per question; a blank value would stay in Script Properties for good
     return v;
   });
-  if (!raw) throw new Error('That question was already answered.');
+  if (!raw) throw new Error('That question was already answered, or is over 30 days old.');
   const o = JSON.parse(raw), done = '!' + id + (o.where ? '@' + o.where : '');
-  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' && pick !== 'again';
+  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' ? pick !== 'again' : o.type === 'route' && (o.choices || []).indexOf(pick) < 0;
   if (bad) { P.setProperty('CUE_ASK_' + id, raw); throw new Error(pick === 'change' ? 'Say what I should do instead.' : 'That is not one of the choices.'); }   // the question stays open
   if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);
   if (o.type === 'schedule') return cueSchedPick_(o, pick, done);   // task scheduler (CueSchedule.gs)   // tutor mode (CueTutor.gs)

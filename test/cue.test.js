@@ -383,7 +383,7 @@ function sandbox(o = {}) {
   };
   const ctx = {
     console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
-    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
@@ -2948,6 +2948,20 @@ test('TC8 not sure which command: nothing starts, the top 2 show as buttons plus
   deq(u.tabs.Requests.rows.length, 1); assert.ok(/Nothing was started/.test(u.tabs.Chat.rows.pop()[2]));
   const w = vendorRun({ gpt: { chat: [VTALK(), talk] } }); w.ctx.cueSend('LED wall for Acme Party', [], '', w.id);   // in a thread it asks in words
   assert.ok(/Did you mean Supplier search or Readiness check\? Say which/.test(w.tabs.Chat.rows.pop()[2]));
+});
+
+test('TC8b answering a question deletes its CUE_ASK_ property; blank leftovers and 30-day-old questions are removed when the next one opens', () => {
+  const talk = VTALK({}, 'Do you want suppliers or a readiness check?'); Object.assign(talk, { sure: false, choices: ['vendor', 'readiness'], readiness: 'Acme Party' });
+  const t = sandbox({ talk }), asks = () => Object.keys(t.props).filter(k => /^CUE_ASK_/.test(k)).sort();
+  t.ctx.cueSend('LED wall for Acme Party', [], ''); const id = askId(askLine(t));
+  deq(asks(), ['CUE_ASK_' + id]);
+  assert.throws(() => t.ctx.cueAskPick(id, 'nope'), /not one of the choices/); deq(asks(), ['CUE_ASK_' + id], 'a bad pick keeps it open');
+  t.ctx.cueAskPick(id, 'chat'); deq(asks(), [], 'answered: gone, not blank');
+  const now = t.ctx.cueNow_(), day = 86400000, key = ms => 'CUE_ASK_ask-' + ms.toString(36) + '2r0';
+  Object.assign(t.props, { [key(now - day)]: '', [key(now - 31 * day)]: '{"type":"remember"}', [key(now - 29 * day)]: '{"type":"remember"}', CUE_ASK_odd: '' });
+  t.ctx.cueSend('LED wall for Acme Party', [], ''); const id2 = askId(askLine(t));
+  deq(asks(), ['CUE_ASK_' + id2, key(now - 29 * day)].sort(), 'blank and 31-day-old removed; 29-day-old and the new one kept');
+  deq(t.ctx.cueAskTidy_(), 0);
 });
 
 test('TC9 wrong command: the task closes, the right one starts from the same message, and Cue asks once to remember; Yes feeds the next chat calls', () => {
