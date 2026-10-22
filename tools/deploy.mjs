@@ -51,6 +51,13 @@ if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.ex
 
 const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));
+if (mode === 'preview') {
+  // PC test 01:41Z: test taps on /dev graduated Kiko's real tutor patterns. Head code says it is the test build, so Cue
+  // skips learning there. Only the pushed copy changes; src/ and every live version keep CUE_DEV_ = false.
+  const f = path.join(pushDir, 'src', 'Cue.gs'), was = fs.readFileSync(f, 'utf8'), now = was.replace(/^const CUE_DEV_ = false;/m, 'const CUE_DEV_ = true;');
+  if (now === was) fail('Cue.gs has no "const CUE_DEV_ = false;" line to mark the test build');
+  fs.writeFileSync(f, now); want['Cue.gs'] = md5(f);
+}
 const desc = 'Cue ' + (process.env.GITHUB_SHA || 'local').slice(0, 7);
 clasp(pushDir, 'push', '--force');
 if (mode === 'preview') {

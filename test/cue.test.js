@@ -3706,7 +3706,7 @@ test('SC2 "Schedule every Monday 9am pipeline review": no AI call, a Save card; 
   assert.strictEqual(sched(t).filter(r => /^sch-/.test(r[0])).length, 0, 'nothing saved before Save');
   t.ctx.cueAskPick(schAsk(t), 'save');
   const row = sched(t).filter(r => /^sch-/.test(r[0]));
-  assert.strictEqual(row.length, 1); deq([row[0][1], row[0][3], row[0][4], row[0][7], row[0][9], row[0][10]], ['Pipeline review', 'weekly', 'Mon', '09:00', 'pipeline', true]);
+  assert.strictEqual(row.length, 1); deq([row[0][1], row[0][3], row[0][4], row[0][7], row[0][9], row[0][10]], ['Pipeline review', 'weekly', 'Mon', "'09:00", 'pipeline', true]);   // PC test 01:41Z: written as text so Sheets keeps it a time of day, not a date
   assert.strictEqual(row[0][11].getTime(), phMs('2026-10-26', '09:00'));
   assert.ok(/^Saved\. Pipeline review, Mon 09:00\. Next run Mon 2026-10-26 09:00/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
   assert.throws(() => t.ctx.cueAskPick(schAsk(t), 'save'), /already answered/);
@@ -3910,6 +3910,24 @@ test('TU20 live 01:22Z: Go or Change on a plan card runs the started request rig
   assert.ok(/call\('cueAskPick', \[id, b\.getAttribute\('data-pick'\)\], started, fail\)/.test(html), 'Go/Not that use started');
   assert.ok(/call\('cueAskPick', \[id, 'change', v\], started, fail\)/.test(html), 'Change uses started');
   assert.ok(/var started = function \(r\) \{ done\(\); if \(!r \|\| r\.chat \|\| !r\.request_id\) return;[\s\S]{0,80}call\('cueRun', \[r\.request_id\]/.test(html), 'started kicks cueRun only for a run');
+});
+
+test('SC9 PC test 01:41Z: a Time cell Sheets turned into a date reads back as HH:mm, not "Sat Dec 30 1899"', () => {
+  const t = sandbox({});
+  t.ctx.cueSchedSeed_();
+  const rows = t.tabs.Schedule.rows, i = rows.findIndex((r, k) => k > 0 && r[0]);
+  rows[i][7] = new Date(1899, 11, 30, 7, 5, 0);
+  const x = t.ctx.cueSchedRead_(t.tabs.Schedule).filter(y => y.id === rows[i][0])[0];
+  assert.strictEqual(x.time, '07:05');
+  rows[i][7] = "'16:00"; assert.strictEqual(t.ctx.cueSchedRead_(t.tabs.Schedule).filter(y => y.id === rows[i][0])[0].time, '16:00');
+});
+
+test('TU21 PC test 01:41Z: a preview marks the pushed Cue.gs as the test build, and its Go taps never count toward graduation', () => {
+  const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8'), cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/^const CUE_DEV_ = false;$/m.test(cue), 'src keeps the live value');
+  assert.ok(/if \(mode === 'preview'\) \{[\s\S]{0,400}replace\(\/\^const CUE_DEV_ = false;\/m, 'const CUE_DEV_ = true;'\)[\s\S]{0,200}want\['Cue\.gs'\] = md5\(f\)/.test(tool), 'preview stamps only the pushed copy and checks head against it');
+  const tut = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueTutor.gs'), 'utf8');
+  assert.ok(/if \(!CUE_DEV_\) \{[^\n]*\n\s+try \{ const p = cuePatApprove_/.test(tut), 'graduation counted only off /dev');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

@@ -28,12 +28,12 @@ function cueSchedRead_(sh) {
   const n = sh.getLastRow() - 1;
   return n > 0 ? sh.getRange(2, 1, n, CUE_SCHED_HEAD_.length).getValues().map((r, i) => ({ row: i + 2, id: String(r[0] || ''), name: String(r[1] || ''),
     type: String(r[2] || 'user'), repeat: String(r[3] || ''), days: String(r[4] || '').split(/[,\s]+/).filter(d => CUE_SCHED_DAYS_.indexOf(d) >= 0),
-    dom: Number(r[5]) || 0, date: r[6] instanceof Date ? r[6].toISOString().slice(0, 10) : String(r[6] || ''), time: String(r[7] || ''), command: String(r[8] || ''),
+    dom: Number(r[5]) || 0, date: r[6] instanceof Date ? r[6].toISOString().slice(0, 10) : String(r[6] || ''), time: r[7] instanceof Date ? ('0' + r[7].getHours()).slice(-2) + ':' + ('0' + r[7].getMinutes()).slice(-2) : String(r[7] || '').replace(/^'/, ''), command: String(r[8] || ''),
     run: String(r[9] || ''), on: r[10] === true || /^(true|yes|on)$/i.test(String(r[10])), next: cueSchedMs_(r[11]), last: cueSchedMs_(r[12]),
     result: String(r[13] || ''), task: String(r[14] || ''), created: cueSchedMs_(r[15]) })).filter(x => x.id) : [];
 }
 function cueSchedWrite_(sh, x) {
-  sh.getRange(x.row, 1, 1, CUE_SCHED_HEAD_.length).setValues([[x.id, x.name, x.type, x.repeat, x.days.join(','), x.dom || '', x.date || '', x.time, x.command, x.run,
+  sh.getRange(x.row, 1, 1, CUE_SCHED_HEAD_.length).setValues([[x.id, x.name, x.type, x.repeat, x.days.join(','), x.dom || '', x.date || '', x.time ? "'" + x.time : '', x.command, x.run,
     !!x.on, x.next ? new Date(x.next) : '', x.last ? new Date(x.last) : '', cueStr_(x.result, 300), x.task || '', x.created ? new Date(x.created) : new Date(cueNow_())]]);
 }
 /** The soonest time any row that is on comes due, kept in a property so a tick with nothing due never opens the sheet. */

@@ -10,6 +10,12 @@
 - When Cue sees a stored trigger version other than its own, it reinstalls every timed job it uses. That covers the sweep, the 07:00 bid check and now the Monday HubSpot check (`cueHsWeekly`). Rolling back from the single-trigger scheduler build (CUE_TRIGGERS_V 5) to this version therefore brings all three back the next time Cue is opened. Nothing changes while the stored version is 4.
 - Tests: new S1b; S1 and BD9 now expect the Monday HubSpot trigger.
 
+## Cue 1.26: fixes from the /dev PC test (01:41Z)
+
+- Settings, Scheduled tasks showed every time as "Sat Dec 30 1899 07:00:00 GMT+0800". Sheets had turned the Time cell into a date. Cue now reads such a cell back as HH:mm and writes times as text, so the cell stays a time of day. Rows already in the sheet read correctly without being changed.
+- Test taps on the test link (/dev) graduated Kiko's real tutor pattern for readiness. A preview now marks the copy it pushes to /dev as the test build (`CUE_DEV_`), and Go there never counts toward graduation or saves a routing example. src/ and every live version keep `CUE_DEV_ = false`.
+- Tests: new SC9 and TU21; SC2 expects the time written as text.
+
 ## Cue 1.26: task scheduler (not deployed)
 
 Kiko 21 Oct 19:12Z "we need a task scheduler", 19:13Z "run a command and tell Cue to Schedule a task followed by the task we want it to do". Spec: `specs/task-scheduler.md`, Kiko "Go" 22 Oct 00:57Z.
