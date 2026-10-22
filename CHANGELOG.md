@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.26.6: answered questions no longer leave blank CUE_ASK_ Script Properties
+
+- Kiko 22 Oct 02:49Z: the Apps Script Script Properties page listed many `CUE_ASK_ask-…` keys with empty values ("Value is required"). Each question with buttons (plan cards, Remember?, Learned, TickTick, schedule, which-command) is kept as a `CUE_ASK_<id>` property until it is answered. Answering set the value to blank instead of deleting it, so one blank key was left behind per answered question. Script Properties have a 500 KB cap, so these would keep growing.
+- Answering now deletes the property. When a new question opens, Cue also removes every blank `CUE_ASK_` key and any question left unanswered for over 30 days (its button then says the question was already answered, or is over 30 days old).
+- A tap that is not one of a which-command question's choices now keeps that question open, as the other question types already did; before, it closed the question.
+- Tests: new TC8b. Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.26.5: fixes from the /dev PC recheck of 1.26.4 (22 Oct 05:13Z)
 
 - The leftover intake card in "Bid check 10/22 10:44" did not close. It had failed ("Canvas did not answer find_similar_projects"), and only Needs you cards were closed. "redo bid check" now also closes it when it failed, still only if it was never approved and saved nothing to Canvas.
