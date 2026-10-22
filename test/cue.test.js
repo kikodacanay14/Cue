@@ -1575,6 +1575,16 @@ test('X9 unsupported or too many files are refused before any AI call', () => {
   assert.strictEqual(t.log.gpt.length, 0);
 });
 
+test('X10 card doubts start ticked (Kiko 22 Oct 06:09Z) except the ones Cue\'s own checks raised', () => {
+  const t = expenseCard({ xplan: Object.assign({}, XPLAN, { route: 'existing_scope', scope_id: 'SCP26-017-99', doubts: ['Supplier not named; confirm the shop.', 'Date comes from the file name; confirm it.'] }) });
+  const x = t.v.expense, d = x.plan.doubts;
+  assert.ok(d.length >= 3, JSON.stringify(d));
+  assert.deepStrictEqual(x.hard, d.map((v, i) => /not in Canvas|^Pick the |^Add the |^Mark which file |not sure of the project|may already be |already has an awarded quote/.test(v) ? i : -1).filter(i => i >= 0));
+  assert.ok(x.hard.indexOf(0) < 0 && x.hard.indexOf(1) < 0, 'Claude\'s doubts start ticked');
+  assert.ok(x.hard.indexOf(d.findIndex(v => /not in Canvas/.test(v))) >= 0, 'a missing Canvas id stays unticked');
+  assert.deepStrictEqual(t.ctx.cueExpHard_(['Canvas was not sure of the project; check it is X.', 'Canvas thinks this may already be PR-1 (amount).', 'Add the amount.', 'Looks fine.']), [0, 1, 2]);
+});
+
 test('F1 CFO quick question (Kiko 07:38Z): one Claude call, no GPT, Canvas read once, answered in its own money thread', () => {
   const t = sandbox(), r = t.ctx.cueSend('How much did we make on Acme Gala?');
   assert.strictEqual(r.chat, true); assert.ok(/₱59,500/.test(r.reply), r.reply);

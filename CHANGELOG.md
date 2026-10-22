@@ -1,5 +1,64 @@
 # Changelog
 
+## Cue 1.27.4: expense card doubts start ticked (not deployed)
+
+- Kiko 22 Oct 06:09Z: every "Check these first" box on the expense card starts ticked; Kiko can still untick one before Approve. The ones Cue's own checks raise stay unticked with a note: a missing amount, date, expense type, CE category or proof file, an id Claude named that Canvas doesn't have, Canvas unsure of the project, a possible duplicate, or a scope that already has an award.
+
+## Cue 1.27.3: in a Bid check thread, only an explicit redo runs again (not deployed)
+
+PC session 22 Oct 05:58Z: on live 1.26.5, any reply Kiko typed in a Bid check thread, plain questions too, started a new check in a new thread, and those threads did the same.
+
+- In a Bid check thread, only an explicit ask runs the check again: "redo bid check", "refresh bid opportunities…", "run it again", "check again". A question (ending in "?" or starting with can, why, what, how…), a "did not / don't" message, a sign-in question, or any other reply is answered in the thread.
+- 1.27.2 change taken back: a later run no longer closes the earlier card. A later run lists only notices new since the last run, so the earlier card still holds its own notices (for example the 07:00 card). Runs still share one thread per day. The one-time tidy only groups threads and closes nothing ("Nothing was closed or changed"). It now runs under property value 2.
+- Tests: 311 of 311 pass (new BD12; BD11 updated).
+
+## Cue 1.27.2: one Bid check thread per day (not deployed)
+
+Kiko 22 Oct 05:52Z: "why so many Bid checks?" Six Bid check threads waited at Needs you (13:10, 13:27, 13:28 x2, 13:29 x2).
+
+- The day's first bid check is that day's thread. Any later run that day, typed or the 07:00 one, posts into it ("Running the bid check again in today's Bid check thread"). It never makes a new thread.
+- A new run closes the earlier card in that thread that was still waiting, because it replaces it. That card says "Closed: a later run today replaced this card." The new run waits for Kiko only when it finds new or updated notices (as before).
+- Once, on the first page open or 5-minute tick after this ships, the bid checks already made are grouped into one thread per day, and only each day's latest waiting card stays open. One line in that thread says so. Nothing in them was written anywhere but the bid sheet, so nothing else changes.
+- Tests: 310 of 310 pass (new BD11; CC9 and CC12 now expect the same-day thread).
+
+## Cue 1.27.1: bid check only when asked (not deployed)
+
+/dev 22 Oct 05:27-05:29Z: five bid checks in 3 minutes, about 15 AI calls. Each one was started by a Kiko message that only mentioned bids: "refresh bid opportunities based on new rules" (a real ask), two questions about giving the PhilGEPS username and password, and twice "i did not ask this chat to run the bid opportunities again". The word "philgeps", or "again" inside a Bid check thread, was enough to start a run.
+
+- A message that says no ("did not", "don't", "never", "stop", "no more", "not ask/want/need") or asks about a sign-in (username, password, login, sign in, credentials, account) never starts a bid check, in the main chat or in a Bid check thread. It gets a normal chat answer instead.
+- Tests: 309 of 309 pass (new BD10 with Kiko's four messages).
+
+## Cue 1.27: unscheduled alarm (not deployed)
+
+Kiko 22 Oct 05:20Z: "can this alarm me if there's any task that is unscheduled". At 05:21Z Kiko picked Both.
+
+- New system row **Unscheduled check**, daily 07:00, on. Code only, no AI call.
+- It lists scheduled jobs that will not run: switched off, on with no next run, missed by more than 30 minutes, or last run failed.
+- It also lists open tasks waiting on Kiko (Needs you, Failed or Reopened) that have no due date and no reminder. Reports that a schedule made (bids, the Monday check, ChatGPT tasks) are left out, because they come back on their own.
+- One card in the main chat, only when something is found, with Got it and Mute these buttons. Mute these keeps those items off later cards. A new failure or missed run still shows. Run now says "everything is scheduled" when all is fine.
+- Day one note: the HubSpot sales review and the ChatGPT tasks ship switched off, so the first card lists them. Turn them on in Settings, or tap Mute these.
+- Tests: 307 of 307 pass (new SC8; SC4 and SC6 updated for the new row and the 3-rows-per-tick limit).
+
+## Cue 1.26.7: the quick-action chip row under the chat box is gone
+
+- Kiko 22 Oct 05:25Z: remove the chips (not used). Removed: New project intake, What needs me?, Money check, Clean up HubSpot, Snap an area. The features stay: type the ask in chat, open threads from the threads pane, and snap an area from the right-click menu ("Cue: snap an area").
+- "Start an intake with that message" stays: it is not a fixed chip, it shows only after Cue suggests an intake for a chat message.
+- Not deployed: handed to the Cue and Canvas deploys thread.
+
+## Cue icon: the tab shows the Cue orb whichever Google account Chrome lists first; bubble icons all show the orb
+
+- Kiko 22 Oct 02:33Z asked to fix Cue's icon and favicon; Kiko chose to keep the plain orb (05:20Z).
+- The tab icon loads from Cue's private "Cue icon.png" in Kiko's Drive. Drive answers as Chrome's first signed-in account, so when that was not the BSE account the tab fell back to the Apps Script icon. The address now carries `authuser=<Cue owner's email>`, so Drive answers as Kiko's BSE account. The file stays private.
+- Cue bubble 1.4.1: the 128 px icon (extensions page, Chrome Web Store style tile) was a ring with "Cue"; it is now the same orb as the 16 and 48 px icons, the tab and the header. Reload the bubble from chrome://extensions to see it.
+- Tests: new IC1. Not deployed: handed to the Cue and Canvas deploys thread.
+
+## Cue 1.26.6: answered questions no longer leave blank CUE_ASK_ Script Properties
+
+- Kiko 22 Oct 02:49Z: the Apps Script Script Properties page listed many `CUE_ASK_ask-…` keys with empty values ("Value is required"). Each question with buttons (plan cards, Remember?, Learned, TickTick, schedule, which-command) is kept as a `CUE_ASK_<id>` property until it is answered. Answering set the value to blank instead of deleting it, so one blank key was left behind per answered question. Script Properties have a 500 KB cap, so these would keep growing.
+- Answering now deletes the property. When a new question opens, Cue also removes every blank `CUE_ASK_` key and any question left unanswered for over 30 days (its button then says the question was already answered, or is over 30 days old).
+- A tap that is not one of a which-command question's choices now keeps that question open, as the other question types already did; before, it closed the question.
+- Tests: new TC8b. Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.26.5: fixes from the /dev PC recheck of 1.26.4 (22 Oct 05:13Z)
 
 - The leftover intake card in "Bid check 10/22 10:44" did not close. It had failed ("Canvas did not answer find_similar_projects"), and only Needs you cards were closed. "redo bid check" now also closes it when it failed, still only if it was never approved and saved nothing to Canvas.
