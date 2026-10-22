@@ -1,5 +1,11 @@
 # Changelog
 
+## Cue 1.26.7: the quick-action chip row under the chat box is gone
+
+- Kiko 22 Oct 05:25Z: remove the chips (not used). Removed: New project intake, What needs me?, Money check, Clean up HubSpot, Snap an area. The features stay: type the ask in chat, open threads from the threads pane, and snap an area from the right-click menu ("Cue: snap an area").
+- "Start an intake with that message" stays: it is not a fixed chip, it shows only after Cue suggests an intake for a chat message.
+- Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue icon: the tab shows the Cue orb whichever Google account Chrome lists first; bubble icons all show the orb
 
 - Kiko 22 Oct 02:33Z asked to fix Cue's icon and favicon; Kiko chose to keep the plain orb (05:20Z).

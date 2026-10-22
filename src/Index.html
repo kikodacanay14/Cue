@@ -196,6 +196,7 @@
   dialog { background:var(--panel); color:var(--text); border:1px solid var(--line2); border-radius:8px; padding:18px; width:min(420px, calc(100vw - 48px)); }
   dialog::backdrop { background:rgba(0,0,0,.55); }
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .chips:not(:has(.chip:not([hidden]))) { display:none; }
   .chip { border:1px solid var(--line2); border-radius:9999px; padding:6px 12px; font-size:13px; color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
   .muted { color:var(--muted); } .small { font-size:13px; }
   .worker { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; background:#1f2b3d; color:var(--act); }
@@ -306,11 +307,6 @@
       <button class="btn" id="send">Send</button>
     </div>
     <div class="chips">
-      <button class="chip" data-fill="New project intake. Client inquiry:&#10;">New project intake</button>
-      <button class="chip" id="chip-need">What needs me?</button>
-      <button class="chip" data-fill="Who owes us money, and what do we owe suppliers?">Money check</button>
-      <button class="chip" data-fill="Clean up HubSpot">Clean up HubSpot</button>
-      <button class="chip" id="chip-area" hidden>Snap an area</button>
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
     </div>
   </div>
@@ -721,8 +717,6 @@
     bind();
   }
   $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
-  $('chip-need').onclick = function () { openPane({ key: 'list' }); };
-  document.querySelectorAll('[data-fill]').forEach(function (b) { b.onclick = function () { $('box').value = b.getAttribute('data-fill'); $('box').focus(); }; });
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
   var pending = [], reading = 0, MAX = { count: 10, each: 10 * 1048576, total: 20 * 1048576 };
@@ -784,10 +778,10 @@
   });
 
   // Snapshots (spec screen-snapshot.md, Kiko 08:17Z): the Cue bubble 1.2 captures the Chrome tab Kiko was on and drops it here.
-  // 📷 and "Snap an area" show only when the bubble answers. A snapshot or "Send to Cue" text only fills the box; Enter sends.
+  // 📷 shows only when the bubble answers (snap an area: right-click "Cue: snap an area"; the chip row went in 1.26.7, Kiko 22 Oct 05:25Z). A snapshot or "Send to Cue" text only fills the box; Enter sends.
   window.addEventListener('message', function (e) {
     if (e.source !== window || !e.data) return;
-    if (e.data.cueBubble) { bubble = true; $('snap').hidden = false; $('chip-area').hidden = false; }
+    if (e.data.cueBubble) { bubble = true; $('snap').hidden = false; }
     var d = e.data.cueDrop; if (!d) return;
     if (d.error) return hint(String(d.error));   // Kiko 15:43Z: a snap note is not a chat message
     var from = (d.title || d.url) ? String(d.title || 'a page') + (d.url ? ' (' + String(d.url) + ')' : '') : '';
@@ -805,7 +799,6 @@
     b.value = v ? v + (line ? '\n' + line : '') : 'New project intake.' + (line ? '\n' + line : '');
   }
   $('snap').onclick = function () { window.postMessage({ cueSnapAsk: 'page' }, '*'); };
-  $('chip-area').onclick = function () { window.postMessage({ cueSnapAsk: 'area' }, '*'); };
   window.postMessage({ cueBubbleAsk: 1 }, '*'); setTimeout(function () { window.postMessage({ cueBubbleAsk: 1 }, '*'); }, 2500);
 
   function sendFrom(box, host, ref) {
