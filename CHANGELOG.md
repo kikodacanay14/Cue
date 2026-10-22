@@ -1,5 +1,9 @@
 # Changelog
 
+## Cue 1.27.4: expense card doubts start ticked (not deployed)
+
+- Kiko 22 Oct 06:09Z: every "Check these first" box on the expense card starts ticked; Kiko can still untick one before Approve. The ones Cue's own checks raise stay unticked with a note: a missing amount, date, expense type, CE category or proof file, an id Claude named that Canvas doesn't have, Canvas unsure of the project, a possible duplicate, or a scope that already has an award.
+
 ## Cue 1.27.3: in a Bid check thread, only an explicit redo runs again (not deployed)
 
 PC session 22 Oct 05:58Z: on live 1.26.5, any reply Kiko typed in a Bid check thread, plain questions too, started a new check in a new thread, and those threads did the same.
