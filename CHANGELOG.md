@@ -1,9 +1,15 @@
 # Changelog
 
-## Cue 1.25.6: Reset a learned pattern's count
+## Cue 1.25.7: Reset a learned pattern's count
 
 - My rules > Learned patterns: any pattern with a count above 0 that has not graduated now has a Reset button, which puts its Go count back to 0. Graduated patterns keep Demote, which does the same and brings the plan card back. PC tests had left "Supplier search" at 2 of 3 and "ARs: prepare ARs" at 1 of 3 on the real Patterns tab, with no way to clear them.
 - Tests: new TU21.
+
+## Cue 1.25.6: readiness skips the project search inside a known thread, and times each Canvas call
+
+- Live readiness checks took over 200 seconds, nearly all of it Canvas bridge time. A check asked inside a thread that already knows its Canvas project (an earlier readiness check, a change request, an intake written to Canvas, or AR prep) now reuses that project and skips find_similar_projects. An ask that names a different project, or gives a project ID, still goes through the normal path.
+- Each Canvas call's time is kept on the request (metrics.canvas: calls, seconds, ok, start time), including calls Canvas refused. get_readiness and list_project_files still run together, so they share one entry whose time is the slower of the two.
+- No Canvas changes. Not deployed: handed to the Cue and Canvas deploys thread.
 
 ## Cue 1.25.5: a finished readiness thread shows its card again
 
