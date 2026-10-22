@@ -1,6 +1,17 @@
 # Changelog
 
-## ChatGPT scheduled tasks (unreleased; version number set when it merges)
+## Cue 1.26: task scheduler (not deployed)
+
+Kiko 21 Oct 19:12Z "we need a task scheduler", 19:13Z "run a command and tell Cue to Schedule a task followed by the task we want it to do". Spec: `specs/task-scheduler.md`, Kiko "Go" 22 Oct 00:57Z.
+
+- **Chat:** `Schedule <when> <command>` (for example "Schedule every Monday 9am pipeline review", "Schedule Friday 3pm remind me to send the invoice", "Schedule 15th of the month 4pm …") shows a Save / Not that card. The time is read in code, so there is no AI call. Cue asks when the time is missing or already passed, and refuses intake because an intake needs an inquiry. `show my schedules` lists every schedule.
+- **Settings > Scheduled tasks:** every timed job, both Cue's own and Kiko's, with on/off, Change time (in words), Run now, Open last result, and Delete (Kiko's only).
+- **One trigger:** a new Schedule tab in the Cue sheet holds every timed job. The existing 5-minute `cueResume` starts due rows, at most 3 per tick, after its other work. The `cueSweep`, `cueBidsDaily` and `cueHsWeekly` triggers are removed (`CUE_TRIGGERS_V` = 5), so Cue keeps only `cueResume`. Their jobs are system rows: Morning sweep daily 07:00, Bid opportunities daily 07:00 and Monday HubSpot check Mon 06:00, all on. HubSpot sales review Thu 08:00 starts off because it needs CUE_HUBSPOT_TOKEN. The sweep row's hour and Chaser rules' "build at" stay in step.
+- **ChatGPT tasks:** when `cueGtSchedules_` is in Cue (CueGptTasks.gs, separate branch), its tasks become system rows, off until Kiko turns them on, and each run calls `cueGtScheduled(key)`.
+- **What a run does:** a reminder posts "⏰ Reminder: …" with no AI call. Sweep, bids, HubSpot and pipeline start their tasks directly with no routing call. Any other command runs as if Kiko had typed it (one chat call, and the tutor card if tutor mode is on). A run only prepares: drafts and approval cards, nothing sent. A late run says how late it was, and a missed time runs once, never piled up. A tick with nothing due reads one Script Property and does not open the sheet.
+- Tests: 271 of 271 pass (new SC1 to SC7; S1, R6, C44 and BD9 updated for the single trigger).
+
+## Cue 1.26: ChatGPT scheduled tasks (ships with the task scheduler)
 
 Kiko's "Go" 22 Oct 00:55Z on specs/lead-gen-tasks.md and specs/cleanup-review-tasks.md. New `src/CueGptTasks.gs`, kind `gtask`.
 

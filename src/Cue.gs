@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.25.2';
+const CUE_VERSION_ = 'Cue 1.26';
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
@@ -50,6 +50,7 @@ function cueIconUrl_() {
 
 /** Only the owner may use Cue, even if the deployment's access setting is ever widened by mistake. */
 function cueOwner_() {
+  if (globalThis.CUE_SCHED_RUNNING_) return;   // Cue's own scheduled run (CueSchedule.gs), started by its trigger; no page call can set this
   const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   const who = String(Session.getActiveUser().getEmail() || '').toLowerCase();
   if (!me || who !== me) throw new Error('Cue is private to its owner.');
@@ -77,16 +78,14 @@ function cueSetup() {
   return msg;
 }
 
-/** The 5-minute resume trigger and the 07:00 PH morning sweep (Kiko 07:28Z). Also checked when Cue opens, so a deploy needs no extra step.
- * The sweep only builds the batch; nothing goes out without Kiko's approval. */
+/** The 5-minute resume trigger, Cue's only trigger. Also checked when Cue opens, so a deploy needs no extra step.
+ * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday HubSpot check had their own
+ * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
+const CUE_TRIGGERS_NOW_ = '5';
 function cueTriggers_() {
-  const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
-  if (have.indexOf('cueResume') < 0) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
-  if (have.indexOf('cueSweep') < 0) ScriptApp.newTrigger('cueSweep').timeBased().atHour(cueRules_().general.build).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-  // Kiko 19:50Z: the bid opportunity check every day at 07:00 Manila (CueBids.gs; was 08:00). Version 3 installed it at 08:00, so it is made again.
-  if (cueProp_('CUE_TRIGGERS_V', '') === '3') ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'cueBidsDaily').forEach(t => { ScriptApp.deleteTrigger(t); have.splice(have.indexOf('cueBidsDaily'), 1); });
-  if (have.indexOf('cueBidsDaily') < 0) ScriptApp.newTrigger('cueBidsDaily').timeBased().atHour(CUE_BIDS_RULES_.hour).nearMinute(0).everyDays(1).inTimezone('Asia/Manila').create();
-  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', '4');
+  ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
+  PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', CUE_TRIGGERS_NOW_);
 }
 
 /* ---------- Google access (Kiko 05:32Z: "think of another way") ----------
@@ -162,6 +161,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
   // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
+  // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
+  if (!has && mode !== 'intake') { const sc = cueSchedSaid_(text, ref); if (sc) return sc; }
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
@@ -653,12 +654,15 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 /** Time trigger (every 5 minutes): resumes a request whose page closed mid-run. Never approves anything. */
 function cueResume() {
   const now = cueNow_();
+  if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
     if (!(s.lease_until > now)) { try { cueRunLeased_(s.id); } catch (e) { console.error('cueResume ' + s.id + ': ' + e); } }
   });
+  // Last, so a task it starts runs on the next tick in its own 6 minutes (the sweep still runs at once, as its trigger did).
+  try { cueSchedTick_(); } catch (e) { console.error('cueSchedTick_: ' + e); }
 }
 
 function cueRunLeased_(id) {
@@ -835,7 +839,7 @@ function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
 function cueState() {
   cueOwner_();
-  if (cueProp_('CUE_TRIGGERS_V', '') !== '4') { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
+  if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
   const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
   rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
