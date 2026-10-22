@@ -313,9 +313,14 @@ function cueExpWire_(p) {
 }
 
 /** What the page needs for the expense card. */
+/* Doubts Cue's own checks add when something is missing, not in Canvas, unsure or a possible duplicate (cueExpClean_). The card
+ * leaves these unticked (Kiko 22 Oct 06:09Z: every other doubt starts ticked). */
+const CUE_EXP_HARD_RE_ = /^(Pick the |Add the |Mark which file |The (request|scope) Claude named is not in Canvas|Canvas was not sure of the project|Canvas thinks this may already be |\S+ already has an awarded quote)/;
+function cueExpHard_(doubts) { return (doubts || []).map((d, i) => CUE_EXP_HARD_RE_.test(String(d)) ? i : -1).filter(i => i >= 0); }
+
 function cueExpView_(s) {
   const e = s.expense; if (!e) return null;
-  return { project: e.project, guessed: e.guessed, candidates: e.candidates, read: s.read || {}, plan: e.plan || null, lists: e.lists || {},
+  return { project: e.project, guessed: e.guessed, candidates: e.candidates, read: s.read || {}, plan: e.plan || null, hard: cueExpHard_((e.plan || {}).doubts), lists: e.lists || {},
     requirements: (e.requirements || []).map(r => ({ id: r.id, category: r.category })), scopes: (e.scopes || []).map(x => ({ id: x.id, category: x.category, description: x.description, status: x.status })),
     entries: (e.entries || []).map(x => ({ id: x.id, scope_id: x.scope_id, supplier: x.supplier, amount: x.amount, awarded: x.awarded })),
     requests: (e.requests || []).map(q => ({ id: q.id, item: q.item, payee: q.payee, amount: q.amount, payment: q.payment })), canvas: s.canvas || null };
