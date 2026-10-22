@@ -240,6 +240,23 @@ const ZB_ACTIONS_ = {
     run: (r) => { const o = listProjectFiles(r.project_id); return { folder_url: o.folderUrl || '', own: !!o.own, more: !!o.more || (o.files || []).length > 60,
       files: (o.files || []).slice(0, 60).map(f => ({ name: f.name, url: f.url, mime: f.mime, size: f.size, modified: f.modified, folder: f.folder })) }; }
   },
+  /* CUE-CECOST-2026-10-22 (Kiko 02:37Z "it should be able to update CE with my approval"). Cue's "update CE costs for <project>
+   * from <person>'s email": ce_lines reads the project's CE lines (Requirements rows) for Cue's old-to-new card; ce_update_costs
+   * writes only the unit costs Kiko approved on that card, through updateCeRequirementLines (CE Desk's own save, with its audit
+   * log and project-done lock). A line whose cost changed since the card was read is refused, not overwritten. Nothing else on
+   * the CE changes: no price, quantity, line, filed CE version or active CE. */
+  ce_lines: {
+    kind: 'read', needsProject: true, schema: {},
+    run: (r) => zbCeLines_(r.project_id)
+  },
+  ce_update_costs: {
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      lines: { type: 'array', required: true, minItems: 1, maxItems: 100, items: {
+        req_id: { type: 'string', required: true, re: /^[A-Za-z0-9._-]{1,60}$/ },
+        unit_cost: { type: 'number', required: true, min: 0 }, was: { type: 'number', min: 0 } } } },
+    run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : zbCeUpdateCosts_(r.project_id, r.args.lines); }
+  },
   get_readiness: {
     // CUE-2026-10-21 (Kiko 07:32Z approved specs/project-readiness.md). The project's readiness checklist exactly as the
     // Checklist tab computes it (getChecklist: Canvas's own rules, counts and auto checks), for Cue's readiness card.
@@ -672,6 +689,51 @@ function zbCheck_(v, s, name) {
  * (tsEnter_); '' when the log has none (Cue then uses the CE email date). ce_total and ce_no come from the active CE
  * (ceActiveTotals_). Read only; any failure leaves the board as it was.
  */
+/* ---------- CUE-CECOST-2026-10-22: CE line costs ---------- */
+const ZB_CE_COLS_ = { req_id: 'requirement id', category: 'category', description: 'description', qty: 'quantity', occurrence: 'occurence',
+  unit_cost: 'unit cost', discounted: 'discounted cost', unit_price: 'unit price', section: 'ce section' };
+function zbCeNum_(v) { if (v === '' || v == null) return null; const n = Number(String(v).replace(/[,\u20b1\s]/g, '')); return isFinite(n) ? Math.round(n * 100) / 100 : null; }
+/** The project's Requirements rows (its CE lines), one per Requirement ID, and its active CE number. Read only. */
+function zbCeLines_(pid) {
+  const R = table_(SRC.SCOPES, 'Requirements'), mine = by_(R, 'project id', pid), c = {};
+  Object.keys(ZB_CE_COLS_).forEach(k => { c[k] = col_(R, ZB_CE_COLS_[k]); });
+  if (c.req_id < 0 || c.unit_cost < 0) throw new Error('The Requirements tab has no Requirement ID or Unit Cost column.');
+  const seen = {}, lines = [];
+  R.rows.forEach(r => {
+    if (!mine(r)) return;
+    const id = String(r[c.req_id] || '').trim(); if (!id || seen[id]) return; seen[id] = 1;
+    const v = k => c[k] >= 0 ? r[c[k]] : '';
+    lines.push({ req_id: id, category: String(v('category') || '').trim().slice(0, 200), description: String(v('description') || '').trim().slice(0, 600),
+      qty: zbCeNum_(v('qty')), occurrence: zbCeNum_(v('occurrence')), unit_cost: zbCeNum_(v('unit_cost')), discounted: zbCeNum_(v('discounted')),
+      unit_price: zbCeNum_(v('unit_price')), section: String(v('section') || '').trim().slice(0, 50) });
+  });
+  const ce = getCheckCe(pid) || {};
+  return { project_id: pid, ce_no: ce.ceNo || '', ce_url: ce.url || '', lines: lines.slice(0, 200), more: lines.length > 200 };
+}
+/** Writes the approved unit costs. Each line's cost must still be what Cue showed Kiko (was), else that line is refused.
+ * Every line is read back after the save. Returns { ok, saved, lines: [{req_id, before, after, ok, why}] }. */
+function zbCeUpdateCosts_(pid, list) {
+  const now = zbCeLines_(pid), by = {}; now.lines.forEach(l => { by[l.req_id] = l; });
+  const out = [], set = [];
+  list.forEach(o => {
+    const l = by[o.req_id], want = Math.round(Number(o.unit_cost) * 100) / 100;
+    if (!l) { out.push({ req_id: o.req_id, ok: false, why: 'not a CE line of this project' }); return; }
+    const was = l.unit_cost == null ? 0 : l.unit_cost;
+    if (Math.abs(was - want) < 0.005) { out.push({ req_id: o.req_id, before: was, after: was, ok: true, why: 'already this cost' }); return; }   // a retry after a save
+    if (o.was != null && Math.abs(was - o.was) >= 0.005) { out.push({ req_id: o.req_id, before: was, after: was, ok: false, why: 'its cost changed in Canvas to ' + was + ' since Cue read it' }); return; }
+    set.push({ reqId: o.req_id, set: { 'unit cost': want } });
+    out.push({ req_id: o.req_id, before: was, want, ok: false });
+  });
+  const res = set.length ? updateCeRequirementLines(pid, set) : { skipped: [] };
+  const back = {}; if (set.length) zbCeLines_(pid).lines.forEach(l => { back[l.req_id] = l; });
+  out.forEach(x => { if (x.want == null) return;
+    const after = back[x.req_id] && back[x.req_id].unit_cost != null ? back[x.req_id].unit_cost : 0;
+    x.after = after; x.ok = Math.abs(after - x.want) < 0.005;
+    if (!x.ok) x.why = ((res.skipped || []).find(s => s.indexOf(x.req_id) === 0)) || 'Canvas did not take it (the Unit Cost cell may be a formula)';
+    delete x.want; });
+  return { ok: true, saved: out.filter(x => x.ok && x.before !== x.after).length, lines: out, ce_no: now.ce_no };
+}
+
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
   if (!list.length) return b;

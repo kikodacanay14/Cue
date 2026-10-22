@@ -5,7 +5,7 @@
  *   Asking when unsure: when the chat call is not sure, or two commands fit about equally, Cue starts nothing and shows the top 2 as
  *   buttons plus "Just chat". A button starts that command from the details the same chat call already filled.
  * An open question waits in Script Property CUE_ASK_<id>; its chat line carries "?<id>:<choices>" and the answer "!<id>".
- * Answering deletes the property. cueAskTidy_ removes blank ones left by Cue before 1.26.2 and questions unanswered for 30 days. */
+ * Answering deletes the property. cueAskTidy_ removes blank ones left by Cue before 1.26.6 and questions unanswered for 30 days. */
 
 const CUE_ROUTE_TAB_ = 'Routing examples', CUE_ROUTE_HEAD_ = ['Saved', 'Phrase', 'Command'];
 const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search',
@@ -23,12 +23,15 @@ function cueRouteVague_(t) {
 }
 
 /* ---------- remembered examples ---------- */
+/** PC check 22 Oct 04:45Z: learned patterns read "Project intake: update CE cost..." and "Project intake: redo bid check". Those asks
+ * now have their own code routes (CE costs, bid check), so an old intake row or example for them is ignored and not shown. */
+function cueRouteStale_(cmd, text) { return cmd === 'intake' && (cueCecAsked_(text) || cueBidsAsked_(text)); }
 function cueRouteRows_() {
   try {
     if (!cueProp_('CUE_SHEET_ID', '')) return [];
     const sh = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', '')).getSheetByName(CUE_ROUTE_TAB_), n = sh ? sh.getLastRow() - 1 : 0;
     return n > 0 ? sh.getRange(Math.max(2, n + 2 - CUE_ROUTE_MAX_.rows), 1, Math.min(n, CUE_ROUTE_MAX_.rows), 3).getValues()
-      .map(r => ({ phrase: String(r[1] || '').trim(), cmd: String(r[2] || '').trim() })).filter(x => x.phrase && CUE_ROUTE_CMDS_[x.cmd]) : [];
+      .map(r => ({ phrase: String(r[1] || '').trim(), cmd: String(r[2] || '').trim() })).filter(x => x.phrase && CUE_ROUTE_CMDS_[x.cmd] && !cueRouteStale_(x.cmd, x.phrase)) : [];
   } catch (e) { console.warn('Routing examples: ' + e); return []; }
 }
 /** The examples closest to Kiko's message, newest first on a tie, as lines for the chat call. Empty when none share a word. */
@@ -62,7 +65,7 @@ function cueAskOpen_(o, question, choices, where) {
   return id;
 }
 
-/** Removes CUE_ASK_ properties that are blank (answered before 1.26.2) or whose question is over 30 days old. Script Properties cap at 500 KB.
+/** Removes CUE_ASK_ properties that are blank (answered before 1.26.6) or whose question is over 30 days old. Script Properties cap at 500 KB.
  *  The id's first 8 characters are the time it was asked, in base 36. Returns how many it removed. */
 const CUE_ASK_KEEP_MS_ = 30 * 86400000;
 function cueAskTidy_() {

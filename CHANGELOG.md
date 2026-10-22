@@ -1,11 +1,44 @@
 # Changelog
 
-## Cue 1.26.2: answered questions no longer leave blank CUE_ASK_ Script Properties
+## Cue 1.26.6: answered questions no longer leave blank CUE_ASK_ Script Properties
 
 - Kiko 22 Oct 02:49Z: the Apps Script Script Properties page listed many `CUE_ASK_ask-…` keys with empty values ("Value is required"). Each question with buttons (plan cards, Remember?, Learned, TickTick, schedule, which-command) is kept as a `CUE_ASK_<id>` property until it is answered. Answering set the value to blank instead of deleting it, so one blank key was left behind per answered question. Script Properties have a 500 KB cap, so these would keep growing.
 - Answering now deletes the property. When a new question opens, Cue also removes every blank `CUE_ASK_` key and any question left unanswered for over 30 days (its button then says the question was already answered, or is over 30 days old).
 - A tap that is not one of a which-command question's choices now keeps that question open, as the other question types already did; before, it closed the question.
 - Tests: new TC8b. Not deployed: handed to the Cue and Canvas deploys thread.
+
+## Cue 1.26.5: fixes from the /dev PC recheck of 1.26.4 (22 Oct 05:13Z)
+
+- The leftover intake card in "Bid check 10/22 10:44" did not close. It had failed ("Canvas did not answer find_similar_projects"), and only Needs you cards were closed. "redo bid check" now also closes it when it failed, still only if it was never approved and saved nothing to Canvas.
+- A readiness Go for Trick or Treat – Manila opened a new thread named "S-25506500TR" and sat at Finding project. The 1.26.3 run had gone to the Trick or Treat Iloilo thread instead. The chat call sees only the 10 newest threads, and "manila" was a skipped name word, so Manila matched Iloilo. Now code picks the thread for a readiness check: the thread of the project the ask names by Canvas id or by name. A name that carries a word the project lacks while the project carries one the ask lacks (Manila vs Iloilo) is not a match. A thread is about the first project it matched, so a run that joined it by mistake does not change it. A check that joins its project's thread reuses that project and skips Finding project, also when it is asked by Canvas id. The pointer names that thread.
+- Old chat lines keep their text. The 1.26.3 "Answered in the Trick or Treat Iloilo thread." line stays as written.
+- Tests: new CC15 and CC16 (305/305). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
+## Cue 1.26.4: fixes from the /dev PC recheck of 1.26.3 (22 Oct 05:00Z)
+
+- "redo bid check" in the "Bid check 10/22 10:44" thread still re-ran the PHASE 1 intake card that 1.26.2 had left there, and Kiko's message never showed. The waiting card took the reply before the bid route saw it. Now bid words in any thread whose root is a Bid check run a fresh bid check first, before any waiting card. Kiko's line shows in that thread. The stray intake card there is closed with "This thread is a bid check, not a project intake", but only when it was never approved and saved nothing to Canvas.
+- After Go on a readiness plan card into the Trick or Treat – Manila thread, the main chat showed no "On it" line. The server wrote it, but the page shows each thread only once in the main chat, and the line came after other lines. Now the chat call's own pointer says "On it. Continuing in the <name> thread." when a readiness check, email, supplier search or map joins a thread, and no second line is added. The page also shows a pointer that comes right after a Go tap in the main chat.
+- The old CE costs card for JBL Booth stayed open at Needs you next to the new one. A new CE costs check for the same project now closes an older card that was never approved, with "A newer CE costs check replaced this one. Nothing was written to Canvas." A card that was approved stays open.
+- Tests: new CC12 to CC14 (303/303). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
+## Cue 1.26.3: fixes from the /dev PC check of 1.26.2 (22 Oct 04:45Z)
+
+- CE costs: Zaina Yu's quote for JBL Booth (AMI-66858OJB-V1) is one VAT-inclusive lot of ₱616,000. Cue had ticked Booth Area and Flooring ₱615,000 to ₱616,000 and left every other line blank. A price the email gives for several lines or the whole job is now a lot: the card shows it as one price, with what those lines add up to now, and ticks nothing, so Kiko types each line's unit cost or asks for a breakdown. ChatGPT is told to list lots separately. If it still puts a lot, package, all-in or VAT-inclusive total on a single line while the others are blank, code takes it off that line.
+- "redo bid check" in a Bid check thread became a Project intake plan and an empty PHASE 1 card. "bid check" is now a bid ask, and inside a Bid check thread "again", "redo" or "re-run" also start a fresh bid check in its own thread, with no AI call.
+- A photo Kiko sent in the Morning batch thread turned that thread into a change request. An intake never runs inside a thread that is not about a project (Morning batch, bid check, email draft, ChatGPT task, Teach Cue and similar). It gets its own thread, and the old thread says so. More papers sent in a supplier registration thread still stay there.
+- Learned patterns showed "Project intake: update CE cost..." and "Project intake: redo bid check". Intake rows and routing examples for asks that now have their own code route (CE costs, bid check) are ignored and no longer shown.
+- After Go, a readiness check (also a workflow map, email or supplier search) that joined an earlier thread said nothing in the main chat. It now says "On it. Continuing in the <name> thread."
+- Tests: new CC8 to CC11 (300/300). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
+## Cue 1.26.2: update CE costs from an email, with Kiko's approval
+
+- Live 22 Oct 02:35Z: "Can you update CE Cost for JBL Booth? get cost from Zaina Yu's email and update the CE." showed a plan card promising "Write the approved CE cost in Canvas", then after Go said "I can't update the CE from chat", started a change request, said "This is about the email to Rommel, so I reopened its thread", and labelled the thread "Project intake". Cue had no CE cost command.
+- New task "CE costs" (CueCeCost.gs). Kiko's words name the project and the person (no AI call, no plan card; nothing is written before Approve). Canvas finds the project (the thread's own project first) and lists its CE lines (new bridge read `ce_lines`). Cue finds that person's newest email in the last 120 days, preferring one that names the project, and reads its text, PDFs and photos. One ChatGPT call matches each quoted cost to a CE line (a line total is divided by qty x occurrence). The card shows every CE line's unit cost, old to new, ticked and editable, plus email items that fit no line, and Open in Canvas (CE Desk) as the other way.
+- Approve and update CE writes only the ticked unit costs through the new bridge write `ce_update_costs` (CE Desk's own save, audit log, project-done lock). Canvas refuses a line whose cost changed since the card was read, reads every line back, and Cue reports each line. Prices, quantities, filed CE versions and the active CE are never changed. A reply in the thread ("from zaina@...", or the project) carries the same task on.
+- An intake or change never "reopens" an email draft, style guide, Teach Cue, personal expense, workflow map, supplier registration or morning batch thread any more; only project threads take a new message.
+- Tutor plans: the plan call is told to list only steps the command really does, and that CE cost changes are not a Project intake.
+- Needs Canvas with `ce_lines` and `ce_update_costs` (CanvasWorkspace, same branch name). Until that Canvas release is live, the task stops at reading the CE lines with "Canvas refused ce_lines".
+- Tests: new CC1 to CC7 (296/296). Not deployed: handed to the Cue and Canvas deploys thread.
 
 ## Cue 1.26.1: Morning batch inbox lines say what they are and what to do; missing tabs are made on first use
 

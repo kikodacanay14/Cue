@@ -978,14 +978,14 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -1072,7 +1072,8 @@
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
         // pointers (updates, "Summary for …") live in the thread only.
         // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
-        var answers = prev && prev.who === 'Kiko' && !prev.request_id;
+        // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
+        var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
@@ -1118,7 +1119,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -1153,6 +1154,7 @@
     if (r.kind === 'finance') return '<div class="card"><b>' + esc((r.fin && r.fin.title) || 'Money') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
+    if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
     return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
@@ -1211,8 +1213,11 @@
   var STYLE = [['Reading sent emails', 'Gmail', 'Cue reads your sent emails (read only)'], ['Claude writing your guide', 'Claude', 'Claude writes your style guide'],
     ['Needs you', 'Kiko', 'Edit and approve the guide']];
   var TEACH = [['Claude reading', 'Claude', 'Claude reads what you pasted'], ['Needs you', 'Kiko', 'Tick, edit and approve']];
+  var CECOST = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading the email', 'Gmail', 'Canvas lists the CE lines; Cue finds the email (read only)'],
+    ['GPT matching costs', 'GPT', 'GPT matches the email\'s costs to the CE lines'], ['Needs you', 'Kiko', 'Check the costs and approve'],
+    ['Writing to Canvas', 'Canvas', 'Canvas saves the unit costs and reads them back']];
   function workHtmlOf(r) {
-    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'cecost' ? CECOST : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -1669,6 +1674,45 @@
     if ((p.doubts || []).length) h += '<div class="label">Check these first</div>' + p.doubts.map(function (d, i) { return '<label class="small" style="display:flex;gap:8px;margin-top:4px"><input type="checkbox" data-xd="' + i + '"> <span>' + esc(d) + '</span></label>'; }).join('');
     return h + '<div class="actions"><button class="btn" data-act="approve-expense" data-id="' + esc(r.id) + '">Approve and record</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>'
       + '<div class="small muted" style="margin-top:6px">Approve records it in Canvas and files the documents in the project\'s Admin folder. Nothing is paid and no email is sent.</div>' + metricLine(r) + '</div>';
+  }
+  // CE costs (CueCeCost.gs, Kiko 02:37Z 22 Oct): every CE line with its unit cost, old to new. Lines the email prices come ticked and
+  // editable; Approve writes only the ticked ones to the CE in Canvas, which reads each back. Prices and filed CEs never change.
+  function pesoC(n) { return n == null || n === '' ? 'blank' : '₱' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+  function cecCardHtml(r) {
+    var c = r.cec || {}, waiting = r.status === 'Needs you' && (c.rows || []).length, done = !!c.result, pj = c.project || {}, em = c.email;
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-ccard="' + esc(r.id) + '"><div class="label" style="margin-top:0">CE costs</div>'
+      + '<b style="font-size:17px;color:#fff">' + esc(pj.name || c.ask || 'CE costs') + '</b>' + (c.ce_no ? ' <span class="small muted">' + esc(c.ce_no) + '</span>' : '')
+      + ((c.others || []).length && !done ? '<div class="small muted">Canvas also found: ' + c.others.map(function (o) { return esc(o.name); }).join(', ') + '. Not this project? Close this and say the right one.</div>' : '')
+      + (em ? '<div class="small" style="margin-top:4px">From ' + esc(em.from) + ' · <a href="' + esc(em.url) + '" target="_blank" rel="noopener">' + esc(em.subject) + '</a> · ' + esc(em.date)
+        + ((em.files || []).length ? ' · 📎 ' + em.files.map(esc).join(', ') : '') + '</div>' : '');
+    if (r.error) h += '<div class="' + (waiting ? 'err' : 'warn') + '">' + esc(r.error) + '</div>';
+    var rows = c.rows || [], shown = waiting ? rows : rows.filter(function (x) { return x.tick; });
+    if (shown.length) h += '<div class="label">' + (waiting ? 'Unit cost, now to new' : 'Unit costs') + '</div>' + shown.map(function (x) {
+      var nm = esc(x.category || x.req_id) + (x.description ? ' <span class="small muted">' + esc(x.description.slice(0, 90)) + '</span>' : '');
+      var qty = '<span class="small muted"> · qty ' + esc(x.qty || 1) + (x.occurrence > 1 ? ' x ' + esc(x.occurrence) : '') + '</span>';
+      if (!waiting) return '<div style="padding:4px 0">' + (x.saved ? '✓ ' : '✗ ') + nm + qty + '<br><span class="small">' + pesoC(x.old) + ' to ' + pesoC(x.saved ? x.after : x.cost) + '</span>'
+        + (x.result ? '<div class="err">' + esc(x.result) + '</div>' : '') + '</div>';
+      return '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0"><input type="checkbox" data-cec-tick="' + esc(x.key) + '"' + (x.tick ? ' checked' : '') + '>'
+        + '<span style="flex:1">' + nm + qty + '<br><span class="small">' + pesoC(x.old) + ' to </span><input data-cec-cost="' + esc(x.key) + '" inputmode="decimal" style="width:120px" value="' + (x.cost == null ? '' : esc(x.cost)) + '" placeholder="new cost">'
+        + (x.lot ? '<br><span class="small muted">Part of the lot above</span>' : '') + (x.quoted ? '<br><span class="small muted">Email: ' + esc(x.quoted) + (x.basis === 'line total' ? ' (a line total, divided by qty)' : '') + '</span>' : '') + '</span></label>';
+    }).join('');
+    // PC check 04:45Z: a lot (one price for several lines) is shown as a lot, never ticked onto one line.
+    if ((c.lots || []).length && !done) h += c.lots.map(function (l) { return '<div class="warn">One price for ' + (l.keys.length ? l.keys.length + ' CE line' + (l.keys.length === 1 ? '' : 's') : 'the whole job')
+      + ': ' + pesoC(l.total) + (l.was ? ' (those lines add up to ' + pesoC(l.was) + ' now)' : '') + '<br><span class="small">Email: ' + esc(l.quoted) + '</span><br><span class="small">It is not split per line, so nothing is ticked. Type each line\'s unit cost below, or ask for a breakdown.</span></div>'; }).join('');
+    if ((c.unmatched || []).length && !done) h += '<div class="label">In the email, not on the CE</div><div class="small">' + c.unmatched.map(function (u) { return esc(u.quoted) + (u.amount ? ' · ' + pesoC(u.amount) : ''); }).join('<br>') + '</div>';
+    if (c.note && !done) h += '<div class="small muted" style="margin-top:6px">' + esc(c.note) + '</div>';
+    if (r.open) h += '<div class="cvrow">' + cvLink(r.open, false) + '</div>';
+    if (waiting) h += '<div class="small muted" style="margin-top:8px">Approve writes only the ticked unit costs to this CE in Canvas and reads them back. Prices, quantities and filed CE versions are not changed.</div>'
+      + '<div class="actions"><button class="btn" data-act="approve-cec" data-id="' + esc(r.id) + '">Approve and update CE</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>';
+    else if (r.status === 'Needs you') h += '<div class="small muted" style="margin-top:6px">Reply here to carry on.</div><div class="actions"><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>';
+    else if (r.status === 'Failed') h += '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div>';
+    return h + metricLine(r) + '</div>';
+  }
+  function collectCec(id, scope) {
+    var card = (scope || document).querySelector('[data-ccard="' + id + '"]') || document.createElement('div'), rows = {};
+    card.querySelectorAll('[data-cec-tick]').forEach(function (el) { (rows[el.getAttribute('data-cec-tick')] = rows[el.getAttribute('data-cec-tick')] || {}).tick = el.checked; });
+    card.querySelectorAll('[data-cec-cost]').forEach(function (el) { (rows[el.getAttribute('data-cec-cost')] = rows[el.getAttribute('data-cec-cost')] || {}).cost = el.value; });
+    return { rows: rows };
   }
   function collectExpense(id, scope) {
     var card = (scope || document).querySelector('[data-xcard="' + id + '"]') || document.createElement('div'), e = { roles: {}, cleared: [] };
@@ -2377,6 +2421,7 @@
     if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
+    if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
     if (r.same && r.same.length) return sameCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
@@ -2518,6 +2563,8 @@
         if (act === 'approve-expense') { var xe = collectExpense(id, scope); xe.files = held[id] || [];
           b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
+        if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
+          return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'ph-add-row') { phAdd[id] = (phAdd[id] || 0) + 1; return render(); }
