@@ -3788,7 +3788,7 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
 });
 test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-unsched', 'Daily 07:00', true]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
   t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');
@@ -3822,7 +3822,7 @@ test('SC6 the ChatGPT lead-gen and review tasks register as rows (off until Kiko
   const v = t.ctx.cueSchedules().filter(x => /^sys-gt-/.test(x.id));
   deq(v.map(x => [x.name, x.when, x.on, x.runs]), [['Prospect follow-up check', 'Weekdays 08:00', false, 'ChatGPT'], ['Monthly engagement email', '15th monthly 16:00', false, 'ChatGPT'], ['Admin Tuesday', 'Tue 09:00', false, 'ChatGPT']]);
   t.ctx.__wait(24 * 3600000); t.ctx.cueResume(); assert.ok(!t.log.gt, 'off rows never run');
-  t.ctx.cueSchedSet('sys-gt-followups', { on: true }); t.ctx.__wait(phMs('2026-10-23', '08:01') - phMs('2026-10-22', '11:00')); t.ctx.cueResume();
+  t.ctx.cueSchedSet('sys-gt-followups', { on: true }); t.ctx.__wait(phMs('2026-10-23', '08:01') - phMs('2026-10-22', '11:00')); t.ctx.cueResume(); t.ctx.__wait(5 * 60000); t.ctx.cueResume();   // 3 rows per tick
   deq(t.log.gt, ['followups']); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-gt-followups')[0].task, 'cue-gt-1');
   assert.strictEqual(t.ctx.cueSchedRunNow('sys-gt-followups').filter(x => x.id === 'sys-gt-followups')[0].result, 'Already ran today');
 });
@@ -4250,6 +4250,31 @@ test('IC1 the tab icon loads as the owner\'s Google account (authuser), stays pr
   deq(t.log.drive.filter(d => /upload/.test(d)).length, 1, 'one upload'); assert.ok(!t.log.drive.some(d => /permissions/.test(d)), 'never shared');
   const ext = path.join(__dirname, '..', 'extension', 'icons');
   deq(['16', '48', '128'].map(n => fs.readFileSync(path.join(ext, 'cue-' + n + '.png')).readUInt32BE(16)), [16, 48, 128], 'bubble icons at their sizes');
+});
+
+test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will not run and waiting tasks with no date; silent when all is fine; Mute these hides them', () => {
+  const t = sandbox(); t.ctx.cueState(); t.ctx.cueSchedules();
+  const card = () => t.tabs.Chat.rows.filter(r => /^\?ask-/.test(String(r[3])) && /Unscheduled check/.test(r[2])).pop();
+  // Day one: the rows that ship off (HubSpot sales review, the ChatGPT tasks) are listed; nothing waits on Kiko.
+  t.ctx.cueSchedRunNow('sys-unsched'); let c = card();
+  assert.ok(/\d+ to look at/.test(c[2]) && /HubSpot sales review \(Thu 08:00\): switched off/.test(c[2]) && /Monthly engagement email \(15th monthly 16:00\): switched off/.test(c[2]) && /:ok,mute$/.test(c[3]));
+  assert.ok(!/Tasks waiting on you/.test(c[2]));
+  t.ctx.cueAskPick(String(c[3]).match(/^\?(ask-[0-9a-z]+)/)[1], 'mute');
+  const n = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched');
+  assert.strictEqual(t.tabs.Chat.rows.slice(n).filter(r => /^\?ask-/.test(String(r[3]))).length, 0, 'muted: no card'); assert.ok(/everything is scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
+  // A waiting task with no date shows; one with a reminder does not. A missed run shows.
+  const add = (id, st, extra) => { t.tabs.Requests.appendRow([id]); t.tabs.Requests.rows[t.tabs.Requests.rows.length - 1] = [id, '', st, '', '', 0, '', '', '', '', JSON.stringify(Object.assign({ id, kind: 'pipeline', status: st, ref: '', created: '2026-10-21T01:00:00Z', pipe: { title: 'Pipeline: ' + id } }, extra || {}))]; };
+  add('cue-a', 'Needs you'); add('cue-b', 'Needs you', { remind_at: Date.parse('2026-10-23T01:00:00Z') }); add('cue-c', 'Working');
+  const rows = t.tabs.Schedule.rows, i = rows.findIndex(r => r[0] === 'sys-hubspot'); rows[i][11] = new Date(Date.parse('2026-10-21T01:00:00Z'));
+  const m = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched'); c = card();
+  assert.ok(t.tabs.Chat.rows.slice(m).indexOf(c) >= 0, 'a new card');
+  assert.ok(/Monday HubSpot check \(Mon 06:00\): missed its/.test(c[2]) && /Pipeline: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
+  assert.ok(!/cue-b|cue-c/.test(c[2]) && !/HubSpot sales review/.test(c[2]), 'reminder set, still working, muted: left out');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  // The daily row runs from the tick at 07:00 and finds nothing when all is fine: no card.
+  const u = sandbox(); u.ctx.cueState(); u.ctx.cueSchedules().filter(x => !x.on).forEach(x => u.ctx.cueSchedSet(x.id, { on: true }));
+  u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); u.ctx.cueResume(); u.ctx.__wait(5 * 60000); u.ctx.cueResume();   // Wednesday 19:00 was missed too: 3 rows per tick
+  assert.strictEqual(u.ctx.cueSchedules().filter(x => x.id === 'sys-unsched')[0].result, 'All scheduled'); assert.ok(!u.tabs.Chat.rows.some(r => /Unscheduled check/.test(r[2])));
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

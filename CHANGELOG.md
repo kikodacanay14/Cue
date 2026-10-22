@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27: unscheduled alarm (not deployed)
+
+Kiko 22 Oct 05:20Z: "can this alarm me if there's any task that is unscheduled". At 05:21Z Kiko picked Both.
+
+- New system row **Unscheduled check**, daily 07:00, on. Code only, no AI call.
+- It lists scheduled jobs that will not run: switched off, on with no next run, missed by more than 30 minutes, or last run failed.
+- It also lists open tasks waiting on Kiko (Needs you, Failed or Reopened) that have no due date and no reminder. Reports that a schedule made (bids, the Monday check, ChatGPT tasks) are left out, because they come back on their own.
+- One card in the main chat, only when something is found, with Got it and Mute these buttons. Mute these keeps those items off later cards. A new failure or missed run still shows. Run now says "everything is scheduled" when all is fine.
+- Day one note: the HubSpot sales review and the ChatGPT tasks ship switched off, so the first card lists them. Turn them on in Settings, or tap Mute these.
+- Tests: 307 of 307 pass (new SC8; SC4 and SC6 updated for the new row and the 3-rows-per-tick limit).
+
 ## Cue 1.26.7: the quick-action chip row under the chat box is gone
 
 - Kiko 22 Oct 05:25Z: remove the chips (not used). Removed: New project intake, What needs me?, Money check, Clean up HubSpot, Snap an area. The features stay: type the ask in chat, open threads from the threads pane, and snap an area from the right-click menu ("Cue: snap an area").
