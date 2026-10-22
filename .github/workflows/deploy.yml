@@ -2,6 +2,9 @@ name: Deploy Cue
 # Ships src/ onto Cue's web app (same /exec address) with clasp, signed in as deploy.json's account (see tools/deploy.mjs).
 # mode=check only reads and shows what would change. mode=preview puts the code on the test link (/dev) only; live is
 # untouched. mode=deploy runs the tests first and stops if any fail.
+# Auto-preview (Kiko 22 Oct 2026): when Test Cue passes on a push to main, this runs mode=preview by itself, so /dev always
+# equals main. Live (/exec) is never touched automatically. Pause it with the repo variable CUE_AUTO_PREVIEW = off
+# (Settings > Secrets and variables > Actions > Variables). Note: Apps Script triggers run head, so they run main's code too.
 on:
   workflow_dispatch:
     inputs:
@@ -9,21 +12,45 @@ on:
         description: check, preview or deploy
         required: true
         default: check
+  workflow_run:
+    workflows: [Test Cue]
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
 concurrency: deploy-cue
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+       vars.CUE_AUTO_PREVIEW != 'off')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+        with:
+          # Auto-preview ships the exact commit whose tests passed; a manual run ships the branch it was started on.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Skip if main has moved on
+        if: github.event_name == 'workflow_run'
+        id: fresh
+        run: |
+          tip=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$tip" != "${{ github.event.workflow_run.head_sha }}" ]; then
+            echo "main is now at $tip; its own test run will preview it. Skipping this older commit."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.fresh.outputs.skip != '1'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Tests
+        if: steps.fresh.outputs.skip != '1'
         run: node test/cue.test.js
-      - run: npm install -g @google/clasp@3.4.1
+      - if: steps.fresh.outputs.skip != '1'
+        run: npm install -g @google/clasp@3.4.1
       - name: Load the saved Google sign-in
+        if: steps.fresh.outputs.skip != '1'
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
@@ -31,8 +58,9 @@ jobs:
           umask 077
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:DEPLOY_KEY -a -in .deploy/clasprc.enc -out ~/.clasprc.json
       - name: Run
+        if: steps.fresh.outputs.skip != '1'
         env:
-          MODE: ${{ inputs.mode }}
+          MODE: ${{ github.event_name == 'workflow_run' && 'preview' || inputs.mode }}
         run: |
           case "$MODE" in check|preview|deploy) ;; *) echo "mode must be check, preview or deploy"; exit 1;; esac
           node tools/deploy.mjs "$MODE"
