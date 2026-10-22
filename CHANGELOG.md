@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue icon: the tab shows the Cue orb whichever Google account Chrome lists first; bubble icons all show the orb
+
+- Kiko 22 Oct 02:33Z asked to fix Cue's icon and favicon; Kiko chose to keep the plain orb (05:20Z).
+- The tab icon loads from Cue's private "Cue icon.png" in Kiko's Drive. Drive answers as Chrome's first signed-in account, so when that was not the BSE account the tab fell back to the Apps Script icon. The address now carries `authuser=<Cue owner's email>`, so Drive answers as Kiko's BSE account. The file stays private.
+- Cue bubble 1.4.1: the 128 px icon (extensions page, Chrome Web Store style tile) was a ring with "Cue"; it is now the same orb as the 16 and 48 px icons, the tab and the header. Reload the bubble from chrome://extensions to see it.
+- Tests: new IC1. Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.26.6: answered questions no longer leave blank CUE_ASK_ Script Properties
 
 - Kiko 22 Oct 02:49Z: the Apps Script Script Properties page listed many `CUE_ASK_ask-…` keys with empty values ("Value is required"). Each question with buttons (plan cards, Remember?, Learned, TickTick, schedule, which-command) is kept as a `CUE_ASK_<id>` property until it is answered. Answering set the value to blank instead of deleting it, so one blank key was left behind per answered question. Script Properties have a 500 KB cap, so these would keep growing.
