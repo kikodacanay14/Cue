@@ -4094,6 +4094,56 @@ test('CC7 the CE costs card: ticked rows with editable costs, Approve and update
   assert.strictEqual(ctx.kindName({ kind: 'cecost' }), 'CE costs');
 });
 
+/* ---------- 1.26.3: PC check of 1.26.2 on /dev (22 Oct 04:45Z) ---------- */
+test('CC8 a lump-sum quote is shown as a lot: never ticked onto one line, whether ChatGPT calls it a lot or puts it on one line anyway', () => {
+  const lot = cecRun({ gpt: { cecost: { changes: [], lots: [{ keys: ['L1', 'L2', 'L3'], total: 616000, quoted: 'Booth, all in, 616,000 VAT inclusive' }], unmatched: [], note: '' } } });
+  deq([lot.v.status, lot.v.cec.rows.filter(r => r.tick).length, lot.v.cec.rows.every(r => r.lot)], ['Needs you', 0, true]);
+  deq([lot.v.cec.lots[0].total, lot.v.cec.lots[0].req_ids, lot.v.cec.lots[0].was], [616000, ['REQ-1', 'REQ-2', 'REQ-3'], 90000]);
+  assert.ok(lot.tabs.Chat.rows.some(r => /gives one price for 3 CE lines \(₱616,000\), not a price per line/.test(r[2])));
+  const one = cecRun({ gpt: { cecost: { changes: [{ key: 'L1', unit_cost: 616000, basis: 'unit', quoted: 'Booth fabrication lot - 616,000 VAT inclusive', why: 'booth' }], lots: [], unmatched: [], note: '' } } });
+  deq([one.v.cec.rows.filter(r => r.tick).length, one.v.cec.rows[0].cost, one.v.cec.lots.length], [0, null, 1], 'the lot on one line is taken off it');
+  assert.throws(() => one.ctx.cueApprove(one.id, {}), /Tick at least one/);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
+  const ctx = { esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';'), NEED: { 'Needs you': 1 }, metricLine: () => '', cvLink: l => '<a>' + l.title + '</a>' };
+  vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml'), ctx);
+  assert.ok(/One price for 3 CE lines: ₱616,000 \(those lines add up to ₱90,000 now\)/.test(ctx.cecCardHtml(JSON.parse(JSON.stringify(lot.v)))));
+});
+
+test('CC9 "redo bid check" in a Bid check thread runs a fresh bid check (no plan card, no intake); a photo in the Morning batch thread starts its intake in its own thread', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put({ id: 'cue-20261022104400-b1d5', kind: 'bids', created: '2026-10-21T02:44:00.000Z', status: 'Done', bids: { title: 'Bid check 10/22 10:44', items: [] }, text: 'check bids' });
+  put({ id: 'cue-20261022070000-5eee', kind: 'sweep', created: '2026-10-21T02:50:00.000Z', status: 'Needs you', day: '2026-10-22', batch: { items: [] }, text: 'Morning batch' });
+  const out = t.ctx.cueSend('redo bid check', [], '', 'cue-20261022104400-b1d5');
+  const b = t.ctx.cueLoad_(out.request_id).s;
+  deq([b.kind, b.ref, t.log.plans || 0], ['bids', '', 0]);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === 'cue-20261022104400-b1d5' && /Running the bid check again in a new thread/.test(r[2])));
+  const up = t.ctx.cueSend('', [{ name: 'brief.txt', type: 'text/plain', data: TXT }], '', 'cue-20261022070000-5eee');
+  const i = t.ctx.cueLoad_(up.request_id).s;
+  deq([i.kind, i.ref], ['intake', ''], 'its own thread, never the batch');
+  assert.strictEqual(t.ctx.cueLoad_('cue-20261022070000-5eee').s.kind, 'sweep');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === 'cue-20261022070000-5eee' && /started its intake in its own thread/.test(r[2])));
+});
+
+test('CC10 learned patterns and routing examples that sent CE cost or bid check asks to Project intake are ignored and not shown', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  t.ctx.cuePatApprove_('Project intake: update CE cost for <project> from <person>\'s email', 'intake', 'update ce cost', null);
+  t.ctx.cuePatApprove_('Project intake: redo bid check', 'intake', 'redo bid check', null);
+  t.ctx.cuePatApprove_('Supplier search: find suppliers for <item>', 'vendor', 'find x', null);
+  deq(t.ctx.cuePatRows_().map(x => x.key), ['Supplier search: find suppliers for <item>']);
+  t.ctx.cueRouteSave_('Can you update CE Cost for JBL Booth? get cost from Zaina Yu\'s email', 'intake'); t.ctx.cueRouteSave_('quote this for me', 'intake');
+  deq(t.ctx.cueRouteRows_().map(x => x.phrase), ['quote this for me']);
+});
+
+test('CC11 a readiness check started from the main chat into an earlier thread says so in the main chat', () => {
+  const t = readyRun();
+  const u = sandbox({ talk: Object.assign({}, ASK, { task: t.id }), similar: ACME, sent: READY_MAIL });
+  const sh = u.tabs.Requests; sh.appendRow([t.id]); u.ctx.cueSave_(sh, sh.getLastRow(), t.ctx.cueLoad_(t.id).s);
+  u.ctx.cueSend('is the Acme party ready?', [], '');
+  assert.ok(u.tabs.Chat.rows.some(r => /^>/.test(r[3]) && /^On it\. Continuing in the .+ thread\.$/.test(r[2])), JSON.stringify(u.tabs.Chat.rows.slice(-3)));
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

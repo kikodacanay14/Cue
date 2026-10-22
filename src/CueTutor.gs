@@ -72,7 +72,7 @@ function cuePatRows_() {
       let ph = []; try { ph = JSON.parse(String(r[5] || '[]')); } catch (e) { ph = []; }
       return { row: i + 2, key: String(r[0] || '').trim(), cmd: String(r[1] || '').trim(), n: Number(r[2]) || 0, graduated: cueStyleOn_(r[3]),
         used: r[4] instanceof Date ? r[4].toISOString().slice(0, 10) : String(r[4] || '').slice(0, 10), phrasings: Array.isArray(ph) ? ph : [] };
-    }).filter(x => x.key && CUE_ROUTE_CMDS_[x.cmd]) : [];
+    }).filter(x => x.key && CUE_ROUTE_CMDS_[x.cmd] && !cueRouteStale_(x.cmd, x.key.replace(/^[^:]*:\s*/, ''))) : [];
   } catch (e) { console.warn('Patterns: ' + e); return []; }
 }
 const cuePatKey_ = (cmd, name) => CUE_ROUTE_CMDS_[cmd] + ': ' + (cueStr_(String(name || '').replace(/\s+/g, ' ').trim(), CUE_TUTOR_MAX_.pattern) || 'any');

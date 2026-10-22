@@ -31,8 +31,9 @@ const CUE_BIDS_SOURCES_ = [
   ['NPDC', 'https://npdc.gov.ph/bids-and-awards/', 'C'],
   ['NCCA', 'https://ncca.gov.ph/about-ncca-3/invitation-to-bid/', 'C'],
   ['PCC', 'https://www.phcc.gov.ph/procurement', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2] }));
-const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
+const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\bbids?\s+check\b|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
+const CUE_BIDS_AGAIN_RE_ = /\b(again|redo|re-?run|refresh|run it|check again)\b/i;   // in a Bid check thread: run a fresh check
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
 const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
@@ -45,14 +46,15 @@ const cueBidsKey_ = (ref, agency, project) => { const r = String(ref || '').toLo
 const cueBidsDay_ = () => Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila', 'yyyy-MM-dd');
 
 /** Starts a bid check in its own thread. how = 'chat' | 'daily'. */
-function cueBidsStart_(text, how) {
+function cueBidsStart_(text, how, from) {
   const d = new Date(cueNow_());
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const title = (how === 'daily' ? 'Bid opportunities ' : 'Bid check ') + Utilities.formatDate(d, 'Asia/Manila', 'MM/dd HH:mm');   // two runs on one day get different names (PC test 19:32Z)
   const s = { id, version: CUE_VERSION_, kind: 'bids', how: how || 'chat', created: d.toISOString(), started: cueNow_(), text: cueStr_(text || 'Run bid opportunity check', 2000), files: [],
     status: 'Working', stage: 'Searching', ref: '', bids: { title, day: cueBidsDay_() }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
-  if (how !== 'daily') cueChat_('Kiko', s.text, '');
+  if (from) { cueChat_('Kiko', s.text, from); cueChat_('Cue', 'Running the bid check again in a new thread.', from); }   // asked inside an older Bid check thread
+  else if (how !== 'daily') cueChat_('Kiko', s.text, '');
   cueChat_('Cue', (how === 'daily' ? '7:00 bid check: ' : '') + 'Started a bid opportunity check in its own thread. Nothing is registered, sent or submitted.', '>' + id);
   cueChat_('Cue', 'ChatGPT is searching the 11 sources. This takes a few minutes.', id);
   return { request_id: id, task: '' };
