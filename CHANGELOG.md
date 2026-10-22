@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.25.5: a finished readiness thread shows its card again
+
+- Live 22 Oct 01:29Z: opening a readiness thread showed a blank pane. Its card drew nothing (the card function never returned what it built), and since 1.25 added Open in Canvas to that card, the page then hit an error. That error also stopped the chat and thread list from updating while the thread was open, so a new run looked stuck at "Finding project" and replies seemed not to come. The readiness card now returns its content, and a card that draws nothing can no longer stop the rest of the page.
+- Tests: new RD20 (renders the card in a sandbox).
+
 ## Cue 1.25.4: a plan card's Go runs the task at once
 
 - Live 22 Oct 01:22Z: tapping Go (or Change) on a tutor plan card started the task but the page never ran it, so it sat at its first step ("Finding project") until the 5-minute background check picked it up. A readiness check took 5 to 7 minutes this way. The page now runs the started task right away, as it does after a normal send. Picks that only answer in chat are unchanged.

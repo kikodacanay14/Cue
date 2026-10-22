@@ -3685,6 +3685,13 @@ test('TU20 live 01:22Z: Go or Change on a plan card runs the started request rig
   assert.ok(/var started = function \(r\) \{ done\(\); if \(!r \|\| r\.chat \|\| !r\.request_id\) return;[\s\S]{0,80}call\('cueRun', \[r\.request_id\]/.test(html), 'started kicks cueRun only for a run');
 });
 
+test('RD20 live 01:29Z: the readiness card returns what it built, and cardHtml survives a card that draws nothing', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const body = html.slice(html.indexOf('function readyCardHtml('), html.indexOf('\n  }\n', html.indexOf('function readyCardHtml(')) + 4);
+  assert.ok(/\n    return h;[^\n]*\n  }$/.test(body), 'readyCardHtml ends with return h');
+  assert.ok(/var h = cardBody\(r\) \|\| '';/.test(html), 'cardHtml guards an empty card');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
