@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.25.4: a plan card's Go runs the task at once
+
+- Live 22 Oct 01:22Z: tapping Go (or Change) on a tutor plan card started the task but the page never ran it, so it sat at its first step ("Finding project") until the 5-minute background check picked it up. A readiness check took 5 to 7 minutes this way. The page now runs the started task right away, as it does after a normal send. Picks that only answer in chat are unchanged.
+- Tests: new TU20.
+
 ## Cue 1.25.3: trigger rollback safety
 
 - When Cue sees a stored trigger version other than its own, it reinstalls every timed job it uses. That covers the sweep, the 07:00 bid check and now the Monday HubSpot check (`cueHsWeekly`). Rolling back from the single-trigger scheduler build (CUE_TRIGGERS_V 5) to this version therefore brings all three back the next time Cue is opened. Nothing changes while the stored version is 4.

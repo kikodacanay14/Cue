@@ -3678,6 +3678,13 @@ test('BD9 Kiko 19:50Z: the bid check moves to 07:00; the 08:00 trigger from vers
   assert.strictEqual(t.props.CUE_TRIGGERS_V, '4');
 });
 
+test('TU20 live 01:22Z: Go or Change on a plan card runs the started request right away, like a send', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/call\('cueAskPick', \[id, b\.getAttribute\('data-pick'\)\], started, fail\)/.test(html), 'Go/Not that use started');
+  assert.ok(/call\('cueAskPick', \[id, 'change', v\], started, fail\)/.test(html), 'Change uses started');
+  assert.ok(/var started = function \(r\) \{ done\(\); if \(!r \|\| r\.chat \|\| !r\.request_id\) return;[\s\S]{0,80}call\('cueRun', \[r\.request_id\]/.test(html), 'started kicks cueRun only for a run');
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
