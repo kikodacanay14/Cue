@@ -257,6 +257,34 @@ const ZB_ACTIONS_ = {
         unit_cost: { type: 'number', required: true, min: 0 }, was: { type: 'number', min: 0 } } } },
     run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : zbCeUpdateCosts_(r.project_id, r.args.lines); }
   },
+  status_digest: {
+    // CUE-STATUS-2026-10-22 (Kiko 15:56Z approved specs/status-reports.md). Cue's Monday digest and client updates: per active
+    // project (For Production Start or later, event no more than past_days ago; or the project_ids asked for), its open tasks,
+    // issues and risks (TRI Tracker), scope completion, CE vs payment requests, billings past due, the main client contact, and
+    // the project's supplier names (so Cue keeps them out of client emails). Read only.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 10 }, past_days: { type: 'number', min: 0 } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return zbStatusDigest_(ids, r.args.past_days == null ? 7 : Math.min(r.args.past_days, 60));
+    }
+  },
+  add_tri_items: {
+    // CUE-STATUS-2026-10-22: the tasks, issues and risks Kiko approved on Cue's status cards, added to TRI Tracker › TRI the
+    // way the Canvas page adds one (saveProjectRow), then read back. A row with the same description already in the project
+    // is left as it is and reported, so a retry adds nothing twice. Never edits or deletes an existing row.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      items: { type: 'array', required: true, minItems: 1, maxItems: 20, items: {
+        key: { type: 'string', required: true, re: /^[A-Za-z0-9_-]{1,20}$/ },
+        type: { type: 'string', required: true, oneOf: ['Task', 'Issue', 'Risk'] },
+        description: { type: 'string', required: true, nonBlank: true, max: 1000 },
+        assigned_to: { type: 'string', max: 200 }, deadline: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ },
+        likelihood: { type: 'string', max: 40 }, impact: { type: 'string', max: 40 },
+        mitigation: { type: 'string', max: 1000 }, action_items: { type: 'string', max: 1000 } } } },
+    run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : zbAddTri_(r.project_id, r.args.items); }
+  },
   get_readiness: {
     // CUE-2026-10-21 (Kiko 07:32Z approved specs/project-readiness.md). The project's readiness checklist exactly as the
     // Checklist tab computes it (getChecklist: Canvas's own rules, counts and auto checks), for Cue's readiness card.
@@ -732,6 +760,115 @@ function zbCeUpdateCosts_(pid, list) {
     if (!x.ok) x.why = ((res.skipped || []).find(s => s.indexOf(x.req_id) === 0)) || 'Canvas did not take it (the Unit Cost cell may be a formula)';
     delete x.want; });
   return { ok: true, saved: out.filter(x => x.ok && x.before !== x.after).length, lines: out, ce_no: now.ce_no };
+}
+
+/* ---------- CUE-STATUS-2026-10-22: status digest and approved TRI items ---------- */
+const ZB_ST_MAX_ = { projects: 25, items: 15 };
+const ZB_ST_PHASES_ = ['Execution', 'Closure'];                     // For Production Start or later, not Completed
+const ZB_ST_SCOPE_OFF_ = /cancel|not awarded|dropped|removed|void/i, ZB_ST_SCOPE_DONE_ = /done|complete|closed|liquidat/i;
+const ZB_ST_MAIN_RE_ = /main|primary|point|poc|project|event|lead|owner|head|manager/i;
+function zbStatusDigest_(ids, past) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const from = Utilities.formatDate(new Date(Date.parse(today + 'T12:00:00Z') - past * 864e5), 'UTC', 'yyyy-MM-dd');
+  const want = {}; ids.forEach(x => { want[x] = 1; });
+  let own = []; try { own = sysOwnKeys_(); } catch (e) { own = []; }
+  const ownKey = a => String(a || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const seen = {}, list = [];
+  getProjectsAll_().forEach(p => {
+    const id = String(p.id || '').trim(); if (!id || /^#/.test(id) || seen[id]) return; seen[id] = 1;
+    const date = aifIso_(p.date);
+    if (ids.length) { if (!want[id]) return; }
+    else if (ZB_ST_PHASES_.indexOf(phaseOfStatus_(p.status)) < 0 || own.indexOf(ownKey(p.account)) >= 0 || (date && date < from)) return;
+    list.push({ id, name: String(p.name || '').slice(0, 200), account: String(p.account || '').slice(0, 200), status: String(p.status || ''), date,
+      contact: null, tri: { open: 0, closed: 0, overdue: [], risks: [], issues: [], tasks: [] }, scope: { done: 0, total: 0 }, money: null, suppliers: [], overdue_bills: [] });
+  });
+  list.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const keep = list.slice(0, ZB_ST_MAX_.projects), by = {}, missing = [];
+  keep.forEach(p => { by[p.id] = p; });
+  if (!keep.length) return { today, from, projects: [], more: 0, missing };
+  const txt = (v, n) => zbPayTxt_(v).slice(0, n || 300);
+  // TRI Tracker › TRI: open and closed counts; open items with their deadline (late ones first).
+  try {
+    objects_(table_(SRC.TRI, 'TRI'), ['project id', 'id', 'type', 'description', 'assigned to', 'deadline', 'status', 'likelihood', 'impact']).forEach(t => {
+      const p = by[String(t['project id'] || '').trim()]; if (!p || !String(t.description || '').trim()) return;
+      if (CKC_OPEN_RE_.test(String(t.status || ''))) { p.tri.closed++; return; }
+      p.tri.open++;
+      const type = /risk/i.test(t.type) ? 'Risk' : /issue/i.test(t.type) ? 'Issue' : 'Task', due = aifIso_(t.deadline);
+      const it = { id: txt(t.id, 20), type, description: txt(t.description, 300), assigned_to: txt(t['assigned to'], 120), deadline: due,
+        status: txt(t.status, 40) || 'Open', likelihood: txt(t.likelihood, 40), impact: txt(t.impact, 40), late: !!due && due < today };
+      if (it.late) p.tri.overdue.push(it);
+      (type === 'Risk' ? p.tri.risks : type === 'Issue' ? p.tri.issues : p.tri.tasks).push(it);
+    });
+    keep.forEach(p => { ['overdue', 'risks', 'issues', 'tasks'].forEach(k => {
+      p.tri[k].sort((a, b) => (b.late - a.late) || (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+      p.tri[k + '_n'] = p.tri[k].length; p.tri[k] = p.tri[k].slice(0, ZB_ST_MAX_.items); }); });
+  } catch (e) { missing.push('TRI Tracker: ' + zbErr_(e)); }
+  // Scope completion (Scope Categories): cancelled scopes do not count.
+  try {
+    objects_(table_(SRC.SCOPES, 'Scope Categories'), ['event id', 'status']).forEach(x => {
+      const p = by[String(x['event id'] || '').trim()]; if (!p || ZB_ST_SCOPE_OFF_.test(String(x.status || ''))) return;
+      p.scope.total++; if (ZB_ST_SCOPE_DONE_.test(String(x.status || ''))) p.scope.done++;
+    });
+  } catch (e) { missing.push('Scope Categories: ' + zbErr_(e)); }
+  // CE vs payment requests, billed and collected (the CFO Advisor's own read).
+  try {
+    const f = aiFinanceSnapshot_({ project_ids: keep.map(p => p.id) });
+    (f.missing || []).forEach(m => missing.push(String(m).slice(0, 200)));
+    (f.projects || []).forEach(x => { const p = by[x.id]; if (!p) return;
+      const sum = (a, k) => Math.round((a || []).reduce((s, o) => s + (Number(o[k]) || 0), 0) * 100) / 100;
+      p.money = { ce_no: x.ce ? x.ce.ce_no : '', ce_cost: x.ce ? x.ce.cost : null, ce_total: x.ce ? x.ce.total : null,
+        requested: sum(x.costs, 'amount'), paid: sum(x.costs, 'paid'), billed: sum(x.billed, 'amount'), collected: sum(x.collected, 'net') };
+      // Supplier names, so Cue can keep them out of client emails.
+      p.suppliers = (x.costs || []).map(c => String(c.supplier || '').trim()).filter((n, i, a) => n && a.indexOf(n) === i).slice(0, 30); });
+  } catch (e) { missing.push('money: ' + zbErr_(e)); }
+  // Client billings past due and not fully collected (Finance Desk's rule, as in overdue_billings).
+  try {
+    zbPayBills_(today).forEach(b => { const p = by[b.pid];
+      if (p && b.days_late != null && b.days_late > 0 && b.balance != null && b.balance > 0.005)
+        p.overdue_bills.push({ no: b.no, balance: b.balance, due: b.due, days_late: b.days_late }); });
+  } catch (e) { missing.push('billings: ' + zbErr_(e)); }
+  // The main client contact: a project contact (main or primary first), else the account's Client Desk contact.
+  try {
+    const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
+    const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
+    const ok = e => ZB_PAY_EMAIL_RE_.test(e) && !ZB_PAY_OWN_RE_.test(e);
+    const proj = (P.missing ? [] : P.rows).map(r => ({ pid: g(P, r, 'project id'), name: g(P, r, 'contact name'), role: g(P, r, 'role / title'), email: g(P, r, 'email').toLowerCase() })).filter(c => ok(c.email));
+    const co = (K.missing ? [] : K.rows).map(r => ({ company: norm_(g(K, r, 'company')), name: g(K, r, 'contact name'), email: g(K, r, 'email address').toLowerCase(),
+      role: [g(K, r, 'position / title'), g(K, r, 'relationship'), g(K, r, 'role group')].join(' '), gone: !!g(K, r, 'exception date') || g(K, r, 'email / contact status') === CD.bounced }))
+      .filter(c => !c.gone && ok(c.email));
+    const best = a => a.filter(c => ZB_ST_MAIN_RE_.test(c.role))[0] || a[0] || null;
+    keep.forEach(p => {
+      const pc = best(proj.filter(c => c.pid === p.id)), cc = pc ? null : best(co.filter(c => c.company && c.company === norm_(p.account)));
+      const c = pc || cc;
+      p.contact = c ? { name: c.name.slice(0, 120), email: c.email, role: c.role.slice(0, 120), source: pc ? 'project contacts' : 'Client Desk' } : null;
+    });
+  } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
+  return { today, from, projects: keep, more: list.length - keep.length, missing: missing.slice(0, 10) };
+}
+
+/** Adds the approved TRI items (type, description, assignee, deadline...) and reads them back. One saveProjectRow per item. */
+function zbAddTri_(pid, items) {
+  const iso2mdy = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : ''; };
+  const rows = () => objects_(table_(SRC.TRI, 'TRI'), ['project id', 'id', 'type', 'description'], by_(table_(SRC.TRI, 'TRI'), 'project id', pid));
+  const have = {}; rows().forEach(t => { have[norm_(t.description)] = String(t.id || ''); });
+  const out = [];
+  items.forEach(o => {
+    const k = norm_(o.description);
+    if (have[k] != null) { out.push({ key: o.key, ok: true, id: have[k], why: 'already in Canvas' }); return; }
+    const v = { type: o.type, description: String(o.description).trim() };
+    if (o.assigned_to) v['assigned to'] = o.assigned_to;
+    if (o.deadline) v.deadline = iso2mdy(o.deadline);
+    if (o.likelihood) v.likelihood = o.likelihood;
+    if (o.impact) v.impact = o.impact;
+    if (o.mitigation) v.mitigation = o.mitigation;
+    if (o.action_items) v['action items'] = o.action_items;
+    try { saveProjectRow('tri', pid, { values: v }); out.push({ key: o.key, ok: false, want: k }); have[k] = ''; }
+    catch (e) { out.push({ key: o.key, ok: false, why: zbErr_(e) }); }
+  });
+  const back = {}; rows().forEach(t => { back[norm_(t.description)] = String(t.id || ''); });
+  out.forEach(x => { if (x.want == null) return;
+    x.id = back[x.want] || ''; x.ok = !!x.id; if (!x.ok) x.why = 'Canvas did not keep the row'; delete x.want; });
+  return { ok: true, added: out.filter(x => x.ok && !x.why).length, items: out };
 }
 
 function zbBoardAwaiting_(b) {

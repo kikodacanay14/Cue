@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.29: status reports (not deployed)
+
+Backlog task 7, spec specs/status-reports.md, Kiko approved 22 Oct 15:56Z ("Status repor is okay"). Defaults as written: main contact only; active = For Production Start or later with the event no more than 7 days ago; emails from Kiko's Cue Gmail; a client update only when something changed.
+
+- New task **Status report**, in its own thread: Mondays 07:00 (new Scheduled tasks row "Monday status report", on), or type "status report" (every active project) or "status of <project>" (no chat call). "What is the status of X?" stays a normal chat question.
+- Canvas (new bridge read `status_digest`) gives every active project in one read: open tasks, issues and risks, scope completion, CE cost vs payment requests, billed and collected, billings past due, the main client contact. Code flags late items, risks, over-budget, cash past due, events close with scopes open, and missing contacts, and sorts worst first.
+- Cue reads Kiko's Gmail for the last 7 days per project (name, project ID, main contact).
+- 3 AI calls: Claude writes the top 3 and one line per project (the numbers are code's); GPT reads the emails (new tasks, issues and risks, client-safe highlights; skipped when there are no emails); GPT drafts one client update per project where something changed (emails, or Canvas since the last report) and Canvas has a main contact.
+- Code takes out of every update any sentence with money, costs, prices, margins, budget, supplier names or an open risk or issue's text, and shows what it took out.
+- Card: the digest, then new items (unticked; edit type, description, assignee, deadline; **Add ticked to Canvas** writes them to the TRI Tracker through new bridge write `add_tri_items` and reads them back), then the updates (edit To, subject, text; **Save to Gmail drafts**, or **Approve and send** with one confirm from the third Monday report on), and **Done**. Last 7 days' AI calls and cost at the bottom.
+- Before the Canvas release the Monday run says "Skipped" once and stops; a typed run says the Canvas release is needed.
+- Tests: 321 of 321 pass (new ST1 to ST6; SC4 lists the new row). test/fixtures/ZapBridge.gs refreshed from Canvas.
+
 ## Cue 1.27.5: image batches for one task (not deployed)
 
 Kiko 22 Oct 03:03Z, spec specs/image-batches.md (approved 12:39Z).
