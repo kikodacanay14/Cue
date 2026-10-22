@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue 1.27.31: status reports on the live line (release branch, not deployed)
+
+Backlog task 7, spec `specs/status-reports.md` (Kiko approved 22 Oct 15:56Z). Built once as Cue 1.29 on main, removed 23 Oct 13:45Z before it
+went live, and brought back by Kiko 25 Oct 18:15Z ("Bring it back"). This is the 1.29 build moved onto live 1.27.27 (c02a463, V79);
+it does not change how status reports work. Queue: after 1.27.28 (Client Desk), 1.27.29 (top bar) and 1.27.30 (Remind me), and
+rebased onto whichever of them ships first.
+
+- New task **Status report** in its own thread: Mondays 07:00 (Scheduled tasks row "Monday status report", on), or type
+  "status report" (every active project) or "status of <project>". No chat call to start it.
+- Canvas gives every active project in one read (bridge read `status_digest`, live since Canvas V202). Code flags late items,
+  risks, over budget, cash past due and missing contacts, and sorts worst first. Cue reads Kiko's Gmail for the last 7 days.
+- 3 AI calls: Claude writes the top 3 and one line per project; ChatGPT reads the emails (new tasks, issues and risks); ChatGPT
+  drafts one client update per changed project for its main contact. Code takes money, costs, supplier names and open risks out
+  of every update and shows what it took out.
+- Ticked items go to Canvas only on **Add ticked to Canvas** (bridge write `add_tri_items`, read back). Updates go only on
+  **Save to Gmail drafts**, or **Approve and send** (one confirm) from the third Monday report on.
+- Merged with the live line: works next to "add task" (CueTri.gs, which uses the same `add_tri_items`) and the sales funnel. The
+  schedule seed moves to v4, so the "Monday status report" row is added once. A row an earlier /dev seed left now runs the report.
+  The card title uses the Workspace ink token.
+- Tests: 355 of 355 pass (ST1 to ST6 from 1.29; SC4 lists the row; the test bridge serves `add_tri_items` to both callers).
+
 ## Cue 1.27.27: bid contacts on the card and into intake (release branch, not deployed)
 
 Kiko asked 24 Oct 2026 13:36Z: "I think you should have also the contacts. When intake runs: Also we need to store the contact
