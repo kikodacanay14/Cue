@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.26';
+const CUE_VERSION_ = 'Cue 1.26.1';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -115,8 +115,11 @@ function cueFixAccess() {
 function cueSheet_(tab) {
   const id = cueProp_('CUE_SHEET_ID', '');
   if (!id) throw new Error('Run cueSetup first.');
-  const sh = SpreadsheetApp.openById(id).getSheetByName(tab);
-  if (!sh) throw new Error('The Cue sheet has no ' + tab + ' tab. Run cueSetup again.');
+  const ss = SpreadsheetApp.openById(id);
+  let sh = ss.getSheetByName(tab);
+  // A tab added in a later release is made on first use, so Kiko never has to run cueSetup again (Kiko 22 Oct 02:31Z).
+  if (!sh && CUE_TABS_[tab]) { sh = ss.insertSheet(tab); sh.appendRow(CUE_TABS_[tab]); sh.setFrozenRows(1); }
+  if (!sh) throw new Error('The Cue sheet has no ' + tab + ' tab.');
   return sh;
 }
 function cueLocked_(fn) {
