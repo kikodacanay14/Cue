@@ -5,7 +5,9 @@
  *   2 GPT   follows the skill's numbered steps as fixed instructions (web search on where the skill needs public research) and answers
  *           with findings, each with its evidence, plus the steps it did and what it could not see. (1 AI call)
  *   3 Code  checks the steps were followed (every step reported, coverage stated, evidence on every finding, no guessed email address,
- *           nothing claimed as sent or changed) and keeps only findings not shown on an earlier card ("ChatGPT findings" tab).
+ *           nothing claimed as sent or changed, every record read) and keeps only findings not shown on an earlier card ("ChatGPT findings" tab).
+ *           A record that could not be read fails the check and marks the card Incomplete (PC test 22 Oct: never a pass). Tasks built on
+ *           Canvas's project list (project records, production readiness) stop with Try again when Canvas does not answer.
  *   4 Kiko  decides per finding: Draft email (a Gmail draft, never sent), Add to HubSpot (a note or a task, Kiko 19:54Z "HubSpot + Canvas"),
  *           or Open in Canvas (company, contact, supplier or project records change in Canvas, which syncs HubSpot).
  * Starts: the scheduler's rows call cueGtScheduled(key) at the times Kiko set (cueGtSchedules_); each task also runs by chat ("run daily plan").
@@ -190,10 +192,25 @@ function cueGtTab_(name) {
   return { head, rows: sh.getRange(first, 1, n - first + 1, w).getValues().map((v, i) => { const o = { _row: first + i }; head.forEach((k, j) => { if (k) o[k] = v[j]; }); return o; })
     .filter(o => head.some(k => k && String(o[k] == null ? '' : o[k]).trim())) };
 }
-/** Reads a tab for a task; an unreadable tab becomes a note and an empty list, so one locked sheet never stops the run. */
+/** A record that could not be read: a note on the card and a failed "Every record read" check, never a pass. */
+function cueGtFail_(s, what, e) {
+  const m = what + ' could not be read: ' + cueStr_((e && e.message) || e, 160);
+  s.notes.push(m); (s.gt.fails = s.gt.fails || []).push(m);
+}
+/** Reads a tab for a task; an unreadable tab becomes a failed read and an empty list, so one locked sheet never stops the run. */
 function cueGtTry_(s, name) {
   try { return cueGtTab_(name); }
-  catch (e) { s.notes.push('Could not read ' + CUE_GT_TABS_[name][3] + ': ' + cueStr_(e.message, 160)); return { head: [], rows: [] }; }
+  catch (e) { cueGtFail_(s, CUE_GT_TABS_[name][3], e); return { head: [], rows: [] }; }
+}
+/** Canvas's project list, tried twice (a release can leave the bridge briefly unanswered). The tasks that need it stop with Try again when it fails. */
+function cueGtBoard_(s) {
+  try { return (cueBridge_(s, 'get_project_board', {}) || {}).projects || []; }
+  catch (e) {
+    if (!/did not answer/.test(String(e && e.message))) throw new Error('Canvas projects could not be read: ' + cueStr_(e.message, 200));
+    Utilities.sleep(2000);
+    try { return (cueBridge_(s, 'get_project_board', {}) || {}).projects || []; }
+    catch (e2) { throw new Error('Canvas projects could not be read: ' + cueStr_(e2.message, 200)); }
+  }
 }
 /** A cell by header words (case-insensitive, first match). */
 const cueGtGet_ = (o, re) => { const k = Object.keys(o).filter(x => x !== '_row' && re.test(x))[0]; return k ? o[k] : ''; };
@@ -224,7 +241,7 @@ function cueGtMail_(s, q, n) {
       const h = k => ((((o.payload || {}).headers) || []).filter(x => String(x.name).toLowerCase() === k)[0] || {}).value || '';
       return cueStr_('Email ' + (o.internalDate ? cueMnlDay_(Number(o.internalDate)) : '') + ' | from ' + h('from') + ' | to ' + h('to') + ' | ' + h('subject') + ' | ' + String(o.snippet || ''), 600);
     });
-  } catch (e) { s.notes.push('Gmail could not be read (' + q.slice(0, 40) + '): ' + cueStr_(e.message, 160)); return []; }
+  } catch (e) { cueGtFail_(s, 'Gmail (' + q.slice(0, 40) + ')', e); return []; }
 }
 const cueGtSort_ = (rows, re) => rows.slice().sort((a, b) => String(cueGtDay_(cueGtGet_(a, re)) || '0').localeCompare(String(cueGtDay_(cueGtGet_(b, re)) || '0')));
 
@@ -285,7 +302,7 @@ function cueGtRead_(s) {
     add('latest Transfers rows', cueGtTry_(s, 'transfers').rows.slice(-40).map(o => cueGtLine_('Transfers', o, 700)));
     add('latest Payment Request rows', cueGtTry_(s, 'payreq').rows.slice(-40).map(o => cueGtLine_('Payment Request', o, 700)));
   } else if (key === 'admin_projects') {
-    let board = []; try { board = (cueBridge_(s, 'get_project_board', {}) || {}).projects || []; } catch (e) { s.notes.push('Canvas projects could not be read: ' + cueStr_(e.message, 160)); }
+    const board = cueGtBoard_(s);
     add('Canvas projects', board.slice(0, 80).map(p => 'Canvas ' + [p.id, p.name, p.account, 'status ' + p.status, 'event ' + (p.eventDate || p.date || ''), p.adminStatus ? 'admin ' + p.adminStatus : ''].filter(Boolean).join(' | ')));
     add('latest Admin Directory project rows', cueGtTry_(s, 'directory').rows.slice(-60).map(o => cueGtLine_('Admin Directory', o, 700)));
   } else if (key === 'admin_funnel') {
@@ -293,10 +310,10 @@ function cueGtRead_(s) {
     add('bounces (7 days)', cueGtMail_(s, '(from:mailer-daemon OR from:postmaster) newer_than:7d', 15));
     add('P0 accounts with a next action due this week', p0().filter(o => { const d = cueGtDay_(cueGtGet_(o, /next follow-up date/i)); return d && d <= cueGtAddDays_(today, 7); }).slice(0, 20).map(o => cueGtLine_('P0', o, 1500)));
   } else if (key === 'production_readiness') {
-    let board = []; try { board = (cueBridge_(s, 'get_project_board', {}) || {}).projects || []; } catch (e) { s.notes.push('Canvas projects could not be read: ' + cueStr_(e.message, 160)); }
+    const board = cueGtBoard_(s);
     const live = board.filter(p => /^(for production start|for event execution)$/i.test(String(p.status || '').trim())).slice(0, 8);
     G.batch = live.map(p => p.id + ' ' + p.name);
-    let ready = []; if (live.length) { try { ready = cueBridgeAll_(s, live.map(p => ['get_readiness', { gate: 'auto' }, p.id])); } catch (e) { s.notes.push('Canvas readiness could not be read: ' + cueStr_(e.message, 160)); } }
+    let ready = []; if (live.length) { try { ready = cueBridgeAll_(s, live.map(p => ['get_readiness', { gate: 'auto' }, p.id])); } catch (e) { cueGtFail_(s, 'The Canvas checklist', e); } }
     add('projects in For Production Start or For Event Execution', live.map((p, i) => 'Project ' + p.id + ' ' + p.name + ' (status ' + p.status + ', event ' + (p.eventDate || p.date || '?') + '). Canvas checklist: '
       + (ready[i] ? cueStr_(JSON.stringify(cueGtReady_(ready[i])), 5000) : 'not read')));
     const ids = live.map(p => String(p.id).toLowerCase()), nm = live.map(p => String(p.name || '').toLowerCase()).filter(x => x.length >= 4);
@@ -355,7 +372,7 @@ function cueGtPrompt_(D) {
     + '- Never invent or guess an email address, a person, a date, an amount or a commitment. Put an address in email.to only when it appears in the records or on an evidence page; otherwise leave it "".\n'
     + '- You only prepare. Never say you sent, saved, changed, filed or submitted anything.\n'
     + '- steps: one entry per numbered step above. done=true when you did it; otherwise done=false and say why in note.\n'
-    + '- coverage.checked = what you looked at; coverage.not_checked = what you could not see (LinkedIn, Facebook and other sign-in pages, blocked pages, records not given).\n'
+    + '- coverage.checked = what you looked at, named the way Kiko knows it (tabs, emails, sites); coverage.not_checked = what you could not see (LinkedIn, Facebook and other sign-in pages, blocked pages, records not given). Never mention tags, these rules or the prompt.\n'
     + '- key: a short stable id for the finding (company plus topic), the same every time the same thing is found.\n'
     + '- group: one of ' + CUE_GT_GROUPS_[D.area].join(', ') + '.\n'
     + '- email: subject and body only when a step says to draft one; short, plain, in Kiko\'s voice, signed "Kiko". Otherwise all three "".\n'
@@ -372,6 +389,12 @@ function cueGtAsk_(s) {
 }
 
 /* ---------- step 3: code checks the steps and keeps only new findings ---------- */
+/** ChatGPT's own words for Kiko, without sentences that talk about its instructions or the <records> wrapper. */
+function cueGtPlain_(t) {
+  const x = String(t || '').replace(/\s+/g, ' ').trim(); if (!x) return '';
+  const keep = (x.match(/[^.!?]+[.!?]*/g) || [x]).filter(z => !/<\/?records>|records? (given )?between|\btags?\b|\b(the |my )?(prompt|instructions|system message)\b/i.test(z));
+  return cueStr_(keep.join('').trim(), 600);
+}
 function cueGtCheck_(s, a) {
   const G = s.gt, D = CUE_GT_[G.key], https = u => /^https:\/\/[^\s"<>]+$/.test(String(u || '')) ? String(u).slice(0, 500) : '';
   const known = {}; String(G.ctx || '').toLowerCase().replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g, m => { known[m] = 1; return m; });
@@ -396,7 +419,7 @@ function cueGtCheck_(s, a) {
   const seen = cueGtSeen_(G.key), fresh = list.filter(f => !seen[f.id]);
   const steps = (a.steps || []).filter(x => x && x.step >= 1 && x.step <= D.steps.length), reported = {}; steps.forEach(x => { reported[x.step] = x; });
   const missing = D.steps.map((_, i) => i + 1).filter(n => !reported[n]), skipped = steps.filter(x => !x.done && !String(x.note || '').trim()).map(x => x.step);
-  G.coverage = { checked: cueStr_((a.coverage || {}).checked, 600), not_checked: cueStr_((a.coverage || {}).not_checked, 600) };
+  G.coverage = { checked: cueGtPlain_((a.coverage || {}).checked), not_checked: cueGtPlain_((a.coverage || {}).not_checked) };
   G.steps = D.steps.map((t, i) => ({ step: i + 1, text: t, done: !!(reported[i + 1] || {}).done, note: cueStr_((reported[i + 1] || {}).note, 300) }));
   G.checks = [
     { id: 1, label: 'Every step reported (' + D.steps.length + ')', ok: !missing.length && !skipped.length, detail: missing.length ? 'Not reported: step ' + missing.join(', ') : skipped.length ? 'Skipped with no reason: step ' + skipped.join(', ') : '' },
@@ -407,13 +430,16 @@ function cueGtCheck_(s, a) {
     { id: 6, label: 'Only new findings shown', ok: true, detail: list.length - fresh.length ? (list.length - fresh.length) + ' shown on an earlier card left out' : '' }];
   if (G.key === 'production_readiness') { const left = (G.batch || []).filter(b => !list.some(f => b.indexOf(f.project_id || '§') === 0 || (f.company && b.toLowerCase().indexOf(f.company.toLowerCase()) >= 0) || (f.title && f.title.toLowerCase().indexOf(b.split(' ')[0].toLowerCase()) >= 0)));
     G.checks.push({ id: 7, label: 'Every eligible project rated', ok: !left.length, detail: left.length ? 'Not rated: ' + left.slice(0, 5).join(', ') : '' }); }
-  G.items = fresh; G.total = list.length; G.summary_ai = cueStr_(a.summary, 600);
+  const fails = G.fails || [];
+  G.checks.push({ id: 8, label: 'Every record read', ok: !fails.length, detail: fails.length ? fails.slice(0, 5).join('; ') : '' });
+  G.items = fresh; G.total = list.length; G.summary_ai = cueGtPlain_(a.summary);
   cueGtSeenAdd_(s, fresh);
   const passed = G.checks.filter(c => c.ok).length;
-  G.summary = (fresh.length ? fresh.length + ' new finding' + (fresh.length === 1 ? '' : 's') : 'Nothing new') + (list.length > fresh.length ? ' (' + (list.length - fresh.length) + ' already shown)' : '')
+  G.summary = (fails.length ? 'Incomplete: ' + fails.length + ' record' + (fails.length === 1 ? '' : 's') + ' could not be read. ' : '')
+    + (fresh.length ? fresh.length + ' new finding' + (fresh.length === 1 ? '' : 's') : fails.length ? 'Nothing new in what was read' : 'Nothing new') + (list.length > fresh.length ? ' (' + (list.length - fresh.length) + ' already shown)' : '')
     + '. Process check: ' + passed + ' of ' + G.checks.length + ' passed.';
   s.ready_at = cueNow_(); s.card_at = s.card_at || cueNow_();
-  s.status = fresh.length ? 'Needs you' : 'Done'; s.stage = s.status;
+  s.status = fresh.length || fails.length ? 'Needs you' : 'Done'; s.stage = s.status;
   cueChat_('Cue', D.title + ': ' + G.summary, s.id);
 }
 /** Finding ids already shown for this task in the last 180 days ("ChatGPT findings" tab of the Cue sheet). */
