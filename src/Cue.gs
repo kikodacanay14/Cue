@@ -964,5 +964,5 @@ function cueView_(s) {
     name: s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
-      seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
+      seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [], canvas: m.canvas || [] } };
 }
