@@ -93,9 +93,10 @@ function cueAskPick(id, pick, note) {
   });
   if (!raw) throw new Error('That question was already answered.');
   const o = JSON.parse(raw), done = '!' + id + (o.where ? '@' + o.where : '');
-  const bad = o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' && pick !== 'again';
+  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' && pick !== 'again';
   if (bad) { P.setProperty('CUE_ASK_' + id, raw); throw new Error(pick === 'change' ? 'Say what I should do instead.' : 'That is not one of the choices.'); }   // the question stays open
-  if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);   // tutor mode (CueTutor.gs)
+  if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);
+  if (o.type === 'schedule') return cueSchedPick_(o, pick, done);   // task scheduler (CueSchedule.gs)   // tutor mode (CueTutor.gs)
   if (o.type === 'learned') {
     if (pick === 'undo') cueLocked_(() => { const sh = cueTeachTab_(); if (o.row >= 2 && cueName_(sh.getRange(o.row, 3).getValues()[0][0]) === cueName_(o.text)) sh.getRange(o.row, 1).setValues([[false]]); });
     cueTeachReset_();
