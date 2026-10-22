@@ -862,7 +862,7 @@ function cueSummary_(s) {
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
-    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.kind === 'personal') {
@@ -959,7 +959,7 @@ function cueView_(s) {
     mail: s.kind === 'email' ? cueMailView_(s) : null,
     open: cueCanvasFor_(s),   // CUE-CANVAS: the Canvas page for this card's "Open in Canvas"
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
-    name: (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake
+    name: s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [] } };
