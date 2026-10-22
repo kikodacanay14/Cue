@@ -4191,6 +4191,45 @@ test('CC14 a new CE costs check for the same project closes the older card that 
   assert.notStrictEqual(t.ctx.cueLoad_(out.request_id).s.status, 'Closed', 'an approved card is never closed');
 });
 
+/* ---------- 1.26.5: PC recheck of 1.26.4 on /dev (22 Oct 05:13Z) ---------- */
+test('CC15 the leftover intake in a Bid check thread closes on "redo bid check" even when it had failed (Canvas did not answer)', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put({ id: 'cue-20261022104400-b1d5', kind: 'bids', created: '2026-10-21T02:44:00.000Z', status: 'Done', bids: { title: 'Bid check 10/22 10:44', items: [] }, text: 'check bids' });
+  put({ id: 'cue-20261022104900-a1a1', kind: 'intake', phased: true, ref: 'cue-20261022104400-b1d5', created: '2026-10-21T02:49:00.000Z', status: 'Failed', stage: 'Checking Canvas',
+    error: 'Canvas did not answer find_similar_projects (HTTP 200)', text: 'redo bid check', notes: [] });
+  const out = t.ctx.cueSend('redo bid check', [], '', 'cue-20261022104400-b1d5');
+  deq([t.ctx.cueLoad_(out.request_id).s.kind, t.ctx.cueLoad_('cue-20261022104900-a1a1').s.status], ['bids', 'Closed']);
+});
+
+const TOT = (id, pid, name, ref, created) => ({ id, kind: 'readiness', ref: ref || '', created, status: 'Done', stage: 'Done', text: 'Readiness check: ' + name, notes: [],
+  ready: { ask: name, match: { project_id: pid, name, date: '10/31/2026', status: 'For Production Start' } } });
+function totBox(plan) {
+  const t = sandbox({ tutor: true, plan, similar: ACME, sent: READY_MAIL });
+  const sh = t.tabs.Requests, put = s => { sh.appendRow([s.id]); t.ctx.cueSave_(sh, sh.getLastRow(), s); };
+  put(TOT('cue-20261021090000-aaaa', 'S-25506500TR', 'Trick or Treat – Manila', '', '2026-10-21T01:00:00.000Z'));
+  put(TOT('cue-20261021100000-bbbb', 'S-25506511IL', 'Trick or Treat – Iloilo', '', '2026-10-21T02:00:00.000Z'));
+  put(TOT('cue-20261022040000-cccc', 'S-25506500TR', 'Trick or Treat – Manila', 'cue-20261021100000-bbbb', '2026-10-21T20:00:00.000Z'));   // the 1.26.3 run that went to Iloilo
+  return t;
+}
+test('CC16 readiness Go for Trick or Treat Manila (by id or name) joins the Manila thread, never Iloilo or a new thread, and skips Finding project', () => {
+  for (const ask of ['S-25506500TR', 'Trick or Treat Manila']) {
+    const plan = Object.assign({}, ASK, { readiness: ask, task: 'cue-20261021100000-bbbb', sure: true, choices: [], plan: { reading: 'Readiness check', pattern: 'is <project> ready?', steps: [{ do: 'Read Canvas', who: 'Canvas' }] } });
+    const t = totBox(plan);
+    t.ctx.cueSend('is ' + ask + ' ready?', [], '');
+    const go = t.ctx.cueAskPick(askId(askLine(t)), 'go'), r = t.ctx.cueLoad_(go.request_id).s;
+    deq([r.ref, r.stage, r.ready.match.project_id], ['cue-20261021090000-aaaa', 'Reading Canvas', 'S-25506500TR'], ask);
+    deq(t.tabs.Chat.rows.filter(x => /^>/.test(x[3])).map(x => x[2]), ['On it. Continuing in the ' + t.ctx.cueTaskName_(t.ctx.cueLoad_('cue-20261021090000-aaaa').s) + ' thread.'], ask);
+    assert.ok(!t.tabs.Chat.rows.some(x => /Iloilo/.test(x[2])), ask);
+  }
+  const u = totBox(Object.assign({}, ASK, { readiness: 'S-25506500TR', task: '' }));
+  const out = u.ctx.cueRouteStart_('is S-25506500TR ready?', 'readiness', u.ctx.cueRouteTalk_('readiness', 'S-25506500TR', ''));
+  deq(u.ctx.cueLoad_(out.request_id).s.ref, 'cue-20261021090000-aaaa', 'a Not that / route pick also finds the thread');
+  const fits = u.ctx.cueAskFits_;
+  deq([fits('Trick or Treat Manila', { project_id: 'S-1', name: 'Trick or Treat – Iloilo' }), fits('Acme party', { project_id: 'S-1', name: 'Acme Year-End Party' }),
+    fits('JBL Booth', { project_id: 'S-1', name: 'JBL Booth Fabrication', account: 'JBL' })], [false, true, true]);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);

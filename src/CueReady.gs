@@ -70,28 +70,61 @@ function cueReadyRun_(s, save) {
   if (s.stage === 'GPT drafting follow-ups') cueReadyDraft_(s);
 }
 
-/** The Canvas project the thread holding ref already matched, newest run first: a readiness pick, a change request's match, an
- * intake written to Canvas, or AR prep. Used only when the ask names that project or no project at all ("is it ready?");
- * an ask naming another project, or a project id, goes through the normal search. null when none. */
+/** The Canvas project a saved run matched: a readiness pick, a change request's match, an intake written to Canvas, or AR prep. */
+function cueRunProject_(x) {
+  const pidOk = p => /^S-[0-9A-Z]{6,14}$/.test(String(p || ''));
+  const r = x.ready && x.ready.match, c = x.change && x.change.match, v = x.canvas, a = x.ar;
+  if (r && pidOk(r.project_id)) return { project_id: r.project_id, name: r.name || '', date: r.date || '', status: r.status || '' };
+  if (c && pidOk(c.project_id)) return { project_id: c.project_id, name: c.name || '', date: c.date || '', status: c.status || '', account: c.account || '' };
+  if (v && pidOk(v.project_id)) return { project_id: v.project_id, name: v.name || (x.proposal && x.proposal.project_name) || '', date: v.date || '', status: '' };
+  if (a && pidOk(a.project_id)) return { project_id: a.project_id, name: a.project || '', date: '', status: '' };
+  return null;
+}
+// PC recheck 22 Oct 05:13Z: "manila" is a skipped name word, so "Trick or Treat Manila" matched the Trick or Treat Iloilo thread.
+const CUE_FIT_SKIP_ = ['the', 'and', 'for', 'ready', 'readiness', 'check', 'project', 'event', 'events', 'party', 'with'];
+const cueFitWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3 && CUE_FIT_SKIP_.indexOf(w) < 0);
+/** Does an ask fit a matched project? A Canvas id must be that project's id. A name must share a word with it, and the two may not
+ * each carry a word the other lacks (Manila vs Iloilo); an ask that only leaves words out, or only adds some, still fits. */
+function cueAskFits_(ask, m) {
+  const pid = (String(ask || '').toUpperCase().match(/\bS-[0-9A-Z]{6,14}\b/) || [])[0];
+  if (pid) return pid === m.project_id;
+  const want = cueWords_(ask), have = cueWords_([m.name, m.account || ''].join(' '));
+  if (want.length && !want.some(w => have.indexOf(w) >= 0)) return false;
+  const a = cueFitWords_(ask), b = cueFitWords_([m.name, m.account || ''].join(' '));
+  return !(a.some(w => b.indexOf(w) < 0) && b.some(w => a.indexOf(w) < 0) && a.length && cueFitWords_(m.name).length);
+}
+
+/** The Canvas project the thread holding ref is about: its first run that matched one (a run that joined the thread later, maybe
+ * by mistake, never changes what the thread is about). Used only when the ask fits that project (cueAskFits_); otherwise the
+ * normal search runs. null when none. */
 function cueReadyThreadMatch_(ref, ask) {
-  if (/\bS-[0-9A-Z]{6,14}\b/.test(String(ask))) return null;
+  const m = cueThreadProject_(ref);
+  if (!m || !cueAskFits_(ask, m)) return null;
+  return { project_id: m.project_id, name: cueStr_(m.name || m.project_id, 200), date: cueStr_(m.date, 20), status: cueStr_(m.status, 60) };
+}
+
+/** The project of ref's thread (its first run that matched one), or null. */
+function cueThreadProject_(ref) {
+  if (!ref) return null;
   let list = []; try { list = cueRecent_(30); } catch (e) { return null; }
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
-  const pidOk = p => /^S-[0-9A-Z]{6,14}$/.test(String(p || ''));
-  const of = x => {
-    const r = x.ready && x.ready.match, c = x.change && x.change.match, v = x.canvas, a = x.ar;
-    if (r && pidOk(r.project_id)) return { project_id: r.project_id, name: r.name || '', date: r.date || '', status: r.status || '' };
-    if (c && pidOk(c.project_id)) return { project_id: c.project_id, name: c.name || '', date: c.date || '', status: c.status || '', account: c.account || '' };
-    if (v && pidOk(v.project_id)) return { project_id: v.project_id, name: v.name || (x.proposal && x.proposal.project_name) || '', date: v.date || '', status: '' };
-    if (a && pidOk(a.project_id)) return { project_id: a.project_id, name: a.project || '', date: '', status: '' };
-    return null;
-  };
-  const m = list.filter(x => root(x.id) === home || x.id === ref).map(of).filter(Boolean)[0];
-  if (!m) return null;
-  const want = cueWords_(ask), have = cueWords_([m.name, m.account || ''].join(' '));
-  if (want.length && !want.some(w => have.indexOf(w) >= 0)) return null;
-  return { project_id: m.project_id, name: cueStr_(m.name || m.project_id, 200), date: cueStr_(m.date, 20), status: cueStr_(m.status, 60) };
+  const all = list.filter(x => root(x.id) === home || x.id === ref).map(cueRunProject_).filter(Boolean);
+  return all[all.length - 1] || null;
+}
+
+/** PC recheck 22 Oct 05:13Z: a readiness Go from the main chat went to a new thread, or to the Iloilo thread, because the chat call
+ * sees only the 10 newest threads. The newest run of the thread (last 30 days) whose project the ask fits, or ''. A project id fits
+ * only that project's thread; a name must fit exactly one project's threads. */
+function cueReadyHome_(ask) {
+  if (String(ask || '').trim().length < 2) return '';
+  let list = []; try { list = cueRecent_(30); } catch (e) { return ''; }
+  const by = {}; list.forEach(x => { by[x.id] = x; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
+  const homes = {}; list.forEach(x => { const m = cueRunProject_(x); if (m) homes[root(x.id)] = m; });   // oldest run last, so it wins
+  const fit = Object.keys(homes).filter(h => CUE_RELATED_SKIP_.indexOf((by[h] || {}).kind) < 0 && cueAskFits_(ask, homes[h]));
+  if (!fit.length || fit.some(h => homes[h].project_id !== homes[fit[0]].project_id)) return '';
+  return list.filter(x => fit.indexOf(root(x.id)) >= 0)[0].id;
 }
 
 /** 1.25.6: how long each Canvas bridge call took, kept on the request (s.metrics.canvas), so a slow run shows which read is slow.

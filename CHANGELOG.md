@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.26.5: fixes from the /dev PC recheck of 1.26.4 (22 Oct 05:13Z)
+
+- The leftover intake card in "Bid check 10/22 10:44" did not close. It had failed ("Canvas did not answer find_similar_projects"), and only Needs you cards were closed. "redo bid check" now also closes it when it failed, still only if it was never approved and saved nothing to Canvas.
+- A readiness Go for Trick or Treat – Manila opened a new thread named "S-25506500TR" and sat at Finding project. The 1.26.3 run had gone to the Trick or Treat Iloilo thread instead. The chat call sees only the 10 newest threads, and "manila" was a skipped name word, so Manila matched Iloilo. Now code picks the thread for a readiness check: the thread of the project the ask names by Canvas id or by name. A name that carries a word the project lacks while the project carries one the ask lacks (Manila vs Iloilo) is not a match. A thread is about the first project it matched, so a run that joined it by mistake does not change it. A check that joins its project's thread reuses that project and skips Finding project, also when it is asked by Canvas id. The pointer names that thread.
+- Old chat lines keep their text. The 1.26.3 "Answered in the Trick or Treat Iloilo thread." line stays as written.
+- Tests: new CC15 and CC16 (305/305). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
 ## Cue 1.26.4: fixes from the /dev PC recheck of 1.26.3 (22 Oct 05:00Z)
 
 - "redo bid check" in the "Bid check 10/22 10:44" thread still re-ran the PHASE 1 intake card that 1.26.2 had left there, and Kiko's message never showed. The waiting card took the reply before the bid route saw it. Now bid words in any thread whose root is a Bid check run a fresh bid check first, before any waiting card. Kiko's line shows in that thread. The stray intake card there is closed with "This thread is a bid check, not a project intake", but only when it was never approved and saved nothing to Canvas.

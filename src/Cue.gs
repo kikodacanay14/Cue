@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.26.4';
+const CUE_VERSION_ = 'Cue 1.26.5';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -179,7 +179,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (bidsHome && !cueBidsFor_(text) && (cueBidsAsked_(text) || CUE_BIDS_AGAIN_RE_.test(String(text || '')))) {
     const out = cueBidsStart_(String(text || '').trim(), 'chat', ref);
     cueCloseSuperseded_((x, root) => root === bidsHome && x.kind === 'intake' && !(x.canvas && x.canvas.project_id) && !x.approved_at && (!x.phased || (x.phase || 1) === 1),
-      'Closed. This thread is a bid check, not a project intake. Nothing was written to Canvas.');
+      'Closed. This thread is a bid check, not a project intake. Nothing was written to Canvas.', true);   // PC recheck 05:13Z: that card had failed
     return out;
   }
   if (!has && mode !== 'intake') { const cr = cueCecReply_(ref, text); if (cr) return cr; }
@@ -222,7 +222,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
     const talk = forced || cueTalk_(String(text || '').trim(), ref);
     if (talk.workflow) { const out = cueWorkflowStart_(talk.workflow, ref || talk.task || '', String(text || '').trim(), []); cueOnIt_(ref, talk.task, 'Started a thread to map it.', out.request_id, talk.pointed); return out; }
     // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
-    if (talk.readiness) { const out = cueReadyStart_(talk.readiness, ref || talk.task || '', null, false); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
+    if (talk.readiness) { const home = ref || talk.task || cueReadyHome_(talk.readiness); const out = cueReadyStart_(talk.readiness, home, null, false); cueOnIt_(ref, home, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
     if (talk.pipeline) return cuePipeStart_(String(text || '').trim(), talk.pipeline.client);   // command C11, its own thread
     if (talk.start_ar) {   // CUE-AR: "prepare ARs for <project>" (GPT picked it in the same chat call)
       const home = ref || talk.task || '', id = cueArStart_(talk.start_ar, String(text || '').trim(), home);
@@ -486,6 +486,10 @@ function cueTalk_(t, ref, force, opt) {
   // PC retest 17:58Z: "write a plan for a year-end campaign" joined the Morning batch thread. A plan, brainstorm or analysis ask
   // joins a task's thread only when it names that task's project or topic; otherwise it is answered in the main chat.
   if (pick && cuePlanAsk_(t, force) && !cueSameTopic_(t, by[pick])) pick = '';
+  // PC recheck 22 Oct 05:13Z: a readiness check goes to the thread of the project it names (by id or name), never to a look-alike
+  // (Trick or Treat Manila into the Iloilo thread) or a new thread while that project's thread exists. Code picks it, not the call.
+  const rAsk = !ref && r.ok && !String(r.data.start_intake || '').trim() ? String(r.data.readiness || '').trim() : '';
+  if (rAsk.length >= 2) { const h = cueReadyHome_(rAsk); if (h) pick = h; else if (pick) { const pm = cueThreadProject_(pick); if (pm && !cueAskFits_(rAsk, pm)) pick = ''; } }
   // Kiko 08:51Z: "can you look up the selecta project" started (or claimed to start) an intake. A lookup only answers.
   const lookupOnly = /\b(look\s*up|lookup|find|search|check|show|where\s+is|what\s+is|status)\b/i.test(t) && !/\b(run|start|redo|re-?run|begin|cost|requote|intake|send|draft|proceed|go ahead)\b/i.test(t);
   let reply = r.ok ? cueReplyCut_(String(r.data.reply || '').trim(), 8000) : 'I could not answer just now (' + r.error + ').';
@@ -880,16 +884,16 @@ function cueSettleReopened_(ref) {
   } catch (e) { console.error('Settle reopened: ' + e); }
 }
 /** PC recheck 22 Oct 05:00Z: an older card that a newer task replaced stayed open at Needs you. Closes every task at Needs you
- * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread. Only for cards that wrote
+ * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread; failed = also a Failed one. Only for cards that wrote
  * nothing: callers pick tasks not yet approved. Returns the ids closed. */
-function cueCloseSuperseded_(keep, line) {
+function cueCloseSuperseded_(keep, line, failed) {
   const closed = [];
   try {
     cueLocked_(() => {
       const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
       rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
       const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
-      Object.keys(by).forEach(k => { const x = by[k]; if (x.status === 'Needs you' && keep(x, root(k))) {
+      Object.keys(by).forEach(k => { const x = by[k]; if ((x.status === 'Needs you' || (failed && x.status === 'Failed')) && keep(x, root(k))) {
         x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); } });
     });
   } catch (e) { console.error('Close superseded: ' + e); }
