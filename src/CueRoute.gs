@@ -22,12 +22,15 @@ function cueRouteVague_(t) {
 }
 
 /* ---------- remembered examples ---------- */
+/** PC check 22 Oct 04:45Z: learned patterns read "Project intake: update CE cost..." and "Project intake: redo bid check". Those asks
+ * now have their own code routes (CE costs, bid check), so an old intake row or example for them is ignored and not shown. */
+function cueRouteStale_(cmd, text) { return cmd === 'intake' && (cueCecAsked_(text) || cueBidsAsked_(text)); }
 function cueRouteRows_() {
   try {
     if (!cueProp_('CUE_SHEET_ID', '')) return [];
     const sh = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', '')).getSheetByName(CUE_ROUTE_TAB_), n = sh ? sh.getLastRow() - 1 : 0;
     return n > 0 ? sh.getRange(Math.max(2, n + 2 - CUE_ROUTE_MAX_.rows), 1, Math.min(n, CUE_ROUTE_MAX_.rows), 3).getValues()
-      .map(r => ({ phrase: String(r[1] || '').trim(), cmd: String(r[2] || '').trim() })).filter(x => x.phrase && CUE_ROUTE_CMDS_[x.cmd]) : [];
+      .map(r => ({ phrase: String(r[1] || '').trim(), cmd: String(r[2] || '').trim() })).filter(x => x.phrase && CUE_ROUTE_CMDS_[x.cmd] && !cueRouteStale_(x.cmd, x.phrase)) : [];
   } catch (e) { console.warn('Routing examples: ' + e); return []; }
 }
 /** The examples closest to Kiko's message, newest first on a tie, as lines for the chat call. Empty when none share a word. */

@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.26.3: fixes from the /dev PC check of 1.26.2 (22 Oct 04:45Z)
+
+- CE costs: Zaina Yu's quote for JBL Booth (AMI-66858OJB-V1) is one VAT-inclusive lot of ₱616,000. Cue had ticked Booth Area and Flooring ₱615,000 to ₱616,000 and left every other line blank. A price the email gives for several lines or the whole job is now a lot: the card shows it as one price, with what those lines add up to now, and ticks nothing, so Kiko types each line's unit cost or asks for a breakdown. ChatGPT is told to list lots separately. If it still puts a lot, package, all-in or VAT-inclusive total on a single line while the others are blank, code takes it off that line.
+- "redo bid check" in a Bid check thread became a Project intake plan and an empty PHASE 1 card. "bid check" is now a bid ask, and inside a Bid check thread "again", "redo" or "re-run" also start a fresh bid check in its own thread, with no AI call.
+- A photo Kiko sent in the Morning batch thread turned that thread into a change request. An intake never runs inside a thread that is not about a project (Morning batch, bid check, email draft, ChatGPT task, Teach Cue and similar). It gets its own thread, and the old thread says so. More papers sent in a supplier registration thread still stay there.
+- Learned patterns showed "Project intake: update CE cost..." and "Project intake: redo bid check". Intake rows and routing examples for asks that now have their own code route (CE costs, bid check) are ignored and no longer shown.
+- After Go, a readiness check (also a workflow map, email or supplier search) that joined an earlier thread said nothing in the main chat. It now says "On it. Continuing in the <name> thread."
+- Tests: new CC8 to CC11 (300/300). Not deployed: handed to the Cue and Canvas deploys thread. No Canvas change.
+
 ## Cue 1.26.2: update CE costs from an email, with Kiko's approval
 
 - Live 22 Oct 02:35Z: "Can you update CE Cost for JBL Booth? get cost from Zaina Yu's email and update the CE." showed a plan card promising "Write the approved CE cost in Canvas", then after Go said "I can't update the CE from chat", started a change request, said "This is about the email to Rommel, so I reopened its thread", and labelled the thread "Project intake". Cue had no CE cost command.

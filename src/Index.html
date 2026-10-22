@@ -1693,8 +1693,11 @@
         + (x.result ? '<div class="err">' + esc(x.result) + '</div>' : '') + '</div>';
       return '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0"><input type="checkbox" data-cec-tick="' + esc(x.key) + '"' + (x.tick ? ' checked' : '') + '>'
         + '<span style="flex:1">' + nm + qty + '<br><span class="small">' + pesoC(x.old) + ' to </span><input data-cec-cost="' + esc(x.key) + '" inputmode="decimal" style="width:120px" value="' + (x.cost == null ? '' : esc(x.cost)) + '" placeholder="new cost">'
-        + (x.quoted ? '<br><span class="small muted">Email: ' + esc(x.quoted) + (x.basis === 'line total' ? ' (a line total, divided by qty)' : '') + '</span>' : '') + '</span></label>';
+        + (x.lot ? '<br><span class="small muted">Part of the lot above</span>' : '') + (x.quoted ? '<br><span class="small muted">Email: ' + esc(x.quoted) + (x.basis === 'line total' ? ' (a line total, divided by qty)' : '') + '</span>' : '') + '</span></label>';
     }).join('');
+    // PC check 04:45Z: a lot (one price for several lines) is shown as a lot, never ticked onto one line.
+    if ((c.lots || []).length && !done) h += c.lots.map(function (l) { return '<div class="warn">One price for ' + (l.keys.length ? l.keys.length + ' CE line' + (l.keys.length === 1 ? '' : 's') : 'the whole job')
+      + ': ' + pesoC(l.total) + (l.was ? ' (those lines add up to ' + pesoC(l.was) + ' now)' : '') + '<br><span class="small">Email: ' + esc(l.quoted) + '</span><br><span class="small">It is not split per line, so nothing is ticked. Type each line\'s unit cost below, or ask for a breakdown.</span></div>'; }).join('');
     if ((c.unmatched || []).length && !done) h += '<div class="label">In the email, not on the CE</div><div class="small">' + c.unmatched.map(function (u) { return esc(u.quoted) + (u.amount ? ' · ' + pesoC(u.amount) : ''); }).join('<br>') + '</div>';
     if (c.note && !done) h += '<div class="small muted" style="margin-top:6px">' + esc(c.note) + '</div>';
     if (r.open) h += '<div class="cvrow">' + cvLink(r.open, false) + '</div>';
