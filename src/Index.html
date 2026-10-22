@@ -2517,6 +2517,9 @@
         if (act === 'sup-rm-contact') { var row = b.closest('[data-sc]'); if (row) row.parentNode.removeChild(row); return; }
         if (act === 'cancel-edit') { delete editing[id]; return render(); }
         var done = function () { delete running[id]; delete editing[id]; dirty(); refresh(); }, fail = function (e) { delete running[id]; dirty(); alertErr(e, id); refresh(); };
+        // Live 22 Oct 01:22Z: Go on a plan card started the run but nothing ran it, so it sat at its first step until cueResume (5 min). Run it now, as a send does.
+        var started = function (r) { done(); if (!r || r.chat || !r.request_id) return; running[r.request_id] = 1;
+          call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); }); };
         if (act === 'hs-approve') {
           var hx = { tick: [], keep: {}, values: {} }, hr = (state.requests.filter(function (q) { return q.id === id; })[0] || {}).hs || { groups: [] }, hm = 0;
           scope.querySelectorAll('[data-hck="' + id + '"]').forEach(function (x) { if (x.checked) hx.tick.push(x.value); });
@@ -2583,8 +2586,8 @@
         }
         if (act === 'ask-pick' && b.getAttribute('data-pick') === 'change')   // tutor mode: Change asks what to do instead, then Claude re-plans
           return ask('What should I do instead?', 'Cue plans again with your words. Nothing has started.', 'e.g. find LED wall suppliers instead', 'Re-plan',
-            function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], done, fail); });
-        if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], done, fail); }
+            function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], started, fail); });
+        if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], started, fail); }
         if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
           return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }
         if (act === 'approve-teach') { var te = change(false); te.always = Array.prototype.filter.call(scope.querySelectorAll('[data-al="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
