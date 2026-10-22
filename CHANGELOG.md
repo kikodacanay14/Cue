@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.27.2: one Bid check thread per day (not deployed)
+
+Kiko 22 Oct 05:52Z: "why so many Bid checks?" Six Bid check threads waited at Needs you (13:10, 13:27, 13:28 x2, 13:29 x2).
+
+- The day's first bid check is that day's thread. Any later run that day, typed or the 07:00 one, posts into it ("Running the bid check again in today's Bid check thread"). It never makes a new thread.
+- A new run closes the earlier card in that thread that was still waiting, because it replaces it. That card says "Closed: a later run today replaced this card." The new run waits for Kiko only when it finds new or updated notices (as before).
+- Once, on the first page open or 5-minute tick after this ships, the bid checks already made are grouped into one thread per day, and only each day's latest waiting card stays open. One line in that thread says so. Nothing in them was written anywhere but the bid sheet, so nothing else changes.
+- Tests: 310 of 310 pass (new BD11; CC9 and CC12 now expect the same-day thread).
+
 ## Cue 1.27.1: bid check only when asked (not deployed)
 
 /dev 22 Oct 05:27-05:29Z: five bid checks in 3 minutes, about 15 AI calls. Each one was started by a Kiko message that only mentioned bids: "refresh bid opportunities based on new rules" (a real ask), two questions about giving the PhilGEPS username and password, and twice "i did not ask this chat to run the bid opportunities again". The word "philgeps", or "again" inside a Bid check thread, was enough to start a run.
