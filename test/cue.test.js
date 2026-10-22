@@ -3955,6 +3955,20 @@ test('RD20 live 01:29Z: the readiness card returns what it built, and cardHtml s
   assert.ok(/var h = cardBody\(r\) \|\| '';/.test(html), 'cardHtml guards an empty card');
 });
 
+test('TU21 22 Oct: a learned pattern under 3 Go taps shows Reset, which puts its count back to 0; graduated shows Demote; a count of 0 shows neither', () => {
+  const t = sandbox({ tutor: true, plan: PLAN() });
+  ['a', 'b'].forEach(x => t.ctx.cuePatApprove_('Supplier search: find suppliers for <item>', 'vendor', 'find ' + x, null));
+  ['a', 'b', 'c'].forEach(x => t.ctx.cuePatApprove_('Readiness check: is <project> ready?', 'readiness', 'is ' + x + ' ready', null));
+  t.ctx.cuePatApprove_('ARs: prepare ARs', 'ar', 'prepare ars', null);
+  let v = t.ctx.cueMyPatternDemote('ARs: prepare ARs');
+  deq(v.patterns.map(x => [x.key, x.n, x.graduated]), [['Readiness check: is <project> ready?', 3, true], ['Supplier search: find suppliers for <item>', 2, false], ['ARs: prepare ARs', 0, false]]);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const a = html.indexOf('function patternsHtml('), src = html.slice(a, html.indexOf('\n  }\n', a) + 4);
+  const run = vm.runInNewContext('(' + src + ')', { myPat: true, esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';') });
+  const out = run(v.patterns), btn = k => { const m = out.split('<div').filter(r => r.indexOf(k) >= 0)[0].match(/data-my="demote"[^>]*>(\w+)</); return m ? m[1] : ''; };
+  deq([btn('Readiness'), btn('Supplier'), btn('ARs')], ['Demote', 'Reset', '']);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
