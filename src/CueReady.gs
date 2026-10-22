@@ -2,7 +2,8 @@
  * Canvas already scores readiness on its Checklist tab, so Cue never re-judges it: the counts, the rule results and the auto
  * checks come from Canvas (bridge read get_readiness). AI reads the ask, and judges only what Canvas cannot see.
  *   1 GPT  the chat call (already made for every message) names the project: no extra call.
- *   - Canvas finds the project (find_similar_projects). Several open matches = Kiko picks on the card.
+ *   - Canvas finds the project (find_similar_projects). Several open matches = Kiko picks on the card. Asked inside a thread that
+ *     already has its Canvas project (1.25.6), that project is reused and the search is skipped. Each Canvas call's time is kept.
  *   - Canvas returns the checklist (get_readiness) and the folder files (list_project_files), in parallel.
  *   - Code sorts and flags: overdue due or follow-up dates, no owner, blockers open with the event within 7 days.
  *   - Code searches Kiko's Gmail (subjects and snippets, last 60 days) for proof Canvas has not recorded.
@@ -50,8 +51,11 @@ function cueReadyStart_(ask, ref, match, quiet) {
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const s = { id, version: CUE_VERSION_, kind: 'readiness', created: d.toISOString(), started: now, text: 'Readiness check: ' + cueStr_(ask, 200), files: [],
-    status: 'Working', stage: match ? 'Reading Canvas' : 'Finding project', ref: ref || '', ready: { ask: cueStr_(ask, 200), match: match || null },
-    metrics: { ai_calls: 0, calls: [] }, notes: [] };
+    status: 'Working', stage: 'Finding project', ref: ref || '', ready: { ask: cueStr_(ask, 200), match: match || null },
+    metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
+  // 1.25.6: a check asked inside a thread that already knows its Canvas project reuses that project (no find_similar_projects).
+  if (!match && ref) { const m = cueReadyThreadMatch_(ref, ask); if (m) { s.ready.match = m; s.ready.from_thread = true; } }
+  if (s.ready.match) s.stage = 'Reading Canvas';
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (!quiet) cueChat_('Cue', 'Checking readiness for ' + s.ready.ask + '. Canvas first.', id);
   return { request_id: id, task: ref || '' };
@@ -66,12 +70,46 @@ function cueReadyRun_(s, save) {
   if (s.stage === 'GPT drafting follow-ups') cueReadyDraft_(s);
 }
 
+/** The Canvas project the thread holding ref already matched, newest run first: a readiness pick, a change request's match, an
+ * intake written to Canvas, or AR prep. Used only when the ask names that project or no project at all ("is it ready?");
+ * an ask naming another project, or a project id, goes through the normal search. null when none. */
+function cueReadyThreadMatch_(ref, ask) {
+  if (/\bS-[0-9A-Z]{6,14}\b/.test(String(ask))) return null;
+  let list = []; try { list = cueRecent_(30); } catch (e) { return null; }
+  const by = {}; list.forEach(x => { by[x.id] = x; });
+  const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }, home = root(ref);
+  const pidOk = p => /^S-[0-9A-Z]{6,14}$/.test(String(p || ''));
+  const of = x => {
+    const r = x.ready && x.ready.match, c = x.change && x.change.match, v = x.canvas, a = x.ar;
+    if (r && pidOk(r.project_id)) return { project_id: r.project_id, name: r.name || '', date: r.date || '', status: r.status || '' };
+    if (c && pidOk(c.project_id)) return { project_id: c.project_id, name: c.name || '', date: c.date || '', status: c.status || '', account: c.account || '' };
+    if (v && pidOk(v.project_id)) return { project_id: v.project_id, name: v.name || (x.proposal && x.proposal.project_name) || '', date: v.date || '', status: '' };
+    if (a && pidOk(a.project_id)) return { project_id: a.project_id, name: a.project || '', date: '', status: '' };
+    return null;
+  };
+  const m = list.filter(x => root(x.id) === home || x.id === ref).map(of).filter(Boolean)[0];
+  if (!m) return null;
+  const want = cueWords_(ask), have = cueWords_([m.name, m.account || ''].join(' '));
+  if (want.length && !want.some(w => have.indexOf(w) >= 0)) return null;
+  return { project_id: m.project_id, name: cueStr_(m.name || m.project_id, 200), date: cueStr_(m.date, 20), status: cueStr_(m.status, 60) };
+}
+
+/** 1.25.6: how long each Canvas bridge call took, kept on the request (s.metrics.canvas), so a slow run shows which read is slow.
+ * Calls made together (fetchAll) share one entry: the wall time is the slower of the two. */
+function cueReadyTimed_(s, actions, fn) {
+  const t0 = cueNow_(); let ok = false;
+  try { const out = fn(); ok = true; return out; }
+  finally {
+    s.metrics = s.metrics || {}; (s.metrics.canvas = s.metrics.canvas || []).push({ calls: actions.join(' + '), secs: Math.round((cueNow_() - t0) / 100) / 10, ok, at: new Date(t0).toISOString() });
+  }
+}
+
 const CUE_DONE_RE_ = /^(complete|completed|cancel|canceled|cancelled|not awarded)/i;
 /** Stage "Finding project": a Canvas project id is used as given; a name goes through Canvas's own project match. */
 function cueReadyFind_(s) {
   const R = s.ready, pid = (String(R.ask).match(/\bS-[0-9A-Z]{6,14}\b/) || [])[0];
   if (pid) { R.match = { project_id: pid, name: pid, date: '', status: '' }; s.stage = 'Reading Canvas'; return; }
-  const all = cueBridge_(s, 'find_similar_projects', { name: R.ask }) || [];
+  const all = cueReadyTimed_(s, ['find_similar_projects'], () => cueBridge_(s, 'find_similar_projects', { name: R.ask })) || [];
   const live = all.filter(x => !CUE_DONE_RE_.test(String(x.status || '').trim())), list = live.length ? live : all;
   R.options = list.slice(0, 5).map(x => ({ project_id: cueStr_(x.project_id, 20), name: cueStr_(x.name, 200), date: cueStr_(x.date, 20), status: cueStr_(x.status, 60) }));
   if (!list.length) throw new Error('Canvas has no project matching "' + R.ask + '". Say the project name as it is in Canvas, or its project ID (S-...).');
@@ -100,7 +138,7 @@ function cueReadyPick(id, pid) {
 /** Stage "Reading Canvas": the checklist exactly as Canvas scores it, and the folder files, in parallel. */
 function cueReadyCanvas_(s) {
   const R = s.ready, pid = R.match.project_id;
-  const res = UrlFetchApp.fetchAll([cueBridgeReq_(s, 'get_readiness', { gate: R.gate || 'auto' }, pid), cueBridgeReq_(s, 'list_project_files', {}, pid)]);
+  const res = cueReadyTimed_(s, ['get_readiness', 'list_project_files'], () => UrlFetchApp.fetchAll([cueBridgeReq_(s, 'get_readiness', { gate: R.gate || 'auto' }, pid), cueBridgeReq_(s, 'list_project_files', {}, pid)]));
   let c;
   try { c = cueBridgeParse_('get_readiness', res[0]) || {}; }
   catch (e) { throw /unknown action/.test(String(e && e.message)) ? new Error('Canvas does not have the readiness read yet (get_readiness). It comes with the next Canvas release.') : e; }

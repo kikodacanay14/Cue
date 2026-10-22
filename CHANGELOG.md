@@ -1,5 +1,11 @@
 # Changelog
 
+## Cue 1.25.6: readiness skips the project search inside a known thread, and times each Canvas call
+
+- Live readiness checks took over 200 seconds, nearly all of it Canvas bridge time. A check asked inside a thread that already knows its Canvas project (an earlier readiness check, a change request, an intake written to Canvas, or AR prep) now reuses that project and skips find_similar_projects. An ask that names a different project, or gives a project ID, still goes through the normal path.
+- Each Canvas call's time is kept on the request (metrics.canvas: calls, seconds, ok, start time), including calls Canvas refused. get_readiness and list_project_files still run together, so they share one entry whose time is the slower of the two.
+- No Canvas changes. Not deployed: handed to the Cue and Canvas deploys thread.
+
 ## Cue 1.25.5: a finished readiness thread shows its card again
 
 - Live 22 Oct 01:29Z: opening a readiness thread showed a blank pane. Its card drew nothing (the card function never returned what it built), and since 1.25 added Open in Canvas to that card, the page then hit an error. That error also stopped the chat and thread list from updating while the thread was open, so a new run looked stuck at "Finding project" and replies seemed not to come. The readiness card now returns its content, and a card that draws nothing can no longer stop the rest of the page.

@@ -1291,6 +1291,24 @@ test('RD4 close follow-ups keeps the check; Re-check is a new run in the same th
   const g = readyRun({ gmailScope: true }); assert.strictEqual(g.v.status, 'Done'); assert.ok(g.v.notes.some(n => /Gmail search did not work/.test(n)));
 });
 
+test('RD5 asked inside a thread that already has its Canvas project: no project search; another project name still searches; each Canvas call timed', () => {
+  const t = readyRun({ batchStep: 4000 });
+  deq(t.state(t.id).metrics.canvas.map(c => c.calls), ['find_similar_projects', 'get_readiness + list_project_files'], 'kept on the request, one entry per Canvas round trip');
+  assert.ok(t.state(t.id).metrics.canvas.every(c => c.ok && c.secs === 4), 'seconds per call, from the clock');
+  const before = t.log.bridge.length;
+  t.opts.talk = Object.assign({}, ASK, { readiness: 'Acme party' });
+  const out = t.ctx.cueSend('is it ready now?', [], '', t.id), v = t.ctx.cueRun(out.request_id);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.ref, t.id); const S = t.state(out.request_id); assert.strictEqual(S.ready.from_thread, true); assert.strictEqual(S.ready.match.project_id, 'S-31628060SP');
+  deq(t.log.bridge.slice(before).map(b => b.action).filter(a => a !== 'search_projects').sort(), ['get_readiness', 'list_project_files'], 'thread match reused');
+  deq(S.metrics.canvas.map(c => c.calls), ['get_readiness + list_project_files']);
+  const mid = t.log.bridge.length;
+  t.opts.talk = Object.assign({}, ASK, { readiness: 'Beko launch' });
+  const w = t.ctx.cueRun(t.ctx.cueSend('and is Beko ready?', [], '', t.id).request_id);
+  assert.ok(t.log.bridge.slice(mid).some(b => b.action === 'find_similar_projects'), 'another project: normal search'); assert.ok(!t.state(w.id).ready.from_thread);
+  const f = readyRun({ similar: [] }); deq(f.state(f.id).metrics.canvas.map(c => [c.calls, c.ok]), [['find_similar_projects', true]]);
+  const x = readyRun({ noReadiness: true }); assert.strictEqual(x.state(x.id).metrics.canvas.length, 2, 'a refused read is still timed');
+});
+
 test('P1 pipeline review (C11): chat routes it, HubSpot + Gmail read in code, rules flag, one Claude call, card waits for Kiko; nothing written', () => {
   const t = pipeToCard(), v = t.v;
   assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'pipeline'); assert.strictEqual(v.metrics.ai_calls, 1, 'one Claude call in the run');
