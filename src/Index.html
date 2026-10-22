@@ -1384,7 +1384,7 @@
     if ($('myrules-other')) $('myrules-other').ontoggle = function () { myOther = $('myrules-other').open; };
     if ($('myrules-pat')) $('myrules-pat').ontoggle = function () { myPat = $('myrules-pat').open; };
   }
-  // Tutor mode (CueTutor.gs): the kinds of request Cue has learned, how many Go taps in a row, and Demote for the graduated ones.
+  // Tutor mode (CueTutor.gs): the kinds of request Cue has learned, how many Go taps in a row, Demote for the graduated ones and Reset for any count above 0.
   function patternsHtml(P) {
     if (!P.length) return '';
     var g = P.filter(function (x) { return x.graduated; }).length;
@@ -1392,7 +1392,7 @@
       + P.map(function (x) {
         return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span style="flex:1;min-width:0">' + esc(x.key) + '<br><span class="small muted">'
           + (x.graduated ? 'Runs on its own' : x.never ? 'Always asks first' : 'Asks first · ' + x.n + ' of 3 Go taps in a row') + (x.used ? ' · ' + esc(x.used) : '') + '</span></span>'
-          + (x.graduated ? '<button class="btn ghost" data-my="demote" data-key="' + esc(x.key) + '">Demote</button>' : '') + '</div>';
+          + (x.graduated || x.n > 0 ? '<button class="btn ghost" data-my="demote" data-key="' + esc(x.key) + '" title="' + (x.graduated ? 'Show the plan card again' : 'Start the count again from 0') + '">' + (x.graduated ? 'Demote' : 'Reset') + '</button>' : '') + '</div>';
       }).join('') + '</details>';
   }
   function mySave(o, b) {

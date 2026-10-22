@@ -1,5 +1,10 @@
 # Changelog
 
+## Cue 1.25.6: Reset a learned pattern's count
+
+- My rules > Learned patterns: any pattern with a count above 0 that has not graduated now has a Reset button, which puts its Go count back to 0. Graduated patterns keep Demote, which does the same and brings the plan card back. PC tests had left "Supplier search" at 2 of 3 and "ARs: prepare ARs" at 1 of 3 on the real Patterns tab, with no way to clear them.
+- Tests: new TU21.
+
 ## Cue 1.25.5: a finished readiness thread shows its card again
 
 - Live 22 Oct 01:29Z: opening a readiness thread showed a blank pane. Its card drew nothing (the card function never returned what it built), and since 1.25 added Open in Canvas to that card, the page then hit an error. That error also stopped the chat and thread list from updating while the thread was open, so a new run looked stuck at "Finding project" and replies seemed not to come. The readiness card now returns its content, and a card that draws nothing can no longer stop the rest of the page.

@@ -214,7 +214,7 @@ function cueMyPatterns_() {
   return cuePatRows_().map(x => ({ key: x.key, cmd: x.cmd, n: x.n, graduated: x.graduated, used: x.used, never: CUE_TUTOR_NEVER_.indexOf(x.cmd) >= 0 }))
     .sort((a, b) => (b.graduated - a.graduated) || b.n - a.n);
 }
-/** Demote from My rules: the pattern shows its plan card again. */
+/** Demote or Reset from My rules: the count goes back to 0 and the pattern shows its plan card again. */
 function cueMyPatternDemote(key) {
   cueOwner_();
   if (!cuePatFind_(String(key || ''))) throw new Error('That pattern is not in the Patterns tab any more.');
