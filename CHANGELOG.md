@@ -10,7 +10,8 @@ Kiko's "Go" 22 Oct 00:55Z on specs/lead-gen-tasks.md and specs/cleanup-review-ta
 - Outreach holds (Accenture, IBM) never get a draft. LinkedIn, Facebook and sign-in pages are listed as not checked.
 - Scheduler entry `cueGtScheduled(key)` (once per Manila day per key) and `cueGtSchedules_()` for the Schedule rows: repeat events 15th 07:00, moved contacts 16th 09:00, account research Tue 09:00, prospect follow-ups weekdays 08:00, monthly email 15th 16:00, daily plan 08:00, supplier files Mon 09:00, payment records Tue 09:00, project records Wed 09:00, funnel records Thu 09:00, production readiness Fri 09:00, personal spending 19:00. No trigger of its own.
 - Chat words start each one with no chat call ("plan my day", "prospect follow-ups", "account research", "friday readiness", "personal spending report"...).
-- Tests: 272 of 272 pass (new GT1 to GT8).
+- PC test fixes (22 Oct, /dev): a record that could not be read now fails a new check "Every record read" and the card says "Incomplete: N records could not be read", status Needs you, never "Nothing new, all passed". Project records and Friday readiness retry Canvas's project list once, then stop with Try again (the test saw get_project_board answer HTTP 404 with no JSON; the action exists in Canvas V195). "What was checked" drops ChatGPT's talk of its instructions or the records tags.
+- Tests: 274 of 274 pass (new GT1 to GT10).
 
 ## Cue 1.25.2: Request payment fill-ins from the 1.25.1 PC test (not deployed)
 

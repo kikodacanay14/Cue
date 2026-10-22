@@ -188,7 +188,7 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
       if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
-      if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
+      if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; if (o.board404 && log.board <= o.board404) return resp(404, '<html>Not Found</html>'); return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
       if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
       if (body.action === 'finance_snapshot') { log.snapArgs = body.args; return resp(200, { ok: true, status: 'Completed', result: o.snap || SNAP }); }
@@ -3716,11 +3716,11 @@ test('GT1 prospect follow-ups: chat words, no chat call; code picks who is due (
   assert.ok(/Re: proposal/.test(inp), 'the latest email with the company goes to ChatGPT');
   assert.ok(/1\. Take the prospects Cue found due/.test(t.log.gpt[0].instructions), 'the skill steps are the instructions');
   assert.strictEqual(v.kind, 'gtask'); assert.strictEqual(v.status, 'Needs you');
-  deq(v.gt.checks.map(c => c.ok), [false, true, false, false, false, true]);
+  deq(v.gt.checks.map(c => c.ok), [false, true, false, false, false, true, true], "check 8: P0 and Gmail read");
   assert.ok(/step 5/.test(v.gt.checks[0].detail) && /guess@gamma\.example/.test(v.gt.checks[3].detail));
   const g = v.gt.items.find(f => f.company === 'Gamma Co'); assert.strictEqual(g.email.to, '', 'a guessed address is removed');
   assert.strictEqual(v.gt.items.find(f => f.company === 'Acme Corp').email.to, 'ana@acme.example', 'an address in the records stays');
-  assert.ok(/^3 new findings\. Process check: 2 of 6 passed\.$/.test(v.gt.summary), v.gt.summary);
+  assert.ok(/^3 new findings\. Process check: 3 of 7 passed\.$/.test(v.gt.summary), v.gt.summary);
   assert.strictEqual(t.tabs['ChatGPT findings'].rows.length, 4, 'header and three shown findings');
 });
 test('GT2 only new findings: the same answer next time shows nothing new and the task is Done', () => {
@@ -3775,8 +3775,25 @@ test('GT7 Friday readiness: only For Production Start and For Event Execution pr
 test('GT8 web search is on for research tasks; an unreadable records tab is a note, not a stop; ChatGPT failing stops the task with Try again', () => {
   const t = gtBox(); const v = t.ctx.cueRun(t.ctx.cueSend('account research', [], '').request_id);
   assert.ok(t.log.gpt[0].tools && t.log.gpt[0].tools[0].type === 'web_search'); assert.ok(v.notes.some(x => /P0 Contacts/.test(x)), 'P0 Contacts tab missing is a note');
+  const c8 = v.gt.checks.find(c => c.id === 8); assert.ok(!c8.ok && /P0 Contacts/.test(c8.detail), 'a failed read fails the check: ' + JSON.stringify(c8));
+  assert.ok(/^Incomplete: 1 record could not be read\./.test(v.gt.summary), v.gt.summary); assert.strictEqual(v.status, 'Needs you', 'an incomplete run is never Done');
   const f = gtBox({ fail: { gtask: () => resp(500, {}) } }); const w = f.ctx.cueRun(f.ctx.cueSend('account research', [], '').request_id);
   assert.strictEqual(w.status, 'Failed'); assert.ok(/ChatGPT could not run it/.test(w.error));
+});
+test('GT9 PC test 22 Oct: Canvas not answering the project list is tried once more, then stops with Try again (never "Nothing new, all passed"); one miss recovers', () => {
+  const P = [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }];
+  const t = gtBox({ board404: 9, projects: P }); const v = t.ctx.cueRun(t.ctx.cueSend('friday readiness', [], '').request_id);
+  assert.strictEqual(t.log.board, 2, 'tried twice'); assert.strictEqual(v.status, 'Failed'); assert.ok(/Canvas projects could not be read: Canvas did not answer get_project_board \(HTTP 404\)/.test(v.error), v.error);
+  assert.strictEqual(t.log.gpt.length, 0, 'no ChatGPT call on nothing');
+  const u = gtBox({ board404: 1, projects: P, gpt: { gtask: { summary: 'Fine.', coverage: { checked: 'Canvas checklists', not_checked: 'none' }, steps: [1, 2, 3, 4, 5].map(n => ({ step: n, done: true, note: '' })), findings: [] } } });
+  const w = u.ctx.cueRun(u.ctx.cueSend('friday readiness', [], '').request_id);
+  assert.strictEqual(u.log.board, 2); assert.ok(!(w.gt.fails || []).length || !/Canvas/.test(w.gt.checks.find(c => c.id === 8).detail)); assert.ok(u.log.gpt[0].input.indexOf('Acme Gala') >= 0);
+});
+test('GT10 PC test 22 Oct: "What was checked" keeps ChatGPT\'s plain words and drops talk of its instructions or the records tags', () => {
+  const t = gtBox({ gpt: { gtask: Object.assign({}, GT_ANS, { coverage: { checked: 'All records between <records> tags were reviewed. The Tasks tab and TRI rows due today.', not_checked: 'LinkedIn (sign-in). Nothing outside the prompt.' } }) } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('plan my day', [], '').request_id);
+  assert.strictEqual(v.gt.coverage.checked, 'The Tasks tab and TRI rows due today.'); assert.strictEqual(v.gt.coverage.not_checked, 'LinkedIn (sign-in).');
+  assert.ok(/Never mention tags/.test(t.log.gpt[0].instructions || JSON.stringify(t.log.gpt[0])));
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
