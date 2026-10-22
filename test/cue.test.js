@@ -3789,6 +3789,13 @@ test('GT9 PC test 22 Oct: Canvas not answering the project list is tried once mo
   const w = u.ctx.cueRun(u.ctx.cueSend('friday readiness', [], '').request_id);
   assert.strictEqual(u.log.board, 2); assert.ok(!(w.gt.fails || []).length || !/Canvas/.test(w.gt.checks.find(c => c.id === 8).detail)); assert.ok(u.log.gpt[0].input.indexOf('Acme Gala') >= 0);
 });
+test('GT11 PC test 22 Oct: a ChatGPT task\'s thread is named for its skill and its chat lines never say "Project intake"', () => {
+  const t = gtBox(); const id = t.ctx.cueSend('plan my day', [], '').request_id; const v = t.ctx.cueRun(id);
+  assert.ok(/^Daily plan \d\d\/\d\d$/i.test(v.name) || v.name === v.gt.title, 'name: ' + v.name); assert.strictEqual(v.name, v.gt.title);
+  t.ctx.cueGtClose(id);
+  const lines = t.tabs.Chat.rows.filter(x => x[3] === id || x[3] === '>' + id).map(x => x[2]);
+  assert.ok(lines.length && !lines.some(x => /Project intake/.test(x)), lines.join(' | '));
+});
 test('GT10 PC test 22 Oct: "What was checked" keeps ChatGPT\'s plain words and drops talk of its instructions or the records tags', () => {
   const t = gtBox({ gpt: { gtask: Object.assign({}, GT_ANS, { coverage: { checked: 'All records between <records> tags were reviewed. The Tasks tab and TRI rows due today.', not_checked: 'LinkedIn (sign-in). Nothing outside the prompt.' } }) } });
   const v = t.ctx.cueRun(t.ctx.cueSend('plan my day', [], '').request_id);
