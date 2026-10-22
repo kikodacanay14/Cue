@@ -2156,7 +2156,7 @@ test('SN1 snapshots (Kiko 08:17Z): a Cue bubble screen snapshot goes with the br
 
 test('SN2 Cue bubble 1.2: manifest asks only for what snapshots need; scripts parse; the page only fills the box', () => {
   const ext = path.join(__dirname, '..', 'extension'), m = JSON.parse(fs.readFileSync(path.join(ext, 'manifest.json'), 'utf8'));
-  assert.strictEqual(m.version, '1.4.0');
+  assert.strictEqual(m.version, '1.4.1');
   deq(m.permissions.slice().sort(), ['activeTab', 'contextMenus', 'storage']); deq(m.host_permissions, ['<all_urls>']);
   assert.strictEqual(m.commands['cue-snap'].suggested_key.default, 'Alt+Shift+S');
   const drop = m.content_scripts.find(c => c.js.indexOf('cue-drop.js') >= 0);
@@ -4242,6 +4242,14 @@ test('CC16 readiness Go for Trick or Treat Manila (by id or name) joins the Mani
   const fits = u.ctx.cueAskFits_;
   deq([fits('Trick or Treat Manila', { project_id: 'S-1', name: 'Trick or Treat – Iloilo' }), fits('Acme party', { project_id: 'S-1', name: 'Acme Year-End Party' }),
     fits('JBL Booth', { project_id: 'S-1', name: 'JBL Booth Fabrication', account: 'JBL' })], [false, true, true]);
+});
+
+test('IC1 the tab icon loads as the owner\'s Google account (authuser), stays private, and is saved to Drive only once', () => {
+  const t = sandbox(), u1 = t.ctx.cueIconUrl_(), u2 = t.ctx.cueIconUrl_();
+  assert.strictEqual(u1, 'https://drive.google.com/uc?export=view&id=f1&authuser=kiko%40example.com&format=png'); assert.strictEqual(u2, u1);
+  deq(t.log.drive.filter(d => /upload/.test(d)).length, 1, 'one upload'); assert.ok(!t.log.drive.some(d => /permissions/.test(d)), 'never shared');
+  const ext = path.join(__dirname, '..', 'extension', 'icons');
+  deq(['16', '48', '128'].map(n => fs.readFileSync(path.join(ext, 'cue-' + n + '.png')).readUInt32BE(16)), [16, 48, 128], 'bubble icons at their sizes');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
