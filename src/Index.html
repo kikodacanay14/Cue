@@ -1976,8 +1976,7 @@
         + (x.next_action ? '<div class="small" style="margin-top:4px">Next: ' + esc(x.next_action) + '</div>' : '') + '</div>';
     };
     var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b style="font-size:17px;color:#fff">' + esc(B.title) + '</b>'
-      + '<div class="small muted">' + esc(B.summary) + '</div>'
-      + (B.replaced ? '<div class="small muted" style="margin-top:4px">Closed: a later run today replaced this card.</div>' : '');
+      + '<div class="small muted">' + esc(B.summary) + '</div>';
     (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
     h += '<details style="margin-top:8px"><summary class="small" style="display:inline">Process check: ' + passed + ' of ' + B.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
       + B.checks.map(function (c) { return '<li>' + (c.ok ? '✓ ' : '✗ ') + esc(c.label) + (c.detail ? ' <span class="muted">' + esc(c.detail) + '</span>' : '') + '</li>'; }).join('') + '</ul></details>';

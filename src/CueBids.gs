@@ -33,7 +33,6 @@ const CUE_BIDS_SOURCES_ = [
   ['PCC', 'https://www.phcc.gov.ph/procurement', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2] }));
 const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\bbids?\s+check\b|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
-const CUE_BIDS_AGAIN_RE_ = /\b(again|redo|re-?run|refresh|run it|check again)\b/i;   // in a Bid check thread: run a fresh check
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
 const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
@@ -44,6 +43,12 @@ function cueBidsAsked_(t) { t = String(t || ''); return CUE_BIDS_RE_.test(t) && 
  * A message that says no, or asks about a sign-in or password, never starts a check. */
 const CUE_BIDS_NOT_RE_ = /\b(did\s*n[o']?t|didn'?t|don'?t|do\s+not|never|stop|no\s+more|not\s+(?:ask|want|need))\b|\b(user\s?name|password|passcode|log\s?-?in|sign\s?-?in|credentials?|account)\b/i;
 function cueBidsNotRun_(t) { return CUE_BIDS_NOT_RE_.test(String(t || '')); }
+/** PC session 22 Oct 05:58Z: on 1.26.5 any reply in a Bid check thread, plain questions too, re-ran the check. In a Bid check thread
+ * only an explicit ask runs it again ("redo bid check", "refresh bid opportunities", "run it again", "check again"); a question or any
+ * other reply is answered in the thread. */
+const CUE_BIDS_REDO_RE_ = /\b(redo|refresh|re-?run|run|check|search|scan)\b[\s\S]{0,40}\b(bids?|bid checks?|bid opportunit\w*|opportunit\w*|tenders?|philgeps|again|it)\b/i;
+const CUE_BIDS_QUESTION_RE_ = /\?\s*$|^\s*(can|could|would|why|what|how|is|are|do|does|did|when|where|which|who|should|will|may)\b/i;
+function cueBidsRedo_(t) { t = String(t || ''); return CUE_BIDS_REDO_RE_.test(t) && !CUE_BIDS_QUESTION_RE_.test(t) && !cueBidsNotRun_(t) && !CUE_BIDS_INTAKE_RE_.test(t); }
 
 function cueBidsSheet_() { return SpreadsheetApp.openById(cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_)); }
 const cueBidsKey_ = (ref, agency, project) => { const r = String(ref || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -51,27 +56,27 @@ const cueBidsKey_ = (ref, agency, project) => { const r = String(ref || '').toLo
 const cueBidsDay_ = () => Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila', 'yyyy-MM-dd');
 
 /** Starts a bid check. how = 'chat' | 'daily'. Kiko 22 Oct 05:52Z ("why so many Bid checks?"): one Bid check thread per Manila day.
- * The day's first run is the thread; a later run that day posts into it, and the earlier card there that was still waiting closes,
- * because the new run replaces it (nothing in a bid card is written anywhere but the bid sheet). */
+ * The day's first run is the thread; a later run that day posts into it. Earlier cards stay as they are: a later run lists only
+ * notices new since then, so an earlier card still holds its own (1.27.3). */
 function cueBidsStart_(text, how, from) {
   const d = new Date(cueNow_());
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const title = (how === 'daily' ? 'Bid opportunities ' : 'Bid check ') + Utilities.formatDate(d, 'Asia/Manila', 'MM/dd HH:mm');   // two runs on one day get different names (PC test 19:32Z)
   const s = { id, version: CUE_VERSION_, kind: 'bids', how: how || 'chat', created: d.toISOString(), started: cueNow_(), text: cueStr_(text || 'Run bid opportunity check', 2000), files: [],
     status: 'Working', stage: 'Searching', ref: '', bids: { title, day: cueBidsDay_() }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
-  let home = '', closed = 0;
+  let home = '';
   cueLocked_(() => {
     const sh = cueSheet_('Requests'), runs = cueBidsRuns_(sh).filter(x => x.day === s.bids.day);
     if (runs.length) {
       home = runs[0].s.id; s.ref = home;
-      closed = cueBidsTidy_(sh, runs, '');   // the new run is the only one left waiting
+      cueBidsTidy_(sh, runs);
     }
     sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
   });
   const say = 'Nothing is registered, sent or submitted.';
   if (from) cueChat_('Kiko', s.text, from); else if (how !== 'daily') cueChat_('Kiko', s.text, '');
   if (home) {
-    const line = (how === 'daily' ? '7:00 bid check: ' : '') + 'Running the bid check again in today\'s Bid check thread' + (closed ? ' (the earlier card there is closed; this run replaces it)' : '') + '. ' + say;
+    const line = (how === 'daily' ? '7:00 bid check: ' : '') + 'Running the bid check again in today\'s Bid check thread. It lists only notices new since the last run. ' + say;
     cueChat_('Cue', line, from && from !== home ? from : '>' + home);
   } else if (from) cueChat_('Cue', 'Running the bid check again in a new thread. ' + say, from);   // asked inside an older day's Bid check thread
   if (!home) cueChat_('Cue', (how === 'daily' ? '7:00 bid check: ' : '') + 'Started a bid opportunity check in its own thread. ' + say, '>' + id);
@@ -89,36 +94,26 @@ function cueBidsRuns_(sh) {
   });
   return out.sort((a, b) => String(a.s.created).localeCompare(String(b.s.created)));
 }
-/** One day's runs into one thread: the first is the thread, the rest point at it; every run still waiting except `keep` closes.
- * Returns how many closed. Call inside cueLocked_. */
-function cueBidsTidy_(sh, runs, keep) {
-  const home = runs[0].s.id; let closed = 0;
-  runs.forEach(x => {
-    let dirty = false;
-    if (x.s.id !== home && x.s.ref !== home) { x.s.ref = home; dirty = true; }
-    if (x.s.status === 'Needs you' && x.s.id !== keep) { x.s.status = 'Done'; x.s.stage = 'Done'; x.s.replaced = true; closed++; dirty = true; }
-    if (dirty) cueSave_(sh, x.row, x.s);
-  });
-  return closed;
+/** One day's runs into one thread: the first is the thread, the rest point at it. Cards are never closed here. Call inside cueLocked_. */
+function cueBidsTidy_(sh, runs) {
+  const home = runs[0].s.id;
+  runs.forEach(x => { if (x.s.id !== home && x.s.ref !== home) { x.s.ref = home; cueSave_(sh, x.row, x.s); } });
 }
-/** Once after 1.27.2 ships: the bid checks already made (6 on 22 Oct) go into one thread per day, and only each day's latest card
- * still waits. From cueState and cueResume; one property read after the first time. */
+/** Once after 1.27.2 ships: the bid checks already made (8 on 22 Oct) go into one thread per day. From cueState and cueResume; one property read after the first time. */
 function cueBidsTidyAll_() {
-  if (cueProp_('CUE_BIDS_TIDY', '') === '1') return 0;
+  if (cueProp_('CUE_BIDS_TIDY', '') === '2') return 0;
   const days = cueLocked_(() => {
     const sh = cueSheet_('Requests'), by = {};
     cueBidsRuns_(sh).forEach(x => { if (x.day) (by[x.day] = by[x.day] || []).push(x); });
     const done = [];
     Object.keys(by).forEach(day => {
-      const runs = by[day]; if (runs.length < 2) return;
-      const wait = runs.filter(x => x.s.status === 'Needs you'), keep = wait.length ? wait[wait.length - 1].s.id : '';
-      done.push({ home: runs[0].s.id, n: runs.length, closed: cueBidsTidy_(sh, runs, keep) });
+      const runs = by[day]; if (runs.length < 2 || runs.every((x, i) => !i || x.s.ref === runs[0].s.id)) return;
+      cueBidsTidy_(sh, runs); done.push({ home: runs[0].s.id, n: runs.length });
     });
-    PropertiesService.getScriptProperties().setProperty('CUE_BIDS_TIDY', '1');
+    PropertiesService.getScriptProperties().setProperty('CUE_BIDS_TIDY', '2');
     return done;
   });
-  days.forEach(x => cueChat_('Cue', 'Put this day\'s ' + x.n + ' bid checks in this one thread' + (x.closed ? ' and closed ' + x.closed + ' older card' + (x.closed > 1 ? 's' : '') + '; only the latest still waits for you' : '')
-    + '. Nothing in them was written anywhere but your bid sheet.', x.home));
+  days.forEach(x => cueChat_('Cue', 'Put this day\'s ' + x.n + ' bid checks in this one thread. Nothing was closed or changed.', x.home));
   return days.length;
 }
 
@@ -335,7 +330,7 @@ function cueBidsView_(s) {
     deadline: it.deadline, event_date: it.event_date, scope: it.scope, eligibility: it.eligibility, url: it.url, documents: it.documents, amendments: it.amendments,
     limitations: it.limitations, next_action: it.next_action, status: it.status, was: it.was || '' });
   return { title: B.title || 'Bid check', summary: B.summary || '', items: (B.items || []).map(pub), updated: (B.updated || []).map(pub), sources: B.sources || [], checks: B.checks || [],
-    written: !!B.written, replaced: !!s.replaced, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
+    written: !!B.written, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
 }
 
 /* ---------- every day at 07:00 Manila (Kiko 19:50Z); started by the scheduler's "Bid opportunities" row (CueSchedule.gs) ---------- */

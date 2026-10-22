@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.2';
+const CUE_VERSION_ = 'Cue 1.27.3';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -179,7 +179,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // that card. Bid words in any thread whose root is a Bid check run a fresh check before any waiting card sees them, and the
   // stray intake card there (nothing approved, nothing in Canvas) is closed.
   const bidsHome = !has && mode !== 'intake' ? cueBidsThread_(ref) : '';
-  if (bidsHome && !cueBidsFor_(text) && !cueBidsNotRun_(text) && (cueBidsAsked_(text) || CUE_BIDS_AGAIN_RE_.test(String(text || '')))) {
+  if (bidsHome && !cueBidsFor_(text) && cueBidsRedo_(text)) {   // 1.27.3: only an explicit redo; questions are answered in the thread
     const out = cueBidsStart_(String(text || '').trim(), 'chat', ref);
     cueCloseSuperseded_((x, root) => root === bidsHome && x.kind === 'intake' && !(x.canvas && x.canvas.project_id) && !x.approved_at && (!x.phased || (x.phase || 1) === 1),
       'Closed. This thread is a bid check, not a project intake. Nothing was written to Canvas.', true);   // PC recheck 05:13Z: that card had failed

@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.27.3: in a Bid check thread, only an explicit redo runs again (not deployed)
+
+PC session 22 Oct 05:58Z: on live 1.26.5, any reply Kiko typed in a Bid check thread, plain questions too, started a new check in a new thread, and those threads did the same.
+
+- In a Bid check thread, only an explicit ask runs the check again: "redo bid check", "refresh bid opportunities…", "run it again", "check again". A question (ending in "?" or starting with can, why, what, how…), a "did not / don't" message, a sign-in question, or any other reply is answered in the thread.
+- 1.27.2 change taken back: a later run no longer closes the earlier card. A later run lists only notices new since the last run, so the earlier card still holds its own notices (for example the 07:00 card). Runs still share one thread per day. The one-time tidy only groups threads and closes nothing ("Nothing was closed or changed"). It now runs under property value 2.
+- Tests: 311 of 311 pass (new BD12; BD11 updated).
+
 ## Cue 1.27.2: one Bid check thread per day (not deployed)
 
 Kiko 22 Oct 05:52Z: "why so many Bid checks?" Six Bid check threads waited at Needs you (13:10, 13:27, 13:28 x2, 13:29 x2).
