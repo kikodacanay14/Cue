@@ -47,6 +47,30 @@ function cueCecStart_(text, ref) {
   return { request_id: id, task: ref || '' };
 }
 
+/** 1.31 relay (CueRelay.gs, Kiko 23 Oct 04:13Z "If i started in gpt i want the process to complete in gpt"): ChatGPT hands over the
+ * costs itself (its text and the quote files, saved in Cue's Drive folder) instead of naming an email. Same task, same card, same
+ * one GPT match and same Approve; only the source of the costs differs. files = [{ id, name, type }]. */
+function cueCecGiven_(text, project, files, who) {
+  const t = String(text || '').trim(), now = cueNow_(), d = new Date(now);
+  const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
+  const ask = cueStr_('Update the CE costs for ' + project + ' from what ' + who + ' sent: ' + t, 600);
+  const s = { id, version: CUE_VERSION_, kind: 'cecost', created: d.toISOString(), started: now, text: cueStr_(ask, 2000), files: [], status: 'Working', stage: 'Finding project',
+    ref: '', cec: { ask, person: who, hint: cueStr_(project, 80), given: { who, text: cueStr_(t, CUE_CEC_MAX_.text), files: (files || []).slice(0, CUE_CEC_MAX_.files) } },
+    metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
+  cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
+  const line = 'From ' + who + ': ' + ask + ((files || []).length ? '\n📎 ' + files.map(f => f.name).join(', ') : '');
+  cueChat_('Cue', who + ' asked Cue to update the CE costs for ' + project + '. I started a thread.', '>' + id);
+  cueChat_('Cue', line, id);
+  cueChat_('Cue', 'Updating CE costs for ' + project + ' from what ' + who + ' sent. Nothing is written until you confirm.', id);
+  return { request_id: id, task: '' };
+}
+/** The costs ChatGPT handed over, shaped like an email for cueCecRead_. */
+function cueCecGivenMail_(s) {
+  const g = s.cec.given, files = (g.files || []).map(f => ({ name: f.name, type: f.type, data: cueRelayFileData_(f).data }));
+  if (!g.text && !files.length) return null;
+  return { id: '', thread_id: '', from: g.who, subject: 'Costs sent from ' + g.who, date: new Date(cueNow_()).toISOString().slice(0, 10), text: g.text, files, skipped: [] };
+}
+
 /** Kiko answers the card's question (whose email, which project) in its thread: the same task carries on, no new one. null otherwise. */
 function cueCecReply_(ref, text) {
   if (!ref) return null;
@@ -76,7 +100,7 @@ function cueCecWait_(s, why) { s.status = 'Needs you'; s.stage = 'Needs you'; s.
 /** Stage "Finding project": the thread's own project, else Canvas's search. */
 function cueCecFind_(s) {
   const c = s.cec;
-  if (!c.person) return cueCecWait_(s, 'Whose email has the costs? Reply here with their name, e.g. "from Zaina Yu".');
+  if (!c.person && !c.given) return cueCecWait_(s, 'Whose email has the costs? Reply here with their name, e.g. "from Zaina Yu".');
   let m = s.ref && !c.hint ? cueReadyThreadMatch_(s.ref, '') : null, hits = [];
   if (!m && s.ref && c.hint) { const t = cueReadyThreadMatch_(s.ref, c.hint); if (t && cueWords_(t.name).some(w => cueWords_(c.hint).indexOf(w) >= 0)) m = t; }
   if (!m) {
@@ -106,10 +130,10 @@ function cueCecRead_(s) {
     description: cueStr_(l.description, 300), qty: Number(l.qty) || 0, occurrence: Number(l.occurrence) || 0, unit_cost: l.unit_cost == null ? null : cueR2_(Number(l.unit_cost) || 0),
     unit_price: l.unit_price == null ? null : cueR2_(Number(l.unit_price) || 0), section: cueStr_(l.section, 50) })).filter(l => l.req_id);
   if (!c.lines.length) return cueCecWait_(s, c.project.name + ' has no CE lines in Canvas yet, so there is nothing to update. Add the lines in CE Desk first.');
-  const mail = cueCecMail_(s);
+  const mail = c.given ? cueCecGivenMail_(s) : cueCecMail_(s);
   if (!mail) return cueCecWait_(s, 'I found no email from ' + c.person + ' in the last ' + CUE_CEC_MAX_.days + ' days. Reply here with the sender\'s email address or the subject.');
   c.email = { id: mail.id, thread_id: mail.thread_id, from: mail.from, subject: mail.subject, date: mail.date, files: mail.files.map(f => f.name), skipped: mail.skipped,
-    url: 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + mail.thread_id };
+    url: mail.thread_id ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + mail.thread_id : '' };
   s.stage = 'GPT matching costs';
   const parts = mail.files.map(f => /^image\//.test(f.type) ? { type: 'input_image', image_url: 'data:' + f.type + ';base64,' + f.data, detail: 'high' }
     : { type: 'input_file', filename: f.name, file_data: 'data:application/pdf;base64,' + f.data });
@@ -248,6 +272,8 @@ function cueCecApprove_(id, edits) {
   c.result = { saved: pick.length - bad.length, failed: bad.length, at: new Date(cueNow_()).toISOString() };
   s.status = bad.length ? 'Done, check Canvas' : 'Done'; s.stage = s.status; s.ready_at = cueNow_();
   if (bad.length) s.notes.push('Not saved: ' + bad.map(r => (r.category || r.req_id) + ' (' + r.result + ')').join('; ') + '.');
+  // 1.31: the finished state is saved (it stayed "Writing to Canvas" in the sheet, so a reload showed it still writing).
+  cueMetrics_(s); save();
   cueSummary_(s);
   return s;
 }
