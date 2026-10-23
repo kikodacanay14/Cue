@@ -1,10 +1,11 @@
 # Changelog
 
-## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" (release branch, not deployed)
+## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" + Cue-in-Canvas guard fix (release branch, not deployed)
 
 Found while building the AI relay (dropped by Kiko 23 Oct 13:36Z). After Approve, a CE cost or expense task kept "Writing to Canvas" in the Cue sheet, though Canvas had saved it. A reload therefore showed the card still writing. The finished state ("Done" or "Done, check Canvas") is now saved. Nothing else changes.
 
 - Backfill (PC check 13:44Z): tasks approved before this fix, such as the ₱540 printer ink expense recorded as AP-UNI-TRI-1, are set to Done on the 5-minute tick. A task qualifies when it is a CE cost or expense task, still at "Writing to Canvas" more than 10 minutes after Approve, and its thread has its "Summary for ..." line. A summary that names a problem gives "Done, check Canvas". Cue only reads its own sheet for this and makes no Canvas call. A task with no summary line stays as it is.
+- Cue inside Canvas (Kiko screenshot 13:44Z): Cue showed "Cue only opens on its own or inside Canvas" in the Canvas slide-in. The frame guard now also accepts Canvas opened from its short link (canvas.blankspaceevent.com), and the cover names why it blocked ("Blocked: <site>" or "Canvas did not answer").
 - PC look: approve one CE cost or expense card on /dev, reload, and check it shows Done. Old stuck cards turn Done within 5 minutes.
 - Tests: 320 of 320 pass (CC2 and X4 check the saved state; X4b covers the backfill).
 
