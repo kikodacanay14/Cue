@@ -3700,7 +3700,7 @@ test('CV9 qcadd never carries bank, account, IBAN or SWIFT, whatever the supplie
 });
 test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable label; the pane says Loading Canvas until the project can show', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
-  assert.ok(/\.card a \{ color:var\(--act\); \}/.test(html) && /\.card a\.btn \{ color:#0b1320; \} \.card a\.btn\.ghost \{ color:var\(--text\); \}/.test(html), 'label not the button colour');
+  assert.ok(/\.card a \{ color:var\(--act\); \}/.test(html) && /\.card a\.btn \{ color:#fff; \} \.card a\.btn\.ghost \{ color:var\(--text\); \}/.test(html), 'label not the button colour');
   assert.ok(html.indexOf('class="cvnote cvload"') > 0 && /cvGone = setTimeout\(cvUnload, 30000\)/.test(html), 'loading line, gone by 30 s');
   assert.ok(/querySelector\('\.cvnote:not\(\.cvload\)'\)/.test(html), '"ready" removes only the sign-in note');
 });
@@ -4386,6 +4386,40 @@ test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will n
   const u = sandbox(); u.ctx.cueState(); u.ctx.cueSchedules().filter(x => !x.on).forEach(x => u.ctx.cueSchedSet(x.id, { on: true }));
   u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); u.ctx.cueResume(); u.ctx.__wait(5 * 60000); u.ctx.cueResume();   // Wednesday 19:00 was missed too: 3 rows per tick
   assert.strictEqual(u.ctx.cueSchedules().filter(x => x.id === 'sys-unsched')[0].result, 'All scheduled'); assert.ok(!u.tabs.Chat.rows.some(r => /Unscheduled check/.test(r[2])));
+});
+
+/* CUE-IN-CANVAS (Kiko 23 Oct 07:39Z, 08:48Z, 08:52Z; specs/cue-in-canvas.md) */
+test('CIC1 Cue may show inside Canvas: doGet allows framing, and the page guards itself instead', () => {
+  assert.ok(/setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/.test(CODE), 'ALLOWALL');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/var CUE_HOST = cueFrameCheck\(window\);/.test(html) && html.indexOf('#cue-cover {') > 0, 'guard runs on load and has a cover');
+});
+test('CIC2 frame guard: own tab is free; inside Canvas waits for cueHost; any non-Google ancestor or a deep frame without ancestorOrigins is covered', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const src = html.slice(html.indexOf('function cueFrameCheck('), html.indexOf('function cueAncestor('));
+  const ctx = vm.createContext({}); vm.runInContext(src, ctx);
+  const chain = (depth, anc) => { let top = {}; top.parent = top; let w = top; for (let i = 0; i < depth; i++) { const c = { parent: w }; w = c; } w.location = { ancestorOrigins: anc }; return w; };
+  const G = 'https://script.google.com', S = 'https://n-abc123-0lu-script.googleusercontent.com';
+  const own = ctx.cueFrameCheck(chain(2, [S, G]));
+  deq([own.foreign, own.nested], [false, false]);
+  const canvas = ctx.cueFrameCheck(chain(5, [S, G, S, S, G]));
+  deq([canvas.foreign, canvas.nested, canvas.canvas], [false, true, null], 'inside Canvas: covered until cueHost');
+  deq(ctx.cueFrameCheck(chain(3, [S, G, 'https://evil.example'])).foreign, true, 'a foreign page is covered for good');
+  deq(ctx.cueFrameCheck(chain(3, [S, G, 'https://script.google.com.evil.example'])).foreign, true, 'look-alike host');
+  deq(ctx.cueFrameCheck(chain(5, undefined)).nested, true, 'no ancestorOrigins and deep: covered');
+  deq(ctx.cueFrameCheck(chain(2, undefined)).nested, false, 'no ancestorOrigins in its own tab: free');
+});
+test('CIC3 inside Canvas: Open in Canvas goes to Canvas itself; only the host that sent cueHost may open a thread', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/if \(CUE_HOST\.canvas\) return void CUE_HOST\.canvas\.postMessage\(\{ canvasWs: 'cueOpen', url: l\.url \}, '\*'\);/.test(html));
+  assert.ok(/d\.canvasWs === 'cueThread' && e\.source === CUE_HOST\.canvas/.test(html), 'thread only from the host');
+  assert.ok(/!cueAncestor\(e\.source\)/.test(html), 'messages only from windows above Cue');
+});
+test('CIC4 Cue wears Canvas: Workspace tokens (cream, ink, purple action, magenta need), no graphite left', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  ['--bg:#F7F3EA', '--text:#16151B', '--act:#23006F', '--need:#F000AA', '--line:#E2DCCF', '--muted:#5B5766'].forEach(t => assert.ok(html.indexOf(t) > 0, t));
+  ['#141518', '#17181c', '#0e0f11', '#262930', '#22344d', '#1f2b3d', '#0b1320'].forEach(c => assert.ok(html.indexOf(c) < 0, c + ' left'));
+  assert.ok(!/<b [^>]*color:#fff/.test(html), 'card titles use the ink token, not white');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

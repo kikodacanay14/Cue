@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.6: live 1.27.5 + Cue 1.32 Cue inside Canvas only (release branch; 1.28 to 1.31 not included)
+
+Same change as Cue 1.32 on main.
+
+Kiko 23 Oct 07:39Z ("can we embed Cue in Canvas now. somewhere only i can see"), 08:48Z ("replace quick actions in canvas as Cue"),
+08:52Z ("okay"; "make sure the UI matches Canvas since it will be inside it moving forward"). Spec: specs/cue-in-canvas.md.
+
+- `doGet` allows framing (`XFrameOptionsMode.ALLOWALL`) so Canvas can show Cue in place of Quick actions (Canvas branch
+  claude/project-thread-oqjr6f). Cue's web app stays "only me", so nobody else can load it.
+- Frame guard (Apps Script can't set CSP frame-ancestors): every window above Cue must be script.google.com or an Apps Script
+  sandbox, or Cue stays covered. Inside another app, Cue stays covered until Canvas sends `cueHost` (Canvas sends it only after its
+  server confirms Kiko) and then answers only that window.
+- Inside Canvas, Open in Canvas links ask Canvas to go to the page (`cueOpen`) instead of showing Canvas inside Cue, and Canvas
+  can open a thread (`cueThread`, used by the Today card on Canvas Home).
+- Look: Canvas's Workspace tokens (cream ground, white cards, ink text, deep purple buttons, magenta for "needs you").
+- Tests: 337 (CIC1 to CIC4 new; CV10 follows the new button label colour).
+
 ## Cue 1.27.5: image batches for one task (not deployed)
 
 Kiko 22 Oct 03:03Z, spec specs/image-batches.md (approved 12:39Z).

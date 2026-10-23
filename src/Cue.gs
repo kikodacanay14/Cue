@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.5';
+const CUE_VERSION_ = 'Cue 1.27.6';   // release branch: live 1.27.5 + 1.32 Cue inside Canvas only (Kiko go live 13:34Z 23 Oct)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -31,7 +31,7 @@ function doGet(e) {
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   const out = HtmlService.createHtmlOutputFromFile('Index').setTitle('Cue')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
   return out;
 }
