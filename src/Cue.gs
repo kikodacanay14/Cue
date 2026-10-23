@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.29';
+const CUE_VERSION_ = 'Cue 1.30';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -167,6 +167,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   const inThread = !!ref;
   // Kiko 17:03Z "expedite how he learns": "remember: …" / "from now on …" anywhere is saved as a rule at once (no AI call).
   if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
+  // AI relay (Kiko 23 Oct 03:47Z, CueRelay.gs): "tell Claude: ..." / "send to ChatGPT: ..." is a relay note, no AI call.
+  if (!has && mode !== 'intake') { const rl = cueRelaySaid_(text, ref); if (rl) return rl; }
   // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
   // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
@@ -650,7 +652,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'status', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier'];
+const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'status', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'relay'];
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
@@ -715,6 +717,7 @@ function cueResume() {
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
+  try { cueRelaySweep_(); } catch (e) { console.error('cueRelaySweep_: ' + e); }   // notes claude.ai added to the Relay tab
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -1036,6 +1039,7 @@ function cueView_(s) {
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     st: s.kind === 'status' ? cueStView_(s) : null,
+    relay: s.kind === 'relay' ? cueRelayView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? { project: s.ar.project || s.ar.asked || '', project_id: s.ar.project_id || '', others: s.ar.others || [], more: !!s.ar.more, max: CUE_AR_MAX_,
       items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
         has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
