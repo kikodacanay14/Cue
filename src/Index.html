@@ -452,8 +452,9 @@
   function cueFrameCheck(w) {
     var anc = w.location && w.location.ancestorOrigins, depth = 0, p = w;
     try { while (p !== p.parent && depth < 12) { p = p.parent; depth++; } } catch (e) { depth = 12; }
-    var ok = /^https:\/\/(script\.google\.com|[a-z0-9-]+[.-]script\.googleusercontent\.com)$/, foreign = false;
-    if (anc) { for (var i = 0; i < anc.length; i++) if (!ok.test(anc[i])) foreign = true; }
+    // 1.27.7 (Kiko 13:44Z screenshot): Canvas's own short link canvas.blankspaceevent.com counts as Canvas too.
+    var ok = /^https:\/\/(script\.google\.com|[a-z0-9-]+[.-]script\.googleusercontent\.com|canvas\.blankspaceevent\.com)$/, foreign = '';
+    if (anc) { for (var i = 0; i < anc.length; i++) if (!ok.test(anc[i])) foreign = foreign || String(anc[i]).slice(0, 80); }
     return { foreign: foreign, nested: depth > 2 || (!anc && depth > 2), canvas: null };
   }
   function cueAncestor(src) { var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; if (p === src) return true; } return false; }
@@ -462,10 +463,11 @@
     if (!c) { c = document.createElement('div'); c.id = 'cue-cover'; c.setAttribute('role', 'status'); document.body.appendChild(c); }
     c.textContent = text;
   }
-  if (CUE_HOST.foreign) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas.');
+  // The cover names why (1.27.7), so a screenshot tells a strange host from a Canvas that never answered.
+  if (CUE_HOST.foreign) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Blocked: ' + CUE_HOST.foreign + ')');
   else if (CUE_HOST.nested) {
     cueCover('Waiting for Canvas…');
-    setTimeout(function () { if (!CUE_HOST.canvas) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas.'); }, 15000);
+    setTimeout(function () { if (!CUE_HOST.canvas) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Canvas did not answer)'); }, 15000);
     window.addEventListener('message', function (e) {
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
       if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); return; }
