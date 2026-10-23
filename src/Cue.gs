@@ -710,6 +710,7 @@ function cueResume() {
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
+  try { cueFixStuckWrites_(); } catch (e) { console.error('cueFixStuckWrites_: ' + e); }   // 1.27.7: CE cost / expense approved before the save fix
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -717,6 +718,32 @@ function cueResume() {
   });
   // Last, so a task it starts runs on the next tick in its own 6 minutes (the sweep still runs at once, as its trigger did).
   try { cueSchedTick_(); } catch (e) { console.error('cueSchedTick_: ' + e); }
+}
+
+/** 1.27.7 (PC check 23 Oct 13:44Z): CE cost and expense tasks approved before the save fix stayed "Writing to Canvas" in the sheet,
+ * though Canvas recorded them and the thread got its "Summary for ..." line. A task still at that status 10 minutes after its
+ * Approve (no write runs that long) with a summary line in its thread is set to Done ("Done, check Canvas" when the summary names a
+ * problem). Reads the sheet only; never calls Canvas. Without a summary line it stays as it is. */
+function cueFixStuckWrites_() {
+  const sh = cueSheet_('Requests'), now = cueNow_();
+  const stuck = cueRows_(sh).map((r, i) => ({ r, row: i + 2 })).filter(x => String(x.r[2]) === 'Writing to Canvas');
+  if (!stuck.length) return 0;
+  const sums = {};
+  const ch = cueSheet_('Chat'), cn = ch.getLastRow() - 1;
+  (cn > 0 ? ch.getRange(2, 1, cn, 4).getValues() : []).forEach(r => { if (String(r[1]) === 'Cue' && /^Summary for /.test(String(r[2]))) sums[String(r[3])] = String(r[2]); });
+  let n = 0;
+  stuck.forEach(x => {
+    let s = null; try { s = JSON.parse(x.r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
+    const line = sums[s.id], at = Date.parse(s.approved_at || '');
+    if ((s.kind !== 'expense' && s.kind !== 'cecost') || !line || !(now - at > 10 * 60 * 1000)) return;
+    cueLocked_(() => {
+      const L = cueLoad_(s.id); if (!L || L.s.status !== 'Writing to Canvas') return;
+      L.s.status = /not saved|read back found a problem|check canvas/i.test(line) ? 'Done, check Canvas' : 'Done'; L.s.stage = L.s.status;
+      L.s.ready_at = L.s.ready_at || now; (L.s.notes = L.s.notes || []).push('Marked ' + L.s.status + ' from its summary line; Canvas had already recorded it.');
+      cueSave_(L.sh, L.row, L.s); n++;
+    });
+  });
+  return n;
 }
 
 function cueRunLeased_(id) {

@@ -1596,6 +1596,17 @@ test('X4 approve needs every doubt ticked and the same files; then Canvas record
   deq([a.plan.new_scope.requirement_id, a.plan.award, a.plan.paid, a.files[0].role, a.files[0].mime], ['REQ26-10017-05', true, 'cash', 'receipt', 'image/jpeg']);
   assert.ok(t.tabs.Chat.rows.some(r => /Summary for ₱450\.00 Duct Tapes for Trick or Treat – Manila: recorded in Canvas as AP-ACE-TRI-1 on new scope SCP26-017-47, paid; every row read back correctly; receipt filed/.test(r[2])));
 });
+test('X4b 1.27.7 backfill: an expense approved before the fix (stuck at Writing to Canvas, summary posted) is marked Done on the tick; no Canvas call', () => {
+  const t = expenseCard(); t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });
+  const L = t.ctx.cueLoad_(t.id); L.s.status = 'Writing to Canvas'; L.s.stage = 'Writing to Canvas'; t.ctx.cueSave_(L.sh, L.row, L.s);   // as the old code left it
+  const calls = t.log.bridge.length;
+  t.ctx.cueFixStuckWrites_(); assert.strictEqual(t.state(t.id).status, 'Writing to Canvas', 'not within 10 minutes of Approve');
+  t.ctx.__wait(11 * 60 * 1000); t.ctx.cueResume();
+  const s = t.state(t.id); deq([s.status, s.stage], ['Done', 'Done']); assert.ok(s.notes.some(n => /from its summary line/.test(n)));
+  assert.strictEqual(t.log.bridge.length, calls, 'no Canvas call');
+  const u = expenseCard(); const M = u.ctx.cueLoad_(u.id); M.s.status = 'Writing to Canvas'; M.s.approved_at = new Date(0).toISOString(); u.ctx.cueSave_(M.sh, M.row, M.s);
+  u.ctx.cueFixStuckWrites_(); assert.strictEqual(u.state(u.id).status, 'Writing to Canvas', 'no summary line: left alone');
+});
 test('X5 a stop at a Canvas step comes back to the card; approving again carries on with the same request', () => {
   const t = expenseCard({ xrec: n => n === 1 ? { recorded: false, stopped_at: 'award', error: 'Fill in the Venue survey first.', steps: { scope: { ok: true, id: 'SCP26-017-47' } } } : XREC });
   const v = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });

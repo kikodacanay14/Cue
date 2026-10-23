@@ -4,8 +4,9 @@
 
 Found while building the AI relay (dropped by Kiko 23 Oct 13:36Z). After Approve, a CE cost or expense task kept "Writing to Canvas" in the Cue sheet, though Canvas had saved it. A reload therefore showed the card still writing. The finished state ("Done" or "Done, check Canvas") is now saved. Nothing else changes.
 
-- PC look: approve one CE cost or expense card on /dev, reload, and check it shows Done.
-- Tests: 319 of 319 pass (CC2 and X4 now check the saved state).
+- Backfill (PC check 13:44Z): tasks approved before this fix, such as the ₱540 printer ink expense recorded as AP-UNI-TRI-1, are set to Done on the 5-minute tick. A task qualifies when it is a CE cost or expense task, still at "Writing to Canvas" more than 10 minutes after Approve, and its thread has its "Summary for ..." line. A summary that names a problem gives "Done, check Canvas". Cue only reads its own sheet for this and makes no Canvas call. A task with no summary line stays as it is.
+- PC look: approve one CE cost or expense card on /dev, reload, and check it shows Done. Old stuck cards turn Done within 5 minutes.
+- Tests: 320 of 320 pass (CC2 and X4 check the saved state; X4b covers the backfill).
 
 ## Cue 1.27.6: live 1.27.5 + Cue 1.32 Cue inside Canvas only (release branch; 1.28 to 1.31 not included)
 
