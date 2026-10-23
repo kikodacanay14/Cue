@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" (release branch, not deployed)
+
+Found while building the AI relay (dropped by Kiko 23 Oct 13:36Z). After Approve, a CE cost or expense task kept "Writing to Canvas" in the Cue sheet, though Canvas had saved it. A reload therefore showed the card still writing. The finished state ("Done" or "Done, check Canvas") is now saved. Nothing else changes.
+
+- PC look: approve one CE cost or expense card on /dev, reload, and check it shows Done.
+- Tests: 319 of 319 pass (CC2 and X4 now check the saved state).
+
 ## Cue 1.27.6: live 1.27.5 + Cue 1.32 Cue inside Canvas only (release branch; 1.28 to 1.31 not included)
 
 Same change as Cue 1.32 on main.

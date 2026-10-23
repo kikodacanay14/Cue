@@ -1591,7 +1591,7 @@ test('X4 approve needs every doubt ticked and the same files; then Canvas record
   assert.throws(() => t.ctx.cueApprove(t.id, { cleared: [0], files: [Object.assign({}, JPG, { data: Buffer.from('another photo').toString('base64') })] }), /not in this page any more/);
   assert.ok(!t.log.recorded);
   const v = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG], amount: '450' });
-  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.recorded.length, 1);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.recorded.length, 1); assert.strictEqual(t.state(t.id).status, 'Done', 'saved, not left at Writing to Canvas');
   const a = t.log.recorded[0].args; assert.strictEqual(t.log.recorded[0].pid, 'S-25506500TR');
   deq([a.plan.new_scope.requirement_id, a.plan.award, a.plan.paid, a.files[0].role, a.files[0].mime], ['REQ26-10017-05', true, 'cash', 'receipt', 'image/jpeg']);
   assert.ok(t.tabs.Chat.rows.some(r => /Summary for ₱450\.00 Duct Tapes for Trick or Treat – Manila: recorded in Canvas as AP-ACE-TRI-1 on new scope SCP26-017-47, paid; every row read back correctly; receipt filed/.test(r[2])));
@@ -4163,7 +4163,7 @@ test('CC2 Approve writes only the ticked lines, with Kiko\'s edit and the old co
   deq(t.log.ceWrites.length, 1); const w = t.log.ceWrites[0];
   assert.strictEqual(w.project_id, 'S-31628060SP');
   deq(w.args.lines, [{ req_id: 'REQ-1', unit_cost: 85000, was: 70000 }, { req_id: 'REQ-3', unit_cost: 1200 }]);
-  assert.strictEqual(v.status, 'Done');
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.state(t.id).status, 'Done', 'saved, not left at Writing to Canvas');
   const sum = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Summary for CE costs, JBL Booth Fabrication: updated 2 unit costs on the CE \(CE-047-V2\)/.test(x));
   assert.strictEqual(sum.length, 2, 'main chat and thread'); assert.ok(/Booth Fabrication ₱70,000 to ₱85,000/.test(sum[0]), sum[0]);
   assert.throws(() => t.ctx.cueApprove(t.id, {}), /not waiting for you/);

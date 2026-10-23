@@ -248,6 +248,8 @@ function cueCecApprove_(id, edits) {
   c.result = { saved: pick.length - bad.length, failed: bad.length, at: new Date(cueNow_()).toISOString() };
   s.status = bad.length ? 'Done, check Canvas' : 'Done'; s.stage = s.status; s.ready_at = cueNow_();
   if (bad.length) s.notes.push('Not saved: ' + bad.map(r => (r.category || r.req_id) + ' (' + r.result + ')').join('; ') + '.');
+  // 1.27.7: the finished state is saved (it stayed "Writing to Canvas" in the sheet, so a reload showed it still writing).
+  cueMetrics_(s); save();
   cueSummary_(s);
   return s;
 }
