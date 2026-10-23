@@ -7,6 +7,7 @@ Kiko 23 Oct 03:56Z picked "Add it to Deploy Cue".
 - `tools/deploy.mjs`, mode=deploy: after the page goes live, it pushes the same files with manifest access ANYONE_ANONYMOUS, makes a second version and points the deployment described "Cue relay" at it. The first run creates that deployment. Then it pushes the MYSELF manifest back, so head and /dev stay owner-only. Apps Script takes web-app access from a version's manifest, so the page's /exec is unchanged. On the relay deployment every page call stops at the owner check, and `doPost` answers only relay calls that carry a key.
 - The run prints "Cue relay is on Version N: <url>" (check mode prints it too). Kiko pastes the URL once into Settings > AI relay > Relay URL (new Save).
 - Each live deploy now uses 2 Apps Script versions instead of 1, which counts against the 200-version cap.
+- Notes between the AIs now pass on by themselves (Kiko 04:10Z); Kiko sees every one in Cue. Settings > AI relay "Notes wait for my Pass on" turns the gate back on. Canvas writes, emails and money keep their own approve cards.
 - Tests: 327 of 327 pass (RL6 covers the URL check).
 
 ## Cue 1.30: AI relay between ChatGPT and Claude (not deployed)
