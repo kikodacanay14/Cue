@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.30: AI relay between ChatGPT and Claude (not deployed)
+
+Kiko 23 Oct 03:44Z ("make Cue a conduit so that ChatGPT and Claude can pass information to each other"), spec specs/ai-relay.md, route A picked 03:47Z. Defaults until Kiko says otherwise: every note waits for Kiko's Pass on; ChatGPT's door is a custom GPT; the handoff Google Doc retires once the relay works.
+
+- New `doPost` (src/CueRelay.gs): `relay_post`, `relay_list`, `relay_read`, each with a sender key. Three keys: ChatGPT (custom GPT "Cue relay"), Claude (the claude.ai "Canvas Integration" project) and Claude in the Cue project. Nothing else answers there. The page stays owner-only.
+- claude.ai can't POST, so it adds a row to the new **Relay** tab of the Cue sheet with the Google Sheets connector (ID blank, From claude). The 5-minute tick checks and shows those rows.
+- Each note lands in the Relay tab and in an **AI relay** thread per topic, with **Pass on** and **Drop**. The receiver lists only passed-on notes and marks them read. Settings > AI relay: the gate switch, the relay URL and the keys (Make key / New key).
+- "tell Claude: ..." / "tell ChatGPT: ..." in Cue is Kiko's own note, passed on at once.
+- Refused, with the reason: bank details, passwords, API keys, non-https links, notes over 20,000 characters, notes to oneself, and more than 30 notes waiting from one sender. No AI call anywhere in the relay; it writes only the Relay tab and its threads.
+- Not live until a relay web-app deployment exists (access Anyone, execute as Kiko) and Script Property CUE_RELAY_URL is set. That needs a change to the Deploy Cue setup, which waits for Kiko's approval.
+- Teaching prompts: project files canvas-integration/relay/teach-prompts.md.
+- Tests: 327 of 327 pass (new RL1 to RL6).
+
 ## Cue 1.29: status reports (not deployed)
 
 Backlog task 7, spec specs/status-reports.md, Kiko approved 22 Oct 15:56Z ("Status repor is okay"). Defaults as written: main contact only; active = For Production Start or later with the event no more than 7 days ago; emails from Kiko's Cue Gmail; a client update only when something changed.

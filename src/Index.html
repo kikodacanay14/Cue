@@ -265,7 +265,7 @@
   <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="relay">AI relay</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -273,6 +273,7 @@
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
+      <section data-sec="relay" hidden><div class="label" style="margin-top:0">AI relay</div><div id="w-relay"></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
@@ -1060,14 +1061,14 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.st && r.st.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'relay' && r.relay && 'AI relay · ' + r.relay.topic) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.st && r.st.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'relay' ? 'AI relay' : r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -1201,7 +1202,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || (r.kind === 'status' && r.st) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || (r.kind === 'status' && r.st) || r.kind === 'bids' || r.kind === 'gtask' || r.kind === 'relay' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -1388,8 +1389,19 @@
     var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
+    var RL = S.relay || { keys: [] };
+    setHtml($('w-relay'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
+      + '<div class="small muted" style="margin-top:6px">ChatGPT and Claude leave notes for each other in Cue. Each key opens the relay for one of them; paste it into that app yourself and never into a chat. New key stops the old one at once.</div>'
+      + '<div style="margin-top:8px"><b>Relay URL</b> <span class="small">' + (RL.url ? esc(RL.url) : '<span class="muted">Not set yet (CUE_RELAY_URL comes with the relay deployment)</span>') + '</span></div>'
+      + RL.keys.map(function (k) { return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">' + esc(k.who) + '</b>'
+        + (k.key ? '<input readonly value="' + esc(k.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
+        + '<button class="btn ghost" data-relay-key="' + esc(k.slot) + '">' + (k.key ? 'New key' : 'Make key') + '</button></div>'; }).join('') + '</div>');
     setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
   }
+  $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-gate]'); if (!c) return; c.disabled = true;
+    call('cueRelayGate', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  $('w-relay').addEventListener('click', function (e) { var b = e.target.closest('[data-relay-key]'); if (!b) return; b.disabled = true;
+    call('cueRelayKeys', [b.getAttribute('data-relay-key')], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
@@ -2150,6 +2162,23 @@
     return h + metricLine(r) + '</div>';
   }
   // ChatGPT scheduled tasks (CueGptTasks.gs, specs/lead-gen-tasks.md + cleanup-review-tasks.md). Only new findings; every tap is Kiko's.
+  // AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z): the notes on one topic between ChatGPT and Claude. Waiting ones get Pass on / Drop.
+  function relayCardHtml(r) {
+    var R = r.relay || { notes: [] }, waiting = R.notes.filter(function (n) { return n.status === 'new'; }).length;
+    var tag = { 'new': 'Waiting for you', passed: 'Passed on', read: 'Read', dropped: 'Dropped', refused: 'Refused' };
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">AI relay</div><b style="font-size:17px;color:#fff">' + esc(R.topic) + '</b>'
+      + '<div class="small muted">' + (R.gate ? 'Notes wait for your Pass on.' : 'Notes pass on by themselves; you watch.') + ' Cue only carries them: nothing is sent or changed.</div>';
+    R.notes.forEach(function (n) {
+      h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><div class="small"><b>' + esc(n.from) + '</b> to <b>' + esc(n.to) + '</b> <span class="muted">· ' + esc(tag[n.status] || n.status) + '</span></div>'
+        + '<div class="small" style="white-space:pre-wrap;margin-top:4px">' + esc(n.body) + '</div>'
+        + (n.links.length ? '<div class="small muted" style="margin-top:4px">' + n.links.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u.replace(/^https:\/\//, '').slice(0, 60)) + '</a>'; }).join(' · ') + '</div>' : '')
+        + (n.note ? '<div class="warn">' + esc(n.note) + '</div>' : '')
+        + (n.status === 'new' ? '<div class="actions"><button class="btn" data-act="relay-pass" data-id="' + esc(r.id) + '" data-n="' + esc(n.id) + '">Pass on</button><button class="btn bad" data-act="relay-drop" data-id="' + esc(r.id) + '" data-n="' + esc(n.id) + '">Drop</button></div>' : '')
+        + '</div>';
+    });
+    if (!R.notes.length) h += '<div class="small muted" style="margin-top:6px">No notes yet.</div>';
+    return h + '<div class="small muted" style="margin-top:8px">Reply here with "tell Claude: …" or "tell ChatGPT: …".</div></div>';
+  }
   function gtCardHtml(r) {
     var G = r.gt || { checks: [], items: [], steps: [], groups: [] }, waiting = r.status === 'Needs you', passed = G.checks.filter(function (c) { return c.ok; }).length;
     if (r.status === 'Failed') return '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task</div><b>' + esc(G.task || 'ChatGPT task') + ' stopped</b>'
@@ -2571,6 +2600,7 @@
     if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
     if (r.kind === 'gtask') return gtCardHtml(r);
+    if (r.kind === 'relay') return relayCardHtml(r);
     if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'status' && r.st) return stCardHtml(r);
@@ -2902,6 +2932,7 @@
         if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
         if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
+        if (act === 'relay-pass' || act === 'relay-drop') { b.disabled = true; return call('cueRelayAct', [id, b.getAttribute('data-n'), act === 'relay-pass' ? 'pass' : 'drop'], done, fail); }
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);

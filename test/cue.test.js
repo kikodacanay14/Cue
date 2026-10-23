@@ -422,7 +422,8 @@ function sandbox(o = {}) {
     UrlFetchApp: {
       fetch: (u, req) => { now += step; return route(typeof u === 'string' ? Object.assign({ url: u }, req) : u); },
       fetchAll: reqs => { now += (o.batchStep || step); log.batches.push(reqs.map(r => r.url.split('/')[2])); return reqs.map(route); } },
-    HtmlService: { createHtmlOutput: h => ({ html: h, setTitle() { return this; } }) }
+    HtmlService: { createHtmlOutput: h => ({ html: h, setTitle() { return this; } }) },
+    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ text: t, setMimeType(m) { this.mime = m; return this; } }) }
   };
   vm.createContext(ctx); vm.runInContext(CODE, ctx);
   if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
@@ -4511,6 +4512,87 @@ test('ST6 the client-safe check (code): money, supplier names and an open risk\'
   const t = sandbox(), p = { suppliers: ['Lights Inc'], tri: { risks: [{ description: 'Generator may fail during the show' }], issues: [] } };
   const r = JSON.parse(JSON.stringify(t.ctx.cueStSafe_('Hi Ana,\nAll set for Friday. Lights Inc confirmed. The total is PHP 12,500.00 and the margin is fine.\nWe worry the generator may fail during the show. See you!\nKiko', p)));
   assert.strictEqual(r.text, 'Hi Ana,\nAll set for Friday.\nSee you!\nKiko'); assert.strictEqual(r.removed.length, 3);
+});
+
+// AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z, specs/ai-relay.md): Cue carries notes between ChatGPT and Claude. No AI call.
+const RKEYS = { CUE_RELAY_KEY_CHATGPT: 'cr_' + 'a'.repeat(64), CUE_RELAY_KEY_CLAUDE: 'cr_' + 'b'.repeat(64), CUE_RELAY_KEY_CUE: 'cr_' + 'c'.repeat(64) };
+const relayBox = (o = {}) => { const t = sandbox(Object.assign({}, o, { props: Object.assign({}, RKEYS, o.props || {}) }));
+  t.post = q => JSON.parse(t.ctx.doPost({ postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
+const GPT_NOTE = { action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CHATGPT, to: 'claude', topic: 'Zapier step 5', body: 'Step 5 still maps f9 from the old field. Please check zap-steps.js line 120.', links: ['https://github.com/kikodacanay14/CanvasWorkspace/pull/2'] };
+
+test('RL1 a note waits for Kiko\'s Pass on, then the receiver lists it once and marks it read; no AI call', () => {
+  const t = relayBox();
+  assert.strictEqual(t.post({ action: 'relay_list', key: 'cr_wrong' + 'x'.repeat(60) }).error, 'Not allowed.');
+  assert.strictEqual(t.post('not json').ok, false);
+  const r = t.post(GPT_NOTE); assert.ok(r.ok); assert.strictEqual(r.status, 'waiting for Kiko');
+  const row = t.tabs.Relay.rows[1]; assert.deepStrictEqual([row[2], row[3], row[7]], ['chatgpt', 'claude', 'new']);
+  const th = row[10], s = t.state(th); assert.strictEqual(s.kind, 'relay'); assert.strictEqual(s.status, 'Needs you');
+  assert.ok(t.tabs.Chat.rows.some(c => c[3] === '>' + th && /ChatGPT to Claude \(Canvas Integration\): Zapier step 5/.test(c[2])));
+  const claude = { action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CLAUDE };
+  assert.strictEqual(t.post(claude).notes.length, 0, 'not before Pass on');
+  const v = t.ctx.cueRelayAct(th, r.id, 'pass'); assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.relay.notes[0].status, 'passed');
+  const got = t.post(claude).notes; assert.strictEqual(got.length, 1); assert.strictEqual(got[0].from, 'chatgpt'); deq(got[0].links, GPT_NOTE.links);
+  assert.strictEqual(t.post({ action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CUE }).notes.length, 0, 'Claude in Cue sees only its own');
+  assert.strictEqual(t.post({ action: 'relay_read', key: RKEYS.CUE_RELAY_KEY_CHATGPT, ids: [r.id] }).read, 0, 'only the receiver marks read');
+  assert.strictEqual(t.post({ action: 'relay_read', key: RKEYS.CUE_RELAY_KEY_CLAUDE, ids: [r.id] }).read, 1);
+  assert.strictEqual(t.post(claude).notes.length, 0);
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0);
+});
+
+test('RL2 the relay refuses bank details, keys, plain-http links, notes to oneself, oversize notes and a full queue', () => {
+  const t = relayBox(), post = x => t.post(Object.assign({}, GPT_NOTE, x));
+  assert.ok(/bank details/.test(post({ body: 'Pay to BDO account number 0012 3456 7890' }).error));
+  assert.ok(/API key/.test(post({ body: 'use sk-ant-' + 'z'.repeat(30) }).error));
+  assert.ok(/password/.test(post({ body: 'login password: hunter2' }).error));
+  assert.ok(/https/.test(post({ links: ['http://insecure.example'] }).error));
+  assert.ok(/someone else/.test(post({ to: 'chatgpt' }).error));
+  assert.ok(/to must be/.test(post({ to: 'kiko' }).error));
+  assert.ok(/too long/.test(post({ body: 'x'.repeat(20001) }).error));
+  assert.ok(!t.tabs.Relay, 'nothing stored');
+  for (let i = 0; i < 30; i++) assert.ok(post({ topic: 'T' + i }).ok);
+  assert.ok(/waiting already/.test(post({}).error));
+});
+
+test('RL3 with the gate off notes pass on at once; one thread per topic; a reply on the topic joins it', () => {
+  const t = relayBox({ props: { CUE_RELAY_GATE: 'off' } });
+  const a = t.post(GPT_NOTE); assert.strictEqual(a.status, 'passed on');
+  const b = t.post({ action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CLAUDE, to: 'chatgpt', topic: 'zapier STEP 5', body: 'Fixed in 6abe420.' });
+  const rows = t.tabs.Relay.rows.slice(1); assert.strictEqual(rows[0][10], rows[1][10]); assert.strictEqual(t.state(rows[0][10]).status, 'Done');
+  assert.strictEqual(t.post({ action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CHATGPT }).notes[0].id, b.id);
+});
+
+test('RL4 claude.ai adds a row to the Relay tab with the Sheets connector; the 5-minute tick checks and shows it', () => {
+  const t = relayBox(); t.ctx.cueState(); t.ctx.cueRelaySheet_();
+  t.tabs.Relay.appendRow(['', '', 'claude', 'cue', 'Bridge change', 'Release v203-main adds action ce_lines_v2.', '', 'new']);
+  t.tabs.Relay.appendRow(['', '', 'chatgpt', 'claude', 'Spoof', 'pretend', '', 'new']);
+  t.tabs.Relay.appendRow(['', '', 'claude', 'chatgpt', 'Bank', 'account no. 123', '', 'new']);
+  t.ctx.cueResume();
+  const rows = t.tabs.Relay.rows.slice(1);
+  assert.deepStrictEqual(rows.map(r => r[7]), ['new', 'refused', 'refused']); assert.ok(rows.every(r => /^rl-/.test(r[0])));
+  assert.ok(/Only Claude/.test(rows[1][9])); assert.ok(/bank details/.test(rows[2][9]));
+  t.ctx.cueRelayAct(rows[0][10], rows[0][0], 'pass');
+  assert.strictEqual(t.post({ action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CUE }).notes[0].topic, 'Bridge change');
+  t.ctx.cueResume(); assert.strictEqual(t.tabs.Relay.rows.length, 4, 'picked up once');
+});
+
+test('RL5 "tell ChatGPT: …" in the chat is Kiko\'s own note, passed on at once with no AI call; Drop keeps a note back', () => {
+  const t = relayBox(), r = t.ctx.cueSend('tell ChatGPT: please review the Step 5 diff in Drive https://drive.google.com/file/d/abc', [], '');
+  const row = t.tabs.Relay.rows[1]; assert.deepStrictEqual([row[2], row[3], row[7]], ['kiko', 'chatgpt', 'passed']); assert.strictEqual(row[6], 'https://drive.google.com/file/d/abc');
+  assert.strictEqual(r.request_id, row[10]); assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0);
+  assert.strictEqual(t.post({ action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CHATGPT }).notes.length, 1);
+  assert.throws(() => t.ctx.cueSend('tell claude: account number 1234567890', [], ''), /bank details/);
+  const n = t.post(Object.assign({}, GPT_NOTE, { topic: 'Other' })), th = t.tabs.Relay.rows.find(x => x[0] === n.id)[10];
+  t.ctx.cueRelayAct(th, n.id, 'drop'); assert.strictEqual(t.post({ action: 'relay_list', key: RKEYS.CUE_RELAY_KEY_CLAUDE }).notes.length, 0);
+  assert.throws(() => t.ctx.cueRelayAct(r.request_id, n.id, 'pass'), /not in this thread/);
+});
+
+test('RL6 Settings makes the three keys, New key replaces only one, and only Kiko can', () => {
+  const t = sandbox(); let u0 = 0; t.ctx.Utilities.getUuid = () => (++u0).toString(16).padStart(8, '0') + '-0000-4000-8000-000000000000'; const s = t.ctx.cueRelayKeys('');
+  const k = JSON.parse(JSON.stringify(s.relay.keys)); assert.deepStrictEqual(k.map(x => x.slot), ['chatgpt', 'claude', 'cue']); assert.ok(k.every(x => /^cr_[0-9a-f]{64}$/.test(x.key)));
+  const s2 = JSON.parse(JSON.stringify(t.ctx.cueRelayKeys('claude').relay.keys));
+  assert.strictEqual(s2[0].key, k[0].key); assert.notStrictEqual(s2[1].key, k[1].key); assert.strictEqual(s2[2].key, k[2].key);
+  assert.strictEqual(t.ctx.cueRelayGate(false).relay.gate, false);
+  const u = sandbox({ viewer: 'someone@else.test' }); assert.throws(() => u.ctx.cueRelayKeys(''), /private/);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
