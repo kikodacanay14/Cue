@@ -132,6 +132,8 @@ function sandbox(o = {}) {
   const step = o.step == null ? 5000 : o.step;
   const route = req => {
     const u = req.url, body = typeof req.payload === 'string' && /^[{\[]/.test(req.payload) ? JSON.parse(req.payload) : null;
+    if (u.indexOf('files.oaiusercontent.com') >= 0) { (log.oai = log.oai || []).push(u); const b = Buffer.from('fake quote ' + u.split('/').pop());   // ChatGPT's own upload (openaiFileIdRefs)
+      return o.oaiFail ? resp(403, {}) : { getResponseCode: () => 200, getContent: () => Array.from(b), getContentText: () => b.toString('utf8') }; }
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();
@@ -408,7 +410,7 @@ function sandbox(o = {}) {
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
-    ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
+    ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { after: () => tb, everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
       computeDigest: (_a, v) => Array.from(crypto.createHash('sha256').update(Buffer.from(v.map(x => x & 255))).digest()).map(b => (b > 127 ? b - 256 : b)),
@@ -1598,7 +1600,7 @@ test('X4 approve needs every doubt ticked and the same files; then Canvas record
   assert.throws(() => t.ctx.cueApprove(t.id, { cleared: [0], files: [Object.assign({}, JPG, { data: Buffer.from('another photo').toString('base64') })] }), /not in this page any more/);
   assert.ok(!t.log.recorded);
   const v = t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG], amount: '450' });
-  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.recorded.length, 1);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.recorded.length, 1); assert.strictEqual(t.state(t.id).status, 'Done', 'saved, not left at Writing to Canvas');
   const a = t.log.recorded[0].args; assert.strictEqual(t.log.recorded[0].pid, 'S-25506500TR');
   deq([a.plan.new_scope.requirement_id, a.plan.award, a.plan.paid, a.files[0].role, a.files[0].mime], ['REQ26-10017-05', true, 'cash', 'receipt', 'image/jpeg']);
   assert.ok(t.tabs.Chat.rows.some(r => /Summary for ₱450\.00 Duct Tapes for Trick or Treat – Manila: recorded in Canvas as AP-ACE-TRI-1 on new scope SCP26-017-47, paid; every row read back correctly; receipt filed/.test(r[2])));
@@ -4170,7 +4172,7 @@ test('CC2 Approve writes only the ticked lines, with Kiko\'s edit and the old co
   deq(t.log.ceWrites.length, 1); const w = t.log.ceWrites[0];
   assert.strictEqual(w.project_id, 'S-31628060SP');
   deq(w.args.lines, [{ req_id: 'REQ-1', unit_cost: 85000, was: 70000 }, { req_id: 'REQ-3', unit_cost: 1200 }]);
-  assert.strictEqual(v.status, 'Done');
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.state(t.id).status, 'Done', 'saved, not left at Writing to Canvas');
   const sum = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Summary for CE costs, JBL Booth Fabrication: updated 2 unit costs on the CE \(CE-047-V2\)/.test(x));
   assert.strictEqual(sum.length, 2, 'main chat and thread'); assert.ok(/Booth Fabrication ₱70,000 to ₱85,000/.test(sum[0]), sum[0]);
   assert.throws(() => t.ctx.cueApprove(t.id, {}), /not waiting for you/);
@@ -4517,7 +4519,7 @@ test('ST6 the client-safe check (code): money, supplier names and an open risk\'
 // AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z, specs/ai-relay.md): Cue carries notes between ChatGPT and Claude. No AI call.
 const RKEYS = { CUE_RELAY_KEY_CHATGPT: 'cr_' + 'a'.repeat(64), CUE_RELAY_KEY_CLAUDE: 'cr_' + 'b'.repeat(64), CUE_RELAY_KEY_CUE: 'cr_' + 'c'.repeat(64) };
 const relayBox = (o = {}) => { const t = sandbox(Object.assign({}, o, { props: Object.assign({}, RKEYS, { CUE_RELAY_GATE: 'on' }, o.props || {}) }));   // the gate tests; RL3 runs the default (off)
-  t.post = q => JSON.parse(t.ctx.doPost({ postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
+  t.post = (q, path) => JSON.parse(t.ctx.doPost({ pathInfo: path != null ? path : q && q.action === 'relay_task_confirm' ? 'confirm' : undefined, postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
 const GPT_NOTE = { action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CHATGPT, to: 'claude', topic: 'Zapier step 5', body: 'Step 5 still maps f9 from the old field. Please check zap-steps.js line 120.', links: ['https://github.com/kikodacanay14/CanvasWorkspace/pull/2'] };
 
 test('RL1 a note waits for Kiko\'s Pass on, then the receiver lists it once and marks it read; no AI call', () => {
@@ -4595,6 +4597,118 @@ test('RL6 Settings makes the three keys, New key replaces only one, and only Kik
   assert.throws(() => t.ctx.cueRelayUrlSet('https://evil.example/exec'), /relay address/);
   assert.strictEqual(t.ctx.cueRelayUrlSet('https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec').relay.url, 'https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec');
   const u = sandbox({ viewer: 'someone@else.test' }); assert.throws(() => u.ctx.cueRelayKeys(''), /private/);
+});
+
+// 1.31 (Kiko 23 Oct 04:13Z "If i started in gpt i want the process to complete in gpt"): ChatGPT reads Canvas, hands Cue work and
+// confirms the write itself after Kiko says yes. The relay door has no signed-in viewer, so these run as someone who is not Kiko.
+const PDF64 = Buffer.from('%PDF-1.4 merry quote').toString('base64');
+const gptBox = (o = {}) => relayBox(Object.assign({ viewer: 'anyone@example.com', props: { CUE_RELAY_GATE: '' } }, o));
+const GK = RKEYS.CUE_RELAY_KEY_CHATGPT;
+const kick = t => { assert.ok((t.log.triggers || []).indexOf('cueRelayKick') >= 0, 'a one-off trigger starts it'); t.ctx.cueRelayKick(); };
+
+test('RL7 canvas_read: only the allow-listed reads, a real project ID, bank and signature fields stripped; never a write', () => {
+  const t = gptBox({ snap: { projects: [{ project_id: 'S-31628060SP', ce_total: 98000, bank_account: '1234-5678', payees: [{ name: 'Ace', account_no: '99', signature_url: 'x' }] }] } });
+  const r = t.post({ action: 'canvas_read', key: GK, read: 'finance_snapshot', args: { project_ids: ['S-31628060SP'] } });
+  assert.ok(r.ok, JSON.stringify(r)); deq(r.result, { projects: [{ project_id: 'S-31628060SP', ce_total: 98000, payees: [{ name: 'Ace' }] }] });
+  deq(t.log.snapArgs, { project_ids: ['S-31628060SP'] });
+  assert.ok(/takes only/.test(t.post({ action: 'canvas_read', key: GK, read: 'ce_update_costs', args: {} }).error));
+  assert.ok(/takes only/.test(t.post({ action: 'canvas_read', key: GK, read: 'record_expense' }).error));
+  assert.ok(/Canvas project ID/.test(t.post({ action: 'canvas_read', key: GK, read: 'ce_lines', project_id: 'Merry GCash' }).error));
+  assert.strictEqual(t.post({ action: 'canvas_read', key: 'cr_' + 'z'.repeat(64), read: 'ce_lines' }).error, 'Not allowed.');
+  assert.ok(t.post({ action: 'canvas_read', key: GK, read: 'ce_lines', project_id: 's-31628060sp' }).result.lines.length === 3);
+  deq(t.log.bridge.map(b => b.action), ['finance_snapshot', 'ce_lines'], 'refused reads never reach Canvas');
+});
+
+test('RL8 CE costs from ChatGPT, start to finish in ChatGPT: queued, Cue matches, proposal with a one-time code, Kiko confirms, Canvas saved', () => {
+  const t = gptBox({ gpt: { cecost: CEC_MATCH }, search: { 'jbl booth': { projects: [{ project_id: 'S-31628060SP', name: 'JBL Booth Fabrication', account: 'JBL', date: '2026-11-05' }], total: 1 } } });
+  const q = t.post({ action: 'relay_task', key: GK, kind: 'ce_cost', project: 'JBL Booth', text: 'Zaina sent revised costs, see the quote.',
+    openaiFileIdRefs: [{ name: 'quote.pdf', id: 'file-1', mime_type: 'application/pdf', download_link: 'https://files.oaiusercontent.com/file-1' }] });
+  assert.ok(q.ok, JSON.stringify(q)); assert.strictEqual(q.state, 'queued'); assert.strictEqual(t.log.oai.length, 1, 'ChatGPT\'s file fetched at once');
+  assert.strictEqual(t.post({ action: 'relay_task_status', key: GK, id: q.id }).state, 'queued');
+  assert.strictEqual(t.post({ action: 'relay_task_status', key: RKEYS.CUE_RELAY_KEY_CUE, id: q.id }).ok, false, 'only the sender sees its task');
+  kick(t);
+  assert.ok((t.log.triggers || []).indexOf('cueRelayKick') < 0, 'the one-off trigger removes itself');
+  const st = t.post({ action: 'relay_task_status', key: GK, id: q.id });
+  assert.strictEqual(st.state, 'needs_kiko', JSON.stringify(st)); assert.ok(/^\d{6}$/.test(st.confirm_code));
+  deq(st.proposal.lines.map(l => [l.key, l.cost_now, l.cost_new, l.change]), [['L1', 70000, 85000, true], ['L2', 5000, 6000, true], ['L3', null, null, false]]);
+  const g = t.log.gpt.filter(b => b.text.format.name === 'cecost'); assert.strictEqual(g.length, 1, 'one AI call');
+  assert.ok(g[0].input[0].content.some(p => p.type === 'input_file' && p.filename === 'quote.pdf'), 'the quote ChatGPT sent is read');
+  assert.ok(!t.log.ceWrites, 'nothing written before the confirm');
+  assert.strictEqual(t.post({ action: 'relay_task_status', key: GK, id: q.id }).confirm_code, st.confirm_code, 'same proposal, same code');
+  assert.ok(/old or wrong/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: '000000' }).error));
+  assert.ok(/goes to \/exec\/confirm/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code }, '').error), 'never through the plain path');
+  assert.ok(/Only relay_task_confirm/.test(t.post({ action: 'canvas_read', key: GK, read: 'ce_lines' }, 'confirm').error));
+  const done = t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code, edits: { rows: { L2: { tick: false } } } });
+  assert.strictEqual(done.state, 'done', JSON.stringify(done));
+  deq(t.log.ceWrites.length, 1); deq(t.log.ceWrites[0].args.lines, [{ req_id: 'REQ-1', unit_cost: 85000, was: 70000 }]);
+  deq(done.result.saved.map(x => [x.req_id, x.saved]), [['REQ-1', true]]);
+  assert.ok(/old or wrong|not waiting/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code }).error), 'a code works once');
+  assert.ok(t.tabs.Chat.rows.some(r => /Kiko confirmed this in ChatGPT/.test(r[2])), 'Cue\'s thread shows who confirmed');
+});
+
+test('RL9 a code goes stale after 10 minutes; Settings can switch ChatGPT confirms off; a question comes back and Kiko\'s answer carries on', () => {
+  const t = gptBox({ gpt: { cecost: CEC_MATCH }, search: { 'jbl booth': { projects: [{ project_id: 'S-31628060SP', name: 'JBL Booth Fabrication' }], total: 1 } } });
+  const q = t.post({ action: 'relay_task', key: GK, kind: 'ce_cost', project: 'JBL Booth', text: 'Booth fabrication 85,000.' });
+  kick(t);
+  const st = t.post({ action: 'relay_task_status', key: GK, id: q.id }); t.ctx.__wait(11 * 60 * 1000);
+  assert.ok(/old or wrong/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code }).error));
+  const st2 = t.post({ action: 'relay_task_status', key: GK, id: q.id }); assert.notStrictEqual(st2.confirm_code, st.confirm_code);
+  t.props.CUE_RELAY_WRITES = 'off';
+  assert.ok(/turned off/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st2.confirm_code }).error)); assert.ok(!t.log.ceWrites);
+  const u = gptBox({ gpt: { cecost: CEC_MATCH } });
+  const a = u.post({ action: 'relay_task', key: GK, kind: 'ce_cost', project: 'Nowhere Fest', text: 'Booth 85,000' }); kick(u);
+  const qn = u.post({ action: 'relay_task_status', key: GK, id: a.id });
+  deq([qn.state, /no project like "Nowhere Fest"/.test(qn.question)], ['question', true]);
+  assert.ok(!qn.confirm_code, 'nothing to confirm yet');
+});
+
+test('RL10 an expense from ChatGPT with its receipt: Cue reads it, Kiko clears the points in ChatGPT, Canvas records it with the same file', () => {
+  const t = gptBox();
+  const q = t.post({ action: 'relay_task', key: GK, kind: 'expense', text: XTEXT, files: [JPG] }); assert.ok(q.ok, JSON.stringify(q));
+  kick(t);
+  const st = t.post({ action: 'relay_task_status', key: GK, id: q.id });
+  assert.strictEqual(st.state, 'needs_kiko', JSON.stringify(st)); assert.strictEqual(st.proposal.plan.route, 'new_scope');
+  deq(st.proposal.points_to_check.map(x => x.n), [0]);
+  assert.ok(t.log.gpt.some(b => b.text.format.name === 'expense' && b.input[0].content.some(p => p.type === 'input_image')), 'the receipt is read');
+  const bad = t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code });
+  assert.ok(/Tick each point/.test(bad.error), JSON.stringify(bad)); assert.ok(!t.log.recorded);
+  const st2 = t.post({ action: 'relay_task_status', key: GK, id: q.id });
+  const done = t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st2.confirm_code, edits: { cleared: [0], files: [] } });
+  assert.strictEqual(done.state, 'done', JSON.stringify(done)); assert.strictEqual(t.log.recorded.length, 1);
+  deq([t.log.recorded[0].args.files[0].mime, t.log.recorded[0].args.files[0].data], ['image/jpeg', JPG.data], 'the file ChatGPT sent, from Cue\'s Drive');
+  deq(done.result.canvas.request_id, 'AP-ACE-TRI-1');
+});
+
+test('RL12 a project intake from ChatGPT runs Cue\'s phased intake; phase 1 comes back to confirm, and RFQ emails never go through the relay', () => {
+  const t = gptBox({ phased: true });
+  const q = t.post({ action: 'relay_task', key: GK, kind: 'intake', text: 'Telus wants a Trick or Treat booth in BGC on 25 Oct, 300 pax, ingress 24 Oct.', files: [{ name: 'brief.pdf', type: 'application/pdf', data: PDF64 }] });
+  assert.ok(q.ok, JSON.stringify(q)); kick(t);
+  const row = t.tabs.Relay.rows.find(r => r[0] === q.id); assert.strictEqual(row[7], 'started', JSON.stringify(row));
+  const s = t.state(row[10]); deq([s.kind, s.phased, s.files.map(f => f.name)], ['intake', true, ['brief.pdf']]);
+  assert.ok(/^From ChatGPT: Telus wants/.test(s.text));
+  let st = t.post({ action: 'relay_task_status', key: GK, id: q.id });
+  for (let i = 0; i < 3 && st.state === 'working'; i++) { t.ctx.cueRelayKick(); st = t.post({ action: 'relay_task_status', key: GK, id: q.id }); }
+  assert.strictEqual(st.state, 'needs_kiko', JSON.stringify(st).slice(0, 400)); assert.ok(/phase 1 of 4/.test(st.proposal.what));
+  const c1 = t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code });
+  assert.ok(c1.ok, JSON.stringify(c1).slice(0, 400)); assert.ok(t.log.bridge.some(b => b.action === 'intake_add_project'), 'phase 1 writes the project, as Approve does');
+  const x = t.ctx.cueLoad_(row[10]); x.s.status = 'Needs you'; x.s.phase = 4; t.ctx.cueSave_(x.sh, x.row, x.s);
+  const p4 = t.post({ action: 'relay_task_status', key: GK, id: q.id });
+  deq([p4.state, /emails never go through the relay/.test(p4.say), !!p4.confirm_code], ['done', true, false]);
+  assert.ok(/not waiting/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code }).error), 'no RFQ send from ChatGPT');
+});
+
+test('RL11 relay tasks refuse bad input before any AI call: kind, project, file types, size, bank details, a failed download, the queue cap', () => {
+  const t = gptBox({ oaiFail: true }), post = x => t.post(Object.assign({ action: 'relay_task', key: GK }, x));
+  assert.ok(/kind is/.test(post({ kind: 'delete', text: 'x' }).error));
+  assert.ok(/Give project/.test(post({ kind: 'ce_cost', text: 'costs' }).error));
+  assert.ok(/photos .* or PDFs/.test(post({ kind: 'expense', text: 'receipt', files: [{ name: 'a.txt', type: 'text/plain', data: 'aGk=' }] }).error));
+  assert.ok(/more than 6 MB/.test(post({ kind: 'expense', text: 'receipt', files: [{ name: 'a.pdf', type: 'application/pdf', data: 'A'.repeat(9 * 1024 * 1024) }] }).error));
+  assert.ok(/bank details/.test(post({ kind: 'expense', text: 'Pay Ace, account number 1234-5678' }).error));
+  assert.ok(/download failed/.test(post({ kind: 'expense', text: 'receipt', openaiFileIdRefs: [{ name: 'r.jpg', mime_type: 'image/jpeg', download_link: 'https://files.oaiusercontent.com/r' }] }).error));
+  for (let i = 0; i < 10; i++) assert.ok(post({ kind: 'intake', text: 'Client needs a 3x3 booth in BGC on 5 Nov, 200 pax. ' + i }).ok);
+  assert.ok(/10 of your tasks queued/.test(post({ kind: 'intake', text: 'Client needs a 3x3 booth in BGC on 5 Nov, 200 pax.' }).error));
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call at the door');
+  assert.strictEqual(t.log.triggers.filter(h => h === 'cueRelayKick').length, 1, 'one waiting trigger, not one per task');
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

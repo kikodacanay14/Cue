@@ -1391,6 +1391,7 @@
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
     var RL = S.relay || { keys: [] };
     setHtml($('w-relay'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
+      + '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-relay-writes="on"' + (RL.writes !== false ? ' checked' : '') + '> <b>I can confirm Canvas changes in ChatGPT</b></label>'
       + '<div class="small muted" style="margin-top:6px">ChatGPT and Claude leave notes for each other in Cue. Each key opens the relay for one of them; paste it into that app yourself and never into a chat. New key stops the old one at once.</div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay URL</b><input data-relay-url placeholder="From the deploy: https://script.google.com/macros/s/…/exec" value="' + esc(RL.url || '') + '" style="flex:1;min-width:180px"><button class="btn ghost" data-relay-save="1">Save</button></div>'
       + RL.keys.map(function (k) { return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">' + esc(k.who) + '</b>'
@@ -1398,6 +1399,8 @@
         + '<button class="btn ghost" data-relay-key="' + esc(k.slot) + '">' + (k.key ? 'New key' : 'Make key') + '</button></div>'; }).join('') + '</div>');
     setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
   }
+  $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-writes]'); if (!c) return; c.disabled = true;
+    call('cueRelayWrites', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-gate]'); if (!c) return; c.disabled = true;
     call('cueRelayGate', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   $('w-relay').addEventListener('click', function (e) { var sv = e.target.closest('[data-relay-save]'); if (!sv) return; sv.disabled = true;
@@ -1780,7 +1783,7 @@
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-ccard="' + esc(r.id) + '"><div class="label" style="margin-top:0">CE costs</div>'
       + '<b style="font-size:17px;color:#fff">' + esc(pj.name || c.ask || 'CE costs') + '</b>' + (c.ce_no ? ' <span class="small muted">' + esc(c.ce_no) + '</span>' : '')
       + ((c.others || []).length && !done ? '<div class="small muted">Canvas also found: ' + c.others.map(function (o) { return esc(o.name); }).join(', ') + '. Not this project? Close this and say the right one.</div>' : '')
-      + (em ? '<div class="small" style="margin-top:4px">From ' + esc(em.from) + ' · <a href="' + esc(em.url) + '" target="_blank" rel="noopener">' + esc(em.subject) + '</a> · ' + esc(em.date)
+      + (em ? '<div class="small" style="margin-top:4px">From ' + esc(em.from) + ' · ' + (em.url ? '<a href="' + esc(em.url) + '" target="_blank" rel="noopener">' + esc(em.subject) + '</a>' : esc(em.subject)) + ' · ' + esc(em.date)
         + ((em.files || []).length ? ' · 📎 ' + em.files.map(esc).join(', ') : '') + '</div>' : '');
     if (r.error) h += '<div class="' + (waiting ? 'err' : 'warn') + '">' + esc(r.error) + '</div>';
     var rows = c.rows || [], shown = waiting ? rows : rows.filter(function (x) { return x.tick; });

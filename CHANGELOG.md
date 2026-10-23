@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.31: ChatGPT reads Canvas and hands Cue work, start to finish in ChatGPT (not deployed)
+
+Kiko 23 Oct 03:59Z (relay jobs 2 and 3), 04:07Z (a worker inside Cue does the Canvas work), 04:13Z ("I just want to talk to 1. If i started in gpt i want the process to complete in gpt") and 04:15Z ("Please make my life easier"). Kiko's decision replaces "ChatGPT never writes to Canvas" with "ChatGPT can trigger Cue's Canvas write after Kiko confirms in ChatGPT". ChatGPT still writes nothing itself.
+
+- `canvas_read`: ChatGPT reads Canvas through the signed bridge, read only. Allowed reads: search_projects, get_project, get_project_board, ce_lines, list_project_files, get_readiness, status_digest, finance_snapshot, overdue_billings, ar_list (Kiko 04:03Z: money reads allowed). Fields named like bank, account number, signature, password, secret or token are removed from the answer.
+- `relay_task`: ChatGPT hands over a CE cost change (project plus the costs or quote), an expense (with the receipt or transfer screenshot) or a project intake. Files come as base64 or as ChatGPT's own uploads (`openaiFileIdRefs`): photos or PDFs, 4 at most, 6 MB together. Cue saves them in its Drive folder and queues the task. A one-off trigger starts it within about a minute; the 5-minute tick is the fallback. It runs as the same Cue task Kiko would start, with the same AI calls (CE costs: 1 GPT call; expense: GPT plus Claude) and the same card in Cue.
+- `relay_task_status`: queued, working, a question (answered with `relay_task_reply`), waiting for Kiko with the proposal, or done with what Canvas saved.
+- `relay_task_confirm`: Kiko's yes, given in ChatGPT. It is accepted only at `/exec/confirm`, which the GPT Action marks consequential, so ChatGPT shows its own Allow prompt every time. Cue also wants the one-time code it gave out with that exact proposal; the code works once and only for 10 minutes. Cue then writes to Canvas once, as Approve on its card does. A thread line says "Kiko confirmed this in ChatGPT".
+- Never through the relay: emails and RFQs (an intake stops after phase 3; Kiko sends the RFQs from Cue), cancels and deletes. Settings > AI relay > "I can confirm Canvas changes in ChatGPT" (on) turns every ChatGPT confirm off.
+- Fix: after Approve, a CE cost or expense task stayed "Writing to Canvas" in the Cue sheet, so a reload showed it still writing. The finished state is now saved.
+- The CE cost card shows the source without a Gmail link when the costs came from ChatGPT.
+- Tests: 333 of 333 pass (new RL7 to RL12; CC2 and X4 check the saved state).
+
 ## Cue 1.30.1: Deploy Cue makes the relay's door (not deployed)
 
 Kiko 23 Oct 03:56Z picked "Add it to Deploy Cue".
