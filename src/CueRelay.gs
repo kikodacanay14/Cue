@@ -3,8 +3,9 @@
  *   - ChatGPT (custom GPT "Cue relay", one Action) and Claude Code (curl) post to doPost on the relay deployment with their key.
  *     claude.ai (the "Canvas Integration" project) has no way to POST, so it appends a row to the Relay tab with the Google
  *     Sheets connector (ID blank, From claude); the 5-minute tick picks those rows up and checks them the same way.
- *   - Every note lands in the Relay tab and in a thread per topic. It waits for Kiko's Pass on (or Drop); Script Property
- *     CUE_RELAY_GATE=off passes notes on at once and Kiko only watches. Kiko can write one too: "tell Claude: ...".
+ *   - Every note lands in the Relay tab and in a thread per topic. Notes pass on at once and Kiko watches (Kiko 04:10Z: yes
+ *     to "notes between the AIs pass automatically"; Canvas writes, emails and money still wait for Kiko's tap on their own
+ *     cards). Script Property CUE_RELAY_GATE=on makes every note wait for Pass on (or Drop). Kiko can write one too: "tell Claude: ...".
  *   - The receiver lists its passed-on notes and marks them read.
  * Never: a note is data, never an instruction to Cue. The relay writes only the Relay tab and its threads: never Canvas,
  * HubSpot or Gmail, and it sends nothing. Bank details, passwords and API keys are refused. Keys live in Script Properties
@@ -121,7 +122,7 @@ function cueRelayId_() { return 'rl-' + Utilities.formatDate(new Date(cueNow_())
 
 /** A checked note gets its status and topic thread, and the thread says it arrived. Runs inside the lock. */
 function cueRelayLand_(sh, n) {
-  const gate = n.from !== 'kiko' && cueProp_('CUE_RELAY_GATE', 'on') !== 'off';
+  const gate = n.from !== 'kiko' && cueProp_('CUE_RELAY_GATE', 'off') === 'on';
   n.status = gate ? 'new' : 'passed';
   n.thread = cueRelayThread_(n.topic);
   cueRelayWrite_(sh, n);
@@ -222,14 +223,14 @@ function cueRelayAct(id, nid, what) {
 /** What the card shows: every note in this thread, oldest first (the last 30). */
 function cueRelayView_(s) {
   let rows = []; try { rows = cueRelayRows_(cueRelaySheet_()).filter(r => r.thread === s.id); } catch (e) { console.warn('Relay view: ' + e); }
-  return { topic: (s.relay || {}).topic || '', gate: cueProp_('CUE_RELAY_GATE', 'on') !== 'off',
+  return { topic: (s.relay || {}).topic || '', gate: cueProp_('CUE_RELAY_GATE', 'off') === 'on',
     notes: rows.slice(-30).map(r => ({ id: r.id, at: r.time, from: CUE_RELAY_WHO_[r.from] || r.from, to: CUE_RELAY_WHO_[r.to] || r.to, body: r.body,
       links: r.links.filter(u => /^https:\/\//.test(u)), status: r.status, note: r.note })) };
 }
 
 /* ---------- Settings: keys, the gate, the URL ---------- */
 function cueRelaySettings_() {
-  return { url: cueProp_('CUE_RELAY_URL', ''), gate: cueProp_('CUE_RELAY_GATE', 'on') !== 'off',
+  return { url: cueProp_('CUE_RELAY_URL', ''), gate: cueProp_('CUE_RELAY_GATE', 'off') === 'on',
     keys: CUE_RELAY_SENDERS_.map(w => ({ slot: w, who: CUE_RELAY_WHO_[w], key: cueProp_('CUE_RELAY_KEY_' + w.toUpperCase(), '') })) };
 }
 /** Makes the missing keys, or replaces one (who = chatgpt | claude): the old key stops working at once. */
@@ -240,6 +241,15 @@ function cueRelayKeys(who) {
     const k = 'CUE_RELAY_KEY_' + w.toUpperCase();
     if (w === who || !P.getProperty(k)) P.setProperty(k, 'cr_' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
   });
+  return cueSettings();
+}
+/** Saves the relay address that Deploy Cue printed ("Cue relay is on Version N: <url>"). Empty clears it. */
+function cueRelayUrlSet(url) {
+  cueOwner_();
+  const u = String(url || '').trim();
+  if (u && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]{20,}\/exec$/.test(u)) throw new Error('Paste the relay address from the deploy, like https://script.google.com/macros/s/…/exec');
+  const P = PropertiesService.getScriptProperties();
+  if (u) P.setProperty('CUE_RELAY_URL', u); else P.deleteProperty('CUE_RELAY_URL');
   return cueSettings();
 }
 function cueRelayGate(on) {

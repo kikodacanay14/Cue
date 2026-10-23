@@ -3,6 +3,10 @@
 // check only reads: it shows what would change between the live version and src/. preview pushes src/ to the project's
 // head only, so Cue's test link (/dev) runs the new code while the live web app (/exec) stays on its Version. deploy replaces every file in the
 // Cue project with src/, makes a new version, points Cue's web app (same /exec address) at it, and reads it back.
+// AI relay (Kiko 23 Oct 2026, "Add it to Deploy Cue"; src/CueRelay.gs): deploy then makes a second version whose manifest
+// says access ANYONE_ANONYMOUS and points the deployment described "Cue relay" at it (made on the first run). Apps Script
+// takes web-app access from a version's manifest, so the page's /exec stays MYSELF. On that deployment every page call
+// stops at cueOwner_ and doPost answers only relay calls with a key. Head (/dev) is pushed back to the MYSELF manifest.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -46,6 +50,9 @@ const dep = clasp(work, 'list-deployments').find(d => d.deploymentId === cfg.dep
 if (!dep) fail('Cue web app deployment not found in that project');
 const live = dep.versionNumber;
 console.log(`Cue web app is on Version ${live || '(head)'}`);
+const RELAY_DESC = 'Cue relay';
+const relayDep = () => clasp(work, 'list-deployments').find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(RELAY_DESC));
+{ const r = relayDep(); console.log(r ? `Cue relay is on Version ${r.versionNumber}: https://script.google.com/macros/s/${r.deploymentId}/exec` : 'Cue relay: no deployment yet (the next mode=deploy makes it)'); }
 if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
 if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.exit(0); }
 
@@ -80,3 +87,23 @@ const line = `Cue is live as Version ${done.versionNumber} (was ${live || 'head'
 console.log('LIVE: ' + line);
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
 if (done.versionNumber !== versionNumber || bad) fail('after-deploy check failed');
+
+// The relay: same files, manifest access ANYONE_ANONYMOUS, its own version and deployment. Head goes back to MYSELF after.
+const man = path.join(pushDir, 'src', 'appsscript.json'), mine = fs.readFileSync(man, 'utf8'), m = JSON.parse(mine);
+if (!m.webapp || m.webapp.access !== 'MYSELF' || m.webapp.executeAs !== 'USER_DEPLOYING') fail('appsscript.json webapp must be MYSELF / USER_DEPLOYING');
+m.webapp.access = 'ANYONE_ANONYMOUS';
+let relayLine;
+try {
+  fs.writeFileSync(man, JSON.stringify(m, null, 2) + '\n');
+  clasp(pushDir, 'push', '--force');
+  const rv = clasp(pushDir, 'create-version', desc + ' relay').versionNumber, was = relayDep(), rdesc = RELAY_DESC + ' (' + desc + ')';
+  const r = was ? clasp(pushDir, 'update-deployment', was.deploymentId, '--versionNumber', String(rv), '--description', rdesc)
+    : clasp(pushDir, 'create-deployment', '--versionNumber', String(rv), '--description', rdesc);
+  const id = r.deploymentId || (was && was.deploymentId) || (relayDep() || {}).deploymentId;
+  relayLine = `Cue relay is on Version ${rv} (was ${was ? was.versionNumber : 'none'}): https://script.google.com/macros/s/${id}/exec`;
+} finally {
+  fs.writeFileSync(man, mine);
+  clasp(pushDir, 'push', '--force');   // head and /dev stay owner-only
+}
+console.log('RELAY: ' + relayLine);
+if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, relayLine + '\n');

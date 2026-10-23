@@ -4516,7 +4516,7 @@ test('ST6 the client-safe check (code): money, supplier names and an open risk\'
 
 // AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z, specs/ai-relay.md): Cue carries notes between ChatGPT and Claude. No AI call.
 const RKEYS = { CUE_RELAY_KEY_CHATGPT: 'cr_' + 'a'.repeat(64), CUE_RELAY_KEY_CLAUDE: 'cr_' + 'b'.repeat(64), CUE_RELAY_KEY_CUE: 'cr_' + 'c'.repeat(64) };
-const relayBox = (o = {}) => { const t = sandbox(Object.assign({}, o, { props: Object.assign({}, RKEYS, o.props || {}) }));
+const relayBox = (o = {}) => { const t = sandbox(Object.assign({}, o, { props: Object.assign({}, RKEYS, { CUE_RELAY_GATE: 'on' }, o.props || {}) }));   // the gate tests; RL3 runs the default (off)
   t.post = q => JSON.parse(t.ctx.doPost({ postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
 const GPT_NOTE = { action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CHATGPT, to: 'claude', topic: 'Zapier step 5', body: 'Step 5 still maps f9 from the old field. Please check zap-steps.js line 120.', links: ['https://github.com/kikodacanay14/CanvasWorkspace/pull/2'] };
 
@@ -4553,8 +4553,8 @@ test('RL2 the relay refuses bank details, keys, plain-http links, notes to onese
   assert.ok(/waiting already/.test(post({}).error));
 });
 
-test('RL3 with the gate off notes pass on at once; one thread per topic; a reply on the topic joins it', () => {
-  const t = relayBox({ props: { CUE_RELAY_GATE: 'off' } });
+test('RL3 by default (gate off, Kiko 04:10Z) notes pass on at once; one thread per topic; a reply on the topic joins it', () => {
+  const t = relayBox({ props: { CUE_RELAY_GATE: '' } });
   const a = t.post(GPT_NOTE); assert.strictEqual(a.status, 'passed on');
   const b = t.post({ action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CLAUDE, to: 'chatgpt', topic: 'zapier STEP 5', body: 'Fixed in 6abe420.' });
   const rows = t.tabs.Relay.rows.slice(1); assert.strictEqual(rows[0][10], rows[1][10]); assert.strictEqual(t.state(rows[0][10]).status, 'Done');
@@ -4591,7 +4591,9 @@ test('RL6 Settings makes the three keys, New key replaces only one, and only Kik
   const k = JSON.parse(JSON.stringify(s.relay.keys)); assert.deepStrictEqual(k.map(x => x.slot), ['chatgpt', 'claude', 'cue']); assert.ok(k.every(x => /^cr_[0-9a-f]{64}$/.test(x.key)));
   const s2 = JSON.parse(JSON.stringify(t.ctx.cueRelayKeys('claude').relay.keys));
   assert.strictEqual(s2[0].key, k[0].key); assert.notStrictEqual(s2[1].key, k[1].key); assert.strictEqual(s2[2].key, k[2].key);
-  assert.strictEqual(t.ctx.cueRelayGate(false).relay.gate, false);
+  assert.strictEqual(t.ctx.cueRelaySettings_().gate, false, 'off by default'); assert.strictEqual(t.ctx.cueRelayGate(true).relay.gate, true);
+  assert.throws(() => t.ctx.cueRelayUrlSet('https://evil.example/exec'), /relay address/);
+  assert.strictEqual(t.ctx.cueRelayUrlSet('https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec').relay.url, 'https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec');
   const u = sandbox({ viewer: 'someone@else.test' }); assert.throws(() => u.ctx.cueRelayKeys(''), /private/);
 });
 

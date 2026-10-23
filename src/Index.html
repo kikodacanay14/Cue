@@ -1392,7 +1392,7 @@
     var RL = S.relay || { keys: [] };
     setHtml($('w-relay'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
       + '<div class="small muted" style="margin-top:6px">ChatGPT and Claude leave notes for each other in Cue. Each key opens the relay for one of them; paste it into that app yourself and never into a chat. New key stops the old one at once.</div>'
-      + '<div style="margin-top:8px"><b>Relay URL</b> <span class="small">' + (RL.url ? esc(RL.url) : '<span class="muted">Not set yet (CUE_RELAY_URL comes with the relay deployment)</span>') + '</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay URL</b><input data-relay-url placeholder="From the deploy: https://script.google.com/macros/s/…/exec" value="' + esc(RL.url || '') + '" style="flex:1;min-width:180px"><button class="btn ghost" data-relay-save="1">Save</button></div>'
       + RL.keys.map(function (k) { return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">' + esc(k.who) + '</b>'
         + (k.key ? '<input readonly value="' + esc(k.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
         + '<button class="btn ghost" data-relay-key="' + esc(k.slot) + '">' + (k.key ? 'New key' : 'Make key') + '</button></div>'; }).join('') + '</div>');
@@ -1400,6 +1400,8 @@
   }
   $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-gate]'); if (!c) return; c.disabled = true;
     call('cueRelayGate', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  $('w-relay').addEventListener('click', function (e) { var sv = e.target.closest('[data-relay-save]'); if (!sv) return; sv.disabled = true;
+    call('cueRelayUrlSet', [$('w-relay').querySelector('[data-relay-url]').value], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { sv.disabled = false; }); });
   $('w-relay').addEventListener('click', function (e) { var b = e.target.closest('[data-relay-key]'); if (!b) return; b.disabled = true;
     call('cueRelayKeys', [b.getAttribute('data-relay-key')], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
