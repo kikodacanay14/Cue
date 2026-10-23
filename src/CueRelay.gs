@@ -242,6 +242,15 @@ function cueRelayKeys(who) {
   });
   return cueSettings();
 }
+/** Saves the relay address that Deploy Cue printed ("Cue relay is on Version N: <url>"). Empty clears it. */
+function cueRelayUrlSet(url) {
+  cueOwner_();
+  const u = String(url || '').trim();
+  if (u && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]{20,}\/exec$/.test(u)) throw new Error('Paste the relay address from the deploy, like https://script.google.com/macros/s/…/exec');
+  const P = PropertiesService.getScriptProperties();
+  if (u) P.setProperty('CUE_RELAY_URL', u); else P.deleteProperty('CUE_RELAY_URL');
+  return cueSettings();
+}
 function cueRelayGate(on) {
   cueOwner_();
   PropertiesService.getScriptProperties().setProperty('CUE_RELAY_GATE', on ? 'on' : 'off');

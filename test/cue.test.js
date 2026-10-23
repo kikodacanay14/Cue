@@ -4592,6 +4592,8 @@ test('RL6 Settings makes the three keys, New key replaces only one, and only Kik
   const s2 = JSON.parse(JSON.stringify(t.ctx.cueRelayKeys('claude').relay.keys));
   assert.strictEqual(s2[0].key, k[0].key); assert.notStrictEqual(s2[1].key, k[1].key); assert.strictEqual(s2[2].key, k[2].key);
   assert.strictEqual(t.ctx.cueRelayGate(false).relay.gate, false);
+  assert.throws(() => t.ctx.cueRelayUrlSet('https://evil.example/exec'), /relay address/);
+  assert.strictEqual(t.ctx.cueRelayUrlSet('https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec').relay.url, 'https://script.google.com/macros/s/AKfycbRELAY_test-123456789/exec');
   const u = sandbox({ viewer: 'someone@else.test' }); assert.throws(() => u.ctx.cueRelayKeys(''), /private/);
 });
 
