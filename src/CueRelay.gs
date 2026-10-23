@@ -30,16 +30,19 @@ function doPost(e) {
   let out;
   try {
     let q = null; try { q = JSON.parse((e && e.postData && e.postData.contents) || ''); } catch (x) { q = null; }
-    out = cueRelayCall_(q);
+    out = cueRelayCall_(q, String((e && e.pathInfo) || ''));
   } catch (x) { console.error('Relay: ' + x); out = { ok: false, error: 'Cue could not do that just now. Try again in a minute.' }; }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** The door's logic (doPost minus the HTTP wrapping). q = the parsed body or null. */
-function cueRelayCall_(q) {
+function cueRelayCall_(q, path) {
   if (!q || typeof q !== 'object') return { ok: false, error: 'Send JSON with action and key.' };
   const who = cueRelayWho_(q.key);
   if (!who) return { ok: false, error: 'Not allowed.' };
+  // 1.31: a confirm comes only through /exec/confirm, the GPT Action's consequential operation (ChatGPT asks Kiko to Allow
+  // every time), and that path takes nothing else.
+  if ((path === 'confirm') !== (q.action === 'relay_task_confirm')) return { ok: false, error: path === 'confirm' ? 'Only relay_task_confirm goes to /exec/confirm.' : 'relay_task_confirm goes to /exec/confirm.' };
   if (q.action === 'relay_post') return cueRelayPost_(who, q);
   if (q.action === 'relay_list') return { ok: true, notes: cueRelayList_(who) };
   if (q.action === 'relay_read') return { ok: true, read: cueRelayMarkRead_(who, q.ids) };

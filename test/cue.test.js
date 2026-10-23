@@ -4519,7 +4519,7 @@ test('ST6 the client-safe check (code): money, supplier names and an open risk\'
 // AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z, specs/ai-relay.md): Cue carries notes between ChatGPT and Claude. No AI call.
 const RKEYS = { CUE_RELAY_KEY_CHATGPT: 'cr_' + 'a'.repeat(64), CUE_RELAY_KEY_CLAUDE: 'cr_' + 'b'.repeat(64), CUE_RELAY_KEY_CUE: 'cr_' + 'c'.repeat(64) };
 const relayBox = (o = {}) => { const t = sandbox(Object.assign({}, o, { props: Object.assign({}, RKEYS, { CUE_RELAY_GATE: 'on' }, o.props || {}) }));   // the gate tests; RL3 runs the default (off)
-  t.post = q => JSON.parse(t.ctx.doPost({ postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
+  t.post = (q, path) => JSON.parse(t.ctx.doPost({ pathInfo: path != null ? path : q && q.action === 'relay_task_confirm' ? 'confirm' : undefined, postData: { contents: typeof q === 'string' ? q : JSON.stringify(q) } }).text); return t; };
 const GPT_NOTE = { action: 'relay_post', key: RKEYS.CUE_RELAY_KEY_CHATGPT, to: 'claude', topic: 'Zapier step 5', body: 'Step 5 still maps f9 from the old field. Please check zap-steps.js line 120.', links: ['https://github.com/kikodacanay14/CanvasWorkspace/pull/2'] };
 
 test('RL1 a note waits for Kiko\'s Pass on, then the receiver lists it once and marks it read; no AI call', () => {
@@ -4636,6 +4636,8 @@ test('RL8 CE costs from ChatGPT, start to finish in ChatGPT: queued, Cue matches
   assert.ok(!t.log.ceWrites, 'nothing written before the confirm');
   assert.strictEqual(t.post({ action: 'relay_task_status', key: GK, id: q.id }).confirm_code, st.confirm_code, 'same proposal, same code');
   assert.ok(/old or wrong/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: '000000' }).error));
+  assert.ok(/goes to \/exec\/confirm/.test(t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code }, '').error), 'never through the plain path');
+  assert.ok(/Only relay_task_confirm/.test(t.post({ action: 'canvas_read', key: GK, read: 'ce_lines' }, 'confirm').error));
   const done = t.post({ action: 'relay_task_confirm', key: GK, id: q.id, code: st.confirm_code, edits: { rows: { L2: { tick: false } } } });
   assert.strictEqual(done.state, 'done', JSON.stringify(done));
   deq(t.log.ceWrites.length, 1); deq(t.log.ceWrites[0].args.lines, [{ req_id: 'REQ-1', unit_cost: 85000, was: 70000 }]);
