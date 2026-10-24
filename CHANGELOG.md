@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27.12: every bid document is attempted, each with a status (release branch, not deployed)
+
+PC recheck of 1.27.11 on /dev, 24 Oct 08:26Z: the junk rows were gone ("0 new, 14 still open", all real), but most documents still showed "(not opened yet)" and only one notice got a folder in Drive "Cue bids". Cause: the limits of 10 notices a run and 3 documents a notice (TPB annexes used up the 3 slots), and the reading stopped at its time budget without ever coming back to the rest. Asked through the coordinator: "every document is attempted, across runs if needed, with a status for each", as its own release.
+
+- No more caps. The Reading stage goes through every notice, New and Still open, and every document link on it, one notice at a time. It stops starting new notices after 3 minutes and saves. The next 5-minute resume carries on where it stopped, until every link has been tried. The card shows "Opening and reading the bid documents (N of M tried)" meanwhile.
+- Every link gets a status before Cue fetches it: "Could not open: no answer in time (the site did not respond)". If a site never answers and Apps Script ends the run, that status stays, and the next resume moves on instead of waiting on the same site again. A real answer replaces it with "Opened · saved", "HTTP 403", "needs sign-in" and so on.
+- A PDF that was saved but not read when the run ended is read once from Cue's Drive copy at the next resume.
+- Read once still holds: a link in the "Bid documents" record is never fetched again by the daily run. Request more details retries the failed ones, including "no answer in time".
+- Check 10 now reads "N of M opened"; documents not tried yet are named as such.
+- Tests: 338 of 338 pass (new BD18: 13 notices, 61 documents, four resumes, one site that never answers).
+
 ## Cue 1.27.11: bid card v2 with the PC check fixes (release branch, not deployed)
 
 PC check of 1.27.10 on /dev, 24 Oct 07:28Z: the card itself passed (title, New and Still open, the 7 fields, the buttons). Two things failed, and both are fixed:

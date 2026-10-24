@@ -331,7 +331,7 @@ function cueBidsScreen_(it, now) {
 /* ---------- the documents: Cue opens them itself, ChatGPT reads Cue's copy, each one once (Kiko 24 Oct 06:45Z and 06:52Z) ---------- */
 const CUE_BIDS_DOCS_TAB_ = 'Bid documents';
 const CUE_BIDS_DOCS_HEAD_ = ['Link', 'Notice', 'Name', 'Result', 'HTTP', 'Drive file', 'Opened (UTC)', 'Read (UTC)', 'What ChatGPT found'];
-const CUE_BIDS_READ_ = { docs: 3, notices: 10, batch: 3, bytes: 20 * 1024 * 1024, send: 12 * 1024 * 1024, budget_ms: 150 * 1000 };   // send: the PDFs of one reading call
+const CUE_BIDS_READ_ = { docs: 3, batch: 3, bytes: 20 * 1024 * 1024, send: 12 * 1024 * 1024, budget_ms: 180 * 1000 };   // docs: Request more details, per tap; send: the PDFs of one reading call   // send: the PDFs of one reading call
 const CUE_BIDS_TYPES_ = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', doc: 'application/msword', xls: 'application/vnd.ms-excel', zip: 'application/zip' };
 
@@ -465,35 +465,45 @@ function cueBidsReadAll_(s, jobs, store) {
   });
   return jobs.length;
 }
-/** Reading stage: each new document of a new or changed notice is opened once (3 a notice, 10 notices a run), saved, and read once. A
- * document Cue already has a record of is never fetched again; what was read in it before is used as it is. */
+/** Reading stage: every document of every new and Still open notice is attempted once (PC recheck 24 Oct 08:26Z: a 10-notice and
+ * 3-document cap left most of them "not opened yet"). One notice at a time: its documents are first recorded as "no answer in time", so
+ * a site that hangs past Apps Script's 6-minute limit still ends with a status and is never fetched again; then they are fetched, saved
+ * and recorded with the real result. PDFs are read 3 notices at a time. Past the time budget the stage stops and the next 5-minute
+ * resume carries on, so a busy day takes more than one run, never a skipped document. A document already in the record is never fetched again. */
 function cueBidsRead_(s, save, t0) {
   const B = s.bids, store = cueBidsDocs_(), list = (B.items || []).concat(B.still || []);
-  let opened = 0;
   list.forEach(it => {
     it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });
     const known = it.documents.map(d => store.by[d.url]).filter(r => r && r.facts)[0];
     if (known && !it.from_docs) { const was = [it.abc, it.posted, it.deadline, it.summary].join('|'); cueBidsFacts_(it, known.facts);
       if (it.row && was !== [it.abc, it.posted, it.deadline, it.summary].join('|')) it.touched = true; }
   });
-  // A notice is opened once a run (it.tried). One cut off between opening and reading gets its saved PDFs read from Cue's Drive copy.
-  const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive);
-  const queue = list.filter(it => !it.tried ? it.documents.some(d => d.url && !store.by[d.url]) : !it.read_tried && unread(it).length);
-  for (let i = 0; i < queue.length && opened < CUE_BIDS_READ_.notices; i += CUE_BIDS_READ_.batch) {
-    if (cueNow_() - t0 > CUE_BIDS_READ_.budget_ms) return;   // carries on at the next resume; nothing is opened twice
-    const jobs = queue.slice(i, i + Math.min(CUE_BIDS_READ_.batch, CUE_BIDS_READ_.notices - opened)).map(it => {
-      const again = it.tried; it.tried = true; it.read_tried = again;
-      const docs = again ? [] : it.documents.filter(d => d.url && !store.by[d.url]).slice(0, CUE_BIDS_READ_.docs);
-      const pdfs = cueBidsOpen_(it, docs, store); if (docs.length && it.row) it.touched = true;
-      if (again) unread(it).forEach(d => { try { pdfs.push({ d, rec: store.by[d.url], bytes: cueDrive_('get', CUE_DRIVE_ + '/' + store.by[d.url].drive + '?alt=media', { raw: true }).getContent() }); } catch (e) { /* stays unread */ } });
-      it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });   // one link on two notices is opened once
-      return { it, pdfs };
-    });
-    opened += jobs.length; save();
-    cueBidsReadAll_(s, jobs, store);
-    jobs.forEach(j => { j.pdfs = null; });
-    s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save();
+  const fresh = it => it.documents.filter(d => d.url && !store.by[d.url]);
+  // Saved this run but not read yet (cut off between opening and reading): read from Cue's Drive copy, once more.
+  const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive && !store.by[d.url].read);
+  const count = () => { const all = [].concat.apply([], list.map(it => it.documents.filter(d => d.url))); B.reading = { done: all.filter(d => store.by[d.url]).length, total: all.length }; };
+  let jobs = [];
+  const readJobs = () => { if (!jobs.length) return; cueBidsReadAll_(s, jobs, store); jobs.forEach(j => { j.pdfs = null; if (j.it.row) j.it.touched = true; }); jobs = []; count(); s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); };
+  for (const it of list) {
+    const docs = fresh(it), again = !docs.length && !it.read_tried && unread(it).length;
+    if (!docs.length && !again) continue;
+    if (cueNow_() - t0 > CUE_BIDS_READ_.budget_ms) { readJobs(); count(); return; }   // carries on at the next resume
+    let pdfs = [];
+    if (docs.length) {
+      const at = new Date(cueNow_()).toISOString();
+      docs.forEach(d => cueBidsDocPut_(store, { url: d.url, key: it.key, name: d.name, result: 'Could not open: no answer in time (the site did not respond)', opened: at }));
+      SpreadsheetApp.flush(); save();
+      pdfs = cueBidsOpen_(it, docs, store); SpreadsheetApp.flush();
+      if (it.row) it.touched = true;
+    } else {
+      it.read_tried = true;
+      unread(it).forEach(d => { try { pdfs.push({ d, rec: store.by[d.url], bytes: cueDrive_('get', CUE_DRIVE_ + '/' + store.by[d.url].drive + '?alt=media', { raw: true }).getContent() }); } catch (e) { /* stays unread */ } });
+    }
+    it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });   // one link on two notices is opened once
+    if (pdfs.length) jobs.push({ it, pdfs });
+    if (jobs.length >= CUE_BIDS_READ_.batch) readJobs(); else { count(); save(); }
   }
+  readJobs(); count();
   (B.updated || []).forEach(u => { const st = (B.still || []).filter(x => x.row === u.row)[0]; if (st) u.documents = st.documents; });
   s.stage = 'Writing';
 }
@@ -521,7 +531,7 @@ function cueBidsFinish_(s) {
     { id: 8, label: 'Every new notice lists its documents or says why not', ok: !T.nodocs.length, detail: T.nodocs.length ? 'No document list: ' + T.nodocs.slice(0, 6).join(', ') : '' },
     { id: 9, label: 'You pick which ones go to intake (Cue never marks them)', ok: true, detail: '' },
     { id: 10, label: 'Every listed document opened by Cue, or the reason it could not be', ok: !waiting.length,
-      detail: (docs.length ? docs.filter(d => d.state === 'saved').length + ' of ' + docs.length + ' opened' : 'No documents listed') + (waiting.length ? '; ' + waiting.length + ' wait for Request more details (limit 3 a notice, 10 notices a run)' : '') }];
+      detail: (docs.length ? docs.filter(d => d.state === 'saved').length + ' of ' + docs.length + ' opened' : 'No documents listed') + (waiting.length ? '; ' + waiting.length + ' not tried yet: they open at the next step or with Request more details' : '') }];
   delete B.tally;
   const passed = B.checks.filter(c => c.ok).length, part = B.sources.filter(x => x.status !== 'Checked').length, nNew = B.items.length, nOpen = B.still.length;
   B.title = (B.base || B.title) + ' · ' + nNew + ' new, ' + nOpen + ' still open';
@@ -724,7 +734,7 @@ function cueBidsView_(s) {
     amendments: it.amendments || '', limitations: it.limitations || '', next_action: it.next_action || '', status: it.status || '', was: it.was || '', tag: it.tag || '', from_docs: !!it.from_docs,
     pages: it.pages || '', more: it.more ? { missing: it.more.missing || [], draft: !!it.more.draft } : null });
   return { title: B.title || 'Bid check', sub: B.sub || '', summary: B.summary || '', items: (B.items || []).map(pub), still: (B.still || []).map(pub), updated: B.still ? [] : (B.updated || []).map(pub),
-    sources: B.sources || [], checks: B.checks || [], written: !!B.written, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
+    sources: B.sources || [], checks: B.checks || [], written: !!B.written, reading: B.reading || null, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
 }
 
 /* ---------- every day at 07:00 Manila (Kiko 19:50Z); started by the scheduler's "Bid opportunities" row (CueSchedule.gs) ---------- */
