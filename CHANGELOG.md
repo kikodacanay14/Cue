@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: pipeline review cards (Kiko 24 Oct 01:35Z)
+## Unreleased: pipeline review cards (Kiko 24 Oct 01:35Z) and the ✓ in every thread (06:44Z)
 
 - System emails are no longer "the client wrote last": Gmail drops no-reply, notification and HubSpot senders, and Cue skips mail with Auto-Submitted, bulk or list headers, or a login-code, password-reset or "you've been assigned" subject. Cue reads the 3 newest per deal and uses the first one a person sent.
 - A deal with no HubSpot contact but a real email thread says who: "Contact not saved in Canvas (Gmail: name@client)" instead of "Missing contact".
@@ -8,6 +8,7 @@
 - Order on each deal: status, Last email, Next, action.
 - The event countdown shows once: when a flag counts the days, the line under the name shows just the date, and Claude is told not to repeat the stage, amount, date, countdown or flags.
 - No extra AI calls. Read only, as before.
+- The ✓ (Close this thread) now shows in every thread that still has an open run, including threads whose older runs wait (a day's Bid check, earlier pipeline reviews) and failed runs. One tap closes every open run in the thread (`cueCloseThread`); a running or scheduled run is left alone and named. An intake that saved to Canvas still asks to cancel and remove, as before. Nothing is written or sent.
 
 ## Cue 1.31: ChatGPT reads Canvas and hands Cue work, start to finish in ChatGPT (not deployed)
 

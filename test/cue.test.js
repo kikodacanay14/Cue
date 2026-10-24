@@ -1454,6 +1454,20 @@ test('P4 pipeline cards (Kiko 24 Oct): system emails are not the client, a conta
   } finally { PMAIL.splice(PMAIL.length - extra.length, extra.length); }
 });
 
+test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the thread, older ones too; a running run is left alone; nothing written', () => {
+  const t = pipeToCard(), id = t.id, C = t.ctx;
+  const add = (k, st) => C.cueLocked_(() => { const sh = C.cueSheet_('Requests'); sh.appendRow([k]); C.cueSave_(sh, sh.getLastRow(), { id: k, kind: 'pipeline', ref: id, status: st, stage: st, text: 'x', files: [], notes: [], metrics: {} }); });
+  add('cue-20261021110500-aaaa', 'Failed'); add('cue-20261021110600-bbbb', 'Working');
+  assert.throws(() => C.cueCloseThread('cue-made-up-0000'), /No such task/);
+  deq(C.cueCloseThread('cue-20261021110500-aaaa'), { closed: 2, running: 1 }, 'any run of the thread finds its root');
+  deq([id, 'cue-20261021110500-aaaa', 'cue-20261021110600-bbbb'].map(k => C.cueLoad_(k).s.status), ['Closed', 'Closed', 'Working']);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Closed 2 runs\. Nothing was written or sent\. 1 still running/.test(x[2])));
+  deq(C.cueCloseThread(id), { closed: 0, running: 1 }); assert.ok(!t.log.sent && !t.log.replies, 'nothing sent');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/data-act="close-thread" data-id="' \+ esc\(it\.id\)/.test(html) && /return !CLOSED\[r\.status\]/.test(html), 'the header ✓ shows while any run is open');
+  assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
+});
+
 test('P3 pipeline edge cases: one client only; no token, bad token; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
   const t = pipeToCard({ client: 'Telus', ask: 'where are we with telus' });
   deq(t.v.pipe.deals.map(d => d.name), ['Telus — Trick or Treat - Manila']); assert.strictEqual(t.v.pipe.title, 'Pipeline: Telus');
