@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased: pipeline review cards (Kiko 24 Oct 01:35Z)
+
+- System emails are no longer "the client wrote last": Gmail drops no-reply, notification and HubSpot senders, and Cue skips mail with Auto-Submitted, bulk or list headers, or a login-code, password-reset or "you've been assigned" subject. Cue reads the 3 newest per deal and uses the first one a person sent.
+- A deal with no HubSpot contact but a real email thread says who: "Contact not saved in Canvas (Gmail: name@client)" instead of "Missing contact".
+- Each deal has its own action after Next: Draft reply or Draft follow-up (drafts that deal only), Fix in Canvas (the project, or the client's account), or Open email.
+- Order on each deal: status, Last email, Next, action.
+- The event countdown shows once: when a flag counts the days, the line under the name shows just the date, and Claude is told not to repeat the stage, amount, date, countdown or flags.
+- No extra AI calls. Read only, as before.
+
 ## Cue 1.31: ChatGPT reads Canvas and hands Cue work, start to finish in ChatGPT (not deployed)
 
 Kiko 23 Oct 03:59Z (relay jobs 2 and 3), 04:07Z (a worker inside Cue does the Canvas work), 04:13Z ("I just want to talk to 1. If i started in gpt i want the process to complete in gpt") and 04:15Z ("Please make my life easier"). Kiko's decision replaces "ChatGPT never writes to Canvas" with "ChatGPT can trigger Cue's Canvas write after Kiko confirms in ChatGPT". ChatGPT still writes nothing itself.

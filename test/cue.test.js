@@ -351,10 +351,11 @@ function sandbox(o = {}) {
     }
     if (o.pipeMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
       if (u.indexOf('/messages?') >= 0) { const q = decodeURIComponent(u.split('q=')[1]); (log.pipeQ = log.pipeQ || []).push(q);
-        const hit = PMAIL.find(m => q.indexOf(m.key) >= 0); return resp(200, hit ? { messages: [{ id: hit.id, threadId: hit.thread }] } : {}); }
+        const hits = PMAIL.filter(m => q.indexOf(m.key) >= 0).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, Number((u.match(/maxResults=(\d+)/) || [])[1]) || 1);
+        return resp(200, hits.length ? { messages: hits.map(h => ({ id: h.id, threadId: h.thread })) } : {}); }
       const m = PMAIL.find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.at)), snippet: m.snippet, labelIds: m.sent ? ['SENT'] : ['INBOX'],
-        payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
+        payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }].concat(m.headers || []) } });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0 && (req.method || 'get') === 'get') { const r = inboxRoute(o.inbox || [], u, log); if (r) return r; }   // an empty inbox unless a test gives one
     if (o.award && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/threads/') >= 0) {   // CE award chasers: thread headers (their own thread format)
@@ -1425,6 +1426,32 @@ test('P2 follow-ups: one GPT call for ticked deals with a thread; Approve and se
   assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0); deq(t.log.search || [], [], 'the chat lookup, also a read');
   const u = pipeToCard(); u.ctx.cuePipeFollowUps(u.id, ['D3']); assert.strictEqual(u.ctx.cueApprove(u.id, {}).status, 'Done'); assert.ok(!u.log.sent, 'drafts only sends nothing');
   const w = pipeToCard(); const x = w.ctx.cuePipeDone(w.id); assert.strictEqual(x.status, 'Done'); assert.ok(!w.log.replies);
+});
+
+test('P4 pipeline cards (Kiko 24 Oct): system emails are not the client, a contact found in Gmail is named, each deal gets its own action, the event countdown shows once', () => {
+  const extra = [
+    { key: '"AMI Group"', id: 'pm6', thread: 'aa0600000000000a', at: '2026-10-20T04:00:00Z', sent: false, from: 'HubSpot <noreply@notifications.hubspot.com>', to: 'kiko@example.com', subject: "You've been assigned 57 deals", snippet: 'AMI Group' },
+    { key: '"AMI Group"', id: 'pm7', thread: 'aa0700000000000a', at: '2026-10-19T04:00:00Z', sent: false, from: 'Coupa <bids@ami.test>', to: 'kiko@example.com', subject: 'Your Coupa Login Verification Code', snippet: 'code 1234' },
+    { key: '"AMI Group"', id: 'pm8', thread: 'aa0800000000000a', at: '2026-10-16T04:00:00Z', sent: false, from: 'Rina <rina@ami.test>', to: 'kiko@example.com', subject: 'Merch brief', snippet: 'Here is the brief.' },
+    { key: '"Embassy of Belgium"', id: 'pm9', thread: 'aa0900000000000a', at: '2026-10-21T01:00:00Z', sent: false, from: 'News <news@belgium.test>', to: 'kiko@example.com', subject: 'Newsletter', snippet: 'x', headers: [{ name: 'List-Unsubscribe', value: '<mailto:u@belgium.test>' }] }];
+  PMAIL.push.apply(PMAIL, extra);
+  try {
+    const t = pipeToCard(), P = t.v.pipe, by = {}; P.deals.forEach(d => { by[d.name.split(' — ')[0]] = d; });
+    assert.ok(t.log.pipeQ.every(q => /-from:\(noreply OR no-reply .*hubspot\)$/.test(q)), 'Gmail drops the obvious system senders');
+    deq([by['AMI Group'].mail.subject, by['AMI Group'].mail.to], ['Merch brief', 'rina@ami.test'], 'the HubSpot notice and the login code are skipped');
+    assert.ok(by['AMI Group'].flags.indexOf('Contact not saved in Canvas (Gmail: rina@ami.test)') >= 0 && by['AMI Group'].flags.indexOf('Missing contact') < 0, by['AMI Group'].flags.join('; '));
+    assert.strictEqual(by['Embassy of Belgium'].mail.subject, 'Tents', 'a newsletter is not the client');
+    assert.ok(t.ctx.cuePipeAuto_({ from: 'x <do_not_reply@coupahost.com>', subject: 'Hi' }) && t.ctx.cuePipeAuto_({ from: 'a@b.test', 'auto-submitted': 'auto-generated' }) && !t.ctx.cuePipeAuto_({ from: 'Heidi <heidi@dmci.test>', subject: 'Re: CE', 'auto-submitted': 'no' }));
+    const st = t.ctx.cueState(), pv = st.requests.find(r => r.id === t.id).pipe, vb = {}; pv.deals.forEach(d => { vb[d.name.split(' — ')[0]] = d; });
+    assert.ok(vb['Embassy of Belgium'].canvas && /page=clientdesk/.test(vb['Embassy of Belgium'].canvas.url), 'a deal to fix opens Canvas');
+    assert.strictEqual(vb.Telus.canvas, null, 'nothing to fix, no Canvas button');
+    assert.ok(/The card already shows the stage, amount, event date, days to the event and each flag/.test(t.log.claude[0].system.replace(/\s+/g, ' ')), 'Claude does not repeat the countdown');
+    const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+    const i = html.indexOf('function pipeCardHtml'), part = html.slice(i, i + 6000);
+    assert.ok(part.indexOf('>Last email ') < part.indexOf('<b>Next:</b> ') && part.indexOf('<b>Next:</b> ') < part.indexOf('+ pipeAct(d)'), 'last email, then Next, then the action');
+    assert.ok(/data-act="pipe-draft1"/.test(part) && /Fix in Canvas/.test(part) && /counted \? 'event'/.test(part));
+    const v = t.ctx.cuePipeFollowUps(t.id, ['D2']); deq(v.pipe.drafts.map(d => d.k), ['D2'], 'one deal\'s own button drafts just that deal');
+  } finally { PMAIL.splice(PMAIL.length - extra.length, extra.length); }
 });
 
 test('P3 pipeline edge cases: one client only; no token, bad token; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
