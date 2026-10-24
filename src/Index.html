@@ -2128,7 +2128,7 @@
     if (r.status === 'Failed') return '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b>Bid check stopped</b>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="small muted">Nothing was registered, sent or submitted.</div>'
       + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div>' + metricLine(r) + '</div>';
-    if (r.status === 'Working') return '<div class="card" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b>' + esc(B.title) + '</b><div class="small muted">' + esc(r.stage === 'Reading' ? 'Opening and reading the bid documents' : r.stage || 'Working') + '…</div></div>';
+    if (r.status === 'Working') return '<div class="card" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b>' + esc(B.title) + '</b><div class="small muted">' + esc(r.stage === 'Reading' ? 'Opening and reading the bid documents' + (B.reading && B.reading.total ? ' (' + B.reading.done + ' of ' + B.reading.total + ' tried)' : '') : r.stage || 'Working') + '…</div></div>';
     var peso = function (n) { return n ? '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 2 }) : ''; };
     var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
     var row = function (k, v, flag) { return '<div class="small" style="margin-top:2px"><span class="muted">' + esc(k) + ':</span> ' + (v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : '')) + '</div>'; };

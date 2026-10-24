@@ -3684,6 +3684,32 @@ test('BD17 PC check 24 Oct 07:28Z: Still open notices get their documents opened
   assert.strictEqual(t.log.web.length, web, 'next day: nothing fetched again'); assert.strictEqual(t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length, reads, 'nothing read again');
   deq(w.bids.still[0].documents.map(d => d.state), ['saved']);
 });
+test('BD18 PC recheck 24 Oct 08:26Z: every document of every notice is attempted, across resumes when time runs out, each with a status; a site that never answers says so', () => {
+  const row = (ref, docs) => ['2026-10-20', 'TPB', ref, 'Event ' + ref, 'Open', 'Pasay', 300000, 'PHP', '2026-11-20T17:00+08:00', '', '', '', 'https://tpb.gov.ph/n-' + ref + '.pdf', docs, '', '', ''];
+  const rows = [];
+  for (let n = 1; n <= 12; n++) rows.push(row('2026.11.' + (100 + n), [1, 2, 3, 4, 5].map(k => 'Annex ' + k + ' https://tpb.gov.ph/d' + n + '-' + k + '.pdf').join(', ')));
+  rows.push(row('2026.11.200', 'TOR https://tpb.gov.ph/hang.pdf'));
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS }, pdf: ['tpb.gov.ph/d'], batchStep: 40000 }, rows);
+  // A site that never answers: Apps Script ends the run while Cue waits, so the fetch never comes back.
+  const open = t.ctx.cueBidsOpen_; t.ctx.cueBidsOpen_ = (it, docs, store) => docs.some(d => /hang\.pdf$/.test(d.url)) ? [] : open(it, docs, store);
+  const id = t.ctx.cueSend('run bid opportunity check', [], '').request_id; let v = t.ctx.cueRun(id), passes = 1;
+  assert.strictEqual(v.status, 'Working', 'time ran out: the check carries on at the next resume'); assert.strictEqual(v.stage, 'Reading');
+  v = t.state(id); assert.ok(v.bids.reading.done > 0 && v.bids.reading.done < v.bids.reading.total, JSON.stringify(v.bids.reading));
+  while (t.state(id).status === 'Working' && passes < 12) { t.ctx.__wait(6 * 60000); t.ctx.cueResume(); passes++; }
+  v = t.state(id); assert.ok(passes > 2, 'took more than one resume: ' + passes); assert.strictEqual(v.status, 'Done', v.error);
+  deq([v.bids.reading.done, v.bids.reading.total], [61, 61]);
+  const docs = [].concat.apply([], v.bids.still.map(x => x.documents));
+  assert.strictEqual(docs.length, 61, 'no cap: 12 notices x 5 documents, plus the TOR');
+  assert.ok(docs.filter(d => !/hang/.test(d.url)).every(d => d.state === 'saved'), 'every document opened');
+  const hung = docs.filter(d => /hang/.test(d.url))[0]; assert.strictEqual(hung.state, 'failed'); assert.ok(/no answer in time/.test(hung.why), hung.why);
+  assert.strictEqual(t.log.web.length, 60, 'each link fetched once across all the resumes');
+  const ck = v.bids.checks.filter(x => x.id === 10)[0]; assert.ok(ck.ok && /^60 of 61 opened$/.test(ck.detail), ck.detail);
+  const f = t.tabs['Web bid findings'].rows; assert.ok(/\(Could not open: no answer in time/.test(f[13][13]), f[13][13]);
+  t.ctx.__wait(864e5); t.log.gptN = {}; const web = t.log.web.length;
+  const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(t.log.web.length, web, 'next day: nothing fetched again, the hung one included (Request more details retries it)');
+  assert.strictEqual(w.status, 'Done');
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
