@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.9: live line 1.27.8 + one Today card for the scheduled jobs, drawn by Canvas Home (release branch, not deployed)
+
+Kiko 23 Oct 07:37Z ("i get confused with how its presenting information"), 08:49Z ("Cue can place them in my Home page"),
+08:52Z ("make sure the UI matches Canvas"), 24 Oct 01:31Z (show who did the work: ChatGPT, not Cue alone), go 24 Oct 06:44Z.
+Spec: specs/daily-digest.md. Same change as Cue 1.33 (PR #97), ported onto the live line (1.27.8).
+
+- `CueToday.gs`: `cueTodayFrom_` turns today's runs of the morning batch, bid check, HubSpot check, status report, pipeline review and
+  ChatGPT tasks into one row per thing that needs Kiko (title, one detail line, one button, the run's thread) and one "Done for you"
+  line. Morning batch first (its 9:00 send has a clock). A failed run is a "didn't finish" row with Try again. Built from what the runs
+  hold: no AI call, nothing sent, nothing changed.
+- Who did it: each row says "Done by ChatGPT · checked by Cue" or "Done by Claude · checked by Cue", from the run's logged AI calls;
+  a run with no AI call says "Done by Cue".
+- `Today.html` at `/exec?view=today`: a hidden frame for Canvas Home. Same guard as 1.32 (Google windows only above it, silent until
+  `cueHost`), then it posts `{canvasWs:'cue-today', day, count, rows, done}` to that window, again every 5 minutes. Canvas draws the
+  card with its own styles (Canvas Home draws it since Canvas V215; the "by" pill is Canvas PR #32); a tap opens the run's thread with `cueThread`.
+- Cue's chat: a day's scheduled-job lines fold into one "Today: N things need you" line, each row opening its thread.
+- Tests: 327 of 327 pass (TD1 to TD4 new).
+
 ## Cue 1.27.8: live 1.27.7 + pipeline review cards (Kiko 24 Oct 01:35Z) and the ✓ in every thread (06:44Z; release branch, not deployed)
 
 - System emails are no longer "the client wrote last": Gmail drops no-reply, notification and HubSpot senders, and Cue skips mail with Auto-Submitted, bulk or list headers, or a login-code, password-reset or "you've been assigned" subject. Cue reads the 3 newest per deal and uses the first one a person sent.
