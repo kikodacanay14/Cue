@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.20: sales funnel and HubSpot tasks on the Today card (release branch, not deployed)
+
+Asked by Kiko, 24 Oct 2026 13:50Z: "How can we place the funnel in Cue? Or the hubspot action items". Kiko chose "Yes, build both"
+at 13:56Z. Spec: `specs/sales-funnel-tasks.md` in the project files. Built on the live line (1.27.19, V60).
+
+- New `CueFunnel.gs`, kind `funnel`. Code reads every HubSpot deal (stage, amount) and Kiko's open HubSpot tasks with the deal each
+  is on. No AI call. Runs daily at 7:00 (new Schedule row `sys-funnel`, on) and on chat words ("show the funnel", "my HubSpot
+  tasks"). "Review the funnel" still goes to the Thursday ChatGPT task.
+- Today card: two rows from one run. "₱X waiting for award" with a line per stage, and "N tasks overdue" with the first two.
+  Both open the funnel thread. On Canvas Home the rows are text; the bars show in the thread. Bars on Canvas Home would need a
+  Canvas release.
+- The thread: bars per stage (empty open stages folded into one line), deals with no stage named, deals by stage biggest first,
+  and the tasks grouped as deal follow-ups, company category and other, overdue first.
+- **Mark done** closes one HubSpot task (`hs_task_status` COMPLETED) and reads it back. Nothing closes in bulk. Deal stage and
+  amount are never changed. A newer funnel closes the older waiting one.
+- Needs the HubSpot key "Cue" to have task read and write scopes. Without them the funnel still works and the tasks row says what
+  to add.
+- Tests: 347 of 347 pass (FN1 to FN5 new; SC4 lists the new row).
+
 ## Cue 1.27.19: the Today card's bid row really names its run (release branch, not deployed)
 
 PC recheck of 1.27.18, 24 Oct 12:46Z: the Home card, both row taps, the Today line and the Done line passed. The bid row's top line

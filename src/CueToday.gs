@@ -4,7 +4,7 @@
  * sends them. Kiko 24 Oct 01:31Z: every row names who did the work ("Done by ChatGPT · checked by Cue"), from the AI calls the
  * run really made. Built from what the runs already hold: no AI call, nothing sent, nothing changed. */
 
-const CUE_TODAY_KINDS_ = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, gtask: 1 };
+const CUE_TODAY_KINDS_ = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, funnel: 1, gtask: 1 };
 const CUE_TODAY_NEED_ = { 'Needs you': 1, 'Done, drafts incomplete': 1, Failed: 1 };
 
 /** Who did a run's work, from its logged AI calls (CueAi.gs: provider 'GPT' or 'Claude'). */
@@ -52,13 +52,17 @@ function cueTodayRow_(r) {
     if (!need) return { done: 'pipeline review', by };
     return { need: row({ eyebrow: P.title || 'Pipeline review', title: n((k.act || 0) + (k.chase || 0), 'deal') + ' to act on or chase', detail: (k.data || 0) + ' to fix · ' + (k.ok || 0) + ' on track', button: 'Review deals' }) };
   }
+  if (r.kind === 'funnel') {   // CUE-FUNNEL (Kiko 24 Oct 13:56Z): the funnel row and the HubSpot tasks row, one run
+    if (!need || !r.fn) return { done: 'sales funnel (' + ((r.fn && r.fn.line) || 'read') + ')', by };
+    return { needs: cueFunnelToday_(r, row) };
+  }
   const G = r.gt || {}, f = G.items || [];   // gtask: a ChatGPT task
   if (!need || !f.length) return { done: (G.title || name).toLowerCase() + ' (' + (f.length ? n(f.length, 'finding') : 'nothing new') + ')', by };
   return { need: row({ eyebrow: G.title || name, title: n(f.length, 'finding') + ' to look at', detail: f.slice(0, 2).map(x => x.title || x.company).join(' · ') + (f.length > 2 ? ' and ' + (f.length - 2) + ' more' : ''), button: 'Review' }) };
 }
 function cueTodayName_(r) {
   return r.kind === 'sweep' ? 'Morning batch' : r.kind === 'bids' ? 'Bid check' : r.kind === 'hubspot' ? 'HubSpot check' : r.kind === 'status' ? 'Status report'
-    : r.kind === 'pipeline' ? 'Pipeline review' : (r.gt && (r.gt.title || r.gt.task)) || 'ChatGPT task';
+    : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : (r.gt && (r.gt.title || r.gt.task)) || 'ChatGPT task';
 }
 
 /** The card from the page's request views (cueView_), for one Manila day. Pure: the tests call it directly. */
@@ -72,7 +76,7 @@ function cueTodayFrom_(views, day) {
   // earlier run's new ones are in its Still open list, so an older card's "new" is never shown twice or after it was superseded.
   const lastBids = runs.filter(r => r.kind === 'bids').pop();
   runs.filter(r => r.kind !== 'bids' || r === lastBids)
-    .forEach(r => { const x = cueTodayRow_(Object.assign({}, r, { root: root(r.id) })); if (x.need) rows.push(x.need); else if (x.done) done.push(x); });
+    .forEach(r => { const x = cueTodayRow_(Object.assign({}, r, { root: root(r.id) })); if (x.needs) rows.push.apply(rows, x.needs); else if (x.need) rows.push(x.need); else if (x.done) done.push(x); });
   // The chasers go first: their 9:00 send is the only one with a clock.
   rows.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
   const byW = {}; done.forEach(d => { const w = /Claude/.test(d.by) ? (/ChatGPT/.test(d.by) ? 'ChatGPT and Claude' : 'Claude') : /ChatGPT/.test(d.by) ? 'ChatGPT' : 'Cue'; (byW[w] = byW[w] || []).push(d.done); });

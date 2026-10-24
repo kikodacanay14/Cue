@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.19';   // release branch: live 1.27.15 (V55: tasks + bid card v2) + the Today card for Canvas Home (Cue 1.33, PR #97); bid row named from the page view
+const CUE_VERSION_ = 'Cue 1.27.20';   // release branch: live 1.27.19 (V60, Today card) + sales funnel and HubSpot tasks (CueFunnel.gs)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -218,6 +218,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (wf && wf.s.kind === 'workflow' && wf.s.status === 'Needs you') return cueWorkflowReply_(ref, text);
   if (has && mode !== 'intake' && cueWorkflowAsked_(text)) { const out = cueWorkflowStart_({ name: '' }, ref, String(text || '').trim(), files); if (!ref) cueChat_('Cue', 'Started a thread to map it.', '>' + out.request_id); return out; }
   if (mode !== 'intake' && !has && !ref && cueHsAsked_(text)) return cueHsStart_(String(text || '').trim(), 'chat');   // command C12, its own thread
+  // Kiko 24 Oct 13:50Z (CueFunnel.gs): "show the funnel", "my HubSpot tasks" read HubSpot in their own thread, no AI call.
+  if (mode !== 'intake' && !has && !ref && cueFunnelAsked_(text)) return cueFunnelStart_(String(text || '').trim(), 'chat');
   // Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
   if (mode !== 'chat' && mode !== 'intake' && !has && cueBidsFor_(text)) return cueBidsIntake_(String(text).trim(), ref);
   // PC check 22 Oct 04:45Z: "redo bid check" in a Bid check thread became a Project intake plan. A bid ask there (or "again", "redo",
@@ -627,6 +629,7 @@ function cueTaskName_(x) {
   if (x.kind === 'memory' || x.kind === 'process') return 'learning your ' + x.kind;
   if (x.kind === 'email') return 'the email to ' + ((x.mail && (x.mail.to || x.mail.to_addr)) || 'someone');
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
+  if (x.kind === 'funnel') return 'the sales funnel';
   if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
@@ -692,6 +695,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
     return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
       + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
+  if (s.kind === 'funnel') { const F = s.fn || {}; return 'sales funnel and HubSpot tasks, status ' + s.status + (F.stages ? '; ' + cueFunnelLine_(F) : '') + '; ' + (F.task_error || ((F.tasks || []).filter(t => !t.done).length + ' open HubSpot task(s)')); }
   if (s.kind === 'ar') return 'acknowledgement receipts for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
@@ -767,8 +771,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, funnel: cueFunnelRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', funnel: 'The sales funnel stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -986,7 +990,7 @@ function cueSummary_(s) {
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
-    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'funnel' ? 'Sales funnel' : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.kind === 'personal') {
@@ -1055,7 +1059,7 @@ function cueView_(s) {
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
   return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
-    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',

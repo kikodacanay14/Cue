@@ -341,6 +341,12 @@ function sandbox(o = {}) {
       if (pth === '/crm/v3/objects/contacts/batch/read') return resp(200, { results: body.inputs.map(x => ({ id: x.id, properties: { email: HS.contacts[x.id] } })) });
       if (pth === '/account-info/v3/details') return resp(200, { portalId: 247723523 });
       if (pth === '/crm/v3/objects/companies/search') { const q = body.filterGroups[0].filters[0].value; return resp(200, { results: (o.hsCompanies || []).filter(c => c.name.toLowerCase().indexOf(q.toLowerCase()) >= 0).map(c => ({ id: c.id, properties: { name: c.name } })) }); }
+      if (pth === '/crm/v3/objects/tasks/search') { if (o.hsTaskCode) return resp(o.hsTaskCode, { message: 'scope' }); log.taskQ = body; return resp(200, { results: (o.hsTasks || []).filter(x => x.status !== 'COMPLETED').map(x => ({ id: x.id, properties: { hs_task_subject: x.subject, hs_task_status: x.status, hs_timestamp: x.due } })) }); }
+      if (pth === '/crm/v4/associations/tasks/deals/batch/read') return resp(207, { results: body.inputs.filter(x => (o.hsTasks || []).find(t => t.id === x.id && t.deal)).map(x => ({ from: { id: x.id }, to: [{ toObjectId: Number((o.hsTasks || []).find(t => t.id === x.id).deal) }] })) });
+      const tk = pth.match(/^\/crm\/v3\/objects\/tasks\/(\w+)(\?.*)?$/);
+      if (tk) { const t = (o.hsTasks || []).find(x => x.id === tk[1]); if (!t) return resp(404, {});
+        if ((req.method || 'get').toLowerCase() === 'patch') { if (o.hsTaskWrite) return resp(o.hsTaskWrite, { message: 'scope' }); t.status = body.properties.hs_task_status; return resp(200, { id: t.id }); }
+        return resp(200, { id: t.id, properties: { hs_task_status: t.status } }); }
       if (pth === '/crm/v3/objects/notes' || pth === '/crm/v3/objects/tasks') return o.hsWrite403 ? resp(403, { message: 'scope' }) : resp(201, { id: 'hs-' + log.hs.length });
       throw new Error('unexpected HubSpot call ' + pth);
     }
@@ -1462,6 +1468,66 @@ test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the th
   assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
 });
 
+// CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md): funnel per HubSpot stage and Kiko's open HubSpot tasks, no AI call.
+const FN_TASKS = () => [{ id: 't1', subject: 'Follow up on pending decision — Telus — Trick or Treat - Manila', status: 'NOT_STARTED', due: '2026-10-19T02:00:00Z', deal: '101' },
+  { id: 't2', subject: 'Resolve MAEC company category', status: 'NOT_STARTED', due: '2026-10-19T02:00:00Z' },
+  { id: 't3', subject: 'Call Joy', status: 'NOT_STARTED', due: '2026-10-25T02:00:00Z' },
+  { id: 't4', subject: 'Old one', status: 'COMPLETED', due: '2026-10-01T02:00:00Z' }];
+const fnRun = (o = {}) => { const t = sandbox(Object.assign({ hsTasks: FN_TASKS(), props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }, o)); const id = t.ctx.cueSend(o.say || 'show the sales funnel').request_id; return { t, id, v: t.ctx.cueRun(id) }; };
+test('FN1 funnel: chat words start it with no AI call; every deal counted per stage, the award stage named; open tasks with their deal, overdue first', () => {
+  const { t, id, v } = fnRun();
+  assert.strictEqual(v.kind, 'funnel'); assert.strictEqual(v.status, 'Needs you', v.error);
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call'); assert.strictEqual(v.metrics.ai_calls, 0);
+  deq(v.fn.stages.map(x => [x.label, x.kind, x.n, x.amount]), [['Quoting', 'open', 4, 862682.61], ['Awaiting award', 'open', 1, 996352], ['Closed won', 'won', 1, 1], ['Closed lost', 'lost', 0, 0]]);
+  deq([v.fn.wait.label, v.fn.wait.n, v.fn.wait.amount], ['Awaiting award', 1, 996352]);
+  assert.strictEqual(v.fn.line, '4 Quoting ₱863k · 1 Awaiting award ₱996k · 1 won ₱1');
+  deq(v.fn.tasks.map(x => [x.id, x.group, x.deal, x.late, x.done]), [['t1', 'deal', 'Telus — Trick or Treat - Manila', 2, false], ['t2', 'category', '', 2, false], ['t3', 'other', '', 0, false]]);
+  assert.ok(/record\/0-3\/101$/.test(v.fn.deals.find(d => d.id === '101').url)); deq(v.fn.deals.find(d => d.id === '101').tasks, ['t1']);
+  assert.ok(t.log.hs.every(x => x.method !== 'patch'), 'the read changes nothing in HubSpot');
+  assert.strictEqual(t.log.taskQ.filterGroups[0].filters[0].value, 'COMPLETED', 'only tasks not completed');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /own thread/.test(x[2])), 'pointer in the main chat');
+  ['my hubspot tasks', 'show HubSpot action items', 'tasks in hubspot', 'funnel'].forEach(w => assert.ok(t.ctx.cueFunnelAsked_(w), w));
+  ['funnel review', 'review the funnel', 'clean up hubspot', 'how is the pipeline'].forEach(w => assert.ok(!t.ctx.cueFunnelAsked_(w), w));
+});
+test('FN2 funnel counts: no stage is listed by name; empty open stages stay at 0; with no award stage the last open stage waits', () => {
+  const { ctx } = sandbox();
+  const st = [{ id: 'a', label: 'Inquiry', kind: 'open' }, { id: 'b', label: 'CE submitted', kind: 'open' }, { id: 'c', label: 'Awaiting award / PO', kind: 'open' }, { id: 'w', label: 'Closed won', kind: 'won' }];
+  const r = ctx.cueFunnelCount_(st, [{ id: '1', name: 'A', stage: 'a', amount: 0 }, { id: '2', name: 'B', stage: 'c', amount: 100 }, { id: '3', name: 'KLM', stage: '', amount: 142240 }]);
+  deq(r.stages.map(x => [x.id, x.n, x.no_amount]), [['a', 1, 1], ['b', 0, 0], ['c', 1, 0], ['w', 0, 0]]); deq(r.none.map(x => x.name), ['KLM']); deq(r.wait.id, 'c');
+  deq(ctx.cueFunnelCount_(st.slice(0, 2), []).wait.id, 'b');
+  deq([ctx.cueFunnelPeso_(10194422.47), ctx.cueFunnelPeso_(420000), ctx.cueFunnelPeso_(5000)], ['₱10.2M', '₱420k', '₱5,000']);
+});
+test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) pointing at its thread; a newer run closes the older one', () => {
+  const { t, id, v } = fnRun();
+  const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', id]]);
+  assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
+  t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
+  assert.strictEqual(t.state(id).status, 'Closed', 'the older snapshot closes'); assert.strictEqual(t.state(id2).status, 'Needs you');
+});
+test('FN4 Mark done closes one HubSpot task and reads it back; a key without tasks scopes says so and the funnel still works', () => {
+  const { t, id } = fnRun();
+  const v = t.ctx.cueFunnelTaskDone(id, 't2');
+  deq(v.fn.tasks.map(x => [x.id, x.done]), [['t1', false], ['t2', true], ['t3', false]]);
+  deq(t.log.hs.filter(x => x.method === 'patch').map(x => [x.path, x.body.properties.hs_task_status]), [['/crm/v3/objects/tasks/t2', 'COMPLETED']], 'one write, that task only');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Marked done in HubSpot: Resolve MAEC/.test(x[2])));
+  assert.throws(() => t.ctx.cueFunnelTaskDone(id, 'nope'), /not on this list/);
+  const w = fnRun({ hsTaskWrite: 403 }), v2 = w.t.ctx.cueFunnelTaskDone(w.id, 't1');
+  assert.ok(/cannot change tasks/.test(v2.fn.tasks[0].error)); assert.strictEqual(v2.fn.tasks[0].done, false);
+  const r = fnRun({ hsTaskCode: 403 });
+  assert.strictEqual(r.v.status, 'Needs you'); assert.ok(/cannot read tasks yet/.test(r.v.fn.task_error)); deq(r.v.fn.tasks, []);
+  deq(r.t.ctx.cueTodayFrom_([r.v], '2026-10-21').rows.map(x => x.title), ['₱996k waiting for award', 'HubSpot tasks need a key change']);
+  const d = fnRun({ hsTasks: [] }); assert.strictEqual(d.v.status, 'Needs you', 'deals still wait for award');
+  assert.strictEqual(d.t.ctx.cueFunnelDone(d.id).status, 'Done');
+});
+test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wording', () => {
+  const t = sandbox({ hsTasks: FN_TASKS(), props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }); t.ctx.cueSchedules();   // seeds the rows, as opening Settings does
+  t.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); for (let i = 0; i < 6; i++) t.ctx.cueResume();
+  const f = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'funnel');
+  assert.strictEqual(f.length, 1); assert.strictEqual(f[0].how, 'daily'); assert.strictEqual(t.props.CUE_FUNNEL_DAY, '2026-10-22');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/function funnelCardHtml\(r\)/.test(html) && /data-act="fn-task"/.test(html) && /call\('cueFunnelTaskDone', \[id, b\.getAttribute\('data-t'\)\]/.test(html));
+});
 test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
   const t = pipeToCard(), C = t.ctx, first = t.id;
   const again = C.cueSend('which deals went quiet?').request_id; C.cueRun(again);
@@ -4277,7 +4343,7 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
 });
 test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-unsched', 'Daily 07:00', true]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-unsched', 'Daily 07:00', true]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
   t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');

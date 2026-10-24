@@ -1111,7 +1111,7 @@
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
   function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
   var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
-  var OLDK = { bids: 1, gtask: 1, pipeline: 1, hubspot: 1, status: 1, skillobs: 1 };   // the same list as CUE_OLD_KINDS_ in CueSweep.gs
+  var OLDK = { bids: 1, gtask: 1, pipeline: 1, funnel: 1, hubspot: 1, status: 1, skillobs: 1 };   // the same list as CUE_OLD_KINDS_ in CueSweep.gs
   function oldRun(th) {
     var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
     return !!th && th.reqs.some(function (r) { return OLDK[r.kind] && !r.phased && (r.status === 'Needs you' || r.status === 'Failed') && r.created && new Date(Date.parse(r.created) + 8 * 3600000).toISOString().slice(0, 10) < today; });
@@ -1131,7 +1131,7 @@
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'tri' ? ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || '') : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'tri' ? ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || '') : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -1365,6 +1365,7 @@
     ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
     ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],
     ['Sending', 'Gmail', 'Follow-ups go out from your Gmail as replies in their threads']];
+  var FUNNEL = [['Reading HubSpot', 'HubSpot', 'Cue reads your deals and open HubSpot tasks (no AI)'], ['Needs you', 'Kiko', 'Waiting for you']];
   var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading receipts from Canvas', 'Canvas', 'Canvas lists who was paid'],
     ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Making receipts', 'Canvas', 'Canvas makes the ticked receipts'], ['Emailing receipts', 'Canvas', 'Canvas emails them from AccountsPayables@']];
   var VENDOR = [['Reading Canvas', 'Canvas', 'Canvas lists suppliers (Preferred first) and past quotes'], ['GPT researching', 'GPT', 'GPT searches the web for new suppliers'],
@@ -1384,7 +1385,7 @@
     ['GPT matching costs', 'GPT', 'GPT matches the email\'s costs to the CE lines'], ['Needs you', 'Kiko', 'Check the costs and approve'],
     ['Writing to Canvas', 'Canvas', 'Canvas saves the unit costs and reads them back']];
   function workHtmlOf(r) {
-    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'cecost' ? CECOST : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'cecost' ? CECOST : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'funnel' ? FUNNEL : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
@@ -2030,6 +2031,59 @@
     return h;
   }
 
+  // CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md): deals per HubSpot stage as bars, the deals by stage biggest first,
+  // and Kiko's open HubSpot tasks. Read only, except Mark done, which closes that one task in HubSpot.
+  function pesoK(v) { v = Number(v) || 0; return v >= 1e6 ? '₱' + (Math.round(v / 1e5) / 10) + 'M' : v >= 1e4 ? '₱' + Math.round(v / 1e3) + 'k' : '₱' + Math.round(v).toLocaleString('en-US'); }
+  function funnelCardHtml(r) {
+    var F = r.fn, waiting = r.status === 'Needs you', w = F.wait || {}, max = 1, link = function (u, t) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
+    F.stages.forEach(function (x) { if (x.n > max) max = x.n; });
+    var COL = { open: 'var(--act)', won: 'var(--ok)', lost: 'var(--line2)' };
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Sales funnel · from HubSpot</div>'
+      + '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
+      + '<div class="small muted">Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.</div>';
+    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    // Empty open stages fold into one grey line instead of empty bars.
+    var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
+    h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
+      return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span style="flex:0 0 38%">' + esc(x.label) + '</span>'
+        + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:16px;border-radius:4px;background:' + (x.id === w.id ? 'var(--need)' : COL[x.kind]) + ';width:' + Math.max(3, Math.round(55 * x.n / max)) + '%"></span>'
+        + '<span>' + esc(x.n) + (x.amount && x.kind !== 'lost' ? ' · ' + pesoK(x.amount) : '') + '</span></span></div>';
+    }).join('') + (empty.length ? '<div class="small muted">None right now: ' + esc(empty.map(function (x) { return x.label; }).join(', ')) + '</div>' : '') + '</div>';
+    if (F.none.length) h += '<div class="warn">' + esc(F.none.length) + ' deal' + (F.none.length === 1 ? ' has' : 's have') + ' no stage, so the funnel leaves ' + (F.none.length === 1 ? 'it' : 'them') + ' out: '
+      + F.none.map(function (d) { return link(d.url, d.name); }).join(' · ') + '. Check its project status in Canvas.</div>';
+    var tasksBy = {}; F.tasks.forEach(function (t) { tasksBy[t.id] = t; });
+    var taskBtn = function (t, word) { return waiting && !t.done ? '<button class="btn ghost" data-act="fn-task" data-id="' + esc(r.id) + '" data-t="' + esc(t.id) + '">' + word + '</button>' : ''; };
+    F.stages.filter(function (x) { return x.n; }).forEach(function (x) {
+      var l = F.deals.filter(function (d) { return d.stage === x.id; });
+      h += '<details' + (x.id === w.id ? ' open' : '') + ' style="margin-top:10px"><summary class="label" style="display:inline">' + esc(x.label) + ' (' + l.length + ')</summary>'
+        + l.map(function (d) {
+          var ts = d.tasks.map(function (k) { return tasksBy[k]; }).filter(Boolean);
+          return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(d.url, d.name) + '</b><br><span class="small muted">' + (d.amount ? pesoK(d.amount) : 'no amount') + '</span>'
+            + ts.map(function (t) { return '<div class="small" style="margin-top:4px"><span class="tag flag">HubSpot task' + (t.late ? ' · ' + esc(t.late) + ' day' + (t.late === 1 ? '' : 's') + ' late' : '') + '</span> ' + esc(t.subject)
+              + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark task done') + '</div></div>'; }).join('') + '</div>';
+        }).join('') + '</details>';
+    });
+    h += '<div class="label">HubSpot tasks · yours</div>';
+    if (F.task_error) h += '<div class="warn">' + esc(F.task_error) + '</div>';
+    else {
+      var open = F.tasks.filter(function (t) { return !t.done; });
+      h += '<div class="small muted">' + esc(open.length) + ' open' + (open.length !== F.tasks.length ? ', ' + esc(F.tasks.length - open.length) + ' marked done here' : '') + '. Mark done closes that one task in HubSpot, then Cue reads it back.</div>';
+      [['deal', 'Deal follow-ups'], ['category', 'Company category'], ['other', 'Other']].forEach(function (g) {
+        var l = F.tasks.filter(function (t) { return t.group === g[0]; }); if (!l.length) return;
+        h += '<details' + (g[0] === 'deal' ? ' open' : '') + ' style="margin-top:8px"><summary class="small" style="display:inline"><b>' + g[1] + ' (' + l.filter(function (t) { return !t.done; }).length + ')</b></summary>'
+          + l.map(function (t) {
+            return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(t.url, t.subject) + '</b>' + (t.done ? ' <span class="tag pref">done</span>' : '')
+              + '<br><span class="small">' + (t.due ? (t.late && !t.done ? '<span style="color:var(--bad)">Due ' + esc(t.due) + ' · ' + esc(t.late) + ' day' + (t.late === 1 ? '' : 's') + ' late</span>' : 'Due ' + esc(t.due)) : 'No due date') + '</span>'
+              + (t.deal ? '<span class="small muted"> · ' + link(t.deal_url, t.deal) + (t.amount ? ' ' + pesoK(t.amount) : '') + (t.stage ? ', ' + esc(t.stage) : '') + '</span>' : '')
+              + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark done') + '</div></div>';
+          }).join('') + '</details>';
+      });
+    }
+    h += '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="fn-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
+      + '<div class="small muted" style="margin-top:6px">No AI. Deal stages and amounts are never changed here: Canvas owns them.</div>' + metricLine(r) + '</div>';
+    return h;
+  }
+
   // CUE-AR (Kiko 07:42Z): acknowledgement receipts. Ready ones come ticked; a made one is remade only on its own tick; the rest say why.
   function arCardHtml(r) {
     var a = r.ar, waiting = r.status === 'Needs you', mail = waiting && r.stage === 'Ready to email', made = a.items.some(function (x) { return x.made_now; });
@@ -2655,6 +2709,7 @@
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
     if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
+    if (r.kind === 'funnel' && r.fn && r.fn.stages.length && r.status !== 'Failed') return funnelCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>' + kindName(r) + ' stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
@@ -2964,6 +3019,8 @@
         if (act === 'retry') return call('cueRetry', [id], done, fail);
         if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
         if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
+        if (act === 'fn-done') { b.disabled = true; return call('cueFunnelDone', [id], done, fail); }
+        if (act === 'fn-task') { b.disabled = true; return call('cueFunnelTaskDone', [id, b.getAttribute('data-t')], done, fail); }
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
