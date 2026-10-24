@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.8: live 1.27.7 + add tasks, issues and risks + "add project" + tighter inside Canvas (release branch, not deployed)
+## Cue 1.27.9: 1.27.8 + add tasks, issues and risks + "add project" + tighter inside Canvas (release branch, not deployed)
 
 Kiko 24 Oct 06:47Z ("they dont have add project", "add the tasks"), 06:49Z ("make the window smaller and tighter"), 06:50Z ("go").
 Spec: specs/cue-add-tasks.md.
