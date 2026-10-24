@@ -1,8 +1,12 @@
 // Cloud deploy for Cue, run by .github/workflows/deploy.yml. Uses clasp, signed in as deploy.json's account.
-// Usage: node tools/deploy.mjs check|preview|deploy
+// Usage: node tools/deploy.mjs check|preview|test|deploy
 // check only reads: it shows what would change between the live version and src/. preview pushes src/ to the project's
 // head only, so Cue's test link (/dev) runs the new code while the live web app (/exec) stays on its Version. deploy replaces every file in the
 // Cue project with src/, makes a new version, points Cue's web app (same /exec address) at it, and reads it back.
+// test (Kiko's OK 24 Oct 09:13Z) makes a new version like deploy but points only the separate "Cue test" deployment at it,
+// never the live one. /dev cannot load inside Canvas's frame ("You need access"), so Canvas ?dev=1 frames this test
+// deployment's /exec address instead. The first run creates that deployment and prints its address. Like preview, it
+// pushes to head, so /dev runs this build afterwards too.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -10,7 +14,8 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 const mode = process.argv[2];
-if (!['check', 'preview', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|deploy'); process.exit(2); }
+if (!['check', 'preview', 'test', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|test|deploy'); process.exit(2); }
+const TEST_DESC_ = 'Cue test (Canvas ?dev=1)';
 const cfg = JSON.parse(fs.readFileSync('deploy.json', 'utf8'));
 const fail = m => { console.error('STOPPED: ' + m); process.exit(1); };
 if (/FILL_IN/.test(cfg.account + cfg.scriptId)) fail('fill in account and scriptId in deploy.json first');
@@ -51,7 +56,7 @@ if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.ex
 
 const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));
-if (mode === 'preview') {
+if (mode === 'preview' || mode === 'test') {
   // PC test 01:41Z: test taps on /dev graduated Kiko's real tutor patterns. Head code says it is the test build, so Cue
   // skips learning there. Only the pushed copy changes; src/ and every live version keep CUE_DEV_ = false.
   const f = path.join(pushDir, 'src', 'Cue.gs'), was = fs.readFileSync(f, 'utf8'), now = was.replace(/^const CUE_DEV_ = false;/m, 'const CUE_DEV_ = true;');
@@ -74,6 +79,20 @@ if (mode === 'preview') {
   process.exit(0);
 }
 const { versionNumber } = clasp(pushDir, 'create-version', desc);
+if (mode === 'test') {
+  // Only the test deployment moves. The live deployment is read again afterwards to prove it did not.
+  const t0 = clasp(work, 'list-deployments').find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(TEST_DESC_));
+  if (t0) clasp(pushDir, 'update-deployment', t0.deploymentId, '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc);
+  else clasp(pushDir, 'create-deployment', '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc);
+  const now = clasp(work, 'list-deployments'), after = now.find(d => d.deploymentId === cfg.deploymentId);
+  const t = now.find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(TEST_DESC_));
+  if (!after || after.versionNumber !== live) fail(`live deployment moved from Version ${live} to ${after && after.versionNumber}`);
+  if (!t || t.versionNumber !== versionNumber) fail(`test deployment is not on Version ${versionNumber}`);
+  const line = `Cue test deployment on Version ${versionNumber} (${desc}): https://script.google.com/a/macros/blankspaceevent.com/s/${t.deploymentId}/exec ; live stays on Version ${live}`;
+  console.log('TEST: ' + line);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+  process.exit(0);
+}
 const done = clasp(pushDir, 'update-deployment', cfg.deploymentId, '--versionNumber', String(versionNumber), '--description', desc);
 const bad = diff(`live Version ${done.versionNumber} vs src/`, sums(pull(project('verify'), done.versionNumber)), want);
 const line = `Cue is live as Version ${done.versionNumber} (was ${live || 'head'}; rollback = Version ${live || 'none'}); files ${bad ? 'MISMATCH' : 'match'}`;
