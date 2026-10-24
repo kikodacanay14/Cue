@@ -256,10 +256,12 @@ function cueBidsJunk_(x, loose) {
   if (/\brecheck\b/i.test(t)) return 'recheck line';
   if (/\b(notice of award|awarded|award(?:ed)? to)\b/i.test(t) || /\bNOA\b/.test(t)) return 'award notice';
   if (/\b(log\s?-?in|sign\s?-?in|bulletin board)\b/i.test(t)) return 'sign-in page';
-  if (/\b(multiple|listings?|splash|open opportunities|various notices|notices shown)\b/i.test(t)) return 'listing page';
-  if (loose) return '';
+  if (/\b(award posting|posting of awards?|bac reso(lution)?)\b/i.test(t)) return 'award notice';
+  // PC check 24 Oct 07:28Z: rows like "Procurement / Opportunities (last-updated page)" and "... entries listed on PCC procurement page".
+  if (/\b(multiple|listings?|splash|open opportunities|procurement opportunities|various notices|notices shown|advisories|last-updated|entries|list contains|listed on|page (shows|lists))\b|\bpage\)|\bpage\s*$|^\s*procurement\s*\/\s*opportunities\b/i.test(t)) return 'listing page';
   const own = String(x.url || '').replace(/\/+$/, '');
   if (own && CUE_BIDS_SOURCES_.some(y => y.url.replace(/\/+$/, '') === own)) return 'listing page';
+  if (loose) return '';
   if (!x.agency || !x.reference || !x.project || !x.url) return 'incomplete';
   return '';
 }
@@ -294,6 +296,7 @@ function cueBidsCheck_(s) {
   });
   B.items = out.fresh.slice(0, CUE_BIDS_MAX_.items); B.updated = out.updated.slice(0, CUE_BIDS_MAX_.updated); B.dropped = out.dropped;
   B.sources.forEach(x => { const n = pages[cueName_(x.source)]; if (n) x.pages = n; });
+  B.still = cueBidsStill_(open, B.items, B.updated);
   B.tally = { dup: out.dup, nodocs, left, not_rechecked: (B.open || []).filter(r => !out.rechecked[r.key]).map(r => r.ref || r.project).filter(Boolean) };
   delete B.raw;
   s.stage = 'Reading';
@@ -308,7 +311,7 @@ function cueBidsItem_(x) {
     event_date: cueStr_(x.event_date, 80), summary: cueStr_(x.summary || x.scope, 300), scope: cueStr_(x.scope, 300), eligibility: cueStr_(x.eligibility, 400), url: https(x.url),
     amendments: cueStr_(x.amendments, 300), limitations: cueStr_(x.limitations, 300), next_action: cueStr_(x.next_action, 200), documents: [] };
   const urls = {};
-  (x.documents || []).forEach(d => { const u = https(d && d.url); if (u && urls[u]) return; urls[u] = 1; if (it.documents.length < 10) it.documents.push({ name: cueStr_(d && d.name, 120) || 'Document', url: u, state: u ? 'waiting' : 'failed', why: u ? '' : 'no https link' }); });
+  (x.documents || []).forEach(d => { const u = https(d && d.url); if (u && urls[u] || cueBidsDocJunk_(d && d.name)) return; urls[u] = 1; if (it.documents.length < 10) it.documents.push({ name: cueStr_(d && d.name, 120) || 'Document', url: u, state: u ? 'waiting' : 'failed', why: u ? '' : 'no https link' }); });
   if (!it.project && !it.reference) return null;
   it.key = cueBidsKey_(it.reference, it.agency, it.project); it.deadline_ms = cueBidsWhen_(it.deadline);
   return it;
@@ -465,12 +468,13 @@ function cueBidsReadAll_(s, jobs, store) {
 /** Reading stage: each new document of a new or changed notice is opened once (3 a notice, 10 notices a run), saved, and read once. A
  * document Cue already has a record of is never fetched again; what was read in it before is used as it is. */
 function cueBidsRead_(s, save, t0) {
-  const B = s.bids, store = cueBidsDocs_(), list = (B.items || []).concat(B.updated || []);
+  const B = s.bids, store = cueBidsDocs_(), list = (B.items || []).concat(B.still || []);
   let opened = 0;
   list.forEach(it => {
     it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });
     const known = it.documents.map(d => store.by[d.url]).filter(r => r && r.facts)[0];
-    if (known && !it.from_docs) cueBidsFacts_(it, known.facts);
+    if (known && !it.from_docs) { const was = [it.abc, it.posted, it.deadline, it.summary].join('|'); cueBidsFacts_(it, known.facts);
+      if (it.row && was !== [it.abc, it.posted, it.deadline, it.summary].join('|')) it.touched = true; }
   });
   // A notice is opened once a run (it.tried). One cut off between opening and reading gets its saved PDFs read from Cue's Drive copy.
   const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive);
@@ -480,7 +484,7 @@ function cueBidsRead_(s, save, t0) {
     const jobs = queue.slice(i, i + Math.min(CUE_BIDS_READ_.batch, CUE_BIDS_READ_.notices - opened)).map(it => {
       const again = it.tried; it.tried = true; it.read_tried = again;
       const docs = again ? [] : it.documents.filter(d => d.url && !store.by[d.url]).slice(0, CUE_BIDS_READ_.docs);
-      const pdfs = cueBidsOpen_(it, docs, store);
+      const pdfs = cueBidsOpen_(it, docs, store); if (docs.length && it.row) it.touched = true;
       if (again) unread(it).forEach(d => { try { pdfs.push({ d, rec: store.by[d.url], bytes: cueDrive_('get', CUE_DRIVE_ + '/' + store.by[d.url].drive + '?alt=media', { raw: true }).getContent() }); } catch (e) { /* stays unread */ } });
       it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });   // one link on two notices is opened once
       return { it, pdfs };
@@ -490,6 +494,7 @@ function cueBidsRead_(s, save, t0) {
     jobs.forEach(j => { j.pdfs = null; });
     s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save();
   }
+  (B.updated || []).forEach(u => { const st = (B.still || []).filter(x => x.row === u.row)[0]; if (st) u.documents = st.documents; });
   s.stage = 'Writing';
 }
 
@@ -500,18 +505,10 @@ function cueBidsFinish_(s) {
   B.items = (B.items || []).filter(it => { const why = cueBidsScreen_(it, now); if (why.drop) { B.dropped[why.drop]++; return false; } it.status = why.status; return true; });
   cueBidsWrite_(s);
   const store = (() => { try { return cueBidsDocs_(); } catch (e) { return { by: {} }; } })();
-  const fresh = {}; B.items.forEach(it => { fresh[it.key] = 1; });
   const upd = (B.updated || []).filter(it => it.row);
-  B.still = cueBidsOpenRows_(s).filter(r => !fresh[r.key]).map(r => {
-    const u = upd.filter(x => x.row === r.row)[0];
-    const it = { key: r.key, row: r.row, agency: r.agency, reference: r.ref, project: r.project, location: r.location, abc: r.abc, budget_note: r.budget_note,
-      posted: r.posted, deadline: u && u.deadline || r.deadline, event_date: r.event_date, summary: r.summary, eligibility: r.eligibility, url: r.url, status: r.status,
-      next_action: r.next_action, seen: r.seen, tag: u ? u.tag : '', documents: u && u.documents.length ? u.documents : cueBidsParseDocs_(r.docs) };
-    it.documents.forEach(d => cueBidsDocFrom_(d, store.by[d.url]));
-    return it;
-  }).filter(it => it.tag !== 'Cancelled')
-    .sort((a, b) => (cueBidsWhen_(a.deadline) || 9e15) - (cueBidsWhen_(b.deadline) || 9e15)).slice(0, CUE_BIDS_MAX_.items);
-  const docs = [].concat.apply([], B.items.concat(upd).map(it => it.documents)), waiting = docs.filter(d => d.state === 'waiting');
+  B.still = (B.still || []).filter(it => !B.items.some(x => x.key === it.key));
+  B.still.forEach(it => { it.documents.forEach(d => cueBidsDocFrom_(d, store.by[d.url])); if (it.touched) cueBidsRowUpdate_(it); delete it.touched; });
+  const docs = [].concat.apply([], B.items.concat(B.still).map(it => it.documents)), waiting = docs.filter(d => d.state === 'waiting');
   const okSrc = B.sources.filter(x => ['Checked', 'Partial', 'Blocked'].indexOf(x.status) >= 0), D = B.dropped;
   B.checks = [
     { id: 1, label: 'All 11 sources reported', ok: okSrc.length === CUE_BIDS_SOURCES_.length, detail: okSrc.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => okSrc.indexOf(x) < 0).map(x => x.source).join(', ') },
@@ -535,12 +532,31 @@ function cueBidsFinish_(s) {
   if (nNew || upd.length) { s.status = 'Needs you'; s.stage = 'Needs you'; cueChat_('Cue', B.summary + ' Tap Start intake on one to start it.', s.id); }
   else { s.status = 'Done'; s.stage = 'Done'; cueChat_('Cue', B.summary, s.id); }
 }
+/** Still open (spec rule 3): the sheet's open rows, one per notice, with what this run's recheck changed. Built at Checking so the
+ * Reading stage opens their documents too (PC check 24 Oct 07:28Z: none of the 19 still open notices had a document opened). A cancelled one leaves. */
+function cueBidsStill_(open, items, updated) {
+  const fresh = {}; (items || []).forEach(it => { fresh[it.key] = 1; });
+  return open.filter(r => !fresh[r.key]).map(r => {
+    const u = (updated || []).filter(x => x.row === r.row)[0], docs = cueBidsParseDocs_(r.docs);
+    if (u) u.documents.forEach(d => { if (d.url && !docs.some(x => x.url === d.url)) docs.push(d); });
+    return { key: r.key, row: r.row, agency: r.agency, reference: r.ref, project: r.project, location: r.location, abc: r.abc, budget_note: r.budget_note,
+      posted: r.posted, deadline: u && u.deadline || r.deadline, deadline_ms: u && u.deadline_ms || r.deadline_ms, event_date: r.event_date, summary: r.summary,
+      eligibility: r.eligibility, url: r.url, status: r.status, next_action: r.next_action, seen: r.seen, tag: u ? u.tag : '', documents: docs.slice(0, 10) };
+  }).filter(it => it.tag !== 'Cancelled')
+    .sort((a, b) => (a.deadline_ms || 9e15) - (b.deadline_ms || 9e15)).slice(0, CUE_BIDS_MAX_.items);
+}
 /** Documents as the sheet's Documents column lists them: "TOR (Opened · saved (pdf)) https://..; RFQ (Could not open: HTTP 403) https://..". */
 function cueBidsParseDocs_(t) {
-  return String(t || '').split(/;\s+/).map(x => {
+  const list = String(t || '').split(/;\s+/).map(x => {
     const m = x.match(/^(.*?) \(((?:[^()]|\([^()]*\))*)\)(?: (https:\/\/\S+))?/); if (!m) return null;
-    return { name: cueStr_(m[1], 120), url: m[3] || '', state: /^Opened/i.test(m[2]) ? 'saved' : /^Could not open/i.test(m[2]) ? 'failed' : 'waiting', why: m[2].replace(/^Could not open:\s*/i, '') };
-  }).filter(Boolean).slice(0, 10);
+    return { name: cueStr_(m[1], 120), url: m[3] || '', state: /^Opened/i.test(m[2]) ? 'saved' : /^Could not open/i.test(m[2]) ? 'failed' : 'waiting', why: /^Could not open/i.test(m[2]) ? m[2].replace(/^Could not open:\s*/i, '') : '' };
+  }).filter(Boolean);
+  // Kiko's own rows: any https link in the cell is a document, named by its file name.
+  const out = list.length ? list : (String(t || '').match(/https:\/\/[^\s;,"<>)]+/g) || []).map(u => ({ name: decodeURIComponent(u.split(/[?#]/)[0].split('/').pop() || 'Document').slice(0, 120), url: u, state: 'waiting', why: '' }));
+  return out.filter(d => !cueBidsDocJunk_(d.name)).slice(0, 10);
+}
+/** A document that is an award posting, not part of the notice (PC check 24 Oct: "PR No. 2026.-0.030 TPB Website and Premises Award Posting"). */
+function cueBidsDocJunk_(name) { return /\b(award posting|notice of award|posting of awards?)\b/i.test(String(name || '')) || /\bNOA\b/.test(String(name || ''));
 }
 function cueBidsDocLine_(d) {
   return d.name + ' (' + (d.state === 'saved' ? 'Opened · saved' + (d.read ? ' · read' : '') : d.state === 'failed' ? 'Could not open: ' + d.why : 'Not opened yet') + ')' + (d.url ? ' ' + d.url : '');
