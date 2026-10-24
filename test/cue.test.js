@@ -4745,6 +4745,55 @@ test('CIC4 Cue wears Canvas: Workspace tokens (cream, ink, purple action, magent
   assert.ok(!/<b [^>]*color:#fff/.test(html), 'card titles use the ink token, not white');
 });
 
+// CUE-TODAY (spec specs/daily-digest.md): one Today card from the scheduled jobs' runs; Canvas Home draws it.
+const TD = (o) => Object.assign({ created: '2026-10-21T00:05:00Z', status: 'Needs you', metrics: { calls: [] } }, o);
+const GPTC = { calls: [{ provider: 'GPT', status: 'OK' }] }, CLC = { calls: [{ provider: 'Claude', status: 'OK' }] };
+test('TD1 Today card: one row per run that needs Kiko, chasers first, who did it from the real calls', () => {
+  const { ctx } = sandbox();
+  const v = [
+    TD({ id: 'b1', kind: 'bids', metrics: GPTC, bids: { items: [{ project: 'DepEd Batangas', abc: 420000 }, { project: 'Laguna LGU', abc: 610000 }], updated: [{}] } }),
+    TD({ id: 's1', kind: 'sweep', metrics: GPTC, batch: { items: [{ label: 'RFQ' }, { label: 'RFQ' }, { label: 'Payment' }, { label: 'Inbox', no_email: true }, { label: 'RFQ', removed: 'skip' }] } }),
+    TD({ id: 'h1', kind: 'hubspot', metrics: CLC, hs: { title: 'Monday HubSpot check', groups: [{ items: [{ title: 'Merge Acme', can_fix: true }, { title: 'Done one', can_fix: true, result: { ok: true } }] }] } }),
+    TD({ id: 'g1', kind: 'gtask', status: 'Done', metrics: GPTC, gt: { title: 'Repeat-event accounts', items: [] } }),
+    TD({ id: 'g2', kind: 'gtask', status: 'Done', metrics: { calls: [] }, gt: { title: 'Moved contacts', items: [] } }),
+    TD({ id: 'old', kind: 'bids', created: '2026-10-19T23:00:00Z', bids: { items: [{ project: 'X' }] } }),
+    TD({ id: 'i1', kind: 'intake' }),
+    TD({ id: 'w1', kind: 'gtask', status: 'Working', gt: { title: 'Still running', items: [] } })];
+  const T = ctx.cueTodayFrom_(v, '2026-10-21');
+  deq(T.count, 3);
+  deq(T.rows.map(r => r.thread), ['s1', 'b1', 'h1'], 'the morning batch first; old days, other kinds and running jobs left out');
+  deq([T.rows[0].title, T.rows[0].detail, T.rows[0].primary, T.rows[0].button], ['Send 3 emails', '2 RFQ, 1 Payment, 1 Inbox.', true, 'Review and send']);
+  deq([T.rows[1].title, T.rows[1].detail, T.rows[1].by], ['2 new bids worth a look', 'DepEd Batangas ₱420k · Laguna LGU ₱610k', 'Done by ChatGPT · checked by Cue']);
+  deq([T.rows[2].title, T.rows[2].by], ['1 HubSpot fix to review', 'Done by Claude · checked by Cue']);
+  deq(T.done, 'repeat-event accounts (nothing new) (by ChatGPT); moved contacts (nothing new) (by Cue)');
+});
+test('TD2 Today card: a failed run is a Try again row; a thread joined by a redo points at its root; no AI call ran', () => {
+  const t = sandbox(), before = JSON.stringify(t.log);
+  const T = t.ctx.cueTodayFrom_([TD({ id: 'r0', kind: 'status' }), TD({ id: 'r1', kind: 'bids', ref: 'r0', status: 'Failed', error: 'ChatGPT timed out', metrics: { calls: [{ provider: 'GPT', status: 'Failed' }] } })], '2026-10-21');
+  const f = T.rows.find(r => r.thread === 'r0' && r.button === 'Try again');
+  assert.ok(f, 'failed row points at the thread root');
+  deq([f.title, f.detail, f.by], ['Bid check didn\'t finish', 'ChatGPT timed out', 'Stopped · nothing was sent or changed']);
+  deq(JSON.stringify(t.log), before, 'building the card makes no fetch');
+});
+test('TD3 Today frame: silent until cueHost from a Google window above it; doGet serves it framable; owner-only call', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Today.html'), 'utf8'), gs = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/if \(!anc\) return;/.test(html) && /if \(!ok\.test\(anc\[i\]\)\) return;/.test(html), 'stays silent without, or with a foreign, ancestor');
+  assert.ok(/d\.canvasWs !== 'cueHost' \|\| host \|\| !above\(e\.source\)/.test(html), 'only the first cueHost from a window above');
+  assert.ok(/host\.postMessage\(\{ canvasWs: 'cue-today'/.test(html) && !/parent\.postMessage\(\{ canvasWs: 'cue-today'/.test(html), 'rows go to the host only');
+  assert.ok(/q\.view === 'today'\) return HtmlService\.createHtmlOutputFromFile\('Today'\)/.test(gs));
+  const t = sandbox({ viewer: 'someone@example.com' });
+  assert.throws(() => t.ctx.cueToday(), /owner|Kiko|only/i);
+});
+test('TD4 Cue chat: a day\'s scheduled-job pointer lines fold into one Today line', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/var jd = jobDay\(pt\); if \(jd && !answers\) \{ if \(!dayShown\[jd\]\) \{ dayShown\[jd\] = 1; h \+= todayHtml\(jd, th\); \} return; \}/.test(page));
+  const src = page.slice(page.indexOf('var TODAY_K = '), page.indexOf('  // The chat: Kiko\'s general messages'));
+  const ctx = vm.createContext({ esc: x => String(x), state: { today: { day: '2026-10-21', rows: [{ title: 'Send 3 emails', detail: '3 RFQ.', by: 'Done by ChatGPT · checked by Cue', thread: 's1' }], done: 'bid check (no new bids) (by ChatGPT)' } } });
+  vm.runInContext(src, ctx);
+  const h = ctx.todayHtml('2026-10-21', {});
+  assert.ok(/Today: 1 thing needs you/.test(h) && /data-thread="s1"/.test(h) && /Done by ChatGPT · checked by Cue/.test(h) && /Done for you: bid check/.test(h), h);
+});
+
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
 console.log(pass + '/' + tests.length + ' passed');
 process.exit(pass === tests.length ? 0 : 1);
