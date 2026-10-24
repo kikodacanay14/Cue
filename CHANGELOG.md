@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.17: the Today card's bid row says which run holds the new bids (release branch, not deployed)
+
+PC check of 1.27.16, 24 Oct 10:41Z: the Cue chat's Today line passed (one line for the day). It said "1 thing needs you: 2 new bids
+worth a look" (PCC catering for the FY2026 Midyear General Assembly, printing of PCC IECs), but the checker did not find them on the
+bid card. Both are in the "New (2)" list of the 17:58 redo's card ("Bid opportunities · Sat 24 Oct, 17:58 · 2 new, 5 still open"). The
+day's Bid check thread holds several cards, and the row did not say which one to look at.
+
+- The bid row's small top line is now that run's name ("Bid opportunities · Sat 24 Oct, 17:58"), not just "Bid check". The tap still
+  opens the day's Bid check thread.
+- Unchanged: a redo with no new notices, only Still open ones, goes in the "Done for you" line, not a row.
+- Tests: 342 of 342 pass (new TD5).
+
 ## Cue 1.27.16: live 1.27.15 (V55) + one Today card for the scheduled jobs, drawn by Canvas Home (release branch, not deployed)
 
 Kiko 23 Oct 07:37Z ("i get confused with how its presenting information"), 08:49Z ("Cue can place them in my Home page"),

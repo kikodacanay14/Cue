@@ -32,7 +32,7 @@ function cueTodayRow_(r) {
     const B = r.bids || {}, items = B.items || [], up = B.updated || [];
     const peso = v => v ? '₱' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v) : '';
     if (!need || !items.length) return { done: 'bid check (' + (items.length ? n(items.length, 'new bid') : 'no new bids') + (up.length ? ', ' + up.length + ' updated' : '') + ')', by };
-    return { need: row({ eyebrow: 'Bid check', title: n(items.length, 'new bid') + ' worth a look', button: 'Open bids',
+    return { need: row({ eyebrow: B.base || 'Bid check', title: n(items.length, 'new bid') + ' worth a look', button: 'Open bids',
       detail: items.slice(0, 2).map(x => [x.project || x.reference || x.agency, peso(Number(x.abc) || 0)].filter(Boolean).join(' ')).join(' · ') + (items.length > 2 ? ' and ' + (items.length - 2) + ' more' : '') }) };
   }
   if (r.kind === 'hubspot') {
