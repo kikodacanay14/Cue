@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.7';   // release branch: live 1.27.6 + CE cost / expense save-Done fix + Cue-in-Canvas guard fix
+const CUE_VERSION_ = 'Cue 1.27.8';   // release branch: live 1.27.7 + add task/issue/risk cards, "<project> tasks", "add project", tighter inside Canvas
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -187,7 +187,11 @@ function cueSendWith_(text, files, mode, ref, forced) {
   }
   if (!has && mode !== 'intake') { const cr = cueCecReply_(ref, text); if (cr) return cr; }
   if (!has && mode !== 'intake' && cueCecAsked_(text)) return cueCecStart_(text, ref);
+  // Kiko 06:47Z 24 Oct (specs/cue-add-tasks.md): "add task|issue|risk … to <project>" shows an Approve card; no AI call.
+  if (!has && mode !== 'intake') { const tr = cueTriSaid_(text, ref); if (tr) return tr; }
   if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
+  // Same spec: "add project …" / "new project …" is a project intake in Kiko's own words, so no chat call routes it.
+  if (mode !== 'chat' && mode !== 'intake' && CUE_ADD_PROJECT_RE_.test(String(text || '').trim())) { text = 'New project intake: ' + String(text).trim().replace(CUE_ADD_PROJECT_RE_, '').trim(); mode = 'intake'; }
   // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
   if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
   // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
@@ -628,6 +632,7 @@ function cueTaskName_(x) {
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
+  if (x.kind === 'tri') return (x.tri && x.tri.type || 'Task') + ': ' + cueStr_(x.tri && x.tri.description, 80);
   if (x.kind === 'workflow') return 'the ' + ((x.workflow && ((x.workflow.map && x.workflow.map.name) || x.workflow.name)) || 'workflow') + ' map';
   if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
   if (x.kind === 'personal') return 'Personal expense' + ((x.items || [])[0] && x.items[0].payee ? ': ' + x.items[0].payee + (x.items.length > 1 ? ' and ' + (x.items.length - 1) + ' more' : '') : '');
@@ -647,7 +652,8 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier'];
+const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri'];
+const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project\b(?!\s+intake)\s*[:,-]?/i;
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
@@ -692,6 +698,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'hubspot') { const H = s.hs || {}; return (H.title || 'HubSpot clean-up') + ', status ' + s.status + '; ' + (H.items || []).length + ' finding(s), ' + (H.fixed || 0) + ' fixed'; }
   if (s.kind === 'vendor') return 'supplier search for ' + cueVendorAsk_(s.vendor || {}) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '')
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
+  if (s.kind === 'tri') return cueTaskName_(s) + ' in ' + ((s.tri && (s.tri.project || s.tri.asked_project)) || 'a project') + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'workflow') return 'workflow map ' + ((s.workflow && ((s.workflow.map && s.workflow.map.name) || s.workflow.name)) || '') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'personal') return cueTaskName_(s) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"'
@@ -815,6 +822,7 @@ function cueApprove(id, edits) {
   if (L && L.s.kind === 'hubspot') return cueView_(cueHsApprove_(id, edits || {}));
   if (L && L.s.kind === 'vendor') return cueView_(cueVendorApprove_(id, edits || {}));
   if (L && L.s.kind === 'workflow') return cueView_(cueWorkflowApprove_(id));
+  if (L && L.s.kind === 'tri') return cueView_(cueTriApprove_(id, edits || {}));
   if (L && L.s.kind === 'supplier') return cueView_(cueSupplierApprove_(id, edits || {}));
   if (L && L.s.kind === 'personal') return cueView_(cuePersonalApprove_(id, edits || {}));
   if (L && L.s.phased) return cueView_(cuePhApprove_(id, edits || {}));
@@ -871,6 +879,7 @@ function cueReject(id, why) {
   if (L && L.s.kind === 'style') return cueView_(cueStyleClose_(id));
   if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
+  if (L && L.s.kind === 'tri') return cueView_(cueTriClose_(id));
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
   if (L && L.s.phased && L.s.kind === 'intake') return cueView_(cuePhReject_(id));   // one tap, no reason (Kiko 14:56Z)
   return cueView_(cueIntakeReject_(id, why));
@@ -968,6 +977,7 @@ function cueSummary_(s) {
     if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
+    if (s.kind === 'tri') { const w = cueTriSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
@@ -1062,6 +1072,7 @@ function cueView_(s) {
     fin: s.kind === 'finance' ? (s.fin || null) : null,
     vendor: s.kind === 'vendor' ? cueVendorView_(s) : null,
     workflow: s.kind === 'workflow' ? cueWorkflowView_(s) : null,
+    tri: s.kind === 'tri' ? cueTriView_(s) : null,
     supplier: s.kind === 'supplier' ? cueSupView_(s) : null,
     personal: s.kind === 'personal' ? cuePeView_(s) : null,
     style: s.kind === 'style' ? cueStyleView_(s) : null,

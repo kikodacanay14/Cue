@@ -219,6 +219,8 @@ function sandbox(o = {}) {
       if (body.action === 'ce_update_costs') { (log.ceWrites = log.ceWrites || []).push(body); if (o.ceWriteFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, lines: body.args.lines.map(l => (o.ceRefuse || []).indexOf(l.req_id) >= 0
           ? { req_id: l.req_id, before: l.was, after: l.was, ok: false, why: 'its cost changed in Canvas to 1 since Cue read it' } : { req_id: l.req_id, before: l.was, after: l.unit_cost, ok: true }) } }); }
+      if (body.action === 'add_tri_items') { (log.tri = log.tri || []).push({ pid: body.project_id, args: body.args }); if (o.triFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, added: o.triDup ? 0 : 1, items: body.args.items.map(x => o.triDup ? { key: x.key, ok: true, id: 'TRI-0007', why: 'already in Canvas' } : { key: x.key, ok: true, id: 'TRI-0042' }) } }); }
       if (body.action === 'search_projects') { log.search = (log.search || []).concat(body.args.query); if (o.searchFail) return resp(200, { ok: false, status: 'Blocked', error: 'boom' }); return resp(200, { ok: true, status: 'Completed', result: (o.search || {})[body.args.query.toLowerCase()] || { projects: [], total: 0 } }); }
       if (body.action === 'list_project_files') {
         if (o.filesFail) return resp(200, { ok: false, status: 'Blocked', error: 'Google Drive could not list the project folder (HTTP 403).' });
@@ -3775,6 +3777,72 @@ test('CV8 the page sends every Canvas command to the server, never to the expens
     'close task send floor plan in Globe party', 'past prices of LED wall', 'show Globe expenses in canvas', 'go to Globe party']
     .forEach(x => { assert.ok(t.ctx.cueCanvasParse_(x), 'server: ' + x); assert.ok(re.test(x), 'page: ' + x); });
   ['record expense 450 duct tape for Globe', 'paid to Ace Hardware 450', 'show me the expenses'].forEach(x => assert.ok(!re.test(x), 'stays an expense: ' + x));
+});
+
+// CUE-TRI-2026-10-24 (Kiko 06:47Z "add the tasks", go 06:50Z, specs/cue-add-tasks.md). "Now" is Wed 21 Oct 2026, 11:00 Manila.
+test('TR1 task words are read in code: type, description, project, due date and who; other talk is left alone', () => {
+  const t = sandbox({}), P = x => JSON.parse(JSON.stringify(t.ctx.cueTriParse_(x, '2026-10-21')));
+  deq(P('add task call venue to Globe party, due Friday, for Ana'), { type: 'Task', description: 'call venue', project: 'Globe party', due: '2026-10-23', due_raw: '', assigned: 'Ana' });
+  deq(P('Please add an issue LED wall delayed in Globe party.'), { type: 'Issue', description: 'LED wall delayed', project: 'Globe party', due: '', due_raw: '', assigned: '' });
+  deq(P('new risk rain on event day for project Globe party due Oct 30'), { type: 'Risk', description: 'rain on event day', project: 'Globe party', due: '2026-10-30', due_raw: '', assigned: '' });
+  assert.strictEqual(P('add task send floor plan for client to Globe party').description, 'send floor plan for client', 'the last "to" names the project');
+  assert.strictEqual(P('add task x2 to Globe, due someday').due_raw, 'someday', 'a date Cue cannot read is flagged, not guessed');
+  const d = w => t.ctx.cueTriDue_(w, '2026-10-21');
+  deq(['today', 'tomorrow', 'Wednesday', 'next wed', 'fri', '30 October', '10/30', '2026-11-02', 'Jan 5', 'Feb 30'].map(d),
+    ['2026-10-21', '2026-10-22', '2026-10-21', '2026-10-28', '2026-10-23', '2026-10-30', '2026-10-30', '2026-11-02', '2027-01-05', '']);
+  ['add scope LED wall to Globe party', 'add task', 'add supplier Bright Stage', 'what tasks are due today?', 'add project Unilever townhall'].forEach(x => assert.strictEqual(t.ctx.cueTriParse_(x, '2026-10-21'), null, x));
+});
+test('TR2 "add task … to <project>": a card, no AI call and nothing written; Approve adds it once through add_tri_items and reads it back', () => {
+  const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
+  const r = t.ctx.cueSend('add task call venue to Globe party, due Friday, for Ana', [], '');
+  assert.ok(r.request_id); assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call'); deq(t.log.bridge.map(b => b.action), ['search_projects']);
+  const v = t.ctx.cueView_(t.ctx.cueLoad_(r.request_id).s);
+  assert.strictEqual(v.kind, 'tri'); assert.strictEqual(v.status, 'Needs you');
+  deq([v.tri.project_id, v.tri.type, v.tri.description, v.tri.due, v.tri.assigned], ['S-31628060SP', 'Task', 'call venue', '2026-10-23', 'Ana']);
+  deq(cvQ(v.open.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' }, 'Open in Canvas goes to Main');
+  const a = t.ctx.cueApprove(r.request_id, { project_id: 'S-31628060SP', type: 'Task', description: 'Call the venue', due: '2026-10-23', assigned: 'Ana' });
+  assert.strictEqual(a.status, 'Done'); deq(a.tri.saved.id, 'TRI-0042');
+  deq(t.log.tri, [{ pid: 'S-31628060SP', args: { request_id: r.request_id, items: [{ key: 't1', type: 'Task', description: 'Call the venue', assigned_to: 'Ana', deadline: '2026-10-23' }] } }], 'Kiko\'s edit wins');
+  assert.ok(t.tabs.Chat.rows.some(x => /Added task TRI-0042 "Call the venue" to Globe Year-End Party, due 2026-10-23, for Ana/.test(x[2])));
+  assert.throws(() => t.ctx.cueApprove(r.request_id, {}), /not waiting for you/); assert.strictEqual(t.log.tri.length, 1, 'never twice');
+});
+test('TR3 several projects: Kiko picks on the card; a project Canvas lacks is typed there; Close writes nothing', () => {
+  const two = [GLOBE, Object.assign({}, GLOBE, { project_id: 'S-31628061SP', name: 'Globe Year-End Party Cebu', date: '2026-12-14' })];
+  const t = sandbox({ search: { 'globe': { projects: two, total: 2 }, 'globe party': { projects: [GLOBE], total: 1 } } });
+  const id = t.ctx.cueSend('add risk rain on event day to Globe', [], '').request_id, v = t.ctx.cueView_(t.ctx.cueLoad_(id).s);
+  assert.strictEqual(v.tri.choices.length, 2); assert.strictEqual(v.tri.project_id, '');
+  assert.throws(() => t.ctx.cueApprove(id, { project_id: 'S-99999999XX' }), /not one of the projects/);
+  const a = t.ctx.cueApprove(id, { project_id: 'S-31628061SP', type: 'Risk' });
+  assert.strictEqual(a.status, 'Done'); assert.strictEqual(t.log.tri[0].pid, 'S-31628061SP');
+  const u = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
+  const id2 = u.ctx.cueSend('add issue stage late to Nowhere Fest', [], '').request_id;
+  assert.ok(/no project called "Nowhere Fest"/.test(u.ctx.cueView_(u.ctx.cueLoad_(id2).s).error));
+  const b = u.ctx.cueApprove(id2, { project: 'Globe party' }); assert.strictEqual(b.status, 'Done'); assert.strictEqual(u.log.tri[0].pid, 'S-31628060SP');
+  const id3 = u.ctx.cueSend('add task buy tape to Globe party', [], '').request_id;
+  assert.strictEqual(u.ctx.cueReject(id3, '').status, 'Rejected'); assert.strictEqual(u.log.tri.length, 1, 'Close adds nothing');
+});
+test('TR4 already in Canvas is reported, not added twice; a Canvas refusal leaves the card waiting with the reason', () => {
+  const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } }, triDup: true });
+  const id = t.ctx.cueSend('add task call venue to Globe party', [], '').request_id, a = t.ctx.cueApprove(id, {});
+  assert.ok(a.tri.saved.dup); assert.ok(t.tabs.Chat.rows.some(x => /already in Globe Year-End Party as TRI-0007/.test(x[2])));
+  const u = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } }, triFail: true });
+  const id2 = u.ctx.cueSend('add task call venue to Globe party', [], '').request_id, b = u.ctx.cueApprove(id2, {});
+  assert.strictEqual(b.status, 'Needs you'); assert.ok(/Canvas did not add it/.test(b.error));
+});
+test('TR5 "<project> tasks" opens Main like Canvas\'s Open tasks; "add project …" is an intake with no chat call; the page sends these to the server', () => {
+  const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
+  deq(cvQ(t.ctx.cueSend('Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  deq(cvQ(t.ctx.cueSend('tasks of Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  deq(cvQ(t.ctx.cueSend('open Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  ['my tasks', 'what are today\'s tasks', 'show pending tasks'].forEach(x => assert.strictEqual(t.ctx.cueCanvasParse_(x), null, x));
+  assert.strictEqual(t.log.gpt.length, 0);
+  const u = sandbox({}), r = u.ctx.cueSend('add project Unilever townhall, 300 pax, Dec 5 at SMX', [], '');
+  assert.ok(r.request_id); const s = u.ctx.cueView_(u.ctx.cueLoad_(r.request_id).s);
+  assert.strictEqual(s.kind, 'intake'); assert.strictEqual(s.text, 'New project intake: Unilever townhall, 300 pax, Dec 5 at SMX');
+  assert.ok(!u.log.gpt.some(b => b.text.format.name === 'chat'), 'no chat call');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), re = eval(/var CV_SAY = (\/.+\/i);/.exec(html)[1]);
+  ['add task buy tape 450 to Globe party', 'add issue x to Globe', 'add project Unilever townhall', 'tasks of Globe party'].forEach(x => assert.ok(re.test(x), 'page: ' + x));
+  assert.ok(/if \(r\.kind === 'tri'\) return triCardHtml\(r\);/.test(html) && /data-act="approve-tri"/.test(html));
 });
 
 test('BD8 PC test 19:32Z: blank sheet rows are not notices to recheck; plain wording for the intake check; run names carry the time', () => {

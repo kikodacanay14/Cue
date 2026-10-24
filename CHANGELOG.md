@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.27.8: live 1.27.7 + add tasks, issues and risks + "add project" + tighter inside Canvas (release branch, not deployed)
+
+Kiko 24 Oct 06:47Z ("they dont have add project", "add the tasks"), 06:49Z ("make the window smaller and tighter"), 06:50Z ("go").
+Spec: specs/cue-add-tasks.md.
+
+- "add task call venue to Globe party, due Friday, for Ana" (also "add issue …" and "add risk …") is read in code, with no AI call.
+  Canvas finds the project (search_projects, a read), and Cue shows a card with Project, Type, Description, Due and Assigned to.
+  Every field can be changed. When several projects match, Kiko picks one on the card. Nothing is written until Approve. Approve
+  adds the row once through the bridge's add_tri_items (live since Canvas V202), which reads it back and never adds the same
+  description twice (CueTri.gs).
+- "Globe party tasks" and "tasks of Globe party" open the project's Main tab, the same place as Canvas's "Open tasks" button.
+- "add project Unilever townhall, 300 pax, Dec 5" starts a normal project intake with no chat call. Every phase still needs
+  Approve.
+- Inside Canvas's slide-in, Cue is denser: smaller header, bars, thread rows, cards and buttons. Cue in its own tab is unchanged.
+  The Canvas side narrows the panel from 1100 px to 860 px (CanvasWorkspace branch claude/project-thread-oqjr6f).
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas main (adds add_tri_items).
+- PC check: on /dev, type "add task test from Cue to <a test project>". Check the card's fields, then tap Close. Approve
+  writes to Canvas, so that tap stays Kiko's.
+- Tests: 325 of 325 pass (TR1 to TR5 are new).
+
 ## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" + Cue-in-Canvas guard fix (release branch, not deployed)
 
 Found while building the AI relay (dropped by Kiko 23 Oct 13:36Z). After Approve, a CE cost or expense task kept "Writing to Canvas" in the Cue sheet, though Canvas had saved it. A reload therefore showed the card still writing. The finished state ("Done" or "Done, check Canvas") is now saved. Nothing else changes.
