@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.28';   // release branch: 1.27.26 on live 1.27.25 (V67) + bid contacts (1.27.27) + client registered in Client Desk on phase 1 Approve
+const CUE_VERSION_ = 'Cue 1.27.29';   // release branch: 1.27.26 on live 1.27.25 (V67) + bid contacts (1.27.27) + Client Desk (1.27.28) + Remind me on Still open bids (parked: needs Kiko's Allow tap)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -99,7 +99,7 @@ function cueTriggers_() {
  * Running cueSetup did not bring up Google's Allow screen for the newer scopes, so Gmail said "insufficient authentication
  * scopes". cueFixAccess asks Google which scopes Cue's token really has and, when some are missing, resets Cue's
  * authorization (ScriptApp.invalidateAuth) so the next open of Cue asks for all of them. Keys in Script Properties stay. */
-const CUE_NEEDS_ = ['gmail.readonly', 'gmail.compose', 'drive.file'];
+const CUE_NEEDS_ = ['gmail.readonly', 'gmail.compose', 'drive.file', 'calendar.events'];   // calendar.events: bid reminders on Kiko's calendar (Remind me)
 function cueAccess_() {
   const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { method: 'post', payload: { access_token: ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
   let have = []; try { have = String(JSON.parse(res.getContentText()).scope || '').split(/\s+/).filter(String); } catch (e) { have = []; }
@@ -724,6 +724,7 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
+  try { cueBidsRemindTick_(); } catch (e) { console.error('cueBidsRemindTick_: ' + e); }   // bid closing reminders, never held by quiet hours
   try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
   try { cueFixStuckWrites_(); } catch (e) { console.error('cueFixStuckWrites_: ' + e); }   // 1.27.7: CE cost / expense approved before the save fix

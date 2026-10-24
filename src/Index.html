@@ -2276,6 +2276,9 @@
         b.push('<button class="btn ghost" data-act="bids-more" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Request more details</button>');
         if (x.more && x.more.missing.length) b.push(x.more.draft ? '<span class="tag pref">Question in your Gmail Drafts</span>' : '<button class="btn ghost" data-act="bids-ask" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Draft a question to the agency</button>');
         b.push('<button class="btn ghost" data-act="bids-intake" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Start intake</button>');
+        // Remind me (Kiko 24 Oct 13:37Z): Still open only, 1 hour before closing; set shows the time and Cancel.
+        if (x.remind) b.push(x.remind.set ? '<span class="tag pref" title="' + esc(x.remind.phone ? 'Also on your Google Calendar, so your phone alerts you' : 'In Cue only') + '">Reminder set · ' + esc(x.remind.label) + '</span><button class="btn ghost" data-act="bids-remind-off" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Cancel</button>'
+          : '<button class="btn ghost" data-act="bids-remind" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '"' + (x.remind.assumed ? ' title="The notice gives no closing time, so 5:00 PM is assumed"' : '') + '>Remind me (' + esc(x.remind.label) + ')</button>');
       }
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
     };
@@ -3071,6 +3074,7 @@
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
+        if (act === 'bids-remind' || act === 'bids-remind-off') { b.disabled = true; return call(act === 'bids-remind' ? 'cueBidsRemind' : 'cueBidsRemindCancel', [id, b.getAttribute('data-f')], done, fail); }
         if (act === 'bids-intake') { b.disabled = true; return call('cueBidsStartIntake', [id, b.getAttribute('data-f')], started, fail); }
         if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }

@@ -86,6 +86,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
    - triggers
    - Gmail compose (drafts, and sending a draft after Approve and send)
    - your email address
+   - Google Calendar events (only bid reminders Kiko sets with Remind me: a 15-minute event with a popup, no guests)
 5. **Deploy.** Deploy → Web app, execute as **Me**, access **Only myself**.
 6. **First test.** Run it with Kiko watching, on one real inquiry. Check the card, the AI calls and the seconds, then approve and confirm the project and lines in Canvas.
 

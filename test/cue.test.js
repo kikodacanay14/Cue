@@ -132,6 +132,11 @@ function sandbox(o = {}) {
   const step = o.step == null ? 5000 : o.step;
   const route = req => {
     const u = req.url, body = typeof req.payload === 'string' && /^[{\[]/.test(req.payload) ? JSON.parse(req.payload) : null;
+    if (u.indexOf('googleapis.com/calendar/v3') >= 0) {   // bid reminders (CueBids.gs cueBidsCal_)
+      (log.cal = log.cal || []).push({ url: u, method: (req.method || 'get').toLowerCase(), body: req.payload ? JSON.parse(req.payload) : null });
+      if (o.calFail) return resp(403, { error: { message: 'insufficient scope' } });
+      return resp(200, { id: 'ev' + log.cal.length });
+    }
     if (o.web) { const w = o.web(req); if (w) return w; }   // agency sites (bid documents, CueBids.gs 1.27.10)
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
@@ -320,7 +325,7 @@ function sandbox(o = {}) {
       if (/^f\d+$/.test(fileId || '') || fileId === 'not-ours') return resp(404, {});
       return resp(200, { id: fileId, trashed: !!(o.folderTrashed) });
     }
-    if (u.indexOf('oauth2.googleapis.com/tokeninfo') >= 0) { log.tokeninfo = req.payload; return resp(200, { scope: (o.scopes || ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file']).map(x => /^https/.test(x) ? x : 'https://www.googleapis.com/auth/' + x).join(' ') }); }
+    if (u.indexOf('oauth2.googleapis.com/tokeninfo') >= 0) { log.tokeninfo = req.payload; return resp(200, { scope: (o.scopes || ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file', 'calendar.events']).map(x => /^https/.test(x) ? x : 'https://www.googleapis.com/auth/' + x).join(' ') }); }
     if (o.cecMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {   // CE costs: the supplier's email with a PDF
       const enc = t => Buffer.from(t, 'utf8').toString('base64url'), M = o.cecMail;
       if (u.indexOf('/messages?') >= 0) { log.cecQ = decodeURIComponent(u.split('q=')[1]); return resp(200, { messages: M.map(m => ({ id: m.id, threadId: m.thread })) }); }
@@ -834,14 +839,15 @@ test('C25 change without a Canvas match or past emails still shows a card; a fol
 });
 
 test('C26 missing Gmail access: a plain message, and Fix Google access resets only when Google says a scope is missing', () => {
-  const t = sandbox({ read: CHANGE_READ, gmailScope: true, scopes: ['spreadsheets', 'gmail.compose', 'drive.file'] });
+  const t = sandbox({ read: CHANGE_READ, gmailScope: true, scopes: ['spreadsheets', 'gmail.compose', 'drive.file', 'calendar.events'] });
   const v = t.ctx.cueRun(t.ctx.cueSend('JBL mats changed, requote please', [], 'intake').request_id);
   assert.strictEqual(v.status, 'Failed'); assert.ok(/does not have Gmail access yet/.test(v.error), v.error);
   const a = t.ctx.cueFixAccess(); deq(a.missing, ['gmail.readonly']); assert.strictEqual(a.reset, true); assert.strictEqual(t.log.invalidated, 1);
   assert.strictEqual(a.url, 'https://script.google.com/macros/s/CUE/exec'); assert.ok(/access_token/.test(JSON.stringify(t.log.tokeninfo)));
-  const ok = sandbox({ scopes: ['spreadsheets', 'https://mail.google.com/', 'drive.file'] }).ctx.cueFixAccess();
+  const ok = sandbox({ scopes: ['spreadsheets', 'https://mail.google.com/', 'drive.file', 'calendar.events'] }).ctx.cueFixAccess();
   assert.strictEqual(ok.reset, false, 'full Gmail scope covers readonly and compose'); deq(ok.missing, []);
-  assert.ok(/Google access still missing: gmail.readonly/.test(sandbox({ scopes: ['gmail.compose', 'drive.file'] }).ctx.cueSetup()));
+  assert.ok(/Google access still missing: gmail.readonly/.test(sandbox({ scopes: ['gmail.compose', 'drive.file', 'calendar.events'] }).ctx.cueSetup()));
+  deq(sandbox({ scopes: ['spreadsheets', 'gmail.compose', 'gmail.readonly', 'drive.file'] }).ctx.cueFixAccess().missing, ['calendar.events'], '1.27.20: bid reminders need Calendar; Fix Google access asks for it');
 });
 
 test('C27 requotes carry every file Kiko sent for the project in the last day; a reply to a task can start the run from chat', () => {
@@ -3967,6 +3973,41 @@ test('BD24 PC check 25 Oct 01:51Z: a reading with several BAC addresses in one s
   deq(r.x.client.contacts, [{ name: '', role: 'BAC', email: 'bac@citem.gov.ph', phone: '' }, { name: '', role: 'BAC', email: 'sec@citem.gov.ph', phone: '' }]);
   assert.strictEqual(r.x.client.company, 'CITEM'); assert.ok(r.status === 'Needs you' && !r.ref, JSON.stringify([r.status, r.stage, r.phase, r.error]));
 });
+test('BD22 Remind me (Kiko 24 Oct 13:37Z): a Still open notice gets a reminder 1 hour before closing, on Kiko\'s calendar too; it moves with the deadline, leaves when cancelled, and fires in quiet hours', () => {
+  const row = (ref, dl, docs) => ['2026-10-20', 'TPB', ref, 'Event ' + ref, 'Open', 'Pasay', 300000, '', dl, '', 'Booth', '', 'https://tpb.gov.ph/n/' + ref.replace(/\W/g, ''), docs || '', '', '', ''];
+  const rows = [row('ITB 2026-101', '2026-10-30T17:00+08:00'), row('ITB 2026-102', '2026-10-29'), row('ITB 2026-103', '2026-10-21T11:30+08:00'), row('ITB 2026-104', '')];
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }] } }, rows);
+  const id = t.ctx.cueSend('run bid opportunity check', [], '').request_id, v = t.ctx.cueRun(id);
+  const by = ref => v.bids.still.filter(x => x.reference === ref)[0];
+  deq(by('ITB 2026-101').remind, { set: false, label: 'Fri 30 Oct, 4:00 PM', assumed: false });
+  deq(by('ITB 2026-102').remind, { set: false, label: 'Thu 29 Oct, 4:00 PM', assumed: true }, 'a date with no time closes at 5:00 PM');
+  assert.strictEqual(by('ITB 2026-103').remind, null, 'less than an hour left: no button');
+  assert.strictEqual(by('ITB 2026-104').remind, null, 'no deadline: no button');
+  const key = by('ITB 2026-101').key, w = t.ctx.cueBidsRemind(id, key);
+  deq(w.bids.still.filter(x => x.key === key)[0].remind, { set: true, label: 'Fri 30 Oct, 4:00 PM', assumed: false, phone: true });
+  const ev = t.log.cal[0]; deq([ev.method, ev.body.start.dateTime, ev.body.end.dateTime, 'attendees' in ev.body, ev.body.reminders.overrides], ['post', '2026-10-30T08:00:00.000Z', '2026-10-30T08:15:00.000Z', false, [{ method: 'popup', minutes: 0 }]]);
+  t.ctx.cueBidsRemind(id, key); assert.strictEqual(t.log.cal.length, 1, 'a second tap makes no second event');
+  assert.throws(() => t.ctx.cueBidsRemind(id, by('ITB 2026-103').key), /less than an hour/);
+  // The deadline moves (amendment written to the sheet): the reminder and the event move; a cancelled notice loses its reminder.
+  t.ctx.cueBidsRemind(id, by('ITB 2026-102').key);
+  const F = t.tabs['Web bid findings'].rows; F[1][8] = '2026-10-31T10:00+08:00'; F[2][4] = 'Cancelled by the agency';
+  t.ctx.cueBidsRemindSync_({ notes: [] });
+  const m = JSON.parse(t.props.CUE_BIDS_REMIND); deq(Object.keys(m), [key]); assert.strictEqual(m[key].at, Date.parse('2026-10-31T09:00+08:00'));
+  deq(t.log.cal.slice(2).map(c => c.method), ['patch', 'delete']);
+  // Fires on time at 9:00 AM; at 22:00 (quiet hours) it is not held either.
+  t.ctx.__wait(Date.parse('2026-10-31T09:00+08:00') - t.ctx.cueNow_());
+  assert.strictEqual(t.ctx.cueBidsRemindTick_(), 1);
+  const chat = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Submit now/.test(x)); assert.ok(chat.length === 2 && /ITB 2026-101.*closes at 10:00 AM/.test(chat[0]), chat[0]);
+  assert.strictEqual(t.ctx.cueBidsRemindTick_(), 0, 'shown once');
+  const t2 = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }] }, calFail: true }, [row('ITB 2026-105', '2026-10-21T23:30+08:00')]);
+  const id2 = t2.ctx.cueSend('run bid opportunity check', [], '').request_id, v2 = t2.ctx.cueRun(id2), k2 = v2.bids.still[0].key;
+  t2.ctx.cueBidsRemind(id2, k2);
+  assert.ok(t2.tabs.Chat.rows.some(r => /phone will not get it/.test(r[2])), 'no calendar permission: chat only, and Kiko is told');
+  t2.ctx.cueBidsRemindCancel(id2, k2); deq(JSON.parse(t2.props.CUE_BIDS_REMIND), {}, 'Cancel removes it');
+  t2.ctx.cueBidsRemind(id2, k2);
+  t2.ctx.__wait(Date.parse('2026-10-21T22:30+08:00') - t2.ctx.cueNow_());
+  assert.strictEqual(t2.ctx.cueBidsRemindTick_(), 1, 'quiet hours never hold a bid reminder');
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
@@ -4062,6 +4103,11 @@ test('BD6 page: the bid card has the new title, New and Still open, the 7 fields
   assert.ok(/process check 8 of 10 passed/.test(h) && /✗ All 11 sources reported/.test(h)); assert.ok(/data-act="bids-close"/.test(h) && !/Pursue/.test(h));
   assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱480,000/.test(h) && /For verification/.test(h));
   ['bids-more', 'bids-ask', 'bids-intake'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
+  assert.ok(/data-act="bids-remind"[^>]*>Remind me \(Fri 30 Oct, 4:00 PM\)/.test(h) && (h.match(/data-act="bids-remind"/g) || []).length === 1, 'Remind me on Still open only');
+  v.bids.still[0].remind = { set: true, label: 'Fri 30 Oct, 4:00 PM', phone: true };
+  const h3 = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
+  assert.ok(/Reminder set · Fri 30 Oct, 4:00 PM/.test(h3) && /data-act="bids-remind-off"/.test(h3));
+  ['bids-remind', 'bids-remind-off'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
   assert.ok(/Contact:<\/span> <span class="muted">No contact in the documents/.test(h), 'read, no contact named');
   v.bids.items[1].contacts = [{ name: '<b>x</b>', role: 'BAC', email: 'bac@x.gov.ph', phone: '' }];
   const h2 = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);

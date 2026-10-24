@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.29: Remind me on Still open bids, 1 hour before closing (release branch, not deployed)
+
+Kiko asked 24 Oct 2026 13:37Z: "For the still open can we also do an action to set a reminder to send which is 1 hour before the
+target bidding closure". Spec `specs/bid-contacts-reminder.md` part C, Kiko "Go" 13:54Z. Built on 1.27.28 (1.27.26 on live 1.27.25 + bid
+contacts + Client Desk). Parked until Kiko can tap Allow. This release carries the reminder only; contacts (part A) and client registration (part B) ship separately.
+
+- Each Still open notice with a deadline shows **Remind me (Fri 30 Oct, 4:00 PM)**, 1 hour before it closes. A date with no time
+  counts as 5:00 PM, and the button's tooltip says so. With no deadline, or less than an hour left, there is no button.
+- One tap sets it. The card then shows "Reminder set · Fri 30 Oct, 4:00 PM" and Cancel. A second tap does nothing.
+- Cue also puts a 15-minute event with a popup on Kiko's own Google Calendar, so his phone alerts him. It has no guests, so
+  Calendar emails no one. If Calendar access is missing, the reminder stays in Cue and the chat line says so.
+- At reminder time, the 5-minute tick posts "Submit now: TPB ITB 2026-101 closes at 5:00 PM" in the bid thread and in chat.
+  Quiet hours never hold it.
+- After each daily run, a reminder follows its notice. If the deadline moved, the reminder and the event move. If the notice was
+  cancelled, both are removed. Reminders live in Script Property `CUE_BIDS_REMIND`.
+- New scope `calendar.events` in `appsscript.json` and in `CUE_NEEDS_`. Kiko must tap Allow once when /dev first opens after
+  the preview. Until he does, triggers running the new head code may stop with "authorization required".
+- No AI calls.
+- Tests: 351 of 351 pass. BD22 is new; C26 checks the Calendar scope; BD6 checks the button.
 ## Cue 1.27.28: phase 1 Approve also registers the client in Client Desk (release branch, not deployed)
 
 Kiko asked 24 Oct 2026 13:36Z: "Register the new client as well". Spec `specs/bid-contacts-reminder.md` part B, Kiko "Go" 13:54Z.

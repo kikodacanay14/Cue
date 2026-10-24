@@ -603,6 +603,7 @@ function cueBidsFinish_(s) {
     B.dropped[drop] = (B.dropped[drop] || 0) + 1; return false;
   });
   B.still.forEach(it => { it.documents.forEach(d => cueBidsDocFrom_(d, store.by[d.url])); if (it.touched) cueBidsRowUpdate_(it); delete it.touched; });
+  try { cueBidsRemindSync_(s); } catch (e) { console.error('Bid reminders: ' + e); }
   const docs = [].concat.apply([], B.items.concat(B.still).map(it => it.documents)), waiting = docs.filter(d => d.state === 'waiting');
   const okSrc = B.sources.filter(x => ['Checked', 'Partial', 'Blocked'].indexOf(x.status) >= 0), D = B.dropped;
   B.checks = [
@@ -789,6 +790,122 @@ function cueBidsStartIntake(id, key) {
   return cueBidsIntake_('do intake for ' + (it.reference || it.project), '', it);
 }
 
+/* ---------- Remind me (Kiko 24 Oct 13:37Z, specs/bid-contacts-reminder.md part C) ----------
+ * A Still open notice gets a reminder 1 hour before it closes. Cue posts it in the bid thread and in chat, and puts a 15-minute event with
+ * a popup on Kiko's own Google Calendar so his phone shows it (no guests, so Calendar emails no one). Quiet hours never hold it. The daily
+ * run moves it when the deadline moves and removes it when the notice is cancelled. Cue never submits a bid. */
+const CUE_BIDS_REMIND_KEY_ = 'CUE_BIDS_REMIND', CUE_BIDS_REMIND_BEFORE_ = 3600e3, CUE_CAL_ = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+function cueBidsReminders_() { try { return JSON.parse(cueProp_(CUE_BIDS_REMIND_KEY_, '') || '{}') || {}; } catch (e) { return {}; } }
+function cueBidsRemindersPut_(m) { PropertiesService.getScriptProperties().setProperty(CUE_BIDS_REMIND_KEY_, JSON.stringify(m)); }
+/** Manila clock text for a time: "Fri 30 Oct, 4:00 PM" (with the year when asked). */
+function cueBidsClock_(ms, year) {
+  const d = new Date(ms + 8 * 3600e3), h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2, '0');
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]
+    + (year ? ' ' + d.getUTCFullYear() : '') + ', ' + ((h % 12) || 12) + ':' + m + ' ' + (h < 12 ? 'AM' : 'PM');
+}
+/** When a notice closes and when to remind: { close, at, assumed } or null with no deadline. A date with no time closes at 5:00 PM Manila. */
+function cueBidsRemindAt_(it) {
+  const t = String(it.deadline || '').trim(); let close = it.deadline_ms || cueBidsWhen_(t), assumed = false;
+  if (!close) return null;
+  const local = new Date(close + 8 * 3600e3);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t) || (local.getUTCHours() === 0 && local.getUTCMinutes() === 0)) {   // a bare date, or a sheet date at midnight
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : local.toISOString().slice(0, 10);
+    close = Date.parse(ymd + 'T17:00:00+08:00'); assumed = true;
+  }
+  return { close, at: close - CUE_BIDS_REMIND_BEFORE_, assumed };
+}
+/** What the card shows for a Still open notice: the button's time, or the reminder already set. null when there is no button. */
+function cueBidsRemindView_(it, set) {
+  const r = set[it.key];
+  if (r) return { set: true, label: cueBidsClock_(r.at), assumed: !!r.assumed, phone: !!r.event };
+  const w = cueBidsRemindAt_(it);
+  if (!w || w.at <= cueNow_()) return null;
+  return { set: false, label: cueBidsClock_(w.at), assumed: w.assumed };
+}
+/** Kiko's own calendar, through the Calendar API (scope calendar.events). Never adds guests. Throws on failure. */
+function cueBidsCal_(method, id, body) {
+  const res = UrlFetchApp.fetch(CUE_CAL_ + (id ? '/' + encodeURIComponent(id) : ''), { method, contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, payload: body ? JSON.stringify(body) : undefined });
+  const code = res.getResponseCode();
+  if (code === 404 || code === 410) return null;   // already gone
+  if (code >= 300) throw new Error('Google Calendar answered ' + code);
+  const txt = res.getContentText(); return txt ? JSON.parse(txt) : {};
+}
+function cueBidsCalBody_(r) {
+  const iso = ms => new Date(ms).toISOString();
+  return { summary: 'Submit bid: ' + [r.agency, r.reference].filter(Boolean).join(' '), start: { dateTime: iso(r.at), timeZone: 'Asia/Manila' }, end: { dateTime: iso(r.at + 15 * 60e3), timeZone: 'Asia/Manila' },
+    description: (r.project ? r.project + '\n' : '') + 'Closes ' + cueBidsClock_(r.close, true) + (r.assumed ? ' (no time in the notice; 5:00 PM assumed)' : '') + '.' + (r.url ? '\nNotice: ' + r.url : '') + '\nSet from Cue. Cue never submits a bid.',
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] }, transparency: 'transparent' };
+}
+/** Remind me: one tap. A second tap, or a tap after it is set, changes nothing. */
+function cueBidsRemind(id, key) {
+  cueOwner_();
+  const N = cueBidsNotice_(id, key), it = N.it;
+  if (N.list !== 'still') throw new Error('Reminders are for Still open notices.');
+  const w = cueBidsRemindAt_(it);
+  if (!w) throw new Error('This notice has no bid end date, so there is nothing to remind you about.');
+  if (w.at <= cueNow_()) throw new Error('It closes in less than an hour (' + cueBidsClock_(w.close) + '). Submit it now.');
+  const r = cueLocked_(() => {
+    const m = cueBidsReminders_(); if (m[it.key]) return null;
+    m[it.key] = { id, agency: it.agency || '', reference: it.reference || '', project: it.project || '', url: /^https:/.test(it.url || '') ? it.url : '', close: w.close, at: w.at,
+      assumed: w.assumed, event: '', set_at: new Date(cueNow_()).toISOString() };
+    cueBidsRemindersPut_(m); return m[it.key];
+  });
+  if (r) {
+    let phone = '';
+    try { const ev = cueBidsCal_('post', '', cueBidsCalBody_(r)); r.event = (ev && ev.id) || ''; }
+    catch (e) { phone = ' Your phone will not get it: ' + cueStr_(e.message, 120) + '. Open Cue once and allow Google Calendar.'; }
+    if (r.event) cueLocked_(() => { const m = cueBidsReminders_(); if (m[it.key]) { m[it.key].event = r.event; cueBidsRemindersPut_(m); } });
+    cueChat_('Cue', 'Reminder set for ' + cueBidsClock_(r.at) + ', 1 hour before ' + (it.reference || it.project) + ' closes' + (r.assumed ? ' (no time in the notice, so 5:00 PM is assumed)' : '') + '.'
+      + (r.event ? ' It is also on your Google Calendar, so your phone will alert you.' : phone), id);
+  }
+  return cueView_(cueLoad_(id).s);
+}
+/** Cancel on a set reminder: it leaves Cue and Kiko's calendar. */
+function cueBidsRemindCancel(id, key) {
+  cueOwner_();
+  const r = cueLocked_(() => { const m = cueBidsReminders_(), x = m[String(key || '')]; if (x) { delete m[String(key)]; cueBidsRemindersPut_(m); } return x; });
+  if (r) {
+    if (r.event) try { cueBidsCal_('delete', r.event); } catch (e) { console.warn('Calendar delete: ' + e); }
+    cueChat_('Cue', 'Reminder for ' + (r.reference || r.project) + ' cancelled.', id);
+  }
+  return cueView_(cueLoad_(id).s);
+}
+/** Every tick (5 minutes): due reminders go to the bid thread and chat, quiet hours or not. */
+function cueBidsRemindTick_() {
+  const now = cueNow_(), m = cueBidsReminders_(), due = Object.keys(m).filter(k => m[k].at <= now);
+  if (!due.length) return 0;
+  const sent = cueLocked_(() => { const x = cueBidsReminders_(), out = []; due.forEach(k => { if (x[k]) { out.push(x[k]); delete x[k]; } }); cueBidsRemindersPut_(x); return out; });
+  sent.forEach(r => {
+    const left = r.close - now, line = (left > 0 ? 'Submit now: ' : 'Closed: ') + [r.agency, r.reference].filter(Boolean).join(' ') + (r.project ? ' (' + r.project + ')' : '')
+      + (left > 0 ? ' closes at ' + cueBidsClock_(r.close).split(', ')[1] + (r.assumed ? ' (5:00 PM assumed; the notice gives no time)' : '') + '.' : ' closed at ' + cueBidsClock_(r.close) + ' before this reminder could be shown.')
+      + ' Cue never submits a bid.';
+    cueChat_('Cue', line, '>' + r.id); cueChat_('Cue', line, r.id);
+  });
+  return sent.length;
+}
+/** After a daily run writes the sheet: a reminder follows its notice. Deadline moved: the reminder and event move. Cancelled or past: removed. */
+function cueBidsRemindSync_(s, rows) {
+  const m = cueBidsReminders_(), keys = Object.keys(m);
+  if (!keys.length) return;
+  const now = cueNow_(), list = rows || cueBidsRows_(s), moved = [], gone = [];
+  keys.forEach(k => {
+    const r = m[k], row = list.filter(x => x.key === k)[0];
+    if (r.close <= now || (row && (/\bcancel/i.test(row.status + ' ' + row.notes) || /^(not a notice|duplicate of)/i.test(row.status)))) { gone.push(r); delete m[k]; return; }
+    const w = row && cueBidsRemindAt_({ deadline: row.deadline, deadline_ms: row.deadline_ms });
+    if (w && Math.abs(w.close - r.close) > 60e3) { Object.assign(r, { close: w.close, at: w.at, assumed: w.assumed }); moved.push(r); }
+  });
+  cueBidsRemindersPut_(m);
+  moved.forEach(r => {
+    if (r.event) try { cueBidsCal_('patch', r.event, cueBidsCalBody_(r)); } catch (e) { console.warn('Calendar move: ' + e); }
+    cueChat_('Cue', 'Deadline moved for ' + (r.reference || r.project) + ': your reminder is now ' + cueBidsClock_(r.at) + ' (closes ' + cueBidsClock_(r.close) + ').', r.id);
+  });
+  gone.forEach(r => {
+    if (r.event && r.at > now) try { cueBidsCal_('delete', r.event); } catch (e) { console.warn('Calendar delete: ' + e); }
+    if (r.close > now) cueChat_('Cue', 'Reminder for ' + (r.reference || r.project) + ' removed: the notice was cancelled.', r.id);
+  });
+}
+
 /* ---------- step 8: Kiko asks for an intake ---------- */
 /** The bid a "do intake for ..." message names, from the bid checks of the last 14 days (new and still open notices). */
 function cueBidsFor_(t) {
@@ -834,12 +951,13 @@ function cueBidsClose(id) {
 /** The part of a bid check the page needs. Runs from before 1.27.10 have no Still open list and documents ChatGPT marked "read": those
  * show as "listed, not opened by Cue". */
 function cueBidsView_(s) {
-  const B = s.bids || {}, doc = d => ({ name: d.name, url: /^https:/.test(d.url || '') ? d.url : '', page: d.page || '', state: d.state || (d.status ? 'listed' : 'waiting'), why: d.why || '', drive: d.drive || '', read: !!d.read });
+  const B = s.bids || {}, set = cueBidsReminders_(), doc = d => ({ name: d.name, url: /^https:/.test(d.url || '') ? d.url : '', page: d.page || '', state: d.state || (d.status ? 'listed' : 'waiting'), why: d.why || '', drive: d.drive || '', read: !!d.read });
   const pub = it => ({ key: it.key || '', agency: it.agency, reference: it.reference, project: it.project, location: it.location, abc: it.abc, budget_note: it.budget_note, posted: it.posted || '',
     deadline: it.deadline, event_date: it.event_date, summary: it.summary || it.scope || '', eligibility: it.eligibility, url: it.url, documents: (it.documents || []).map(doc),
     amendments: it.amendments || '', limitations: it.limitations || '', next_action: it.next_action || '', status: it.status || '', was: it.was || '', tag: it.tag || '', from_docs: !!it.from_docs,
     pages: it.pages || '', contacts: (it.contacts || []).map(c => ({ name: c.name || '', role: c.role || '', email: c.email || '', phone: c.phone || '' })), more: it.more ? { missing: it.more.missing || [], draft: !!it.more.draft } : null });
-  return { title: B.title || 'Bid check', sub: B.sub || '', summary: B.summary || '', items: (B.items || []).map(pub), still: (B.still || []).map(pub), updated: B.still ? [] : (B.updated || []).map(pub),
+  const still = it => Object.assign(pub(it), { remind: it.key ? cueBidsRemindView_(it, set) : null });
+  return { title: B.title || 'Bid check', sub: B.sub || '', summary: B.summary || '', items: (B.items || []).map(pub), still: (B.still || []).map(still), updated: B.still ? [] : (B.updated || []).map(pub),
     sources: B.sources || [], checks: B.checks || [], written: !!B.written, reading: B.reading || null, sheet_url: 'https://docs.google.com/spreadsheets/d/' + cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_) + '/edit' };
 }
 
