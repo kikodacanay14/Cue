@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.25: Review tasks opens its own HubSpot tasks tab (release branch, not deployed)
+
+PC recheck of 1.27.24, 24 Oct 15:00Z: after Open funnel and closing the slide-in, Review tasks still opened Sales funnel at the top
+of the card (twice, 18 to 26 s each). It worked only as the first open after a reload. The jump inside the thread could not be made
+to fail outside Canvas (Chromium with Cue in nested and cross-origin frames passed), so the cause in Canvas is not proven.
+
+- Review tasks (and the "HubSpot tasks need a key change" row) now open a pane tab of their own, "HubSpot tasks", that shows only
+  that funnel run's tasks, from the top. No jump inside the funnel thread is needed. The tab is a view of the funnel run: Mark done,
+  Done and replies go to that run. If the page no longer has that run, the tab shows the newest funnel run.
+- Open funnel keeps the 1.27.24 jump to the top of the funnel card, which passed.
+- Checked in Chromium: Open funnel, close, Review tasks, Open funnel again, Review tasks after 9 s of refreshes, and Review tasks on
+  a fresh page each land where they should; Mark done in the tab closes the task.
+- Tests: 347 of 347 pass (FN3 checks the tab id, FN5 runs the tab lookup). C32 failed once in about 10 runs, with and without
+  this change: a known timing flake, not this build.
+
 ## Cue 1.27.24: Review tasks jumps to the tasks on a thread already open (release branch, not deployed)
 
 PC recheck of 1.27.23, 24 Oct 14:39Z: Review tasks worked on a fresh page, but tapped right after Open funnel (slide-in closed,

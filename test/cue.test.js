@@ -1500,7 +1500,7 @@ test('FN2 funnel counts: no stage is listed by name; empty open stages stay at 0
 test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) pointing at its thread; a newer run closes the older one', () => {
   const { t, id, v } = fnRun();
   const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
-  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', id + '#fnt-' + id]]);
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', 'hst:' + id]]);
   assert.ok(T.rows.every(r => r.thread.length <= 120), 'Canvas cuts a thread id at 120 characters');
   assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
@@ -1532,9 +1532,9 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   const f = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'funnel');
   assert.strictEqual(f.length, 1); assert.strictEqual(f[0].how, 'daily'); assert.strictEqual(t.props.CUE_FUNNEL_DAY, '2026-10-22');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
-  assert.ok(/function funnelCardHtml\(r\)/.test(html) && /data-act="fn-task"/.test(html) && /call\('cueFunnelTaskDone', \[id, b\.getAttribute\('data-t'\)\]/.test(html));
+  assert.ok(/function funnelCardHtml\(r, only\)/.test(html) && /data-act="fn-task"/.test(html) && /call\('cueFunnelTaskDone', \[id, b\.getAttribute\('data-t'\)\]/.test(html));
   // PC check 14:13Z: the Inquiry (2) header showed no deals. Every section in the funnel card has the visible .sec marker; none hides it.
-  const card = html.slice(html.indexOf('function funnelCardHtml(r)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
+  const card = html.slice(html.indexOf('function funnelCardHtml(r, only)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
   assert.strictEqual((card.match(/<details class="sec"/g) || []).length, 2, 'stage and task sections'); assert.ok(!/<summary[^>]*display:inline/.test(card), 'no summary without its marker');
   // PC check 14:29Z: Open funnel opened the thread at the bottom (tasks). The card's top and its tasks carry the spots the Today rows name.
   assert.ok(/id="fn-' \+ esc\(r\.id\)/.test(card) && /id="fnt-' \+ esc\(r\.id\)/.test(card));
@@ -1552,6 +1552,14 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   ps.scrollTop = 0; g.goThread('cue-2#fnt-cue-2'); assert.strictEqual(ps.scrollTop, 900, 'spot not drawn yet: bottom for now');
   els['fnt-cue-2'] = { getBoundingClientRect: () => ({ top: 700 }) }; assert.ok(g.toSpot()); assert.strictEqual(ps.scrollTop, 900 + 592, 'the next render goes to the tasks');
   assert.ok(!g.toSpot(), 'a spot is used once, so later renders leave the scroll alone');
+  // PC recheck 15:00Z: Review tasks after Open funnel still stayed at the card top in Canvas, so the tasks open in their own pane tab.
+  const th = html.slice(html.indexOf('  function thOf('), html.indexOf('  function threadRef('));
+  const h2 = vm.createContext({ state: { requests: [{ id: 'f2', kind: 'funnel', fn: {} }, { id: 'f1', kind: 'funnel', fn: {} }, { id: 'b1', kind: 'bids' }] } });
+  vm.runInContext('function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }\n' + th + ';this.thOf = thOf;', h2);
+  const v1 = h2.thOf({}, 'hst:f1'); deq([v1.hst, v1.root, v1.reqs.map(r => r.id)], [true, 'hst:f1', ['f1']], 'the run named in the tab');
+  deq(h2.thOf({}, 'hst:gone').reqs.map(r => r.id), ['f2'], 'a run the page no longer has: the newest funnel run');
+  deq(h2.thOf({ b1: 'x' }, 'b1'), 'x', 'any other thread as before');
+  assert.ok(/if \(t\.hst\) \{[\s\S]{0,200}funnelCardHtml\(f, 'tasks'\)/.test(html) && /if \(th\.hst\) return 'HubSpot tasks'/.test(html));
 });
 test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
   const t = pipeToCard(), C = t.ctx, first = t.id;
