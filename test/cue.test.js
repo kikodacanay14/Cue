@@ -1540,14 +1540,17 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   assert.ok(/id="fn-' \+ esc\(r\.id\)/.test(card) && /id="fnt-' \+ esc\(r\.id\)/.test(card));
   const src = html.slice(html.indexOf('var goSpot ='), html.indexOf('function closeTab('));
   // The pane's own render (paneShow, renderChat) runs inside openPane and tries the spot too; the stub does the same.
-  const els = {}, ps = { scrollTop: 0, scrollHeight: 900, getBoundingClientRect: () => ({ top: 100 }) }, opened = [];
-  const g = vm.createContext({ document: { getElementById: k => els[k] || null }, $: k => k === 'pscroll' ? ps : { focus() {} }, matchMedia: () => ({ matches: false }),
-    openPane: it => { opened.push(it.key); g.toSpot(); } });
+  const els = {}, ps = { scrollTop: 0, scrollHeight: 900, getBoundingClientRect: () => ({ top: 100 }), addEventListener() {} }, opened = [], later = [];
+  const g = vm.createContext({ document: { getElementById: k => els[k] || null }, $: k => k === 'pscroll' ? ps : { focus() {} }, matchMedia: () => ({ matches: false }), setTimeout: f => later.push(f),
+    openPane: it => { opened.push(it.key); g.pactive = it.key; g.toSpot(); } });
   vm.runInContext(src + ';this.goThread = goThread; this.toSpot = toSpot;', g);
   els['fn-cue-1'] = { getBoundingClientRect: () => ({ top: 400 }) }; els['fnt-cue-1'] = { getBoundingClientRect: () => ({ top: 700 }) };
   g.goThread('cue-1#fn-cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 900 + 292], 'Open funnel: the tab is the plain thread, scrolled to the card top');
   // PC recheck 14:39Z: Review tasks right after Open funnel, on the thread already drawn, stayed at the card top.
   ps.scrollTop = 0; g.goThread('cue-1#fnt-cue-1'); assert.strictEqual(ps.scrollTop, 900 + 592, 'Review tasks on the drawn thread goes to the tasks');
+  // PC recheck 15:17Z: the place is set again while the slide-in settles (here the frame "settles" 50 px off).
+  later.length = 0; ps.scrollTop = 77; g.goThread('hst:cue-1'); ps.scrollTop = 50; later.forEach(f => f()); assert.strictEqual(ps.scrollTop, 0, 'the tasks tab ends at its top');
+  later.length = 0; g.goThread('hst:cue-1'); g.pactive = 't:other'; ps.scrollTop = 50; later.forEach(f => f()); assert.strictEqual(ps.scrollTop, 50, 'not after a tab switch');
   ps.scrollTop = 0; g.goThread('cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 900], 'no spot: bottom, as before');
   ps.scrollTop = 0; g.goThread('cue-2#fnt-cue-2'); assert.strictEqual(ps.scrollTop, 900, 'spot not drawn yet: bottom for now');
   els['fnt-cue-2'] = { getBoundingClientRect: () => ({ top: 700 }) }; assert.ok(g.toSpot()); assert.strictEqual(ps.scrollTop, 900 + 592, 'the next render goes to the tasks');
@@ -1559,6 +1562,7 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   const v1 = h2.thOf({}, 'hst:f1'); deq([v1.hst, v1.root, v1.reqs.map(r => r.id)], [true, 'hst:f1', ['f1']], 'the run named in the tab');
   deq(h2.thOf({}, 'hst:gone').reqs.map(r => r.id), ['f2'], 'a run the page no longer has: the newest funnel run');
   deq(h2.thOf({ b1: 'x' }, 'b1'), 'x', 'any other thread as before');
+  assert.ok(/\[120, 400, 1000\]\.forEach[\s\S]{0,200}if \(!mine \|\| pactive !== key\) return;[\s\S]{0,200}ps\.scrollTop = 0;/.test(html), 'PC recheck 15:17Z: the place is set again while the slide-in settles');
   assert.ok(/if \(t\.hst\) \{[\s\S]{0,200}funnelCardHtml\(f, 'tasks'\)/.test(html) && /if \(th\.hst\) return 'HubSpot tasks'/.test(html));
 });
 test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {

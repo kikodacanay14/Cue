@@ -501,6 +501,16 @@
     goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id });
     $('pscroll').scrollTop = id.indexOf('hst:') === 0 ? 0 : $('pscroll').scrollHeight; goSpot = spot; toSpot();   // the tasks tab reads from the top
     if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
+    // PC recheck 15:17Z: inside Canvas's slide-in the first scroll can land before the frame has its size again, so the tasks tab kept
+    // the funnel's scroll. The place is set again a few times in the first second, unless Kiko scrolls first.
+    var key = 't:' + id, mine = true, stop = function () { mine = false; };
+    $('pscroll').addEventListener('wheel', stop, { once: true }); $('pscroll').addEventListener('touchstart', stop, { once: true });
+    [120, 400, 1000].forEach(function (ms) { setTimeout(function () {
+      if (!mine || pactive !== key) return;
+      var ps = $('pscroll'), el = spot && document.getElementById(spot);
+      if (id.indexOf('hst:') === 0) ps.scrollTop = 0;
+      else if (el) ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8;
+    }, ms); });
   }
   function toSpot() {
     var el = goSpot && document.getElementById(goSpot); if (!el) return false;

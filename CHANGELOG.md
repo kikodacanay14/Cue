@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.26: the HubSpot tasks tab opens at its top (release branch, not deployed)
+
+PC recheck of 1.27.25, 24 Oct 15:17Z: passed. Follow-up (not a blocker): after Open funnel, Review tasks opened the tasks tab scrolled
+down by about one item, so the "HubSpot tasks · yours" header sat just above the view.
+
+- Inside Canvas's slide-in, the first scroll can land before the Cue frame has its size again. The opener now sets the place again
+  at 0.12, 0.4 and 1 s: the top for the HubSpot tasks tab, the funnel card's top for Open funnel. It stops as soon as Kiko scrolls
+  or switches tab.
+- Tests: 347 of 347 pass (FN5 checks the re-set).
+
 ## Cue 1.27.25: Review tasks opens its own HubSpot tasks tab (release branch, not deployed)
 
 PC recheck of 1.27.24, 24 Oct 15:00Z: after Open funnel and closing the slide-in, Review tasks still opened Sales funnel at the top
