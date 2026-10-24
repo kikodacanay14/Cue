@@ -18,7 +18,13 @@ Spec: specs/cue-add-tasks.md.
 - `test/fixtures/ZapBridge.gs` refreshed from Canvas main (adds add_tri_items).
 - PC check: on /dev, type "add task test from Cue to <a test project>". Check the card's fields, then tap Close. Approve
   writes to Canvas, so that tap stays Kiko's.
-- Tests: 328 of 328 pass on top of 1.27.8 (TR1 to TR5 are new).
+- PC check fixes (24 Oct 07:28Z; Kiko held 1.27.9 until "<project> tasks" opens the tasks):
+  - "<project> tasks", "tasks of <project>" and "open <project> tasks" link to Main with `&focus=tasks`, and a saved task, issue
+    or risk card opens Main with `&focus=tasks`, `issues` or `risks`. Canvas has no Tasks tab: the Canvas build with
+    CUE-TASKS-FOCUS scrolls Main to that block and outlines it. Live Canvas before that build ignores the parameter and opens
+    Main at the top, as before.
+  - Close on a task card now ends as Closed, not Rejected, so the thread list says Closed.
+- Tests: 332 of 332 pass (TR3 and TR5 cover the fixes).
 
 ## Cue 1.27.8: live 1.27.7 + pipeline review cards (Kiko 24 Oct 01:35Z) and the ✓ in every thread (06:44Z; release branch, not deployed)
 

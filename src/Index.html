@@ -2257,7 +2257,7 @@
       h += '<b style="font-size:16px;color:var(--white)">' + esc(T.description) + '</b><div class="small muted" style="margin-top:4px">' + esc(T.project || T.asked_project)
         + (T.due ? ' · due ' + esc(T.due) : '') + (T.assigned ? ' · for ' + esc(T.assigned) : '') + '</div>';
       if (T.saved) h += '<div class="small" style="margin-top:6px"><span class="tag pref">' + (T.saved.dup ? 'already in Canvas' : 'added') + '</span> ' + esc(T.saved.id) + ' in ' + esc(T.project) + '</div>';
-      if (r.status === 'Rejected') h += '<div class="small muted" style="margin-top:6px">Closed. Nothing was added to Canvas.</div>';
+      if (r.status === 'Closed' || r.status === 'Rejected') h += '<div class="small muted" style="margin-top:6px">Closed. Nothing was added to Canvas.</div>';
       return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + metricLine(r) + '</div>';
     }
     var row = function (label, input) { return '<label class="small" style="display:grid;grid-template-columns:92px 1fr;align-items:center;gap:8px;margin-top:6px"><span class="muted">' + label + '</span><span>' + input + '</span></label>'; };

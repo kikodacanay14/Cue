@@ -143,7 +143,7 @@ function cueTriClose_(id) {
     const L = cueLoad_(id);
     if (!L || L.s.kind !== 'tri') throw new Error('No such task card.');
     if (L.s.status !== 'Needs you') throw new Error('This card is ' + L.s.status + ', not waiting for you.');
-    L.s.status = 'Rejected'; L.s.stage = 'Rejected'; L.s.error = ''; cueSave_(L.sh, L.row, L.s); return L.s;
+    L.s.status = 'Closed'; L.s.stage = 'Closed'; L.s.error = ''; cueSave_(L.sh, L.row, L.s); return L.s;   // PC check 07:28Z: was Rejected
   });
   cueSummary_(s);
   return s;
@@ -151,7 +151,7 @@ function cueTriClose_(id) {
 
 function cueTriSummaryLine_(s) {
   const T = s.tri || {}, what = (T.type || 'Task').toLowerCase();
-  if (s.status === 'Rejected') return 'Closed the ' + what + ' "' + cueStr_(T.description, 120) + '". Nothing was added to Canvas.';
+  if (s.status === 'Closed' || s.status === 'Rejected') return 'Closed the ' + what + ' "' + cueStr_(T.description, 120) + '". Nothing was added to Canvas.';
   if (T.saved) return T.saved.dup ? cueStr_(T.description, 120) + ' was already in ' + T.project + ' as ' + (T.saved.id || 'a ' + what) + ', so nothing was added twice.'
     : 'Added ' + what + ' ' + T.saved.id + ' "' + cueStr_(T.description, 120) + '" to ' + T.project + (T.due ? ', due ' + T.due : '') + (T.assigned ? ', for ' + T.assigned : '') + '. Canvas read it back.';
   return 'The ' + what + ' "' + cueStr_(T.description, 120) + '" is ' + String(s.status || '').toLowerCase() + '.';

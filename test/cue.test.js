@@ -3871,7 +3871,7 @@ test('TR2 "add task … to <project>": a card, no AI call and nothing written; A
   const v = t.ctx.cueView_(t.ctx.cueLoad_(r.request_id).s);
   assert.strictEqual(v.kind, 'tri'); assert.strictEqual(v.status, 'Needs you');
   deq([v.tri.project_id, v.tri.type, v.tri.description, v.tri.due, v.tri.assigned], ['S-31628060SP', 'Task', 'call venue', '2026-10-23', 'Ana']);
-  deq(cvQ(v.open.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' }, 'Open in Canvas goes to Main');
+  deq(cvQ(v.open.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'tasks' }, 'Open in Canvas goes to Main, scrolled to Tasks');
   const a = t.ctx.cueApprove(r.request_id, { project_id: 'S-31628060SP', type: 'Task', description: 'Call the venue', due: '2026-10-23', assigned: 'Ana' });
   assert.strictEqual(a.status, 'Done'); deq(a.tri.saved.id, 'TRI-0042');
   deq(t.log.tri, [{ pid: 'S-31628060SP', args: { request_id: r.request_id, items: [{ key: 't1', type: 'Task', description: 'Call the venue', assigned_to: 'Ana', deadline: '2026-10-23' }] } }], 'Kiko\'s edit wins');
@@ -3891,7 +3891,8 @@ test('TR3 several projects: Kiko picks on the card; a project Canvas lacks is ty
   assert.ok(/no project called "Nowhere Fest"/.test(u.ctx.cueView_(u.ctx.cueLoad_(id2).s).error));
   const b = u.ctx.cueApprove(id2, { project: 'Globe party' }); assert.strictEqual(b.status, 'Done'); assert.strictEqual(u.log.tri[0].pid, 'S-31628060SP');
   const id3 = u.ctx.cueSend('add task buy tape to Globe party', [], '').request_id;
-  assert.strictEqual(u.ctx.cueReject(id3, '').status, 'Rejected'); assert.strictEqual(u.log.tri.length, 1, 'Close adds nothing');
+  const c = u.ctx.cueReject(id3, ''); assert.strictEqual(c.status, 'Closed', 'Close says Closed, not Rejected (PC check 07:28Z)'); assert.strictEqual(u.log.tri.length, 1, 'Close adds nothing');
+  assert.ok(u.tabs.Chat.rows.some(x => /Closed the task "buy tape"/.test(x[2])));
 });
 test('TR4 already in Canvas is reported, not added twice; a Canvas refusal leaves the card waiting with the reason', () => {
   const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } }, triDup: true });
@@ -3901,11 +3902,14 @@ test('TR4 already in Canvas is reported, not added twice; a Canvas refusal leave
   const id2 = u.ctx.cueSend('add task call venue to Globe party', [], '').request_id, b = u.ctx.cueApprove(id2, {});
   assert.strictEqual(b.status, 'Needs you'); assert.ok(/Canvas did not add it/.test(b.error));
 });
-test('TR5 "<project> tasks" opens Main like Canvas\'s Open tasks; "add project …" is an intake with no chat call; the page sends these to the server', () => {
+test('TR5 "<project> tasks" opens Main scrolled to Tasks (&focus=tasks); "add project …" is an intake with no chat call; the page sends these to the server', () => {
   const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
-  deq(cvQ(t.ctx.cueSend('Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
-  deq(cvQ(t.ctx.cueSend('tasks of Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
-  deq(cvQ(t.ctx.cueSend('open Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  deq(cvQ(t.ctx.cueSend('Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'tasks' });
+  deq(cvQ(t.ctx.cueSend('tasks of Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'tasks' });
+  deq(cvQ(t.ctx.cueSend('open Globe party tasks', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'tasks' });
+  deq(cvQ(t.ctx.cueSend('open Globe party main', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main' });
+  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'tri', tri: { type: 'Risk', project_id: 'S-31628060SP', project: 'Globe' } }).url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'risks' });
+  deq(cvQ(t.ctx.cueCanvasFor_({ kind: 'tri', tri: { type: 'Task', project_id: 'S-31628060SP', project: 'Globe' } }).url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', focus: 'tasks' });
   ['my tasks', 'what are today\'s tasks', 'show pending tasks'].forEach(x => assert.strictEqual(t.ctx.cueCanvasParse_(x), null, x));
   assert.strictEqual(t.log.gpt.length, 0);
   const u = sandbox({}), r = u.ctx.cueSend('add project Unilever townhall, 300 pax, Dec 5 at SMX', [], '');
