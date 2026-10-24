@@ -1933,16 +1933,27 @@
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
     var row = function (d) {
       var tick = waiting && !dr.length && d.can_draft ? '<input type="checkbox" data-pk="' + esc(r.id) + '" value="' + esc(d.k) + '">' : '<span class="muted">•</span>';
-      var m = d.mail, when = d.days == null ? 'no event date' : d.days < 0 ? 'event ' + esc(-d.days) + ' day(s) ago' : d.days === 0 ? 'event today' : 'event in ' + esc(d.days) + ' day(s)';
+      // A flag that already counts the days to the event (Kiko 24 Oct: said 3 times) leaves just the date here.
+      var m = d.mail, counted = d.flags.some(function (f) { return /^Event /.test(f); });
+      var when = counted ? 'event' : d.days == null ? 'no event date' : d.days < 0 ? 'event ' + esc(-d.days) + ' day(s) ago' : d.days === 0 ? 'event today' : 'event in ' + esc(d.days) + ' day(s)';
       return '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">' + tick + '<span>'
         + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener"><b>' + esc(d.name) + '</b></a>' : '<b>' + esc(d.name) + '</b>')
         + '<br><span class="small muted">' + esc(d.stage) + (d.amount ? ' · ' + peso(d.amount) : '') + ' · ' + when + (d.event ? ' (' + esc(d.event) + ')' : '') + '</span><br>'
         + d.flags.map(function (f) { return '<span class="tag flag">' + esc(f) + '</span>'; }).join('')
         + (d.status ? '<div class="small" style="margin-top:4px">' + esc(d.status) + '</div>' : '')
-        + (d.next ? '<div class="small" style="margin-top:2px"><b>Next:</b> ' + esc(d.next) + '</div>' : '')
+        // Kiko 24 Oct: last email, then Next, then the action for that deal.
         + (m ? '<div class="small muted" style="margin-top:4px">Last email ' + esc(m.date) + ', ' + (m.dir === 'in' ? 'from them' : m.dir === 'out' ? 'from you' : 'internal') + ': '
-          + (m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.subject || '(no subject)') + '</a>' : esc(m.subject)) + '</div>' : '<div class="small muted" style="margin-top:4px">No email found in your Gmail.</div>')
+          + (m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.subject || '(no subject)') + '</a>' : esc(m.subject)) + '</div>' : '<div class="small muted" style="margin-top:4px">No email from a person found in your Gmail.</div>')
+        + (d.next ? '<div class="small" style="margin-top:4px"><b>Next:</b> ' + esc(d.next) + '</div>' : '')
+        + pipeAct(d)
         + '</span></label></div>';
+    };
+    var pipeAct = function (d) {
+      var b = [];
+      if (waiting && !dr.length && d.can_draft) b.push('<button class="btn" data-act="pipe-draft1" data-id="' + esc(r.id) + '" data-k="' + esc(d.k) + '">' + (d.mail && d.mail.dir === 'in' ? 'Draft reply' : 'Draft follow-up') + '</button>');
+      if (d.canvas && d.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(d.canvas.url) + '" target="_blank" rel="noopener">Fix in Canvas</a>');
+      if (!b.length && d.mail && d.mail.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(d.mail.url) + '" target="_blank" rel="noopener">Open email</a>');
+      return b.length ? '<div class="actions" style="margin-top:6px">' + b.join('') + '</div>' : '';
     };
     if (!drafting && !again && !(r.status === 'Done' && dr.length)) [['act', 'Act today'], ['chase', 'Chase'], ['data', 'Fix the data (in Canvas)']].forEach(function (g) {
       var l = P.deals.filter(function (d) { return d.group === g[0]; }); if (!l.length) return;
@@ -2731,8 +2742,8 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, ed2], done, fail); });
         }
         if (act === 'pipe-done') { b.disabled = true; return call('cuePipeDone', [id], done, fail); }
-        if (act === 'pipe-draft') {
-          var keys = Array.prototype.filter.call(scope.querySelectorAll('[data-pk="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
+        if (act === 'pipe-draft' || act === 'pipe-draft1') {
+          var keys = act === 'pipe-draft1' ? [b.getAttribute('data-k')] : Array.prototype.filter.call(scope.querySelectorAll('[data-pk="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
           if (!keys.length) return addLocal('Cue', 'Tick at least one deal first.');
           b.disabled = true; running[id] = 1; schedule(); return call('cuePipeFollowUps', [id, keys], done, fail);
         }

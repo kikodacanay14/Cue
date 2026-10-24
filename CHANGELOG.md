@@ -1,6 +1,16 @@
 # Changelog
 
-## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" + Cue-in-Canvas guard fix (release branch, not deployed)
+## Cue 1.27.8: live 1.27.7 + pipeline review cards (Kiko 24 Oct 01:35Z; release branch, not deployed)
+
+- System emails are no longer "the client wrote last": Gmail drops no-reply, notification and HubSpot senders, and Cue skips mail with Auto-Submitted, bulk or list headers, or a login-code, password-reset or "you've been assigned" subject. Cue reads the 3 newest per deal and uses the first one a person sent.
+- A deal with no HubSpot contact but a real email thread says who: "Contact not saved in Canvas (Gmail: name@client)" instead of "Missing contact".
+- Each deal has its own action after Next: Draft reply or Draft follow-up (drafts that deal only), Fix in Canvas (the project, or the client's account), or Open email.
+- Order on each deal: status, Last email, Next, action.
+- The event countdown shows once: when a flag counts the days, the line under the name shows just the date, and Claude is told not to repeat the stage, amount, date, countdown or flags.
+- No extra AI calls. Read only, as before.
+- Tests: 321 of 321 pass.
+
+## Cue 1.27.7: live 1.27.6 + CE cost / expense tasks save "Done" + Cue-in-Canvas guard fix (release branch; live as Version 50, 23 Oct 18:48Z)
 
 Found while building the AI relay (dropped by Kiko 23 Oct 13:36Z). After Approve, a CE cost or expense task kept "Writing to Canvas" in the Cue sheet, though Canvas had saved it. A reload therefore showed the card still writing. The finished state ("Done" or "Done, check Canvas") is now saved. Nothing else changes.
 
