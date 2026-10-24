@@ -1217,7 +1217,7 @@
     var need = T ? rows.length : rows.filter(function (x) { return x.need; }).length;
     var h = '<div class="msg cue today"><span class="who">Cue</span><b>' + esc(T ? 'Today' : day) + ': ' + (need ? need + ' thing' + (need === 1 ? '' : 's') + ' need' + (need === 1 ? 's' : '') + ' you' : 'nothing needs you') + '</b>';
     rows.forEach(function (x) {
-      h += '<button class="trow" data-thread="' + esc(x.thread) + '" title="Open the thread"><span><b>' + esc(x.title) + '</b>'
+      h += '<button class="trow" data-thread="' + esc(x.thread) + '" title="Open the thread"><span>' + (x.eyebrow ? '<span class="small muted">' + esc(x.eyebrow) + '</span><br>' : '') + '<b>' + esc(x.title) + '</b>'
         + (x.detail ? '<br><span class="small muted">' + esc(x.detail) + '</span>' : '') + (x.by ? '<br><span class="small muted">' + esc(x.by) + '</span>' : '') + '</span></button>';
     });
     return h + (done ? '<div class="small muted" style="margin-top:6px">Done for you: ' + esc(done) + '</div>' : '') + '</div>';

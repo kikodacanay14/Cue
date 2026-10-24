@@ -4834,19 +4834,24 @@ test('TD2 Today card: a failed run is a Try again row; a thread joined by a redo
   deq([f.title, f.detail, f.by], ['Bid check didn\'t finish', 'ChatGPT timed out', 'Stopped · nothing was sent or changed']);
   deq(JSON.stringify(t.log), before, 'building the card makes no fetch');
 });
-test('TD5 Today card: a redo with new bids names its own run; a redo with only Still open notices is a done entry (PC check 24 Oct 10:41Z)', () => {
+test('TD5 Today card: only the day\'s latest bid run counts; a row names its run (PC checks 24 Oct 10:41Z and 12:39Z)', () => {
   const { ctx } = sandbox();
-  const T = ctx.cueTodayFrom_([TD({ id: 'd0', kind: 'bids', status: 'Closed', bids: { base: 'Bid opportunities · Wed 21 Oct', items: [] } }),
-    TD({ id: 'd1', kind: 'bids', ref: 'd0', metrics: GPTC, bids: { base: 'Bid opportunities · Wed 21 Oct, 17:17', items: [], still: [{ project: 'TPB members meeting' }] } }),
-    TD({ id: 'd2', kind: 'bids', ref: 'd0', metrics: GPTC, bids: { base: 'Bid opportunities · Wed 21 Oct, 17:58', items: [{ project: 'PCC catering' }, { project: 'PCC IEC printing' }], still: [{}] } })], '2026-10-21');
+  const run = (id, at, items, still) => TD({ id, kind: 'bids', ref: id === 'd0' ? '' : 'd0', created: '2026-10-21T' + at + ':00Z', metrics: GPTC,
+    status: id === 'd0' ? 'Closed' : 'Needs you', bids: { base: 'Bid opportunities · Wed 21 Oct, ' + at, items, still } });
+  const two = [{ project: 'PCC catering' }, { project: 'PCC IEC printing' }];
+  let T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d1', '09:17', [], [{}]), run('d2', '09:58', two, [{}])], '2026-10-21');
   deq(T.count, 1);
-  deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].thread], ['Bid opportunities · Wed 21 Oct, 17:58', '2 new bids worth a look', 'd0'], 'the row says which run holds the new bids; the tap opens the day\'s Bid check thread');
+  deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].thread], ['Bid opportunities · Wed 21 Oct, 09:58', '2 new bids worth a look', 'd0'], 'the row says which run holds the new bids; the tap opens the day\'s Bid check thread');
+  assert.ok(!/bid check/.test(T.done), 'older bid runs that day are not listed again: ' + T.done);
+  T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d2', '09:58', two, [{}]), run('d3', '10:30', [], two)], '2026-10-21');
+  deq(T.count, 0, 'a later redo with 0 new supersedes the older card\'s 2 new (they are in its Still open now)');
   assert.ok(/bid check \(no new bids\)/.test(T.done), T.done);
 });
 test('TD3 Today frame: silent until cueHost from a Google window above it; doGet serves it framable; owner-only call', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Today.html'), 'utf8'), gs = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(/if \(!anc\) return;/.test(html) && /if \(!ok\.test\(anc\[i\]\)\) return;/.test(html), 'stays silent without, or with a foreign, ancestor');
   assert.ok(/d\.canvasWs !== 'cueHost' \|\| host \|\| !above\(e\.source\)/.test(html), 'only the first cueHost from a window above');
+  assert.ok(/done: d\.done, version: d\.version \}/.test(html) && /version: CUE_VERSION_/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueToday.gs'), 'utf8')), 'the payload says which build answered');
   assert.ok(/host\.postMessage\(\{ canvasWs: 'cue-today'/.test(html) && !/parent\.postMessage\(\{ canvasWs: 'cue-today'/.test(html), 'rows go to the host only');
   assert.ok(/q\.view === 'today'\) return HtmlService\.createHtmlOutputFromFile\('Today'\)/.test(gs));
   const t = sandbox({ viewer: 'someone@example.com' });

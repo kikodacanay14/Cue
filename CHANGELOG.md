@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.18: the Today card uses only the day's latest bid run, and says which build answered (release branch, not deployed)
+
+PC recheck of 1.27.17, 24 Oct 12:39Z: two bid-row failures. The row showed "2 new bids" from an older redo, and its top line said
+"Bid check".
+
+- Only the day's latest bid run counts, as a row or a "Done for you" entry. A redo lists only notices new since the run before it.
+  The earlier run's new notices move into its Still open list. So an older card's "new" no longer shows once a later run replaced it.
+- The Cue chat's Today line now shows each row's top line too (for a bid row, the run's name: "Bid opportunities · Sat 24 Oct, 17:58").
+  Before, only Canvas Home showed it.
+- `?view=today` sends `version` ("Cue 1.27.18") with the rows. The Cue panel's header already shows the same version for the same
+  test deployment.
+- Tests: 342 of 342 pass (TD5 rewritten, TD3 checks the version).
+
 ## Cue 1.27.17: the Today card's bid row says which run holds the new bids (release branch, not deployed)
 
 PC check of 1.27.16, 24 Oct 10:41Z: the Cue chat's Today line passed (one line for the day). It said "1 thing needs you: 2 new bids

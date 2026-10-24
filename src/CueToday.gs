@@ -65,8 +65,12 @@ function cueTodayFrom_(views, day) {
   const by = {}; views.forEach(r => { by[r.id] = r; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   const rows = [], done = [];
-  views.filter(r => CUE_TODAY_KINDS_[r.kind] && !r.archived && r.status !== 'Working' && cuePh_(Date.parse(r.created) || 0).day === day)
-    .sort((a, b) => String(a.created).localeCompare(String(b.created)))
+  const runs = views.filter(r => CUE_TODAY_KINDS_[r.kind] && !r.archived && r.status !== 'Working' && cuePh_(Date.parse(r.created) || 0).day === day)
+    .sort((a, b) => String(a.created).localeCompare(String(b.created)));
+  // PC check 24 Oct 12:39Z: only the day's latest bid run counts. A redo lists only notices new since the run before it, and the
+  // earlier run's new ones are in its Still open list, so an older card's "new" is never shown twice or after it was superseded.
+  const lastBids = runs.filter(r => r.kind === 'bids').pop();
+  runs.filter(r => r.kind !== 'bids' || r === lastBids)
     .forEach(r => { const x = cueTodayRow_(Object.assign({}, r, { root: root(r.id) })); if (x.need) rows.push(x.need); else if (x.done) done.push(x); });
   // The chasers go first: their 9:00 send is the only one with a clock.
   rows.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
@@ -79,5 +83,5 @@ function cueToday() {
   cueOwner_();
   const list = [];
   cueRows_(cueSheet_('Requests')).slice(-60).forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
-  return cueTodayFrom_(list, cuePh_(cueNow_()).day);
+  return Object.assign(cueTodayFrom_(list, cuePh_(cueNow_()).day), { version: CUE_VERSION_ });   // PC check reads which build answered
 }
