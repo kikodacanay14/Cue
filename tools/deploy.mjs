@@ -81,13 +81,15 @@ if (mode === 'preview') {
 const { versionNumber } = clasp(pushDir, 'create-version', desc);
 if (mode === 'test') {
   // Only the test deployment moves. The live deployment is read again afterwards to prove it did not.
-  const t0 = clasp(work, 'list-deployments').find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(TEST_DESC_));
-  if (t0) clasp(pushDir, 'update-deployment', t0.deploymentId, '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc);
-  else clasp(pushDir, 'create-deployment', '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc);
-  const now = clasp(work, 'list-deployments'), after = now.find(d => d.deploymentId === cfg.deploymentId);
-  const t = now.find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(TEST_DESC_));
+  // deploy.json testDeploymentId names it once it exists; until then (first run) a new one is made and its id printed.
+  const all = clasp(work, 'list-deployments');
+  const tid = cfg.testDeploymentId || (all.find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '').startsWith(TEST_DESC_)) || {}).deploymentId;
+  if (tid === cfg.deploymentId) fail('testDeploymentId is the live deployment');
+  const t = tid ? clasp(pushDir, 'update-deployment', tid, '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc)
+    : clasp(pushDir, 'create-deployment', '--versionNumber', String(versionNumber), '--description', TEST_DESC_ + ' ' + desc);
+  const after = clasp(work, 'list-deployments').find(d => d.deploymentId === cfg.deploymentId);
   if (!after || after.versionNumber !== live) fail(`live deployment moved from Version ${live} to ${after && after.versionNumber}`);
-  if (!t || t.versionNumber !== versionNumber) fail(`test deployment is not on Version ${versionNumber}`);
+  if (!t || !t.deploymentId || Number(t.versionNumber) !== Number(versionNumber)) fail(`test deployment is not on Version ${versionNumber}: ${JSON.stringify(t)}`);
   const line = `Cue test deployment on Version ${versionNumber} (${desc}): https://script.google.com/a/macros/blankspaceevent.com/s/${t.deploymentId}/exec ; live stays on Version ${live}`;
   console.log('TEST: ' + line);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
