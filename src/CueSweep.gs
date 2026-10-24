@@ -524,8 +524,12 @@ const CUE_OLD_KINDS_ = ['bids', 'gtask', 'pipeline', 'hubspot', 'status', 'skill
  * Nothing is sent or written. Returns { closed }. */
 function cueCloseOlder() {
   cueOwner_();
-  const today = cueMnlDay_(cueNow_());
-  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && !!x.created && cueMnlDay_(Date.parse(x.created)) < today,
+  const today = cueMnlDay_(cueNow_()), newest = {};
+  // PC recheck 24 Oct: a pipeline review that a newer one of the same scope replaced is old too, even from today.
+  cueRows_(cueSheet_('Requests')).slice(-120).forEach(r => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join(''));
+    if (x.kind === 'pipeline') { const c = (x.pipe || {}).client || ''; if (!newest[c] || String(x.created) > String(newest[c].created)) newest[c] = x; } } catch (e) { /* skip */ } });
+  const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || (x.kind === 'pipeline' && newest[(x.pipe || {}).client || ''] && newest[(x.pipe || {}).client || ''].id !== x.id);
+  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && old(x) && !(x.kind === 'pipeline' && cuePipeHeld_(x)),
     'Closed with "Close older runs". Nothing was written or sent.', true);
   return { closed: ids.length };
 }
