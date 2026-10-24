@@ -1539,12 +1539,15 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   // PC check 14:29Z: Open funnel opened the thread at the bottom (tasks). The card's top and its tasks carry the spots the Today rows name.
   assert.ok(/id="fn-' \+ esc\(r\.id\)/.test(card) && /id="fnt-' \+ esc\(r\.id\)/.test(card));
   const src = html.slice(html.indexOf('var goSpot ='), html.indexOf('function closeTab('));
+  // The pane's own render (paneShow, renderChat) runs inside openPane and tries the spot too; the stub does the same.
   const els = {}, ps = { scrollTop: 0, scrollHeight: 900, getBoundingClientRect: () => ({ top: 100 }) }, opened = [];
   const g = vm.createContext({ document: { getElementById: k => els[k] || null }, $: k => k === 'pscroll' ? ps : { focus() {} }, matchMedia: () => ({ matches: false }),
-    openPane: it => opened.push(it.key) });
+    openPane: it => { opened.push(it.key); g.toSpot(); } });
   vm.runInContext(src + ';this.goThread = goThread; this.toSpot = toSpot;', g);
-  els['fn-cue-1'] = { getBoundingClientRect: () => ({ top: 400 }) };
-  g.goThread('cue-1#fn-cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 292], 'Open funnel: the tab is the plain thread, scrolled to the card top');
+  els['fn-cue-1'] = { getBoundingClientRect: () => ({ top: 400 }) }; els['fnt-cue-1'] = { getBoundingClientRect: () => ({ top: 700 }) };
+  g.goThread('cue-1#fn-cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 900 + 292], 'Open funnel: the tab is the plain thread, scrolled to the card top');
+  // PC recheck 14:39Z: Review tasks right after Open funnel, on the thread already drawn, stayed at the card top.
+  ps.scrollTop = 0; g.goThread('cue-1#fnt-cue-1'); assert.strictEqual(ps.scrollTop, 900 + 592, 'Review tasks on the drawn thread goes to the tasks');
   ps.scrollTop = 0; g.goThread('cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 900], 'no spot: bottom, as before');
   ps.scrollTop = 0; g.goThread('cue-2#fnt-cue-2'); assert.strictEqual(ps.scrollTop, 900, 'spot not drawn yet: bottom for now');
   els['fnt-cue-2'] = { getBoundingClientRect: () => ({ top: 700 }) }; assert.ok(g.toSpot()); assert.strictEqual(ps.scrollTop, 900 + 592, 'the next render goes to the tasks');

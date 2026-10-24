@@ -497,8 +497,9 @@
   function goThread(id) {
     var at = String(id).indexOf('#'), spot = at < 0 ? '' : String(id).slice(at + 1).replace(/[^\w-]/g, '');
     if (at >= 0) id = String(id).slice(0, at);
-    goSpot = spot; openPane({ key: 't:' + id, type: 'thread', id: id });
-    if (!toSpot()) $('pscroll').scrollTop = $('pscroll').scrollHeight;
+    // PC recheck 14:39Z: the spot is set after the pane's own render, so that render can't use it up before the bottom scroll below.
+    goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id });
+    $('pscroll').scrollTop = $('pscroll').scrollHeight; goSpot = spot; toSpot();
     if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
   }
   function toSpot() {

@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.24: Review tasks jumps to the tasks on a thread already open (release branch, not deployed)
+
+PC recheck of 1.27.23, 24 Oct 14:39Z: Review tasks worked on a fresh page, but tapped right after Open funnel (slide-in closed,
+then reopened on the same thread) it stayed at the top of the funnel card.
+
+- Cause: when the thread was already drawn, the pane's own render used up the spot, and the thread opener then scrolled to the
+  bottom. The opener now scrolls to the bottom first and goes to the spot after the pane's render. Checked in Chromium with
+  Cue in nested frames: Open funnel, Review tasks, Open funnel again and Review tasks on a fresh page all land on their spot,
+  and stay there through 9 s of refreshes.
+- Not changed: the Bid thread header reads "Bid opportunities · Sat 24 Oct, 15:…" when the first run of the day has dropped out
+  of the 20 newest runs the page loads. It is the same thread; the page names it from the oldest run it still has.
+- Tests: 347 of 347 pass (FN5 now runs the opener with the pane's render; it fails on 1.27.23).
+
 ## Cue 1.27.23: Open funnel opens at the funnel, Review tasks at the tasks (release branch, not deployed)
 
 PC check of 1.27.22, 24 Oct 14:29Z: the repeated Done entry is gone, but [Open funnel] on Canvas Home opened the funnel thread
