@@ -716,7 +716,9 @@
       var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
       h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
-      h += (last && !busy && !CLOSED[last.status] ? ib('data-act="close-task" data-id="' + esc(last.id) + '"', 'check', 'Close this task') : '')
+      // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
+      var open = t && t.reqs.some(function (r) { return !CLOSED[r.status]; });
+      h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
         + (t && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
     }
@@ -2726,6 +2728,12 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueCancelIntake', [id, ''], done, fail); });
           if (act === 'ph-cancel') return; }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
+        if (act === 'close-thread') {   // an intake that saved to Canvas keeps its cancel rule: closing it is cancelling it (Kiko 16:53Z)
+          var ix = state.requests.filter(function (x) { return rootOf(x.id, byId()) === id && !CLOSED[x.status] && x.phased && x.canvas && !x.canvas.removed && x.canvas.project_id; })[0];
+          if (ix) return ask('Cancel intake and remove ' + ix.canvas.project_id + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {
+            b.disabled = true; running[ix.id] = 1; schedule(); call('cueCancelIntake', [ix.id, ''], done, fail); });
+          b.disabled = true; return call('cueCloseThread', [id], done, fail);
+        }
         if (act === 'archive') { b.disabled = true; return call('cueArchive', [id, b.getAttribute('data-on') === '1'], done, fail); }
         if (act === 'sweep-skip' || act === 'sweep-mute') { b.disabled = true; return call('cueSweepItem', [id, b.getAttribute('data-key'), act === 'sweep-skip' ? 'skip' : 'mute'], done, fail); }
         if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
