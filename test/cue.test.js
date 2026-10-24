@@ -4812,13 +4812,13 @@ test('TD1 Today card: one row per run that needs Kiko, chasers first, who did it
   const v = [
     TD({ id: 'b1', kind: 'bids', metrics: GPTC, bids: { items: [{ project: 'DepEd Batangas', abc: 420000 }, { project: 'Laguna LGU', abc: 610000 }], updated: [{}] } }),
     TD({ id: 's1', kind: 'sweep', metrics: GPTC, batch: { items: [{ label: 'RFQ' }, { label: 'RFQ' }, { label: 'Payment' }, { label: 'Inbox', no_email: true }, { label: 'RFQ', removed: 'skip' }] } }),
-    TD({ id: 'h1', kind: 'hubspot', metrics: CLC, hs: { title: 'Monday HubSpot check', groups: [{ items: [{ title: 'Merge Acme', can_fix: true }, { title: 'Done one', can_fix: true, result: { ok: true } }] }] } }),
+    TD({ id: 'h1', kind: 'hubspot', metrics: CLC, hs: { title: 'Monday HubSpot check', items: [{ key: 'm1', group: 'dup', title: 'Merge Acme', fix: { op: 'archive' }, recs: [] }, { key: 'm2', group: 'dup', title: 'Done one', fix: { op: 'archive' }, recs: [], result: { ok: true } }] } }),
     TD({ id: 'g1', kind: 'gtask', status: 'Done', metrics: GPTC, gt: { title: 'Repeat-event accounts', items: [] } }),
     TD({ id: 'g2', kind: 'gtask', status: 'Done', metrics: { calls: [] }, gt: { title: 'Moved contacts', items: [] } }),
     TD({ id: 'old', kind: 'bids', created: '2026-10-19T23:00:00Z', bids: { items: [{ project: 'X' }] } }),
     TD({ id: 'i1', kind: 'intake' }),
     TD({ id: 'w1', kind: 'gtask', status: 'Working', gt: { title: 'Still running', items: [] } })];
-  const T = ctx.cueTodayFrom_(v, '2026-10-21');
+  const T = ctx.cueTodayFrom_(v.map(x => ctx.cueView_(x)), '2026-10-21');   // the page's views, as cueToday() and cueState() pass them
   deq(T.count, 3);
   deq(T.rows.map(r => r.thread), ['s1', 'b1', 'h1'], 'the morning batch first; old days, other kinds and running jobs left out');
   deq([T.rows[0].title, T.rows[0].detail, T.rows[0].primary, T.rows[0].button], ['Send 3 emails', '2 RFQ, 1 Payment, 1 Inbox.', true, 'Review and send']);
@@ -4837,13 +4837,14 @@ test('TD2 Today card: a failed run is a Try again row; a thread joined by a redo
 test('TD5 Today card: only the day\'s latest bid run counts; a row names its run (PC checks 24 Oct 10:41Z and 12:39Z)', () => {
   const { ctx } = sandbox();
   const run = (id, at, items, still) => TD({ id, kind: 'bids', ref: id === 'd0' ? '' : 'd0', created: '2026-10-21T' + at + ':00Z', metrics: GPTC,
-    status: id === 'd0' ? 'Closed' : 'Needs you', bids: { base: 'Bid opportunities · Wed 21 Oct, ' + at, items, still } });
+    status: id === 'd0' ? 'Closed' : 'Needs you', bids: { base: 'Bid opportunities · Wed 21 Oct, ' + at, title: 'Bid opportunities · Wed 21 Oct, ' + at + ' · ' + items.length + ' new, ' + still.length + ' still open', items, still } });
   const two = [{ project: 'PCC catering' }, { project: 'PCC IEC printing' }];
-  let T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d1', '09:17', [], [{}]), run('d2', '09:58', two, [{}])], '2026-10-21');
+  let T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d1', '09:17', [], [{}]), run('d2', '09:58', two, [{}])].map(x => ctx.cueView_(x)), '2026-10-21');
+  assert.ok(!('base' in ctx.cueView_(run('d2', '09:58', two, [])).bids), 'the page view carries the title, not base: the row must work from the view');
   deq(T.count, 1);
   deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].thread], ['Bid opportunities · Wed 21 Oct, 09:58', '2 new bids worth a look', 'd0'], 'the row says which run holds the new bids; the tap opens the day\'s Bid check thread');
   assert.ok(!/bid check/.test(T.done), 'older bid runs that day are not listed again: ' + T.done);
-  T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d2', '09:58', two, [{}]), run('d3', '10:30', [], two)], '2026-10-21');
+  T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d2', '09:58', two, [{}]), run('d3', '10:30', [], two)].map(x => ctx.cueView_(x)), '2026-10-21');
   deq(T.count, 0, 'a later redo with 0 new supersedes the older card\'s 2 new (they are in its Still open now)');
   assert.ok(/bid check \(no new bids\)/.test(T.done), T.done);
 });

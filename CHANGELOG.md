@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.19: the Today card's bid row really names its run (release branch, not deployed)
+
+PC recheck of 1.27.18, 24 Oct 12:46Z: the Home card, both row taps, the Today line and the Done line passed. The bid row's top line
+still read "Bid check". The cause was in Cue, not Canvas or a stale copy. The Today rows are built from the page's view of each run
+(`cueView_`), and the bid view carries the run's title ("Bid opportunities · Sat 24 Oct, 17:58 · 2 new, 5 still open") but not the
+stored `bids.base`. So 1.27.17 and 1.27.18 always fell back to "Bid check". The tests fed stored requests, not views, so they
+missed it.
+
+- The bid row's top line now comes from the view's title, without the counts: "Bid opportunities · Sat 24 Oct, 17:58".
+- TD1 and TD5 now build the card from `cueView_` output, the same input `cueToday()` and `cueState()` give it. TD5 asserts the view
+  has no `base`.
+- Tests: 342 of 342 pass.
+
 ## Cue 1.27.18: the Today card uses only the day's latest bid run, and says which build answered (release branch, not deployed)
 
 PC recheck of 1.27.17, 24 Oct 12:39Z: two bid-row failures. The row showed "2 new bids" from an older redo, and its top line said

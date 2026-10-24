@@ -14,7 +14,8 @@ function cueTodayBy_(r) {
   return who.length ? 'Done by ' + who.join(' and ') + ' · checked by Cue' : 'Done by Cue';
 }
 
-/** One run as a row (needs Kiko) or a done line. Titles say what is waiting in plain words. */
+/** One run as a row (needs Kiko) or a done line, from the page's view of the run (cueView_), never the stored request.
+ * Titles say what is waiting in plain words. */
 function cueTodayRow_(r) {
   const n = (k, one, many) => k + ' ' + (k === 1 ? one : many || one + 's'), name = cueTodayName_(r), by = cueTodayBy_(r);
   const row = o => Object.assign({ kind: name, by, thread: r.root || r.id, primary: false }, o);
@@ -32,7 +33,7 @@ function cueTodayRow_(r) {
     const B = r.bids || {}, items = B.items || [], up = B.updated || [];
     const peso = v => v ? '₱' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v) : '';
     if (!need || !items.length) return { done: 'bid check (' + (items.length ? n(items.length, 'new bid') : 'no new bids') + (up.length ? ', ' + up.length + ' updated' : '') + ')', by };
-    return { need: row({ eyebrow: B.base || 'Bid check', title: n(items.length, 'new bid') + ' worth a look', button: 'Open bids',
+    return { need: row({ eyebrow: B.base || String(B.title || '').replace(/ · \d+ new\b.*$/, '') || 'Bid check', title: n(items.length, 'new bid') + ' worth a look', button: 'Open bids',
       detail: items.slice(0, 2).map(x => [x.project || x.reference || x.agency, peso(Number(x.abc) || 0)].filter(Boolean).join(' ')).join(' · ') + (items.length > 2 ? ' and ' + (items.length - 2) + ' more' : '') }) };
   }
   if (r.kind === 'hubspot') {
