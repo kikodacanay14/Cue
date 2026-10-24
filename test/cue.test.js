@@ -1527,6 +1527,9 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   assert.strictEqual(f.length, 1); assert.strictEqual(f[0].how, 'daily'); assert.strictEqual(t.props.CUE_FUNNEL_DAY, '2026-10-22');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
   assert.ok(/function funnelCardHtml\(r\)/.test(html) && /data-act="fn-task"/.test(html) && /call\('cueFunnelTaskDone', \[id, b\.getAttribute\('data-t'\)\]/.test(html));
+  // PC check 14:13Z: the Inquiry (2) header showed no deals. Every section in the funnel card has the visible .sec marker; none hides it.
+  const card = html.slice(html.indexOf('function funnelCardHtml(r)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
+  assert.strictEqual((card.match(/<details class="sec"/g) || []).length, 2, 'stage and task sections'); assert.ok(!/<summary[^>]*display:inline/.test(card), 'no summary without its marker');
 });
 test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
   const t = pipeToCard(), C = t.ctx, first = t.id;

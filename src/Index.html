@@ -2055,7 +2055,8 @@
     var taskBtn = function (t, word) { return waiting && !t.done ? '<button class="btn ghost" data-act="fn-task" data-id="' + esc(r.id) + '" data-t="' + esc(t.id) + '">' + word + '</button>' : ''; };
     F.stages.filter(function (x) { return x.n; }).forEach(function (x) {
       var l = F.deals.filter(function (d) { return d.stage === x.id; });
-      h += '<details' + (x.id === w.id ? ' open' : '') + ' style="margin-top:10px"><summary class="label" style="display:inline">' + esc(x.label) + ' (' + l.length + ')</summary>'
+      // PC check 24 Oct 14:13Z: a summary styled display:inline loses its marker, so a closed stage looked empty. The .sec marker shows it opens.
+      h += '<details class="sec"' + (x.id === w.id || l.length <= 5 ? ' open' : '') + '><summary>' + esc(x.label) + ' (' + l.length + ')</summary>'
         + l.map(function (d) {
           var ts = d.tasks.map(function (k) { return tasksBy[k]; }).filter(Boolean);
           return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(d.url, d.name) + '</b><br><span class="small muted">' + (d.amount ? pesoK(d.amount) : 'no amount') + '</span>'
@@ -2070,7 +2071,7 @@
       h += '<div class="small muted">' + esc(open.length) + ' open' + (open.length !== F.tasks.length ? ', ' + esc(F.tasks.length - open.length) + ' marked done here' : '') + '. Mark done closes that one task in HubSpot, then Cue reads it back.</div>';
       [['deal', 'Deal follow-ups'], ['category', 'Company category'], ['other', 'Other']].forEach(function (g) {
         var l = F.tasks.filter(function (t) { return t.group === g[0]; }); if (!l.length) return;
-        h += '<details' + (g[0] === 'deal' ? ' open' : '') + ' style="margin-top:8px"><summary class="small" style="display:inline"><b>' + g[1] + ' (' + l.filter(function (t) { return !t.done; }).length + ')</b></summary>'
+        h += '<details class="sec"' + (g[0] === 'deal' || l.length <= 5 ? ' open' : '') + '><summary>' + g[1] + ' (' + l.filter(function (t) { return !t.done; }).length + ')</summary>'
           + l.map(function (t) {
             return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(t.url, t.subject) + '</b>' + (t.done ? ' <span class="tag pref">done</span>' : '')
               + '<br><span class="small">' + (t.due ? (t.late && !t.done ? '<span style="color:var(--bad)">Due ' + esc(t.due) + ' · ' + esc(t.late) + ' day' + (t.late === 1 ? '' : 's') + ' late</span>' : 'Due ' + esc(t.due)) : 'No due date') + '</span>'

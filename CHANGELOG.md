@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.21: the funnel's stage sections show they open (release branch, not deployed)
+
+PC check of 1.27.20 (test V61), 24 Oct 14:13Z: version, bars, totals, tasks, the Canvas Home rows and the earlier rows passed. The
+"Inquiry / RFP received (2)" header showed no deals under it. The deals were there, folded: the section's summary was styled
+`display:inline`, which hides the browser's open marker, so a closed section looked like an empty header.
+
+- Stage and task sections use the `.sec` style, with the › marker that turns when open.
+- A section with 5 or fewer items now starts open, as do Awaiting award and Deal follow-ups. Long ones (like Lost) stay folded.
+- By design, "my HubSpot tasks" starts a fresh "Sales funnel" run (one thread holds the funnel and the tasks) and closes the older
+  waiting one, since each run is a full snapshot.
+- Tests: 347 of 347 pass (FN5 checks no summary hides its marker).
+
 ## Cue 1.27.20: sales funnel and HubSpot tasks on the Today card (release branch, not deployed)
 
 Asked by Kiko, 24 Oct 2026 13:50Z: "How can we place the funnel in Cue? Or the hubspot action items". Kiko chose "Yes, build both"
