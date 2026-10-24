@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.26';   // release branch: live 1.27.19 (V60, Today card) + sales funnel and HubSpot tasks (CueFunnel.gs), PC fixes
+const CUE_VERSION_ = 'Cue 1.27.27';   // release branch: 1.27.26 on live 1.27.25 (V67: Today card, sales funnel) + bid contacts on the card and into intake
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -260,7 +260,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (t.length > 12000) throw new Error('That is too long for one intake (12,000 characters at most).');
   // Kiko 06:57Z task rules: a new message about a task from the last 7 days reopens that task's thread instead of starting a new one.
   // First guess from the project or client name in the message (no AI call); Canvas's project match confirms or moves it later.
-  if (!ref && !sup) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
+  // PC check 25 Oct 01:51Z: Start intake on a TPB bid reopened the AMI/Unilever thread on a shared name word. A bid notice is always a
+  // new project with its own agency, so it never guesses a thread by name.
+  if (!ref && !sup && !/^New project intake from a bid notice/.test(t)) { ref = cueRelated_(t, '', ''); if (ref) reopened = 'name'; }
   // CUE-PHASED (live test 15:34Z: one Unilever request made two cards that disagreed). A message about a project whose phased
   // intake card is waiting goes into that card, and both reads merge; it never starts a second intake.
   if (reopened && !sup) { const ph = cuePhReply_(ref, t, files); if (ph) {
@@ -666,7 +668,8 @@ function cueRelated_(text, pid, self) {
   try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
-  const words = {}; cueWords_(text).forEach(w => { words[w] = 1; });
+  // PC check 25 Oct 01:51Z: a number (a year like 2026, a date, an amount) never ties a message to a task.
+  const words = {}; cueWords_(text).filter(w => !/^\d+$/.test(w)).forEach(w => { words[w] = 1; });
   // Kiko 08:32Z: a Selecta message reopened the AMI Halloween gift boxes. The client's name ties a message to a task only when that
   // client has one task this week; with several (AMI: BEKO, Halloween, Selecta) a word from the project name itself must match.
   const client = x => { const c = x.change || {}, p = x.proposal || {}, k = (x.x && x.x.client) || p.client || {};
@@ -1058,7 +1061,10 @@ function cueView_(s) {
   const m = s.metrics || {};
   const ch = s.change || null, found = k => ((ch && ch.found) || []).filter(x => x.k === k)[0] || {};
   const b = s.batch;
-  return { id: s.id, kind: s.kind || 'intake', ref: s.ref || '', created: s.created, status: s.status, stage: s.stage,
+  // PC recheck 25 Oct 02:15Z: a bid-notice intake that an earlier build filed into another project's thread by a name guess (TPB 291 in
+  // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
+  const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
+  return { id: s.id, kind: s.kind || 'intake', ref, created: s.created, status: s.status, stage: s.stage,
     same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,

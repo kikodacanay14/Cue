@@ -1,5 +1,34 @@
 # Changelog
 
+## Cue 1.27.27: bid contacts on the card and into intake (release branch, not deployed)
+
+Kiko asked 24 Oct 2026 13:36Z: "I think you should have also the contacts. When intake runs: Also we need to store the contact
+details of the clients." Spec `specs/bid-contacts-reminder.md` part A, Kiko "Go" 13:54Z. Built on 1.27.26 (tasks tab scroll) on live 1.27.25 (V67). Registering the agency
+in Client Desk (part B) needs a Canvas release and ships separately.
+
+- The document read Cue already does now also returns up to 3 BAC or procurement contacts (name, role, email, phone). No extra AI
+  call. As before, an email is kept only on the agency's own domain or a .gov.ph one.
+- Each notice shows a Contact line. A notice whose documents were read but name no one shows "No contact in the documents".
+- Start intake adds "Client: <agency>" and one "Client contact: name, role, email, phone" line per contact to the notice text.
+  Phase 1 picks them up as client contacts, and on Approve Canvas writes them to PROJ Contacts, as it already does.
+- Notices read before this release are not read again. When they have a BAC email, it shows as their contact.
+- Draft a question to the agency uses the first contact's email when the documents gave no separate BAC email.
+- PC check 25 Oct 01:51Z fixes: (1) the read often gives several BAC addresses in one string ("a@tpb.gov.ph; b@tpb.gov.ph"),
+  which failed the email check as a whole, so every notice said "No contact in the documents". Each address is now checked on its
+  own and shown as a contact, so the stored readings show their contacts without a re-read. (2) Start intake on TPB RFQ 2026.10.291
+  landed in the AMI/Unilever thread because "2026" matched "UNILEVER YEAR END PARTY 2026". A bid-notice intake now always gets its
+  own thread, and a number never ties a message to a task by name.
+- PC recheck 25 Oct 02:15Z fixes: Start intake from a card made before this release took the notice from the card, which had no
+  contacts, so phase 1 said "Contact: Not given". It now takes the contacts from the stored reading (no new read). The TPB intake
+  that the old build filed into the AMI/Unilever thread now shows in its own thread, so that thread no longer carries the TPB title.
+  The stored record is not changed.
+- PC recheck 25 Oct 02:27Z fix: phase 1 showed a nameless BAC contact as "BAC, BAC, email" because the read put the role in the name
+  too. A name that only repeats the role is dropped; the contact keeps its role and email. A bare "BAC" entry with no email or phone, whose name
+  is only another contact's role, is left out too (PC recheck 02:37Z).
+- PC recheck 25 Oct 02:48Z fix: phase 1's read kept rewriting the same BAC contacts in new ways ("BAC, BAC (bid contact), …"). A bid
+  intake now keeps the notice's own contact list (made by code) and phase 1 shows exactly that list; the read's contacts are not used
+  for a bid. Other intakes are unchanged.
+- Tests: 349 of 349 pass. BD23 and BD24 are new; BD6 checks the Contact line on the card.
 ## Cue 1.27.26: the HubSpot tasks tab opens at its top (release branch, not deployed)
 
 PC recheck of 1.27.25, 24 Oct 15:17Z: passed. Follow-up (not a blocker): after Open funnel, Review tasks opened the tasks tab scrolled

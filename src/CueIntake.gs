@@ -139,7 +139,7 @@ function cueIntakeRead_(s) {
   // C1 G4 (Kiko 07:41Z): no date no longer stops the intake; Canvas records it as Date TBC.
   const date = CUE_DATE_RE_.test(String(e.date || '')) ? String(e.date) : '', sc = e.schedule || {};
   if (!date) s.notes.push('The inquiry gives no event date, so Canvas will record the project as Date TBC. Add the date on the card if you have it.');
-  s.x = { client: cueClient_(c),
+  s.x = { client: cueClient_(Array.isArray(s.bid_contacts) ? { company: c.company, contacts: s.bid_contacts } : c),   // a bid's contacts come from the notice, never the read
     event: { name: cueStr_(e.name, 200), type: cueStr_(e.type, 100), date, date_tbc: !date, deadline: CUE_DATE_RE_.test(String(e.deadline || '')) ? String(e.deadline) : '',
       schedule: { ingress: cueStr_(sc.ingress, 100), hours: cueStr_(sc.hours, 100), egress: cueStr_(sc.egress, 100) },
       venue: cueStr_(e.venue, 200), city: cueStr_(e.city, 100), pax: Math.max(0, Math.round(Number(e.pax) || 0)), budget: cueStr_(e.budget, 100) },
@@ -170,6 +170,13 @@ function cueClient_(c) {
       if (seen[k]) { Object.keys(x).forEach(f => { if (!seen[k][f] && x[f]) seen[k][f] = x[f]; }); return false; }
       seen[k] = x; return true;
     }).slice(0, 10);
+  // PC recheck 25 Oct 02:27Z: a bid's nameless "BAC" contact came back named "BAC" with role "BAC" ("BAC, BAC, email"). A name that only
+  // repeats the role is not a name; the contact keeps its role and email.
+  list.forEach(x => { if (x.email && x.name && x.name.toLowerCase() === x.role.toLowerCase()) x.name = ''; });
+  // PC recheck 02:37Z: the read's main contact ("BAC", no email or phone) stayed as a bare "BAC" line. A name-only entry that is just
+  // another contact's role is not a person.
+  const roles = list.map(x => x.role.toLowerCase()).filter(Boolean);
+  for (let i = list.length - 1; i >= 0; i--) { const x = list[i]; if (!x.email && !x.phone && x.name && roles.indexOf(x.name.toLowerCase()) >= 0) list.splice(i, 1); }
   const m = list[0] || { name: '', email: '', phone: '' };
   return { company: cueStr_(c.company, 200), contact: m.name, email: m.email, phone: m.phone, contacts: list };
 }

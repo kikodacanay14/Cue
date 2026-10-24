@@ -3884,6 +3884,58 @@ test('BD21 PC check 24 Oct 09:41Z: a Still open notice whose document shows a pa
   const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
   deq(w.bids.still.map(x => x.reference), ['RFQ# 2026.10.295'], 'next day too');
 });
+test('BD23 contacts (Kiko 24 Oct 13:36Z): the document read gives the BAC contacts; the card shows them, an outside email is left out, and Start intake hands them to intake as client contacts', () => {
+  const people = [{ name: 'Ana Cruz', role: 'BAC Secretariat', email: 'bac@citem.gov.ph', phone: '(02) 0000 0000' }, { name: 'Ben Reyes', role: 'Procurement', email: 'ben.reyes@gmail.com', phone: '' },
+    { name: '', role: '', email: '', phone: '' }];
+  const t = bidBox({ gpt: { bids: [BIDS_A, BIDS_B, BIDS_C], bid_docs: Object.assign({}, BID_DOCS, { contacts: people }) } });
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), c = v.bids.items[0];
+  deq(c.contacts, [{ name: 'Ana Cruz', role: 'BAC Secretariat', email: 'bac@citem.gov.ph', phone: '(02) 0000 0000' }, { name: 'Ben Reyes', role: 'Procurement', email: '', phone: '' }], 'gmail address dropped; blank row dropped');
+  assert.ok(/contacts: up to 3 BAC/.test(t.log.gpt.filter(b => b.text.format.name === 'bid_docs')[0].instructions), 'the same reading call asks for them');
+  assert.strictEqual(t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length, 1, 'no extra AI call');
+  const out = t.ctx.cueBidsStartIntake(v.id, c.key), s = t.state(out.request_id);
+  assert.ok(/Client: CITEM/.test(s.text) && /Client contact: Ana Cruz, BAC Secretariat, bac@citem\.gov\.ph, \(02\) 0000 0000/.test(s.text) && /Client contact: Ben Reyes, Procurement$/m.test(s.text), s.text);
+  // Read before 1.27.21: only the BAC email was kept; it still shows as a contact.
+  const old = {}; t.ctx.cueBidsFacts_(Object.assign(old, { url: 'https://citem.gov.ph/n' }), { bac_email: 'bac@citem.gov.ph' });
+  deq(old.contacts, [{ name: '', role: 'BAC', email: 'bac@citem.gov.ph', phone: '' }]);
+});
+test('BD24 PC check 25 Oct 01:51Z: a reading with several BAC addresses in one string shows each as a contact, and Start intake on a bid never reopens another project\'s thread by a shared year', () => {
+  const t = bidBox({ gpt: { bids: [BIDS_A, BIDS_B, BIDS_C], bid_docs: Object.assign({}, BID_DOCS, { bac_email: 'bac@citem.gov.ph; sec@citem.gov.ph', contacts: [] }) } });
+  // The stored TPB 291 reading, as it is in the Bid documents tab.
+  const it = { url: 'https://tpb.gov.ph/invitation-to-bid/' }; t.ctx.cueBidsFacts_(it, { bac_email: 'geril_andres@tpb.gov.ph; bac_sec@tpb.gov.ph' });
+  assert.strictEqual(it.bac_email, 'geril_andres@tpb.gov.ph');
+  deq(it.contacts, [{ name: '', role: 'BAC', email: 'geril_andres@tpb.gov.ph', phone: '' }, { name: '', role: 'BAC', email: 'bac_sec@tpb.gov.ph', phone: '' }]);
+  const it2 = { url: 'https://tpb.gov.ph/n' }; t.ctx.cueBidsFacts_(it2, { bac_email: 'mailto:a@tpb.gov.ph, agent@evil.example, a@tpb.gov.ph.' });
+  deq([it2.bac_email, (it2.contacts || []).map(c => c.email)], ['a@tpb.gov.ph', ['a@tpb.gov.ph']], 'outside address dropped, one address once');
+  // A rejected intake from this week named "AMI Group, UNILEVER YEAR END PARTY 2026" (the thread the TPB intake landed in).
+  const u = { id: 'cue-20261022132639-b1f0', kind: 'intake', created: new Date(t.ctx.cueNow_() - 864e5).toISOString(), text: 'send this CE to Sir Rommel', status: 'Rejected', stage: 'Rejected', ref: '',
+    files: [], metrics: { ai_calls: 0, calls: [] }, notes: [], x: { client: { company: 'AMI Group' }, event: { name: 'UNILEVER YEAR END PARTY 2026' } } };
+  t.ctx.cueLocked_(() => { const sh = t.ctx.cueSheet_('Requests'); sh.appendRow([u.id]); t.ctx.cueSave_(sh, sh.getLastRow(), u); });
+  assert.strictEqual(t.ctx.cueRelated_('Year-end party 2026 for Unilever', '', ''), u.id, 'a name word still reopens');
+  assert.strictEqual(t.ctx.cueRelated_('Delegates WTM 2026, bid start 2026-10-21', '', ''), '', 'a year alone never does');
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), c = v.bids.items[0];
+  deq(c.contacts.map(x => x.email), ['bac@citem.gov.ph', 'sec@citem.gov.ph']);
+  // A card made before the contacts fix has no contacts on its notices: Start intake takes them from the stored reading.
+  t.ctx.cueLocked_(() => { const L = t.ctx.cueLoad_(v.id); delete L.s.bids.items[0].contacts; delete L.s.bids.items[0].bac_email; t.ctx.cueSave_(L.sh, L.row, L.s); });
+  const gpt0 = t.log.gpt.length, out = t.ctx.cueBidsStartIntake(v.id, c.key), s = t.state(out.request_id);
+  assert.strictEqual(t.log.gpt.length, gpt0, 'no new read');
+  // Phase 1's read named the nameless BAC contact "BAC" with role "BAC": the card showed "BAC, BAC, email".
+  const k = t.ctx.cueClient_({ company: 'TPB', contact: 'BAC', email: '', contacts: [{ name: 'BAC', role: 'BAC', email: 'geril_andres@tpb.gov.ph' },
+    { name: 'BAC', role: 'BAC', email: 'bac_sec@tpb.gov.ph' }, { name: 'Ana Cruz', role: 'BAC', email: 'ana@tpb.gov.ph' }] });
+  deq(k.contacts.map(x => [x.name, x.role, x.email].filter(Boolean).join(', ')), ['BAC, geril_andres@tpb.gov.ph', 'BAC, bac_sec@tpb.gov.ph', 'Ana Cruz, BAC, ana@tpb.gov.ph']);
+  assert.strictEqual(k.contact, '', 'no bare "BAC" line or main contact'); assert.strictEqual(k.email, 'geril_andres@tpb.gov.ph');
+  assert.ok(!s.ref && !s.ref_by, 'its own thread: ' + s.ref);
+  // A bid intake an earlier build filed into another thread by name shows in its own thread, so it no longer renames that thread.
+  deq([t.ctx.cueView_({ id: 'x', ref: u.id, ref_by: 'name', text: 'New project intake from a bid notice (Kiko asked: "do intake for RFQ No. 2026.10.291").' }).ref,
+    t.ctx.cueView_({ id: 'y', ref: u.id, ref_by: 'name', text: 'add the LED wall to Unilever' }).ref], ['', u.id]);
+  assert.ok(!t.tabs.Chat.rows.some(r => /reopened its thread/.test(r[2])));
+  assert.ok(/Client contact: BAC, sec@citem\.gov\.ph/.test(s.text), s.text);
+  assert.strictEqual(t.state(u.id).status, 'Rejected', 'the Unilever thread is untouched');
+  // Phase 1's read writes contacts its own way ("BAC, BAC (bid contact), …"); a bid intake shows the notice's own list instead.
+  t.opts.read = Object.assign({}, READ, { client: { company: 'CITEM', contact: 'BAC', email: '', phone: '', contacts: [{ name: 'BAC', role: 'BAC (bid contact)', email: 'bac@citem.gov.ph', phone: '' }] } });
+  t.ctx.cueRun(out.request_id); const r = t.state(out.request_id);
+  deq(r.x.client.contacts, [{ name: '', role: 'BAC', email: 'bac@citem.gov.ph', phone: '' }, { name: '', role: 'BAC', email: 'sec@citem.gov.ph', phone: '' }]);
+  assert.strictEqual(r.x.client.company, 'CITEM'); assert.ok(r.status === 'Needs you' && !r.ref, JSON.stringify([r.status, r.stage, r.phase, r.error]));
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
@@ -3979,6 +4031,10 @@ test('BD6 page: the bid card has the new title, New and Still open, the 7 fields
   assert.ok(/process check 8 of 10 passed/.test(h) && /✗ All 11 sources reported/.test(h)); assert.ok(/data-act="bids-close"/.test(h) && !/Pursue/.test(h));
   assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱480,000/.test(h) && /For verification/.test(h));
   ['bids-more', 'bids-ask', 'bids-intake'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
+  assert.ok(/Contact:<\/span> <span class="muted">No contact in the documents/.test(h), 'read, no contact named');
+  v.bids.items[1].contacts = [{ name: '<b>x</b>', role: 'BAC', email: 'bac@x.gov.ph', phone: '' }];
+  const h2 = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
+  assert.ok(/Contact:<\/span> &lt;b&gt;x&lt;\/b&gt;, BAC, bac@x\.gov\.ph/.test(h2));
 });
 
 test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense filed into it does not rename it', () => {

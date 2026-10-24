@@ -2264,6 +2264,8 @@
       var h = '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(x.project || x.reference) + '</b>'
         + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
         + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
+        + (x.contacts && x.contacts.length ? row('Contact', x.contacts.map(function (c) { return [c.name, c.role, c.email, c.phone].filter(Boolean).join(', '); }).join('; '))
+          : x.from_docs ? '<div class="small" style="margin-top:2px"><span class="muted">Contact:</span> <span class="muted">No contact in the documents</span></div>' : '')
         + row('Bid start date', day(x.posted)) + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true)
         + row('Summary of requirements', x.summary || '') + (x.pages ? '<div class="small muted">From the documents: ' + esc(x.pages) + '</div>' : '')
         + '<div class="small" style="margin-top:2px"><span class="muted">Bid documents available:</span>' + (x.documents.length ? '<ul class="small" style="margin:2px 0 0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : ' <span class="muted">None listed</span>') + '</div>'
