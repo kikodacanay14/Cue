@@ -38,6 +38,10 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 ## Working style
 
 - Kiko approves a spec before any build. Specs live in the project files under `canvas-integration/specs/`.
+- While an approval about new access to people's data (mail, files, accounts) or a new standing job is pending, write
+  none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
+- Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
+  marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
