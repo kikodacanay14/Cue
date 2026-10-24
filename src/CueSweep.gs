@@ -518,6 +518,17 @@ function cueCloseThread(id) {
     + (out.running ? ' ' + out.running + ' still running or scheduled: close ' + (out.running === 1 ? 'it' : 'them') + ' when ' + (out.running === 1 ? 'it stops' : 'they stop') + '.' : ''), out.home);
   return { closed: out.closed, running: out.running };
 }
+/** Scheduled and checking jobs whose old runs "Close older runs" may close. Intakes and other work Kiko started are never in it. */
+const CUE_OLD_KINDS_ = ['bids', 'gtask', 'pipeline', 'hubspot', 'status', 'skillobs'];
+/** Kiko 24 Oct: one tap in Waiting on you closes every run of those jobs that waits (or failed) from before today, Manila time.
+ * Nothing is sent or written. Returns { closed }. */
+function cueCloseOlder() {
+  cueOwner_();
+  const today = cueMnlDay_(cueNow_());
+  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && !!x.created && cueMnlDay_(Date.parse(x.created)) < today,
+    'Closed with "Close older runs". Nothing was written or sent.', true);
+  return { closed: ids.length };
+}
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */
 function cueArchive(id, on) {
   cueOwner_();

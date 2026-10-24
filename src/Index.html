@@ -719,6 +719,8 @@
     [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
       var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
       h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';
+      // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
+      if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
@@ -1055,6 +1057,11 @@
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
   function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
   var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
+  var OLDK = { bids: 1, gtask: 1, pipeline: 1, hubspot: 1, status: 1, skillobs: 1 };   // the same list as CUE_OLD_KINDS_ in CueSweep.gs
+  function oldRun(th) {
+    var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+    return !!th && th.reqs.some(function (r) { return OLDK[r.kind] && !r.phased && (r.status === 'Needs you' || r.status === 'Failed') && r.created && new Date(Date.parse(r.created) + 8 * 3600000).toISOString().slice(0, 10) < today; });
+  }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
@@ -2216,7 +2223,9 @@
       var b = [];
       if (f.email && f.email.body) b.push(f.drafted ? '<span class="tag pref">Draft in Gmail</span>' : '<button class="btn ghost" data-act="gt-draft" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Draft email</button>');
       if (f.hubspot && f.hubspot !== 'none') b.push(f.in_hubspot ? '<span class="tag pref">In HubSpot</span>' : '<button class="btn ghost" data-act="gt-hubspot" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Add ' + (f.hubspot === 'task' ? 'task' : 'note') + ' to HubSpot</button>');
-      if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">Open in Canvas</a>');
+      // Kiko 24 Oct ("should we have a remove contact"): a contact fix happens in Canvas (HubSpot copies it), never a delete from Cue.
+      var fixc = (f.group === 'Contact' || f.group === 'Correction') && /^Accounts/.test(f.canvas && f.canvas.title || '');
+      if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">' + (fixc ? 'Fix contact in Canvas' : 'Open in Canvas') + '</a>');
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
     };
     var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task · ' + esc(G.when) + '</div><b style="font-size:17px;color:#fff">' + esc(G.title) + '</b>'
@@ -2795,6 +2804,7 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueCancelIntake', [id, ''], done, fail); });
           if (act === 'ph-cancel') return; }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
+        if (act === 'close-older') { b.disabled = true; return call('cueCloseOlder', [], done, fail); }
         if (act === 'close-thread') {   // an intake that saved to Canvas keeps its cancel rule: closing it is cancelling it (Kiko 16:53Z)
           var ix = state.requests.filter(function (x) { return rootOf(x.id, byId()) === id && !CLOSED[x.status] && x.phased && x.canvas && !x.canvas.removed && x.canvas.project_id; })[0];
           if (ix) return ask('Cancel intake and remove ' + ix.canvas.project_id + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {

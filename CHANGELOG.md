@@ -9,6 +9,8 @@
 - The event countdown shows once: when a flag counts the days, the line under the name shows just the date, and Claude is told not to repeat the stage, amount, date, countdown or flags.
 - No extra AI calls. Read only, as before.
 - The ✓ (Close this thread) now shows in every thread that still has an open run, including threads whose older runs wait (a day's Bid check, earlier pipeline reviews) and failed runs. One tap closes every open run in the thread (`cueCloseThread`); a running or scheduled run is left alone and named. An intake that saved to Canvas still asks to cancel and remove, as before. Nothing is written or sent.
+- Old runs (Kiko 06:52Z go): a new pipeline review closes the older one still waiting (same scope, no follow-ups drafted) with "Replaced by a newer pipeline review". Waiting on you gets "Close older runs" (`cueCloseOlder`), which closes the waiting or failed runs from before today of the scheduled jobs only (bid checks, ChatGPT tasks, pipeline and HubSpot reviews, status reports, skill checks). Kiko's own tasks and intakes are never closed by it.
+- A contact finding (Contact or Correction) on a ChatGPT task opens the client's Canvas account as "Fix contact in Canvas". Cue never deletes a contact; Canvas is where contacts change and HubSpot copies it.
 
 ## Cue 1.31: ChatGPT reads Canvas and hands Cue work, start to finish in ChatGPT (not deployed)
 
