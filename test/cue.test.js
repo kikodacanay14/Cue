@@ -3663,6 +3663,27 @@ test('BD16 Start intake on a notice is "do intake for <reference>": an intake wi
   assert.ok(/do intake for 2026-0999/.test(t.state(out.request_id).text)); assert.strictEqual(t.tabs['Web bid findings'].rows[2][16], 'Yes');
   const o = t.ctx.cueBidsStartIntake(v.id, 'r:old1'); assert.ok(/Reference: OLD-1/.test(t.state(o.request_id).text), 'a Still open notice too');
 });
+test('BD17 PC check 24 Oct 07:28Z: Still open notices get their documents opened (once) and read; listing and award rows and award documents stay off the card', () => {
+  const row = (ref, project, docs, o) => Object.assign(['2026-10-20', 'TPB', ref, project, 'Open', 'Pasay', 300000, 'PHP', '2026-10-30T17:00+08:00', '', '', '', 'https://tpb.gov.ph/n.pdf', docs || '', '', '', ''], o || {});
+  const rows = [row('2026.10.290', 'Travel expo booth', 'RFQ (read) https://tpb.gov.ph/rfq-290.pdf; PR No. 2026.-0.030 TPB Website and Premises Award Posting (not opened) https://tpb.gov.ph/award.pdf'),
+    row('ITB 2026-041', 'Gala dinner styling', 'Annex A https://tpb.gov.ph/annex-a.pdf, PBD https://tpb.gov.ph/PBD_Redacted.pdf'),
+    row('BAC RESO 2026.09.030', 'MICE events (page shows \'BAC RESO pr no. 2026.09.030\' award/posting entries)'),
+    row('CITEM-PO', 'Procurement / Opportunities (last-updated page)'), row('CITEM-ADV', 'CITEM procurement opportunities (page lists advisories)'),
+    row('PCC-EV', 'Event Production / Event-related procurement entries listed on PCC procurement page'),
+    row('2026-0777', 'Provision of Catering Services (list contains 2025 and 2026 catering RFP entries)')];
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS }, pdf: ['rfq-290.pdf', 'annex-a.pdf', 'PBD_Redacted.pdf'] }, rows);
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  deq(v.bids.still.map(x => x.reference), ['2026.10.290', 'ITB 2026-041'], 'only the two real notices');
+  deq(v.bids.still[0].documents.map(d => [d.name, d.state, d.read]), [['RFQ', 'saved', true]], 'the award posting is not a document of the notice; the RFQ is opened and read');
+  deq(v.bids.still[1].documents.map(d => [d.name, d.state]), [['annex-a.pdf', 'saved'], ['PBD_Redacted.pdf', 'saved']], 'links in Kiko\'s own cells are documents too');
+  assert.strictEqual(t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length, 2, 'one reading call per notice');
+  const f = t.tabs['Web bid findings'].rows; assert.strictEqual(f[1][17], '2026-10-18'); assert.strictEqual(f[1][6], 480000, 'the sheet row gets what the document says');
+  assert.ok(/^RFQ \(Opened · saved · read\)/.test(f[1][13]), f[1][13]);
+  const web = t.log.web.length, reads = t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length; t.ctx.__wait(864e5); t.log.gptN = {};
+  const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(t.log.web.length, web, 'next day: nothing fetched again'); assert.strictEqual(t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length, reads, 'nothing read again');
+  deq(w.bids.still[0].documents.map(d => d.state), ['saved']);
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));

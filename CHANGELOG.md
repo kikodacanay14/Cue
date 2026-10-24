@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.27.10: release branch, live line 1.27.9 + bid card v2: Cue opens the bid documents itself and reads each one once (not deployed)
+## Cue 1.27.11: bid card v2 with the PC check fixes (release branch, not deployed)
+
+PC check of 1.27.10 on /dev, 24 Oct 07:28Z: the card itself passed (title, New and Still open, the 7 fields, the buttons). Two things failed, and both are fixed:
+
+- **Documents were never opened.** The run found 0 new and 19 still open notices, and Cue opened documents only for new ones. Now the Reading stage also opens the documents of Still open notices, once each, within the same limits (3 a notice, 10 notices a run). The read-once record still applies. Values read from the documents go back to the notice's row in the bid sheet. Links in Kiko's own Documents cells, without Cue's "(status)" format, count as documents too.
+- **Non-notices showed under Still open.** The same filter now runs on the sheet's rows. It drops page and listing rows ("(last-updated page)", "page shows", "page lists advisories", "entries listed on", "list contains"), BAC resolutions and award postings. A document named as an award posting or NOA is not listed under a notice.
+- Tests: 337 of 337 pass (new BD17 uses the PC check's own rows).
+
+## Cue 1.27.10: release branch, live line 1.27.9 + bid card v2: Cue opens the bid documents itself and reads each one once (PC check failed, replaced by 1.27.11)
 
 Kiko 24 Oct 01:39Z (screenshot of the 07:04 card: "separate the new ones from the ones we already found", "Fix the title of the card", the seven fields, Request for more details and Project intake), 06:45Z ("please make sure that the bid document is actually accessed"), 06:46Z (Request more details = digging first, then an agency question) and 06:52Z ("ok, just make sure that Cue will not read the same bid opportunity daily"). Spec: specs/bid-card-v2.md. Built on the release branch for 1.27.9 (claude/project-thread-y5l4x9-rel1279, 5b8f169), as the coordinator asked: main is a dead line. The change is in `src/CueBids.gs`, `bidsCardHtml` and its three click handlers in `src/Index.html`, and the BD tests. No Canvas release.
 
