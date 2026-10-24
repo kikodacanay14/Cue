@@ -16,7 +16,7 @@ Spec: specs/daily-digest.md. Same change as Cue 1.33 (PR #97), ported onto the l
   `cueHost`), then it posts `{canvasWs:'cue-today', day, count, rows, done}` to that window, again every 5 minutes. Canvas draws the
   card with its own styles (Canvas Home draws it since Canvas V215; the "by" pill is Canvas PR #32); a tap opens the run's thread with `cueThread`.
 - Cue's chat: a day's scheduled-job lines fold into one "Today: N things need you" line, each row opening its thread.
-- Tests: 327 of 327 pass (TD1 to TD4 new).
+- Rebased onto live 1.27.15 (Version 55, bid card v2) on 24 Oct 10:10Z; version 1.27.16. Tests: 341 of 341 pass (TD1 to TD4 new).
 
 ## Cue 1.27.15: Still open leaves out notices the documents show as closed or outside the budget (release branch, not deployed)
 
