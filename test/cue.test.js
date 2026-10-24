@@ -1480,6 +1480,18 @@ test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older wai
   deq(C.cueCloseOlder(), { closed: 2 });
   deq(['cue-20261020090000-b1d0', 'cue-20261020090100-9700', 'cue-20261020090200-1a7e', 'cue-20261021090300-70da', again].map(k => C.cueLoad_(k).s.status),
     ['Closed', 'Closed', 'Needs you', 'Needs you', 'Needs you'], 'Kiko\'s intake and today\'s runs stay');
+  // PC recheck 24 Oct: a review Kiko is drafting in is never replaced or closed; a replaced review from today closes; one line per thread.
+  const held = C.cueSend('which deals went quiet?').request_id; C.cueRun(held); C.cuePipeFollowUps(held, ['D2']);
+  assert.strictEqual(C.cueLoad_(again).s.status, 'Closed', 'the newer run replaced the older review');
+  const fresh = C.cueSend('which deals went quiet?').request_id; C.cueRun(fresh);
+  deq([C.cueLoad_(held).s.status, C.cueLoad_(fresh).s.status], ['Needs you', 'Needs you'], 'a review holding an unsent follow-up stays');
+  C.cueLocked_(() => { const L = C.cueLoad_(fresh); L.s.status = 'Needs you'; C.cueSave_(L.sh, L.row, L.s); });
+  const extra = C.cueSend('which deals went quiet?').request_id; C.cueRun(extra);
+  C.cueLocked_(() => { const L = C.cueLoad_(fresh); L.s.status = 'Needs you'; C.cueSave_(L.sh, L.row, L.s); });   // as if it ran before this build
+  add('cue-20261020090400-2b2b', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' }); add('cue-20261020090500-3c3c', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' });
+  const before = t.tabs.Chat.rows.length; deq(C.cueCloseOlder(), { closed: 3 }, 'the replaced review from today and both runs of the old bid thread');
+  deq([C.cueLoad_(fresh).s.status, C.cueLoad_(held).s.status, C.cueLoad_(extra).s.status], ['Closed', 'Needs you', 'Needs you'], 'newest and drafting reviews stay');
+  assert.strictEqual(t.tabs.Chat.rows.slice(before).filter(x => /Close older runs/.test(x[2])).length, 2, 'one line per thread, not per run');
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
   assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
   const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);

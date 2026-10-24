@@ -232,11 +232,17 @@ function cuePipeReview_(s) {
   s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
   cueMetrics_(s);
   // Kiko 24 Oct: each review is a full snapshot, so an older one still waiting (same scope, no follow-ups drafted) is closed.
-  cueCloseSuperseded_(x => x.kind === 'pipeline' && x.id !== s.id && !((x.pipe || {}).drafts || []).length && ((x.pipe || {}).client || '') === (P.client || ''),
+  cueCloseSuperseded_(x => x.kind === 'pipeline' && x.id !== s.id && !cuePipeHeld_(x) && ((x.pipe || {}).client || '') === (P.client || ''),
     'Replaced by a newer pipeline review. Nothing was written or sent.');
   cueChat_('Cue', 'Pipeline review ready: ' + counts.act + ' to act on today, ' + counts.chase + ' to chase, ' + counts.data + ' to fix, ' + counts.ok + ' on track.'
     + (counts.act + counts.chase ? ' Tick the ones you want and tap Draft follow-ups.' : ''), s.id);
   cuePipeLog_(s);
+}
+
+/** A review Kiko is working in (ticked deals or follow-ups drafted, not all sent) is never closed by a newer run or "Close older runs". */
+function cuePipeHeld_(x) {
+  const P = x.pipe || {};
+  return (P.pick || []).length > 0 || (P.drafts || []).some(d => !d.sent_id);
 }
 
 /* ---------- Kiko: draft follow-ups, then approve ---------- */
