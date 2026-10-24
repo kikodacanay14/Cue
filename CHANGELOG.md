@@ -9,7 +9,8 @@ PC recheck of 1.27.11 on /dev, 24 Oct 08:26Z: the junk rows were gone ("0 new, 1
 - A PDF that was saved but not read when the run ended is read once from Cue's Drive copy at the next resume.
 - Read once still holds: a link in the "Bid documents" record is never fetched again by the daily run. Request more details retries the failed ones, including "no answer in time".
 - Check 10 now reads "N of M opened"; documents not tried yet are named as such.
-- Tests: 338 of 338 pass (new BD18: 13 notices, 61 documents, four resumes, one site that never answers).
+- Read once, tightened (Kiko 08:44Z: "make sure that it will not read again the same file"): the "Bid documents" record now also notes when each file was sent to ChatGPT (new column J). Before, a file whose reading call failed, or that ChatGPT skipped, could be sent again the next day. Now a file goes to ChatGPT once, whatever happened. Only Request more details may try it again, when Kiko taps it.
+- Tests: 335 of 335 pass (new BD18: 13 notices, 61 documents, four resumes, one site that never answers; new BD19: no second read across 3 days after a failed read).
 
 ## Cue 1.27.11: bid card v2 with the PC check fixes (release branch, not deployed)
 

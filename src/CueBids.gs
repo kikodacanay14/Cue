@@ -330,7 +330,7 @@ function cueBidsScreen_(it, now) {
 
 /* ---------- the documents: Cue opens them itself, ChatGPT reads Cue's copy, each one once (Kiko 24 Oct 06:45Z and 06:52Z) ---------- */
 const CUE_BIDS_DOCS_TAB_ = 'Bid documents';
-const CUE_BIDS_DOCS_HEAD_ = ['Link', 'Notice', 'Name', 'Result', 'HTTP', 'Drive file', 'Opened (UTC)', 'Read (UTC)', 'What ChatGPT found'];
+const CUE_BIDS_DOCS_HEAD_ = ['Link', 'Notice', 'Name', 'Result', 'HTTP', 'Drive file', 'Opened (UTC)', 'Read (UTC)', 'What ChatGPT found', 'Sent to ChatGPT (UTC)'];
 const CUE_BIDS_READ_ = { docs: 3, batch: 3, bytes: 20 * 1024 * 1024, send: 12 * 1024 * 1024, budget_ms: 180 * 1000 };   // docs: Request more details, per tap; send: the PDFs of one reading call   // send: the PDFs of one reading call
 const CUE_BIDS_TYPES_ = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', doc: 'application/msword', xls: 'application/vnd.ms-excel', zip: 'application/zip' };
@@ -340,15 +340,16 @@ function cueBidsDocs_() {
   const ss = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', ''));
   let sh = ss.getSheetByName(CUE_BIDS_DOCS_TAB_);
   if (!sh) { sh = ss.insertSheet(CUE_BIDS_DOCS_TAB_); sh.appendRow(CUE_BIDS_DOCS_HEAD_); sh.setFrozenRows(1); if (sh.hideSheet) sh.hideSheet(); }
+  else { try { if (!sh.getRange(1, CUE_BIDS_DOCS_HEAD_.length).getValue()) sh.getRange(1, 1, 1, CUE_BIDS_DOCS_HEAD_.length).setValues([CUE_BIDS_DOCS_HEAD_]); } catch (e) { /* header only */ } }
   const n = sh.getLastRow() - 1, by = {};
   (n > 0 ? sh.getRange(2, 1, n, CUE_BIDS_DOCS_HEAD_.length).getValues() : []).forEach((v, i) => {
     let facts = null; try { facts = v[8] ? JSON.parse(v[8]) : null; } catch (e) { facts = null; }
-    if (v[0]) by[String(v[0])] = { row: i + 2, url: String(v[0]), key: String(v[1]), name: String(v[2]), result: String(v[3]), code: v[4], drive: String(v[5] || ''), opened: String(v[6] || ''), read: String(v[7] || ''), facts };
+    if (v[0]) by[String(v[0])] = { row: i + 2, url: String(v[0]), key: String(v[1]), name: String(v[2]), result: String(v[3]), code: v[4], drive: String(v[5] || ''), opened: String(v[6] || ''), read: String(v[7] || ''), facts, tried: String(v[9] || '') };
   });
   return { sh, by };
 }
 function cueBidsDocPut_(store, rec) {
-  const row = [rec.url, rec.key, rec.name, rec.result, rec.code || '', rec.drive || '', rec.opened || '', rec.read || '', rec.facts ? JSON.stringify(rec.facts).slice(0, 4000) : ''];
+  const row = [rec.url, rec.key, rec.name, rec.result, rec.code || '', rec.drive || '', rec.opened || '', rec.read || '', rec.facts ? JSON.stringify(rec.facts).slice(0, 4000) : '', rec.tried || ''];
   if (rec.row) store.sh.getRange(rec.row, 1, 1, row.length).setValues([row]);
   else { store.sh.appendRow(row); rec.row = store.sh.getLastRow(); }
   store.by[rec.url] = rec;
@@ -461,8 +462,10 @@ function cueBidsReadAll_(s, jobs, store) {
     const unread = (r.data.unread || []).map(cueName_);
     const f = { abc: r.data.abc, posted: r.data.posted, deadline: r.data.deadline, event_date: r.data.event_date, summary: r.data.summary, eligibility: r.data.eligibility, bac_email: r.data.bac_email, pages: r.data.pages };
     cueBidsFacts_(j.it, f);
-    j.pdfs.forEach(p => { if (unread.indexOf(cueName_(p.d.name)) >= 0) return; p.rec.read = at; p.rec.facts = f; cueBidsDocPut_(store, p.rec); p.d.read = true; });
+    j.pdfs.forEach(p => { if (unread.indexOf(cueName_(p.d.name)) >= 0) return; p.rec.read = at; p.rec.facts = f; p.d.read = true; });
   });
+  // Every file sent is recorded, read or not, so the daily run never sends the same file to ChatGPT twice (Kiko 08:44Z). Request more details may still retry one.
+  jobs.forEach(j => j.pdfs.forEach(p => { p.rec.tried = at; cueBidsDocPut_(store, p.rec); }));
   return jobs.length;
 }
 /** Reading stage: every document of every new and Still open notice is attempted once (PC recheck 24 Oct 08:26Z: a 10-notice and
@@ -479,8 +482,8 @@ function cueBidsRead_(s, save, t0) {
       if (it.row && was !== [it.abc, it.posted, it.deadline, it.summary].join('|')) it.touched = true; }
   });
   const fresh = it => it.documents.filter(d => d.url && !store.by[d.url]);
-  // Saved this run but not read yet (cut off between opening and reading): read from Cue's Drive copy, once more.
-  const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive && !store.by[d.url].read);
+  // Saved but never sent to ChatGPT (the run ended between opening and reading): read from Cue's Drive copy. A file already sent is never sent again.
+  const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive && !store.by[d.url].read && !store.by[d.url].tried);
   const count = () => { const all = [].concat.apply([], list.map(it => it.documents.filter(d => d.url))); B.reading = { done: all.filter(d => store.by[d.url]).length, total: all.length }; };
   let jobs = [];
   const readJobs = () => { if (!jobs.length) return; cueBidsReadAll_(s, jobs, store); jobs.forEach(j => { j.pdfs = null; if (j.it.row) j.it.touched = true; }); jobs = []; count(); s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); };

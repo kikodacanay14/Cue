@@ -3710,6 +3710,24 @@ test('BD18 PC recheck 24 Oct 08:26Z: every document of every notice is attempted
   assert.strictEqual(t.log.web.length, web, 'next day: nothing fetched again, the hung one included (Request more details retries it)');
   assert.strictEqual(w.status, 'Done');
 });
+test('BD19 read once (Kiko 08:44Z): a file sent to ChatGPT is never sent again on a later day, even when that read failed or ChatGPT skipped it', () => {
+  const row = (ref, docs) => ['2026-10-20', 'TPB', ref, 'Event ' + ref, 'Open', 'Pasay', 300000, 'PHP', '2026-11-20T17:00+08:00', '', '', '', 'https://tpb.gov.ph/n-' + ref + '.pdf', docs, '', '', ''];
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS }, pdf: ['tpb.gov.ph/d'],
+    fail: { bid_docs: () => resp(500, {}) } }, [row('2026.11.301', 'TOR https://tpb.gov.ph/d1.pdf')]);
+  const reads = () => t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length;
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(v.status, 'Done', v.error); deq(v.bids.still[0].documents.map(d => [d.state, d.read]), [['saved', false]], 'opened and saved; the reading call failed');
+  const sent = t.tabs['Bid documents'].rows[1]; assert.ok(sent[9], 'the record says when the file went to ChatGPT');
+  const web = t.log.web.length, n = reads();
+  delete t.opts.fail;
+  for (let day = 1; day <= 3; day++) {
+    t.ctx.__wait(864e5); t.log.gptN = {};
+    const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+    assert.strictEqual(w.status, 'Done', w.error);
+    assert.strictEqual(t.log.web.length, web, 'day ' + day + ': the file is not fetched again');
+    assert.strictEqual(reads(), n, 'day ' + day + ': the file is not sent to ChatGPT again');
+  }
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
