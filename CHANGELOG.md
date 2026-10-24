@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.13: live 1.27.9 (V52) + one Today card for the scheduled jobs, drawn by Canvas Home (release branch, not deployed)
+
+Kiko 23 Oct 07:37Z ("i get confused with how its presenting information"), 08:49Z ("Cue can place them in my Home page"),
+08:52Z ("make sure the UI matches Canvas"), 24 Oct 01:31Z (show who did the work: ChatGPT, not Cue alone), go 24 Oct 06:44Z.
+Spec: specs/daily-digest.md. Same change as Cue 1.33 (PR #97), ported onto the live line (1.27.8).
+
+- `CueToday.gs`: `cueTodayFrom_` turns today's runs of the morning batch, bid check, HubSpot check, status report, pipeline review and
+  ChatGPT tasks into one row per thing that needs Kiko (title, one detail line, one button, the run's thread) and one "Done for you"
+  line. Morning batch first (its 9:00 send has a clock). A failed run is a "didn't finish" row with Try again. Built from what the runs
+  hold: no AI call, nothing sent, nothing changed.
+- Who did it: each row says "Done by ChatGPT · checked by Cue" or "Done by Claude · checked by Cue", from the run's logged AI calls;
+  a run with no AI call says "Done by Cue".
+- `Today.html` at `/exec?view=today`: a hidden frame for Canvas Home. Same guard as 1.32 (Google windows only above it, silent until
+  `cueHost`), then it posts `{canvasWs:'cue-today', day, count, rows, done}` to that window, again every 5 minutes. Canvas draws the
+  card with its own styles (Canvas Home draws it since Canvas V215; the "by" pill is Canvas PR #32); a tap opens the run's thread with `cueThread`.
+- Cue's chat: a day's scheduled-job lines fold into one "Today: N things need you" line, each row opening its thread.
+- Tests: 327 of 327 pass (TD1 to TD4 new).
 ## Cue 1.27.9: live 1.27.8 + add tasks, issues and risks + "add project" + tighter inside Canvas (release branch, not deployed)
 
 Kiko 24 Oct 06:47Z ("they dont have add project", "add the tasks"), 06:49Z ("make the window smaller and tighter"), 06:50Z ("go").

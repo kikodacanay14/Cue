@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.9';   // release branch: live 1.27.8 + add task/issue/risk cards, "<project> tasks", "add project", tighter inside Canvas (PR #98)
+const CUE_VERSION_ = 'Cue 1.27.13';   // release branch: live 1.27.9 (V52) + the Today card for Canvas Home (Cue 1.33, PR #97)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -30,6 +30,8 @@ function doGet(e) {
   cueOwner_();
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
+  // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
+  if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   const out = HtmlService.createHtmlOutputFromFile('Index').setTitle('Cue')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
@@ -967,7 +969,8 @@ function cueState() {
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
-  return { version: CUE_VERSION_, requests: list, chat, batches, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
+  return { version: CUE_VERSION_, requests: list, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

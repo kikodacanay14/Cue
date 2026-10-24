@@ -1203,9 +1203,28 @@
     }
     renderPaneTabs(th); renderThreadList(th);
   }
+  // CUE-TODAY: the scheduled jobs' runs (bid check, morning batch, HubSpot check, status report, pipeline review, ChatGPT tasks).
+  var TODAY_K = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, gtask: 1 };
+  function phDay(iso) { var t = Date.parse(iso); return isNaN(t) ? '' : new Date(t + 8 * 3600000).toISOString().slice(0, 10); }
+  function jobDay(pt) { var r = pt && pt.reqs.filter(function (x) { return TODAY_K[x.kind]; })[0]; return r ? phDay(r.created) : ''; }
+  // One line a day: what needs Kiko (tap opens that run's thread), who did it, and what is done. Today's rows come from the
+  // server (the same rows Canvas Home draws); an earlier day lists its runs by thread.
+  function todayHtml(day, th) {
+    var T = state.today && state.today.day === day ? state.today : null, rows, done = '';
+    if (T) { rows = T.rows; done = T.done; }
+    else rows = Object.keys(th).filter(function (k) { return jobDay(th[k]) === day; }).map(function (k) { var st = threadState(th[k]);
+      return { title: threadTitle(th[k]), detail: st.text, thread: k, need: st.need }; });
+    var need = T ? rows.length : rows.filter(function (x) { return x.need; }).length;
+    var h = '<div class="msg cue today"><span class="who">Cue</span><b>' + esc(T ? 'Today' : day) + ': ' + (need ? need + ' thing' + (need === 1 ? '' : 's') + ' need' + (need === 1 ? 's' : '') + ' you' : 'nothing needs you') + '</b>';
+    rows.forEach(function (x) {
+      h += '<button class="trow" data-thread="' + esc(x.thread) + '" title="Open the thread"><span><b>' + esc(x.title) + '</b>'
+        + (x.detail ? '<br><span class="small muted">' + esc(x.detail) + '</span>' : '') + (x.by ? '<br><span class="small muted">' + esc(x.by) + '</span>' : '') + '</span></button>';
+    });
+    return h + (done ? '<div class="small muted" style="margin-top:6px">Done for you: ' + esc(done) + '</div>' : '') + '</div>';
+  }
   // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
   function renderMain(th) {
-    var by = byId(), seen = {}, shown = {}, h = '';
+    var by = byId(), seen = {}, shown = {}, h = '', dayShown = {};
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     var prev = null;
@@ -1220,6 +1239,8 @@
         // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
         // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
         var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
+        // CUE-TODAY (Kiko 23 Oct 07:37Z): a scheduled job's pointer lines fold into one Today line per day (CueToday.gs).
+        var jd = jobDay(pt); if (jd && !answers) { if (!dayShown[jd]) { dayShown[jd] = 1; h += todayHtml(jd, th); } return; }
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
