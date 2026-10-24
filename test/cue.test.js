@@ -1500,7 +1500,8 @@ test('FN2 funnel counts: no stage is listed by name; empty open stages stay at 0
 test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) pointing at its thread; a newer run closes the older one', () => {
   const { t, id, v } = fnRun();
   const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
-  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', id]]);
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', id + '#fnt-' + id]]);
+  assert.ok(T.rows.every(r => r.thread.length <= 120), 'Canvas cuts a thread id at 120 characters');
   assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
   assert.strictEqual(t.state(id).status, 'Closed', 'the older snapshot closes'); assert.strictEqual(t.state(id2).status, 'Needs you');
@@ -1535,6 +1536,19 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   // PC check 14:13Z: the Inquiry (2) header showed no deals. Every section in the funnel card has the visible .sec marker; none hides it.
   const card = html.slice(html.indexOf('function funnelCardHtml(r)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
   assert.strictEqual((card.match(/<details class="sec"/g) || []).length, 2, 'stage and task sections'); assert.ok(!/<summary[^>]*display:inline/.test(card), 'no summary without its marker');
+  // PC check 14:29Z: Open funnel opened the thread at the bottom (tasks). The card's top and its tasks carry the spots the Today rows name.
+  assert.ok(/id="fn-' \+ esc\(r\.id\)/.test(card) && /id="fnt-' \+ esc\(r\.id\)/.test(card));
+  const src = html.slice(html.indexOf('var goSpot ='), html.indexOf('function closeTab('));
+  const els = {}, ps = { scrollTop: 0, scrollHeight: 900, getBoundingClientRect: () => ({ top: 100 }) }, opened = [];
+  const g = vm.createContext({ document: { getElementById: k => els[k] || null }, $: k => k === 'pscroll' ? ps : { focus() {} }, matchMedia: () => ({ matches: false }),
+    openPane: it => opened.push(it.key) });
+  vm.runInContext(src + ';this.goThread = goThread; this.toSpot = toSpot;', g);
+  els['fn-cue-1'] = { getBoundingClientRect: () => ({ top: 400 }) };
+  g.goThread('cue-1#fn-cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 292], 'Open funnel: the tab is the plain thread, scrolled to the card top');
+  ps.scrollTop = 0; g.goThread('cue-1'); deq([opened.pop(), ps.scrollTop], ['t:cue-1', 900], 'no spot: bottom, as before');
+  ps.scrollTop = 0; g.goThread('cue-2#fnt-cue-2'); assert.strictEqual(ps.scrollTop, 900, 'spot not drawn yet: bottom for now');
+  els['fnt-cue-2'] = { getBoundingClientRect: () => ({ top: 700 }) }; assert.ok(g.toSpot()); assert.strictEqual(ps.scrollTop, 900 + 592, 'the next render goes to the tasks');
+  assert.ok(!g.toSpot(), 'a spot is used once, so later renders leave the scroll alone');
 });
 test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
   const t = pipeToCard(), C = t.ctx, first = t.id;

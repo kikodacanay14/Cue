@@ -176,10 +176,12 @@ function cueFunnelView_(s) {
 /** The Today rows (CueToday.gs): the funnel, and the tasks when any are open. From the page's view of the run. */
 function cueFunnelToday_(r, row) {
   const F = r.fn || {}, w = F.wait || {}, open = (F.tasks || []).filter(t => !t.done), late = open.filter(t => t.late > 0);
+  // PC check 24 Oct 14:29Z: "#fn-" opens the thread at this run's funnel card, "#fnt-" at its tasks (Index.html goThread).
+  const at = spot => (r.root || r.id) + '#' + spot + '-' + r.id;
   const out = [row({ eyebrow: 'Sales funnel · from HubSpot', title: w.amount ? cueFunnelPeso_(w.amount) + ' waiting for award' : (w.n || 0) + ' deal' + (w.n === 1 ? '' : 's') + ' waiting for award',
-    detail: F.line || '', button: 'Open funnel' })];
-  if (F.task_error) out.push(row({ eyebrow: 'HubSpot tasks', title: 'HubSpot tasks need a key change', detail: F.task_error, button: 'Open' }));
+    detail: F.line || '', button: 'Open funnel', thread: at('fn') })];
+  if (F.task_error) out.push(row({ eyebrow: 'HubSpot tasks', title: 'HubSpot tasks need a key change', detail: F.task_error, button: 'Open', thread: at('fnt') }));
   else if (open.length) out.push(row({ eyebrow: 'HubSpot tasks · yours', title: late.length ? late.length + ' task' + (late.length === 1 ? '' : 's') + ' overdue' : open.length + ' open task' + (open.length === 1 ? '' : 's'),
-    detail: open.slice(0, 2).map(t => t.subject.replace(/^Follow up on pending decision\s*[—–-]\s*/i, 'Follow up: ')).join(' · ') + (open.length > 2 ? ' and ' + (open.length - 2) + ' more' : ''), button: 'Review tasks' }));
+    detail: open.slice(0, 2).map(t => t.subject.replace(/^Follow up on pending decision\s*[—–-]\s*/i, 'Follow up: ')).join(' · ') + (open.length > 2 ? ' and ' + (open.length - 2) + ' more' : ''), button: 'Review tasks', thread: at('fnt') }));
   return out;
 }

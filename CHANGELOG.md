@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27.23: Open funnel opens at the funnel, Review tasks at the tasks (release branch, not deployed)
+
+PC check of 1.27.22, 24 Oct 14:29Z: the repeated Done entry is gone, but [Open funnel] on Canvas Home opened the funnel thread
+scrolled to the bottom (the tasks). Every Canvas Home button opened its thread at the bottom; the funnel card is long, so that
+landed on the tasks.
+
+- The Today rows now name a spot in the thread: Open funnel goes to the top of that run's funnel card, Review tasks (and the
+  key-change row) to its HubSpot tasks. Canvas passes the thread id through unchanged, so no Canvas release is needed.
+- Any other thread link still opens at the bottom, as before.
+- Tests: 347 of 347 pass (FN3 checks the spots, FN5 runs the page's thread opener).
+
 ## Cue 1.27.22: one funnel entry a day on the Today card (release branch, not deployed)
 
 PC recheck of 1.27.21, 24 Oct 14:22Z: passed. Follow-up (not a blocker): the Today card's Done line listed "sales funnel (…)" once

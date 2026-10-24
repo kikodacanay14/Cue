@@ -491,9 +491,19 @@
     });
     var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello' }, '*'); } catch (e) {} }
   }
+  // 1.27.23 (PC check 24 Oct 14:29Z): a thread id may carry "#<spot>", such as the funnel card's top or its tasks, so a Canvas Home
+  // button opens the thread at that spot instead of the bottom. The spot waits for the next render when the thread isn't drawn yet.
+  var goSpot = '';
   function goThread(id) {
-    openPane({ key: 't:' + id, type: 'thread', id: id });
-    $('pscroll').scrollTop = $('pscroll').scrollHeight; if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus();
+    var at = String(id).indexOf('#'), spot = at < 0 ? '' : String(id).slice(at + 1).replace(/[^\w-]/g, '');
+    if (at >= 0) id = String(id).slice(0, at);
+    goSpot = spot; openPane({ key: 't:' + id, type: 'thread', id: id });
+    if (!toSpot()) $('pscroll').scrollTop = $('pscroll').scrollHeight;
+    if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
+  }
+  function toSpot() {
+    var el = goSpot && document.getElementById(goSpot); if (!el) return false;
+    var ps = $('pscroll'); ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8; goSpot = ''; return true;
   }
   function closeTab(key) {
     var i = ptabs.map(function (k) { return k.key; }).indexOf(key); if (i < 0) return;
@@ -1199,7 +1209,7 @@
     if (openThread) {
       var t = th[openThread] || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
       lastThread = tn; renderThread(t);
-      if (pBottom || tg) ps.scrollTop = ps.scrollHeight;
+      if (!toSpot() && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
     }
     renderPaneTabs(th); renderThreadList(th);
   }
@@ -2038,7 +2048,7 @@
     var F = r.fn, waiting = r.status === 'Needs you', w = F.wait || {}, max = 1, link = function (u, t) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
     F.stages.forEach(function (x) { if (x.n > max) max = x.n; });
     var COL = { open: 'var(--act)', won: 'var(--ok)', lost: 'var(--line2)' };
-    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Sales funnel · from HubSpot</div>'
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">Sales funnel · from HubSpot</div>'
       + '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
       + '<div class="small muted">Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.</div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
@@ -2064,7 +2074,7 @@
               + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark task done') + '</div></div>'; }).join('') + '</div>';
         }).join('') + '</details>';
     });
-    h += '<div class="label">HubSpot tasks · yours</div>';
+    h += '<div class="label" id="fnt-' + esc(r.id) + '">HubSpot tasks · yours</div>';
     if (F.task_error) h += '<div class="warn">' + esc(F.task_error) + '</div>';
     else {
       var open = F.tasks.filter(function (t) { return !t.done; });
