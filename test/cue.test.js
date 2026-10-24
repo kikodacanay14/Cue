@@ -233,6 +233,11 @@ function sandbox(o = {}) {
       if (body.action === 'expense_evidence') { log.xev = (log.xev || []).concat([body.args]); return resp(200, { ok: true, status: 'Completed', result: (o.xev || XEV)(body.args) }); }
       if (body.action === 'record_expense') { log.recorded = (log.recorded || []).concat([{ pid: body.project_id, args: body.args }]);
         return resp(200, { ok: true, status: 'Completed', result: o.xrec ? o.xrec(log.recorded.length) : XREC }); }
+      // CUE-CLIENT-REG: Canvas's read-only Client Desk check (aiIntakeClientDesk_ dry).
+      if (body.action === 'client_check') { (log.deskCheck = log.deskCheck || []).push(body.args);
+        if (o.deskUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        if (o.deskOff) return resp(200, { ok: true, status: 'Completed', result: { ok: false, error: 'Client Desk registration is off (Script Property CLIENT_DESK)' } });
+        return resp(200, { ok: true, status: 'Completed', result: o.desk || { client: 'new', company: body.args.company, contacts_new: (body.args.contacts || []).length, contacts_added: [], p0_row: 0 } }); }
       // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
       if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);
         if (o.projectFail) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: Canvas busy' });
@@ -240,7 +245,8 @@ function sandbox(o = {}) {
         if (o.projectStill && log.phProject.length <= o.projectStill) return resp(200, { ok: false, status: 'Blocked', error: 'request is Adding project' });
         const e = body.args.project.event, tbc = !e.date;
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, replayed: log.phProject.length > 1, project_id: 'S-99900001ZZ', project_number: '052', name: e.name + (tbc ? ' (Date TBC)' : ''),
-          date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [] } }); }
+          date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [],
+          client_desk: o.deskOff ? null : o.deskOut || { client: 'new', company: body.args.project.client.company, contacts_added: (body.args.project.client.contacts || []).map((c, i) => ({ row: 900 + i, email: c.email, name: c.name })), p0_row: 812 } } }); }
       if (body.action === 'intake_remove') { (log.phRemove = log.phRemove || []).push(body.args);
         if (o.removeUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: body.args.project_id, lines_removed: 2, contacts_removed: 1, folders_trashed: ['a', 'b'], left: [] } }); }
@@ -2881,6 +2887,31 @@ test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Appr
   deq([t.log.phProject.length, t.log.phProject[0].project.event.venue, writes(t)], [1, 'SMX Convention Center', ['intake_add_project']]);
   deq([v.ph.phase, v.status, v.canvas.project_id, v.canvas.project_number], [2, 'Needs you', 'S-99900001ZZ', '052']);
   assert.ok(/Added to Canvas as project 052/.test(JSON.stringify(t.tabs.Chat.rows)));
+});
+test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client is new there; Approve registers it; Cancel says what it removed; a Canvas without the check shows no line', () => {
+  const t = phStart();
+  assert.strictEqual(t.log.deskCheck.length, 1, 'one read-only check before the card');
+  const d = t.v.ph.desk; assert.ok(d && d.client === 'new' && d.contacts_new >= 1, JSON.stringify(d));
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/Client Desk', P\.desk\.client === 'new' \? '<span class="tag pref">New client<\/span> ' \+ esc\(P\.desk\.company\)/.test(page), 'the card row escapes the company');
+  t.ctx.cueApprove(t.id, {});
+  assert.ok(t.log.phProject[0].project.client.industry === undefined, 'not a bid notice: no industry');
+  const said = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Added to Canvas/.test(x))[0];
+  assert.ok(/Client Desk: .+ added as a new client with \d+ contacts?\./.test(said), said);
+  const c = t.ctx.cuePhCancel_(t.id);
+  assert.ok(c.stage === 'Cancelled');
+  const u = phStart({ deskUnknown: true }); assert.strictEqual(u.v.ph.desk, null, 'before the Canvas update: no Client Desk line, intake still runs');
+  assert.strictEqual(u.v.ph.phase, 1);
+  // Canvas 247 with its switch CLIENT_DESK off (the default): no line, and Approve sends what V246 takes.
+  const f = phStart({ deskOff: true }); assert.strictEqual(f.v.ph.desk, null); f.ctx.cueApprove(f.id, {});
+  assert.ok(f.log.phProject[0].project.client.industry === undefined && !f.tabs.Chat.rows.some(r => /Client Desk:/.test(r[2])), 'switch off: nothing about Client Desk');
+  const e = phStart({ desk: { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }, deskOut: { client: 'existing', company: 'ACME Corp.', contacts_added: [] } });
+  deq(e.v.ph.desk, { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }); e.ctx.cueApprove(e.id, {});
+  assert.ok(e.tabs.Chat.rows.some(r => /Client Desk: ACME Corp\. was already there; no new contacts\./.test(r[2])));
+  // A bid notice on a .gov.ph site registers the agency with Industry Government.
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'New project intake from a bid notice (Kiko asked: "x").\nAgency: TPB\nNotice: https://www.tpb.gov.ph/itb/1' }), 'Government');
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'New project intake from a bid notice (Kiko asked: "x").\nAgency: ADB\nNotice: https://www.adb.org/x' }), '');
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'Hi, Notice: https://x.gov.ph' }), '');
 });
 test('PH2 phase 2: Claude\'s rows are short (item at most 6 words, spec at most 12); Rescan reads again with Kiko\'s note and writes nothing', () => {
   const t = phStart(); const v = t.ctx.cueApprove(t.id, {});

@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.27.28: phase 1 Approve also registers the client in Client Desk (release branch, not deployed)
+
+Kiko asked 24 Oct 2026 13:36Z: "Register the new client as well". Spec `specs/bid-contacts-reminder.md` part B, Kiko "Go" 13:54Z.
+Built on 1.27.27 (bid contacts); it does not depend on it. Needs the Canvas bridge change on CanvasWorkspace branch `claude/project-thread-nfqkha` (8e7ef09). Without it
+Cue still runs; it just shows no Client Desk line.
+
+- Before the phase 1 card, Cue asks Canvas (read only, new bridge action `client_check`) whether the company is in Client Desk
+  (P0) and how many contacts P0 Contacts does not list yet. The card shows a Client Desk row: "New client: X will be added with N
+  contacts" or "Existing client: X; N new contacts will be added".
+- Approve stays one tap. Canvas adds the P0 row only when no row has that company name, and one P0 Contacts row per contact it does
+  not already list. The chat line after Approve says what Canvas did.
+- For a bid notice on a .gov.ph site, Cue sends Industry "Government". It sends this only when Canvas answered `client_check`,
+  because an older Canvas refuses a field it does not know.
+- Cancel intake: Canvas removes only the Client Desk rows this intake added, and the chat line says so.
+- `test/fixtures/ZapBridge.gs` refreshed from the Canvas branch.
+- Needs Canvas rel-v247-clientdesk-main (main 247, client pin 247). Canvas keeps it behind Script Property CLIENT_DESK, off by
+  default: while it is off, phase 1 shows no Client Desk line and Approve writes nothing there, as before. Kiko turns it on for the
+  PC check.
+- Tests: 350 of 350 pass. PH1b is new (it also checks the switch-off answer). Bridge fixture refreshed from Canvas 0d584a4.
+
 ## Cue 1.27.27: bid contacts on the card and into intake (release branch, not deployed)
 
 Kiko asked 24 Oct 2026 13:36Z: "I think you should have also the contacts. When intake runs: Also we need to store the contact

@@ -2608,9 +2608,12 @@
         ['Schedule', esc(sched || 'Not given')],
         ['Venue', ed ? inp('event.venue', e.venue, 1) + inp('event.city', e.city, 1, 'city') : esc([e.venue, e.city].filter(Boolean).join(', ') || 'Not given')],
         ['Pax', ed ? inp('event.pax', e.pax || '', 0) : esc(e.pax || 'Not given')], ['Budget', ed ? inp('event.budget', e.budget, 1) : esc(e.budget || 'Not given')]];
+      // Client Desk (Kiko 24 Oct 13:36Z): what Approve also does for the client, as Canvas checked it.
+      if (P.desk && !ed) f.splice(2, 0, ['Client Desk', P.desk.client === 'new' ? '<span class="tag pref">New client</span> ' + esc(P.desk.company) + ' will be added with ' + P.desk.contacts_new + ' contact' + (P.desk.contacts_new === 1 ? '' : 's')
+        : 'Existing client: ' + esc(P.desk.company) + '; ' + (P.desk.contacts_new ? P.desk.contacts_new + ' new contact' + (P.desk.contacts_new === 1 ? '' : 's') + ' will be added' : 'no new contacts')]);
       h += '<table class="facts" style="margin-top:8px">' + f.map(function (y) { return '<tr><td>' + y[0] + '</td><td>' + y[1] + '</td></tr>'; }).join('') + '</table>';
       if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
-      h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas', '', tip('Adds the project only (client, contacts, schedule, folders). No lines yet.')) + editBtn + btn('reject', 'Reject', 'bad') + cancelBtn + '</div>';
+      h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas', '', tip('Adds the project only (client, contacts, schedule, folders) and puts the client in Client Desk. No lines yet.')) + editBtn + btn('reject', 'Reject', 'bad') + cancelBtn + '</div>';
     }
     if (waiting && ph === 2) {
       var rows = '<div class="scroll"><table class="' + (ed ? 'edit' : '') + '"><tr><th>#</th><th>Item</th><th>Spec</th><th>Qty</th><th>Days</th></tr>';

@@ -119,13 +119,22 @@ const ZB_ACTIONS_ = {
         client: { type: 'object', required: true, fields: { company: { type: 'string', max: 200 }, contact: { type: 'string', max: 200 },
           email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 },
           contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, role: { type: 'string', max: 100 },
-            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } } } },
+            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } }, industry: { type: 'string', max: 100 } } },
         event: { type: 'object', required: true, fields: { name: { type: 'string', max: 200 }, type: { type: 'string', max: 100 },
           date: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ }, deadline: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
           schedule: { type: 'object', fields: { ingress: { type: 'string', max: 100 }, hours: { type: 'string', max: 100 }, egress: { type: 'string', max: 100 } } },
           venue: { type: 'string', max: 200 }, city: { type: 'string', max: 100 },
           pax: { type: 'number', min: 0 }, budget: { type: 'string', max: 100 }, date_tbc: { type: 'boolean' } } } } } },
     run: (r) => aiIntakePhaseProject_(r.args.request_id, r.args.project, 'zap_' + r.command_id)
+  },
+  /* CUE-CLIENT-REG-2026-10-24 (Kiko 13:36Z, specs/bid-contacts-reminder.md part B): what phase 1 Approve will do in Client Desk, shown on
+   * Cue's phase 1 card before the tap. Read only: is the company in P0, and how many of the contacts P0 Contacts does not list yet. */
+  client_check: {
+    kind: 'read', needsProject: false,
+    schema: { company: { type: 'string', required: true, nonBlank: true, max: 200 },
+      contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, email: { type: 'string', max: 200 } } } },
+    run: (r) => { if (!aiIntakeClientDeskOn_()) return { ok: false, error: 'Client Desk registration is off (Script Property CLIENT_DESK)' };
+      return aiIntakeClientDesk_(aiIntakeClient_({ company: r.args.company, contacts: r.args.contacts || [] }), '', true); }
   },
   intake_add_lines: {
     kind: 'queue', needsProject: false,
