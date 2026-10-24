@@ -421,6 +421,63 @@ function cueBidsOpen_(it, docs, store) {
   return pdfs;
 }
 
+/** A link that is a file itself (PDF, Word, Excel, ZIP), not a web page. */
+function cueBidsIsFile_(u) { return /^https:\/\/\S+\.(pdf|docx?|xlsx?|zip)(?:[?#]|$)/i.test(String(u || '')); }
+/** The file links on a web page, made absolute, with their link text. */
+function cueBidsFileLinks_(html, base) {
+  const out = [], seen = {}, origin = (String(base).match(/^https:\/\/[^/]+/) || [''])[0], dir = String(base).split(/[?#]/)[0].replace(/[^/]*$/, '');
+  const re = /<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi; let m;
+  while ((m = re.exec(String(html || ''))) && out.length < 400) {
+    let u = m[1].trim().replace(/&amp;/g, '&');
+    u = /^https?:\/\//i.test(u) ? u.replace(/^http:/i, 'https:') : /^\/\//.test(u) ? 'https:' + u : /^\//.test(u) ? origin + u : dir + u;
+    if (!cueBidsIsFile_(u) || seen[u]) continue; seen[u] = 1;
+    out.push({ url: u.replace(/ /g, '%20'), text: m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() });
+  }
+  return out;
+}
+/** The file on a listing page that a listed document points to: same file name first, then the notice's reference number. */
+function cueBidsPick_(d, it, links) {
+  const stem = cueName_(String(d.name || '').replace(/\.(pdf|docx?|xlsx?|zip)$/i, '')), num = cueName_(cueBidsCore_(d.name) || cueBidsCore_(it.reference));
+  let best = null, top = 0;
+  links.forEach(l => {
+    const file = cueName_(decodeURIComponent(l.url.split(/[?#]/)[0].split('/').pop()).replace(/\.(pdf|docx?|xlsx?|zip)$/i, '')), text = cueName_(l.text);
+    const sc = stem && file === stem ? 3 : stem.length >= 6 && (file.indexOf(stem) >= 0 || text.indexOf(stem) >= 0) ? 2 : num.length >= 6 && (file + ' ' + text).indexOf(num) >= 0 ? 1 : 0;
+    if (sc > top) { top = sc; best = l; }
+  });
+  return best;
+}
+/** A listed document whose link is a web page, or no link at all: Cue opens the page (the notice's own page when the entry has no link),
+ * finds the file the entry names and points the document at it, once. The answer is recorded under "page:<page>#<name>", so the page is
+ * never searched again for that document; Request more details may search again (retry). PC recheck 24 Oct 09:01Z: ChatGPT gives the
+ * agency's listing page as the link of most documents (TPB "invitation-to-bid"), so opening the link alone reaches no file. */
+function cueBidsResolve_(it, store, pages, retry) {
+  const at = new Date(cueNow_()).toISOString();
+  it.documents.forEach(d => {
+    if (d.page || cueBidsIsFile_(d.url)) return;
+    const page = (/^https:/.test(d.url || '') ? d.url : /^https:/.test(it.url || '') ? it.url : '').split('#')[0];
+    const key = 'page:' + (page || 'none') + '#' + cueName_(d.name);
+    let rec = store.by[key];
+    if (rec && retry && !/^Points to /.test(rec.result)) rec = null;
+    if (!rec) {
+      const was = store.by[key];
+      if (!page) rec = { row: was && was.row, url: key, key: it.key, name: d.name, result: 'Could not open: no link given for it', opened: at };
+      else {
+        cueBidsDocPut_(store, { row: was && was.row, url: key, key: it.key, name: d.name, result: 'Could not open: no answer in time (the site did not respond)', opened: at });
+        if (!pages[page]) { pages[page] = { links: [] }; try { const res = UrlFetchApp.fetch(page, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Cue bid check)' } });
+          pages[page] = res.getResponseCode() === 200 ? { links: cueBidsFileLinks_(res.getContentText(), page) } : { links: [], why: 'the page answered HTTP ' + res.getResponseCode() }; }
+          catch (e) { pages[page] = { links: [], why: 'the page did not open' }; } }
+        const hit = cueBidsPick_(d, it, pages[page].links);
+        rec = { row: store.by[key].row, url: key, key: it.key, name: d.name, opened: at,
+          result: hit ? 'Points to ' + hit.url : 'Could not open: ' + (pages[page].why || 'no file for it on the page (web page only)') };
+      }
+      cueBidsDocPut_(store, rec);
+    }
+    d.page = page;
+    if (/^Points to /.test(rec.result)) d.url = rec.result.slice(10);
+    else { d.url = key; cueBidsDocFrom_(d, rec); }
+  });
+}
+
 const CUE_BIDS_READ_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['abc', 'posted', 'deadline', 'event_date', 'summary', 'eligibility', 'bac_email', 'pages', 'unread'],
   properties: { abc: { type: 'number' }, posted: { type: 'string' }, deadline: { type: 'string' }, event_date: { type: 'string' }, summary: { type: 'string' },
     eligibility: { type: 'string' }, bac_email: { type: 'string' }, pages: { type: 'string' }, unread: { type: 'array', items: { type: 'string' } } } };
@@ -474,23 +531,28 @@ function cueBidsReadAll_(s, jobs, store) {
  * and recorded with the real result. PDFs are read 3 notices at a time. Past the time budget the stage stops and the next 5-minute
  * resume carries on, so a busy day takes more than one run, never a skipped document. A document already in the record is never fetched again. */
 function cueBidsRead_(s, save, t0) {
-  const B = s.bids, store = cueBidsDocs_(), list = (B.items || []).concat(B.still || []);
+  const B = s.bids, store = cueBidsDocs_(), list = (B.items || []).concat(B.still || []), pages = {};
   list.forEach(it => {
     it.documents.forEach(d => { if (d.url && store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); });
+    it.documents.forEach(d => { const k = 'page:' + (String(/^https:/.test(d.url || '') ? d.url : it.url || '').split('#')[0] || 'none') + '#' + cueName_(d.name);
+      if (!d.page && !cueBidsIsFile_(d.url) && store.by[k]) { d.page = k.slice(5, k.lastIndexOf('#')); d.url = /^Points to /.test(store.by[k].result) ? store.by[k].result.slice(10) : k; if (store.by[d.url]) cueBidsDocFrom_(d, store.by[d.url]); } });
     const known = it.documents.map(d => store.by[d.url]).filter(r => r && r.facts)[0];
     if (known && !it.from_docs) { const was = [it.abc, it.posted, it.deadline, it.summary].join('|'); cueBidsFacts_(it, known.facts);
       if (it.row && was !== [it.abc, it.posted, it.deadline, it.summary].join('|')) it.touched = true; }
   });
-  const fresh = it => it.documents.filter(d => d.url && !store.by[d.url]);
+  const fresh = it => it.documents.filter((d, i, a) => d.url && !store.by[d.url] && a.findIndex(x => x.url === d.url) === i);
+  const loose = it => it.documents.some(d => !d.page && !cueBidsIsFile_(d.url));
   // Saved but never sent to ChatGPT (the run ended between opening and reading): read from Cue's Drive copy. A file already sent is never sent again.
   const unread = it => it.documents.filter(d => d.state === 'saved' && !d.read && d.kind === 'pdf' && store.by[d.url] && store.by[d.url].drive && !store.by[d.url].read && !store.by[d.url].tried);
   const count = () => { const all = [].concat.apply([], list.map(it => it.documents.filter(d => d.url))); B.reading = { done: all.filter(d => store.by[d.url]).length, total: all.length }; };
   let jobs = [];
   const readJobs = () => { if (!jobs.length) return; cueBidsReadAll_(s, jobs, store); jobs.forEach(j => { j.pdfs = null; if (j.it.row) j.it.touched = true; }); jobs = []; count(); s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); };
   for (const it of list) {
-    const docs = fresh(it), again = !docs.length && !it.read_tried && unread(it).length;
-    if (!docs.length && !again) continue;
+    if (!loose(it) && !fresh(it).length && (it.read_tried || !unread(it).length)) continue;
     if (cueNow_() - t0 > CUE_BIDS_READ_.budget_ms) { readJobs(); count(); return; }   // carries on at the next resume
+    if (loose(it)) { cueBidsResolve_(it, store, pages, false); SpreadsheetApp.flush(); }
+    const docs = fresh(it), again = !docs.length && !it.read_tried && unread(it).length;
+    if (!docs.length && !again) { if (it.row) it.touched = true; count(); save(); continue; }
     let pdfs = [];
     if (docs.length) {
       const at = new Date(cueNow_()).toISOString();
@@ -560,9 +622,14 @@ function cueBidsStill_(open, items, updated) {
 }
 /** Documents as the sheet's Documents column lists them: "TOR (Opened · saved (pdf)) https://..; RFQ (Could not open: HTTP 403) https://..". */
 function cueBidsParseDocs_(t) {
+  // "Name (note) (status) https://link": the link is the last https in the entry and the status the last bracket before it. ChatGPT's own
+  // rows add a note bracket ("(link shown on page) (not opened)"), which the 1.27.12 parser read as the whole entry, so the link was lost
+  // and nothing was opened (PC recheck 24 Oct 09:01Z).
   const list = String(t || '').split(/;\s+/).map(x => {
-    const m = x.match(/^(.*?) \(((?:[^()]|\([^()]*\))*)\)(?: (https:\/\/\S+))?/); if (!m) return null;
-    return { name: cueStr_(m[1], 120), url: m[3] || '', state: /^Opened/i.test(m[2]) ? 'saved' : /^Could not open/i.test(m[2]) ? 'failed' : 'waiting', why: /^Could not open/i.test(m[2]) ? m[2].replace(/^Could not open:\s*/i, '') : '' };
+    const url = (x.match(/https:\/\/[^\s;"<>]+/g) || []).pop() || '', rest = (url ? x.slice(0, x.lastIndexOf(url)) : x).trim();
+    const m = rest.match(/\(((?:[^()]|\([^()]*\))*)\)$/); if (!m) return null;   // no bracket: Kiko's own cell, links read below
+    const st = m ? m[1] : '', name = rest.split(/ \(| — /)[0].trim() || (url ? decodeURIComponent(url.split(/[?#]/)[0].split('/').pop() || '') : '');
+    return { name: cueStr_(name || 'Document', 120), url, state: /^Opened/i.test(st) ? 'saved' : /^Could not open/i.test(st) ? 'failed' : 'waiting', why: /^Could not open/i.test(st) ? st.replace(/^Could not open:\s*/i, '') : '' };
   }).filter(Boolean);
   // Kiko's own rows: any https link in the cell is a document, named by its file name.
   const out = list.length ? list : (String(t || '').match(/https:\/\/[^\s;,"<>)]+/g) || []).map(u => ({ name: decodeURIComponent(u.split(/[?#]/)[0].split('/').pop() || 'Document').slice(0, 120), url: u, state: 'waiting', why: '' }));
@@ -572,7 +639,8 @@ function cueBidsParseDocs_(t) {
 function cueBidsDocJunk_(name) { return /\b(award posting|notice of award|posting of awards?)\b/i.test(String(name || '')) || /\bNOA\b/.test(String(name || ''));
 }
 function cueBidsDocLine_(d) {
-  return d.name + ' (' + (d.state === 'saved' ? 'Opened · saved' + (d.read ? ' · read' : '') : d.state === 'failed' ? 'Could not open: ' + d.why : 'Not opened yet') + ')' + (d.url ? ' ' + d.url : '');
+  const link = /^https:/.test(d.url || '') ? d.url : d.page || '';
+  return d.name + ' (' + (d.state === 'saved' ? 'Opened · saved' + (d.read ? ' · read' : '') : d.state === 'failed' ? 'Could not open: ' + d.why : 'Not opened yet') + ')' + (link ? ' ' + link : '');
 }
 
 /** Step 7: new rows and updates into Kiko's bid sheet, one scan log row per source. A failed write is a note, never a lost run.
@@ -638,7 +706,9 @@ const cueBidsMissing_ = it => [!it.abc && 'budget', !it.deadline && 'bid end dat
 function cueBidsMore(id, key) {
   cueOwner_();
   const N = cueBidsNotice_(id, key), it = N.it, s = N.L.s, store = cueBidsDocs_();
-  const fetch = it.documents.filter(d => d.url && !(store.by[d.url] && /^Opened/.test(store.by[d.url].result))).slice(0, CUE_BIDS_READ_.docs);
+  it.documents.forEach(d => { if (/^page:/.test(d.url || '')) { d.url = d.page || ''; delete d.page; } });   // search the page again
+  cueBidsResolve_(it, store, {}, true);
+  const fetch = it.documents.filter((d, i, a) => /^https:/.test(d.url || '') && !(store.by[d.url] && /^Opened/.test(store.by[d.url].result)) && a.findIndex(x => x.url === d.url) === i).slice(0, CUE_BIDS_READ_.docs);
   const pdfs = cueBidsOpen_(it, fetch, store);
   it.documents.forEach(d => {
     const rec = store.by[d.url]; if (!rec) return; cueBidsDocFrom_(d, rec);
@@ -731,7 +801,7 @@ function cueBidsClose(id) {
 /** The part of a bid check the page needs. Runs from before 1.27.10 have no Still open list and documents ChatGPT marked "read": those
  * show as "listed, not opened by Cue". */
 function cueBidsView_(s) {
-  const B = s.bids || {}, doc = d => ({ name: d.name, url: d.url, state: d.state || (d.status ? 'listed' : 'waiting'), why: d.why || '', drive: d.drive || '', read: !!d.read });
+  const B = s.bids || {}, doc = d => ({ name: d.name, url: /^https:/.test(d.url || '') ? d.url : '', page: d.page || '', state: d.state || (d.status ? 'listed' : 'waiting'), why: d.why || '', drive: d.drive || '', read: !!d.read });
   const pub = it => ({ key: it.key || '', agency: it.agency, reference: it.reference, project: it.project, location: it.location, abc: it.abc, budget_note: it.budget_note, posted: it.posted || '',
     deadline: it.deadline, event_date: it.event_date, summary: it.summary || it.scope || '', eligibility: it.eligibility, url: it.url, documents: (it.documents || []).map(doc),
     amendments: it.amendments || '', limitations: it.limitations || '', next_action: it.next_action || '', status: it.status || '', was: it.was || '', tag: it.tag || '', from_docs: !!it.from_docs,

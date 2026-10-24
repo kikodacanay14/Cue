@@ -2141,7 +2141,7 @@
       var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
         : d.state === 'failed' ? '<span class="tag flag">Could not open: ' + esc(d.why) + '</span>'
         : '<span class="muted">' + (d.state === 'listed' ? '(listed, not opened by Cue)' : '(not opened yet)') + '</span>';
-      return '<li>' + link(d.url, d.name) + ' ' + st + '</li>';
+      return '<li>' + link(d.url || d.page, d.name) + ' ' + st + (d.page && d.url && d.url !== d.page ? ' <span class="muted">(found on ' + link(d.page, 'the agency page') + ')</span>' : '') + '</li>';
     };
     var item = function (x) {
       var h = '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(x.project || x.reference) + '</b>'

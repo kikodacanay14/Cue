@@ -1,6 +1,20 @@
 # Changelog
 
-## Cue 1.27.12: every bid document is attempted, each with a status (release branch, not deployed)
+## Cue 1.27.14: the bid sheet's document links are read correctly and followed to the files (release branch, not deployed)
+
+PC recheck of 1.27.12 on /dev, 24 Oct 09:01Z: the run (08:40Z, "redo bid check") finished in 73 seconds with "0 of 16 documents opened by Cue"; almost every document said "(not opened yet)", and the hidden "Bid documents" record (in the Cue sheet, not the bid sheet) got no new row. Root cause, from the record and the bid sheet's column N:
+
+- **Links were lost when reading the sheet.** ChatGPT wrote most document cells with a note bracket before the status, for example "PBD_Redacted.pdf (Project Brief / Bidding Documents link shown on page) (not opened) https://tpb.gov.ph/wp-content/uploads/2026/10/PBD_Redacted.pdf". The parser took the first bracket as the status and then expected the link, found the second bracket, and dropped the link. A document with no link is never fetched, so the Reading stage had nothing to open and moved on at once. It was not the resume trigger: the run never needed one.
+- **Most links are listing pages, not files.** ChatGPT gave "https://tpb.gov.ph/invitation-to-bid/" (or the CITEM and PCC listing pages) as the link of most documents, and some have no link at all ("RFQ2026-10-284_compressed (not opened)"). Opening that link alone reaches no file.
+
+Fixed:
+
+- The parser takes the last https link in each entry and the last bracket before it as the status, so "(note) (status) link" keeps its link.
+- A document whose link is a web page, or that has no link, is looked up on that page (or on the notice's own page): Cue opens the page once per run, lists its PDF, Word, Excel and ZIP links, and picks the one with the same file name, or else the notice's reference number in the file name or link text. The file is then opened, saved and read like any other. The answer is recorded once ("page:<page>#<name>" in the Bid documents record), so the page is not searched again for that document on later days; Request more details searches again. When the page has no such file, the document says "Could not open: no file for it on the page (web page only)" instead of "not opened yet".
+- The card names the agency page a file was found on. The bid sheet keeps the file link (or the page link when no file was found).
+- Tests: 336 of 336 pass (new BD20 uses the PC recheck's own cells: the bracket case, a listing-page link, no link, a match by reference number and by link text, a page with no file, and nothing opened, searched or read again the next day).
+
+## Cue 1.27.12: every bid document is attempted, each with a status (PC recheck failed, replaced by 1.27.14)
 
 PC recheck of 1.27.11 on /dev, 24 Oct 08:26Z: the junk rows were gone ("0 new, 14 still open", all real), but most documents still showed "(not opened yet)" and only one notice got a folder in Drive "Cue bids". Cause: the limits of 10 notices a run and 3 documents a notice (TPB annexes used up the 3 slots), and the reading stopped at its time budget without ever coming back to the rest. Asked through the coordinator: "every document is attempted, across runs if needed, with a status for each", as its own release.
 

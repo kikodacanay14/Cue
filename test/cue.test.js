@@ -3546,6 +3546,8 @@ const BID_DOCS = { abc: 480000, posted: '2026-10-18', deadline: '2026-10-29T17:0
 const bidWeb = (log, o = {}) => req => {
   const u = req.url; if (!/(citem|dot|tpb|npdc)\.gov\.ph/.test(u)) return null;
   (log.web = log.web || []).push(u);
+  const pg = Object.keys(o.pages || {}).filter(k => u === k)[0];
+  if (pg) { (log.pages = log.pages || []).push(u); const t = o.pages[pg]; return { getResponseCode: () => 200, getContent: () => Array.from(Buffer.from(t)), getContentText: () => t }; }
   if ((o.pdf || []).some(x => u.indexOf(x) >= 0) || /x\.pdf$/.test(u)) { const b = Buffer.from('%PDF-1.7 fake bid ' + u); return { getResponseCode: () => 200, getContent: () => Array.from(b), getContentText: () => b.toString('utf8') }; }
   const page = (code, t) => { const b = Buffer.from(t); return { getResponseCode: () => code, getContent: () => Array.from(b), getContentText: () => t }; };
   if (/tor\.pdf$/.test(u)) return page(200, '<html><form>Log in to download</form><input type="password"></html>');
@@ -3727,6 +3729,42 @@ test('BD19 read once (Kiko 08:44Z): a file sent to ChatGPT is never sent again o
     assert.strictEqual(t.log.web.length, web, 'day ' + day + ': the file is not fetched again');
     assert.strictEqual(reads(), n, 'day ' + day + ': the file is not sent to ChatGPT again');
   }
+});
+test('BD20 PC recheck 24 Oct 09:01Z: the sheet\'s own document cells are opened: a link after a note bracket is kept, a listing-page link or no link is followed to the file the page links, once', () => {
+  const row = (ref, project, docs, url) => ['2026-10-20', 'TPB', ref, project, 'For verification (budget, location, deadline)', '', '', '', '', '', '', '', url || 'https://tpb.gov.ph/invitation-to-bid/', docs, '', '', ''];
+  const rows = [
+    row('TPB-ITB NO. 2026-040', 'Services of an Event Management Company for the Annual TPB Members’ Meeting', 'PBD_Redacted.pdf (Project Brief / Bidding Documents link shown on page) (not opened) https://tpb.gov.ph/wp-content/uploads/2026/10/PBD_Redacted.pdf'),
+    row('RFQ# 2026.10.290', 'Supply and Delivery of Tangkulo Scarves and Table Decor', 'RFQ2026-10-290_compressed (Supply and Delivery of Tangkulo Scarves & Table Decor) (not opened) https://tpb.gov.ph/invitation-to-bid/'),
+    row('RFQ# 2026.10.284', 'Design, Printing and Production of Sticker Pack for TPB', 'RFQ2026-10-284_compressed (not opened)'),
+    row('RFQ No. 2026.10.291', 'Service Provider for International Air Tickets', '01 RFQ No. 2026.10.291 (Airtickets WTM 2026) and Annexes (not opened) https://tpb.gov.ph/invitation-to-bid/'),
+    row('CITEM 2026-0404', 'Fabrication and installation services for the Likhang Filipino Gallery 4', 'CITEM 2026-0404 (list entry) — procurement details not opened (not opened)', 'https://citem.gov.ph/procurement/opportunities/last-updated'),
+    row('RFQ# 2026.10.299', 'Event styling for a TPB roadshow', 'RFQ2026-10-299 (not opened) https://tpb.gov.ph/invitation-to-bid/')];
+  const tpb = '<html><ul><li><a href="/wp-content/uploads/2026/10/PBD_ipd_Redacted.pdf">PBD ipd</a></li><li><a href="https://tpb.gov.ph/wp-content/uploads/2026/10/RFQ2026-10-290_compressed.pdf">RFQ 2026.10.290</a></li>'
+    + '<li><a href="/wp-content/uploads/2026/10/RFQ2026-10-284_compressed.pdf">Sticker pack</a></li><li><a href="/wp-content/uploads/2026/10/RFQ-No.-2026-10-291.pdf">RFQ airtickets</a></li><li><a href="/invitation-to-bid/page/2/">Next</a></li></ul></html>';
+  const citem = '<html><a href="/procurement/798e8a556a3a34b41607e966fbed86db.pdf">CITEM 2026-0404 Fabrication and Installation Services</a> <a href="/procurement/aa.pdf">CITEM 2026-0377 Conference bags</a></html>';
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS },
+    pdf: ['tpb.gov.ph/wp-content/uploads/2026/10/', 'citem.gov.ph/procurement/798e8a'], pages: { 'https://tpb.gov.ph/invitation-to-bid/': tpb, 'https://citem.gov.ph/procurement/opportunities/last-updated': citem } }, rows);
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(v.status, 'Done', v.error);
+  const by = {}; v.bids.still.forEach(x => { by[x.reference] = x.documents; });
+  deq(by['TPB-ITB NO. 2026-040'].map(d => [d.name, d.state, d.url]), [['PBD_Redacted.pdf', 'saved', 'https://tpb.gov.ph/wp-content/uploads/2026/10/PBD_Redacted.pdf']], 'the link after the note bracket is kept and opened');
+  deq(by['RFQ# 2026.10.290'].map(d => [d.state, d.url, d.page]), [['saved', 'https://tpb.gov.ph/wp-content/uploads/2026/10/RFQ2026-10-290_compressed.pdf', 'https://tpb.gov.ph/invitation-to-bid/']], 'found on the listing page by its file name');
+  deq(by['RFQ# 2026.10.284'].map(d => [d.state, d.url]), [['saved', 'https://tpb.gov.ph/wp-content/uploads/2026/10/RFQ2026-10-284_compressed.pdf']], 'no link: the notice\'s page is searched');
+  deq(by['RFQ No. 2026.10.291'].map(d => [d.state, d.url]), [['saved', 'https://tpb.gov.ph/wp-content/uploads/2026/10/RFQ-No.-2026-10-291.pdf']], 'by the reference number');
+  deq(by['CITEM 2026-0404'].map(d => [d.state, d.url]), [['saved', 'https://citem.gov.ph/procurement/798e8a556a3a34b41607e966fbed86db.pdf']], 'by the reference in the link text');
+  deq(by['RFQ# 2026.10.299'].map(d => [d.state, d.why, d.url, d.page]), [['failed', 'no file for it on the page (web page only)', '', 'https://tpb.gov.ph/invitation-to-bid/']], 'a status, never "not opened yet"');
+  assert.ok(v.bids.still.every(x => x.documents.every(d => d.state === 'saved' || d.state === 'failed')), 'every document has a status');
+  deq(t.log.pages, ['https://tpb.gov.ph/invitation-to-bid/', 'https://citem.gov.ph/procurement/opportunities/last-updated'], 'each page opened once in the run');
+  const ck = v.bids.checks.filter(x => x.id === 10)[0]; assert.ok(ck.ok && /^5 of 6 opened$/.test(ck.detail), ck.detail);
+  const f = t.tabs['Web bid findings'].rows; assert.ok(/^RFQ2026-10-290_compressed \(Opened · saved · read\) https:\/\/tpb\.gov\.ph\/wp-content\/uploads\/2026\/10\/RFQ2026-10-290_compressed\.pdf$/.test(f[2][13]), f[2][13]);
+  assert.ok(/^RFQ2026-10-299 \(Could not open: no file for it on the page \(web page only\)\) https:\/\/tpb\.gov\.ph\/invitation-to-bid\/$/.test(f[6][13]), f[6][13]);
+  const web = t.log.web.length, pages = t.log.pages.length, reads = t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length;
+  t.ctx.__wait(864e5); t.log.gptN = {};
+  const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(w.status, 'Done', w.error);
+  deq([t.log.web.length, t.log.pages.length, t.log.gpt.filter(b => b.text.format.name === 'bid_docs').length], [web, pages, reads], 'next day: no page, file or reading again');
+  const by2 = {}; w.bids.still.forEach(x => { by2[x.reference] = x.documents.map(d => d.state); });
+  deq(by2['RFQ# 2026.10.290'], ['saved']); deq(by2['RFQ# 2026.10.299'], ['failed']);
 });
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
