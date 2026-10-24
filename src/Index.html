@@ -256,6 +256,22 @@
   @media (max-width: 700px) { #settings .sbody { flex-direction:column; } #settings .snav { width:auto; display:flex; gap:4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } #settings .snav button { width:auto; white-space:nowrap; } }
   /* CUE-IN-CANVAS: the cover over Cue until Canvas says it is Kiko's Canvas (or for good, inside anything else). */
   #cue-cover { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; background:var(--bg); color:var(--muted); font:600 15px var(--font); }
+  /* Kiko 24 Oct 06:49Z "make the window smaller and tighter": inside Canvas's slide-in Cue is denser. Canvas's own bar already says
+     "Cue", so the header keeps only the logo, name, dot and K; bars, rows, cards and buttons are smaller. Cue in its own tab is unchanged. */
+  body.in-canvas { font-size:14px; line-height:1.45; }
+  body.in-canvas header { padding:5px 10px; gap:8px; } body.in-canvas header .sub { display:none; }
+  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:22px; height:22px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
+  body.in-canvas nav, body.in-canvas .phead, body.in-canvas .vhead { min-height:40px; padding:4px 8px; }
+  body.in-canvas .phead .pico { width:28px; height:28px; } body.in-canvas .phead .pname { font-size:15px; } body.in-canvas .ibtn { width:30px; height:30px; }
+  body.in-canvas main { padding:10px 12px; } body.in-canvas #pscroll { padding:8px 10px; }
+  body.in-canvas .pane { min-width:300px; } body.in-canvas.v3 .pane { min-width:280px; } body.in-canvas .viewer { min-width:300px; }
+  body.in-canvas .welcome { font-size:18px; margin:2px 0 0; } body.in-canvas .welcome + p { margin:0 0 6px; font-size:13px; }
+  body.in-canvas .tgroup { padding:5px 10px; margin:6px 0 2px; font-size:13px; }
+  body.in-canvas .trow { padding:5px 8px 5px 10px; gap:8px; } body.in-canvas .trow .tx b { font-size:13.5px; } body.in-canvas .trow .tx span { font-size:12px; -webkit-line-clamp:1; }
+  body.in-canvas .trow .chip, body.in-canvas .trow .tm { font-size:12px; }
+  body.in-canvas .card { padding:10px 12px; margin-bottom:8px; } body.in-canvas .msg { padding:7px 10px; max-width:92%; }
+  body.in-canvas .composer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
+  body.in-canvas .btn { min-height:34px; padding:0 14px; font-size:13px; }
 </style>
 </head>
 <body>
@@ -513,7 +529,7 @@
      offers a new tab instead. Links come as [[canvas|title|url]] in a chat line, or as a card's r.open. */
   var PHONE = !!(window.matchMedia && (matchMedia('(pointer:coarse)').matches || matchMedia('(max-width: 900px)').matches));
   // Mirrors cueCanvasParse_ (CueCanvas.gs): these go to the server as Canvas commands, never to the expense shortcut ("open Globe expenses").
-  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
+  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:add|new|create|log|raise|put)\s+(?:an?\s+)?(?:new\s+)?(?:task|issue|risk)|(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project|tasks\s+(?:of|for|in)|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
   var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
   var cvWait = 0, cvGone = 0, cvReady = false;
   function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
@@ -1115,7 +1131,7 @@
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'tri' ? ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || '') : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -1249,7 +1265,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || r.kind === 'bids' || r.kind === 'gtask' || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'tri' && r.tri) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -2232,6 +2248,32 @@
   }
   // Workflow map (Kiko 08:07Z, specs/process-mapper.md): each step's block and owner, Cue's rule flags, then Approve to save it.
   var WHO_COLOR = { Claude: '#d97757', ChatGPT: '#10a37f', Code: 'var(--muted)', Canvas: '#559fef', Zapier: '#ff4f00', Kiko: '#b00c98' };
+  /* CUE-TRI-2026-10-24 (Kiko "add the tasks", specs/cue-add-tasks.md): one task, issue or risk for Canvas. Every field can be
+     changed here; Approve adds it once through the bridge (add_tri_items). */
+  function triCardHtml(r) {
+    var T = r.tri || {}, waiting = r.status === 'Needs you', id = esc(r.id), f = function (k) { return ' data-tri="' + id + '" data-f="' + k + '"'; };
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(T.type || 'Task') + ' for Canvas</div>';
+    if (!waiting) {
+      h += '<b style="font-size:16px;color:var(--white)">' + esc(T.description) + '</b><div class="small muted" style="margin-top:4px">' + esc(T.project || T.asked_project)
+        + (T.due ? ' · due ' + esc(T.due) : '') + (T.assigned ? ' · for ' + esc(T.assigned) : '') + '</div>';
+      if (T.saved) h += '<div class="small" style="margin-top:6px"><span class="tag pref">' + (T.saved.dup ? 'already in Canvas' : 'added') + '</span> ' + esc(T.saved.id) + ' in ' + esc(T.project) + '</div>';
+      if (r.status === 'Rejected') h += '<div class="small muted" style="margin-top:6px">Closed. Nothing was added to Canvas.</div>';
+      return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + metricLine(r) + '</div>';
+    }
+    var row = function (label, input) { return '<label class="small" style="display:grid;grid-template-columns:92px 1fr;align-items:center;gap:8px;margin-top:6px"><span class="muted">' + label + '</span><span>' + input + '</span></label>'; };
+    var proj = T.project_id && !(T.choices || []).length ? '<b>' + esc(T.project) + '</b> <span class="muted">' + esc(T.project_id) + '</span><input type="hidden"' + f('project_id') + ' value="' + esc(T.project_id) + '">'
+      : (T.choices || []).length ? '<select' + f('project_id') + '>' + T.choices.map(function (p) { return '<option value="' + esc(p.project_id) + '"' + (p.project_id === T.project_id ? ' selected' : '') + '>'
+          + esc(p.name + (p.account ? ' · ' + p.account : '') + (p.date ? ' · ' + p.date : '')) + '</option>'; }).join('') + '</select>'
+      : '<input type="text"' + f('project') + ' value="' + esc(T.asked_project) + '" placeholder="Project name or S- id">';
+    h += row('Project', proj)
+      + row('Type', '<select' + f('type') + '>' + (T.types || ['Task', 'Issue', 'Risk']).map(function (x) { return '<option' + (x === T.type ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>')
+      + row('Description', '<input type="text"' + f('description') + ' value="' + esc(T.description) + '" style="width:100%">')
+      + row('Due', '<input type="date"' + f('due') + ' value="' + esc(T.due) + '">' + (T.due_raw ? ' <span class="tag flag">couldn\'t read "' + esc(T.due_raw) + '"</span>' : ''))
+      + row('Assigned to', '<input type="text"' + f('assigned') + ' value="' + esc(T.assigned) + '" placeholder="Optional">');
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    return h + '<div class="actions"><button class="btn" data-act="approve-tri" data-id="' + id + '">Approve and add to Canvas</button><button class="btn bad" data-act="reject" data-id="' + id + '">Close</button></div>'
+      + '<div class="small muted">Nothing is added to Canvas until you approve. A row with the same description already in the project is not added twice.</div>' + metricLine(r) + '</div>';
+  }
   function workflowCardHtml(r) {
     var W = r.workflow || {}, m = W.map, waiting = r.status === 'Needs you';
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Workflow map</div><b style="font-size:17px;color:var(--white)">' + esc((m && m.name) || W.name || 'Workflow') + '</b>';
@@ -2558,6 +2600,7 @@
     if (r.kind === 'memory' || r.kind === 'process') return teachCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
+    if (r.kind === 'tri') return triCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
@@ -2865,6 +2908,10 @@
         if (act === 'rfq-send' || act === 'rfq-draft' || act === 'rfq-cancel') { var ri = Number(b.getAttribute('data-i'));
           return call('cueRfq', [id, ri, act.slice(4), rfqEditOf(id, ri, scope)], function () { delete rqEdit[id + '|' + ri]; done(); }, fail); }
         if (act === 'approve-workflow') return call('cueApprove', [id, {}], done, fail);
+        if (act === 'approve-tri') {   // CUE-TRI: the card's fields, as Kiko left them
+          var te = {}; scope.querySelectorAll('[data-tri="' + id + '"]').forEach(function (x) { te[x.getAttribute('data-f')] = x.value; });
+          return call('cueApprove', [id, te], done, fail);
+        }
         if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'approve-personal') {
           var items = {};

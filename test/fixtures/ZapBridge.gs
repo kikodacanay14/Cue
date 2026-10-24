@@ -257,13 +257,42 @@ const ZB_ACTIONS_ = {
         unit_cost: { type: 'number', required: true, min: 0 }, was: { type: 'number', min: 0 } } } },
     run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : zbCeUpdateCosts_(r.project_id, r.args.lines); }
   },
+  status_digest: {
+    // CUE-STATUS-2026-10-22 (Kiko 15:56Z approved specs/status-reports.md). Cue's Monday digest and client updates: per active
+    // project (For Production Start or later, event no more than past_days ago; or the project_ids asked for), its open tasks,
+    // issues and risks (TRI Tracker), scope completion, CE vs payment requests, billings past due, the main client contact, and
+    // the project's supplier names (so Cue keeps them out of client emails). Read only.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 10 }, past_days: { type: 'number', min: 0 } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return zbStatusDigest_(ids, r.args.past_days == null ? 7 : Math.min(r.args.past_days, 60));
+    }
+  },
+  add_tri_items: {
+    // CUE-STATUS-2026-10-22: the tasks, issues and risks Kiko approved on Cue's status cards, added to TRI Tracker › TRI the
+    // way the Canvas page adds one (saveProjectRow), then read back. A row with the same description already in the project
+    // is left as it is and reported, so a retry adds nothing twice. Never edits or deletes an existing row.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+      items: { type: 'array', required: true, minItems: 1, maxItems: 20, items: {
+        key: { type: 'string', required: true, re: /^[A-Za-z0-9_-]{1,20}$/ },
+        type: { type: 'string', required: true, oneOf: ['Task', 'Issue', 'Risk'] },
+        description: { type: 'string', required: true, nonBlank: true, max: 1000 },
+        assigned_to: { type: 'string', max: 200 }, deadline: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ },
+        likelihood: { type: 'string', max: 40 }, impact: { type: 'string', max: 40 },
+        mitigation: { type: 'string', max: 1000 }, action_items: { type: 'string', max: 1000 } } } },
+    run: (r) => { const x = zbProject_(r); return x.error ? { ok: false, error: x.error } : zbAddTri_(r.project_id, r.args.items); }
+  },
   get_readiness: {
     // CUE-2026-10-21 (Kiko 07:32Z approved specs/project-readiness.md). The project's readiness checklist exactly as the
     // Checklist tab computes it (getChecklist: Canvas's own rules, counts and auto checks), for Cue's readiness card.
     // Read only: no item, review, exception or gate approval is written. gate 'auto' (default) = Closeout once the event
     // date has passed or the project is in Closure; Pre-Event Readiness before that.
-    kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] } },
-    run: (r) => zbReadiness_(r.project_id, r.args.gate || 'auto')
+    kind: 'read', needsProject: true, schema: { gate: { type: 'string', oneOf: ['auto', 'pre', 'close'] },
+      max_age_minutes: { type: 'number', min: 1, max: 360 } },
+    run: (r) => zbRdCached_(r.project_id, r.args.gate || 'auto', r.args.max_age_minutes)   // GPT-READINESS-CACHE-2026-10-23
   },
   supplier_lookup: {
     // CUE-VENDOR-2026-10-21 (Kiko 07:54Z approved specs/vendor-management.md). Cue's "Find, compare or assess suppliers":
@@ -578,14 +607,195 @@ const ZB_ACTIONS_ = {
 // caller reaches no Canvas code at all: not even the save stopwatch or the open-cache bump guestGate_ does.
 function zapBridge(raw, sig) {
   if (String(Session.getActiveUser().getEmail() || '')) throw new Error('This is only for the Zapier adapter.');
-  return JSON.stringify(zbHandle_(String(raw || ''), String(sig || ''), Date.now()));
+  const s = String(sig || '');   // GPT-DOOR-2026-10-23: no signature = a ChatGPT call, checked by its key instead
+  return JSON.stringify(s ? zbHandle_(String(raw || ''), s, Date.now(), false) : zbGptDoor_(String(raw || ''), Date.now()));
 }
 
-function zbHandle_(raw, sig, now) {
+/* GPT-DOOR-2026-10-23 (Kiko 05:26Z "Let chatgpt access and edit the backend"). A custom GPT Action can't compute the HMAC or a
+ * plan's payload hashes, so it sends the ChatGPT key (Admin > System Config > API keys, GPT_DOOR_KEY) in the body instead.
+ * Only ZB_GPT_ACTIONS_ are open. Everything after the key check is the same bridge path as Cue's: strict arguments, the
+ * bridge identity's role checks, the ledger, replays. Each write gets a one-command plan the door claims itself, keyed by
+ * its command_id, so a repeat with the same payload replays and a changed payload under the same command_id is refused. */
+const ZB_GPT_ACTIONS_ = ['search_projects', 'get_project', 'find_similar_projects', 'canvas_link', 'list_project_files',
+  'ce_lines', 'ce_update_costs', 'add_requirement_lines', 'save_ce_requirements',
+  'make_project_folders', 'intake_add_project', 'intake_add_lines', 'intake_save_costs', 'intake_remove',
+  'expense_evidence', 'expense_add', 'expense_edit', 'save_project_file'];   // GPT-EXPENSES-2026-10-23
+ZB_GPT_ACTIONS_.push('get_readiness', 'status_digest', 'gpt_guide');   // GPT-READINESS-2026-10-23 (Kiko 06:55Z): Cue's read-only readiness + digest
+/* GPT-GUIDE-2026-10-23 (Kiko 07:33Z "Build": stop re-pasting the GPT's instructions). The GPT's skills are text files in Drive
+ * folder "_ChatGPT Guide" (Accounts): 00-index.md plus one <part>.md per skill (instructions + reference). gpt_guide returns one
+ * of them; when two files share a name the newest wins, so a skill is updated by uploading a new file. Read only. Script
+ * Property GPT_GUIDE_FOLDER_ID overrides the folder. The pasted GPT prompt keeps the hard rules; the guide never loosens them. */
+const ZB_GPT_GUIDE_FOLDER_ = '1TtvYNx6zoxWEK1WuAbIIOavBTzceImwj', ZB_GPT_GUIDE_MAX_ = 60000;
+ZB_ACTIONS_.gpt_guide = {
+  kind: 'read', needsProject: false, schema: { part: { type: 'string', re: /^[a-z0-9-]{1,40}$/ } },
+  run: (r) => zbGptGuide_(r.args.part || 'index')
+};
+function zbGptGuide_(part) {
+  const id = String(PropertiesService.getScriptProperties().getProperty('GPT_GUIDE_FOLDER_ID') || ZB_GPT_GUIDE_FOLDER_);
+  const it = DriveApp.getFolderById(id).getFiles(), best = {};
+  while (it.hasNext()) {
+    const f = it.next(), m = String(f.getName()).match(/^(?:\d+-)?([a-z0-9-]+)\.(?:md|txt)$/i);
+    if (!m || f.isTrashed()) continue;
+    const k = m[1].toLowerCase(), t = f.getLastUpdated().getTime();
+    if (!best[k] || t > best[k].t) best[k] = { f, t };
+  }
+  const parts = Object.keys(best).filter(k => k !== 'index').sort(), b = best[part];
+  if (!b) throw new Error('no guide part "' + part + '"; parts: ' + (parts.join(', ') || 'none'));
+  const text = b.f.getBlob().getDataAsString('UTF-8');
+  return { part, parts, updated: new Date(b.t).toISOString(), text: text.slice(0, ZB_GPT_GUIDE_MAX_), cut: text.length > ZB_GPT_GUIDE_MAX_ };
+}
+const ZB_GPT_KEYS_ = ['key', 'command_id', 'task_id', 'action', 'project_id', 'expected_project_number', 'args', 'openaiFileIdRefs'];
+const ZB_GPT_LOG_TAB_ = '_ChatGPT Door Log';
+const ZB_GPT_LOG_HEAD_ = ['Time', 'Action', 'Project ID', 'Command ID', 'Status', 'OK', 'Record IDs', 'Drive links', 'Error'];
+function zbGptDoor_(raw, now) {   // every call is logged, refusals too (a bad key is logged without the key)
+  const seen = {}, out = zbGptDoorRun_(raw, now, seen);
+  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, seen.task);
+  return out;
+}
+function zbGptDoorRun_(raw, now, seen) {
+  let r; try { r = JSON.parse(raw); } catch (e) { return zbOut_('Rejected', {}, { error: 'body is not JSON' }); }
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return zbOut_('Rejected', {}, { error: 'body must be a JSON object' });
+  seen.action = r.action;
+  const secret = String(PropertiesService.getScriptProperties().getProperty('GPT_DOOR_KEY') || '');
+  if (secret.length < 24) return zbOut_('Rejected', {}, { error: 'The ChatGPT door is off. Kiko saves a ChatGPT key in Admin > System Config > API keys.' });
+  if (typeof r.key !== 'string' || !zbSafeEq_(zbHash_(r.key), zbHash_(secret))) return zbOut_('Rejected', {}, { error: 'bad key' });
+  const extra = Object.keys(r).filter(k => ZB_GPT_KEYS_.indexOf(k) < 0);
+  if (extra.length) return zbOut_('Rejected', r, { error: 'unexpected field: ' + extra[0].slice(0, 40) });
+  if (ZB_GPT_ACTIONS_.indexOf(String(r.action)) < 0) return zbOut_('Rejected', r, { error: 'this action is not open to ChatGPT' });
+  const fbad = zbGptFiles_(r); if (fbad) return zbOut_('Rejected', r, { error: fbad });
+  const cid = r.command_id == null || r.command_id === '' ? 'gpt-' + Utilities.getUuid() : String(r.command_id);
+  // task_id is ChatGPT's own grouping and only labels the log row; each write gets its own plan under 'gpt:' + command_id.
+  const q = { command_id: cid, task_id: 'gpt:' + cid, action: r.action, args: r.args == null ? {} : r.args };
+  if (r.project_id) q.project_id = r.project_id;
+  if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
+  seen.q = q; seen.task = r.task_id;
+  return zbHandle_(JSON.stringify(q), '', now, true);
+}
+// One row per ChatGPT call in the ledger book (tab _ChatGPT Door Log), for the read-only write check. Never blocks the answer.
+function zbGptLog_(q, out, task) {
+  try {
+    const id = PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID'); if (!id) return;
+    const ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(ZB_GPT_LOG_TAB_) || ss.insertSheet(ZB_GPT_LOG_TAB_);
+    if (sh.getLastRow() === 0) sh.appendRow(ZB_GPT_LOG_HEAD_);
+    const t = JSON.stringify([out.result, out.steps, out.evidence]) || '', uniq = a => a.filter((x, i) => a.indexOf(x) === i);
+    const ids = uniq(t.match(/\b(REQ\d{2}-[\w-]+|SCP\d{2}-[\w-]+|S-\d{3,12}[A-Z0-9]{2}|AP-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-\d{1,4}|ENT-\d{2,}-\d{2,}-\d{1,4})\b/g) || []);
+    const links = uniq(t.match(/https:\/\/(drive|docs)\.google\.com\/[^"\s\\]+/g) || []);
+    const cell = v => { const s = String(v == null ? '' : v).slice(0, 5000); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // never a formula
+    sh.appendRow([new Date(), q.action, q.project_id || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
+      ids.join(', '), links.join(' '), out.error || ''].map((v, i) => i === 0 ? v : cell(v)));
+  } catch (e) { /* the log never fails the call */ }
+}
+// The one-command plan for a ChatGPT write, claimed through the normal claim_plan path. null = claimed (or already claimed).
+function zbGptPlan_(r, now) {
+  const body = zbPayloadHash_(r);
+  const out = zbWrite_({ command_id: 'plan:' + r.task_id, task_id: r.task_id, action: 'claim_plan', args: { plan_hash: zbHash_(body),
+    commands: [{ command_id: r.command_id, payload_hash: body }] } }, ZB_ACTIONS_.claim_plan, now);
+  if (out.status === 'Completed' || (out.status === 'Replayed' && out.original_status === 'Completed')) return null;
+  return zbOut_(out.status === 'Rejected' ? 'Rejected' : 'Blocked', r, { error: 'plan: ' + (out.error || out.status) });
+}
+
+/* GPT-EXPENSES-2026-10-23 (Kiko 05:47Z: "allow chatgpt to add, modify project expenses thru the backend and attach screenshots
+ * of images - proof of transfer, receipt, and other files"). Files: in args, {file: "<name of a file Kiko attached in the chat>"}
+ * or {drive_url: "<Drive link>"} stands for one file. The door fetches it (openaiFileIdRefs' download_link, or the Drive file as
+ * this script's owner) and puts {name, mime, data} in its place, so the action gets the file the way Cue sends it. */
+const ZB_GPT_MAX_FILE_ = 10 * 1024 * 1024;   // saveProjectFile_'s limit (QUOTE_MAX_BYTES_)
+function zbGptFiles_(r) {
+  const a = r.args, refs = r.openaiFileIdRefs == null ? [] : r.openaiFileIdRefs;
+  if (!Array.isArray(refs)) return 'openaiFileIdRefs must be a list';
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return '';
+  const slots = [a].concat(Array.isArray(a.files) ? a.files.filter(f => f && typeof f === 'object' && !Array.isArray(f)) : []);
+  for (const o of slots) {
+    if (!zbOwn_(o, 'file') && !zbOwn_(o, 'drive_url')) continue;
+    let got;
+    try { got = zbOwn_(o, 'file') ? zbGptFetchRef_(String(o.file || ''), refs) : zbGptFetchDrive_(String(o.drive_url || '')); }
+    catch (e) { return zbErr_(e); }
+    if (got.bytes.length > ZB_GPT_MAX_FILE_) return '"' + got.name.slice(0, 80) + '" is over 10 MB. Save it to Drive and send its link instead.';
+    delete o.file; delete o.drive_url;
+    o.name = String(o.name || got.name).slice(0, 150); o.mime = got.mime; o.data = Utilities.base64Encode(got.bytes);
+  }
+  return '';
+}
+const zbGptMime_ = m => { m = String(m || '').toLowerCase().split(';')[0].trim(); return m === 'image/jpg' ? 'image/jpeg' : m; };
+function zbGptFetchRef_(name, refs) {
+  const hit = refs.filter(x => x && typeof x === 'object' && (String(x.name || '') === name || String(x.id || '') === name));
+  if (!name || !hit.length) throw new Error('No attached file named "' + name.slice(0, 80) + '". Attach it in the chat and send its exact name.');
+  const ref = hit[0], url = String(ref.download_link || '');
+  if (!/^https:\/\//i.test(url)) throw new Error('"' + name.slice(0, 80) + '" came with no download link. Attach it again.');
+  const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+  if (res.getResponseCode() !== 200) throw new Error('Could not download "' + name.slice(0, 80) + '" (' + res.getResponseCode() + '). Attach it again.');
+  const blob = res.getBlob();
+  return { name: String(ref.name || name), mime: zbGptMime_(ref.mime_type || blob.getContentType()), bytes: blob.getBytes() };
+}
+function zbGptFetchDrive_(url) {
+  const m = url.match(/\/d\/([\w-]{20,})/) || url.match(/[?&]id=([\w-]{20,})/) || url.match(/^([\w-]{20,})$/);
+  if (!m) throw new Error('That is not a Drive file link.');
+  let f; try { f = DriveApp.getFileById(m[1]); f.getName(); } catch (e) { throw new Error('Canvas can\'t open that Drive file. Share it with info@blankspaceevent.com.'); }
+  const blob = f.getBlob();
+  return { name: f.getName(), mime: zbGptMime_(f.getMimeType()), bytes: blob.getBytes() };
+}
+// A Canvas refusal ("... Nothing was saved.") saved nothing, so the door reports it Rejected; anything else stays an error.
+function zbGptRefusal_(e) { const m = zbErr_(e); if (/Nothing was saved\.?\s*$/.test(m)) return { refused: m }; throw e; }
+
+// expense_add: Cue's record_expense under the ledger. request_id is the command's own, so AiExpense.gs's step memory and the
+// ledger agree. A retry of a Partial save puts the steps that landed back into that memory first, so it never redoes them.
+ZB_ACTIONS_.expense_add = {
+  kind: 'write', needsProject: true, resumable: true,
+  schema: { plan: ZB_ACTIONS_.record_expense.schema.plan, files: ZB_ACTIONS_.record_expense.schema.files },
+  run: (r, proj, prior) => {
+    const rid = 'gpt-' + String(r.command_id).replace(/[^A-Za-z0-9:_-]/g, '').slice(0, 70);
+    const steps = prior && typeof prior === 'object' && !Array.isArray(prior) ? prior : null;
+    if (steps) { const key = 'cx_' + rid.replace(/[^\w-]/g, '').slice(0, 60), cache = CacheService.getScriptCache();
+      if (!cache.get(key)) { const ok = {}; Object.keys(steps).forEach(k => { if (steps[k] && steps[k].ok) ok[k] = steps[k]; });
+        cache.put(key, JSON.stringify({ steps: ok }), 21600); } }
+    return ZB_ACTIONS_.record_expense.run(Object.assign({}, r, { args: { request_id: rid, plan: r.args.plan, files: r.args.files || [] } }));
+  },
+  check: (r, res) => {
+    if (!res || res.ok === false) return { ok: false, rejected: true, error: String((res && res.error) || 'refused') };
+    if (res.recorded) return { ok: true };
+    const wrote = Object.keys(res.steps || {}).some(k => k !== 'check' && res.steps[k] && res.steps[k].ok);
+    return wrote ? { ok: false, partial: true, steps: res.steps, error: 'stopped at ' + res.stopped_at + ': ' + (res.error || '') }
+      : { ok: false, rejected: true, error: String(res.error || 'refused') };
+  }
+};
+// expense_edit: Canvas's Edit request (editPaymentRequest): unpaid requests only, and each change carries the value it replaces.
+const ZB_GPT_EDIT_ = { amount: 'amount', cost_type: 'cost type', expense_type: 'expense type', payee: 'payee', payment_stage: 'payment stage',
+  payment_date_required: 'payment date required', supplier_quotation: 'supplier quotation' };
+const zbFromTo_ = (t) => ({ type: 'object', fields: { from: { type: t, max: 500 }, to: { type: t, required: true, max: 500 } } });
+ZB_ACTIONS_.expense_edit = {
+  kind: 'write', needsProject: true,
+  schema: { request_id: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ }, scope_id: { type: 'string', required: true, re: /^SCP\d{2}-\d{3,}-\d{2,}$/ },
+    changes: { type: 'object', required: true, minKeys: 1, fields: { amount: { type: 'object', fields: { from: { type: 'number' }, to: { type: 'number', required: true, positive: true } } },
+      cost_type: zbFromTo_('string'), expense_type: zbFromTo_('string'), payee: zbFromTo_('string'), payment_stage: zbFromTo_('string'),
+      payment_date_required: zbFromTo_('string'), supplier_quotation: zbFromTo_('string') } } },
+  run: (r) => {
+    const ch = {}, a = r.args, cols = Object.keys(ZB_GPT_EDIT_).map(k => ZB_GPT_EDIT_[k]);
+    const row = () => { const P = table_(SRC.SCOPES, 'Payment Request');
+      return objects_(P, ['request id', 'scope id'].concat(cols), x => norm_(x[col_(P, 'request id')]) === norm_(a.request_id) && String(x[col_(P, 'scope id')]).trim() === a.scope_id)[0] || {}; };
+    // A change sent without its was-value takes the value Canvas holds now (the page does the same from what it loaded).
+    const was = row();
+    Object.keys(a.changes).forEach(k => { const c = a.changes[k], h = ZB_GPT_EDIT_[k];
+      ch[h] = { from: c.from != null ? c.from : String(was[h] == null ? '' : was[h]), to: c.to }; });
+    if (!Object.keys(ch).length) return { refused: 'Nothing to change. Nothing was saved.' };
+    let out; try { out = editPaymentRequest(r.project_id, a.scope_id, a.request_id, ch); } catch (e) { return zbGptRefusal_(e); }
+    const now = row();
+    return { saved: true, request_id: a.request_id, scope_id: a.scope_id, skipped: (out && out.skipped) || [],
+      was: Object.keys(a.changes).reduce((o, k) => { o[k] = ch[ZB_GPT_EDIT_[k]].from; return o; }, {}),
+      now: { amount: num_(now.amount), cost_type: now['cost type'] || '', expense_type: now['expense type'] || '', payee: now.payee || '', payment_stage: now['payment stage'] || '' } };
+  },
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const c = r.args.changes, n = (res && res.now) || {}, off = [];
+    if (c.amount && Math.abs(Number(n.amount) - c.amount.to) > 0.005) off.push('amount reads ' + n.amount);
+    ['cost_type', 'expense_type', 'payee', 'payment_stage'].forEach(k => { if (c[k] && String(n[k]).trim() !== String(c[k].to).trim() && (res.skipped || []).indexOf(ZB_GPT_EDIT_[k]) < 0) off.push(k + ' reads ' + n[k]); });
+    return off.length ? { ok: false, error: 'read back differs: ' + off.join('; ') } : { ok: true };
+  }
+};
+
+function zbHandle_(raw, sig, now, gpt) {
   let r; try { r = JSON.parse(raw); } catch (e) { return zbOut_('Rejected', {}, { error: 'body is not JSON' }); }
   if (!r || typeof r !== 'object' || Array.isArray(r)) return zbOut_('Rejected', {}, { error: 'body must be a JSON object' });
   const props = PropertiesService.getScriptProperties();
-  const auth = zbAuth_(raw, sig, r, now, props.getProperty('ZAD_SECRET'));
+  const auth = gpt ? '' : zbAuth_(raw, sig, r, now, props.getProperty('ZAD_SECRET'));   // a ChatGPT call was checked by its key
   if (auth) return zbOut_('Rejected', r, { error: auth });
   try { guestGate_('zapBridge', []); } catch (e) { return zbOut_('Blocked', r, { error: zbErr_(e) }); }
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);   // no 'constructor', '__proto__'
@@ -603,6 +813,7 @@ function zbHandle_(raw, sig, now) {
   try {
     // Exactly Manager: not Business Lead (more than the bridge needs) and not Accountant (acctRole_ maps it to Business Lead).
     if (roleOf_(actAs) !== 'Manager' || !hasFullAccess_()) return zbOut_('Blocked', r, { error: 'adapter identity must be a Manager row in Settings > Users' });
+    if (gpt && a.kind === 'write' && !a.plan) { const pl = zbGptPlan_(r, now); if (pl) return pl; }
     return a.kind === 'read' ? zbRead_(r, a) : a.kind === 'queue' ? zbQueue_(r, a) : zbWrite_(r, a, now);
   } catch (e) {
     return zbOut_('Blocked', r, { error: zbErr_(e) });
@@ -734,6 +945,115 @@ function zbCeUpdateCosts_(pid, list) {
   return { ok: true, saved: out.filter(x => x.ok && x.before !== x.after).length, lines: out, ce_no: now.ce_no };
 }
 
+/* ---------- CUE-STATUS-2026-10-22: status digest and approved TRI items ---------- */
+const ZB_ST_MAX_ = { projects: 25, items: 15 };
+const ZB_ST_PHASES_ = ['Execution', 'Closure'];                     // For Production Start or later, not Completed
+const ZB_ST_SCOPE_OFF_ = /cancel|not awarded|dropped|removed|void/i, ZB_ST_SCOPE_DONE_ = /done|complete|closed|liquidat/i;
+const ZB_ST_MAIN_RE_ = /main|primary|point|poc|project|event|lead|owner|head|manager/i;
+function zbStatusDigest_(ids, past) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const from = Utilities.formatDate(new Date(Date.parse(today + 'T12:00:00Z') - past * 864e5), 'UTC', 'yyyy-MM-dd');
+  const want = {}; ids.forEach(x => { want[x] = 1; });
+  let own = []; try { own = sysOwnKeys_(); } catch (e) { own = []; }
+  const ownKey = a => String(a || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const seen = {}, list = [];
+  getProjectsAll_().forEach(p => {
+    const id = String(p.id || '').trim(); if (!id || /^#/.test(id) || seen[id]) return; seen[id] = 1;
+    const date = aifIso_(p.date);
+    if (ids.length) { if (!want[id]) return; }
+    else if (ZB_ST_PHASES_.indexOf(phaseOfStatus_(p.status)) < 0 || own.indexOf(ownKey(p.account)) >= 0 || (date && date < from)) return;
+    list.push({ id, name: String(p.name || '').slice(0, 200), account: String(p.account || '').slice(0, 200), status: String(p.status || ''), date,
+      contact: null, tri: { open: 0, closed: 0, overdue: [], risks: [], issues: [], tasks: [] }, scope: { done: 0, total: 0 }, money: null, suppliers: [], overdue_bills: [] });
+  });
+  list.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const keep = list.slice(0, ZB_ST_MAX_.projects), by = {}, missing = [];
+  keep.forEach(p => { by[p.id] = p; });
+  if (!keep.length) return { today, from, projects: [], more: 0, missing };
+  const txt = (v, n) => zbPayTxt_(v).slice(0, n || 300);
+  // TRI Tracker › TRI: open and closed counts; open items with their deadline (late ones first).
+  try {
+    objects_(table_(SRC.TRI, 'TRI'), ['project id', 'id', 'type', 'description', 'assigned to', 'deadline', 'status', 'likelihood', 'impact']).forEach(t => {
+      const p = by[String(t['project id'] || '').trim()]; if (!p || !String(t.description || '').trim()) return;
+      if (CKC_OPEN_RE_.test(String(t.status || ''))) { p.tri.closed++; return; }
+      p.tri.open++;
+      const type = /risk/i.test(t.type) ? 'Risk' : /issue/i.test(t.type) ? 'Issue' : 'Task', due = aifIso_(t.deadline);
+      const it = { id: txt(t.id, 20), type, description: txt(t.description, 300), assigned_to: txt(t['assigned to'], 120), deadline: due,
+        status: txt(t.status, 40) || 'Open', likelihood: txt(t.likelihood, 40), impact: txt(t.impact, 40), late: !!due && due < today };
+      if (it.late) p.tri.overdue.push(it);
+      (type === 'Risk' ? p.tri.risks : type === 'Issue' ? p.tri.issues : p.tri.tasks).push(it);
+    });
+    keep.forEach(p => { ['overdue', 'risks', 'issues', 'tasks'].forEach(k => {
+      p.tri[k].sort((a, b) => (b.late - a.late) || (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+      p.tri[k + '_n'] = p.tri[k].length; p.tri[k] = p.tri[k].slice(0, ZB_ST_MAX_.items); }); });
+  } catch (e) { missing.push('TRI Tracker: ' + zbErr_(e)); }
+  // Scope completion (Scope Categories): cancelled scopes do not count.
+  try {
+    objects_(table_(SRC.SCOPES, 'Scope Categories'), ['event id', 'status']).forEach(x => {
+      const p = by[String(x['event id'] || '').trim()]; if (!p || ZB_ST_SCOPE_OFF_.test(String(x.status || ''))) return;
+      p.scope.total++; if (ZB_ST_SCOPE_DONE_.test(String(x.status || ''))) p.scope.done++;
+    });
+  } catch (e) { missing.push('Scope Categories: ' + zbErr_(e)); }
+  // CE vs payment requests, billed and collected (the CFO Advisor's own read).
+  try {
+    const f = aiFinanceSnapshot_({ project_ids: keep.map(p => p.id) });
+    (f.missing || []).forEach(m => missing.push(String(m).slice(0, 200)));
+    (f.projects || []).forEach(x => { const p = by[x.id]; if (!p) return;
+      const sum = (a, k) => Math.round((a || []).reduce((s, o) => s + (Number(o[k]) || 0), 0) * 100) / 100;
+      p.money = { ce_no: x.ce ? x.ce.ce_no : '', ce_cost: x.ce ? x.ce.cost : null, ce_total: x.ce ? x.ce.total : null,
+        requested: sum(x.costs, 'amount'), paid: sum(x.costs, 'paid'), billed: sum(x.billed, 'amount'), collected: sum(x.collected, 'net') };
+      // Supplier names, so Cue can keep them out of client emails.
+      p.suppliers = (x.costs || []).map(c => String(c.supplier || '').trim()).filter((n, i, a) => n && a.indexOf(n) === i).slice(0, 30); });
+  } catch (e) { missing.push('money: ' + zbErr_(e)); }
+  // Client billings past due and not fully collected (Finance Desk's rule, as in overdue_billings).
+  try {
+    zbPayBills_(today).forEach(b => { const p = by[b.pid];
+      if (p && b.days_late != null && b.days_late > 0 && b.balance != null && b.balance > 0.005)
+        p.overdue_bills.push({ no: b.no, balance: b.balance, due: b.due, days_late: b.days_late }); });
+  } catch (e) { missing.push('billings: ' + zbErr_(e)); }
+  // The main client contact: a project contact (main or primary first), else the account's Client Desk contact.
+  try {
+    const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
+    const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
+    const ok = e => ZB_PAY_EMAIL_RE_.test(e) && !ZB_PAY_OWN_RE_.test(e);
+    const proj = (P.missing ? [] : P.rows).map(r => ({ pid: g(P, r, 'project id'), name: g(P, r, 'contact name'), role: g(P, r, 'role / title'), email: g(P, r, 'email').toLowerCase() })).filter(c => ok(c.email));
+    const co = (K.missing ? [] : K.rows).map(r => ({ company: norm_(g(K, r, 'company')), name: g(K, r, 'contact name'), email: g(K, r, 'email address').toLowerCase(),
+      role: [g(K, r, 'position / title'), g(K, r, 'relationship'), g(K, r, 'role group')].join(' '), gone: !!g(K, r, 'exception date') || g(K, r, 'email / contact status') === CD.bounced }))
+      .filter(c => !c.gone && ok(c.email));
+    const best = a => a.filter(c => ZB_ST_MAIN_RE_.test(c.role))[0] || a[0] || null;
+    keep.forEach(p => {
+      const pc = best(proj.filter(c => c.pid === p.id)), cc = pc ? null : best(co.filter(c => c.company && c.company === norm_(p.account)));
+      const c = pc || cc;
+      p.contact = c ? { name: c.name.slice(0, 120), email: c.email, role: c.role.slice(0, 120), source: pc ? 'project contacts' : 'Client Desk' } : null;
+    });
+  } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
+  return { today, from, projects: keep, more: list.length - keep.length, missing: missing.slice(0, 10) };
+}
+
+/** Adds the approved TRI items (type, description, assignee, deadline...) and reads them back. One saveProjectRow per item. */
+function zbAddTri_(pid, items) {
+  const iso2mdy = d => { const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : ''; };
+  const rows = () => objects_(table_(SRC.TRI, 'TRI'), ['project id', 'id', 'type', 'description'], by_(table_(SRC.TRI, 'TRI'), 'project id', pid));
+  const have = {}; rows().forEach(t => { have[norm_(t.description)] = String(t.id || ''); });
+  const out = [];
+  items.forEach(o => {
+    const k = norm_(o.description);
+    if (have[k] != null) { out.push({ key: o.key, ok: true, id: have[k], why: 'already in Canvas' }); return; }
+    const v = { type: o.type, description: String(o.description).trim() };
+    if (o.assigned_to) v['assigned to'] = o.assigned_to;
+    if (o.deadline) v.deadline = iso2mdy(o.deadline);
+    if (o.likelihood) v.likelihood = o.likelihood;
+    if (o.impact) v.impact = o.impact;
+    if (o.mitigation) v.mitigation = o.mitigation;
+    if (o.action_items) v['action items'] = o.action_items;
+    try { saveProjectRow('tri', pid, { values: v }); out.push({ key: o.key, ok: false, want: k }); have[k] = ''; }
+    catch (e) { out.push({ key: o.key, ok: false, why: zbErr_(e) }); }
+  });
+  const back = {}; rows().forEach(t => { back[norm_(t.description)] = String(t.id || ''); });
+  out.forEach(x => { if (x.want == null) return;
+    x.id = back[x.want] || ''; x.ok = !!x.id; if (!x.ok) x.why = 'Canvas did not keep the row'; delete x.want; });
+  return { ok: true, added: out.filter(x => x.ok && !x.why).length, items: out };
+}
+
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
   if (!list.length) return b;
@@ -783,6 +1103,25 @@ function zbReadiness_(pid, want) {
     ready: !!ev.ready, unchecked_items: (ev.uncheckedItems || []).slice(0, 20).map(x => t(x, 300)),
     auto: (ev.auto || []).map(a => ({ key: t(a.key, 30), label: t(a.label, 120), open: (a.ids || []).length, items: (a.ids || []).slice(0, 10).map(x => t(x, 80)), error: t(a.error, 300) })),
     items: open };
+}
+
+/* GPT-READINESS-CACHE-2026-10-23. A full readiness run takes minutes and ChatGPT stops waiting after about one, but the call
+ * still finishes here. Each finished result is kept 6 hours (script cache, per project and gate); a result under 15 minutes
+ * old (or under max_age_minutes) is returned at once with as_of. Read only: no trigger, schedule or sheet write. */
+const ZB_RD_FRESH_MIN_ = 15, ZB_RD_TTL_ = 21600;
+const zbRdKey_ = (pid, gate) => 'gptrd:' + pid + ':' + gate;
+function zbRdCached_(pid, gate, maxAge) {
+  const lim = (maxAge || ZB_RD_FRESH_MIN_) * 60000;
+  let c = null; try { const s = CacheService.getScriptCache().get(zbRdKey_(pid, gate)); c = s ? JSON.parse(s) : null; } catch (e) { c = null; }
+  if (c && Date.now() - Date.parse(c.as_of) < lim)
+    return Object.assign(c, { cached: true, stale: Date.now() - Date.parse(c.as_of) >= ZB_RD_FRESH_MIN_ * 60000 });
+  const out = Object.assign(zbReadiness_(pid, gate), { as_of: new Date().toISOString(), cached: false });
+  try {
+    let s = JSON.stringify(out);
+    if (s.length > 95000) { const k = Object.assign({}, out, { items: (out.items || []).slice(0, 40), items_cut: true }); s = JSON.stringify(k); }
+    CacheService.getScriptCache().put(zbRdKey_(pid, gate), s, ZB_RD_TTL_);
+  } catch (e) { /* the cache never fails the answer */ }
+  return out;
 }
 
 /* ---------- payment chasers (CUE-2026-10-21, specs/payment-chasers.md) ---------- */
@@ -1187,7 +1526,7 @@ function zbWrite_(r, a, now) {
   }
   const c = a.check(r, res, claim.prior && claim.prior.steps);
   if (c.ok) return done('Completed', { result: c.steps ? { steps: c.steps } : res, steps: c.steps, evidence: c.evidence });
-  return done(c.partial ? 'Partial' : 'Uncertain', { result: c.steps ? { steps: c.steps } : res, steps: c.steps, error: c.error, evidence: c.evidence });
+  return done(c.rejected ? 'Rejected' : c.partial ? 'Partial' : 'Uncertain', { result: c.steps ? { steps: c.steps } : res, steps: c.steps, error: c.error, evidence: c.evidence });
 }
 
 // A repeat of a finished command: the stored original, never a fresh "Completed".
@@ -1301,3 +1640,121 @@ function cueHandoffTake(code) { guestGate_('cueHandoffTake', arguments);
   c.remove(k);
   return JSON.parse(raw);
 }
+
+/* GPT-CE-VERSION-2026-10-23 (Kiko 07:33Z: the CE as Canvas's own PDF in the BSE template, "already saved in Canvas as a version";
+ * 07:59Z "Fully in ChatGPT"). ce_save_version runs CE Desk's Save on the server (GptCe.gs): the CE is saved as a version in CE
+ * Desk, filed in "CE <client>" and the central CE tab, and its PDF (CE Desk's own layout and libraries) is saved to the project's
+ * Admin folder; the answer carries the PDF link. Kiko asked for the filing himself, so ZB_FORBIDDEN_.file_ce stays for Cue's
+ * signed calls only. The Active CE is never changed (a project's first version becomes Active, as in CE Desk). One call per
+ * Kiko "go"; not retried by itself, since each run makes a version. ce_versions lists the saved versions and their PDFs. */
+ZB_ACTIONS_.ce_save_version = {
+  kind: 'write', needsProject: true, retrySafe: false,
+  schema: { new_version: { type: 'boolean' }, ce_key: { type: 'string', re: /^[A-Za-z0-9_-]{1,60}$/ } },
+  run: (r) => { try {
+    if (String(r.task_id || '').indexOf('gpt:') !== 0) throw new Error('ce_save_version is only open to the ChatGPT door. Nothing was saved.');
+    return gceSaveVersion_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.ok ? { ok: true, evidence: { ce_no: res.ce_no, version: res.version, pdf_url: res.pdf ? res.pdf.url : '', filed_url: res.filed ? res.filed.url : '' } }
+    : { ok: false, error: 'the version save gave no answer' }
+};
+ZB_ACTIONS_.ce_versions = {
+  kind: 'read', needsProject: true, schema: {},
+  run: (r) => gceVersions_(r.project_id)
+};
+ZB_GPT_ACTIONS_.push('ce_save_version', 'ce_versions');
+// Sub-items ChatGPT adds become Scopes right away; the door also notes them so the next version save puts them on the CE.
+(function () {
+  const a = ZB_ACTIONS_.save_ce_requirements, run0 = a.run;
+  a.run = (r, proj, prior) => { const res = run0(r, proj, prior);
+    if (String(r.task_id || '').indexOf('gpt:') === 0 && r.args.subs) { try { gceNoteSubs_(r.project_id, r.args.subs, res); } catch (e) { /* never fails the save */ } }
+    return res; };
+})();
+
+/* GPT-GATE-PASS-2026-10-23 (Kiko 10:29Z: "Teach the skill to CanvasGPT - i intend to copy and paste details from suppliers - their
+ * names and equipment should be copied and pasted in the gate pass document"). Reads and saves the Gate Pass supplier rows that
+ * Project documents > Gate Pass > Generate edits (Code.gs GATE-PASS: Activity sheet > Gate Pass Suppliers). gate_pass_save
+ * changes only the suppliers it names (matched by name, any case and spacing) and keeps every other row. Same clean-up as
+ * Generate (gpText_ / gpList_: peso amounts taken out). A blank field keeps what is there. mode "add" keeps the lines already
+ * there and adds the new ones; "replace" (default) puts the sent text in place. It never makes the PDF: Generate in Canvas does,
+ * with these rows filled in. Completed projects are locked, as in Generate (projectDoneLock_). */
+const zbGpKey_ = s => String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase();
+// The project's awarded suppliers and their scopes, as the Generate window's dropdown and Scope prefill (gpAwarded / gpScopeOf).
+function zbGpAwarded_(pid) {
+  const E = table_(SRC.SCOPES, 'Supplier Entries'), S = table_(SRC.SCOPES, 'Scope Categories'), by = {}, sc = {};
+  const yes = v => ['true', 'yes', 'y', '1', '✓'].indexOf(norm_(v)) >= 0;
+  objects_(S, ['scope id', 'category', 'description'], by_(S, 'event id', pid))
+    .forEach(s => { sc[String(s['scope id'] || '').trim()] = String(s.category || s.description || '').trim(); });
+  objects_(E, ['supplier', 'scope id', 'awarded'], by_(E, 'event id', pid)).forEach(e => {
+    const n = String(e.supplier || '').trim().replace(/\s+/g, ' '); if (!n || !yes(e.awarded)) return;
+    const x = by[zbGpKey_(n)] || (by[zbGpKey_(n)] = { supplier: n, scopes: [] }), c = sc[String(e['scope id'] || '').trim()];
+    if (c && x.scopes.indexOf(c) < 0) x.scopes.push(c);
+  });
+  return Object.keys(by).map(k => ({ supplier: by[k].supplier, scope: by[k].scopes.join(', ') })).sort((a, b) => a.supplier.localeCompare(b.supplier));
+}
+function zbGpPdf_(pid) {
+  try { const D = table_(SRC.ADMIN, 'Directory'), row = D.rows.find(by_(D, 'project id', pid)), c = col_(D, 'gate pass');
+    const u = row && c >= 0 ? String(row[c] || '').trim() : ''; return /^https:\/\//.test(u) ? u : ''; } catch (e) { return ''; }
+}
+const ZB_GP_NOTE_ = 'The PDF is made in Canvas: Projects > the project > Project documents > Gate Pass > Generate. These supplier rows are already filled in there.';
+function zbGpRead_(pid) {
+  const rows = gpRows_(gpTab_(false)).filter(r => norm_(r[0]) === norm_(pid))
+    .map(r => ({ supplier: r[1], scope: r[2], names: r[3], equipment: r[4], updated: r[5], updated_by: r[6] }));
+  return { project_id: pid, suppliers: rows, awarded: zbGpAwarded_(pid), gate_pass_pdf: zbGpPdf_(pid), note: ZB_GP_NOTE_ };
+}
+function zbGpSave_(pid, lines) {
+  projectDoneLock_(pid);
+  const merge = (old, add) => { const have = old.split('\n').map(zbGpKey_);
+    return old.split('\n').concat(add.split('\n').filter(x => have.indexOf(zbGpKey_(x)) < 0)).filter(Boolean).join('\n'); };
+  let aw = null; const awScope = n => { aw = aw || zbGpAwarded_(pid); const h = aw.filter(a => zbGpKey_(a.supplier) === zbGpKey_(n))[0]; return h ? h.scope : ''; };
+  const saved = locked_(() => {
+    const sh = gpTab_(true), all = gpRows_(sh), n0 = all.length, touched = {}, out = [];
+    const who = me_() || 'chatgpt', at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+    lines.forEach(l => {
+      const name = gpText_(l.supplier, 120), add = l.mode === 'add';
+      if (!name) { out.push({ supplier: String(l.supplier).slice(0, 120), result: 'skipped', why: 'no supplier name left after taking out amounts' }); return; }
+      const sc = gpText_(l.scope, 300), nm = gpList_(l.names), eq = gpList_(l.equipment);
+      let i = all.findIndex(x => norm_(x[0]) === norm_(pid) && zbGpKey_(x[1]) === zbGpKey_(name));
+      const was = i >= 0 ? { scope: all[i][2], names: all[i][3], equipment: all[i][4] } : null;
+      if (i < 0) {
+        if (!nm && !eq) { out.push({ supplier: name, result: 'skipped', why: 'no names or equipment to save' }); return; }
+        all.push([pid, name, sc || awScope(name), '', '', '', '']); i = all.length - 1;
+      }
+      const r = all[i], before = r.slice(2, 5).join('\u0001');
+      if (sc) r[2] = sc;
+      if (nm) r[3] = add ? merge(r[3], nm).slice(0, 3000) : nm;
+      if (eq) r[4] = add ? merge(r[4], eq).slice(0, 3000) : eq;
+      const changed = !was || r.slice(2, 5).join('\u0001') !== before;
+      if (changed) { r[5] = at; r[6] = who; touched[i] = 1; }
+      out.push({ supplier: r[1], result: !was ? 'added' : changed ? 'updated' : 'unchanged', was, now: { scope: r[2], names: r[3], equipment: r[4] } });
+    });
+    Object.keys(touched).map(Number).forEach(i => sh.getRange(i + 2, 1, 1, GP_HEAD_.length).setValues([all[i].map(safe_)]));
+    return { out, n0 };
+  });
+  // Read back what the tab now holds for each supplier.
+  const now = gpRows_(gpTab_(false)).filter(r => norm_(r[0]) === norm_(pid));
+  saved.out.forEach(x => { if (!x.now) return;
+    const h = now.filter(r => zbGpKey_(r[1]) === zbGpKey_(x.supplier))[0];
+    x.readback = !!h && h[2] === x.now.scope && h[3] === x.now.names && h[4] === x.now.equipment; });
+  const done = saved.out.filter(x => x.result === 'added' || x.result === 'updated').map(x => x.supplier);
+  if (done.length) try { logEvent('Gate pass suppliers saved', 'Projects', pid + ': ' + done.join(', ') + ' (from ChatGPT)'); } catch (e) { /* logging never blocks */ }
+  return { project_id: pid, saved: saved.out, suppliers_on_gate_pass: now.length, gate_pass_pdf: zbGpPdf_(pid), note: ZB_GP_NOTE_ };
+}
+ZB_ACTIONS_.gate_pass = {
+  kind: 'read', needsProject: true, schema: {},
+  run: (r) => zbGpRead_(r.project_id)
+};
+ZB_ACTIONS_.gate_pass_save = {
+  // Safe to repeat: "replace" writes the same text again and "add" skips lines already there.
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { lines: { type: 'array', required: true, minItems: 1, maxItems: 60, items: {
+    supplier: { type: 'string', required: true, nonBlank: true, max: 200 }, scope: { type: 'string', max: 300 },
+    names: { type: 'string', max: 3000 }, equipment: { type: 'string', max: 3000 }, mode: { type: 'string', oneOf: ['replace', 'add'] } } } },
+  run: (r) => { try { return zbGpSave_(r.project_id, r.args.lines); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const off = ((res && res.saved) || []).filter(x => x.now && x.readback === false).map(x => x.supplier);
+    return off.length ? { ok: false, error: 'read back differs for: ' + off.join(', ') }
+      : { ok: true, evidence: { saved: ((res && res.saved) || []).map(x => x.supplier + ': ' + x.result) } };
+  }
+};
+ZB_GPT_ACTIONS_.push('gate_pass', 'gate_pass_save');
