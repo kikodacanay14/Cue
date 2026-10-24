@@ -75,7 +75,9 @@ function cueTodayFrom_(views, day) {
   // PC check 24 Oct 12:39Z: only the day's latest bid run counts. A redo lists only notices new since the run before it, and the
   // earlier run's new ones are in its Still open list, so an older card's "new" is never shown twice or after it was superseded.
   const lastBids = runs.filter(r => r.kind === 'bids').pop();
-  runs.filter(r => r.kind !== 'bids' || r === lastBids)
+  // PC recheck 24 Oct 14:22Z: each funnel run is a full snapshot, so only the day's latest one counts, as a row or a Done entry.
+  const lastFunnel = runs.filter(r => r.kind === 'funnel').pop();
+  runs.filter(r => (r.kind !== 'bids' || r === lastBids) && (r.kind !== 'funnel' || r === lastFunnel))
     .forEach(r => { const x = cueTodayRow_(Object.assign({}, r, { root: root(r.id) })); if (x.needs) rows.push.apply(rows, x.needs); else if (x.need) rows.push(x.need); else if (x.done) done.push(x); });
   // The chasers go first: their 9:00 send is the only one with a clock.
   rows.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));

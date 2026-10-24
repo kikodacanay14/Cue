@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.27.22: one funnel entry a day on the Today card (release branch, not deployed)
+
+PC recheck of 1.27.21, 24 Oct 14:22Z: passed. Follow-up (not a blocker): the Today card's Done line listed "sales funnel (…)" once
+per funnel run, two or three times a day.
+
+- Only the day's latest funnel run counts, as rows or a Done entry, the same way bid checks are handled.
+- Tests: 347 of 347 pass (FN3 checks three runs give one entry).
+
 ## Cue 1.27.21: the funnel's stage sections show they open (release branch, not deployed)
 
 PC check of 1.27.20 (test V61), 24 Oct 14:13Z: version, bars, totals, tasks, the Canvas Home rows and the earlier rows passed. The

@@ -1504,6 +1504,11 @@ test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) poin
   assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
   assert.strictEqual(t.state(id).status, 'Closed', 'the older snapshot closes'); assert.strictEqual(t.state(id2).status, 'Needs you');
+  // PC recheck 14:22Z: the Done line listed "sales funnel (...)" once per run. Only the day's latest funnel run counts.
+  const done = n => Object.assign({}, v, { id: 'f' + n, status: 'Done', created: '2026-10-21T0' + n + ':00:00Z' });
+  const D = t.ctx.cueTodayFrom_([done(1), done(2), done(3)], '2026-10-21');
+  assert.strictEqual((D.done.match(/sales funnel/g) || []).length, 1, D.done);
+  deq(t.ctx.cueTodayFrom_([done(1), Object.assign({}, v, { created: '2026-10-21T04:00:00Z' })], '2026-10-21').rows.length, 2, 'a newer waiting run gives the rows, no Done entry');
 });
 test('FN4 Mark done closes one HubSpot task and reads it back; a key without tasks scopes says so and the funnel still works', () => {
   const { t, id } = fnRun();
