@@ -1459,6 +1459,25 @@ test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the th
   assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
 });
 
+test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
+  const t = pipeToCard(), C = t.ctx, first = t.id;
+  const again = C.cueSend('which deals went quiet?').request_id; C.cueRun(again);
+  deq([C.cueLoad_(first).s.status, C.cueLoad_(again).s.status], ['Closed', 'Needs you'], 'the older full review is replaced');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === first && /^Replaced by a newer pipeline review/.test(x[2])));
+  const add = (k, kind, st, day, extra) => C.cueLocked_(() => { const sh = C.cueSheet_('Requests'); sh.appendRow([k]);
+    C.cueSave_(sh, sh.getLastRow(), Object.assign({ id: k, kind, ref: '', status: st, stage: st, created: day + 'T01:00:00.000Z', text: 'x', files: [], notes: [], metrics: {} }, extra || {})); });
+  add('cue-20261020090000-b1d0', 'bids', 'Needs you', '2026-10-20'); add('cue-20261020090100-9700', 'gtask', 'Failed', '2026-10-20');
+  add('cue-20261020090200-1a7e', 'intake', 'Needs you', '2026-10-20'); add('cue-20261021090300-70da', 'bids', 'Needs you', '2026-10-21');
+  deq(C.cueCloseOlder(), { closed: 2 });
+  deq(['cue-20261020090000-b1d0', 'cue-20261020090100-9700', 'cue-20261020090200-1a7e', 'cue-20261021090300-70da', again].map(k => C.cueLoad_(k).s.status),
+    ['Closed', 'Closed', 'Needs you', 'Needs you', 'Needs you'], 'Kiko\'s intake and today\'s runs stay');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
+  const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);
+  assert.ok(html.indexOf('var OLDK = { ' + kinds.map(k => k + ': 1').join(', ') + ' }') > 0, 'the page and the server close the same kinds');
+  assert.ok(/'Fix contact in Canvas'/.test(html), 'a contact finding opens Canvas to fix it, no delete');
+});
+
 test('P3 pipeline edge cases: one client only; no token, bad token; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
   const t = pipeToCard({ client: 'Telus', ask: 'where are we with telus' });
   deq(t.v.pipe.deals.map(d => d.name), ['Telus — Trick or Treat - Manila']); assert.strictEqual(t.v.pipe.title, 'Pipeline: Telus');

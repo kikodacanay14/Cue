@@ -231,6 +231,9 @@ function cuePipeReview_(s) {
   }
   s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
   cueMetrics_(s);
+  // Kiko 24 Oct: each review is a full snapshot, so an older one still waiting (same scope, no follow-ups drafted) is closed.
+  cueCloseSuperseded_(x => x.kind === 'pipeline' && x.id !== s.id && !((x.pipe || {}).drafts || []).length && ((x.pipe || {}).client || '') === (P.client || ''),
+    'Replaced by a newer pipeline review. Nothing was written or sent.');
   cueChat_('Cue', 'Pipeline review ready: ' + counts.act + ' to act on today, ' + counts.chase + ' to chase, ' + counts.data + ' to fix, ' + counts.ok + ' on track.'
     + (counts.act + counts.chase ? ' Tick the ones you want and tap Draft follow-ups.' : ''), s.id);
   cuePipeLog_(s);
