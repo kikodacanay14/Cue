@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.27.14: the bid sheet's document links are read correctly and followed to the files (release branch, not deployed)
+## Cue 1.27.15: Still open leaves out notices the documents show as closed or outside the budget (release branch, not deployed)
+
+PC check of 1.27.14 on /dev, 24 Oct 09:41Z: all 7 document checks passed. One fix before live: Still open listed notices whose own PDF, now read, gave a past deadline (TPB RFQ 284 closed 16 Oct, 288, 289, the PCC Manila Forum notices from Nov 2025, ICN 0040/0043 8 Apr 2026) or a budget outside ₱150,000 to ₱700,000 (TPB RFQ 292, ₱20,000 A3 maps). The Still open list was built before the documents were read, from the sheet's blank dates.
+
+- After reading, a Still open notice whose document shows a deadline already past, or a budget outside the range, leaves the list. It is counted in the process check (lines 3 and 5). Its sheet row gets the document's deadline and budget, so the next run leaves it out at once.
+- Not changed, by design: one link listed on two notices (PCC 0040 and 0043 share one PDF) is opened and saved once, in the first notice's folder; the second shows the same copy. The first run after this release reads every document not read before, so it makes more ChatGPT calls than a normal day (the PC check run made 11); later days read only new documents.
+- Tests: 337 of 337 pass (new BD21).
+
+## Cue 1.27.14: the bid sheet's document links are read correctly and followed to the files (PC check passed; shipped as part of 1.27.15)
 
 PC recheck of 1.27.12 on /dev, 24 Oct 09:01Z: the run (08:40Z, "redo bid check") finished in 73 seconds with "0 of 16 documents opened by Cue"; almost every document said "(not opened yet)", and the hidden "Bid documents" record (in the Cue sheet, not the bid sheet) got no new row. Root cause, from the record and the bid sheet's column N:
 

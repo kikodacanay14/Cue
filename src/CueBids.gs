@@ -582,6 +582,14 @@ function cueBidsFinish_(s) {
   const store = (() => { try { return cueBidsDocs_(); } catch (e) { return { by: {} }; } })();
   const upd = (B.updated || []).filter(it => it.row);
   B.still = (B.still || []).filter(it => !B.items.some(x => x.key === it.key));
+  // What the documents said decides too (PC check 24 Oct 09:41Z: notices whose PDF showed a past deadline, or a ₱20,000 budget, stayed
+  // under Still open). The row keeps the dates and budget the document gave, so the next run leaves it out at once.
+  B.still = B.still.filter(it => {
+    const drop = it.deadline_ms && it.deadline_ms < now ? 'closed' : it.abc && (it.abc < CUE_BIDS_RULES_.min || it.abc > CUE_BIDS_RULES_.max) ? 'budget' : '';
+    if (!drop) return true;
+    if (it.touched) cueBidsRowUpdate_(it);
+    B.dropped[drop] = (B.dropped[drop] || 0) + 1; return false;
+  });
   B.still.forEach(it => { it.documents.forEach(d => cueBidsDocFrom_(d, store.by[d.url])); if (it.touched) cueBidsRowUpdate_(it); delete it.touched; });
   const docs = [].concat.apply([], B.items.concat(B.still).map(it => it.documents)), waiting = docs.filter(d => d.state === 'waiting');
   const okSrc = B.sources.filter(x => ['Checked', 'Partial', 'Blocked'].indexOf(x.status) >= 0), D = B.dropped;

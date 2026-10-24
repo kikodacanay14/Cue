@@ -3766,6 +3766,21 @@ test('BD20 PC recheck 24 Oct 09:01Z: the sheet\'s own document cells are opened:
   const by2 = {}; w.bids.still.forEach(x => { by2[x.reference] = x.documents.map(d => d.state); });
   deq(by2['RFQ# 2026.10.290'], ['saved']); deq(by2['RFQ# 2026.10.299'], ['failed']);
 });
+test('BD21 PC check 24 Oct 09:41Z: a Still open notice whose document shows a past deadline or a budget outside the range leaves the list, and its row keeps what the document said', () => {
+  const row = (ref, docs) => ['2026-10-20', 'TPB', ref, 'Event ' + ref, 'For verification (budget, location, deadline)', '', '', '', '', '', '', '', 'https://tpb.gov.ph/invitation-to-bid/', docs, '', '', ''];
+  const rows = [row('RFQ# 2026.10.284', 'RFQ (not opened) https://tpb.gov.ph/d284.pdf'), row('RFQ# 2026.10.292', 'RFQ (not opened) https://tpb.gov.ph/d292.pdf'), row('RFQ# 2026.10.295', 'RFQ (not opened) https://tpb.gov.ph/d295.pdf')];
+  const doc = (abc, deadline) => Object.assign({}, BID_DOCS, { abc, deadline });
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }],
+    bid_docs: [doc(300000, '2026-10-16T17:00+08:00'), doc(20000, '2026-10-30T17:00+08:00'), doc(300000, '2026-10-30T17:00+08:00')] }, pdf: ['tpb.gov.ph/d'] }, rows);
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(v.status, 'Done', v.error);
+  deq(v.bids.still.map(x => x.reference), ['RFQ# 2026.10.295'], 'closed 16 Oct and ₱20,000 leave Still open');
+  assert.ok(/1 closed notices left out/.test(v.bids.checks.filter(x => x.id === 5)[0].detail) && /1 outside the range left out/.test(v.bids.checks.filter(x => x.id === 3)[0].detail));
+  const f = t.tabs['Web bid findings'].rows; deq([f[1][8], f[2][6]], ['2026-10-16T17:00+08:00', 20000], 'the rows keep the document\'s deadline and budget');
+  t.ctx.__wait(864e5); t.log.gptN = {};
+  const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  deq(w.bids.still.map(x => x.reference), ['RFQ# 2026.10.295'], 'next day too');
+});
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
   ['any new bids today?', 'check philgeps', 'Find bid opportunities', 'look for tenders'].forEach(x => assert.ok(t.ctx.cueBidsAsked_(x), x));
