@@ -17,8 +17,10 @@
   body { margin:0; background:var(--bg); color:var(--text); font:500 15px/1.5 var(--font); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
   header, nav, .composer { flex:none; }
   #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
-  header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
-  .logo { width:30px; height:30px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
+  header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; padding:5px 12px; }
+  /* Kiko 25 Oct: no text beside the Cue logo, a slimmer bar, and chat and widgets start higher. The title stays for screen readers. */
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .logo { width:24px; height:24px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
   /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only. */
   header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
   .card b { letter-spacing:-0.01em; }
@@ -34,7 +36,7 @@
      each opened thread, and files or images opened from a thread. On a phone the right pane slides over the chat. */
   .split { flex:1; min-height:0; display:flex; }
   .left { flex:1; min-width:0; display:flex; flex-direction:column; }
-  main { padding:16px; max-width:860px; margin:0 auto; }
+  main { padding:8px 16px 16px; max-width:860px; margin:0 auto; }
   .col { min-width:0; }
   .pane { width:44%; min-width:380px; max-width:720px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--side); }
   /* Kiko 14:38Z: the pane looks like Claude's Threads panel. A header bar (Threads + count + search, filter, more; or a
@@ -58,9 +60,9 @@
   .pane.shut { display:none; }   /* PC test 17:42Z: ✕ closes the pane on a wide screen too; ☰ Threads opens it again */
   @media (min-width: 901px) { .pane-wide { display:inline-flex; } }
   .pane.wide { width:65%; max-width:none; }
-  #pscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px; }
+  #pscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:8px 16px 14px; }
   .tsearch { width:100%; margin:0 0 10px; }
-  .welcome { font:400 26px var(--display); color:var(--white); letter-spacing:-.01em; margin:6px 0 2px; }
+  .welcome { font:400 26px var(--display); color:var(--white); letter-spacing:-.01em; margin:0 0 2px; }
   .welcome + p { margin:0 0 14px; color:var(--muted); font-size:15px; }
   .tgroup { all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:flex; align-items:center; gap:10px; padding:8px 12px; margin:10px 0 4px; border-radius:6px; background:#EFE9DC; color:var(--white); font-size:15px; }
   .tgroup .n { color:var(--muted); } .tgroup svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; transition:transform .15s; }
@@ -240,7 +242,7 @@
   textarea.mail { display:block; width:100%; min-height:140px; margin-top:8px; resize:vertical; font:500 14px/1.5 var(--font); }
   [hidden] { display:none !important; }
   /* Kiko 17:44Z: settings and config live on one page, opened from Kiko's avatar (like Claude's settings). */
-  .avatar { all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--act); color:#fff; font-weight:800; font-size:14px; }
+  .avatar { all:unset; box-sizing:border-box; cursor:pointer; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--act); color:#fff; font-weight:800; font-size:14px; }
   .avatar:focus-visible { outline:2px solid var(--white); outline-offset:2px; }
   #settings { position:fixed; inset:0; z-index:30; background:var(--bg, #121316); display:flex; flex-direction:column; }
   #settings .shead { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--head); }
@@ -276,8 +278,8 @@
 </head>
 <body>
 <header>
-  <div class="logo" aria-hidden="true"></div>
-  <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread. <span id="ver" title="The Cue version this page is running"></span></div></div>
+  <div class="logo" id="logo" aria-hidden="true" title="Cue"></div>
+  <h1 class="sr">Cue <span id="ver" title="The Cue version this page is running"></span></h1>
   <span class="dot" id="dot" title="Connected"></span>
   <button class="avatar" id="avatar" title="Settings" aria-label="Settings">K</button>
 </header>
@@ -1107,7 +1109,7 @@
   function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
-  function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
+  function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; $('logo').title = state.version || 'Cue'; }
   function setHtml(el, h) {
     if (el._h === h) return;
     var keep = {}, f = document.activeElement, fk = f && f.getAttribute && f.getAttribute('data-say');
