@@ -95,7 +95,10 @@ function cueCanvasParse_(text) {
   if ((m = /^(?:add|new|create)\s+(?:a\s+)?scope\s*[:,-]?\s*(.+)\s+(?:to|in|for|on|under)\s+(?:project\s+)?(.+)$/i.exec(t))) return { what: 'newscope', desc: m[1].trim(), project: m[2] };
   if ((m = /^(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task\s+(.+)\s+(?:in|on|for|under)\s+(?:project\s+)?(.+?)(?:\s+as\s+(?:done|complete|completed|closed))?$/i.exec(t))) return { what: 'task', q: m[1].trim(), project: m[2] };
   if ((m = /^(?:price ?watch|past prices?|price history|check (?:the\s+)?(?:past\s+)?prices?)\s*(?:of|for|on)?\s*[:,-]?\s*(.{2,})$/i.exec(t))) return { what: 'pricewatch', q: m[1].trim() };
-  if ((m = /^(?:make|generate|prepare|create|do)\s+(?:the\s+)?fsas?(?:\s+(?:for|in|on)\s+(?:project\s+)?(.+))?$/i.exec(t))) return m[1] ? { what: 'project', project: m[1], tab: 'Main', why: 'fsa', action: 'fsa' } : { what: 'page', key: 'fsa generator' };
+  // CREW-DOCS-2026-10-26 (Kiko 13:24Z "generate ARs, for... generate FSAs, for ..."): with a project it is Cue's own command now.
+  if ((m = /^(?:make|generate|prepare|create|do)\s+(?:the\s+)?(fsas?|ars?|acknowledgement receipts?|freelancer service agreements?|service agreements?)\s+(?:for|in|on)\s+(?:project\s+)?(.+)$/i.exec(t)))
+    return { what: 'crewdocs', project: m[2].trim(), doc: /^(fsa|freelancer|service)/i.test(m[1]) ? 'fsa' : 'ar' };
+  if (/^(?:make|generate|prepare|create|do)\s+(?:the\s+)?fsas?$/i.test(t)) return { what: 'page', key: 'fsa generator' };
   if (!(m = open.exec(t))) return null;
   const rest = t.slice(m[0].length).trim(), low = rest.toLowerCase().replace(/\s+page$/, '').replace(/\s+tab$/, '');
   if ((m = /^(?:supplier|vendor)\s+(?!for\b)(.{2,})$/i.exec(rest))) return { what: 'supplier', q: m[1].trim() };
@@ -129,6 +132,11 @@ function cueCanvasSaid_(text, ref) {
   const c = cueCanvasParse_(text);
   if (!c) return null;
   const t = String(text || '').trim(), s = { id: 'cue-canvas-' + cueNow_().toString(36) };
+  if (c.what === 'crewdocs') {   // no AI call: Canvas lists, Kiko ticks, Canvas makes, then Cue asks to send (CueAr.gs)
+    cueChat_('Kiko', t, ref || ''); const id = cueArStart_(c.project, t, ref || '');
+    if (!ref) cueChat_('Cue', 'Started a thread for it.', '>' + id);
+    return { request_id: id, task: ref || '' };
+  }
   let link = null, picks = [];
   if (c.project) {
     let hits; try { hits = cueCanvasFind_(s, c.project); } catch (e) { hits = null; c.error = cueStr_((e && e.message) || e, 200); }
@@ -152,7 +160,7 @@ function cueCanvasSaid_(text, ref) {
 function cueCanvasFor_(s) {
   try {
     const k = s.kind || 'intake';
-    if (k === 'ar' && s.ar && s.ar.project_id) return cueCanvasLink_({ what: 'project', project_id: s.ar.project_id, name: s.ar.project, tab: 'Main', action: 'ar' });
+    if (k === 'ar' && s.ar && s.ar.project_id) return cueCanvasLink_({ what: 'project', project_id: s.ar.project_id, name: s.ar.project, tab: 'Main', action: s.ar.doc === 'fsa' ? 'fsa' : 'ar' });
     if (k === 'readiness' && s.ready && s.ready.match && CUE_PID_RE_.test(s.ready.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.ready.match.project_id, name: s.ready.match.name, tab: 'Checklist' });
     if (k === 'expense' && s.expense && s.expense.project && CUE_PID_RE_.test(s.expense.project.id || '')) { const p = s.expense.plan || {}, r = s.read || {};
       const l = cueCanvasLink_({ what: 'pay', project_id: s.expense.project.id, name: s.expense.project.name,

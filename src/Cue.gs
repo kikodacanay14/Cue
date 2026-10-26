@@ -354,7 +354,7 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
       + '(Cue has its own task for that; tell Kiko to say "update CE cost for <project> from <person>\'s email").' },
     readiness: { type: 'string', description: 'Empty unless Kiko asks whether a project is ready, what is missing or blocking it, or for its readiness or '
       + 'closeout checklist. Then the project or client name exactly as Kiko wrote it, or its Canvas project id (S-...).' },
-    start_ar: { type: 'string', description: 'Empty unless Kiko asks Cue to prepare, make or generate acknowledgement receipts (ARs) for a project. '
+    start_ar: { type: 'string', description: 'Empty unless Kiko asks Cue to prepare, make or generate acknowledgement receipts (ARs) or freelancer service agreements (FSAs) for a project. '
       + 'Then the project\'s name or Canvas id (S-...) exactly as Kiko gave it, or as the task Kiko is replying about names it.' },
     vendor: { type: 'object', additionalProperties: false, required: ['job', 'item', 'city', 'event_date', 'suppliers', 'project', 'new_options', 'details'],
       description: 'job is "" unless Kiko asks to find, compare or assess suppliers or vendors (who can supply something, which supplier is better, '
@@ -381,8 +381,8 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'What you can do today: run a project intake (Kiko pastes or attaches a client inquiry, or taps New project intake; GPT reads it, '
   + 'Canvas checks history and prices, Claude costs it, GPT drafts RFQs, and Kiko approves before anything is written), answer money '
   + 'questions (profit, margins, who owes BSE, supplier payments, 13-week cash) from Canvas numbers when Kiko asks one directly, and show what '
-  + 'needs Kiko in the Threads pane. Prepare acknowledgement receipts (ARs) for a project: Canvas lists who was paid, Kiko ticks and '
-  + 'approves, Canvas makes the receipts and can email supplier receipts from AccountsPayables@; set start_ar for that. A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
+  + 'needs Kiko in the Threads pane. Generate acknowledgement receipts (ARs) or freelancer service agreements (FSAs) for a project: Canvas lists the people, Kiko ticks and '
+  + 'approves, Canvas makes the files, then Cue asks Kiko whether to send them; set start_ar for that (for FSAs too). A message about an existing project (new designs, requote, resend to suppliers) becomes a change '
   + 'request: Canvas finds the project, Cue finds the RFQ emails Kiko sent, GPT drafts one reply per supplier, and the files Kiko sent for '
   + 'that project in the last day are attached to every draft (Kiko can untick any on the card). Cue also checks project readiness: when '
   + 'Kiko asks if a project is ready or what is missing, set readiness and reply in one short line that you are checking it in Canvas; Canvas '
@@ -625,7 +625,7 @@ function cueTaskName_(x) {
   if (x.kind === 'memory' || x.kind === 'process') return 'learning your ' + x.kind;
   if (x.kind === 'email') return 'the email to ' + ((x.mail && (x.mail.to || x.mail.to_addr)) || 'someone');
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
-  if (x.kind === 'ar') return 'ARs for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
+  if (x.kind === 'ar') return (x.ar && x.ar.doc === 'fsa' ? 'FSAs' : 'ARs') + ' for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
@@ -689,7 +689,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
     return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
       + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
-  if (s.kind === 'ar') return 'acknowledgement receipts for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
+  if (s.kind === 'ar') return (s.ar && s.ar.doc === 'fsa' ? 'freelancer service agreements' : 'acknowledgement receipts') + ' for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'bids') { const B = s.bids || {}; return (B.title || 'bid check') + ', status ' + s.status + '; ' + (B.summary || '') + ((B.items || []).length ? ' New: ' + B.items.map(x => x.agency + ' ' + x.reference + ' ' + x.project).join('; ').slice(0, 600) : ''); }
@@ -719,6 +719,7 @@ function cueResume() {
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
   try { cueRelaySweep_(); } catch (e) { console.error('cueRelaySweep_: ' + e); }   // notes claude.ai added to the Relay tab
   try { cueRelayTasks_(); } catch (e) { console.error('cueRelayTasks_: ' + e); }   // tasks ChatGPT handed over (if the one-off trigger missed them)
+  try { cueArDue_(); } catch (e) { console.error('cueArDue_: ' + e); }   // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -1041,9 +1042,7 @@ function cueView_(s) {
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     st: s.kind === 'status' ? cueStView_(s) : null,
     relay: s.kind === 'relay' ? cueRelayView_(s) : null,
-    ar: s.kind === 'ar' && s.ar ? { project: s.ar.project || s.ar.asked || '', project_id: s.ar.project_id || '', others: s.ar.others || [], more: !!s.ar.more, max: CUE_AR_MAX_,
-      items: (s.ar.items || []).map(x => ({ key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, request_id: x.request_id,
-        has_email: x.has_email, why: x.why, ar: x.ar, tick: !!x.tick, made_now: !!x.made_now, error: x.error || '' })) } : null,
+    ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
     cec: s.kind === 'cecost' ? cueCecView_(s) : null,
     fin: s.kind === 'finance' ? (s.fin || null) : null,
