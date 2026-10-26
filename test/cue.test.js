@@ -1826,6 +1826,7 @@ test('X4b 1.27.7 backfill: an expense approved before the fix (stuck at Writing 
   const L = t.ctx.cueLoad_(t.id); L.s.status = 'Writing to Canvas'; L.s.stage = 'Writing to Canvas'; t.ctx.cueSave_(L.sh, L.row, L.s);   // as the old code left it
   const calls = t.log.bridge.length;
   t.ctx.cueFixStuckWrites_(); assert.strictEqual(t.state(t.id).status, 'Writing to Canvas', 'not within 10 minutes of Approve');
+  t.ctx.cueCrmLogTick_ = () => null;   // 1.27.34: the hourly email log reads Canvas on its own; this test counts the backfill's calls only
   t.ctx.__wait(11 * 60 * 1000); t.ctx.cueResume();
   const s = t.state(t.id); deq([s.status, s.stage], ['Done', 'Done']); assert.ok(s.notes.some(n => /from its summary line/.test(n)));
   assert.strictEqual(t.log.bridge.length, calls, 'no Canvas call');

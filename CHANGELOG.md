@@ -9,6 +9,7 @@ Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`ca
 - The Cue sheet gets a "CRM Email Log" tab listing every row logged or failed. Canvas cannot remove an Activity row yet, so there is no Undo (asked of Canvas Integration).
 - No AI call. No new Google access. No Canvas release needed.
 - Tests: CL1 to CL3 new; C11 now ignores the email log's own reads. 337 tests.
+- Release branch `claude/project-thread-y5l4x9-rel12734` is 1.27.33 (8f6f03d) plus this change (b1a1cc2 on main). X4b now leaves the hourly log out of its count of the backfill's Canvas calls. 353 tests.
 
 ## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
 

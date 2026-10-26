@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.33';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send
+const CUE_VERSION_ = 'Cue 1.27.34';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + client emails logged to Canvas (1.27.34)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
