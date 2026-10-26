@@ -187,6 +187,12 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
+      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
+      if (body.action === 'crm_log') { (log.crmLog = log.crmLog || []).push(body.args);
+        if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
+        const again = (log.crmSeen = log.crmSeen || {})[body.args.request_id]; log.crmSeen[body.args.request_id] = 1;
+        return resp(200, { ok: true, status: 'Completed', result: { act: { ID: 'A-' + log.crmLog.length }, again: !!again } }); }
       if (body.action === 'accreditation_gaps') { log.accrGaps = (log.accrGaps || 0) + 1; return o.accrFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
       if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
@@ -616,8 +622,9 @@ test('C10 Canvas changes a number on re-check: nothing written, card returns wit
 test('C11 apply fails: stops "Failed", never retried by the trigger; "Check Canvas and finish" calls apply only', () => {
   const t = startToCard({ applyFails: true }), v = t.ctx.cueApprove(t.id, {});
   assert.strictEqual(v.status, 'Failed'); assert.ok(/trying again never writes twice/.test(v.error));
-  const before = t.log.bridge.length; t.ctx.cueResume(); assert.strictEqual(t.log.bridge.length, before);
-  t.ctx.cueApprove(t.id, {}); deq(t.log.bridge.slice(before).map(b => b.action), ['apply_intake']);
+  const own = () => t.log.bridge.filter(b => b.action !== 'mail_waiting' && b.action !== 'crm_log');   // the hourly email log reads on its own (CL1)
+  const before = own().length; t.ctx.cueResume(); assert.strictEqual(own().length, before);
+  t.ctx.cueApprove(t.id, {}); deq(own().slice(before).map(b => b.action), ['apply_intake']);
 });
 test('C12 reject: nothing goes to Canvas', () => {
   const t = startToCard(), v = t.ctx.cueReject(t.id, 'Duplicate');
@@ -4750,6 +4757,51 @@ test('RL11 relay tasks refuse bad input before any AI call: kind, project, file 
   assert.ok(/10 of your tasks queued/.test(post({ kind: 'intake', text: 'Client needs a 3x3 booth in BGC on 5 Nov, 200 pax.' }).error));
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call at the door');
   assert.strictEqual(t.log.triggers.filter(h => h === 'cueRelayKick').length, 1, 'one waiting trigger, not one per task');
+});
+
+
+// CUE-CRM-EMAIL-LOG-2026-10-26 (spec canvas-crm-funnel.md F5; Kiko 16:10Z "Log automatically").
+const WAIT = { on: true, stale: false, checked: 3, items: [
+  { id: 'aa01b2c3d4e5f6a7', from: 'Ana Reyes <ana@acme.example>', email: 'ana@acme.example', subject: 'Re: Year-end party CE', at: '2026-10-21T01:30:00Z', unread: true, who: 'Client', name: 'Ana Reyes', pid: 'S-1', project: 'Acme Gala' },
+  { id: 'aa02b2c3d4e5f6a7', from: 'Sonic Pro <sales@sonicpro.example>', email: 'sales@sonicpro.example', subject: 'Invoice', at: '2026-10-21T01:00:00Z', unread: false, who: 'Supplier', name: 'Sonic Pro', pid: '', project: '' },
+  { id: 'aa03b2c3d4e5f6a7', from: 'joy@beta.example', email: 'joy@beta.example', subject: 'Booth size?', at: '2026-10-20T23:00:00Z', unread: true, who: 'Client', name: '', pid: '', project: '' }] };
+const crmTabRows = t => (t.tabs['CRM Email Log'] ? t.tabs['CRM Email Log'].rows.slice(1) : []);
+
+test('CL1 client emails are logged to Accounts once an hour with no tap: clients only, one row per thread per day, no AI call', () => {
+  const t = sandbox({ waiting: WAIT });
+  const r = t.ctx.cueCrmLogTick_();
+  deq([r.logged, r.failed], [2, 0]);
+  deq(t.log.crmLog.map(a => [a.kind, a.email, a.date]), [['Email', 'ana@acme.example', '2026-10-21'], ['Email', 'joy@beta.example', '2026-10-21']]);
+  assert.ok(/^Email from Ana Reyes: Re: Year-end party CE \(project Acme Gala\)$/.test(t.log.crmLog[0].summary), t.log.crmLog[0].summary);
+  assert.ok(t.log.crmLog.every(a => /^cuemail:[A-Za-z0-9_-]+:\d{4}-\d{2}-\d{2}$/.test(a.request_id)), 'request_id fits the bridge pattern');
+  assert.ok(!t.log.crmLog.some(a => a.email === 'sales@sonicpro.example'), 'suppliers are not logged');
+  deq(crmTabRows(t).map(x => x[7]), ['Logged', 'Logged']);
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  assert.strictEqual(t.ctx.cueCrmLogTick_(), null, 'the same hour does not run twice');
+  t.ctx.__wait(3600 * 1000); const r2 = t.ctx.cueCrmLogTick_();
+  deq([r2.logged, t.log.crmLog.length, t.log.mailWaiting], [0, 2, 2]);
+});
+
+test('CL2 a refused write is listed as Failed and retried next hour; outside 08:00 to 21:00 Manila nothing runs; email check off says so', () => {
+  const t = sandbox({ waiting: WAIT, crmFail: ['joy@beta.example'] });
+  const r = t.ctx.cueCrmLogRun_();
+  deq([r.logged, r.failed], [1, 1]);
+  assert.ok(/^Failed: Canvas refused crm_log/.test(crmTabRows(t)[1][7]));
+  t.opts.crmFail.length = 0; const r2 = t.ctx.cueCrmLogRun_();
+  deq([r2.logged, t.log.crmLog.slice(-1)[0].email], [1, 'joy@beta.example']);
+  t.ctx.__wait(12 * 3600 * 1000); const before = t.log.mailWaiting;
+  assert.strictEqual(t.ctx.cueCrmLogTick_(), null); assert.strictEqual(t.log.mailWaiting, before, 'no Canvas read at night');
+  const off = sandbox({ waiting: { on: false, items: [] } });
+  assert.ok(/Email check is off/.test(off.ctx.cueCrmLogRun_().note)); assert.ok(!(off.log.crmLog || []).length);
+});
+
+test('CL3 cueResume runs the email log; a Canvas failure never stops the rest of the tick', () => {
+  const t = sandbox({ waiting: WAIT });
+  t.ctx.cueResume();
+  assert.strictEqual((t.log.crmLog || []).length, 2);
+  const u = sandbox({ waiting: WAIT, crmFail: ['ana@acme.example', 'joy@beta.example'] });
+  u.ctx.cueResume();
+  deq(crmTabRows(u).map(x => /^Failed/.test(x[7])), [true, true]);
 });
 
 for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
