@@ -285,7 +285,7 @@
   <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
+      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="rdrafts">Reply drafts</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -294,6 +294,7 @@
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
+      <section data-sec="rdrafts" hidden><div class="label" style="margin-top:0">Reply drafts</div><div id="w-rdrafts"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
     </div>
@@ -1509,10 +1510,14 @@
     var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
+    setHtml($('w-rdrafts'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-rdrafts="on"' + (S.reply_drafts ? ' checked' : '') + '> <b>Draft replies to my waiting emails</b></label>'
+      + '<div class="small muted" style="margin-top:6px">Client and supplier emails from Canvas\'s Emails waiting list that have waited 4 working hours get a reply draft here, in your style, at most 30 a day (Mon to Sat, 8 AM to 6 PM). You edit each one, then tap Approve and send or Save to Gmail drafts. Nothing is sent before you tap. Drafts never promise a price, a date or a payment.</div></div>');
     setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
   }
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  $('w-rdrafts').addEventListener('change', function (e) { var c = e.target.closest('[data-rdrafts]'); if (!c) return; c.disabled = true;   // 1.27.32 (CueReplyDrafts.gs)
+    call('cueRdSet', [c.checked], function (r) { settingsData = r; $('w-rdrafts')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
   var schedList = null, schedErr = '';
   function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }

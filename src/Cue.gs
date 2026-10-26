@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.27';   // release branch: 1.27.26 on live 1.27.25 (V67: Today card, sales funnel) + bid contacts on the card and into intake
+const CUE_VERSION_ = 'Cue 1.27.32';   // release branch: 1.27.27 (live V79, bid contacts) + reply drafts for Kiko's waiting emails
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -727,6 +727,7 @@ function cueResume() {
   try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
   try { cueFixStuckWrites_(); } catch (e) { console.error('cueFixStuckWrites_: ' + e); }   // 1.27.7: CE cost / expense approved before the save fix
+  try { cueRdTick_(); } catch (e) { console.error('cueRdTick_: ' + e); }   // 1.27.32: reply drafts for Kiko's waiting emails, every 30 min in work hours
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }

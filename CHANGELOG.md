@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.32: reply drafts for Kiko's waiting emails (not deployed)
+
+Kiko asked 26 Oct 2026 04:49Z: "if its an Emails waiting... shouldnt there be a draft already that we need to review and send?"
+At 05:58Z Kiko chose "Draft every waiting email", at 06:00Z asked "can we see the draft here and send from here", at 06:04Z said
+"just me. they dont have AI", and at 06:09Z chose "Yes, Cue drafts them". Spec `specs/email-reply-drafts.md` (route revised
+06:15Z). Built on 1.27.27 (live V79). Needs Canvas release rel-v271-mailwait (bridge read `mail_waiting`) to be live first.
+
+- New setting **Reply drafts** in Settings, default off. Kiko turns it on there (`CUE_REPLY_DRAFTS`).
+- With it on, every 30 minutes, Mon to Sat 8 AM to 6 PM Manila, Cue asks Canvas for Kiko's Emails waiting list (known client
+  and supplier senders only, emails marked Done left out).
+- Each email that has waited 4 working hours or more gets one reply request: code reads the thread in Kiko's Gmail, then one GPT
+  call drafts the reply in Kiko's style. The usual email card shows in Ask Cue; Kiko edits it, then taps Approve and send or Save
+  to Gmail drafts. Nothing is sent or saved before the tap.
+- One draft per newest message. A thread that already holds a draft, or whose newest message is Kiko's, is left alone.
+- At most 4 drafts a run and 30 a day. Drafts never promise a price, a date, a payment or bank details.
+- No new Google access: Cue already has gmail.readonly and gmail.compose.
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas (live V270 plus `mail_waiting`).
+- Tests: 352 (3 new: RD1 to RD3).
+
 ## Cue 1.27.27: bid contacts on the card and into intake (release branch, not deployed)
 
 Kiko asked 24 Oct 2026 13:36Z: "I think you should have also the contacts. When intake runs: Also we need to store the contact
