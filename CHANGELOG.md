@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.34: Client emails logged to Canvas Accounts (not deployed)
+
+Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`canvas-crm-funnel.md`) at 16:08Z and chose "Log automatically" at 16:10Z, so these email logs go to Canvas with no tap. This is the spec's part F5; the funnel page itself is Canvas Integration's.
+
+- Every hour from 08:00 to 21:00 Manila, the 5-minute resume reads Kiko's Emails waiting list from Canvas (bridge `mail_waiting`, live since Canvas V272; headers only, no email text) and logs each waiting client email to Accounts › Activity with the bridge's `crm_log` (kind Email, the sender, the subject and the project). Suppliers are not logged.
+- One row per email thread per day: the request id `cuemail:<id>:<day>` makes Canvas ignore a repeat, so a retry never logs twice. A refused write is tried again the next hour.
+- The Cue sheet gets a "CRM Email Log" tab listing every row logged or failed. Canvas cannot remove an Activity row yet, so there is no Undo (asked of Canvas Integration).
+- No AI call. No new Google access. No Canvas release needed.
+- Tests: CL1 to CL3 new; C11 now ignores the email log's own reads. 337 tests.
+
 ## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
 
 Kiko 26 Oct 13:22Z ("i need you to have a command that can trigger this"), 13:24Z ("generate ARs, for... generate FSAs, for ... and then you will ask do you want me to send those after?"), 13:25Z (making the files takes a while, so the send question comes after), 13:30Z ("Generating 15 of 50") and 13:31Z ("60 files done. Do you want me to send these files... a draft with buttons... Send, Edit and Send Later").
