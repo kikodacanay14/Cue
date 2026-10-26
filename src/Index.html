@@ -2155,12 +2155,12 @@
           + ' · ' + esc(x.doc.status) + (x.doc.sent ? ' · ' + esc(x.doc.sent) : '') + '</span>' : '')
         + (note ? '<br><span class="small muted">' + esc(note) + '</span>' : '') + (x.error ? '<div class="err">' + esc(x.error) + '</div>' : '') + '</span></label>';
     };
-    // Kiko 26 Oct 13:56Z: a project has 20 to 40 crew. Long lists scroll inside the card, with a count and Tick all / Untick all.
+    // Kiko 26 Oct 13:56Z and 14:00Z: a project has 20 to 40 crew, so names sit in two columns (scroll past 40), with a count and Tick all / Untick all.
     var list = function (attr, rows, k) {
       if (rows.length < 2) return rows.join('');
       return '<div class="small" style="display:flex;justify-content:space-between;gap:8px;margin:2px 0 4px"><span data-arcount="' + attr + '">' + k + ' ticked of ' + rows.length + '</span>'
         + '<span><a href="#" data-artick="1" data-arattr="' + attr + '">Tick all</a> · <a href="#" data-artick="0" data-arattr="' + attr + '">Untick all</a></span></div>'
-        + '<div style="' + (rows.length > 8 ? 'max-height:380px;overflow:auto;' : '') + 'border:1px solid var(--line);border-radius:10px;padding:2px 10px">' + rows.join('') + '</div>';
+        + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;' + (rows.length > 40 ? 'max-height:560px;overflow:auto;' : '') + 'border:1px solid var(--line);border-radius:10px;padding:4px 10px">' + rows.join('') + '</div>';
     };
     var ck = function (x, attr, on, off) { return '<input type="checkbox" ' + attr + '="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (on && !off ? ' checked' : '') + (off ? ' disabled' : '') + '>'; };
     var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(a.doc === 'fsa' ? 'Freelancer service agreements' : 'Acknowledgement receipts') + '</div><b style="font-size:17px;color:var(--white)">' + esc(a.project) + '</b>'
@@ -2194,7 +2194,7 @@
     }
     var ready = a.items.filter(function (x) { return !x.why && !x.doc; }), have = a.items.filter(function (x) { return x.doc; }), blocked = a.items.filter(function (x) { return x.why && !x.doc; });
     var n = ready.filter(function (x) { return !x.off; }).length;
-    var rows = ready.map(function (x) { return row(x, waiting ? ck(x, 'data-amk', x.tick, x.off) : '', x.off ? 'No email on file. Add an email to this resource first.' : x.kind === 'Resource' && x.send_why ? x.send_why : ''); });
+    var rows = ready.map(function (x) { return row(x, waiting ? ck(x, 'data-amk', x.tick, x.off) : '', x.off ? 'No email on file' : x.kind === 'Resource' && x.send_why ? x.send_why.split(':')[0] + ': made, not emailed' : ''); });
     if (ready.length) h += '<div class="label">Ready to make</div>' + (waiting ? list('data-amk', rows, ready.filter(function (x) { return x.tick && !x.off; }).length) : rows.join(''));
     if (have.length) h += '<div class="label">Already made</div>' + have.map(function (x) { return row(x, '<span>✓</span>'); }).join('');
     if (blocked.length) h += '<div class="label">Can\'t make yet</div>' + blocked.map(function (x) { return row(x); }).join('');
