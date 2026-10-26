@@ -1103,8 +1103,13 @@
   $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
-  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); schedule(); }, function () { if (after) after(); schedule(); }); }
-  function busy() { return state.requests.some(function (r) { return WORK[r.status]; }) || Object.keys(running).length; }
+  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
+  // CREW-DOCS-2026-10-26: Canvas makes FSAs and ARs in the background (it can take 20 minutes), so the page asks Cue to look
+  // every 30 seconds instead of polling every 2; cueResume looks every 5 minutes when the page is closed.
+  var arMaking = function (r) { return r.kind === 'ar' && r.status === 'Working' && r.stage === 'Canvas is making'; }, arLooked = {};
+  function arPoll() { state.requests.forEach(function (r) { if (!arMaking(r) || running[r.id] || Date.now() - (arLooked[r.id] || 0) < 30000) return;
+    arLooked[r.id] = Date.now(); running[r.id] = 1; call('cueRun', [r.id], function () { delete running[r.id]; refresh(); }, function () { delete running[r.id]; }); }); }
+  function busy() { return state.requests.some(function (r) { return WORK[r.status] && !arMaking(r); }) || Object.keys(running).some(function (id) { return !state.requests.some(function (r) { return r.id === id && arMaking(r); }); }); }
   function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
 
   function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
@@ -1146,14 +1151,14 @@
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
     if (th.hst) return 'HubSpot tasks';
-    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? 'ARs for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'tri' ? ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || '') : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? 'Receipts' : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  function kindName(r) { return r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'tri' ? ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || '') : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? (r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts') : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   /* 1.27.25 (PC recheck 24 Oct 15:00Z): Review tasks opens its own pane tab, "hst:<funnel run>", that shows only that run's HubSpot
      tasks, so it needs no jump inside the funnel thread. It is a view of the funnel run, not a run of its own: replies and Mark done go
@@ -1358,7 +1363,7 @@
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
-    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
       + (v ? '<div class="small">' + esc((v.cands || []).length) + ' supplier' + ((v.cands || []).length === 1 ? '' : 's') + (vp ? ' · Claude\'s pick: ' + esc(vp.name) : '') + '</div>' : '')
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
@@ -1367,7 +1372,7 @@
   }
   function reopenedHtml(r) {
     var p = r.proposal || {}, c = p.client || {};
-    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || (r.ar && 'ARs for ' + r.ar.project) || (r.vendor && 'Suppliers: ' + r.vendor.ask) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.vendor && 'Suppliers: ' + r.vendor.ask) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
       + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
       + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
   }
@@ -1401,8 +1406,8 @@
     ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],
     ['Sending', 'Gmail', 'Follow-ups go out from your Gmail as replies in their threads']];
   var FUNNEL = [['Reading HubSpot', 'HubSpot', 'Cue reads your deals and open HubSpot tasks (no AI)'], ['Needs you', 'Kiko', 'Waiting for you']];
-  var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading receipts from Canvas', 'Canvas', 'Canvas lists who was paid'],
-    ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Making receipts', 'Canvas', 'Canvas makes the ticked receipts'], ['Emailing receipts', 'Canvas', 'Canvas emails them from AccountsPayables@']];
+  var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading the list', 'Canvas', 'Canvas lists the people'],
+    ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Canvas is making', 'Canvas', 'Canvas makes the files'], ['Ready to send', 'Kiko', 'Send, edit or send later'], ['Sending', 'Canvas', 'Canvas emails them']];
   var VENDOR = [['Reading Canvas', 'Canvas', 'Canvas lists suppliers (Preferred first) and past quotes'], ['GPT researching', 'GPT', 'GPT searches the web for new suppliers'],
     ['Claude comparing', 'Claude', 'Claude compares them and picks one'], ['GPT drafting RFQs', 'GPT', 'GPT drafts the RFQs you ticked'], ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Sending', 'Gmail', 'RFQs are sent from your Gmail']];
   var WORKFLOW = [['GPT reading', 'GPT', 'GPT reads the screenshots or files'], ['Claude mapping', 'Claude', 'Claude maps the steps and who handles each'],
@@ -1429,7 +1434,17 @@
       + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
           return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
         : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
-      + '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>' + (open ? metricLine(r) : '') + '</div>';
+      + (r.kind === 'ar' && r.ar && r.ar.progress ? arProgressHtml(r, open) : '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>') + (open ? metricLine(r) : '') + '</div>';
+  }
+  // CREW-DOCS (Kiko 13:30Z): "Generating 15 of 50", then a line per name when the card is open.
+  function arProgressHtml(r, open) {
+    var a = r.ar, p = a.progress, sending = r.stage === 'Sending', sent = a.items.filter(function (x) { return x.emailed_now; }).length;
+    var n = sending ? sent : p.made + p.failed, of = sending ? (a.mail || []).length + sent : p.total;
+    var st = { made: '✓ made', failed: '✗ not made', waiting: '… waiting' };
+    return '<div class="small" style="margin-top:6px"><b>' + (sending ? 'Sending ' : 'Generating ') + n + ' of ' + of + '</b> ' + esc(a.doc_many) + (p.failed && !sending ? ' · ' + p.failed + ' not made' : '') + '</div>'
+      + '<div class="bar"><i style="width:' + Math.round(n / Math.max(1, of) * 100) + '%"></i></div>'
+      + (open && !sending ? '<div class="small" style="margin-top:6px">' + a.items.filter(function (x) { return x.state; }).map(function (x) {
+          return '<div>' + esc(x.name) + ' <span class="muted">' + esc(st[x.state] || x.state) + (x.error ? ': ' + esc(x.error) : '') + '</span></div>'; }).join('') + '</div>' : '');
   }
   var openWork = {}, showArchived = false;
 
@@ -2127,42 +2142,60 @@
   }
 
   // CUE-AR (Kiko 07:42Z): acknowledgement receipts. Ready ones come ticked; a made one is remade only on its own tick; the rest say why.
+  // CREW-DOCS-2026-10-26 (Kiko 13:22Z-13:31Z): "Generate FSAs / ARs for <project>". Tick the names (no email on file = row off),
+  // Make, then "60 files done. Send them?" with the email draft and Send, Edit and Send later.
+  var arEdit = {}, arLater = {};
   function arCardHtml(r) {
-    var a = r.ar, waiting = r.status === 'Needs you', mail = waiting && r.stage === 'Ready to email', made = a.items.some(function (x) { return x.made_now; });
-    var KIND = { Supplier: 'supplier', Talent: 'talent', Resource: 'freelancer' };
-    var sent = function (x) { return /^Sent to /.test((x.ar && x.ar.emailed) || ''); };
-    var row = function (x, box) {
-      return '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0">' + (box || '<span>•</span>')
+    var a = r.ar, waiting = r.status === 'Needs you', KIND = { Supplier: 'supplier', Talent: 'talent', Resource: 'crew' };
+    var row = function (x, box, note) {
+      return '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0' + (x.off ? ';opacity:.5' : '') + '">' + (box || '<span>•</span>')
         + '<span><b>' + esc(x.name) + '</b> <span class="tag" style="border:1px solid var(--line)">' + esc(KIND[x.kind] || x.kind) + '</span> <span class="small muted">' + esc(x.role)
         + (x.amount ? ' · ' + peso(x.amount) : '') + (x.paid_on ? ' · paid ' + esc(x.paid_on) : '') + '</span>'
-        + (x.ar ? '<br><span class="small">' + (x.ar.url ? '<a href="' + esc(x.ar.url) + '" target="_blank" rel="noopener">' + esc(x.ar.ar_id || 'Receipt') + '</a>' : esc(x.ar.ar_id))
-          + ' · ' + esc(x.ar.status) + (x.ar.emailed ? ' · ' + esc(x.ar.emailed) : '') + '</span>' : '')
-        + (x.why ? '<br><span class="small muted">' + esc(x.why) + '</span>' : '') + (x.error ? '<div class="err">' + esc(x.error) + '</div>' : '') + '</span></label>';
+        + (x.doc ? '<br><span class="small">' + (x.doc.url ? '<a href="' + esc(x.doc.url) + '" target="_blank" rel="noopener">' + esc(x.doc.id || a.doc_one) + '</a>' : esc(x.doc.id))
+          + ' · ' + esc(x.doc.status) + (x.doc.sent ? ' · ' + esc(x.doc.sent) : '') + '</span>' : '')
+        + (note ? '<br><span class="small muted">' + esc(note) + '</span>' : '') + (x.error ? '<div class="err">' + esc(x.error) + '</div>' : '') + '</span></label>';
     };
-    var ck = function (x, attr, on) { return '<input type="checkbox" ' + attr + '="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (on ? ' checked' : '') + '>'; };
-    var ready = a.items.filter(function (x) { return !x.why && !x.ar; }), have = a.items.filter(function (x) { return x.ar; }), blocked = a.items.filter(function (x) { return x.why && !x.ar; });
-    var mailable = have.filter(function (x) { return x.kind !== 'Resource' && x.has_email && !sent(x); });
-    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Acknowledgement receipts</div><b style="font-size:17px;color:var(--white)">' + esc(a.project) + '</b>'
+    var ck = function (x, attr, on, off) { return '<input type="checkbox" ' + attr + '="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (on && !off ? ' checked' : '') + (off ? ' disabled' : '') + '>'; };
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(a.doc === 'fsa' ? 'Freelancer service agreements' : 'Acknowledgement receipts') + '</div><b style="font-size:17px;color:var(--white)">' + esc(a.project) + '</b>'
       + (a.project_id && a.project_id !== a.project ? ' <span class="small muted">' + esc(a.project_id) + '</span>' : '')
       + ((a.others || []).length ? '<div class="small muted">Canvas also found: ' + a.others.map(esc).join(', ') + '. Not this project? Close this and send its id (S-...).</div>' : '');
-    if (mail) {
-      h += '<div class="label">Email these receipts?</div>' + mailable.map(function (x) { return row(x, ck(x, 'data-am', true)); }).join('')
-        + '<div class="small muted" style="margin-top:6px">Sent from AccountsPayables@ with the Event Specialist and you in CC, the receipt attached. Freelancer receipts are never emailed; they sign in Canvas Client.</div>'
-        + '<div class="actions"><button class="btn" data-act="ar-email" data-id="' + esc(r.id) + '">Email receipts</button><button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish without emailing</button></div>';
+    if (waiting && (r.stage === 'Ready to send' || r.stage === 'Send later')) {
+      var sent = function (x) { return x.doc && /^(Sent|Signed)/.test(x.doc.sent || ''); };
+      var can = a.items.filter(function (x) { return x.doc && !sent(x) && !x.send_why && !/held until paid/i.test(x.doc.status); });
+      var cant = a.items.filter(function (x) { return x.doc && !sent(x) && can.indexOf(x) < 0; }), p = a.progress || { made: can.length };
+      var d = a.draft || {}, first = ((can[0] || {}).name || 'Juan').split(/\s+/)[0], text = a.intro || d.intro || '';
+      if (r.stage === 'Send later') return h + '<div class="label">Sending later</div><div>' + esc(String((a.mail || []).length)) + ' ' + esc(a.doc_many) + ' go out at <b>'
+        + esc(new Date(a.send_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })) + '</b> (Manila time).</div>'
+        + '<div class="actions"><button class="btn" data-act="ar-now" data-id="' + esc(r.id) + '">Send now</button><button class="btn ghost" data-act="ar-cancel" data-id="' + esc(r.id) + '">Cancel the later send</button></div>' + metricLine(r) + '</div>';
+      h += '<div style="margin-top:8px;font-size:15px"><b>' + esc(String(p.made)) + ' ' + (p.made === 1 ? 'file' : 'files') + ' done.</b> Do you want me to send these files?</div>'
+        + '<div class="label">Send to</div>' + can.map(function (x) { return row(x, ck(x, 'data-asd', true)); }).join('')
+        + (cant.length ? '<div class="label">Made, not emailed</div>' + cant.map(function (x) { return row(x, '<span>–</span>', x.send_why || 'Held until paid. Canvas sends it with the Payment received email.'); }).join('') : '');
+      h += '<div class="label">The email</div><div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel)">'
+        + '<div class="small muted">From AccountsPayables@ · Subject</div><div style="margin-bottom:8px"><b>' + esc(d.subject) + '</b></div>'
+        + '<div>Hi ' + esc(first) + '.</div>'
+        + (arEdit[r.id] ? '<textarea data-say="ar-intro-' + esc(r.id) + '" rows="5" style="width:100%;margin-top:6px">' + esc(text) + '</textarea><div class="small muted">Each person gets their own name and their own sign link.</div>'
+          : '<div style="margin-top:6px;white-space:pre-wrap">' + esc(text) + '</div>')
+        + '<div style="margin-top:10px"><span style="display:inline-block;background:#B3107C;color:#fff;border-radius:8px;padding:8px 14px;font-weight:600">' + esc(d.button || 'Open Canvas') + '</span></div>'
+        + '<div class="small muted" style="margin-top:8px">The BSE header, the project, the role and the registration line are added by Canvas.</div></div>';
+      if (arLater[r.id]) h += '<div class="label">Send later</div><input type="datetime-local" data-say="ar-at-' + esc(r.id) + '" value="' + esc(arLater[r.id]) + '"> <span class="small muted">Manila time</span>'
+        + '<div class="actions"><button class="btn" data-act="ar-later-ok" data-id="' + esc(r.id) + '">Schedule</button><button class="btn ghost" data-act="ar-later" data-id="' + esc(r.id) + '">Back</button></div>';
+      else h += '<div class="actions"><button class="btn" data-act="ar-send" data-id="' + esc(r.id) + '">Send</button>'
+        + '<button class="btn ghost" data-act="ar-edit" data-id="' + esc(r.id) + '">' + (arEdit[r.id] ? 'Done editing' : 'Edit') + '</button>'
+        + '<button class="btn ghost" data-act="ar-later" data-id="' + esc(r.id) + '">Send later</button>'
+        + '<button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish without sending</button></div>';
       return h + metricLine(r) + '</div>';
     }
-    if (ready.length) h += '<div class="label">Ready to make</div>' + ready.map(function (x) { return row(x, waiting ? ck(x, 'data-amk', x.tick) : ''); }).join('');
-    if (have.length) h += '<div class="label">Already made</div>' + have.map(function (x) {
-      return row(x, waiting ? '<span style="display:flex;flex-direction:column;align-items:center" class="small">' + ck(x, 'data-arm', x.tick) + 'remake</span>' : '<span>✓</span>'); }).join('');
+    var ready = a.items.filter(function (x) { return !x.why && !x.doc; }), have = a.items.filter(function (x) { return x.doc; }), blocked = a.items.filter(function (x) { return x.why && !x.doc; });
+    var n = ready.filter(function (x) { return !x.off; }).length;
+    if (ready.length) h += '<div class="label">Ready to make</div>' + ready.map(function (x) { return row(x, waiting ? ck(x, 'data-amk', x.tick, x.off) : '', x.off ? 'No email on file. Add an email to this resource first.' : x.kind === 'Resource' && x.send_why ? x.send_why : ''); }).join('');
+    if (have.length) h += '<div class="label">Already made</div>' + have.map(function (x) { return row(x, '<span>✓</span>'); }).join('');
     if (blocked.length) h += '<div class="label">Can\'t make yet</div>' + blocked.map(function (x) { return row(x); }).join('');
-    if (!a.items.length) h += '<div class="small muted" style="margin-top:6px">Canvas shows no paid suppliers, talents or freelancers on this project yet.</div>';
+    if (!a.items.length) h += '<div class="small muted" style="margin-top:6px">' + (a.doc === 'fsa' ? 'Canvas shows no crew on this project\'s Resources yet.' : 'Canvas shows no paid suppliers, talents or freelancers on this project yet.') + '</div>';
     if (a.more) h += '<div class="small muted">Canvas has more than 200 on this project; open it in Canvas for the rest.</div>';
-    // CUE-CANVAS (Kiko 18:57Z): ARs are made in Canvas. The project opens there; tap Generate ARs in its ARs row. Making them here stays as the fallback.
-    if (r.open) h += '<div class="cvrow">' + cvLink(r.open, waiting) + '</div>' + (waiting ? '<div class="small muted" style="margin-top:4px">' + (ready.length ? ready.length + ' ready for an AR. ' : '') + 'In Canvas, tap Generate ARs in the project\'s ARs row.</div>' : '');
-    if (waiting) h += '<div class="small muted" style="margin-top:8px">Or make them from here: Canvas saves each PDF in the project\'s Acknowledgement Receipts folder and logs it on the AR Receipts tab. '
-      + 'Freelancers sign theirs in Canvas Client. Up to ' + esc(a.max) + ' per run. Nothing is emailed until you say so.</div>'
-      + '<div class="actions">' + (ready.length || have.length ? '<button class="btn' + (r.open ? ' ghost' : '') + '" data-act="ar-make" data-id="' + esc(r.id) + '">' + (r.open ? 'Make ticked here instead' : 'Make ticked receipts') + '</button>' : '')
-      + (made ? '<button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish</button>' : '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
+    if (r.open) h += '<div class="cvrow">' + cvLink(r.open, false) + '</div>';
+    if (waiting) h += '<div class="small muted" style="margin-top:8px">Canvas makes them in the background and saves each PDF in the project folder. Up to ' + esc(a.max) + ' at a time. Nothing is emailed until you press Send.</div>'
+      + '<div class="actions">' + (n ? '<button class="btn" data-act="ar-make" data-id="' + esc(r.id) + '">Make ticked ' + esc(a.doc_many) + '</button>' : '')
+      + (a.items.some(function (x) { return x.made_now; }) ? '<button class="btn ghost" data-act="ar-finish" data-id="' + esc(r.id) + '">Finish</button>' : '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
   // CFO Advisor (Kiko 07:41Z): the answer, the numbers behind it, and what is missing. Read only; nothing here pays or sends.
@@ -3019,18 +3052,27 @@
             call('cueApprove', [id, x], done, fail);
           });
         }
-        if (act === 'ar-make' || act === 'ar-email' || act === 'ar-finish') {   // CUE-AR
+        if (/^ar-/.test(act)) {   // CUE-AR, CREW-DOCS-2026-10-26
           var vals = function (attr) { return Array.prototype.filter.call(scope.querySelectorAll('[' + attr + '="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; }); };
           var go = function (x) { b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, x], done, fail); };
+          var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, ar = req.ar || {};
+          var said = function (k) { var el = scope.querySelector('[data-say="' + k + '-' + id + '"]'); return el ? el.value : ''; };
+          var intro = function () { return arEdit[id] ? said('ar-intro') : (ar.intro || ''); };
           if (act === 'ar-finish') return go({ finish: true });
-          if (act === 'ar-make') { var mk = vals('data-amk'), rm = vals('data-arm'), ar = (state.requests.filter(function (x) { return x.id === id; })[0] || {}).ar || {};
-            if (!mk.length && !rm.length) return addLocal('Cue', 'Tick at least one receipt first.');
-            if (mk.length + rm.length > (ar.max || 15)) return addLocal('Cue', 'Tick ' + (ar.max || 15) + ' at most per run, then do the rest.');
-            return go({ make: mk, remake: rm }); }
-          var em = vals('data-am'), req = state.requests.filter(function (x) { return x.id === id; })[0] || {};
-          if (!em.length) return addLocal('Cue', 'Tick at least one receipt to email.');
-          var who = ((req.ar || {}).items || []).filter(function (x) { return em.indexOf(x.key) >= 0; }).map(function (x) { return x.name; });
-          return ask('Email ' + who.length + ' receipt' + (who.length === 1 ? '' : 's') + ' now?', 'From AccountsPayables@ to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () { go({ email: em }); });
+          if (act === 'ar-now') return go({ now: true });
+          if (act === 'ar-cancel') return go({ cancel: true });
+          if (act === 'ar-edit') { if (arEdit[id]) { ar.intro = said('ar-intro'); arEdit[id] = 0; } else arEdit[id] = 1; dirty(); return render(); }
+          if (act === 'ar-later') { if (arLater[id]) delete arLater[id]; else { var t = new Date(Date.now() + 864e5 + 8 * 3600e3); arLater[id] = t.toISOString().slice(0, 10) + 'T08:00'; } dirty(); return render(); }
+          if (act === 'ar-make') { var mk = vals('data-amk');
+            if (!mk.length) return addLocal('Cue', 'Tick at least one name first.', id);
+            if (mk.length > (ar.max || 60)) return addLocal('Cue', 'Tick ' + (ar.max || 60) + ' at most, then do the rest.', id);
+            return go({ make: mk }); }
+          var em = vals('data-asd');
+          if (!em.length) return addLocal('Cue', 'Tick at least one name to send to.', id);
+          var who = (ar.items || []).filter(function (x) { return em.indexOf(x.key) >= 0; }).map(function (x) { return x.name; });
+          if (act === 'ar-later-ok') { var at = said('ar-at'); if (!at) return addLocal('Cue', 'Pick a day and time first.', id);
+            delete arLater[id]; return go({ send: em, intro: intro(), later: at + ':00+08:00' }); }
+          return ask('Send ' + who.length + ' email' + (who.length === 1 ? '' : 's') + ' now?', 'To: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () { go({ send: em, intro: intro() }); });
         }
         if (act === 'send-supplier') {
           var sx = collectSupplier(id, scope, 'send');

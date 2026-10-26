@@ -279,19 +279,30 @@ function sandbox(o = {}) {
         if (o.saveFail && log.saved.length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, url: 'https://drive.google.com/file/d/p' + log.saved.length, name: body.project_id + ' · ' + body.args.name, type: body.args.type, existed: false, in_project_folder: !o.noFolder } });
       }
-      // CUE-AR: Canvas's AR list, make and email, with the shapes of the bridge's ar_list / ar_make / ar_email.
-      if (body.action === 'ar_list') { log.arList = body.project_id; return resp(200, { ok: true, status: 'Completed', result: { more: false, items: (o.arItems || AR_ITEMS).map(x => Object.assign({}, x, { ar: (log.ars || {})[x.key] || x.ar || null })) } }); }
-      if (body.action === 'ar_make') {
-        log.arMade = log.arMade || []; log.arMade.push([body.args.key, !!body.args.remake]);
-        if ((o.arFail || []).indexOf(body.args.key) >= 0 && log.arMade.filter(k => k[0] === body.args.key).length === 1) return resp(200, { ok: false, status: 'Blocked', error: 'Drive busy' });
-        const it = (o.arItems || AR_ITEMS).find(x => x.key === body.args.key), ar = { ar_id: 'AR-' + log.arMade.length, status: it.kind === 'Resource' ? 'Waiting for signature' : 'Made',
-          url: 'https://drive.google.com/file/d/ar' + log.arMade.length, generated: '2026-10-21 08:00', emailed: '', signed_at: '', signed_url: '' };
-        (log.ars = log.ars || {})[it.key] = ar; return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: false, name: it.name, kind: it.kind, ar } });
-      }
-      if (body.action === 'ar_email') {
-        log.arMailed = log.arMailed || []; log.arMailed.push(body.args.key);
+      // CREW-DOCS-2026-10-26: Canvas's list, background job and one-person send, with the shapes of crew_docs / crew_docs_make / crew_docs_job / crew_docs_send.
+      if (body.action === 'crew_docs') { log.arList = body.project_id; log.docKind = body.args.kind;
+        const src = body.args.kind === 'fsa' ? (o.fsaItems || FSA_ITEMS) : (o.arItems || AR_ITEMS);
+        return resp(200, { ok: true, status: 'Completed', result: { more: false, draft: { subject: 'Please sign your ' + (body.args.kind === 'fsa' ? 'Freelancer Service Agreement' : 'Acknowledgement Receipt') + ' · Globe',
+          intro: 'Blank Space Events prepared your document. Press Open Canvas to open it.', button: 'Open Canvas' },
+          items: src.map(x => { const crew = x.kind === 'Resource', notReg = (o.notReg || []).indexOf(x.name) >= 0;
+            return { key: x.key, kind: x.kind, name: x.name, role: x.role, amount: x.amount, paid_on: x.paid_on, why: x.why, has_email: x.has_email, registered: !notReg, can_sign: crew,
+              send_why: !x.has_email ? (crew ? 'No email on file. Add an email to this resource first.' : 'No email on file.') : notReg ? 'Not registered yet: made, not emailed. Send them the login page.' : '',
+              doc: (log.docs || {})[x.key] || (x.ar ? Object.assign({}, x.ar) : null) }; }) } }); }
+      if (body.action === 'crew_docs_make') { const J = log.jobs = log.jobs || {};
+        const ex = !!J[body.args.request_id]; if (!ex) J[body.args.request_id] = { kind: body.args.kind, keys: body.args.keys, done: {} }; log.made = (log.made || 0) + (ex ? 0 : 1);
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: ex, job: { items: body.args.keys.map(key => ({ key, state: 'waiting', id: '', error: '' })), left: body.args.keys.length, finished: false } } }); }
+      if (body.action === 'crew_docs_job') { const j = (log.jobs || {})[body.args.request_id]; if (!j) return resp(200, { ok: true, status: 'Completed', result: { missing: true } });
+        let step = o.jobStep || 999; j.keys.forEach((key, i) => { if (j.done[key] || step <= 0) return; step--;
+          if ((o.arFail || []).indexOf(key) >= 0) j.done[key] = { state: 'failed', error: 'Drive busy' };
+          else { j.done[key] = { state: 'made', id: (j.kind === 'fsa' ? 'FSA-' : 'AR-') + (i + 1) };
+            (log.docs = log.docs || {})[key] = { id: j.done[key].id, ar_id: j.done[key].id, status: 'Waiting for signature', url: 'https://drive.google.com/file/d/' + j.done[key].id, sent: '', emailed: '' }; } });
+        const items = j.keys.map(key => Object.assign({ key, state: 'waiting', id: '', error: '' }, j.done[key] || {})), left = items.filter(x => x.state === 'waiting').length;
+        return resp(200, { ok: true, status: 'Completed', result: { project_id: body.project_id, kind: j.kind, items, left, finished: !left } }); }
+      if (body.action === 'crew_docs_send') {
+        log.arMailed = log.arMailed || []; log.arMailed.push(body.args.key); log.intro = body.args.intro;
         if (o.apNotSetUp) return resp(200, { ok: false, status: 'Rejected', error: 'Not sent: AccountsPayables@ is not set up to send from yet' });
-        return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: false, emailed: 'Sent to a@supplier.test 2026-10-21 08:05' } });
+        if (log.docs && log.docs[body.args.key]) log.docs[body.args.key].sent = 'Sent to x@test 2026-10-21 08:05';
+        return resp(200, { ok: true, status: 'Completed', result: { ok: true, existed: false, emailed: 'Sent to x@test 2026-10-21 08:05' } });
       }
       if (body.action === 'make_rfq_drafts') {
         log.canvasDrafts = (log.canvasDrafts || 0) + 1;
@@ -466,9 +477,15 @@ const AR_ITEMS = [
   { key: 'Q|PR-001', kind: 'Supplier', name: 'Lights Co', role: 'Lights', amount: 15000, paid_on: '2026-10-18', request_id: 'PR-001', has_email: true, why: '', ar: null },
   { key: 'Q|PR-002', kind: 'Supplier', name: 'VAT Co', role: 'Sound', amount: 50000, paid_on: '2026-10-18', request_id: 'PR-002', has_email: true, why: 'VAT Co is VAT registered, so they owe us an invoice instead of an AR.', ar: null },
   { key: 'Q|PR-003', kind: 'Talent', name: 'DJ Ana', role: 'DJ', amount: 8000, paid_on: '2026-10-19', request_id: 'PR-003', has_email: false, why: '', ar: null },
-  { key: 'R|ben cruz|usher', kind: 'Resource', name: 'Ben Cruz', role: 'Usher', amount: 1500, paid_on: '', request_id: '', has_email: false, why: '', ar: null },
+  { key: 'R|ben cruz|usher', kind: 'Resource', name: 'Ben Cruz', role: 'Usher', amount: 1500, paid_on: '', request_id: '', has_email: true, why: '', ar: null },
+  { key: 'R|carla lim|host', kind: 'Resource', name: 'Carla Lim', role: 'Host', amount: 2000, paid_on: '', request_id: '', has_email: false, why: '', ar: null },
   { key: 'Q|PR-004', kind: 'Supplier', name: 'Old Co', role: 'Tables', amount: 3000, paid_on: '2026-10-10', request_id: 'PR-004', has_email: true, why: '',
     ar: { ar_id: 'AR-OLD', status: 'Made', url: 'https://drive.google.com/file/d/old', generated: '2026-10-11 09:00', emailed: 'Sent to o@old.test 2026-10-11 09:01', signed_at: '', signed_url: '' } }];
+// CREW-DOCS-2026-10-26: crew on the project's Resources, for "Generate FSAs for <project>".
+const FSA_ITEMS = [
+  { key: 'juan cruz', kind: 'Resource', name: 'Juan Cruz', role: 'Host', why: '', has_email: true, ar: null },
+  { key: 'ana reyes', kind: 'Resource', name: 'Ana Reyes', role: 'Usher', why: '', has_email: true, ar: null },
+  { key: 'carla lim', kind: 'Resource', name: 'Carla Lim', role: 'Usher', why: '', has_email: false, ar: null }];
 // CUE-EXPENSE: what GPT reads, what Canvas has, what Claude proposes, what Canvas records.
 const XREAD = { project_hint: 'Telus Trick or Treat Manila', category: 'Venue Styling', item: 'Duct tapes', quantity: 3, unit: 'rolls', supplier: 'Ace Hardware',
   payee: 'Ace Hardware', amount: 450, date: '2026-10-20', ref: 'OR 1234', ref_type: 'receipt_number', paid_evidence: false,
@@ -1613,71 +1630,94 @@ test('P3 pipeline edge cases: one client only; no token, bad token; Claude down 
 test('AR1 ARs (Kiko 07:42Z): the chat call picks the command, Canvas lists, the card ticks only what is ready; no extra AI call, no Claude', () => {
   const t = sandbox({ similar: [{ project_id: 'S-31628060SP', name: 'Globe Year-End Party', account: 'Globe', date: '2026-12-12', status: 'Completed', why: 'similar name' }],
     talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Globe year-end party' } });
-  const r = t.ctx.cueSend('prepare ARs for the Globe year-end party', [], '');
+  const r = t.ctx.cueSend('can you sort out the receipts for the Globe year-end party', [], '');
   assert.ok(r.request_id); const v = t.ctx.cueRun(r.request_id);
-  assert.strictEqual(v.kind, 'ar'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.ar.project_id, 'S-31628060SP');
-  deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['find_similar_projects', 'ar_list']); deq(t.log.search || [], ['globe', 'year', 'end', 'party'], 'the chat lookup, also a read'); assert.strictEqual(t.log.arList, 'S-31628060SP');
+  assert.strictEqual(v.kind, 'ar'); assert.strictEqual(v.ar.doc, 'ar'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.ar.project_id, 'S-31628060SP');
+  deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['find_similar_projects', 'crew_docs']); assert.ok((t.log.search || []).indexOf('globe') >= 0, 'the chat lookup, also a read'); assert.strictEqual(t.log.arList, 'S-31628060SP'); assert.strictEqual(t.log.docKind, 'ar');
   assert.strictEqual(v.metrics.ai_calls, 0, 'the run itself makes no AI call'); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.claude.length, 0);
-  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked and already-made ones are not ticked');
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked, already-made and no-email crew are not ticked');
+  assert.ok(v.ar.items.find(x => x.key === 'R|carla lim|host').off, 'Kiko 12:58Z: a resource with no email is turned off');
   assert.ok(t.tabs.Chat.rows.some(x => x[2] === 'Started a thread for it.' && x[3] === '>' + r.request_id), 'main chat points at the new thread');
-  assert.ok(/acknowledgement receipts/i.test(JSON.stringify(t.log.gpt[0].instructions)), 'the chat model knows the command');
+  assert.ok(/acknowledgement receipts/i.test(JSON.stringify(t.log.gpt[0].instructions)) && /FSAs/.test(JSON.stringify(t.log.gpt[0].instructions)), 'the chat model knows the command, FSAs too');
   deq(Object.keys(JSON.parse(JSON.stringify(t.log.gpt[0].text.format.schema.properties))).sort(), CHAT_FIELDS);
   deq(JSON.parse(JSON.stringify(t.log.gpt[0].text.format.schema.required)).sort(), CHAT_FIELDS, 'strict schema needs every field required');
 });
 test('AR2 ARs: a Canvas id is used as given; an unknown name stops with a plain reason and Try again', () => {
   const t = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'S-31628060SP' } });
   const v = t.ctx.cueRun(t.ctx.cueSend('ARs for S-31628060SP please', [], '').request_id);
-  assert.strictEqual(v.status, 'Needs you'); deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['ar_list']); deq(t.log.search || [], ['S-31628060SP'], 'the chat lookup, also a read');
+  assert.strictEqual(v.status, 'Needs you'); deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['crew_docs']); deq(t.log.search || [], ['S-31628060SP'], 'the chat lookup, also a read');
   const u = sandbox({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'Nowhere Fest' } });
   const w = u.ctx.cueRun(u.ctx.cueSend('make the ARs for Nowhere Fest', [], '').request_id);
   assert.strictEqual(w.status, 'Failed'); assert.ok(/no project called "Nowhere Fest"/.test(w.error), w.error);
 });
-function arCard(o) {
+function arCard(o, text) {
   const t = sandbox(Object.assign({ talk: { reply: 'On it.', looks_like_inquiry: false, start_intake: '', task: '', start_ar: 'S-31628060SP' } }, o || {}));
-  const id = t.ctx.cueSend('prepare ARs S-31628060SP', [], '').request_id; t.ctx.cueRun(id); return Object.assign(t, { id });
+  const id = t.ctx.cueSend(text || 'prepare ARs S-31628060SP', [], '').request_id; t.ctx.cueRun(id); return Object.assign(t, { id });
 }
-test('AR3 ARs: approve makes only the ticked ones, one bridge call each; refuses blocked, over 15, and remaking what was never made', () => {
+test('AR3 Make (Kiko 13:22Z): one background job for the ticked names; refuses blocked, no-email crew, over 60 and nothing; nothing emailed', () => {
   const t = arCard();
   assert.throws(() => t.ctx.cueApprove(t.id, { make: ['Q|PR-002'] }), /VAT registered/);
-  assert.throws(() => t.ctx.cueApprove(t.id, { remake: ['Q|PR-001'] }), /already made/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { make: ['R|carla lim|host'] }), /no email on file/);
+  assert.throws(() => t.ctx.cueApprove(t.id, { make: ['Q|PR-004'] }), /already has one/);
   assert.throws(() => t.ctx.cueApprove(t.id, { make: [] }), /Tick at least one/);
-  const big = arCard({ arItems: Array.from({ length: 16 }, (_, i) => ({ key: 'Q|PR-1' + i, kind: 'Supplier', name: 'S' + i, role: 'x', amount: 1, has_email: true, why: '', ar: null })) });
-  assert.throws(() => big.ctx.cueApprove(big.id, { make: Array.from({ length: 16 }, (_, i) => 'Q|PR-1' + i) }), /15 at most/);
+  const big = arCard({ arItems: Array.from({ length: 61 }, (_, i) => ({ key: 'Q|PR-1' + i, kind: 'Supplier', name: 'S' + i, role: 'x', amount: 1, has_email: true, why: '', ar: null })) });
+  assert.throws(() => big.ctx.cueApprove(big.id, { make: Array.from({ length: 61 }, (_, i) => 'Q|PR-1' + i) }), /60 at most/);
   const v = t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'R|ben cruz|usher'] });
-  deq(t.log.arMade, [['Q|PR-001', false], ['R|ben cruz|usher', false]]);
-  t.log.bridge.filter(b => b.action === 'ar_make').forEach(b => { assert.strictEqual(b.project_id, 'S-31628060SP'); assert.strictEqual(b.args.request_id, t.id); });
-  assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.stage, 'Ready to email', 'Lights Co has an email and a new receipt');
-  assert.strictEqual(v.ar.items.find(x => x.key === 'R|ben cruz|usher').ar.status, 'Waiting for signature');
+  const mk = t.log.bridge.filter(b => b.action === 'crew_docs_make'); assert.strictEqual(mk.length, 1, 'one call for the whole batch');
+  assert.strictEqual(mk[0].project_id, 'S-31628060SP'); assert.strictEqual(mk[0].args.request_id, t.id + '-m1'); deq(mk[0].args.keys, ['Q|PR-001', 'R|ben cruz|usher']);
+  assert.strictEqual(v.status, 'Working'); assert.strictEqual(v.stage, 'Canvas is making'); deq(v.ar.progress, { made: 0, failed: 0, total: 2 });
   assert.ok(!t.log.arMailed, 'nothing emailed on make');
-  assert.ok(t.tabs.Chat.rows.some(x => /Canvas made 2 receipts/.test(x[2])));
+  assert.ok(t.tabs.Chat.rows.some(x => /Canvas is making 2 ARs for S-31628060SP/.test(x[2])));
 });
-test('AR4 ARs: email only on its own approval, only mailable ones, from Canvas; done with one summary line', () => {
-  const t = arCard(); t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'Q|PR-003'] });
-  assert.throws(() => t.ctx.cueApprove(t.id, { email: ['Q|PR-003'] }), /cannot be emailed/, 'no email on file');
-  assert.throws(() => t.ctx.cueApprove(t.id, { email: ['Q|PR-004'] }), /cannot be emailed/, 'already sent');
-  const v = t.ctx.cueApprove(t.id, { email: ['Q|PR-001'] });
-  deq(t.log.arMailed, ['Q|PR-001']); assert.strictEqual(v.status, 'Done');
-  assert.ok(/^Sent to /.test(v.ar.items.find(x => x.key === 'Q|PR-001').ar.emailed));
-  const sum = t.tabs.Chat.rows.filter(x => /^Summary for ARs for S-31628060SP: made 2 receipts; emailed 1 from AccountsPayables@; 1 could not be made yet/.test(x[2]));
+test('AR4 progress (Kiko 13:30Z "Generating 15 of 50"), then "2 files done. Send them?"; Send with Kiko\'s edit, one call per person; done with one summary line', () => {
+  const t = arCard({ jobStep: 1 }); t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'R|ben cruz|usher'] });
+  let v = t.ctx.cueRun(t.id); assert.strictEqual(v.status, 'Working'); deq(v.ar.progress, { made: 1, failed: 0, total: 2 }, 'Generating 1 of 2');
+  deq(v.ar.items.filter(x => x.state).map(x => x.state), ['made', 'waiting']);
+  v = t.ctx.cueRun(t.id); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.stage, 'Ready to send');
+  assert.ok(t.tabs.Chat.rows.some(x => /^2 files done for S-31628060SP\. Do you want me to send these files\?/.test(x[2])), 'Kiko 13:31Z');
+  assert.ok(v.ar.draft.subject && /Open Canvas/.test(v.ar.draft.intro), 'the draft for the card');
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'R|ben cruz|usher']);
+  assert.throws(() => t.ctx.cueApprove(t.id, { send: ['Q|PR-004'] }), /already sent or not made/);
+  v = t.ctx.cueApprove(t.id, { send: ['Q|PR-001', 'R|ben cruz|usher'], intro: 'Please sign today. Thank you!' });
+  deq(t.log.arMailed, ['Q|PR-001', 'R|ben cruz|usher']); assert.strictEqual(t.log.intro, 'Please sign today. Thank you!'); assert.strictEqual(v.status, 'Done');
+  const sum = t.tabs.Chat.rows.filter(x => /^Summary for ARs for S-31628060SP: made 2 ARs; emailed 2; 2 could not be made yet/.test(x[2]));
   assert.strictEqual(sum.length, 2, 'main chat and thread');
   assert.ok(!t.log.gmail.length && !(t.log.sent || []).length, 'nothing from Kiko\'s Gmail');
 });
-test('AR5 ARs: a failed receipt stays ticked for a retry; Finish without emailing ends it; AccountsPayables@ not set up is shown, not hidden', () => {
-  const t = arCard({ arFail: ['Q|PR-003'] });
-  const v = t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'Q|PR-003'] });
-  assert.strictEqual(v.stage, 'Needs you'); const x = v.ar.items.find(i => i.key === 'Q|PR-003'); assert.ok(x.tick && /Drive busy/.test(x.error));
-  const w = t.ctx.cueApprove(t.id, { make: ['Q|PR-003'] }); assert.strictEqual(w.stage, 'Ready to email');
-  deq(t.log.arMade.map(k => k[0]), ['Q|PR-001', 'Q|PR-003', 'Q|PR-003']);
-  const n = arCard({ apNotSetUp: true }); n.ctx.cueApprove(n.id, { make: ['Q|PR-001'] });
-  const e = n.ctx.cueApprove(n.id, { email: ['Q|PR-001'] });
-  assert.strictEqual(e.stage, 'Ready to email'); assert.ok(/AccountsPayables@ is not set up/.test(e.ar.items.find(i => i.key === 'Q|PR-001').error));
+test('AR5 Send later at Kiko\'s time, Send now, Cancel; a file not made is shown with why; a send that fails stays to retry', () => {
+  const t = arCard({ arFail: ['R|ben cruz|usher'] }); t.ctx.cueApprove(t.id, { make: ['Q|PR-001', 'R|ben cruz|usher'] });
+  let v = t.ctx.cueRun(t.id); assert.strictEqual(v.stage, 'Ready to send'); assert.strictEqual(v.ar.items.find(x => x.key === 'R|ben cruz|usher').error, 'Drive busy');
+  assert.ok(t.tabs.Chat.rows.some(x => /1 file done.*1 not made: Ben Cruz \(Drive busy\)/.test(x[2])));
+  assert.throws(() => t.ctx.cueApprove(t.id, { send: ['Q|PR-001'], later: t.ctx.cueNow_() - 1000 }), /later than now/);
+  v = t.ctx.cueApprove(t.id, { send: ['Q|PR-001'], later: t.ctx.cueNow_() + 3600e3 }); assert.strictEqual(v.stage, 'Send later'); assert.ok(!t.log.arMailed);
+  v = t.ctx.cueApprove(t.id, { cancel: true }); assert.strictEqual(v.stage, 'Ready to send');
+  t.ctx.cueApprove(t.id, { send: ['Q|PR-001'], later: t.ctx.cueNow_() + 3600e3 });
+  t.ctx.cueArDue_(); assert.ok(!t.log.arMailed, 'not before its time');
+  t.ctx.__wait(3601e3); t.ctx.cueResume(); deq(t.log.arMailed, ['Q|PR-001'], 'the 5-minute resume sends it at the time Kiko picked');
+  assert.strictEqual(t.state(t.id).status, 'Done');
+  const n = arCard({ apNotSetUp: true }); n.ctx.cueApprove(n.id, { make: ['Q|PR-001'] }); n.ctx.cueRun(n.id);
+  const e = n.ctx.cueApprove(n.id, { send: ['Q|PR-001'] });
+  assert.strictEqual(e.stage, 'Ready to send'); assert.ok(/AccountsPayables@ is not set up/.test(e.ar.items.find(i => i.key === 'Q|PR-001').error));
   const f = n.ctx.cueApprove(n.id, { finish: true }); assert.strictEqual(f.status, 'Done');
   assert.throws(() => n.ctx.cueApprove(n.id, { make: ['Q|PR-003'] }), /not waiting for you/);
 });
-test('AR6 ARs: the bridge fixture accepts exactly what Cue sends (ar_list, ar_make, ar_email)', () => {
-  assert.strictEqual(bridgeCheck('ar_list', {}), ''); assert.strictEqual(bridgeCheck('ar_make', { request_id: 'cue-20261021080000-ab12', key: 'R|ben cruz|usher', remake: true }), '');
-  assert.strictEqual(bridgeCheck('ar_email', { request_id: 'cue-20261021080000-ab12', key: 'Q|PR-001' }), '');
-  assert.ok(bridgeCheck('ar_email', { request_id: 'cue-20261021080000-ab12', key: 'Q|PR-001', remake: true }));
+test('AR6 the bridge fixture accepts exactly what Cue sends (crew_docs, crew_docs_make, crew_docs_job, crew_docs_send)', () => {
+  assert.strictEqual(bridgeCheck('crew_docs', { kind: 'fsa' }), ''); assert.ok(bridgeCheck('crew_docs', { kind: 'pdf' }));
+  assert.strictEqual(bridgeCheck('crew_docs_make', { request_id: 'cue-20261021080000-ab12-m1', kind: 'ar', keys: ['R|ben cruz|usher'] }), '');
+  assert.strictEqual(bridgeCheck('crew_docs_job', { request_id: 'cue-20261021080000-ab12-m1' }), '');
+  assert.strictEqual(bridgeCheck('crew_docs_send', { request_id: 'cue-20261021080000-ab12', kind: 'fsa', key: 'juan cruz', intro: 'Hi' }), '');
+  assert.ok(bridgeCheck('crew_docs_send', { request_id: 'cue-20261021080000-ab12', kind: 'fsa', key: 'juan cruz', remake: true }));
+});
+test('AR7 FSAs (Kiko 13:24Z "generate FSAs for ..."): the same command lists crew from Canvas, makes and sends FSAs', () => {
+  const t = arCard({}, 'generate FSAs for S-31628060SP');
+  assert.strictEqual(t.log.gpt.length, 0, 'typed command: no AI call at all');
+  let v = t.ctx.cueView_(t.state(t.id)); assert.strictEqual(v.ar.doc, 'fsa'); assert.strictEqual(t.log.docKind, 'fsa');
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['juan cruz', 'ana reyes']); assert.ok(v.ar.items.find(x => x.key === 'carla lim').off);
+  assert.ok(t.tabs.Chat.rows.some(x => /2 FSAs ready to make for S-31628060SP/.test(x[2])));
+  t.ctx.cueApprove(t.id, { make: ['juan cruz', 'ana reyes'] }); v = t.ctx.cueRun(t.id);
+  assert.strictEqual(v.stage, 'Ready to send'); assert.strictEqual(t.log.bridge.filter(b => b.action === 'crew_docs_make')[0].args.kind, 'fsa');
+  t.ctx.cueApprove(t.id, { send: ['juan cruz'] }); deq(t.log.arMailed, ['juan cruz']);
+  assert.ok(t.log.bridge.filter(b => b.action === 'crew_docs_send').every(b => b.args.kind === 'fsa' && !('intro' in b.args)), 'no edit: Canvas uses its own message');
 });
 
 test('Q5 timing comes from Kiko\'s Chaser rules card: first chase after 2 shows the Monday RFQ; paused shows none', () => {
@@ -4075,10 +4115,11 @@ test('CV1 Canvas commands are read in code: the right page, project words, tab a
   deq(P('past prices of LED wall'), { what: 'pricewatch', q: 'LED wall' });
   deq(P('open supplier Sonic Pro'), { what: 'supplier', q: 'Sonic Pro' });
   deq(P('open finance'), { what: 'page', key: 'finance' });
-  deq(P('make FSAs for Globe party'), { what: 'project', project: 'Globe party', tab: 'Main', why: 'fsa', action: 'fsa' });
+  deq(P('make FSAs for Globe party'), { what: 'crewdocs', project: 'Globe party', doc: 'fsa' }, 'CREW-DOCS (Kiko 13:24Z): Cue\'s own command now');
+  deq(P('generate ARs for Globe party'), { what: 'crewdocs', project: 'Globe party', doc: 'ar' });
   deq(P('make FSAs'), { what: 'page', key: 'fsa generator' });
   deq(P('show Globe party in canvas'), { what: 'project', project: 'Globe party', tab: 'Main' });
-  ['show me the pipeline', 'find suppliers for LED wall in Cebu', 'prepare ARs for Globe party', 'how are we doing on Globe?', 'open supplier for LED walls', 'record expense 450 duct tape']
+  ['show me the pipeline', 'find suppliers for LED wall in Cebu', 'how are we doing on Globe?', 'open supplier for LED walls', 'record expense 450 duct tape']
     .forEach(x => assert.strictEqual(t.ctx.cueCanvasParse_(x), null, x));
 });
 test('CV2 "open <project>": Canvas finds it (search_projects, read only), Cue answers with the link and opens it; no AI call', () => {
@@ -4172,7 +4213,7 @@ test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable lab
 });
 test('CV11 Canvas 194 links (Kiko "Go" 19:46Z): FSA generator, Request payment filled, Finance by client, Accounts, Cost Estimates', () => {
   const t = sandbox({ search: { 'globe party': { projects: [GLOBE], total: 1 } } });
-  deq(cvQ(t.ctx.cueSend('make FSAs for Globe party', [], '').canvas.url), { page: 'canvas', project: 'S-31628060SP', tab: 'Main', action: 'fsa' });
+  assert.ok(t.ctx.cueSend('make FSAs for Globe party', [], '').request_id, 'CREW-DOCS: Cue makes and sends them now; the card still opens the generator');
   deq(cvQ(t.ctx.cueSend('open receivables for Telus', [], '').canvas.url), { page: 'financedesk', view: 'ar', client: 'Telus' });
   deq(cvQ(t.ctx.cueSend('open payables for Sonic Pro', [], '').canvas.url), { page: 'financedesk', view: 'pay', client: 'Sonic Pro' });
   deq(cvQ(t.ctx.cueSend('open account Unilever', [], '').canvas.url), { page: 'clientdesk', q: 'Unilever' });

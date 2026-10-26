@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
+
+Kiko 26 Oct 13:22Z ("i need you to have a command that can trigger this"), 13:24Z ("generate ARs, for... generate FSAs, for ... and then you will ask do you want me to send those after?"), 13:25Z (making the files takes a while, so the send question comes after), 13:30Z ("Generating 15 of 50") and 13:31Z ("60 files done. Do you want me to send these files... a draft with buttons... Send, Edit and Send Later").
+
+- "Generate FSAs for <project>" and "Generate ARs for <project>" (also make, prepare, create) start the command in code, with no AI call. "Prepare ARs" through the chat call still works, and now covers FSAs too.
+- The card lists the people from Canvas, ticked when ready. A crew row with no email on file is turned off (Kiko 12:58Z). Up to 60 per Make.
+- Canvas makes the files in the background (Canvas bridge crew_docs_make, then its own documents run). The thread shows "Generating 15 of 50" with a bar; the page looks every 30 seconds, and the 5-minute resume looks when the page is closed.
+- When all are made, Cue says "N files done. Do you want me to send these files?" and shows the email draft (subject, message, Open Canvas button) with Send, Edit, Send later and Finish without sending. Edit changes the message for everyone. Send later takes a day and time (Manila), and the 5-minute resume sends at that time.
+- Crew are emailed only when registered with a crew sign-in; the rest are listed as "made, not emailed" with the reason. A held AR waits for Paid. Each person is sent once (crew_docs_send).
+- Needs the Canvas release with the crew_docs bridge actions (CanvasWorkspace branch claude/project-thread-mg5lcj). test/fixtures/ZapBridge.gs is refreshed from it.
+- Release branch claude/project-thread-mg5lcj-rel12733: live 1.27.27 (c02a463) plus this change.
+- Tests: AR1 to AR7 rewritten for the new flow, CV1 and CV11 updated.
+
 ## Cue 1.27.27: bid contacts on the card and into intake (release branch, not deployed)
 
 Kiko asked 24 Oct 2026 13:36Z: "I think you should have also the contacts. When intake runs: Also we need to store the contact

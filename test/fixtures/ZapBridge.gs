@@ -119,13 +119,22 @@ const ZB_ACTIONS_ = {
         client: { type: 'object', required: true, fields: { company: { type: 'string', max: 200 }, contact: { type: 'string', max: 200 },
           email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 },
           contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, role: { type: 'string', max: 100 },
-            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } } } },
+            email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } }, industry: { type: 'string', max: 100 } } },
         event: { type: 'object', required: true, fields: { name: { type: 'string', max: 200 }, type: { type: 'string', max: 100 },
           date: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ }, deadline: { type: 'string', max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
           schedule: { type: 'object', fields: { ingress: { type: 'string', max: 100 }, hours: { type: 'string', max: 100 }, egress: { type: 'string', max: 100 } } },
           venue: { type: 'string', max: 200 }, city: { type: 'string', max: 100 },
           pax: { type: 'number', min: 0 }, budget: { type: 'string', max: 100 }, date_tbc: { type: 'boolean' } } } } } },
     run: (r) => aiIntakePhaseProject_(r.args.request_id, r.args.project, 'zap_' + r.command_id)
+  },
+  /* CUE-CLIENT-REG-2026-10-24 (Kiko 13:36Z, specs/bid-contacts-reminder.md part B): what phase 1 Approve will do in Client Desk, shown on
+   * Cue's phase 1 card before the tap. Read only: is the company in P0, and how many of the contacts P0 Contacts does not list yet. */
+  client_check: {
+    kind: 'read', needsProject: false,
+    schema: { company: { type: 'string', required: true, nonBlank: true, max: 200 },
+      contacts: { type: 'array', maxItems: 10, items: { name: { type: 'string', max: 200 }, email: { type: 'string', max: 200 } } } },
+    run: (r) => { if (!aiIntakeClientDeskOn_()) return { ok: false, error: 'Client Desk registration is off (Script Property CLIENT_DESK)' };
+      return aiIntakeClientDesk_(aiIntakeClient_({ company: r.args.company, contacts: r.args.contacts || [] }), '', true); }
   },
   intake_add_lines: {
     kind: 'queue', needsProject: false,
@@ -389,6 +398,33 @@ const ZB_ACTIONS_ = {
       key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[RQ]\|[^\u0000-\u001f]+$/ } },
     run: (r) => zbArEmail_(r)
   },
+  /* CREW-DOCS-2026-10-26 (Kiko 13:22Z-13:25Z): Cue's "Generate FSAs / ARs for <project>". Canvas Client has no Docs scope, so
+   * crew_docs_make only writes a job; main's documents run makes the files (AutoDocs.gs adJobsRun_). Nothing is emailed until
+   * Kiko taps Send in Cue, then one crew_docs_send per person, sent once. No bank details in any reply. */
+  crew_docs: {
+    // Who can get an FSA (kind fsa) or AR (kind ar), the current document, and whether a sign email can go to them.
+    kind: 'read', needsProject: true, schema: { kind: { type: 'string', required: true, oneOf: ['fsa', 'ar'] } },
+    run: (r) => zbCrewDocs_(r.project_id, r.args.kind)
+  },
+  crew_docs_make: {
+    // The ticked people, made one at a time by main. A repeat of the same request_id returns the job already there.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, kind: { type: 'string', required: true, oneOf: ['fsa', 'ar'] },
+      keys: { type: 'array', required: true, minItems: 1, maxItems: 60 } },
+    run: (r) => zbCrewMake_(r)
+  },
+  crew_docs_job: {
+    // How far the job is: per person waiting, made (with the document ID) or failed (with why).
+    kind: 'read', needsProject: false, schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ } },
+    run: (r) => { const j = adJobGet_(r.args.request_id); return j || { missing: true }; }
+  },
+  crew_docs_send: {
+    // One person's sign email (crew: registered with a crew sign-in only), or a supplier's or talent's receipt. Sent once.
+    kind: 'queue', needsProject: true,
+    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, kind: { type: 'string', required: true, oneOf: ['fsa', 'ar'] },
+      key: { type: 'string', required: true, nonBlank: true, max: 300, re: /^[^\u0000-\u001f]+$/ }, intro: { type: 'string', max: 2000 } },
+    run: (r) => adCrewSend_(r.project_id, r.args.kind, r.args.key, String(r.args.intro || '').trim())
+  },
   finance_snapshot: {
     // CUE-FINANCE-2026-10-21 (Kiko 07:41Z approved specs/cfo-advisor.md). Cue's CFO Advisor: CE, billings, collections and
     // payment requests per project (canvas-ai/AiFinance.gs). Read only; no bank details, payees' accounts or personal expenses.
@@ -490,6 +526,15 @@ const ZB_ACTIONS_ = {
       subject: { type: 'string', required: true, nonBlank: true, max: 200 }, body: { type: 'string', required: true, nonBlank: true, max: 6000 },
       thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ } },
     run: (r) => zbPaySend_(r.args)
+  },
+  mail_waiting: {
+    // CUE-REPLY-DRAFTS-2026-10-26 (Kiko 04:49Z "if its an Emails waiting... shouldnt there be a draft already that we need to
+    // review and send?"; 05:58Z "Draft every waiting email"; 06:04Z "just me"; 06:09Z "Yes, Cue drafts them"; spec
+    // specs/email-reply-drafts.md). Kiko's client and supplier emails still waiting for his reply: the same list as his
+    // Emails waiting cards (cueMail_: his email-check file, known senders only, emails he marked Done left out). Headers only:
+    // no email text passes here. Cue reads the thread in Kiko's own Gmail and drafts the reply there. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => zbMailWaiting_()
   },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
@@ -1001,6 +1046,8 @@ function zbStatusDigest_(ids, past) {
       const sum = (a, k) => Math.round((a || []).reduce((s, o) => s + (Number(o[k]) || 0), 0) * 100) / 100;
       p.money = { ce_no: x.ce ? x.ce.ce_no : '', ce_cost: x.ce ? x.ce.cost : null, ce_total: x.ce ? x.ce.total : null,
         requested: sum(x.costs, 'amount'), paid: sum(x.costs, 'paid'), billed: sum(x.billed, 'amount'), collected: sum(x.collected, 'net') };
+      { const cm = x.cost_management || {}; // BRIDGE-COST-FIGURES-2026-10-26: the Cost Management box's EAC, ETC and Variance
+        Object.assign(p.money, { etc: cm.etc, eac: cm.eac, budget: cm.budget, budget_ce: cm.budget_ce, variance: cm.variance, variance_basis: cm.variance_basis }); }
       // Supplier names, so Cue can keep them out of client emails.
       p.suppliers = (x.costs || []).map(c => String(c.supplier || '').trim()).filter((n, i, a) => n && a.indexOf(n) === i).slice(0, 30); });
   } catch (e) { missing.push('money: ' + zbErr_(e)); }
@@ -1054,6 +1101,13 @@ function zbAddTri_(pid, items) {
   return { ok: true, added: out.filter(x => x.ok && !x.why).length, items: out };
 }
 
+/* CUE-REPLY-DRAFTS-2026-10-26: Kiko's waiting emails for Cue's reply drafts (bridge action mail_waiting). Kiko only. */
+function zbMailWaiting_() {
+  const me = String(OWNER_EMAILS[0] || '').toLowerCase(), r = cueMail_(me) || {};
+  return { on: !!r.on, stale: !!r.stale, checked: Number(r.checked) || 0,
+    items: (r.items || []).map(i => ({ id: i.id, from: i.from, email: i.email, subject: i.subject, at: i.at, unread: !!i.unread,
+      who: i.who, name: i.name || '', pid: i.pid || '', project: i.project || '' })) };
+}
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
   if (!list.length) return b;
@@ -1335,6 +1389,30 @@ function zbSaveFile_(r) {
 
 /* ---------- CUE-AR-2026-10-21: acknowledgement receipts ---------- */
 const zbArView_ = a => a ? { ar_id: a.id, status: a.status, url: a.url, generated: a.generated, emailed: a.emailed, signed_at: a.signedAt || '', signed_url: a.signedUrl || '' } : null;
+// CREW-DOCS-2026-10-26: Cue's Generate FSAs / ARs list. Crew rows carry has_email, registered, can_sign and send_why (AutoDocs adSendTo_).
+function zbCrewDocs_(pid, kind) {
+  if (kind === 'ar') {
+    const o = arPeople(pid), items = (o.items || []).slice(0, 200);
+    const em = {}; arItems_(pid).forEach(p => { em[p.key] = p.email || ''; });
+    return { draft: adDraft_('ar', ntfProject_(pid).name), more: (o.items || []).length > 200, items: items.map(p => Object.assign({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount,
+      paid_on: p.paidOn || '', why: p.why || '', doc: zbArView_(p.ar) }, p.kind === 'Resource' ? zbSendView_(adSendTo_(p.name, null, em[p.key]))
+      : { has_email: !!p.hasEmail, registered: true, can_sign: false, send_why: p.hasEmail ? '' : 'No email on file.' })) };
+  }
+  const cur = {}, sent = {}; fsaStatus_(pid).forEach(f => { cur[f.key] = f; });
+  fsaRows_(fsaTab_(false)).forEach(o => { if (norm_(o.r[FSA_C_['Project ID']]) !== norm_(pid) || /replaced/i.test(o.r[FSA_C_['Status']])) return;
+    const fp = adFpOf_(o.r[FSA_C_['Fingerprint']]); sent[fsaKey_(o.r[FSA_C_['Name']], o.r[FSA_C_['Role']])] = fp.sent ? 'Sent ' + (fp.at || '') : ''; });
+  const all = fsaPeople_(pid);
+  return { draft: adDraft_('fsa', ntfProject_(pid).name), more: all.length > 200, items: all.slice(0, 200).map(p => { const f = cur[p.key];
+    return Object.assign({ key: p.key, kind: 'Resource', name: p.name, role: p.role, why: p.why || (p.person && p.person.unlisted ? 'Not in the Freelancers database yet.' : ''),
+      doc: f ? { id: f.id, status: f.status, url: f.url, generated: f.generated, signed_at: f.signedAt || '', sent: sent[p.key] || '' } : null },
+      zbSendView_(adSendTo_(p.name, p.person, p.person && p.person.email))); }) };
+}
+const zbSendView_ = t => ({ has_email: t.has_email, registered: t.registered, can_sign: t.can_sign, send_why: t.send_why });
+function zbCrewMake_(r) {
+  const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
+  const keys = r.args.keys.map(String).filter((v, i, l) => v.trim() && v.length <= 300 && l.indexOf(v) === i);
+  try { return Object.assign({ ok: true }, adJobAdd_(r.args.request_id, r.project_id, r.args.kind, keys)); } catch (e) { return { ok: false, error: zbErr_(e) }; }
+}
 function zbArList_(pid) {
   const o = arPeople(pid), items = (o.items || []).slice(0, 200);
   return { more: (o.items || []).length > 200, items: items.map(p => ({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount,
@@ -1758,3 +1836,33 @@ ZB_ACTIONS_.gate_pass_save = {
   }
 };
 ZB_GPT_ACTIONS_.push('gate_pass', 'gate_pass_save');
+
+/* CRM-IN-CANVAS-2026-10-25 (Kiko "Build it all"): ChatGPT can log a call or note, add a follow-up and add an inquiry as a deal
+ * in Accounts. Same saves as the page (crmLog_, crmFollow0_, crmLead_ in Code.gs). request_id keeps a repeat from adding twice. */
+const ZB_CRM_RID_ = { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, ZB_CRM_DAY_ = { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ };
+const zbCrmCheck_ = (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : { ok: true, evidence: { id: res && (res.ID || (res.act && res.act.ID)) } };
+ZB_ACTIONS_.crm_log = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, kind: { type: 'string', oneOf: ['Call', 'Meeting', 'Note', 'Email'] }, company: { type: 'string', max: 120 },
+    contact: { type: 'string', max: 120 }, email: { type: 'string', max: 200 }, summary: { type: 'string', required: true, nonBlank: true, max: 1000 },
+    date: ZB_CRM_DAY_, follow_up_date: ZB_CRM_DAY_, follow_up: { type: 'string', max: 500 } },
+  run: (r) => crmDoor_(() => crmLog_({ kind: r.args.kind, company: r.args.company, contact: r.args.contact, email: r.args.email, summary: r.args.summary,
+    when: r.args.date, follow: r.args.follow_up_date ? { due: r.args.follow_up_date, what: r.args.follow_up || r.args.summary } : null }, crmDoorBy_(), 'gpt:' + r.args.request_id)),
+  check: zbCrmCheck_
+};
+ZB_ACTIONS_.crm_followup = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, due: { type: 'string', required: true, re: /^\d{4}-\d{2}-\d{2}$/ }, what: { type: 'string', required: true, nonBlank: true, max: 500 },
+    company: { type: 'string', max: 120 }, contact: { type: 'string', max: 120 }, email: { type: 'string', max: 200 }, owner: { type: 'string', max: 200 } },
+  run: (r) => crmDoor_(() => locked_(() => crmPlain_(crmFollow0_({ due: r.args.due, what: r.args.what, company: r.args.company, contact: r.args.contact, email: r.args.email,
+    owner: r.args.owner }, crmDoorBy_(), 'gpt:' + r.args.request_id)))),
+  check: zbCrmCheck_
+};
+ZB_ACTIONS_.crm_lead = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, name: { type: 'string', required: true, nonBlank: true, max: 160 }, company: { type: 'string', max: 120 },
+    contact: { type: 'string', max: 120 }, email: { type: 'string', max: 200 }, event_date: ZB_CRM_DAY_, source: { type: 'string', max: 60 }, notes: { type: 'string', max: 800 } },
+  run: (r) => crmDoor_(() => crmLead_(r.args, r.args.request_id)),
+  check: zbCrmCheck_
+};
+ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
