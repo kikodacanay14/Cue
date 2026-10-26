@@ -496,6 +496,43 @@ function cueCloseAny_(L) {
   if (s.phased && s.canvas && s.canvas.project_id) return 'Closed. What this task already saved in Canvas stays there.';   // CUE-PHASED
   return 'Closed. Nothing was written or sent.';
 }
+/** Kiko 24 Oct: the ✓ in every thread. Closes every run in id's thread that is not running and not closed yet (same rules as
+ * cueCloseAny_), with one line in the thread. Nothing is sent or written. Returns { closed, running }. */
+function cueCloseThread(id) {
+  cueOwner_();
+  const out = cueLocked_(() => {
+    const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
+    rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
+    const root = k => { for (let i = 0; i < 8 && by[k] && by[k].ref; i++) k = by[k].ref; return k; }, home = root(id);
+    if (!by[home]) throw new Error('No such task.');
+    let closed = 0, running = 0, saved = false;
+    Object.keys(by).filter(k => root(k) === home).forEach(k => {
+      const L = { s: by[k] };
+      if (['Done', 'Rejected', 'Closed'].indexOf(L.s.status) >= 0) return;
+      try { cueCloseAny_(L); cueSave_(sh, at[k], L.s); closed++; if (L.s.phased && L.s.canvas && L.s.canvas.project_id) saved = true; }
+      catch (e) { running++; }
+    });
+    return { home, closed, running, saved };
+  });
+  if (out.closed || out.running) cueChat_('Cue', (out.closed ? 'Closed' + (out.closed > 1 ? ' ' + out.closed + ' runs' : '') + '. Nothing was written or sent.' + (out.saved ? ' What it already saved in Canvas stays there.' : '') : '')
+    + (out.running ? ' ' + out.running + ' still running or scheduled: close ' + (out.running === 1 ? 'it' : 'them') + ' when ' + (out.running === 1 ? 'it stops' : 'they stop') + '.' : ''), out.home);
+  return { closed: out.closed, running: out.running };
+}
+/** Scheduled and checking jobs whose old runs "Close older runs" may close. Intakes and other work Kiko started are never in it. */
+const CUE_OLD_KINDS_ = ['bids', 'gtask', 'pipeline', 'hubspot', 'status', 'skillobs'];
+/** Kiko 24 Oct: one tap in Waiting on you closes every run of those jobs that waits (or failed) from before today, Manila time.
+ * Nothing is sent or written. Returns { closed }. */
+function cueCloseOlder() {
+  cueOwner_();
+  const today = cueMnlDay_(cueNow_()), newest = {};
+  // PC recheck 24 Oct: a pipeline review that a newer one of the same scope replaced is old too, even from today.
+  cueRows_(cueSheet_('Requests')).slice(-120).forEach(r => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join(''));
+    if (x.kind === 'pipeline') { const c = (x.pipe || {}).client || ''; if (!newest[c] || String(x.created) > String(newest[c].created)) newest[c] = x; } } catch (e) { /* skip */ } });
+  const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || (x.kind === 'pipeline' && newest[(x.pipe || {}).client || ''] && newest[(x.pipe || {}).client || ''].id !== x.id);
+  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && old(x) && !(x.kind === 'pipeline' && cuePipeHeld_(x)),
+    'Closed with "Close older runs". Nothing was written or sent.', true);
+  return { closed: ids.length };
+}
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */
 function cueArchive(id, on) {
   cueOwner_();

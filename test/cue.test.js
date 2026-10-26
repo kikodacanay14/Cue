@@ -351,10 +351,11 @@ function sandbox(o = {}) {
     }
     if (o.pipeMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {
       if (u.indexOf('/messages?') >= 0) { const q = decodeURIComponent(u.split('q=')[1]); (log.pipeQ = log.pipeQ || []).push(q);
-        const hit = PMAIL.find(m => q.indexOf(m.key) >= 0); return resp(200, hit ? { messages: [{ id: hit.id, threadId: hit.thread }] } : {}); }
+        const hits = PMAIL.filter(m => q.indexOf(m.key) >= 0).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, Number((u.match(/maxResults=(\d+)/) || [])[1]) || 1);
+        return resp(200, hits.length ? { messages: hits.map(h => ({ id: h.id, threadId: h.thread })) } : {}); }
       const m = PMAIL.find(x => u.indexOf('/messages/' + x.id + '?') >= 0);
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.at)), snippet: m.snippet, labelIds: m.sent ? ['SENT'] : ['INBOX'],
-        payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
+        payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }].concat(m.headers || []) } });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0 && (req.method || 'get') === 'get') { const r = inboxRoute(o.inbox || [], u, log); if (r) return r; }   // an empty inbox unless a test gives one
     if (o.award && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/threads/') >= 0) {   // CE award chasers: thread headers (their own thread format)
@@ -1425,6 +1426,77 @@ test('P2 follow-ups: one GPT call for ticked deals with a thread; Approve and se
   assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0); deq(t.log.search || [], [], 'the chat lookup, also a read');
   const u = pipeToCard(); u.ctx.cuePipeFollowUps(u.id, ['D3']); assert.strictEqual(u.ctx.cueApprove(u.id, {}).status, 'Done'); assert.ok(!u.log.sent, 'drafts only sends nothing');
   const w = pipeToCard(); const x = w.ctx.cuePipeDone(w.id); assert.strictEqual(x.status, 'Done'); assert.ok(!w.log.replies);
+});
+
+test('P4 pipeline cards (Kiko 24 Oct): system emails are not the client, a contact found in Gmail is named, each deal gets its own action, the event countdown shows once', () => {
+  const extra = [
+    { key: '"AMI Group"', id: 'pm6', thread: 'aa0600000000000a', at: '2026-10-20T04:00:00Z', sent: false, from: 'HubSpot <noreply@notifications.hubspot.com>', to: 'kiko@example.com', subject: "You've been assigned 57 deals", snippet: 'AMI Group' },
+    { key: '"AMI Group"', id: 'pm7', thread: 'aa0700000000000a', at: '2026-10-19T04:00:00Z', sent: false, from: 'Coupa <bids@ami.test>', to: 'kiko@example.com', subject: 'Your Coupa Login Verification Code', snippet: 'code 1234' },
+    { key: '"AMI Group"', id: 'pm8', thread: 'aa0800000000000a', at: '2026-10-16T04:00:00Z', sent: false, from: 'Rina <rina@ami.test>', to: 'kiko@example.com', subject: 'Merch brief', snippet: 'Here is the brief.' },
+    { key: '"Embassy of Belgium"', id: 'pm9', thread: 'aa0900000000000a', at: '2026-10-21T01:00:00Z', sent: false, from: 'News <news@belgium.test>', to: 'kiko@example.com', subject: 'Newsletter', snippet: 'x', headers: [{ name: 'List-Unsubscribe', value: '<mailto:u@belgium.test>' }] }];
+  PMAIL.push.apply(PMAIL, extra);
+  try {
+    const t = pipeToCard(), P = t.v.pipe, by = {}; P.deals.forEach(d => { by[d.name.split(' — ')[0]] = d; });
+    assert.ok(t.log.pipeQ.every(q => /-from:\(noreply OR no-reply .*hubspot\)$/.test(q)), 'Gmail drops the obvious system senders');
+    deq([by['AMI Group'].mail.subject, by['AMI Group'].mail.to], ['Merch brief', 'rina@ami.test'], 'the HubSpot notice and the login code are skipped');
+    assert.ok(by['AMI Group'].flags.indexOf('Contact not saved in Canvas (Gmail: rina@ami.test)') >= 0 && by['AMI Group'].flags.indexOf('Missing contact') < 0, by['AMI Group'].flags.join('; '));
+    assert.strictEqual(by['Embassy of Belgium'].mail.subject, 'Tents', 'a newsletter is not the client');
+    assert.ok(t.ctx.cuePipeAuto_({ from: 'x <do_not_reply@coupahost.com>', subject: 'Hi' }) && t.ctx.cuePipeAuto_({ from: 'a@b.test', 'auto-submitted': 'auto-generated' }) && !t.ctx.cuePipeAuto_({ from: 'Heidi <heidi@dmci.test>', subject: 'Re: CE', 'auto-submitted': 'no' }));
+    const st = t.ctx.cueState(), pv = st.requests.find(r => r.id === t.id).pipe, vb = {}; pv.deals.forEach(d => { vb[d.name.split(' — ')[0]] = d; });
+    assert.ok(vb['Embassy of Belgium'].canvas && /page=clientdesk/.test(vb['Embassy of Belgium'].canvas.url), 'a deal to fix opens Canvas');
+    assert.strictEqual(vb.Telus.canvas, null, 'nothing to fix, no Canvas button');
+    assert.ok(/The card already shows the stage, amount, event date, days to the event and each flag/.test(t.log.claude[0].system.replace(/\s+/g, ' ')), 'Claude does not repeat the countdown');
+    const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+    const i = html.indexOf('function pipeCardHtml'), part = html.slice(i, i + 6000);
+    assert.ok(part.indexOf('>Last email ') < part.indexOf('<b>Next:</b> ') && part.indexOf('<b>Next:</b> ') < part.indexOf('+ pipeAct(d)'), 'last email, then Next, then the action');
+    assert.ok(/data-act="pipe-draft1"/.test(part) && /Fix in Canvas/.test(part) && /counted \? 'event'/.test(part));
+    const v = t.ctx.cuePipeFollowUps(t.id, ['D2']); deq(v.pipe.drafts.map(d => d.k), ['D2'], 'one deal\'s own button drafts just that deal');
+  } finally { PMAIL.splice(PMAIL.length - extra.length, extra.length); }
+});
+
+test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the thread, older ones too; a running run is left alone; nothing written', () => {
+  const t = pipeToCard(), id = t.id, C = t.ctx;
+  const add = (k, st) => C.cueLocked_(() => { const sh = C.cueSheet_('Requests'); sh.appendRow([k]); C.cueSave_(sh, sh.getLastRow(), { id: k, kind: 'pipeline', ref: id, status: st, stage: st, text: 'x', files: [], notes: [], metrics: {} }); });
+  add('cue-20261021110500-aaaa', 'Failed'); add('cue-20261021110600-bbbb', 'Working');
+  assert.throws(() => C.cueCloseThread('cue-made-up-0000'), /No such task/);
+  deq(C.cueCloseThread('cue-20261021110500-aaaa'), { closed: 2, running: 1 }, 'any run of the thread finds its root');
+  deq([id, 'cue-20261021110500-aaaa', 'cue-20261021110600-bbbb'].map(k => C.cueLoad_(k).s.status), ['Closed', 'Closed', 'Working']);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Closed 2 runs\. Nothing was written or sent\. 1 still running/.test(x[2])));
+  deq(C.cueCloseThread(id), { closed: 0, running: 1 }); assert.ok(!t.log.sent && !t.log.replies, 'nothing sent');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/data-act="close-thread" data-id="' \+ esc\(it\.id\)/.test(html) && /return !CLOSED\[r\.status\]/.test(html), 'the header ✓ shows while any run is open');
+  assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
+});
+
+test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older waiting one; "Close older runs" closes only scheduled jobs from before today', () => {
+  const t = pipeToCard(), C = t.ctx, first = t.id;
+  const again = C.cueSend('which deals went quiet?').request_id; C.cueRun(again);
+  deq([C.cueLoad_(first).s.status, C.cueLoad_(again).s.status], ['Closed', 'Needs you'], 'the older full review is replaced');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === first && /^Replaced by a newer pipeline review/.test(x[2])));
+  const add = (k, kind, st, day, extra) => C.cueLocked_(() => { const sh = C.cueSheet_('Requests'); sh.appendRow([k]);
+    C.cueSave_(sh, sh.getLastRow(), Object.assign({ id: k, kind, ref: '', status: st, stage: st, created: day + 'T01:00:00.000Z', text: 'x', files: [], notes: [], metrics: {} }, extra || {})); });
+  add('cue-20261020090000-b1d0', 'bids', 'Needs you', '2026-10-20'); add('cue-20261020090100-9700', 'gtask', 'Failed', '2026-10-20');
+  add('cue-20261020090200-1a7e', 'intake', 'Needs you', '2026-10-20'); add('cue-20261021090300-70da', 'bids', 'Needs you', '2026-10-21');
+  deq(C.cueCloseOlder(), { closed: 2 });
+  deq(['cue-20261020090000-b1d0', 'cue-20261020090100-9700', 'cue-20261020090200-1a7e', 'cue-20261021090300-70da', again].map(k => C.cueLoad_(k).s.status),
+    ['Closed', 'Closed', 'Needs you', 'Needs you', 'Needs you'], 'Kiko\'s intake and today\'s runs stay');
+  // PC recheck 24 Oct: a review Kiko is drafting in is never replaced or closed; a replaced review from today closes; one line per thread.
+  const held = C.cueSend('which deals went quiet?').request_id; C.cueRun(held); C.cuePipeFollowUps(held, ['D2']);
+  assert.strictEqual(C.cueLoad_(again).s.status, 'Closed', 'the newer run replaced the older review');
+  const fresh = C.cueSend('which deals went quiet?').request_id; C.cueRun(fresh);
+  deq([C.cueLoad_(held).s.status, C.cueLoad_(fresh).s.status], ['Needs you', 'Needs you'], 'a review holding an unsent follow-up stays');
+  C.cueLocked_(() => { const L = C.cueLoad_(fresh); L.s.status = 'Needs you'; C.cueSave_(L.sh, L.row, L.s); });
+  const extra = C.cueSend('which deals went quiet?').request_id; C.cueRun(extra);
+  C.cueLocked_(() => { const L = C.cueLoad_(fresh); L.s.status = 'Needs you'; C.cueSave_(L.sh, L.row, L.s); });   // as if it ran before this build
+  add('cue-20261020090400-2b2b', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' }); add('cue-20261020090500-3c3c', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' });
+  const before = t.tabs.Chat.rows.length; deq(C.cueCloseOlder(), { closed: 3 }, 'the replaced review from today and both runs of the old bid thread');
+  deq([C.cueLoad_(fresh).s.status, C.cueLoad_(held).s.status, C.cueLoad_(extra).s.status], ['Closed', 'Needs you', 'Needs you'], 'newest and drafting reviews stay');
+  assert.strictEqual(t.tabs.Chat.rows.slice(before).filter(x => /Close older runs/.test(x[2])).length, 2, 'one line per thread, not per run');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
+  const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);
+  assert.ok(html.indexOf('var OLDK = { ' + kinds.map(k => k + ': 1').join(', ') + ' }') > 0, 'the page and the server close the same kinds');
+  assert.ok(/'Fix contact in Canvas'/.test(html), 'a contact finding opens Canvas to fix it, no delete');
 });
 
 test('P3 pipeline edge cases: one client only; no token, bad token; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
