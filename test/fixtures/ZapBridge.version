@@ -1,3 +1,4 @@
-Copied from CanvasWorkspace main src/ZapBridge.gs @ 4cefb9c (live Canvas V294, 27 Oct 2026).
-md5 e8c6373a8bd4855b936597c89eb6a7f7
+Copied from CanvasWorkspace branch claude/project-thread-p7h45p src/ZapBridge.gs @ 7ee77e7 (PR #183, held, not live yet):
+live Canvas V294 plus contact_gaps and contact_fill for the old-email contact scan (27 Oct 2026).
+md5 6d2910d3afddee16a2e9710525a7dc0a
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
