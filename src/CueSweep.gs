@@ -23,6 +23,7 @@ const CUE_PRIORITIES_ = ['High', 'Normal', 'Low'];
  * Changed, Was), one row per changed setting; anything missing or broken falls back to these defaults. Code only, no AI. */
 const CUE_RULE_KINDS_ = {
   rfq: { label: 'RFQ chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },
+  rfp: { label: 'RFP chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },
   award: { label: 'CE award chasers', on: true, first: 3, every: 5, max: 3, unit: 'working' },
   payment: { label: 'Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
   accreditation: { label: 'Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },

@@ -5,7 +5,11 @@ const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = r
 const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');   // Apps Script's own load order
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
-const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
+// Bridge actions Cue already calls that Canvas has not shipped yet, with the schema the handoff note asks for. Remove each one
+// here when the fixture is refreshed from a Canvas release that has it. rfp_log: handoffs/supplier-rfps-for-canvas-integration.md.
+BRIDGE.__pending = { rfp_log: { days: { type: 'number', min: 1, max: 60 } } };
+const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action;
+  return vm.runInContext('zbValidate_(__a, (ZB_ACTIONS_[__n] || { schema: __pending[__n] }).schema, "")', BRIDGE); };
 const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRET = 'test-secret-not-real';
 
 function sheetMock() {
@@ -241,6 +245,10 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
       if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
+      if (body.action === 'rfp_log') { (log.rfpLog = log.rfpLog || []).push(body.args);   // CUE-RFP-CHASER: Canvas Integration's contact log (not in the fixture yet)
+        if (o.rfpLog === 'unknown') return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        if (o.rfpLog === 'fail') return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { rfps: o.rfpLog || [] } }); }
       if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; if (o.board404 && log.board <= o.board404) return resp(404, '<html>Not Found</html>'); return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
       if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
@@ -491,6 +499,7 @@ function sandbox(o = {}) {
   };
   vm.createContext(ctx); vm.runInContext(o.code || CODE, ctx);   // o.code: the check version (CK tests)
   if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
+  if (!o.rfp) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfp'); if (i >= 0) K.splice(i, 1); }
   if (!o.award) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'award'); if (i >= 0) K.splice(i, 1); }
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
@@ -1347,6 +1356,51 @@ test('Q4 template when ChatGPT fails: names the supplier, project, RFQ date and 
   assert.strictEqual(it.drafted_by, 'template'); assert.ok(/^Hi Sonic Pro,/.test(it.body));
   assert.ok(/our RFQ for LED wall 4x3, sent on 2026-10-16\. Could you send your quotation by Friday 23 October\?/.test(it.body), it.body);
   deq([t.ctx.cueWorkDays_('2026-10-16', '2026-10-21'), t.ctx.cueWorkDays_('2026-10-23', '2026-10-26'), t.ctx.cueRfqDay_('2026-10-24T16:00:00.000Z'), t.ctx.cueRfqDay_('12/5/2026')], [3, 1, '2026-10-25', '2026-12-05']);
+});
+
+/* ---------- RFP chasers (CueSweepRfq.gs, CUE-RFP-CHASER-2026-10-27) ---------- */
+const RFP_THREADS = {
+  bbbb0000000000b1: [gm('p1', PH('2026-10-16', 10), KIKO, 'Lights Inc <sales@lights.example>', 'RFP: Stage lights for Acme Party')],               // Fri: 3 working days, due
+  bbbb0000000000b2: [gm('p2', PH('2026-10-19', 11), KIKO, 'Booth Co <hi@booth.example>', 'Proposal request: booth build')],                        // Canvas-logged, no RFP word; event soon
+  bbbb0000000000b3: [gm('p3', PH('2026-10-12', 10), KIKO, 'Booth Co <hi@booth.example>', 'Invoice 221')],                                          // same supplier, not an RFP
+  bbbb0000000000b4: [gm('p4', PH('2026-10-12', 10), KIKO, 'chairs@seat.example', 'RFP and RFQ: chairs')],                                         // the RFQ chaser's
+  bbbb0000000000b5: [gm('p5', PH('2026-10-12', 10), KIKO, 'av@sound.example', 'RFP: Sound'), gm('p5b', PH('2026-10-14', 9), 'av@sound.example', KIKO, 'Re: RFP: Sound')] }; // replied
+const RFP_LOG = [
+  { project_id: 'S-1', project: 'Acme Party', supplier: 'Booth Co', email: 'hi@booth.example', subject: 'Proposal request: booth build', sent_by: 'kiko@example.com', sent_at: '2026-10-19T03:00:00Z' },
+  { project_id: 'S-1', project: 'Acme Party', supplier: 'Tent Co', email: 'tent@tents.example', subject: 'RFP: tents', sent_by: 'ana@example.com', sent_at: '2026-10-19T03:00:00Z' }];
+const rfpMsgs = ids => ids.map(t => ({ id: RFP_THREADS[t][0].id, thread: t }));
+function rfpBox(o = {}) {
+  const t = sandbox(Object.assign({ rfp: true, threads: RFP_THREADS, rfpLog: RFP_LOG, sent: rfpMsgs(Object.keys(RFP_THREADS)),
+    gmailList: q => (/^in:sent .*\{to:/.test(q) ? rfpMsgs(['bbbb0000000000b2', 'bbbb0000000000b3']) : /RFP OR RFPs/.test(q) ? rfpMsgs(['bbbb0000000000b1', 'bbbb0000000000b4', 'bbbb0000000000b5']) : []),
+    projects: [{ id: 'S-1', name: 'Acme Party', status: 'For Production Start', date: '2026-10-25' }] }, o));
+  let T = PH('2026-10-21', 7, 0); t.at = (d, h, m) => { T = PH(d, h, m); }; t.ctx.cueNow_ = () => T;
+  return t;
+}
+test('RP1 RFP chasers: RFP threads and Canvas-logged sends still waiting; not other mail to that supplier, not RFQ threads, not replied; own rules row', () => {
+  const t = rfpBox(); t.ctx.cueSweep(); const b = rfqBatch(t);
+  assert.strictEqual(b.status, 'Needs you');
+  deq(b.batch.items.map(i => [i.key, i.who, i.to, i.priority, i.project]), [['rfp:bbbb0000000000b2', 'Booth Co', 'hi@booth.example', 'urgent', 'Acme Party'],
+    ['rfp:bbbb0000000000b1', 'Lights Inc', 'sales@lights.example', 'normal', 'Stage lights for Acme Party']]);
+  assert.ok(/No reply 2 working days after your RFP; event on 2026-10-25/.test(b.batch.items[0].why), b.batch.items[0].why);
+  deq(t.log.rfpLog, [{ days: 30 }], 'one quiet Canvas read of the contact log');
+  assert.ok(t.log.gmailQs.some(q => /^in:sent newer_than:30d \{to:hi@booth\.example\}$/.test(q)), 'only Kiko\'s own logged sends are looked up: ' + t.log.gmailQs.join(' | '));
+  assert.ok(!t.log.gmailQs.some(q => /tents\.example/.test(q)), 'a send logged by other staff is not looked for in Kiko\'s Gmail');
+  assert.strictEqual(t.log.gpt.length, 1, 'no AI call of its own'); assert.ok(!t.log.replies && !t.log.sent, 'nothing drafted or sent before Kiko approves');
+  const r = t.ctx.cueRules(); deq([r.kinds.rfp.label, r.kinds.rfp.first, r.kinds.rfp.every, r.kinds.rfp.max], ['RFP chasers', 3, 3, 2]);
+});
+test('RP2 approve and send replies in the RFP thread; template asks for a proposal; Canvas without rfp_log still chases by subject with no note; a failed read is a note', () => {
+  const t = rfpBox({ fail: { chasers: () => resp(500, {}) } }); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
+  const b = rfqBatch(t), it = b.batch.items.find(i => i.key === 'rfp:bbbb0000000000b1');
+  assert.strictEqual(it.drafted_by, 'template'); assert.ok(/our request for proposal for Stage lights for Acme Party, sent on 2026-10-16\. Could you send your proposal and price by Friday 23 October\?/.test(it.body), it.body);
+  const v = t.ctx.cueApprove(b.id, { send: true, skip: ['rfp:bbbb0000000000b2'] });
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.sent.length, 1);
+  const p = t.log.replies[0].payload; assert.ok(p.indexOf('"threadId":"bbbb0000000000b1"') >= 0); assert.ok(/In-Reply-To: <p1@mail>/.test(p));
+  deq(chase(t).filter(r => r[1] === 'rfp').map(r => [r[0], r[5], r[8]]), [['rfp:bbbb0000000000b1', 1, 'sent']]);
+  const u = rfpBox({ rfpLog: 'unknown' }); u.ctx.cueSweep(); const c = rfqBatch(u);
+  deq(c.batch.items.map(i => i.key), ['rfp:bbbb0000000000b1'], 'no log: the logged booth send has no RFP word and is not found'); assert.ok(!c.notes.some(n => /RFP/.test(n)), c.notes.join(' | '));
+  const w = rfpBox({ rfpLog: 'fail' }); w.ctx.cueSweep(); assert.ok(rfqBatch(w).notes.some(n => /RFP chasers: Canvas's RFP log could not be read/.test(n)));
+  const x = rfpBox(); x.ctx.cueRulesSave({ 'rfp.on': false }); x.ctx.cueSweep(); assert.ok(!x.log.rfpLog, 'paused: no Canvas read');
+  assert.ok(!(x.log.gmailQs || []).some(q => /RFP OR/.test(q)), 'paused: no Gmail search');
 });
 
 /* ---------- readiness check (Kiko 07:32Z, specs/project-readiness.md) ---------- */

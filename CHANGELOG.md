@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.44: RFP supplier chasers (not deployed)
+
+Kiko 27 Oct 2026 10:45Z ("Cue - should implement RFP Supplier Chaser", part of "Supplier RFPs from Scope Details") and 10:55Z ("resources are gonna be using the chasers as well for RFPs to suppliers").
+
+- New chaser kind `rfp` (RFP chasers) in `CueSweepRfq.gs`, beside the RFQ chasers and sharing their finder (`cueRfqFindWith_`). It finds the RFPs Kiko sent from his own Gmail (subject words RFP, request for proposal or request for pricing) that a supplier has not answered, and drafts a nudge in the RFP thread for the morning batch. Same checks as RFQs: Kiko spoke last, no reply in or out of the thread, no draft waiting, project not lost or past, sooner when the event is within 7 days.
+- Canvas's contact log: Cue reads the new quiet bridge read `rfp_log` (Canvas Integration builds it with Scope Details › Draft RFP). Kiko's own logged sends link a thread to its Canvas project and supplier, and find RFPs whose subject has no RFP word; another email to the same supplier is never chased. Until Canvas has `rfp_log`, Cue chases by subject only and says nothing; any other failure is a note on the batch.
+- A thread with RFQ words stays with the RFQ chasers, so no supplier gets two nudges.
+- Chaser rules card: new "RFP chasers" line (first after 3 working days, then every 3, stop after 2; event soon 1 and 1).
+- Sends that other staff log are not chased here (Cue cannot read their Gmail). They follow up in Canvas's Team Cue › Email › RFP follow-ups (CanvasWorkspace branch `claude/project-thread-03c4fn`), from their own Gmail.
+- Needs nothing from Canvas to ship; `rfp_log` adds project links once Canvas Integration ships it. The test bridge accepts `rfp_log` from a pending schema until the fixture is refreshed.
+- Tests: RP1, RP2 new. 364 tests.
+
 ## Cue 1.27.41: Cue edits Canvas records through the generic bridge (not deployed)
 
 Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right coz thats why you were given API access to Claude... Claude will edit") and 10:06Z ("Cue received it - should passed to Claude - Claude should have updated the file"). Kiko tapped "Yes, build it" on the generic bridge (`specs/generic-bridge.md`) at 10:10Z.

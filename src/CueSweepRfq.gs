@@ -33,7 +33,7 @@ function cueRfqDay_(v) {
 }
 const cueRfqAddr_ = h => String(h || '').split(',').map(a => cueEmail_((a.match(/<([^>]+)>/) || [0, a])[1].trim()).toLowerCase()).filter(String);
 const cueRfqName_ = h => { const m = /^\s*"?([^"<,]+?)"?\s*</.exec(String(h || '')); return m ? m[1].trim() : ''; };
-const cueRfqTopic_ = s => String(s || '').replace(/^\s*((re|fwd?|fw)\s*:\s*)+/i, '').replace(/^\s*RFQs?\s*[:\-–]?\s*/i, '').trim();
+const cueRfqTopic_ = s => String(s || '').replace(/^\s*((re|fwd?|fw)\s*:\s*)+/i, '').replace(/^\s*RF[QP]s?\s*[:\-–]?\s*/i, '').trim();
 
 /** Threads, Canvas project ids and supplier names from Cue's own runs: intake RFQs it sent, and requotes in their RFQ threads. */
 function cueRfqKnown_() {
@@ -52,7 +52,13 @@ function cueRfqKnown_() {
 
 /** find(ctx) for the rfq kind. Gmail reads only; nothing is drafted, sent or written here. */
 function cueRfqFind_(ctx) {
-  const rule = Object.assign({}, CUE_RFQ_RULE_, ctx.rule ? ctx.rule('rfq') : {});
+  return cueRfqFindWith_(ctx, { kind: 'rfq', label: 'RFQ chasers', q: CUE_RFQ_Q_, known: cueRfqKnown_() });
+}
+/** The RFQ and RFP chasers share one finder. K = { kind, label, q (Gmail words), known: { byMsg, byThread }, skip(subject),
+ *  logged: [{ to, topic, pid, project, supplier }] (Canvas's contact log), logQ (extra Gmail search for logged sends) }. A thread
+ *  found only through logQ is kept only when its subject matches a logged send, so other emails to that supplier are never chased. */
+function cueRfqFindWith_(ctx, K) {
+  const rule = Object.assign({}, CUE_RFQ_RULE_, ctx.rule ? ctx.rule(K.kind) : {});
   if (rule.on === false) return [];
   const me = cueMe_().toLowerCase(), own = me.split('@')[1] || '';
   const isUs = a => a === me || (!!own && CUE_PUBLIC_MAIL_.indexOf(own) < 0 && a.split('@')[1] === own);
@@ -62,9 +68,12 @@ function cueRfqFind_(ctx) {
   const many = urls => (urls.length ? UrlFetchApp.fetchAll(urls.map(url => Object.assign({ url }, auth))) : [])
     .map(r => (r.getResponseCode() === 200 ? JSON.parse(r.getContentText() || '{}') : null));
   // 1. Candidate threads: Kiko's sent RFQs (search), plus every RFQ Cue sent itself, whatever its subject.
-  const known = cueRfqKnown_(), threads = {};
-  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + CUE_RFQ_Q_)).messages || [])
+  const known = K.known || { byMsg: {}, byThread: {} }, threads = {}, onlyLogged = {}, logged = K.logged || [];
+  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + K.q)).messages || [])
     .forEach(m => { threads[m.threadId] = 1; });
+  if (K.logQ) (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + K.logQ)).messages || [])
+    .forEach(m => { if (!threads[m.threadId]) { threads[m.threadId] = 1; onlyLogged[m.threadId] = 1; } });
+  const logOf = (to, subject) => { const t = cueRfqTopic_(subject).toLowerCase(); return logged.filter(x => x.to === to && x.topic && x.topic === t)[0] || null; };
   const ours = Object.keys(known.byMsg);
   many(ours.map(id => CUE_GMAIL_ + '/messages/' + encodeURIComponent(id) + '?format=minimal')).forEach(m => { if (m && m.threadId) threads[m.threadId] = 1; });
   Object.keys(known.byThread).forEach(t => { threads[t] = 1; });
@@ -78,11 +87,14 @@ function cueRfqFind_(ctx) {
       return { id: m.id, ms: Number(m.internalDate) || 0, draft: (m.labelIds || []).indexOf('DRAFT') >= 0, h, from: cueRfqAddr_(h.from)[0] || '', snippet: cueStr_(m.snippet, 300) }; })
       .sort((a, b) => a.ms - b.ms);
     if (msgs.some(m => m.draft)) return;                          // a nudge or reply is already waiting in Drafts
+    if (K.skip && K.skip(msgs[0].h.subject || '')) return;         // the other chaser owns this thread
     const last = msgs[msgs.length - 1];
     if (!isUs(last.from)) return;                                 // the supplier (or someone else) spoke last
     const to = cueRfqAddr_(last.h.to).filter(a => !isUs(a));
     if (!to.length || blocked(to[0])) return;
-    const k = msgs.map(m => known.byMsg[m.id]).filter(Boolean)[0] || known.byThread[ids[i]] || {};
+    const lg = logOf(to[0], msgs[0].h.subject || last.h.subject || '');
+    if (onlyLogged[ids[i]] && !lg) return;                        // found by address only: not a logged send
+    const k = msgs.map(m => known.byMsg[m.id]).filter(Boolean)[0] || known.byThread[ids[i]] || lg || {};
     const first = msgs.filter(m => isUs(m.from))[0] || last;
     waiting.push({ thread_id: ids[i], to: to[0], who: cueRfqName_(last.h.to) || k.supplier || to[0], subject: msgs[0].h.subject || last.h.subject || '',
       message_id: cueStr_(last.h['message-id'], 300), last_ms: last.ms, rfq_day: cuePh_(first.ms).day, snippet: first.snippet, pid: k.pid || '', project: k.project || '' });
@@ -92,7 +104,7 @@ function cueRfqFind_(ctx) {
   let board = {};
   if (waiting.some(w => w.pid)) {
     try { (ctx.board().projects || []).forEach(p => { board[String(p.id)] = p; }); }
-    catch (e) { ctx.s.notes.push('RFQ chasers: Canvas did not answer, so project status and event dates were not checked.'); board = {}; }
+    catch (e) { ctx.s.notes.push(K.label + ': Canvas did not answer, so project status and event dates were not checked.'); board = {}; }
   }
   const log = cueChaseLog_(), out = [];
   const count = (a, b) => (rule.unit === 'days' ? Math.round((Date.parse(b) - Date.parse(a)) / 864e5) : cueWorkDays_(a, b));
@@ -103,14 +115,14 @@ function cueRfqFind_(ctx) {
     const soon = !!event && event <= cueAddDays_(ctx.today, CUE_RFQ_.soonDays);
     // Timing from Kiko's Chaser rules card: first chase after rule.first, then rule.every (event soon: soon_first, soon_every).
     // After Cue's own nudge the engine also holds the line until its Next due; a follow-up Kiko wrote by hand restarts the wait.
-    const L = log['rfq:' + w.thread_id], lastDay = cuePh_(w.last_ms).day, nudged = !!(L && L.times && L.last >= lastDay), since = nudged ? L.last : lastDay;
+    const L = log[K.kind + ':' + w.thread_id], lastDay = cuePh_(w.last_ms).day, nudged = !!(L && L.times && L.last >= lastDay), since = nudged ? L.last : lastDay;
     const wait = soon ? (nudged ? rule.soon_every : rule.soon_first) : (L && L.times ? rule.every : rule.first);
     const gone = count(since, ctx.today);
     if (gone < Math.max(1, Number(wait) || 1)) return;
-    out.push({ key: 'rfq:' + w.thread_id, project: (p && p.name) || w.project || cueRfqTopic_(w.subject) || 'your RFQ', project_id: w.pid, who: w.who, to: w.to,
+    out.push({ key: K.kind + ':' + w.thread_id, project: (p && p.name) || w.project || cueRfqTopic_(w.subject) || 'your ' + K.kind.toUpperCase(), project_id: w.pid, who: w.who, to: w.to,
       thread_id: w.thread_id, message_id: w.message_id, thread_subject: w.subject, due_since: since, priority: soon ? 'urgent' : 'normal', after_ms: w.last_ms,
       every: soon ? Math.max(1, Math.min(60, Math.round(Number(rule.soon_every) || 1))) : undefined,   // the engine's Next due uses it (event soon)
-      why: 'No reply ' + gone + (rule.unit === 'days' ? ' day' : ' working day') + (gone === 1 ? '' : 's') + ' after your ' + (nudged ? 'last nudge' : 'RFQ') + (soon ? '; event on ' + event : ''),
+      why: 'No reply ' + gone + (rule.unit === 'days' ? ' day' : ' working day') + (gone === 1 ? '' : 's') + ' after your ' + (nudged ? 'last nudge' : K.kind.toUpperCase()) + (soon ? '; event on ' + event : ''),
       facts: { rfq_subject: cueStr_(w.subject, 200), rfq_sent: w.rfq_day, rfq_snippet: w.snippet, event_date: event, reply_by: cueRfqBy_(ctx.today) } });
   });
   // 4. A supplier who answered with a new email (not in the thread) since Kiko's last message is not chased.
@@ -135,3 +147,46 @@ cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, unit: 'working',
       + (it.facts && it.facts.rfq_sent ? ', sent on ' + it.facts.rfq_sent : '') + '. Could you send your quotation by '
       + ((it.facts && it.facts.reply_by) || 'the end of the week') + '? Happy to clarify anything.\n\nThank you,\nKiko\nBlank Space Events' }),
   find: cueRfqFind_ });
+
+/* CUE-RFP-CHASER-2026-10-27 (Kiko 10:45Z "Cue - should implement RFP Supplier Chaser"). RFPs (requests for proposal) that Kiko
+ * sends to suppliers, from his own Gmail: the ones Canvas's Draft RFP in Scope Details sends (Canvas Integration builds that screen
+ * and its "suppliers contacted" log) and the ones he writes by hand. Same finder, timing and checks as the RFQ chasers, under its own
+ * line on the Chaser rules card. Who does what is unchanged: code finds (Gmail read only), Canvas gives project status and event
+ * date (get_project_board) and the contact log (quiet read rfp_log), ChatGPT drafts inside the engine's one combined call, Kiko
+ * approves, code sends in the RFP thread. No AI call of its own.
+ * - rfp_log links a send to its Canvas project when the RFP subject has no project in it. Until Canvas has rfp_log, Cue still
+ *   chases RFPs by their subject words and says nothing about the missing read.
+ * - Sends logged by other staff are not chased here: they went from their own Gmail, which Cue cannot read. */
+const CUE_RFP_Q_ = '(RFP OR RFPs OR "request for proposal" OR "request for proposals" OR "request for pricing")';
+const CUE_RFP_RFQ_RE_ = /\b(rfqs?|requote)\b|request for quot/i;   // a thread with RFQ words is the RFQ chaser's
+
+/** Canvas's contact log, Kiko's own sends only: [{ to, topic, pid, project, supplier }]. [] when Canvas has no rfp_log yet. */
+function cueRfpLogged_(ctx) {
+  let rows = [];
+  try { rows = (cueBridge_(ctx.s, 'rfp_log', { days: CUE_RFQ_.lookbackDays }) || {}).rfps || []; }
+  catch (e) {
+    const m = String((e && e.message) || e);
+    if (!/unknown action/.test(m)) ctx.s.notes.push('RFP chasers: Canvas\'s RFP log could not be read, so RFPs are matched by subject only (' + m.slice(0, 160) + ').');
+    return [];
+  }
+  const me = cueMe_().toLowerCase();
+  return rows.filter(r => r && String(r.sent_by || '').toLowerCase() === me && cueEmail_(r.email))
+    .map(r => ({ to: cueEmail_(r.email).toLowerCase(), topic: cueRfqTopic_(r.subject).toLowerCase(), pid: cueStr_(r.project_id, 40), project: cueStr_(r.project, 200),
+      supplier: cueStr_(r.supplier, 200) }));
+}
+function cueRfpFind_(ctx) {
+  if (ctx.rule && ctx.rule('rfp').on === false) return [];
+  const logged = cueRfpLogged_(ctx), to = logged.map(x => x.to).filter((a, i, all) => all.indexOf(a) === i).slice(0, 20);
+  return cueRfqFindWith_(ctx, { kind: 'rfp', label: 'RFP chasers', q: CUE_RFP_Q_, skip: subj => CUE_RFP_RFQ_RE_.test(subj), logged,
+    logQ: to.length ? '{' + to.map(a => 'to:' + a).join(' ') + '}' : '' });
+}
+
+cueKind_({ kind: 'rfp', label: 'RFP chasers', every: 3, max: 2, unit: 'working', sendAllowed: true,
+  draftBrief: 'A supplier has not answered Kiko\'s request for proposal (RFP). Write 2 to 3 short lines as a reply in the RFP thread: '
+    + 'a friendly nudge that names the item or project from rfq_subject, asks for their proposal and price by reply_by, and offers to '
+    + 'clarify the scope. No attachments, no prices, no other suppliers. If the event is soon, say the date is close.',
+  template: it => ({ subject: 'Re: ' + (it.thread_subject || 'RFP'),
+    body: 'Hi ' + (it.who && it.who !== it.to ? it.who : 'there') + ',\n\nJust following up on our request for proposal for ' + it.project
+      + (it.facts && it.facts.rfq_sent ? ', sent on ' + it.facts.rfq_sent : '') + '. Could you send your proposal and price by '
+      + ((it.facts && it.facts.reply_by) || 'the end of the week') + '? Happy to clarify the scope.\n\nThank you,\nKiko\nBlank Space Events' }),
+  find: cueRfpFind_ });
