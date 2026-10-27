@@ -50,6 +50,9 @@ Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right co
 - Canvas still refuses anything on its code never-lists, whatever the allow-list says: bank, signature and password columns; status, award and payment columns; Users, Settings and `_` tabs.
 - The cloud check may read `bi_list`, `allow_list` and `read_rows`. `write_rows` and `allow_list_set` name no project, so a check run stops them.
 - Needs Canvas `releases/rel-v291-genericbridge-main` and its Client release. `test/fixtures/ZapBridge.gs` is refreshed from it.
+- Fix after the cloud check failed (27 Oct 11:03Z): a quoted line for a named BI, such as 'put "Cloud check" at the start of
+  the description of BI 0014', went to the 1.27.38 invoice REC route, which looked for a project called "at start". Now only a
+  REC number takes that route when a BI number is named; the rest is a Canvas edit. Test ED5 is new (368 tests on main).
 - Tests: ED1 to ED4 are new. 361 tests.
 
 ## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (not deployed)
