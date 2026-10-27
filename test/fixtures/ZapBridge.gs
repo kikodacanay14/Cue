@@ -1902,6 +1902,19 @@ ZB_ACTIONS_.crm_lead = {
 };
 ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
 
+/* PROJECT-LOG-2026-10-27 (Kiko 10:34Z: everything about a project done in other threads is also written in the project's thread;
+ * "include the mails that i receive"). Cue sends log lines: emails in and out (headers only), Ask Cue task summaries and
+ * chasers sent. Canvas files each under its project (project_id, else the sender's contact project or a project named in the
+ * subject) and skips the rest. A line's key makes a repeat a no-op. A log line changes no Canvas record. Cue only. */
+ZB_ACTIONS_.project_log = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, lines: { type: 'array', required: true, minItems: 1, maxItems: 50, items: {
+    key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.@-]{6,120}$/ }, kind: { type: 'string', required: true, oneOf: ['Email in', 'Email out', 'Ask Cue', 'Chaser', 'Canvas change', 'Note'] },   // PLOG_KINDS_ (ProjectLog.gs may load after this file)
+    title: { type: 'string', required: true, nonBlank: true, max: 300 }, details: { type: 'string', max: 500 }, project_id: { type: 'string', re: ZB_PID_RE_ },
+    email: { type: 'string', max: 200 }, subject: { type: 'string', max: 300 }, at: { type: 'string', max: 40 }, link: { type: 'string', max: 500 }, from: { type: 'string', max: 60 } } } },
+  run: (r) => plogAdd_(r.args.lines, 'Cue')
+};
+
 /* RELEASE-NOTES-2026-10-27 (spec daily-release-notes.md, Kiko 02:34Z "ok"): Cue posts the day's release notes as one Canvas
  * announcement after Kiko taps Post on Cue's card. Staff groups only, from Kiko, never emailed; annBridgePost_ in Code.gs.
  * A repeat of the same request_id (relnotes:<day>) returns the first post. Cue only, not open to ChatGPT. */
