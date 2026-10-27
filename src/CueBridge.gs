@@ -8,11 +8,11 @@
  * The signature chaser adds list_unsigned_docs (read) and send_doc_reminder (one approved reminder from freelancers@).
  * Payment chasers add overdue_billings (read) and send_payment_chasers (from info@, CC Kiko, only after Kiko approves the line). */
 
-function cueBridgeReq_(s, action, args, pid) {
+function cueBridgeReq_(s, action, args, pid, cid) {   // cid: a fixed command_id, for a write named in a claimed plan
   const url = cueKey_('CUE_BRIDGE_URL'), secret = cueKey_('ZAD_SECRET');
   if (!/^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) throw new Error('CUE_BRIDGE_URL must be the Client app\'s /exec address.');
   const ts = cueNow_();
-  const body = Object.assign({ command_id: 'cue:' + s.id + ':' + action + ':' + ts.toString(36), task_id: s.id, action }, pid ? { project_id: pid } : {}, { args, ts });
+  const body = Object.assign({ command_id: cid || 'cue:' + s.id + ':' + action + ':' + ts.toString(36), task_id: s.id, action }, pid ? { project_id: pid } : {}, { args, ts });
   const raw = JSON.stringify(body);
   const sig = Utilities.computeHmacSha256Signature(String(ts) + '.' + raw, secret).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
   return { url: url + '?sig=' + sig, method: 'post', contentType: 'application/json', payload: raw, muteHttpExceptions: true, followRedirects: true };
@@ -30,3 +30,12 @@ function cueBridgeAll_(s, calls) {
   return calls.map((c, i) => cueBridgeParse_(c[0], res[i]));
 }
 function cueBridge_(s, action, args, pid) { return cueBridgeAll_(s, [[action, args, pid]])[0]; }
+/* CUE-CRMLOG-PLAN-2026-10-27: Canvas runs a bridge "write" only as a command of its task's claimed plan (claim_plan: command_id
+ * plan:<task_id>, at most 20 commands, each {command_id, payload_hash}; the first plan for a task wins). payload_hash is Canvas's
+ * zbPayloadHash_: SHA-256 hex of JSON [action, project_id, expected_project_number, args]. Claims the plan for s.id. */
+const cueSha_ = t => Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t)).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+function cueBridgePlan_(s, cmds) {   // cmds: [{ command_id, action, args, pid }]
+  const commands = cmds.map(c => ({ command_id: c.command_id, payload_hash: cueSha_(JSON.stringify([c.action, c.pid || '', '', c.args])) }));
+  const res = UrlFetchApp.fetchAll([cueBridgeReq_(s, 'claim_plan', { plan_hash: cueSha_(JSON.stringify(commands)), commands }, '', 'plan:' + s.id)])[0];
+  return cueBridgeParse_('claim_plan', res);
+}
