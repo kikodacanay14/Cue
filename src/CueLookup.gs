@@ -139,6 +139,9 @@ const CUE_INV_STOP_ = ['add', 'put', 'include', 'insert', 'write', 'place', 'sho
 function cueInvSaid_(text, ref) {
   const t = String(text || '').trim();
   if (!t || !CUE_INV_RE_.test(t) || !(CUE_INV_REC_RE_.test(t) || (CUE_INV_DO_RE_.test(t) && /["“][^"”]{2,200}["”]/.test(t)))) return null;
+  // Cloud check 27 Oct 11:03Z: 'put "Cloud check" at the start of the description of BI 0014' came here and looked for a project
+  // called "at start". A quoted line for a named BI is a general Canvas edit (CueEdit.gs), so it goes to the chat call.
+  if (!CUE_INV_REC_RE_.test(t) && /\bBI\s*#?\s*\d{1,6}\b/i.test(t)) return null;
   cueChat_('Kiko', t, ref || '');
   const say = m => { cueChat_('Cue', m, ref || ''); return { chat: true, task: ref || '' }; };
   const rec = (CUE_INV_REC_RE_.exec(t) || [])[0], quoted = (/["“]([^"”]{2,200})["”]/.exec(t) || [])[1];
