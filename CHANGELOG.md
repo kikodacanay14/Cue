@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.41: Cue edits Canvas records through the generic bridge (not deployed)
+
+Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right coz thats why you were given API access to Claude... Claude will edit") and 10:06Z ("Cue received it - should passed to Claude - Claude should have updated the file"). Kiko tapped "Yes, build it" on the generic bridge (`specs/generic-bridge.md`) at 10:10Z.
+
+- New `CueEdit.gs`. When Kiko asks to change, correct or fill in a value in a Canvas record, the chat call routes it (new field `canvas_edit`). The chat call's own guess is not shown.
+  - Cue reads Canvas's allow-list and the columns of each allowed tab (`allow_list`, `read_rows`).
+  - One Claude call picks the tab, the filter that finds the row and the new values. A value can replace the old text, or go before or after it.
+  - Cue reads the matching rows. Exactly one row must match, otherwise Cue asks which.
+  - An Approve card shows each column's old and new value. Nothing is written before Approve.
+  - Approve writes once, as the one command of a claimed plan (`write_rows`), and Cue shows what Canvas read back.
+- "allow cue to read <tab> in <book>", "allow cue to edit <columns> in <tab> in <book>, key <column>" and "allow cue to add rows to <tab> in <book>, key <column>" show an Approve card. Approve adds one allow-list row (`allow_list_set`). This takes no AI call.
+- Canvas still refuses anything on its code never-lists, whatever the allow-list says: bank, signature and password columns; status, award and payment columns; Users, Settings and `_` tabs.
+- The cloud check may read `bi_list`, `allow_list` and `read_rows`. `write_rows` and `allow_list_set` name no project, so a check run stops them.
+- Needs Canvas `releases/rel-v292-genericbridge-main` (rebuilt by the deploys thread on V291) and its Client release. `test/fixtures/ZapBridge.gs` is refreshed from it.
+- Tests: ED1 to ED4 are new. 361 tests on main.
+- Release branch `claude/project-thread-y5l4x9-rel12741` is live 1.27.38 plus the 1.27.40 chaser fixes plus this change (a204834 on main).
+
 ## Cue 1.27.40: Chaser bug fixes (not deployed)
 
 Found 27 Oct 2026 by the "Show chaser setup and email content" thread, after Kiko asked at 09:57Z whether the chasers were set up and what they say. The coordinator asked for both fixes at 10:01Z (bugs first). Built on the live line 1.27.33 (6be58a7, Cue PR #117), then moved by the deploys thread onto live 1.27.38, release branch claude/project-thread-y5l4x9-rel12740. 1.27.39 is held for New mail.
