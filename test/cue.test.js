@@ -4921,7 +4921,8 @@ const checkCode = (o = {}) => CODE
   .replace("const CUE_CHECK_FP_ = '';", () => "const CUE_CHECK_FP_ = '" + (o.fp != null ? o.fp : crypto.createHash('sha256').update(CHECK_KEY).digest('hex')) + "';")
   .replace('const CUE_CHECK_UNTIL_ = 0;', () => 'const CUE_CHECK_UNTIL_ = ' + (o.until || Date.parse('2026-10-21T04:00:00Z')) + ';')
   .replace("const CUE_CHECK_PID_ = '';", () => "const CUE_CHECK_PID_ = '" + (o.pid || CHECK_PID) + "';")
-  .replace("const CUE_CHECK_MAIL_ = '';", () => "const CUE_CHECK_MAIL_ = '^kiko\\\\+[a-z0-9-]+@example\\\\.com$';");
+  .replace("const CUE_CHECK_MAIL_ = '';", () => "const CUE_CHECK_MAIL_ = '^kiko\\\\+[a-z0-9-]+@example\\\\.com$';")
+  .replace("const CUE_CHECK_SEND_ = '';", () => "const CUE_CHECK_SEND_ = '" + (o.send || 'no') + "';");
 const doorOf = (t, key) => (action, x) => JSON.parse(t.ctx.doPost({ postData: { contents: JSON.stringify(Object.assign({ action, key: key || CHECK_KEY }, x || {})) } }).text);
 function checkBox(o = {}) { const t = sandbox(Object.assign({ code: checkCode(o) }, o)); t.door = doorOf(t); t.call = (fn, ...args) => t.door('check_call', { fn, args }); return t; }
 function checkToReady(t) {
@@ -4985,6 +4986,19 @@ test('CK6 no leftovers: a check\'s Send later never sends from the trigger, cueR
   const f = t.door('check_finish'); assert.ok(f.ok, JSON.stringify(f)); deq([f.later_cancelled, f.closed, f.stopped], [1, 1, []]);
   const s = t.state(id); deq([s.status, s.stage, !!s.ar.send_at, s.check], ['Done', 'Closed by the check', false, vm.runInContext('cueCheckTag_()', t.ctx)]);
   deq(t.door('check_finish').closed, 0, 'once');
+});
+test('CK8 send lock (Kiko 27 Oct 09:16Z): on a real stand-in project Send is stopped before Canvas emails anyone; only send "on" lets it through', () => {
+  const t = checkBox(); const id = checkToReady(t); assert.strictEqual(t.door('check_ping').send, false);
+  const r = t.call('cueApprove', id, { send: ['juan cruz'], now: true });
+  const shown = r.ok ? JSON.stringify(t.state(id)) : r.error;
+  assert.ok(/Check mode stopped Canvas crew_docs_send \(this check may not email anyone\)/.test(shown), shown);
+  assert.strictEqual(t.log.bridge.filter(b => b.action === 'crew_docs_send').length, 0, 'nothing reached Canvas');
+  assert.ok(/crew_docs_send/.test(t.door('check_finish').stopped.join(' ')), 'and the run fails');
+  ['ar_email', 'send_payment_chasers', 'send_doc_reminder'].forEach(a => assert.throws(() => t.ctx.cueCheckBridgeOk_(JSON.stringify({ action: a, project_id: CHECK_PID })), /may not email anyone/, a));
+  assert.throws(() => t.ctx.cueCheckPlan_([{ action: 'ar_email', pid: CHECK_PID }], 'h'), /may not email anyone/);
+  const ok = checkBox({ send: 'on' }); const id2 = checkToReady(ok); assert.strictEqual(ok.door('check_ping').send, true);
+  ok.call('cueApprove', id2, { send: ['juan cruz'], now: true });
+  deq(ok.log.bridge.filter(b => b.action === 'crew_docs_send').map(b => b.project_id), [CHECK_PID]); deq(ok.door('check_finish').stopped, []);
 });
 test('CK7 every server function the page calls is either a check function or listed as never; nothing in Cue sends mail around the mail lock', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), ctx = sandbox().ctx;

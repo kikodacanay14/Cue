@@ -7,6 +7,9 @@
  *   - Check mode locks, all here in Cue's code:
  *       write lock: a Canvas bridge write must name the test project (CUE_CHECK_PID_); reads stay real.
  *       mail lock: a Gmail draft may be sent only when every To, Cc and Bcc address is a test address (CUE_CHECK_MAIL_).
+ *       send lock: Canvas actions that email people (CUE_CHECK_SENDS_) are refused unless CUE_CHECK_SEND_ is 'on', which
+ *         test/checks/config.json allows only for a project whose crew are all Kiko's own aliases (Kiko 27 Oct 09:16Z: a
+ *         real past project stands in for the test project, so its real crew must never be emailed).
  *       other writes: no other web write (HubSpot, TickTick, ...), no spreadsheet but the Cue sheet, no trigger changes.
  *       no leftovers: tasks and chat lines made in a check are tagged; cueResume, Send later and the sweep never run them, and
  *       the page Kiko uses never shows them. check_finish cancels any Send later and closes the run's tasks.
@@ -23,6 +26,8 @@ const CUE_CHECK_NEVER_ = ['cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRela
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
   'cueSchedRunNow', 'cueUsagePrices', 'cueFinSave', 'cueFinSheet', 'cueLearnChats', 'cueFileData', 'cueUpload'];
 // Bridge actions that only read. Every other action is a write and must name the test project.
+// Canvas bridge actions that email someone. Refused in a check unless CUE_CHECK_SEND_ === 'on'.
+const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
 const CUE_CHECK_READS_ = ['search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
   'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps'];
@@ -39,7 +44,7 @@ function cueCheckDoor_(q) {
   const late = !(cueNow_() < Number(CUE_CHECK_UNTIL_));
   if (late && (q.action !== 'check_finish' || !(cueNow_() < Number(CUE_CHECK_UNTIL_) + 30 * 60e3))) return { ok: false, error: 'This check run has ended.' };
   if (!cueCheckEnter_()) return { ok: false, error: 'Check mode could not lock Cue down here, so nothing ran.' };
-  if (q.action === 'check_ping') return { ok: true, version: CUE_VERSION_, project_id: CUE_CHECK_PID_, until: Number(CUE_CHECK_UNTIL_) };
+  if (q.action === 'check_ping') return { ok: true, version: CUE_VERSION_, project_id: CUE_CHECK_PID_, send: CUE_CHECK_SEND_ === 'on', until: Number(CUE_CHECK_UNTIL_) };
   if (q.action === 'check_finish') return Object.assign({ ok: true }, cueCheckFinish_());
   if (q.action !== 'check_call') return { ok: false, error: 'Unknown check action.' };
   const fn = String(q.fn || '');
@@ -114,12 +119,15 @@ function cueCheckBridgeOk_(payload) {
     if (b.args && b.args.plan_hash && b.args.plan_hash === globalThis.CUE_CHECK_PLAN_) return;
     return cueCheckStop_('a Canvas plan outside the test project');
   }
+  if (CUE_CHECK_SENDS_.indexOf(b.action) >= 0 && CUE_CHECK_SEND_ !== 'on') return cueCheckStop_('Canvas ' + b.action + ' (this check may not email anyone)');
   if (CUE_CHECK_READS_.indexOf(b.action) >= 0) return;
   if (String(b.project_id || '') === String(CUE_CHECK_PID_)) return;
   cueCheckStop_('Canvas ' + b.action + ' on ' + (b.project_id || 'no project') + ' (only ' + CUE_CHECK_PID_ + ' may be written)');
 }
 /** cueBridgePlan_ calls this before it claims a plan: every command must name the test project. */
 function cueCheckPlan_(cmds, planHash) {
+  const mail = cmds.filter(c => CUE_CHECK_SENDS_.indexOf(c.action) >= 0 && CUE_CHECK_SEND_ !== 'on');
+  if (mail.length) cueCheckStop_('Canvas ' + mail[0].action + ' (this check may not email anyone)');
   const bad = cmds.filter(c => String(c.pid || '') !== String(CUE_CHECK_PID_));
   if (bad.length) cueCheckStop_('Canvas ' + bad[0].action + ' on ' + (bad[0].pid || 'no project') + ' (only ' + CUE_CHECK_PID_ + ' may be written)');
   globalThis.CUE_CHECK_PLAN_ = planHash;

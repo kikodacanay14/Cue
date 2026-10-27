@@ -6,10 +6,11 @@ Kiko 27 Oct 2026 04:47Z ("that PC check is traking its time.... can some things 
 
 - New **Check Cue** Action (`.github/workflows/check.yml`): runs a feature's check script in a robot browser against a "Cue check" link and uploads a report with a screenshot per step. Same lock as Deploy Cue, so it never runs during a deploy or preview.
 - `tools/check.mjs open` makes a one-run key, pushes a check-mode copy of the checked code as one version, points "Cue check" at it and puts the Apps Script head back exactly as it was. `close` points the link at an "off" version that refuses every call. Live `/exec` is never touched.
+- Kiko 27 Oct 09:16Z ("there another task for me on top of al;l the tasks i need to do"): no new test project. The check uses the past project Hiraya Rewards and Recognitions, and a send lock keeps its real crew from being emailed: in check mode Canvas sends (crew_docs_send, ar_email, send_payment_chasers, send_doc_reminder) are refused unless `config.json` says `send: true`, which is only for crew on Kiko's own aliases.
 - Check mode (`src/CueCheck.gs`, `src/CueCheckKey.gs`, small hooks in `Cue.gs`, `CueAr.gs`, `CueSweep.gs`, `CueBridge.gs`, `CueRelay.gs`): off in every normal build. In the check copy, Canvas writes must name the test project, emails must go to the test addresses, any other write stops the run, and the run's tasks are kept apart from real work and closed at the end.
-- First script: `test/checks/1.27.33-crew-docs.check.mjs` (the 1.27.33 PC check list, plus Send to the test crew). A dry run on main found that main lacks the two 1.27.33 card fixes on `rel12733` (cards opened ticked; ticks came back after a warning); the same script passes 10 of 10 on `rel12733`.
-- Needs before the first real run: the Canvas test project "CUE TEST" (id into `test/checks/config.json`).
-- Tests: CK1 to CK7 new. 351 tests.
+- First script: `test/checks/1.27.33-crew-docs.check.mjs` (the 1.27.33 PC check list: Make one file, Edit, Send later and cancel, then finish without sending; it presses Send only when `send` is true). A dry run on main found that main lacks the two 1.27.33 card fixes on `rel12733` (cards opened ticked; ticks came back after a warning); the same script passes 10 of 10 on `rel12733`.
+- On Hiraya, Make is tried on one AR, because Kiko made all its FSAs on 27 Oct (08:40Z); the FSA list is read only.
+- Tests: CK1 to CK8 new. 352 tests.
 
 ## Cue 1.27.36: Help answers from Canvas's Help Q&A list (not deployed)
 

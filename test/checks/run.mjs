@@ -101,6 +101,7 @@ try {
   const ping = await door('check_ping');
   if (!ping.ok) throw new Error('The check link refused the run: ' + ping.error);
   if (ping.project_id !== config.project_id) throw new Error('The check link writes to ' + ping.project_id + ', but config.json names ' + config.project_id);
+  if (ping.send !== (config.send === true)) throw new Error('The check link ' + (ping.send ? 'may' : 'may not') + ' email, but config.json says send is ' + (config.send === true));
   const { chromium } = require('playwright');
   browser = await chromium.launch();
   page = await browser.newPage({ viewport: { width: 1440, height: 960 } });

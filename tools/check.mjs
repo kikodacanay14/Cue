@@ -1,7 +1,7 @@
 // Cloud check link for Cue, run by .github/workflows/check.yml (spec specs/cue-cloud-check.md, Kiko ok 27 Oct 2026 08:28Z).
 // Usage: node tools/check.mjs open | close
 // open: makes a new random key for this run and pushes a copy of src/ whose CueCheckKey.gs holds only the key's SHA-256, the
-//   end time, the Canvas test project and the test email pattern (test/checks/config.json), with web-app access ANYONE_ANONYMOUS.
+//   end time, the Canvas test project, the test email pattern and whether it may email anyone (test/checks/config.json), with web-app access ANYONE_ANONYMOUS.
 //   It makes one version of that copy, points the "Cue check" deployment at it, then pushes the head it found back, so /dev and
 //   the triggers run exactly what they ran before. Writes url and key (masked) to $GITHUB_OUTPUT. Live /exec is never touched.
 // close: points "Cue check" at the "off" version (CUE_CHECK_FP_ = 'off': the door refuses everything), making it once if needed.
@@ -49,12 +49,13 @@ function lockedCopy(lock) {
   const dir = project('push');
   for (const f of fs.readdirSync('src')) fs.copyFileSync(path.join('src', f), path.join(dir, 'src', f));
   const keyFile = path.join(dir, 'src', 'CueCheckKey.gs'), was = fs.readFileSync(keyFile, 'utf8');
-  const empty = ["const CUE_CHECK_FP_ = '';", 'const CUE_CHECK_UNTIL_ = 0;', "const CUE_CHECK_PID_ = '';", "const CUE_CHECK_MAIL_ = '';"];
-  if (!empty.every(x => was.split(x).length === 2)) fail('CueCheckKey.gs in src/ must hold the four empty lock values, once each');
+  const empty = ["const CUE_CHECK_FP_ = '';", 'const CUE_CHECK_UNTIL_ = 0;', "const CUE_CHECK_PID_ = '';", "const CUE_CHECK_MAIL_ = '';", "const CUE_CHECK_SEND_ = '';"];
+  if (!empty.every(x => was.split(x).length === 2)) fail('CueCheckKey.gs in src/ must hold the five empty lock values, once each');
   const now = was.replace("const CUE_CHECK_FP_ = '';", () => 'const CUE_CHECK_FP_ = ' + JSON.stringify(lock.fp) + ';')
     .replace('const CUE_CHECK_UNTIL_ = 0;', () => 'const CUE_CHECK_UNTIL_ = ' + Number(lock.until) + ';')
     .replace("const CUE_CHECK_PID_ = '';", () => 'const CUE_CHECK_PID_ = ' + JSON.stringify(lock.pid) + ';')
-    .replace("const CUE_CHECK_MAIL_ = '';", () => 'const CUE_CHECK_MAIL_ = ' + JSON.stringify(lock.mail) + ';');
+    .replace("const CUE_CHECK_MAIL_ = '';", () => 'const CUE_CHECK_MAIL_ = ' + JSON.stringify(lock.mail) + ';')
+    .replace("const CUE_CHECK_SEND_ = '';", () => 'const CUE_CHECK_SEND_ = ' + JSON.stringify(lock.send) + ';');
   fs.writeFileSync(keyFile, now);
   // Like the /dev build: test taps never teach Cue's tutor (CUE_DEV_ in Cue.gs).
   const cue = path.join(dir, 'src', 'Cue.gs'), c = fs.readFileSync(cue, 'utf8'), d = c.replace(/^const CUE_DEV_ = false;/m, 'const CUE_DEV_ = true;');
@@ -93,20 +94,20 @@ function point(desc, version) {
 }
 
 if (mode === 'open') {
-  if (!/^[A-Za-z0-9-]{4,}$/.test(String(conf.project_id || ''))) fail('test/checks/config.json has no Canvas test project id yet (CUE TEST must exist in Canvas first)');
+  if (!/^[A-Za-z0-9-]{4,}$/.test(String(conf.project_id || ''))) fail('test/checks/config.json has no Canvas project id');
   try { new RegExp(conf.mail); } catch (e) { fail('test/checks/config.json mail is not a valid pattern'); }
   const key = crypto.randomBytes(32).toString('hex');
   if (process.env.GITHUB_ACTIONS) console.log('::add-mask::' + key);
   const fp = crypto.createHash('sha256').update(key).digest('hex'), until = Date.now() + RUN_MINUTES * 60e3;
   const desc = CHECK_DESC + ' ' + (process.env.GITHUB_SHA || 'local').slice(0, 7);
-  const v = versionOf(lockedCopy({ fp, until, pid: conf.project_id, mail: conf.mail }), desc);
+  const v = versionOf(lockedCopy({ fp, until, pid: conf.project_id, mail: conf.mail, send: conf.send === true ? 'on' : 'no' }), desc);
   const id = point(CHECK_DESC, v);
   out('url', 'https://script.google.com/macros/s/' + id + '/exec'); out('key', key);
-  summary(`Cue check link open on Version ${v} until ${new Date(until).toISOString()} (writes only to ${conf.project_id}). Live /exec untouched.`);
+  summary(`Cue check link open on Version ${v} until ${new Date(until).toISOString()} (writes only to ${conf.project_id}; ${conf.send === true ? 'may email the test addresses' : 'emails no one'}). Live /exec untouched.`);
 } else {
   let off = named(OFF_DESC);
   if (!off || !off.versionNumber) {
-    const v = versionOf(lockedCopy({ fp: 'off', until: 1, pid: 'off', mail: 'off' }), OFF_DESC);
+    const v = versionOf(lockedCopy({ fp: 'off', until: 1, pid: 'off', mail: 'off', send: 'no' }), OFF_DESC);
     point(OFF_DESC, v); off = named(OFF_DESC);
   }
   if (named(CHECK_DESC)) point(CHECK_DESC, off.versionNumber);
