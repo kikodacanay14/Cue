@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.46 fix: no bank or TIN details go to ChatGPT from records tabs (not deployed)
+## Cue 1.27.46 fix: no bank or TIN details go to ChatGPT from records tabs (deployed 27 Oct 2026 14:02Z as Version 101; rollback Version 99)
 
 Found 27 Oct 2026 by the "Generate integration spec" thread while planning the sheet reads (focus area 3). Bug fix, so it
 ships alone after its checks (Kiko's "bugs first" rule).
