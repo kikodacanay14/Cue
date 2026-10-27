@@ -34,10 +34,12 @@ function cueMaWaiting_(me, now) {
   const list = cueGmail_('/threads?labelIds=INBOX&maxResults=' + CUE_MA_.max).threads || [];
   const cache = CacheService.getScriptCache(), old = {};
   try { (JSON.parse(cache.get('cue_ma_seen') || '[]') || []).forEach(x => { old[x.id] = x; }); } catch (e) { /* read all again */ }
-  const fresh = list.filter(t => !(old[t.id] && old[t.id].h === String(t.historyId)));
+  // CUE-PROJECT-LOG-2026-10-27: the first run after the project log ships reads every thread once, so the log starts with them.
+  const first = !cueProp_('CUE_PLOG_MAIL', ''), fresh = first ? list : list.filter(t => !(old[t.id] && old[t.id].h === String(t.historyId)));
   const got = {};
   cueGmailAll_(fresh.map(t => '/threads/' + encodeURIComponent(t.id) + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject'))
-    .forEach(t => { got[t.id] = cueMaPick_([t], me, now)[0] || null; });
+    .forEach(t => { got[t.id] = cueMaPick_([t], me, now)[0] || null; try { cuePlogMail_(t, me); } catch (e) { console.error('Project log (email): ' + e); } });
+  if (first) PropertiesService.getScriptProperties().setProperty('CUE_PLOG_MAIL', String(now));
   const seen = [], out = [];
   list.forEach(t => {
     let row;
