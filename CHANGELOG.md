@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue contact scan: blank P0 Contacts cells from old email signatures (not deployed)
+
+Kiko 26 Oct 2026 09:05Z chose this third ("2,3,4,1"); spec `specs/crm-email-scanner.md`, tracked on the Feature Board card
+"Integration specs". Kiko said Yes on that card on 27 Oct 2026 15:54Z to Cue reading the signatures in his own Gmail for it.
+Needs the Canvas release with `contact_gaps` and `contact_fill` (CanvasWorkspace PR #183); until then Canvas answers
+"unknown action" and Cue says so and reads nothing.
+
+- "fill contact details from old emails" in the chat (`src/CueContactScan.gs`, no AI call to route it). Canvas lists P0
+  Contacts rows with an email and a blank Position / Title, Phone or Company (`contact_gaps`). Cue takes up to 20 people not
+  scanned in the last 90 days (Cue sheet tab "Contact scan") and resumes the list where the last run stopped.
+- Gmail, read only: the newest 5 emails from each person in the last 3 years. Only the signature lines (after the last
+  sign-off, before the quoted reply, at most 12, none of BSE's own) are kept. Nothing from the email is stored.
+- One Claude call reads only those lines and the blank cells. Code keeps a value only when the signature line Claude quotes
+  holds it, and a phone only when its digits match a Philippine number in that line.
+- One Approve card lists every proposed cell. Approve sends one `contact_fill` as the one command of a claimed plan. Canvas
+  writes only cells that are still blank and logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. No
+  HubSpot write, no email, no schedule.
+- Bridge copy `test/fixtures/ZapBridge.gs` is the PR #183 branch file (live V294 plus the two actions); refresh it from main
+  when that release ships. New tests CS1 to CS5. Tests: 378.
+
 ## Cue sheet reads: Canvas records tabs through the bridge (not deployed)
 
 Kiko 26 Oct 2026 09:05Z chose this second ("2,3,4,1"); spec `specs/bridge-sheet-reads.md`, tracked on the Feature Board card

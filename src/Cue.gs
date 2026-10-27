@@ -17,6 +17,7 @@ const CUE_TABS_ = {
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
+  'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why']                                                // mute / keep / no_inquiry; Kiko can delete rows
@@ -183,6 +184,7 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const iv = cueInvSaid_(text, ref); if (iv) return iv; }
   // Generic Canvas edits (Kiko 10:10Z 27 Oct, CueEdit.gs): "allow cue to read|edit ..." asks for an allow-list row on an Approve card, no AI call.
   if (!has && mode !== 'intake') { const al = cueAllowSaid_(text, ref); if (al) return al; }
+  if (!has && mode !== 'intake') { const cs = cueCsSaid_(text, ref); if (cs) return cs; }   // old-email contact scan (CueContactScan.gs)
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
