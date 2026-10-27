@@ -4187,6 +4187,15 @@ test('GT8 web search is on for research tasks; an unreadable records tab is a no
   const f = gtBox({ fail: { gtask: () => resp(500, {}) } }); const w = f.ctx.cueRun(f.ctx.cueSend('account research', [], '').request_id);
   assert.strictEqual(w.status, 'Failed'); assert.ok(/ChatGPT could not run it/.test(w.error));
 });
+test('GT12 bug 27 Oct: no bank, account number, TIN or signature cell from a records tab reaches ChatGPT; account and owner columns stay', () => {
+  const t = gtBox();
+  const line = t.ctx.cueGtLine_('Supplier Database', { _row: 2, 'Supplier': 'Z&Z Events', 'Main Service': 'Mobile Bar', 'Bank': 'BPI', 'Account Name': 'Ma Ocampo',
+    'AccountNumber': '4059494908', 'TIN': '345-232-386-00000', 'TIN Status': 'Non-Vat Registered', 'Bank Account No.': '123', 'IBAN': 'X1', 'E-signature': 'sig.png', 'Password': 'p' });
+  assert.ok(/Supplier: Z&Z Events/.test(line) && /Main Service: Mobile Bar/.test(line), line);
+  ['BPI', 'Ma Ocampo', '4059494908', '345-232-386', 'Non-Vat', '123', 'X1', 'sig.png', 'Password'].forEach(x => assert.ok(line.indexOf(x) < 0, x + ' must not reach ChatGPT: ' + line));
+  const p = t.ctx.cueGtLine_('Admin Directory', { _row: 3, 'ACCOUNT': 'ING', 'ACCOUNT OWNER': 'Kiko Dacanay', 'Account Status': 'Active' });
+  assert.ok(/ACCOUNT: ING/.test(p) && /ACCOUNT OWNER: Kiko Dacanay/.test(p) && /Account Status: Active/.test(p), p);
+});
 test('GT9 PC test 22 Oct: Canvas not answering the project list is tried once more, then stops with Try again (never "Nothing new, all passed"); one miss recovers', () => {
   const P = [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }];
   const t = gtBox({ board404: 9, projects: P }); const v = t.ctx.cueRun(t.ctx.cueSend('friday readiness', [], '').request_id);

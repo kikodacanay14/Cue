@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27.46 fix: no bank or TIN details go to ChatGPT from records tabs (not deployed)
+
+Found 27 Oct 2026 by the "Generate integration spec" thread while planning the sheet reads (focus area 3). Bug fix, so it
+ships alone after its checks (Kiko's "bugs first" rule).
+
+- The Monday supplier files review read whole Supplier Database rows into the ChatGPT prompt, and those rows hold Bank,
+  Account Name, AccountNumber and TIN. `cueGtLine_` now drops any column named like a bank, account name or number, IBAN,
+  SWIFT, routing, card number, TIN, signature, password, PIN, secret or token, on every records tab. Account and Account
+  Owner columns (the client company) stay.
+- New test GT12. Tests: 371.
+
 ## Tests only: bridge contract check (no release, nothing to deploy)
 
 Kiko 26 Oct 2026 09:05Z chose this first ("2,3,4,1"; spec `specs/bridge-contract-test.md`, tracked on the Feature Board
