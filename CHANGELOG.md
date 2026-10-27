@@ -60,6 +60,7 @@ Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`ca
 - The Cue sheet gets a "CRM Email Log" tab listing every row logged or failed. Canvas cannot remove an Activity row yet, so there is no Undo (asked of Canvas Integration).
 - No AI call. No new Google access. No Canvas release needed.
 - Tests: CL1 to CL3 new; C11 now ignores the email log's own reads. 337 tests.
+- Cloud check (27 Oct): `test/checks/1.27.34-email-log.check.mjs`. In check mode the email log only reads: the door's `cueCrmLogCheck` reads the real Emails waiting list and returns the rows this hour would log, with no plan, no `crm_log` write and no tab row, because Canvas cannot remove an Activity row. The script checks each row against the bridge's `crm_log` rules (clients only, request id, date, summary) and shows them in the report. Test CK11.
 
 ## Cue 1.27.33: Generate FSAs and ARs, then send them (deployed 27 Oct 2026 as Version 83; rollback Version 79)
 

@@ -42,15 +42,21 @@ function cueCrmLogRun_() {
   try { w = cueBridge_(s, 'mail_waiting', {}) || {}; }
   catch (e) { return { logged: 0, failed: 0, skipped: 0, note: 'Could not read the waiting list: ' + String((e && e.message) || e).slice(0, 200) }; }
   if (!w.on) return { logged: 0, failed: 0, skipped: 0, note: 'Email check is off in Canvas.' };
-  const sh = cueCrmLogSheet_(), done = cueCrmLogDone_(sh), seen = {};
+  const check = !!globalThis.CUE_CHECK_ON_;   // CUE-CLOUD-CHECK: a check only reads; it never adds the tab
+  const sh = check ? SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', '')).getSheetByName(CUE_CRMLOG_.tab) : cueCrmLogSheet_();
+  const done = sh ? cueCrmLogDone_(sh) : {}, seen = {};
   const todo = (w.items || []).filter(i => i && String(i.who) === 'Client' && cueEmail_(i.email)).map(i => {
     const day = cueCrmLogDay_(i.at), key = 'cuemail:' + String(i.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 50) + ':' + day;
     return Object.assign({}, i, { day, key });
   }).filter(i => i.day && i.key.length >= 20 && !done[i.key] && !seen[i.key] && (seen[i.key] = 1));
   const list = todo.slice(0, CUE_CRMLOG_.max);
-  if (!list.length) return { logged: 0, failed: 0, skipped: todo.length, note: '' };
   const args = list.map(i => ({ request_id: i.key, kind: 'Email', contact: cueStr_(i.name || '', 120), email: cueStr_(i.email, 200).toLowerCase(),
     summary: cueStr_('Email from ' + (i.name || i.from || i.email) + ': ' + (i.subject || '(no subject)') + (i.project ? ' (project ' + i.project + ')' : ''), 1000), date: i.day }));
+  // CUE-CLOUD-CHECK: a check run stops here. It shows what this hour would log; it claims no plan, writes no Activity row
+  // (Canvas cannot remove one) and adds no row to the tab.
+  if (check) return { logged: 0, failed: 0, skipped: todo.length - list.length, note: '', waiting: (w.items || []).length,
+    would: args.map((a, n) => Object.assign({ who: String(list[n].who), project: list[n].project || '' }, a)) };
+  if (!list.length) return { logged: 0, failed: 0, skipped: todo.length, note: '' };
   // CUE-CRMLOG-PLAN-2026-10-27: crm_log is a bridge write, so each batch of up to 20 is its own task with a claimed plan first
   // (Canvas refuses a write with "no claimed plan for this task"). Then one request per email, all at once; one refusal never
   // stops the others (cueBridgeAll_ would throw on the first).
@@ -75,4 +81,10 @@ function cueCrmLogRun_() {
   });
   cueLocked_(() => rows.forEach(r => sh.appendRow(r)));
   return { logged, failed, skipped: todo.length - list.length, note: '' };
+}
+
+/** Check mode only (the cloud check's door, test/checks/1.27.34-email-log.check.mjs): one read-only run of the email log. */
+function cueCrmLogCheck() {
+  if (!globalThis.CUE_CHECK_ON_) throw new Error('Only a cloud check runs this.');
+  return cueCrmLogRun_();
 }
