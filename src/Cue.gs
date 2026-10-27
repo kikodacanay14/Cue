@@ -56,6 +56,7 @@ function cueIconUrl_() {
 /** Only the owner may use Cue, even if the deployment's access setting is ever widened by mistake. */
 function cueOwner_() {
   if (globalThis.CUE_SCHED_RUNNING_) return;   // Cue's own scheduled run (CueSchedule.gs), started by its trigger; no page call can set this
+  if (globalThis.CUE_CHECK_ON_) return;        // a cloud check run with its key, on the check version only (CueCheck.gs); no page call can set this
   const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   const who = String(Session.getActiveUser().getEmail() || '').toLowerCase();
   if (!me || who !== me) throw new Error('Cue is private to its owner.');
@@ -143,6 +144,7 @@ function cueLoad_(id) {
 /** Saves state and the columns Kiko reads in the sheet. Throws rather than cut JSON. */
 function cueSave_(sh, row, s) {
   s.updated = new Date(cueNow_()).toISOString();
+  if (globalThis.CUE_CHECK_ON_ && !s.check) s.check = cueCheckTag_();   // made in a cloud check: never resumed, sent later or shown to Kiko
   const j = JSON.stringify(s), parts = [];
   for (let k = 0; k < CUE_CELLS_; k++) parts.push(j.slice(k * CUE_CELL_, (k + 1) * CUE_CELL_));
   if (j.length > CUE_CELL_ * CUE_CELLS_) throw new Error('This request is too large to store (' + j.length + ' characters).');
@@ -152,7 +154,7 @@ function cueSave_(sh, row, s) {
     new Date(cueNow_())].concat(parts)]);
 }
 function cueChat_(who, text, id) {
-  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || '']); } catch (e) { console.error('Chat log: ' + e); }
+  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || ''].concat(globalThis.CUE_CHECK_ON_ ? [cueCheckTag_()] : [])); } catch (e) { console.error('Chat log: ' + e); }
 }
 
 /* ---------- what the page calls ---------- */
@@ -726,6 +728,7 @@ function cueResume() {
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
+    if (s.check) return;   // a cloud check's task runs only from its check (CueCheck.gs), never from this trigger
     if (!(s.lease_until > now)) { try { cueRunLeased_(s.id); } catch (e) { console.error('cueResume ' + s.id + ': ' + e); } }
   });
   // Last, so a task it starts runs on the next tick in its own 6 minutes (the sweep still runs at once, as its trigger did).
@@ -933,13 +936,17 @@ function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
 function cueState() {
   cueOwner_();
-  if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
-  try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day (Kiko 22 Oct 05:52Z)
-  const rows = cueRows_(cueSheet_('Requests')).slice(-20).reverse(), list = [];
-  rows.forEach(r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } if (s) list.push(cueView_(s)); });
+  const chk = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';   // a cloud check sees only its own tasks and lines; Kiko never sees them
+  if (!chk && cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
+  if (!chk) { try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); } }   // once: one Bid check thread per day (Kiko 22 Oct 05:52Z)
+  const rows = cueRows_(cueSheet_('Requests')).reverse(), list = [];
+  for (let i = 0; i < rows.length && list.length < 20; i++) {
+    let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
+    if (s && String(s.check || '') === chk) list.push(cueView_(s));
+  }
   let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
-  const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 4).getValues()
+  const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 5).getValues().filter(r => String(r[4] || '') === chk)
     .map(r => ({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) })) : [];
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;

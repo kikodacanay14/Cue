@@ -30,7 +30,8 @@ function doPost(e) {
   let out;
   try {
     let q = null; try { q = JSON.parse((e && e.postData && e.postData.contents) || ''); } catch (x) { q = null; }
-    out = cueRelayCall_(q, String((e && e.pathInfo) || ''));
+    // CUE-CLOUD-CHECK: the check and "off" versions answer only the check door; every other version keeps the relay as before.
+    out = CUE_CHECK_FP_ || (q && /^check_/.test(String(q.action || ''))) ? cueCheckDoor_(q) : cueRelayCall_(q, String((e && e.pathInfo) || ''));
   } catch (x) { console.error('Relay: ' + x); out = { ok: false, error: 'Cue could not do that just now. Try again in a minute.' }; }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
