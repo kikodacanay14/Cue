@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.42: Emails waiting stays up to date, because Cue now runs the email check (not deployed)
+
+Bug fix. On 27 Oct 2026 Kiko's Emails waiting thread in Canvas said "The email check hasn't run for a while" (coordinator
+10:34Z: "find out why the mailcheck stopped and fix it first").
+
+- Cause: Emails waiting is read from `canvas-email-alerts.json` in Kiko's Drive. The separate Canvas email check app wrote
+  it from a 10-minute trigger in Kiko's account. Its last write was 25 Oct 2026 01:31Z, when Kiko tapped Turn on. The trigger
+  never wrote again, and Google sent no failure email, so the list froze on 25 Oct items. The hourly client email log
+  (1.27.34) reads the same list, so it stalled too.
+- Fix: new `CueMailAlerts.gs`. Cue's own 5-minute trigger, which has run without a gap, now writes the same file every 10
+  minutes with the same rules: Inbox threads whose newest message is from outside BSE, within 14 days, not from a no-reply
+  address, headers only. A thread is read again only when its Gmail history moves. The file is Cue's own (`drive.file`) and
+  is shared view-only with info@ without a share email. Nothing is sent, labelled or changed in Gmail. No AI call.
+- Needs Canvas `releases/rel-v292-mailfix-main` (Emails waiting reads the newest such file Kiko owns) and
+  `rel-v152-mailfix-client` (pin 292). Until that ships, Canvas keeps reading the old file.
+- Tests: MA1 and MA2 are new. 363 tests.
+
 ## Cue 1.27.41: Cue edits Canvas records through the generic bridge (not deployed)
 
 Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right coz thats why you were given API access to Claude... Claude will edit") and 10:06Z ("Cue received it - should passed to Claude - Claude should have updated the file"). Kiko tapped "Yes, build it" on the generic bridge (`specs/generic-bridge.md`) at 10:10Z.

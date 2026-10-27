@@ -740,6 +740,7 @@ function cueResume() {
   try { cueRelaySweep_(); } catch (e) { console.error('cueRelaySweep_: ' + e); }   // notes claude.ai added to the Relay tab
   try { cueRelayTasks_(); } catch (e) { console.error('cueRelayTasks_: ' + e); }   // tasks ChatGPT handed over (if the one-off trigger missed them)
   try { cueArDue_(); } catch (e) { console.error('cueArDue_: ' + e); }   // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
+  try { cueMaTick_(); } catch (e) { console.error('cueMaTick_: ' + e); }   // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
   try { cueCrmLogTick_(); } catch (e) { console.error('cueCrmLogTick_: ' + e); }   // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
