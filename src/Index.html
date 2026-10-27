@@ -2158,9 +2158,10 @@
         + (note ? '<br><span class="small muted">' + esc(note) + '</span>' : '') + (x.error ? '<div class="err">' + esc(x.error) + '</div>' : '') + '</span></label>';
     };
     // Kiko 26 Oct 13:56Z and 14:00Z: a project has 20 to 40 crew, so names sit in two columns (scroll past 40), with a count and Tick all / Untick all.
-    var list = function (attr, rows, k) {
+    // PC check 27 Oct 02:13Z: "of N" counts only the names that can be ticked (no-email rows are off), as the chat line does.
+    var list = function (attr, rows, k, of) {
       if (rows.length < 2) return rows.join('');
-      return '<div class="small" style="display:flex;justify-content:space-between;gap:8px;margin:2px 0 4px"><span data-arcount="' + attr + '">' + k + ' ticked of ' + rows.length + '</span>'
+      return '<div class="small" style="display:flex;justify-content:space-between;gap:8px;margin:2px 0 4px"><span data-arcount="' + attr + '">' + k + ' ticked of ' + (of == null ? rows.length : of) + '</span>'
         + '<span><a href="#" data-artick="1" data-arattr="' + attr + '">Tick all</a> · <a href="#" data-artick="0" data-arattr="' + attr + '">Untick all</a></span></div>'
         + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;' + (rows.length > 40 ? 'max-height:560px;overflow:auto;' : '') + 'border:1px solid var(--line);border-radius:10px;padding:4px 10px">' + rows.join('') + '</div>';
     };
@@ -2197,7 +2198,7 @@
     var ready = a.items.filter(function (x) { return !x.why && !x.doc; }), have = a.items.filter(function (x) { return x.doc; }), blocked = a.items.filter(function (x) { return x.why && !x.doc; });
     var n = ready.filter(function (x) { return !x.off; }).length;
     var rows = ready.map(function (x) { return row(x, waiting ? ck(x, 'data-amk', x.tick, x.off) : '', x.off ? 'No email on file' : x.kind === 'Resource' && x.send_why ? x.send_why.split(':')[0] + ': made, not emailed' : ''); });
-    if (ready.length) h += '<div class="label">Ready to make</div>' + (waiting ? list('data-amk', rows, ready.filter(function (x) { return arOn('data-amk', r.id, x, x.tick) && !x.off; }).length) : rows.join(''));
+    if (ready.length) h += '<div class="label">Ready to make</div>' + (waiting ? list('data-amk', rows, ready.filter(function (x) { return arOn('data-amk', r.id, x, x.tick) && !x.off; }).length, n) : rows.join(''));
     if (have.length) h += '<div class="label">Already made</div>' + have.map(function (x) { return row(x, '<span>✓</span>'); }).join('');
     if (blocked.length) h += '<div class="label">Can\'t make yet</div>' + blocked.map(function (x) { return row(x, '', x.why); }).join('');
     if (!a.items.length) h += '<div class="small muted" style="margin-top:6px">' + (a.doc === 'fsa' ? 'Canvas shows no crew on this project\'s Resources yet.' : 'Canvas shows no paid suppliers, talents or freelancers on this project yet.') + '</div>';
@@ -2752,7 +2753,7 @@
   function arRecount(card, attr) {
     Array.prototype.forEach.call(card ? card.querySelectorAll('input[' + attr + ']') : [], function (x) { arTick[attr + '|' + x.getAttribute(attr) + '|' + x.value] = x.checked; });
     var c = card && card.querySelector('[data-arcount="' + attr + '"]'); if (!c) return;
-    var all = card.querySelectorAll('input[' + attr + ']'), on = Array.prototype.filter.call(all, function (x) { return x.checked; }).length;
+    var all = card.querySelectorAll('input[' + attr + ']:not([disabled])'), on = Array.prototype.filter.call(all, function (x) { return x.checked; }).length;
     c.textContent = on + ' ticked of ' + all.length; }
   document.addEventListener('click', function (e) { var t = e.target.closest && e.target.closest('[data-artick]'); if (!t) return; e.preventDefault();
     var card = t.closest('.card'), attr = t.getAttribute('data-arattr'), on = t.getAttribute('data-artick') === '1';
