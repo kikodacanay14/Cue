@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.37: Transfer lookup and invoice line edit in the chat (not deployed)
+## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (not deployed)
 
 Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat refused to check the Transfers sheet for a GCash payment matching a cash one (Cups, AP-CUP-TRI-1) and refused to add REC-10307792 to the Telus Trick or Treat invoice. Cue had the access; it had no command. Kiko approved the spec (`transfer-lookup-invoice-edit.md`) at 09:20Z: "give cue edit rights and look up rights".
 
@@ -8,7 +8,19 @@ Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat re
 - Invoice line edit (`CueLookup.gs`): "add REC-<number> to the <project> invoice" (or a line in quotes) reads the project's billing invoices and POs through Canvas's new `bi_list`, and shows an Approve card with where the line goes and what the Description becomes. The line goes first, so the printed form never cuts it. A REC number gets " for <PO number>" added, as on BI 0013. Approve writes it once through Canvas's new `invoice_line`, as the one command of a claimed plan: on the open BI's Description, or, when the project has no BI yet, on its unbilled PO's Full Description, which New invoice copies. Paid BIs and BIs with payment advice stay locked, as in Finance Desk. Two open BIs, two unbilled POs or two equally likely projects make Cue ask which.
 - Needs the Canvas release with `bi_list` and `invoice_line` (CanvasWorkspace `releases/rel-v289-invoiceline-main` on live V288, then `rel-v147-invoiceline-client` pinning 289). test/fixtures/ZapBridge.gs is refreshed from it.
 - The question cards take a new Approve button label.
-- Tests: LK1, LK2, IL1, IL2 new. 349 tests.
+- Tests: LK1, LK2, IL1, IL2 new. 357 tests.
+
+## Cue 1.27.37: Cloud check, so PC checks no longer tie Kiko to his PC (not deployed)
+
+Kiko 27 Oct 2026 04:47Z ("that PC check is traking its time.... can some things be adjusted on PC check?") and 04:48Z ("i dont want to keep doing taht i dont wanna be tied to that computer all day"); he approved the spec `cue-cloud-check.md` with "ok" at 08:28Z, including the new Check Cue workflow and a key-locked check link that answers without Google sign-in.
+
+- New **Check Cue** Action (`.github/workflows/check.yml`): runs a feature's check script in a robot browser against a "Cue check" link and uploads a report with a screenshot per step. Same lock as Deploy Cue, so it never runs during a deploy or preview.
+- `tools/check.mjs open` makes a one-run key, pushes a check-mode copy of the checked code as one version, points "Cue check" at it and puts the Apps Script head back exactly as it was. `close` points the link at an "off" version that refuses every call. Live `/exec` is never touched.
+- Kiko 27 Oct 09:16Z ("there another task for me on top of al;l the tasks i need to do"): no new test project. The check uses the past project Hiraya Rewards and Recognitions, and a send lock keeps its real crew from being emailed: in check mode Canvas sends (crew_docs_send, ar_email, send_payment_chasers, send_doc_reminder) are refused unless `config.json` says `send: true`, which is only for crew on Kiko's own aliases.
+- Check mode (`src/CueCheck.gs`, `src/CueCheckKey.gs`, small hooks in `Cue.gs`, `CueAr.gs`, `CueSweep.gs`, `CueBridge.gs`, `CueRelay.gs`): off in every normal build. In the check copy, Canvas writes must name the test project, emails must go to the test addresses, any other write stops the run, and the run's tasks are kept apart from real work and closed at the end.
+- First script: `test/checks/1.27.33-crew-docs.check.mjs` (the 1.27.33 PC check list: Make one file, Edit, Send later and cancel, then finish without sending; it presses Send only when `send` is true). A dry run on main found that main lacks the two 1.27.33 card fixes on `rel12733` (cards opened ticked; ticks came back after a warning); the same script passes 10 of 10 on `rel12733`.
+- On Hiraya, Make is tried on one AR, because Kiko made all its FSAs on 27 Oct (08:40Z); the FSA list is read only.
+- Tests: CK1 to CK8 new. 352 tests.
 
 ## Cue 1.27.36: Help answers from Canvas's Help Q&A list (not deployed)
 
