@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.45: Cue edits Canvas records through the generic bridge (not deployed; built as 1.27.41, first numbered 1.27.43)
+## Cue 1.27.45: Cue edits Canvas records through the generic bridge (deployed 27 Oct 2026 11:32Z as Version 99; rollback Version 97; built as 1.27.41, first numbered 1.27.43)
 
 Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right coz thats why you were given API access to Claude... Claude will edit") and 10:06Z ("Cue received it - should passed to Claude - Claude should have updated the file"). Kiko tapped "Yes, build it" on the generic bridge (`specs/generic-bridge.md`) at 10:10Z.
 
