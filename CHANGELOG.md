@@ -23,7 +23,7 @@ Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`ca
 - No AI call. No new Google access. No Canvas release needed.
 - Tests: CL1 to CL3 new; C11 now ignores the email log's own reads. 337 tests.
 
-## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
+## Cue 1.27.33: Generate FSAs and ARs, then send them (deployed 27 Oct 2026 as Version 83; rollback Version 79)
 
 Kiko 26 Oct 13:22Z ("i need you to have a command that can trigger this"), 13:24Z ("generate ARs, for... generate FSAs, for ... and then you will ask do you want me to send those after?"), 13:25Z (making the files takes a while, so the send question comes after), 13:30Z ("Generating 15 of 50") and 13:31Z ("60 files done. Do you want me to send these files... a draft with buttons... Send, Edit and Send Later").
 
