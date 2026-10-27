@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.34';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + client emails logged to Canvas (1.27.34)
+const CUE_VERSION_ = 'Cue 1.27.38';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + client emails logged to Canvas (1.27.34) + transfer lookup and invoice line edit (1.27.38)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -173,6 +173,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
   // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
   if (!has && mode !== 'intake') { const sc = cueSchedSaid_(text, ref); if (sc) return sc; }
+  // Transfer lookup and invoice line edit (Kiko 09:20Z 27 Oct, CueLookup.gs): Transfers read only, no AI call; an invoice line waits Approve.
+  if (!has && mode !== 'intake') { const tx = cueTxSaid_(text, ref); if (tx) return tx; }
+  if (!has && mode !== 'intake') { const iv = cueInvSaid_(text, ref); if (iv) return iv; }
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
