@@ -169,6 +169,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
   // AI relay (Kiko 23 Oct 03:47Z, CueRelay.gs): "tell Claude: ..." / "send to ChatGPT: ..." is a relay note, no AI call.
   if (!has && mode !== 'intake') { const rl = cueRelaySaid_(text, ref); if (rl) return rl; }
+  // Help answers (Kiko 27 Oct 02:34Z, CueHelp.gs): "help: <question>" matches the Help Q&A list in code, no AI call.
+  if (!has && mode !== 'intake') { const hp = cueHelpSaid_(text, ref); if (hp) return hp; }
   // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
   // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
@@ -742,8 +744,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, status: cueStRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', status: 'The status report stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, ar: cueArRun_, hubspot: cueHsRun_, status: cueStRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_, help: cueHelpRun_ }[s.kind] || cueIntakeRun_;
+  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', status: 'The status report stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ', help: 'Reading the Help Q&A list from Canvas stopped: ' }[s.kind] || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -1043,6 +1045,7 @@ function cueView_(s) {
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     st: s.kind === 'status' ? cueStView_(s) : null,
     relay: s.kind === 'relay' ? cueRelayView_(s) : null,
+    help: s.kind === 'help' ? cueHelpView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
     cec: s.kind === 'cecost' ? cueCecView_(s) : null,

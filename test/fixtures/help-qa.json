@@ -1,0 +1,602 @@
+[
+ {
+  "id": "CRW-H-01",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I sign in to Canvas?",
+  "answer": "Go to canvas.blankspaceevent.com/crew and type the email BSE has for you. We email you a 6-digit code. Type it in and you are in. The code changes each time; you never need a password.",
+  "opens": "Crew sign-in",
+  "also": [
+   "How do I log in to Canvas?",
+   "Paano po mag-login sa Canvas?",
+   "Where do I sign in to see my BSE stuff?",
+   "Pano po ako makakapasok sa crew site?",
+   "What's the link to log in for crew?"
+  ]
+ },
+ {
+  "id": "CRW-H-02",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I register as BSE crew?",
+  "answer": "Open the link in your welcome email (or sign in at canvas.blankspaceevent.com/crew). Fill in the Register form: full name, mobile number, address, and the bank account we pay you to (bank, account name, account number). Once all of these are in, you are Registered and can sign papers straight from your email.",
+  "opens": "Register form",
+  "also": [
+   "How do I sign up as BSE crew?",
+   "Paano po magparehistro sa BSE?",
+   "Where do I fill in my details as a freelancer?",
+   "Pano po mag-register sa Canvas?",
+   "What do I need to register as a raketeer?"
+  ]
+ },
+ {
+  "id": "CRW-H-03",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I sign my FSA?",
+  "answer": "Open the \"Please sign your Freelancer Service Agreement\" email and tap Open Canvas to sign. Check your role, days, area and service fee. Type your full name, tick to confirm, and tap Sign. Canvas saves a signed copy for you and for BSE.",
+  "opens": "To sign",
+  "also": [
+   "Where do I sign my contract for the event?",
+   "Paano po pirmahan yung FSA?",
+   "How do I e-sign the Freelancer Service Agreement?",
+   "San ko po pipirmahan yung agreement?",
+   "I got an FSA email, what do I do with it?"
+  ]
+ },
+ {
+  "id": "CRW-H-04",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I sign my AR?",
+  "answer": "After BSE pays you, you get a \"Payment received\" email. Tap Open Canvas to sign, check the amount and date, type your full name, tick, and tap Sign. If the amount is wrong, do not sign: reply to the email and tell us.",
+  "opens": "To sign",
+  "also": [
+   "How do I sign the acknowledgement receipt?",
+   "Pano po pirmahan yung AR? Di ko makita",
+   "Where do I sign my AR after getting paid?",
+   "Kailangan ko po bang pirmahan yung AR?",
+   "I got a Payment received email, how do I sign?"
+  ]
+ },
+ {
+  "id": "CRW-H-05",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I see my payments?",
+  "answer": "Sign in and open Payments. You see what was paid, the date, and what is still to pay for each project.",
+  "opens": "Payments",
+  "also": [
+   "Where can I check my payments?",
+   "Nabayaran na po ba ako?",
+   "How do I see if my talent fee came in?",
+   "San ko makikita yung sahod ko?",
+   "Can I see what BSE still owes me?"
+  ]
+ },
+ {
+  "id": "CRW-H-06",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I change my bank details?",
+  "answer": "Sign in and open Your details, then edit the bank part. BSE never asks for bank details by text or chat link. If someone does, do not reply; tell your BSE contact.",
+  "opens": "Your details",
+  "also": [
+   "How do I update my bank account?",
+   "Pwede po bang palitan yung GCash ko?",
+   "I changed banks, how do I tell BSE?",
+   "Paano po magpalit ng account na pagbabayaran?",
+   "Where do I edit my bank details?"
+  ]
+ },
+ {
+  "id": "CRW-H-07",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "How do I find my signed documents?",
+  "answer": "Sign in and open Your documents. Every FSA and AR you signed is there to view or download.",
+  "opens": "Your documents",
+  "also": [
+   "Where can I download my signed FSA?",
+   "San ko po makikita yung mga pinirmahan ko?",
+   "How do I get a copy of my AR?",
+   "Can I see my old documents from past events?",
+   "Where are my signed papers saved?"
+  ]
+ },
+ {
+  "id": "CRW-H-08",
+  "audience": "Crew",
+  "type": "How to",
+  "question": "I did not get my sign-in code. What do I do?",
+  "answer": "Wait one minute and check Spam or Promotions. Make sure you typed the same email BSE has for you. Still nothing? Message your BSE contact so we can check your email on file.",
+  "opens": "Crew sign-in",
+  "also": [
+   "I didn't receive the login code.",
+   "Walang dumating na code po.",
+   "The OTP isn't coming to my email.",
+   "Bakit po hindi ako makatanggap ng code?",
+   "My sign-in code never arrived, what now?"
+  ]
+ },
+ {
+  "id": "CRW-W-01",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "What is an FSA?",
+  "answer": "Your Freelancer Service Agreement. One per project. It lists your role for each day, the area, your service fee and what the role expects of you. You get it about 3 days before your first working day, and you sign it before the work starts.",
+  "opens": "",
+  "also": [
+   "What is an FSA?",
+   "Ano po yung FSA?",
+   "What's the Freelancer Service Agreement for?",
+   "Para saan po yung FSA na pinapapirmahan?",
+   "Is the FSA my contract for the event?"
+  ]
+ },
+ {
+  "id": "CRW-W-02",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "What is an AR?",
+  "answer": "An Acknowledgement Receipt. It says you received your payment from BSE. We prepare it before the payment date and unlock it for signing once we mark you paid. BSE needs it for its books.",
+  "opens": "",
+  "also": [
+   "What is an AR?",
+   "Ano po yung AR?",
+   "What's an acknowledgement receipt?",
+   "Para saan po yung AR?",
+   "Why does BSE need an AR from me?"
+  ]
+ },
+ {
+  "id": "CRW-W-03",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "Why do I sign the AR after I am already paid?",
+  "answer": "The AR confirms money you already received, so it only becomes true after the transfer. That is why it is written in past tense and only opens for signing once you are paid.",
+  "opens": "",
+  "also": [
+   "Why do I sign the AR after I'm paid?",
+   "Bakit po after bayad pa pipirmahan yung AR?",
+   "Why can't I sign the AR before payment?",
+   "Bakit past tense na po yung AR?",
+   "The AR says I received payment already, is that right?"
+  ]
+ },
+ {
+  "id": "CRW-W-04",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "Is an e-signature valid?",
+  "answer": "Yes. Under the Philippine E-Commerce Act (RA 8792, Section 8) an electronic signature counts as a written one when it identifies you and can be checked. Canvas records who signed and when.",
+  "opens": "",
+  "also": [
+   "Is an e-signature legal?",
+   "Valid po ba yung e-sign?",
+   "Do I still need to sign on paper?",
+   "Legit po ba yung digital signature?",
+   "Will my typed name count as a signature?"
+  ]
+ },
+ {
+  "id": "CRW-W-05",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "What does Registered mean?",
+  "answer": "Your profile is complete: name, mobile, address and bank account. Registered crew can sign straight from the email. If you are not registered yet, the email link takes you to the form first.",
+  "opens": "",
+  "also": [
+   "What does Registered mean?",
+   "Ano po ibig sabihin ng Registered?",
+   "Why does it say I'm not registered?",
+   "Registered na po ba ako?",
+   "What do I need to be fully registered?"
+  ]
+ },
+ {
+  "id": "CRW-W-06",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "What is a Raketeer number?",
+  "answer": "Your BSE crew number. It is on your profile and helps us find you fast, even when two people share a name.",
+  "opens": "Your details",
+  "also": [
+   "What is a Raketeer number?",
+   "Ano po yung Raketeer #?",
+   "Where do I find my crew number?",
+   "Ano po yung number ko sa BSE?",
+   "Do I need a Raketeer number?"
+  ]
+ },
+ {
+  "id": "CRW-W-07",
+  "audience": "Crew",
+  "type": "What is",
+  "question": "When will I get paid?",
+  "answer": "Each payment has a payment date set when the PM requests it. You can see it on Payments. You get a \"Payment received\" email the day we mark it paid.",
+  "opens": "Payments",
+  "also": [
+   "When will I get paid?",
+   "Kailan po ang sahod?",
+   "When is the payout for this event?",
+   "Kailan po papasok yung bayad?",
+   "How long before I receive my talent fee?"
+  ]
+ },
+ {
+  "id": "CLI-H-01",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I sign in to Canvas?",
+  "answer": "Go to canvas.blankspaceevent.com/client and type your work email. We email you a 6-digit code. Type it in to see your projects and documents.",
+  "opens": "Client sign-in",
+  "also": [
+   "How do I log in to Canvas?",
+   "Where do I sign in to see our project?",
+   "What's the client portal link?",
+   "How do I access our event documents online?",
+   "Can I log in without a password?"
+  ]
+ },
+ {
+  "id": "CLI-H-02",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I approve or sign a Cost Estimate?",
+  "answer": "Open the CE email and tap the link, or sign in and open the project. Review the items and the total, then sign. Want changes? Reply to your BSE contact before you sign and we send a revised CE.",
+  "opens": "Project page",
+  "also": [
+   "How do I approve the quotation?",
+   "Where do I sign the CE?",
+   "How do we confirm the cost estimate?",
+   "Can I e-sign the quote online?",
+   "What do I do once I'm happy with the CE?"
+  ]
+ },
+ {
+  "id": "CLI-H-03",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I ask for a change to my Cost Estimate?",
+  "answer": "Reply to the CE email or message your BSE contact with what to add, drop or change. We send a new version; the newest one is the one to sign.",
+  "opens": "",
+  "also": [
+   "Can we revise the quotation?",
+   "How do I request changes to the CE?",
+   "We need to remove some items from the quote, how?",
+   "Can you update the cost estimate?",
+   "How do I ask for a new version of the CE?"
+  ]
+ },
+ {
+  "id": "CLI-H-04",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I see my project's status?",
+  "answer": "Sign in and open the project. You see its stage and the next milestones. For active projects we may also send you a short weekly update email.",
+  "opens": "Project page",
+  "also": [
+   "How do I check our project status?",
+   "Where can I see the event progress?",
+   "What stage is our project in?",
+   "Is there an update on our event?",
+   "Where do I see the next milestones?"
+  ]
+ },
+ {
+  "id": "CLI-H-05",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I get my invoice or billing documents?",
+  "answer": "Sign in, open the project, and look under its documents. If you need it in another format or for a different billing entity, tell your BSE contact.",
+  "opens": "Project documents",
+  "also": [
+   "Where's our invoice?",
+   "How do I download the billing statement?",
+   "Can you send our billing documents?",
+   "We need the invoice under a different company name.",
+   "Where do I find our receipts?"
+  ]
+ },
+ {
+  "id": "CLI-H-06",
+  "audience": "Client",
+  "type": "How to",
+  "question": "How do I pay BSE?",
+  "answer": "Use only the bank details printed on BSE's billing document. BSE never sends bank details as a link or changes them by email alone. If you get a message with new bank details, call your BSE contact before you pay.",
+  "opens": "",
+  "also": [
+   "How do we pay BSE?",
+   "What are your bank details?",
+   "Where do we send the deposit?",
+   "We got new bank details by email, are these right?",
+   "Can we pay by bank transfer?"
+  ]
+ },
+ {
+  "id": "CLI-W-01",
+  "audience": "Client",
+  "type": "What is",
+  "question": "What is a Cost Estimate (CE)?",
+  "answer": "BSE's priced proposal for your event: each item, its cost and the total. Once you sign it, it becomes the agreed budget for the project.",
+  "opens": "",
+  "also": [
+   "What is a CE?",
+   "What's a cost estimate?",
+   "Is the CE the same as a quotation?",
+   "What does the CE include?",
+   "Is the CE total final?"
+  ]
+ },
+ {
+  "id": "CLI-W-02",
+  "audience": "Client",
+  "type": "What is",
+  "question": "Why is there no VAT on my CE?",
+  "answer": "Blank Space Events is not VAT-registered, so we do not add VAT. The CE total is the full amount.",
+  "opens": "",
+  "also": [
+   "Why is there no VAT on the quote?",
+   "Is VAT included in the CE?",
+   "Do we need to add VAT on top?",
+   "Are you VAT-registered?",
+   "Why no 12% on our cost estimate?"
+  ]
+ },
+ {
+  "id": "CLI-W-03",
+  "audience": "Client",
+  "type": "What is",
+  "question": "What is the weekly update?",
+  "answer": "A short email on each active project: progress, next milestones, and anything we need from you. It never includes internal costs or supplier details.",
+  "opens": "",
+  "also": [
+   "What is the weekly update?",
+   "What's in the weekly email you send?",
+   "Will you send us regular progress reports?",
+   "How often do we get project updates?",
+   "Who gets the weekly update?"
+  ]
+ },
+ {
+  "id": "CLI-W-04",
+  "audience": "Client",
+  "type": "What is",
+  "question": "What does Awarded mean?",
+  "answer": "You confirmed BSE for the project. From then we book suppliers and crew and plan the event with you.",
+  "opens": "",
+  "also": [
+   "What does Awarded mean?",
+   "Our project says Awarded, what's next?",
+   "Is our event confirmed?",
+   "What happens after we award the project?",
+   "When does BSE start booking suppliers?"
+  ]
+ },
+ {
+  "id": "CLI-W-05",
+  "audience": "Client",
+  "type": "What is",
+  "question": "What are your payment terms?",
+  "answer": "[Kiko to fill: deposit, balance and due days.]",
+  "opens": "",
+  "also": [
+   "What are your payment terms?",
+   "How much is the downpayment?",
+   "When is the balance due?",
+   "Do you need a deposit before the event?",
+   "How many days do we have to pay?"
+  ]
+ },
+ {
+  "id": "SUP-H-01",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I sign in to my supplier page?",
+  "answer": "Go to canvas.blankspaceevent.com/crew?v=pay and type the email BSE has for your business. We email you a 6-digit code. Inside you see your files, your projects and payments.",
+  "opens": "Your supplier page",
+  "also": [
+   "How do I log in to my supplier page?",
+   "Where can I see our payments from BSE?",
+   "What's the supplier portal link?",
+   "Paano po mag-login as supplier?",
+   "How do I access our files with BSE?"
+  ]
+ },
+ {
+  "id": "SUP-H-02",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I get accredited with BSE?",
+  "answer": "Send your documents through our accreditation form. Individuals: two government IDs. Sole proprietors: DTI permit, mayor's permit and a sample invoice. Corporations, partnerships and OPCs: SEC certificate, mayor's permit and a sample invoice. Add your TIN, business type and address.",
+  "opens": "Accreditation form",
+  "also": [
+   "How do we get accredited?",
+   "What documents do you need from suppliers?",
+   "Ano pong requirements para ma-accredit?",
+   "How do I register as a BSE supplier?",
+   "Where do I send our business permit?"
+  ]
+ },
+ {
+  "id": "SUP-H-03",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I send my invoice?",
+  "answer": "Reply to the \"Payment sent\" email with your invoice made out to Blank Space Events. Soon you can upload it on your supplier page.",
+  "opens": "Your supplier page",
+  "also": [
+   "Where do I send our invoice?",
+   "How do we submit our sales invoice?",
+   "Pano po magpasa ng invoice?",
+   "Who do I address the invoice to?",
+   "Can I upload our invoice online?"
+  ]
+ },
+ {
+  "id": "SUP-H-04",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I see if I have been paid?",
+  "answer": "Sign in to your supplier page and open Payments. You also get a \"Payment sent\" email each time we pay, with the proof of transfer on your page.",
+  "opens": "Payments",
+  "also": [
+   "Have we been paid?",
+   "Where can I see the proof of payment?",
+   "Nabayaran na po ba kami?",
+   "When did BSE send our payment?",
+   "How do I check our payment status?"
+  ]
+ },
+ {
+  "id": "SUP-H-05",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I sign my AR?",
+  "answer": "Only individuals (not registered businesses) sign an AR. Tap the sign button in the email, check the amount and date, type your full name, tick and sign.",
+  "opens": "To sign",
+  "also": [
+   "How do I sign the AR?",
+   "Pano po pirmahan yung AR?",
+   "Do I need to sign an acknowledgement receipt?",
+   "Where's the AR I need to sign?",
+   "Can I sign the AR online?"
+  ]
+ },
+ {
+  "id": "SUP-H-06",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I update my business or bank details?",
+  "answer": "Sign in to your supplier page and open Your details with us. Bank changes are checked by BSE before the next payment. We never ask for bank details through a link.",
+  "opens": "Your details with us",
+  "also": [
+   "How do I update our bank details?",
+   "We changed our business address, how do we update it?",
+   "Pwede po bang palitan yung account namin?",
+   "Where do I edit our company details?",
+   "We have a new TIN, how do I update it?"
+  ]
+ },
+ {
+  "id": "SUP-H-07",
+  "audience": "Supplier",
+  "type": "How to",
+  "question": "How do I send a quote?",
+  "answer": "Reply to the RFQ email from Kiko with your quote. Soon you can upload quotes on the project page.",
+  "opens": "",
+  "also": [
+   "How do I send a quote?",
+   "Where do I submit our quotation?",
+   "Pano po magpadala ng quote?",
+   "Can I reply to the RFQ with our price?",
+   "Who do I send our rates to?"
+  ]
+ },
+ {
+  "id": "SUP-W-01",
+  "audience": "Supplier",
+  "type": "What is",
+  "question": "Do I send an invoice or sign an AR?",
+  "answer": "Whoever got paid issues the document. Registered businesses (sole proprietor, corporation) send their own invoice; non-VAT businesses mark it non-VAT. Individuals not registered with the BIR sign BSE's AR instead.",
+  "opens": "",
+  "also": [
+   "Do I send an invoice or sign an AR?",
+   "Invoice po ba o AR?",
+   "Do you need an official receipt from us?",
+   "We're a sole prop, do we sign the AR?",
+   "Why are you asking for an invoice instead of an AR?"
+  ]
+ },
+ {
+  "id": "SUP-W-02",
+  "audience": "Supplier",
+  "type": "What is",
+  "question": "Why do you need an invoice if I am non-VAT?",
+  "answer": "Under the Ease of Paying Taxes Act rules (RR 7-2024), every BIR-registered seller, VAT or non-VAT, issues an invoice for sales over PHP 500.",
+  "opens": "",
+  "also": [
+   "Why do you need an invoice if we're non-VAT?",
+   "Non-VAT po kami, kailangan pa ba ng invoice?",
+   "Can we skip the invoice since we're not VAT?",
+   "Do non-VAT suppliers issue invoices?",
+   "Is a receipt enough for non-VAT?"
+  ]
+ },
+ {
+  "id": "SUP-W-03",
+  "audience": "Supplier",
+  "type": "What is",
+  "question": "What is accreditation?",
+  "answer": "BSE's check that we have your documents on file before or after we work with you. Your emails show what is still missing.",
+  "opens": "Accreditation form",
+  "also": [
+   "What is accreditation?",
+   "Ano po yung accreditation?",
+   "Why do I need to be accredited?",
+   "Are we already accredited with BSE?",
+   "What does accreditation incomplete mean?"
+  ]
+ },
+ {
+  "id": "SUP-W-04",
+  "audience": "Supplier",
+  "type": "What is",
+  "question": "What is an RFQ?",
+  "answer": "A Request for Quotation. BSE sends it from Kiko's own email when we need a price for a project.",
+  "opens": "",
+  "also": [
+   "What is an RFQ?",
+   "Ano po yung RFQ?",
+   "What's a request for quotation?",
+   "Why did I get an RFQ from Kiko?",
+   "How fast do I need to answer an RFQ?"
+  ]
+ },
+ {
+  "id": "SUP-W-05",
+  "audience": "Supplier",
+  "type": "What is",
+  "question": "What is an AR?",
+  "answer": "An Acknowledgement Receipt: it says you received payment from BSE. Only for payees who cannot issue an invoice.",
+  "opens": "",
+  "also": [
+   "What is an AR?",
+   "Ano po yung AR?",
+   "What's an acknowledgement receipt for suppliers?",
+   "Why do I need an AR?",
+   "Is an AR the same as an official receipt?"
+  ]
+ },
+ {
+  "id": "ALL-W-01",
+  "audience": "All",
+  "type": "What is",
+  "question": "What is Canvas?",
+  "answer": "BSE's own app where your projects, documents, signatures and payments live. You sign in with your email and a code, on phone or computer.",
+  "opens": "",
+  "also": [
+   "What is Canvas?",
+   "Ano po yung Canvas?",
+   "What's this Canvas app?",
+   "Is Canvas safe to use?",
+   "Do I need to download Canvas?"
+  ]
+ },
+ {
+  "id": "ALL-W-02",
+  "audience": "All",
+  "type": "What is",
+  "question": "What is Cue?",
+  "answer": "BSE's assistant. It helps the BSE team answer questions, prepare your papers and keep you updated. It never pays, signs or sends anything without a person at BSE approving it.",
+  "opens": "",
+  "also": [
+   "What is Cue?",
+   "Sino po si Cue?",
+   "Is Cue a bot?",
+   "Is Cue the one sending me emails?",
+   "Can Cue answer my questions?"
+  ]
+ }
+]
