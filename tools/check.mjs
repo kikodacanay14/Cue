@@ -19,7 +19,7 @@ if (!['open', 'close'].includes(mode)) { console.error('usage: check.mjs open|cl
 const cfg = JSON.parse(fs.readFileSync('deploy.json', 'utf8'));
 const conf = JSON.parse(fs.readFileSync(path.join('test', 'checks', 'config.json'), 'utf8'));
 const fail = m => { console.error('STOPPED: ' + m); process.exit(1); };
-const RUN_MINUTES = 25;                      // the door shuts by itself after this (check_finish works 30 minutes more)
+const RUN_MINUTES = 45;                      // the door shuts by itself after this (check_finish works 30 minutes more)
 const CHECK_DESC = 'Cue check', OFF_DESC = 'Cue check off';
 
 function project(name) {
@@ -41,8 +41,18 @@ const summary = line => { console.log(line); if (process.env.GITHUB_STEP_SUMMARY
 const work = project('cue');
 const who = clasp(work, 'show-authorized-user');
 if (String(who.email).toLowerCase() !== cfg.account.toLowerCase()) fail(`the saved sign-in is ${who.email}, deploy.json says ${cfg.account}`);
-const deps = () => clasp(work, 'list-deployments');
-const named = desc => deps().find(d => d.deploymentId !== cfg.deploymentId && String(d.description || '') === desc);
+// First real run (27 Oct 2026 09:37Z): the list did not show the deployment just made under its description, so close could
+// not find it. Read both shapes clasp may print (flat, or under deploymentConfig), and say what it printed when nothing matches.
+const deps = () => clasp(work, 'list-deployments').map(d => {
+  const c = d.deploymentConfig || {};
+  return { deploymentId: d.deploymentId, versionNumber: d.versionNumber != null ? d.versionNumber : c.versionNumber,
+    description: String(d.description != null ? d.description : c.description != null ? c.description : '') };
+});
+const named = desc => {
+  const all = deps(), hit = all.find(d => d.deploymentId !== cfg.deploymentId && d.description === desc);
+  if (!hit) console.log('No "' + desc + '" deployment in: ' + JSON.stringify(all.map(d => [d.deploymentId.slice(0, 12), d.versionNumber, d.description])));
+  return hit;
+};
 
 /** A copy of src/ with the lock values filled in and the manifest open to callers without Google sign-in. */
 function lockedCopy(lock) {
@@ -105,11 +115,10 @@ if (mode === 'open') {
   out('url', 'https://script.google.com/macros/s/' + id + '/exec'); out('key', key);
   summary(`Cue check link open on Version ${v} until ${new Date(until).toISOString()} (writes only to ${conf.project_id}; ${conf.send === true ? 'may email the test addresses' : 'emails no one'}). Live /exec untouched.`);
 } else {
-  let off = named(OFF_DESC);
-  if (!off || !off.versionNumber) {
-    const v = versionOf(lockedCopy({ fp: 'off', until: 1, pid: 'off', mail: 'off', send: 'no' }), OFF_DESC);
-    point(OFF_DESC, v); off = named(OFF_DESC);
-  }
-  if (named(CHECK_DESC)) point(CHECK_DESC, off.versionNumber);
-  summary(`Cue check link shut: it now runs the off Version ${off.versionNumber}, which refuses every call.`);
+  const had = named(OFF_DESC);
+  let offV = had && had.versionNumber;
+  if (!offV) { offV = versionOf(lockedCopy({ fp: 'off', until: 1, pid: 'off', mail: 'off', send: 'no' }), OFF_DESC); point(OFF_DESC, offV); }
+  if (!named(CHECK_DESC)) fail('could not find the "' + CHECK_DESC + '" deployment to shut; its door still shuts by itself at the end time');
+  point(CHECK_DESC, offV);
+  summary(`Cue check link shut: it now runs the off Version ${offV}, which refuses every call.`);
 }

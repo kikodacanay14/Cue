@@ -48,13 +48,17 @@ export default {
       await h.see(new RegExp('Canvas is making 1 ' + doc(h) + ' for .+\\. I will tell you when they are done\\.'), 120000);
       console.log('     made for: ' + one.value);
     } },
-    { title: 'Generating, then "1 file done" and the email draft', run: async h => {
-      await h.see(/1 file done\./, 300000);
-      await h.see('Do you want me to send these files?');
+    { title: 'Generating, then "1 file done", and the email draft when the name can be emailed', run: async h => {
+      // First real run (27 Oct 09:36Z): the line reads "1 file done for <project>." and Canvas may take minutes.
+      await h.see(/1 file done for .+?\./, 900000);
+      if (await h.has('None can be emailed yet')) { h.mail = false; return 'SKIP: this name cannot be emailed yet (no crew sign-in, or a Resource AR signed in Canvas), so there is no draft'; }
+      h.mail = true;
+      await h.see('Do you want me to send');
       await h.see(/Please sign your /);
       await h.see('Open Canvas');
     } },
     { title: 'Edit changes only the draft; nothing is sent', run: async h => {
+      if (!h.mail) return 'SKIP: no draft to edit';
       await h.tap('Edit');
       await h.fill('textarea[data-say^="ar-intro-"]', 'Cloud check: please sign when you can. Thank you!');
       await h.tap('Done editing');
@@ -62,23 +66,24 @@ export default {
       await h.notSee(/Sent \d+ (FSA|AR)/);
     } },
     { title: 'Send later at a time 2 hours away, then cancel it straight away', run: async h => {
+      if (!h.mail) return 'SKIP: nothing to send later';
       await h.tap('Send later');
       const at = new Date(Date.now() + 2 * 3600e3 + 8 * 3600e3).toISOString().slice(0, 16);   // Manila time for the datetime box
       await h.fill('input[type=datetime-local]', at);
       await h.tap('Schedule');
       await h.see(/go out at/, 60000);
       await h.tap('Cancel the later send');
-      await h.see('Do you want me to send these files?', 60000);
+      await h.see('Do you want me to send', 60000);
     } },
     { title: 'Send to the test crew, or finish without sending on a real project', run: async h => {
-      if (h.config.send === true) {
+      if (h.config.send === true && h.mail) {
         await h.tap('Send');
         await h.see('Send 1 email now?', 15000); await h.see('Sent emails cannot be called back.');
         await h.confirm();
         await h.see(new RegExp('Sent 1 ' + doc(h) + ' for '), 180000);
         return;
       }
-      await h.tap('Finish without sending');
+      await h.tap(/^\s*Finish( without sending)?\s*$/);
       await h.see(new RegExp('made 1 ' + doc(h)), 60000);
       await h.notSee(/emailed \d|Sent \d+ (FSA|AR)/);
     } },
