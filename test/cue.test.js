@@ -172,6 +172,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
     if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /Supplier Database/.test(body.system)) { log.claude.push(body); return claudeOk(o.supFit || SUP_FIT); }
@@ -219,6 +220,18 @@ function sandbox(o = {}) {
         if (o.genRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.genRefused } });
         return resp(200, { ok: true, status: 'Completed', result: body.action === 'write_rows' ? { saved: true, key: body.args.key, now: body.args.set } : { saved: true, row: 6 } }); }
       // CUE-LOOKUP-2026-10-27: Canvas's bi_list (read) and invoice_line (a claimed plan's write), with the bridge's shapes.
+      // CUE-CONTACT-SCAN-2026-10-27: Canvas's contact_gaps (read, paged) and contact_fill (a claimed plan's write).
+      if (body.action === 'contact_gaps') { (log.gaps = log.gaps || []).push(body.args); const G = o.gaps || CS_GAPS, at = body.args.start_row || 0, lim = body.args.limit || 50;
+        const rows = G.filter(r => r.row >= at).slice(0, lim), more = G.filter(r => r.row >= at).length > lim;
+        return resp(200, { ok: true, status: 'Completed', result: { tab: 'P0 Contacts', rows, next_row: more ? G.filter(r => r.row >= at)[lim].row : null, total_rows: 900 } }); }
+      if (body.action === 'contact_fill') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
+        (log.fills = log.fills || []).push(body.args);
+        if (o.fillRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.fillRefused } });
+        const sk = o.fillSkip || [], filled = body.args.fills.filter(f => sk.indexOf(f.email) < 0).map(f => ({ row: f.row, email: f.email, set: Object.assign({}, f.title ? { 'Position / Title': f.title } : {}, f.phone ? { Phone: f.phone } : {}, f.company ? { Company: f.company } : {}) }));
+        return resp(200, { ok: true, status: 'Completed', result: { saved: filled.length > 0, filled, skipped: body.args.fills.filter(f => sk.indexOf(f.email) >= 0).map(f => ({ row: f.row, email: f.email, why: 'cell no longer blank' })) } }); }
       if (body.action === 'bi_list') { (log.biList = log.biList || []).push(body.args); return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.bis || BI_LIST)) }); }
       if (body.action === 'invoice_line') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
         if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
@@ -378,6 +391,14 @@ function sandbox(o = {}) {
       if (/format=metadata/.test(u)) return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.date)), snippet: m.body.slice(0, 80), payload: { headers } });
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.date)), snippet: m.body.slice(0, 80), payload: { mimeType: 'multipart/mixed', headers, body: {},
         parts: [{ mimeType: 'text/plain', body: { data: enc(m.body) } }].concat(m.pdf ? [{ mimeType: 'application/pdf', filename: 'Quotation.pdf', body: { attachmentId: 'att1', size: 40000 } }] : []) } });
+    }
+    if (o.csMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {   // old-email contact scan: mail from each contact
+      const enc = t => Buffer.from(t, 'utf8').toString('base64url'), all = [].concat(...Object.values(o.csMail));
+      if (u.indexOf('/messages?') >= 0) { const q = decodeURIComponent(u.split('q=')[1]); (log.csQ = log.csQ || []).push(q);
+        if (o.csGmailFail && q.indexOf(o.csGmailFail) >= 0) return resp(500, {});
+        const who = (q.match(/from:(\S+)/) || [])[1]; return resp(200, { messages: (o.csMail[who] || []).map(m => ({ id: m.id, threadId: m.id })) }); }
+      const m = all.find(x => u.indexOf('/messages/' + x.id + '?format=full') >= 0); (log.csFull = log.csFull || []).push(m && m.id);
+      return m ? resp(200, { id: m.id, threadId: m.id, internalDate: String(Date.parse(m.date || '2026-05-04T02:00:00Z')), payload: { mimeType: 'multipart/alternative', parts: [{ mimeType: 'text/plain', body: { data: enc(m.body) } }] } }) : resp(404, {});
     }
     if (o.mine && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {   // Kiko's sent emails, full bodies (Write Like Me)
       if (o.gmailScope) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
@@ -5589,6 +5610,73 @@ test('ED3 "allow cue to edit ... in <tab> in <book>, key <col>": no AI call, an 
 test('ED4 Canvas allows nothing yet: a plain answer with how to allow a tab, no Claude call, nothing written', () => {
   let t = sandbox({ talk: TALK_ED, allow: [] }); t.ctx.cueSend('put Attn on BI 0014', [], '');
   assert.ok(/not allowed to edit any Canvas tab yet/.test(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2])); assert.strictEqual(t.log.claude.length, 0);
+});
+
+// CUE-CONTACT-SCAN-2026-10-27: "fill contact details from old emails" (specs/crm-email-scanner.md, Kiko's Yes 27 Oct 15:54Z).
+const CS_GAPS = [{ row: 12, name: 'Ana Cruz', email: 'ana@acme.test', company: 'Acme Corp', blanks: ['title', 'phone'] },
+  { row: 15, name: 'Ben Lim', email: 'Ben@Brite.test', company: '', blanks: ['company'] }];
+const CS_MAIL = {
+  'ana@acme.test': [{ id: 'csa1', date: '2026-05-04T02:00:00Z', body: 'Hi Kiko,\nPlease see the brief.\n\nThanks,\nAna Cruz\nEvents Manager\nAcme Corp\n+63 917 123 4567\nwww.acme.test\n\nOn Mon, 3 May 2026 at 9:00 Kiko Dacanay <kiko@example.com> wrote:\n> Hi Ana\n> Kiko Dacanay\n> Blank Space Events\n> 0918 000 0000' },
+    { id: 'csa2', body: 'Older mail.\n\nRegards,\nAna\nIntern' }],
+  'ben@brite.test': [{ id: 'csb1', date: '2026-03-02T02:00:00Z', body: 'Noted.\n\nBest regards,\nBen Lim\nBrite Stage Inc.\nThis email is confidential.' }] };
+const CS_AI = { people: [
+  { k: 'P1', title: 'Events Manager', title_line: 'Events Manager', company: 'Acme Corp', company_line: 'Acme Corp', phone: '0917 123 4567', phone_line: '+63 917 123 4567' },
+  { k: 'P2', title: 'CEO', title_line: '', company: 'Brite Stage Inc.', company_line: 'Brite Stage Inc.', phone: '', phone_line: '' }] };
+const csCard = t => { const r = t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).pop(); return r ? { text: String(r[2]), id: String(r[3]).slice(1).split(':')[0] } : null; };
+const csLast = t => String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
+test('CS1 "fill contact details from old emails": blank cells from Canvas, signatures from Kiko\'s Gmail, one Claude call, one Approve card; Approve sends one contact_fill', () => {
+  const t = sandbox({ csMail: CS_MAIL });
+  t.ctx.cueSend('fill contact details from old emails', [], '');
+  deq(t.log.bridge.map(b => b.action), ['contact_gaps'], 'one read, nothing written before Approve'); assert.strictEqual(t.log.gpt.length, 0);
+  deq(t.log.csQ, ['from:ana@acme.test newer_than:3y -in:chats', 'from:ben@brite.test newer_than:3y -in:chats']);
+  assert.strictEqual(t.log.claude.length, 1, 'one Claude call');
+  const u = JSON.stringify(t.log.claude[0].messages);
+  assert.ok(/Events Manager/.test(u) && /Brite Stage Inc\./.test(u) && /blank: title, phone/.test(u), u);
+  assert.ok(!/Blank Space Events|0918 000 0000|Please see the brief|Intern|www\.acme|confidential/.test(u), 'signature lines only: no body, no quoted reply, no BSE details, no older mail');
+  const c = csCard(t); assert.ok(c, 'an Approve card');
+  assert.ok(/^Fill these blank P0 Contacts cells in Canvas\?/.test(c.text) && /Ana Cruz \(ana@acme\.test\): Position Events Manager; Phone \+63 917 123 4567 \(email 2026-05-04\)/.test(c.text)
+    && /Ben Lim \(ben@brite\.test\): Company Brite Stage Inc\./.test(c.text) && !/CEO/.test(c.text), c.text);
+  assert.ok(!/Company Acme/.test(c.text), 'Ana\'s Company is not blank, so it is not proposed');
+  deq(t.tabs['Contact scan'].rows.slice(1).map(r => [r[0], r[2]]), [['ana@acme.test', 'title, phone'], ['ben@brite.test', 'company']]);
+  t.ctx.cueAskPick(c.id, 'approve');
+  deq(t.log.fills.map(a => a.fills), [[{ row: 12, email: 'ana@acme.test', title: 'Events Manager', phone: '+63 917 123 4567', date: '2026-05-04' }, { row: 15, email: 'ben@brite.test', company: 'Brite Stage Inc.', date: '2026-03-02' }]]);
+  assert.strictEqual(bridgeCheck('contact_fill', t.log.fills[0]), ''); assert.strictEqual(bridgeCheck('contact_gaps', t.log.gaps[0]), '');
+  assert.ok(/^Filled 3 cells for 2 contacts\. Undo any of it in Canvas › Accounts › Auto add\.$/.test(csLast(t)), csLast(t));
+  assert.strictEqual(t.log.gmail.length + (t.log.sent || []).length, 0, 'no email drafted or sent');
+});
+test('CS2 people scanned in the last 90 days are skipped; Not writes nothing; a Canvas refusal and a skipped row are said plainly', () => {
+  let t = sandbox({ csMail: CS_MAIL });
+  t.ctx.cueSend('fill contact details from old emails', [], ''); t.log.csQ = [];
+  t.ctx.cueSend('fill contact details from old emails', [], '');
+  assert.ok(/was checked in the last 90 days\. Nothing to do\./.test(csLast(t)), csLast(t)); deq(t.log.csQ, [], 'no Gmail read'); assert.strictEqual(t.log.claude.length, 1);
+  t.ctx.cueAskPick(csCard(t).id, 'not'); assert.ok(/Nothing was written to Canvas/.test(csLast(t))); assert.ok(!(t.log.fills || []).length);
+  t = sandbox({ csMail: CS_MAIL, fillRefused: 'P0 Contacts is busy. Nothing was saved.' }); t.ctx.cueSend('please fill in contact details from my old emails', [], '');
+  t.ctx.cueAskPick(csCard(t).id, 'approve'); assert.ok(/^Canvas refused: P0 Contacts is busy/.test(csLast(t)), csLast(t));
+  t = sandbox({ csMail: CS_MAIL, fillSkip: ['ben@brite.test'] }); t.ctx.cueSend('fill contact details from old emails', [], '');
+  t.ctx.cueAskPick(csCard(t).id, 'approve'); assert.ok(/^Filled 2 cells for 1 contact\. Skipped 1: ben@brite\.test \(cell no longer blank\)\./.test(csLast(t)), csLast(t));
+});
+test('CS3 code keeps only values in the signature line Claude quotes; a phone must match by digits; nothing clear means no card', () => {
+  const ai = { people: [{ k: 'P1', title: 'Events Director', title_line: 'Events Manager', company: '', company_line: '', phone: '0917 999 4567', phone_line: '+63 917 123 4567' },
+    { k: 'P2', title: '', title_line: '', company: 'Brite Stage Inc.', company_line: 'Brite Stage Inc. (made up line)', phone: '', phone_line: '' }, { k: 'P9', title: 'x', title_line: 'x', company: '', company_line: '', phone: '', phone_line: '' }] };
+  const t = sandbox({ csMail: CS_MAIL, csAi: ai }); t.ctx.cueSend('fill contact details from old emails', [], '');
+  assert.ok(!csCard(t), 'no card'); assert.ok(/None states a blank cell clearly enough to fill\. Nothing to fill\./.test(csLast(t)), csLast(t));
+  assert.strictEqual(t.tabs['Contact scan'].rows.length, 3, 'both people still marked as scanned');
+});
+test('CS4 one Gmail search failing keeps the others on their own rows; no signature anywhere means no Claude call', () => {
+  let t = sandbox({ csMail: CS_MAIL, csGmailFail: 'ana@', csAi: { people: [{ k: 'P1', title: '', title_line: '', company: 'Brite Stage Inc.', company_line: 'Brite Stage Inc.', phone: '', phone_line: '' }] } });
+  t.ctx.cueSend('fill contact details from old emails', [], ''); t.ctx.cueAskPick(csCard(t).id, 'approve');
+  deq(t.log.fills[0].fills, [{ row: 15, email: 'ben@brite.test', company: 'Brite Stage Inc.', date: '2026-03-02' }]);
+  t = sandbox({ csMail: { 'ana@acme.test': [{ id: 'x1', body: 'ok see you' }] } }); t.ctx.cueSend('fill contact details from old emails', [], '');
+  assert.strictEqual(t.log.claude.length, 0); assert.ok(/has a signature to read\. Nothing to fill\./.test(csLast(t)), csLast(t));
+  t = sandbox({ gaps: [] }); t.ctx.cueSend('fill contact details from old emails', [], '');
+  assert.ok(/Nothing to do\./.test(csLast(t))); assert.strictEqual(t.log.claude.length, 0);
+});
+test('CS5 the signature reader: after the last short sign-off, before the quoted reply, no BSE or web lines, at most 12', () => {
+  const t = sandbox(), sig = (b, own) => JSON.parse(JSON.stringify(t.ctx.cueCsSig_(b, own)));
+  deq(sig('Thanks for this.\n\nBest regards,\nMia Tan\nBlank Space Events\nHead of Ops\nhttps://x.test\n-----Original Message-----\nFrom: y\nCEO', 'blankspaceevent.com'), ['Mia Tan', 'Head of Ops']);
+  deq(sig('No sign-off here\nJust text'), []);
+  assert.strictEqual(sig('Salamat,\n' + Array.from({ length: 20 }, (_, i) => 'L' + i).join('\n')).length, 12);
+  const re = vm.runInContext('CUE_CS_RE_', t.ctx); assert.ok(re.test('Fill contact details from old emails.') && !re.test('fill contact details from old emails for Acme'));
 });
 
 if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox

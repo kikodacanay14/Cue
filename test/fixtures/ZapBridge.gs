@@ -2342,3 +2342,84 @@ ZB_ACTIONS_.allow_list_set = {
   run: (r) => zbAllowSet_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
+
+/* CUE-CONTACT-FILL-2026-10-27 (Kiko 26 Oct 09:05Z "2,3,4,1"; Cue spec specs/crm-email-scanner.md; work-board O5, Cue). Cue proposes
+ * Position / Title, Phone and Company for P0 Contacts rows where they are blank, from signatures in Kiko's own Gmail, and Kiko approves
+ * the list once in Cue. Two actions, neither on the GPT door:
+ *   contact_gaps (read)   rows with an email and at least one of those cells blank, a page at a time.
+ *   contact_fill (write)  under the lock, writes a value only into a cell that is still blank and not a formula; any other column is
+ *                         refused. Each filled row is logged in CRM Auto Added (Kind "Email scan"), so Accounts › Auto add's Undo
+ *                         (crmUndo) clears it; a repeat of the same request_id changes nothing. */
+const ZB_FILL_COLS_ = { title: 'Position / Title', phone: 'Phone', company: 'Company' };
+const ZB_FILL_SKIP_ = /bounc|invalid|not found|undeliver|opt.?out|unsub|do not|left|depart/i;
+/** PURE (unit-tested). d = display rows below the header, col(name) = index or -1, first = sheet row of d[0]. One page of gaps. */
+function zbGapsPick_(d, col, first, start, limit) {
+  const iE = col('Email Address'), iN = col('Contact Name'), iS = col('Email / Contact Status'), iR = col('Contact Restriction');
+  const at = (r, i) => i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim(), out = [];
+  let i = Math.max(0, start - first);
+  for (; i < d.length && out.length < limit; i++) {
+    const r = d[i], email = crmMail_(at(r, iE));
+    if (!email || CRM_NOREPLY_.test(email) || ZB_FILL_SKIP_.test(at(r, iS)) || at(r, iR)) continue;
+    const blanks = Object.keys(ZB_FILL_COLS_).filter(k => col(ZB_FILL_COLS_[k]) >= 0 && !at(r, col(ZB_FILL_COLS_[k])));
+    if (blanks.length) out.push({ row: first + i, name: at(r, iN), email, company: at(r, col('Company')), blanks });
+  }
+  return { rows: out, next: i < d.length ? first + i : null };
+}
+/** PURE (unit-tested). One fill checked against the row as it is now: { write: [{ key, j, value }], skipped: [key], error }. */
+function zbFillCheck_(r, col, f, isFormula) {
+  const at = i => i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim();
+  if (!r || norm_(crmMail_(at(col('Email Address')))) !== norm_(f.email)) return { write: [], skipped: [], error: 'row ' + f.row + ' is no longer ' + f.email };
+  const write = [], skipped = [];
+  Object.keys(ZB_FILL_COLS_).forEach(k => {
+    const v = String(f[k] == null ? '' : f[k]).replace(/\s+/g, ' ').trim(); if (!v) return;
+    const j = col(ZB_FILL_COLS_[k]);
+    if (j < 0 || at(j) || isFormula(j)) { skipped.push(k); return; }
+    write.push({ key: k, j, value: v });
+  });
+  return { write, skipped, error: '' };
+}
+function zbContactGaps_(a) {
+  const T = cdcRead_(book_(CD.sheetId), CD.contactsTab), first = CD.headerRow + 1;
+  const res = zbGapsPick_(T.d, T.col, first, a.start_row || first, Math.min(a.limit || 50, 50));
+  return { tab: CD.contactsTab, rows: res.rows, next_row: res.next, total_rows: T.d.length };
+}
+function zbContactFill_(a, task) {
+  return withLock_(function () {
+    const ss = book_(CD.sheetId), T = cdcRead_(ss, CD.contactsTab), first = CD.headerRow + 1;
+    const seen = {}; crmRows_('auto').forEach(x => { if (x.Kind === 'Email scan' && x.Run === a.request_id) seen[norm_(x.Email)] = 1; });
+    const filled = [], skipped = [], log = [], now = new Date();
+    auditPage_('Client Desk');
+    a.fills.forEach(f => {
+      if (seen[norm_(f.email)]) { skipped.push({ row: f.row, email: f.email, why: 'already filled by this request' }); return; }
+      const r = T.d[f.row - first];
+      const c = zbFillCheck_(r, T.col, f, j => !!T.sh.getRange(f.row, j + 1).getFormula());
+      if (c.error) { skipped.push({ row: f.row, email: f.email, why: c.error }); return; }
+      c.skipped.forEach(k => skipped.push({ row: f.row, email: f.email, why: ZB_FILL_COLS_[k] + ' is no longer blank' }));
+      if (!c.write.length) return;
+      auditEdit_(T.sh, f.row, { headRow: CD.headerRow, record: String(r[T.col('Company')] || '') });
+      c.write.forEach(w => T.sh.getRange(f.row, w.j + 1).setValue(safe_(w.value)));
+      const vals = {}; c.write.forEach(w => { vals[w.key] = w.value; });
+      filled.push({ row: f.row, email: f.email, set: vals });
+      log.push({ ID: crmId_('AA'), When: now, Kind: 'Email scan', Company: String(r[T.col('Company')] || ''), Name: String(r[T.col('Contact Name')] || ''), Email: f.email,
+        Phone: vals.phone || '', Source: 'Kiko Gmail signature', Ref: (f.date || '') + ' ' + task, Tab: CD.contactsTab, Row: f.row,
+        Cells: c.write.map(w => w.j + 1).join(','), Status: 'Added', 'Undone by': '', Run: a.request_id });
+    });
+    crmAppend_('auto', log);
+    try { if (filled.length) logEvent('Cue filled contact cells', 'Cue', filled.length + ' contacts (' + a.request_id + ')'); } catch (e) { /* logging never blocks */ }
+    return { saved: true, filled, skipped };
+  });
+}
+ZB_ACTIONS_.contact_gaps = {
+  kind: 'read', needsProject: false,
+  schema: { start_row: { type: 'number', min: 0 }, limit: { type: 'number', positive: true } },
+  run: (r) => zbContactGaps_(r.args)
+};
+ZB_ACTIONS_.contact_fill = {
+  kind: 'write', needsProject: false, retrySafe: true,   // a repeat of the same request_id finds its own log rows
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
+    fills: { type: 'array', required: true, minItems: 1, maxItems: 50, items: { row: { type: 'number', required: true, positive: true },
+      email: { type: 'string', required: true, nonBlank: true, max: 200 }, title: { type: 'string', max: 120 },
+      phone: { type: 'string', max: 40, re: /^\+?[0-9 ()./-]{7,40}$/ }, company: { type: 'string', max: 120 }, date: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } } } },
+  run: (r) => zbContactFill_(r.args, r.task_id),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
+};
