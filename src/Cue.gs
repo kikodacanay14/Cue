@@ -180,6 +180,8 @@ function cueSendWith_(text, files, mode, ref, forced) {
   // Transfer lookup and invoice line edit (Kiko 09:20Z 27 Oct, CueLookup.gs): Transfers read only, no AI call; an invoice line waits Approve.
   if (!has && mode !== 'intake') { const tx = cueTxSaid_(text, ref); if (tx) return tx; }
   if (!has && mode !== 'intake') { const iv = cueInvSaid_(text, ref); if (iv) return iv; }
+  // Generic Canvas edits (Kiko 10:10Z 27 Oct, CueEdit.gs): "allow cue to read|edit ..." asks for an allow-list row on an Approve card, no AI call.
+  if (!has && mode !== 'intake') { const al = cueAllowSaid_(text, ref); if (al) return al; }
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
@@ -247,6 +249,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
     // Kiko 08:21Z (specs/write-like-me.md step 2): "email X about Y" / "reply to X" drafts one email in Kiko's style in its own thread.
     if (talk.email) { const out = cueMailStart_(talk.email, ref || talk.task || '', String(text || '').trim(), talk.lookup); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
     if (talk.vendor) { const out = cueVendorStart_(talk.vendor, ref || talk.task || '', String(text || '').trim()); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
+    // Kiko 10:06Z 27 Oct: "Cue received it - should passed to Claude - Claude should have updated the file". A change to a Canvas
+    // record goes to Claude, then an Approve card (CueEdit.gs); the chat call's own reply is not shown.
+    if (talk.canvas_edit) return cueEditStart_(talk.canvas_edit, ref || talk.task || '', String(text || '').trim(), true);
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -330,8 +335,12 @@ function cueRecostStart_(t, ref) {
   return { request_id: id, task: base.id };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn', 'todo'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn', 'todo', 'canvas_edit'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
+    canvas_edit: { type: 'string', description: 'Empty unless Kiko asks Cue to change, correct, fill in or add a value in a Canvas record (a billing invoice or BI, '
+      + 'a PO, a payment request, a transfer, a supplier or project row), e.g. "change the description of BI 0014 to ...", "put the PO number on the '
+      + 'Telus invoice". Then the change in one self-contained sentence naming the record and the new value exactly as Kiko gave it. Not for CE costs, '
+      + 'intakes, ARs or FSAs, emails, or questions that only read.' },
     learn: { type: 'string', description: 'When Kiko corrects how Cue works or states a rule for next time (e.g. "no, check if it is the same project first", '
       + '"don\'t rescan, just answer me", "always cost per requirement"), that rule in one short sentence about what Cue should do, e.g. '
       + '"When Kiko asks a question in a thread, Cue answers it instead of rescanning." Empty for anything else, including one-off requests.' },
@@ -524,10 +533,11 @@ function cueTalk_(t, ref, force, opt) {
   // item-and-name message in the main chat always asks project intake or supplier search, whatever GPT says.
   // PC test 17:42Z: also when the call only answered (e.g. "no Canvas project matched AMI Group"): a vague message always asks.
   // Tutor mode shows its plan card (or just answers) instead.
-  if (r.ok && !force && !tutorOn && !ref && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
+  const edits = r.ok && cueStr_(r.data.canvas_edit, 2000).trim().length >= 8;   // a Canvas edit names its record, so it is never vague
+  if (r.ok && !force && !tutorOn && !ref && !edits && !choices.some(c => c !== 'chat') && cueRouteVague_(t))
     { choices = ['intake', 'vendor']; reply = ''; }
   // Tutor mode (PC test 18:15Z): an unsure answer, or a short vague main-chat message, shows the plan card with the best guess.
-  if (r.ok && tutor && !replay && (choices.some(c => c !== 'chat') || (!ref && cueRouteVague_(t) && !cueTutorCmd_(r.data, opt.quiet || t)))) {
+  if (r.ok && tutor && !replay && (choices.some(c => c !== 'chat') || (!ref && !edits && cueRouteVague_(t) && !cueTutorCmd_(r.data, opt.quiet || t)))) {
     const g = cueTutorGate_(s, t, ref, r.data, cueTalkCands_(r.data, t, force), found, opt.quiet || '', choices.some(c => c !== 'chat') ? choices : ['intake', 'vendor']);
     if (g && g.out) return g.out;
   }
@@ -559,6 +569,8 @@ function cueTalk_(t, ref, force, opt) {
     if (!opt.replay && !opt.quiet) cueChat_('Kiko', t, '');
     cueChat_('Cue', joins ? 'On it. Continuing in the ' + (nm || 'earlier') + ' thread.' : nm ? 'Answered in the ' + nm + ' thread.' : 'Answered in that task\'s thread.', '>' + pick);
   }
+  // A Canvas edit (CueEdit.gs) answers with its own card; the chat call's reply would only guess at it.
+  if (r.ok && cueStr_(r.data.canvas_edit, 2000).trim().length >= 8 && !String(r.data.start_intake || '').trim()) reply = 'Working out the change. Nothing is saved until you approve.';
   if (!force && !opt.replay && !opt.quiet) cueChat_('Kiko', t, where);   // a correction's message is already in the chat
   cueChat_('Cue', reply || '…', where);
   if (auto) cueTutorRanOwn_(auto, where);
@@ -586,9 +598,10 @@ function cueTalk_(t, ref, force, opt) {
   const vendor = v && (String(v.item || '').trim() || (v.suppliers || []).some(x => String(x || '').trim()) || String(v.project || '').trim()) ? v : null;
   const workflow = r.ok && !start && r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null;
   const email = r.ok && !start && r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null;
-  const cmd = !!(ready || pipeline || ar || vendor || workflow || email);   // a command the chat call picked wins over an intake
+  const canvasEdit = r.ok && !start ? cueStr_(r.data.canvas_edit, 2000).trim() : '';
+  const cmd = !!(ready || pipeline || ar || vendor || workflow || email || canvasEdit);   // a command the chat call picked wins over an intake
   return { chat: true, reply, task: pick, pointed: !!pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
-    readiness: ready.length >= 2 ? ready : '', start_ar: ar.length >= 2 ? ar : '', vendor, workflow, email, lookup: email ? found : '' };
+    readiness: ready.length >= 2 ? ready : '', start_ar: ar.length >= 2 ? ar : '', vendor, workflow, email, lookup: email ? found : '', canvas_edit: canvasEdit.length >= 8 ? canvasEdit : '' };
 }
 
 /** Kiko answered in a task's thread: its reminder flag clears. */
