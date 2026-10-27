@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (not deployed)
+## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (deployed 27 Oct 2026 10:18Z as Version 90)
 
 Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat refused to check the Transfers sheet for a GCash payment matching a cash one (Cups, AP-CUP-TRI-1) and refused to add REC-10307792 to the Telus Trick or Treat invoice. Cue had the access; it had no command. Kiko approved the spec (`transfer-lookup-invoice-edit.md`) at 09:20Z: "give cue edit rights and look up rights".
 
