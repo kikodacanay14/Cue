@@ -16,7 +16,9 @@ const URL_ = process.env.CUE_CHECK_URL, KEY = process.env.CUE_CHECK_KEY;
 if (!scriptArg || !URL_ || !KEY) { console.error('usage: CUE_CHECK_URL=... CUE_CHECK_KEY=... node test/checks/run.mjs <script> [out-dir]'); process.exit(2); }
 const OUT = path.resolve(outArg || 'check-out');
 fs.mkdirSync(OUT, { recursive: true });
-const config = JSON.parse(fs.readFileSync(process.env.CUE_CHECK_CONFIG || path.join(ROOT, 'test', 'checks', 'config.json'), 'utf8'));   // CUE_CHECK_CONFIG: dry runs only
+// A script's own <name>.config.json wins over config.json (tools/check.mjs open reads the same file); CUE_CHECK_CONFIG: dry runs only.
+const own = path.join(path.dirname(path.resolve(scriptArg)), path.basename(scriptArg).replace(/\.check\.mjs$/, '') + '.config.json');
+const config = JSON.parse(fs.readFileSync(process.env.CUE_CHECK_CONFIG || (fs.existsSync(own) ? own : path.join(ROOT, 'test', 'checks', 'config.json')), 'utf8'));
 const script = (await import(pathToFileURL(path.resolve(scriptArg)).href)).default;
 
 /** One call to the check door. Apps Script answers a POST with a redirect to the result, which fetch follows as a GET. */
@@ -57,6 +59,8 @@ const h = {
     const end = Date.now() + timeout;
     for (;;) { const t = await textOf(), m = t.match(re); if (m) return m[0]; if (Date.now() > end) throw new Error('Never showed: ' + re); await page.waitForTimeout(500); }
   },
+  /** True when the page shows the text now (no waiting). */
+  async has(want) { const re = want instanceof RegExp ? want : new RegExp(want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); return re.test(await textOf()); },
   /** Fails if the text shows within `ms`. */
   async notSee(want, ms = 3000) {
     await page.waitForTimeout(ms);
@@ -113,10 +117,11 @@ try {
   await h.see(ping.version.replace(/^Cue /, ''), 60000).catch(() => {});   // the page has loaded its first state
   for (const step of script.steps) {
     const at = Date.now(), r = { title: step.title, ok: false, ms: 0, error: '', shot: '' };
-    try { await step.run(h); r.ok = true; } catch (e) { r.error = String((e && e.message) || e).slice(0, 600); }
+    // A step may return 'SKIP: why' when what it checks is not offered here; it counts as passed and the report says so.
+    try { const got = await step.run(h); r.ok = true; if (typeof got === 'string' && /^SKIP:/.test(got)) r.skipped = got.slice(5).trim(); } catch (e) { r.error = String((e && e.message) || e).slice(0, 600); }
     r.ms = Date.now() - at;
     try { r.shot = await shot(step.title); } catch (e) { r.error += ' (no screenshot: ' + e.message + ')'; }
-    results.push(r); console.log((r.ok ? 'ok   ' : 'FAIL ') + step.title + (r.error ? '\n     ' + r.error : ''));
+    results.push(r); console.log((r.ok ? (r.skipped ? 'skip ' : 'ok   ') : 'FAIL ') + step.title + (r.error ? '\n     ' + r.error : r.skipped ? '\n     ' + r.skipped : ''));
     if (!r.ok && step.stopOnFail !== false) break;
   }
 } catch (e) { fatal = String((e && e.message) || e); console.error('STOPPED: ' + fatal); }
@@ -145,12 +150,12 @@ ${fatal ? `<p class="e">Stopped: ${esc(fatal)}</p>` : ''}
 <p>${lockOk ? '✓ Locks held: nothing written outside the test project, no mail outside the test addresses' : '✗ Check mode stopped: ' + esc(stopped.join('; ') || (finish && finish.error) || 'the finish call failed')}.
 Closed ${(finish && finish.closed) || 0} check task(s), cancelled ${(finish && finish.later_cancelled) || 0} Send later.</p>
 <ol>${results.map(r => `<li>${r.ok ? '✓' : '✗'} <b>${esc(r.title)}</b> <span style="color:#6b6875">${(r.ms / 1000).toFixed(1)} s</span>
-${r.error ? `<div class="e">${esc(r.error)}</div>` : ''}${r.shot ? `<img src="${esc(r.shot)}" alt="${esc(r.title)}">` : ''}</li>`).join('\n')}</ol></main>`);
+${r.error ? `<div class="e">${esc(r.error)}</div>` : ''}${r.skipped ? `<div style="color:#6b6875">Skipped: ${esc(r.skipped)}</div>` : ''}${r.shot ? `<img src="${esc(r.shot)}" alt="${esc(r.title)}">` : ''}</li>`).join('\n')}</ol></main>`);
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Cue check: ${script.name}: ${passed ? 'PASSED' : 'FAILED'} (${okSteps} of ${script.steps.length} steps)\n\n`
     + (fatal ? `Stopped: ${fatal}\n\n` : '') + `Locks: ${lockOk ? 'held' : 'STOPPED ' + stopped.join('; ')}. Closed ${(finish && finish.closed) || 0} check task(s), cancelled ${(finish && finish.later_cancelled) || 0} Send later.\n\n`
-    + '| | Step | Seconds | Problem |\n|---|---|---|---|\n' + results.map(r => `| ${r.ok ? '✓' : '✗'} | ${r.title} | ${(r.ms / 1000).toFixed(1)} | ${(r.error || '').replace(/\|/g, '/').replace(/\n/g, ' ')} |`).join('\n')
+    + '| | Step | Seconds | Problem |\n|---|---|---|---|\n' + results.map(r => `| ${r.ok ? (r.skipped ? '–' : '✓') : '✗'} | ${r.title} | ${(r.ms / 1000).toFixed(1)} | ${(r.error || (r.skipped ? 'skipped: ' + r.skipped : '')).replace(/\|/g, '/').replace(/\n/g, ' ')} |`).join('\n')
     + '\n\nScreenshots and report.html are in the run\'s "cue-check" artifact.\n');
 }
 console.log(passed ? 'PASSED' : 'FAILED');

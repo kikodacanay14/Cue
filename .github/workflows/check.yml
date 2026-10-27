@@ -4,7 +4,7 @@ name: Check Cue
 # tools/check.mjs open makes a one-run key, pushes a check-mode copy as one Apps Script version, points the "Cue check"
 # deployment at it and puts the head back exactly as it was. Writes reach only the Canvas test project in
 # test/checks/config.json; emails go only to addresses matching its mail pattern. Live /exec is never touched.
-# The link always shuts at the end (tools/check.mjs close), pass or fail, and by itself after 25 minutes.
+# The link always shuts at the end (tools/check.mjs close), pass or fail, and by itself after 45 minutes.
 # Report: the "cue-check" artifact (report.html with a screenshot per step) and the run summary.
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ concurrency: deploy-cue
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,6 +53,8 @@ jobs:
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:DEPLOY_KEY -a -in .deploy/clasprc.enc -out ~/.clasprc.json
       - name: Open the check link
         id: open
+        env:
+          CUE_CHECK_SCRIPT: ${{ inputs.script }}   # a script's own test/checks/<name>.config.json names its project
         run: node tools/check.mjs open
       - name: Run the check
         env:
