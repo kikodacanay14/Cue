@@ -17,7 +17,7 @@ Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right co
 - Tests: ED1 to ED4 are new. 361 tests on main.
 - Release branch `claude/project-thread-y5l4x9-rel12741` is live 1.27.38 plus the 1.27.40 chaser fixes plus this change (a204834 on main).
 
-## Cue 1.27.40: Chaser bug fixes (not deployed)
+## Cue 1.27.40: Chaser bug fixes (deployed 27 Oct 2026 10:32Z as Version 92)
 
 Found 27 Oct 2026 by the "Show chaser setup and email content" thread, after Kiko asked at 09:57Z whether the chasers were set up and what they say. The coordinator asked for both fixes at 10:01Z (bugs first). Built on the live line 1.27.33 (6be58a7, Cue PR #117), then moved by the deploys thread onto live 1.27.38, release branch claude/project-thread-y5l4x9-rel12740. 1.27.39 is held for New mail.
 
