@@ -1,5 +1,16 @@
 # Changelog
 
+## Tests only: bridge contract check (no release, nothing to deploy)
+
+Kiko 26 Oct 2026 09:05Z chose this first ("2,3,4,1"; spec `specs/bridge-contract-test.md`, tracked on the Feature Board
+card "Integration specs"). No `src/` change.
+
+- New test BC1: every bridge action Cue calls in `src/*.gs` (46 today) must exist in `test/fixtures/ZapBridge.gs`, so a
+  stale copy fails the tests instead of failing live.
+- New test BC2 and file `test/fixtures/ZapBridge.version`: the copy must be byte-identical to the Canvas version the note
+  names (now main `4cefb9c`, live V294).
+- Tests: 370.
+
 ## Cue 1.27.43: each Canvas project gets a log of its emails, Ask Cue results and chasers (not deployed)
 
 Kiko 27 Oct 2026 10:34Z: "i want a section on Projects and then all communications and updates done in other chats are also
