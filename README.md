@@ -41,7 +41,7 @@ Cue is Kiko's personal command center. Version 1.0 does project intake. It is an
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.
 
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
-- `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.
+- `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs. With the `CAVE_*` properties set, both go through the Caveman Cloud gateway (`/w/cue`).
 - `CueBridge.gs`: signed calls to the Canvas bridge. Reads: `find_similar_projects`, `intake_evidence`, `list_project_files`, `get_project_board`, `get_readiness`. Writes (only after Kiko approves): `submit_intake`, `apply_intake`, `save_project_file`.
 - `CueFiles.gs`: attachments. Up to 8 files, 10 MB each, 15 MB in all; big photos are shrunk to 2048 px on the page first. They are kept in a **Cue uploads** Drive folder Cue makes itself, and only GPT's read call sees them, so the call count does not change. Word and Excel files: save as PDF first.
 - `CueSweepRfq.gs`: RFQ chasers, a kind in the morning batch. Finds Kiko's sent RFQs with no supplier reply after 3 working days and drafts a nudge in the original thread. Gmail read only; no AI call of its own; at most 2 nudges, then Kiko decides.
@@ -73,6 +73,7 @@ The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and th
      - `OPENAI_PRICE` (for example `0.25,2` to log GPT cost)
      - `CUE_CLAUDE_MODEL` (default `claude-sonnet-5-5`)
      - `CUE_CLAUDE_EFFORT` (default `medium`)
+     - `CAVE_GATEWAY_URL` and `CAVE_API_KEY`: route both AIs through Caveman Cloud to measure spend (record mode; Cue's own AI Runs log keeps working). Both empty means direct calls. `CAVE_PROVIDER_KEYS` is `byok` (default: Cue still sends its own OpenAI and Anthropic keys, as `x-cave-upstream-key`) or `stored` (the provider keys live in Caveman Cloud and never leave Cue).
      - `CUE_RFQ_DAYS` (default 3)
      - `CUE_SIGNOFF` (default `Blank Space Events`)
      - `CUE_RFQ_NEVER` (addresses or domains never to chase, comma list; default none)

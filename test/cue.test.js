@@ -2983,6 +2983,20 @@ test('TC4 Teach Cue is invisible until Kiko approves: no tabs means every call i
   t.ctx.cueWorkflowTab_(); deq(t.tabs.Workflows.rows[0][12], 'Use in prompts', 'an old Workflows tab gets the new header');
 });
 
+test('CAVE1 Caveman Cloud: no gateway properties = direct calls exactly as before; byok sends the provider key upstream; stored sends none', () => {
+  const req = ctx => [ctx.cueGpt_({ step: 'x', system: 's', user: 'u', schema: {}, name: 'x' }).req, ctx.cueClaude_({ step: 'x', system: 's', user: 'u', schema: {} }).req];
+  let [g, c] = req(sandbox({ props: { CAVE_GATEWAY_URL: 'https://gw.example' } }).ctx);   // the key alone or the URL alone changes nothing
+  deq([g.url, g.headers, c.url, c.headers], ['https://api.openai.com/v1/responses', { Authorization: 'Bearer sk-test' },
+    'https://api.anthropic.com/v1/messages', { 'x-api-key': 'sk-ant-test', 'anthropic-version': '2023-06-01' }]);
+  [g, c] = req(sandbox({ props: { CAVE_GATEWAY_URL: 'https://gw.example/', CAVE_API_KEY: 'cave-test' } }).ctx);
+  deq([g.url, g.headers, c.url, c.headers], ['https://gw.example/w/cue/openai/v1/responses', { Authorization: 'Bearer sk-test', 'x-cave-upstream-key': 'sk-test', 'x-cave-api-key': 'cave-test' },
+    'https://gw.example/w/cue/v1/messages', { 'x-api-key': 'sk-ant-test', 'x-cave-upstream-key': 'sk-ant-test', 'x-cave-api-key': 'cave-test', 'anthropic-version': '2023-06-01' }]);
+  [g, c] = req(sandbox({ props: { CAVE_GATEWAY_URL: 'https://gw.example', CAVE_API_KEY: 'cave-test', CAVE_PROVIDER_KEYS: 'Stored', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '' } }).ctx);
+  deq([g.headers, c.headers], [{ 'x-cave-api-key': 'cave-test' }, { 'x-cave-api-key': 'cave-test', 'anthropic-version': '2023-06-01' }], 'stored: no provider key leaves Cue');
+  assert.throws(() => req(sandbox({ props: { CAVE_GATEWAY_URL: 'http://gw.example', CAVE_API_KEY: 'k' } }).ctx), /https/);
+  assert.throws(() => req(sandbox({ props: { CAVE_GATEWAY_URL: 'https://gw.example', CAVE_API_KEY: 'k', CAVE_PROVIDER_KEYS: 'both' } }).ctx), /byok or stored/);
+});
+
 test('SAME1 live 16:45Z: "new project intake" for a project Canvas already has asks Same project? before phase 1, never an error', () => {
   const rd = JSON.parse(JSON.stringify(READ)); rd.client.company = 'AMI Group'; rd.event.name = 'UNILEVER YEAR END PARTY 2026'; rd.event.date = '2026-12-11';
   const t = sandbox({ phased: true, gpt: { intake: rd }, similar: [{ project_id: 'S-11267432UN', name: 'Unilever Year End Party 2026', account: 'AMI Group', date: '12/11/2026', status: 'For Admin Completion', why: 'same client within 7 days, similar name' }] });

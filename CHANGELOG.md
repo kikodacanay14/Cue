@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.35: AI calls can run through Caveman Cloud (not deployed)
+
+Kiko 22 Oct 2026 asked to wire Cue through Caveman Cloud to measure LLM spend, and on 27 Oct 2026 02:03Z asked to finish it.
+
+- `src/CueAi.gs`: GPT and Claude calls go to `CAVE_GATEWAY_URL/w/cue/openai/v1/responses` and `CAVE_GATEWAY_URL/w/cue/v1/messages` with the `x-cave-api-key` header when the Script Properties `CAVE_GATEWAY_URL` and `CAVE_API_KEY` are both set. Request bodies, parsing, retries and the AI Runs log are unchanged.
+- `CAVE_PROVIDER_KEYS` = `byok` (default) also sends Cue's own provider key as `x-cave-upstream-key`; `stored` sends no provider key at all, and Cue then needs no OpenAI or Anthropic key of its own.
+- With either property empty, Cue calls OpenAI and Anthropic directly, exactly as before. Nothing changes until Kiko enters the properties.
+- Record mode only: Caveman measures; no optimizer is turned on.
+- Tests: CAVE1 new. 338 tests.
+
 ## Cue 1.27.34: Client emails logged to Canvas Accounts (not deployed)
 
 Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`canvas-crm-funnel.md`) at 16:08Z and chose "Log automatically" at 16:10Z, so these email logs go to Canvas with no tap. This is the spec's part F5; the funnel page itself is Canvas Integration's.

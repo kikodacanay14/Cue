@@ -5,12 +5,30 @@
  * Script Properties (all optional except the keys):
  *   OPENAI_MODEL (default gpt-5-mini), CUE_GPT_REASONING (default low; "off" sends none), CUE_GPT_WEB_TOOL (default web_search),
  *   OPENAI_PRICE ("input,output" US$ per million tokens, to log GPT cost; Settings > AI usage and cost prices win), CUE_CLAUDE_MODEL (default claude-sonnet-5-5),
- *   CUE_CLAUDE_EFFORT (default medium). */
+ *   CUE_CLAUDE_EFFORT (default medium).
+ * Caveman Cloud (spend measuring, record mode only): with CAVE_GATEWAY_URL and CAVE_API_KEY both set, both AIs go through
+ *   CAVE_GATEWAY_URL/w/cue/... with the x-cave-api-key header. CAVE_PROVIDER_KEYS = byok (default) also sends Cue's own
+ *   provider key as x-cave-upstream-key; stored sends no provider key (Caveman holds it). Either property empty: direct, as before. */
 
 const CUE_OPENAI_URL_ = 'https://api.openai.com/v1/responses';
 const CUE_CLAUDE_URL_ = 'https://api.anthropic.com/v1/messages';
 // US$ per million tokens [input, output], Anthropic list prices 2026-10.
 const CUE_CLAUDE_PRICE_ = { 'claude-haiku-5-5': [0.10, 0.50], 'claude-sonnet-5-5': [2, 10], 'claude-opus-5-5': [4, 20] };
+
+/** Caveman Cloud gateway, or null when not set up (calls then go straight to OpenAI and Anthropic). */
+function cueCave_() {
+  const url = cueProp_('CAVE_GATEWAY_URL', '').replace(/\/+$/, ''), key = cueProp_('CAVE_API_KEY', '');
+  if (!url || !key) return null;
+  if (!/^https:\/\//.test(url)) throw new Error('CAVE_GATEWAY_URL must start with https://');
+  const mode = cueProp_('CAVE_PROVIDER_KEYS', 'byok').toLowerCase();
+  if (mode !== 'byok' && mode !== 'stored') throw new Error('CAVE_PROVIDER_KEYS must be byok or stored.');
+  return { base: url + '/w/cue', key, byok: mode === 'byok' };
+}
+/** Headers for one AI call: the provider's own auth when direct or byok, the gateway's when through Caveman. */
+function cueAuth_(cave, providerHeaders, providerKey) {
+  if (!cave) return providerHeaders;
+  return Object.assign(cave.byok ? Object.assign({}, providerHeaders, { 'x-cave-upstream-key': providerKey }) : {}, { 'x-cave-api-key': cave.key });
+}
 
 function cueKey_(name) {
   const k = cueProp_(name, '');
@@ -28,9 +46,10 @@ function cueGpt_(o) {
     text: { format: { type: 'json_schema', name: o.name || 'answer', strict: true, schema: o.schema } } };
   if (effort !== 'off') body.reasoning = { effort };
   if (o.web) body.tools = [{ type: cueProp_('CUE_GPT_WEB_TOOL', 'web_search') }];
+  const cave = cueCave_(), key = cave && !cave.byok ? '' : cueKey_('OPENAI_API_KEY');
   return { step: o.step, provider: 'GPT', model, parse: cueGptParse_,
-    req: { url: CUE_OPENAI_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
-      headers: { Authorization: 'Bearer ' + cueKey_('OPENAI_API_KEY') } } };
+    req: { url: cave ? cave.base + '/openai/v1/responses' : CUE_OPENAI_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
+      headers: cueAuth_(cave, key ? { Authorization: 'Bearer ' + key } : {}, key) } };
 }
 function cueGptParse_(code, msg) {
   if (code !== 200 || !msg) throw new Error('HTTP ' + code + (msg && msg.error ? ' ' + String(msg.error.message || msg.error.type || '').slice(0, 200) : ''));
@@ -51,9 +70,10 @@ function cueClaude_(o) {
   const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system) + cueTeachAdd_(o), messages: [{ role: 'user', content: o.parts && o.parts.length
     ? (o.partsFirst ? o.parts.concat([{ type: 'text', text: String(o.user) }]) : [{ type: 'text', text: String(o.user) }].concat(o.parts)) : String(o.user) }],
     output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };
+  const cave = cueCave_(), key = cave && !cave.byok ? '' : cueKey_('ANTHROPIC_API_KEY');
   return { step: o.step, provider: 'Claude', model, parse: cueClaudeParse_,
-    req: { url: CUE_CLAUDE_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
-      headers: Object.assign({ 'x-api-key': cueKey_('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' },
+    req: { url: cave ? cave.base + '/v1/messages' : CUE_CLAUDE_URL_, method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
+      headers: Object.assign(cueAuth_(cave, key ? { 'x-api-key': key } : {}, key), { 'anthropic-version': '2023-06-01' },
         // An organization-wide key must name its workspace (Kiko's key at 05:47Z said so); a workspace key needs nothing.
         cueProp_('ANTHROPIC_WORKSPACE_ID', '') ? { 'anthropic-workspace-id': cueProp_('ANTHROPIC_WORKSPACE_ID', '') } : {}) } };
 }
