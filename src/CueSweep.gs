@@ -380,6 +380,7 @@ function cueSweepSend_(s) {
       if (typeof k.send === 'function') it.sent_id = String(k.send(it, s) || 'sent');
       else { if (!it.draft_id) throw new Error('The draft was not made.'); it.sent_id = cueGmailSend_(it.draft_id); }
       it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
+      try { cuePlogChaser_(it, s); } catch (e) { console.error('Project log (chaser): ' + e); }   // CUE-PROJECT-LOG-2026-10-27
       cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'sent' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
   });
