@@ -172,6 +172,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /Supplier Database/.test(body.system)) { log.claude.push(body); return claudeOk(o.supFit || SUP_FIT); }
     if (u.indexOf('api.anthropic.com') >= 0 && body.output_config.format.schema.required.indexOf('ranking') >= 0) {
@@ -189,6 +190,31 @@ function sandbox(o = {}) {
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
         pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
+      if (body.action === 'crm_log') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c) return resp(200, { ok: false, status: 'Rejected', error: 'command is not in the claimed plan for this task' });
+        if (c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command payload differs from the claimed plan' });
+        (log.crmLog = log.crmLog || []).push(body.args);
+        if ((o.crmRefused || []).indexOf(body.args.email) >= 0) return resp(200, { ok: true, status: 'Completed', result: { refused: 'No account matches. Nothing was saved.' } });
+        if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
+        const again = (log.crmSeen = log.crmSeen || {})[body.args.request_id]; log.crmSeen[body.args.request_id] = 1;
+        return resp(200, { ok: true, status: 'Completed', result: { act: { ID: 'A-' + log.crmLog.length }, again: !!again } }); }
+      // CUE-EDIT-2026-10-27: the generic bridge (allow_list, read_rows; write_rows and allow_list_set as claimed plans' commands).
+      if (body.action === 'allow_list') return resp(200, { ok: true, status: 'Completed', result: { tabs: (o.allow || ED_ALLOW).map(x => ({ book: x.book, tab: x.tab, key: x.key, mode: x.mode })), functions: [], hash: 'h', protected: true } });
+      if (body.action === 'read_rows') { (log.readRows = log.readRows || []).push(body.args);
+        const T = (o.allow || ED_ALLOW).find(x => x.book === body.args.book && x.tab === body.args.tab);
+        if (!T) return resp(200, { ok: false, status: 'Blocked', error: body.args.book + ' › ' + body.args.tab + ' is not on the allow-list' });
+        const rows = T.rows.filter(r => (body.args.where || []).every(w => w.equals != null ? String(r[w.column]).toLowerCase() === w.equals.toLowerCase() : String(r[w.column]).toLowerCase().indexOf(w.contains.toLowerCase()) >= 0));
+        const lim = body.args.limit || 100;
+        return resp(200, { ok: true, status: 'Completed', result: { book: T.book, tab: T.tab, key: T.key, mode: T.mode, columns: T.columns, writable: T.writable, total: rows.length, rows: rows.slice(0, lim), next: null } }); }
+      if (body.action === 'write_rows' || body.action === 'allow_list_set') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
+        (log.genWrites = log.genWrites || []).push({ action: body.action, args: body.args });
+        if (o.genRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.genRefused } });
+        return resp(200, { ok: true, status: 'Completed', result: body.action === 'write_rows' ? { saved: true, key: body.args.key, now: body.args.set } : { saved: true, row: 6 } }); }
       // CUE-LOOKUP-2026-10-27: Canvas's bi_list (read) and invoice_line (a claimed plan's write), with the bridge's shapes.
       if (body.action === 'bi_list') { (log.biList = log.biList || []).push(body.args); return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.bis || BI_LIST)) }); }
       if (body.action === 'invoice_line') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
@@ -547,7 +573,7 @@ const INQ = 'Hi BSE, Acme Corp here. We need an LED wall, a photo booth and a dr
 function startToCard(o) { const t = sandbox(o); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
 
 // Every field of the chat call's strict schema, across all features (each one must also be required).
-const CHAT_FIELDS = ['choices', 'command', 'command_client', 'email', 'learn', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'sure', 'task', 'task_set', 'todo', 'vendor', 'workflow'];
+const CHAT_FIELDS = ['canvas_edit', 'choices', 'command', 'command_client', 'email', 'learn', 'looks_like_inquiry', 'readiness', 'reply', 'run_sweep', 'start_ar', 'start_intake', 'sure', 'task', 'task_set', 'todo', 'vendor', 'workflow'];
 const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
@@ -5406,6 +5432,73 @@ test('MA2 the email check rides cueResume and never runs for a non-BSE account; 
   const u = maBox([]); u.ctx.UrlFetchApp.fetch = () => { throw new Error('Gmail down'); };
   assert.doesNotThrow(() => u.ctx.cueResume());
   assert.ok(/cueMaTick_\(\); \} catch/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8')));
+});
+
+// ---------- CUE-EDIT-2026-10-27: generic Canvas edits (CueEdit.gs) ----------
+const ED_ALLOW = [
+  { book: 'tracker', tab: 'BI', key: 'BI NUMBER', mode: 'update', columns: ['PROJECT ID', 'BI NUMBER', 'DESCRIPTION', 'STATUS'], writable: ['DESCRIPTION'],
+    rows: [{ _row: 14, 'PROJECT ID': 'S-25506500TR', 'BI NUMBER': '0014', DESCRIPTION: 'PO dated August 27, 2026', STATUS: 'For Submission' },
+      { _row: 13, 'PROJECT ID': 'S-11200574TE', 'BI NUMBER': '0013', DESCRIPTION: 'REC-10301903 for PO-10209008', STATUS: 'Paid' }] },
+  { book: 'scopes', tab: 'Transfers', key: 'Request ID', mode: 'read', columns: ['Request ID', 'Bank', 'PAID AMOUNT'], writable: [], rows: [] }];
+const ED_PLAN = { ok: true, question: '', book: 'tracker', tab: 'BI', where: [{ column: 'BI NUMBER', equals: '0014', contains: '' }],
+  set: [{ column: 'Description', value: 'Attn: Kressy Pascual', how: 'before' }], add: false, key: '' };   // Claude's own spelling of the column
+const TALK_ED = { reply: 'I can\'t edit Canvas.', looks_like_inquiry: false, start_intake: '', task: '', canvas_edit: 'Put "Attn: Kressy Pascual" at the start of the description of BI 0014.' };
+test('ED1 "put Attn: Kressy Pascual on BI 0014": the chat call routes it to Claude, one Approve card with old and new; nothing written before Approve; Approve writes once', () => {
+  const t = sandbox({ talk: TALK_ED });
+  t.ctx.cueSend('put Attn: Kressy Pascual on the description of BI 0014', [], '');
+  const msgs = t.tabs.Chat.rows.map(x => String(x[2]));
+  assert.ok(msgs.indexOf('I can\'t edit Canvas.') < 0, 'the chat call\'s guess is not shown');
+  assert.ok(msgs.some(m => /^Working out the change/.test(m)));
+  assert.strictEqual(t.log.claude.length, 1, 'one Claude call');
+  assert.ok(/BI \(key BI NUMBER, mode update\)[\s\S]*writable: DESCRIPTION/.test(t.log.claude[0].messages[0].content), 'Claude sees the allowed tabs and columns');
+  deq(t.log.readRows.map(a => a.where || []), [[], [], [{ column: 'BI NUMBER', equals: '0014' }]], 'columns of each allowed tab, then the row');
+  const card = t.tabs.Chat.rows.find(x => /^\?ask-/.test(String(x[3])));
+  assert.ok(card && /Change this in Canvas\?\nBI, BI NUMBER 0014\nDESCRIPTION: PO dated August 27, 2026\n  becomes: Attn: Kressy Pascual\. PO dated August 27, 2026/.test(card[2]), card && card[2]);
+  assert.ok(!(t.log.genWrites || []).length && !Object.keys(t.log.plans_ || {}).length, 'nothing written or planned before Approve');
+  const id = String(card[3]).slice(1).split(':')[0];
+  t.ctx.cueAskPick(id, 'approve');
+  deq(t.log.genWrites, [{ action: 'write_rows', args: { book: 'tracker', tab: 'BI', key: '0014', set: { DESCRIPTION: 'Attn: Kressy Pascual. PO dated August 27, 2026' } } }]);
+  assert.ok(/^Saved\. BI 0014 now reads:\nDESCRIPTION: Attn: Kressy Pascual\. PO dated August 27, 2026$/.test(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]));
+  assert.throws(() => t.ctx.cueAskPick(id, 'approve'), /already answered/, 'one answer per card, so one write');
+  assert.strictEqual(bridgeCheck('write_rows', t.log.genWrites[0].args), '', 'real bridge schema');
+});
+test('ED2 a column Cue may not write, no matching row, two rows, already there, Not that, and a Canvas refusal all stop with nothing written', () => {
+  const cardOf = t => t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length;
+  const last = t => String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
+  let t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { set: [{ column: 'STATUS', value: 'Paid', how: 'replace' }] }) });
+  t.ctx.cueSend('mark BI 0014 paid', [], ''); assert.ok(/STATUS can't be changed by Cue in BI\. Cue can change: DESCRIPTION\. Nothing was changed\./.test(last(t)), last(t)); assert.strictEqual(cardOf(t), 0);
+  t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { where: [{ column: 'BI NUMBER', equals: '0099', contains: '' }] }) });
+  t.ctx.cueSend('fix BI 0099', [], ''); assert.ok(/^No BI row matches \(BI NUMBER = 0099\)/.test(last(t)), last(t));
+  t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { where: [{ column: 'BI NUMBER', equals: '', contains: '001' }] }) });
+  t.ctx.cueSend('fix the 001 invoice', [], ''); assert.ok(/^2 BI rows match\. Which one\? BI NUMBER 0014, BI NUMBER 0013/.test(last(t)), last(t));
+  t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { set: [{ column: 'DESCRIPTION', value: 'PO dated', how: 'before' }] }) });
+  t.ctx.cueSend('add PO dated to BI 0014', [], ''); assert.ok(/^Already there/.test(last(t)), last(t));
+  t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { ok: false, question: 'Cue can edit BI descriptions only. Which BI?' }) });
+  t.ctx.cueSend('change the thing', [], ''); assert.strictEqual(last(t), 'Cue can edit BI descriptions only. Which BI?');
+  t = sandbox({ talk: TALK_ED }); t.ctx.cueSend('put Attn on BI 0014', [], '');
+  let id = String(t.tabs.Chat.rows.find(x => /^\?ask-/.test(String(x[3])))[3]).slice(1).split(':')[0];
+  t.ctx.cueAskPick(id, 'not'); assert.ok(/Nothing was written to Canvas/.test(last(t))); assert.ok(!(t.log.genWrites || []).length);
+  t = sandbox({ talk: TALK_ED, genRefused: 'BI 0014 is Paid, so it can\'t be edited. Nothing was saved.' }); t.ctx.cueSend('put Attn on BI 0014', [], '');
+  id = String(t.tabs.Chat.rows.find(x => /^\?ask-/.test(String(x[3])))[3]).slice(1).split(':')[0];
+  t.ctx.cueAskPick(id, 'approve'); assert.ok(/^Canvas refused: BI 0014 is Paid/.test(last(t)), last(t));
+});
+test('ED3 "allow cue to edit ... in <tab> in <book>, key <col>": no AI call, an Approve card, then one allow_list_set; read and add forms; no key stops', () => {
+  const t = sandbox(), last = () => String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
+  t.ctx.cueSend('allow cue to edit Amount, Description in Payment Request in scopes, key Request ID', [], '');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  const card = t.tabs.Chat.rows.find(x => /^\?ask-/.test(String(x[3])));
+  assert.ok(/^Let Cue change Amount, Description in Payment Request \(scopes\), finding rows by Request ID\?/.test(card[2]), card[2]);
+  t.ctx.cueAskPick(String(card[3]).slice(1).split(':')[0], 'approve');
+  deq(t.log.genWrites, [{ action: 'allow_list_set', args: { type: 'tab', book: 'scopes', name: 'Payment Request', mode: 'update', read: 'all', write: 'Amount, Description', key: 'Request ID' } }]);
+  assert.strictEqual(bridgeCheck('allow_list_set', t.log.genWrites[0].args), ''); assert.ok(/^Done\. Cue can now change Amount, Description in Payment Request\./.test(last()));
+  t.ctx.cueSend('allow cue to read Supplier Entries in scopes', [], '');
+  assert.ok(/^Let Cue read Supplier Entries \(scopes\)\?/.test(last()), last());
+  t.ctx.cueSend('allow cue to edit Amount in Payment Request in scopes', [], '');
+  assert.ok(/Which column finds the row\?/.test(last()), last());
+});
+test('ED4 Canvas allows nothing yet: a plain answer with how to allow a tab, no Claude call, nothing written', () => {
+  let t = sandbox({ talk: TALK_ED, allow: [] }); t.ctx.cueSend('put Attn on BI 0014', [], '');
+  assert.ok(/not allowed to edit any Canvas tab yet/.test(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2])); assert.strictEqual(t.log.claude.length, 0);
 });
 
 if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox
