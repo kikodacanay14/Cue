@@ -858,8 +858,10 @@ function zbHandle_(raw, sig, now, gpt) {
   try {
     // Exactly Manager: not Business Lead (more than the bridge needs) and not Accountant (acctRole_ maps it to Business Lead).
     if (roleOf_(actAs) !== 'Manager' || !hasFullAccess_()) return zbOut_('Blocked', r, { error: 'adapter identity must be a Manager row in Settings > Users' });
-    if (gpt && a.kind === 'write' && !a.plan) { const pl = zbGptPlan_(r, now); if (pl) return pl; }
-    return a.kind === 'read' ? zbRead_(r, a) : a.kind === 'queue' ? zbQueue_(r, a) : zbWrite_(r, a, now);
+    // CUE-GENERIC-BRIDGE-2026-10-27: run_function is a read or a write as the allow-list says (kindOf); every other action is fixed.
+    const kind = typeof a.kindOf === 'function' ? a.kindOf(r) : a.kind;
+    if (gpt && kind === 'write' && !a.plan) { const pl = zbGptPlan_(r, now); if (pl) return pl; }
+    return kind === 'read' ? zbRead_(r, a) : kind === 'queue' ? zbQueue_(r, a) : zbWrite_(r, a, now);
   } catch (e) {
     return zbOut_('Blocked', r, { error: zbErr_(e) });
   } finally { ACCT_AS_ = ''; ACCT_ROLE_ = null; GUEST_ROLE_ = null; GUEST_OK_ = false; }
@@ -2060,4 +2062,283 @@ ZB_ACTIONS_.invoice_line = {
     const l = String(r.args.line || '').replace(/\s+/g, ' ').trim().replace(/[.;,:\s]+$/, '');
     return res && res.saved && String(res.now || '').indexOf(l) >= 0 ? { ok: true } : { ok: false, error: 'read back differs: ' + String((res && res.now) || '').slice(0, 200) };
   }
+};
+
+/* CUE-GENERIC-BRIDGE-2026-10-27 (Kiko 27 Oct 10:10Z "Yes, build it"; Cue spec specs/generic-bridge.md). Four general actions, so a
+ * new kind of Cue lookup or edit needs a row on the allow-list instead of a Canvas release:
+ *   allow_list (read)      what Cue may touch now, and its fingerprint.
+ *   read_rows (read)       rows of one allowed tab, allowed columns only, with filters and 500-row pages.
+ *   write_rows (write)     updates one row found by its key column, or adds one, in allowed columns only. Never deletes.
+ *   run_function (either)  one allowed Canvas function with checked arguments; a write needs a claimed plan like every write.
+ *   allow_list_set (write) adds or changes one allow-list row, as a claimed plan's command, so only after Kiko's Approve in Cue.
+ * The list is the tab "_Cue Allow List" in the Ledger sheet (ZAD_LEDGER_ID). The bridge makes it on first use, with the seed rows
+ * below, and protects it so only Kiko (and the sheet's owner and this script) can edit it. If the protection is missing or anyone
+ * else can edit it, every action here is Blocked. The never-lists below are code, so no sheet edit can open them. */
+const ZB_ALLOW_TAB_ = '_Cue Allow List';
+const ZB_ALLOW_HEAD_ = ['Type', 'Book', 'Name', 'Read columns', 'Write columns', 'Key column', 'Mode', 'Arguments', 'Approved', 'On'];
+const ZB_ALLOW_SEED_ = [
+  ['tab', 'Tracker', 'BI', 'all', 'DESCRIPTION', 'BI NUMBER', 'update', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
+  ['tab', 'Tracker', 'PO', 'all', 'Full Description', 'PO No', 'update', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
+  ['tab', 'Scopes', 'Transfers', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
+  ['tab', 'Scopes', 'Payment Request', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE']];
+// The spreadsheets an allow-list row may name. The main workbook (Users, Settings, roles) is not one of them.
+const ZB_GEN_BOOKS_ = () => ({ tracker: TRACKER_ID, admin: SRC.ADMIN, tri: SRC.TRI, scopes: SRC.SCOPES, suppliers: SRC.SUPPLIERS, priority: SRC.PRIORITY });
+const ZB_GEN_NEVER_TAB_ = /^_|^(users?|settings|roles?|access|accounts?\s*payable\s*bank.*)$/i;
+const ZB_GEN_NEVER_COL_ = /bank\s*(account|acct|details|info|no\b|num|#)|account\s*(no|num|#)|acct\.?\s*(no|num|#)|card\s*(no|num)|iban|swift|routing|signature|e-?sign|password|passcode|\bpin\b|secret|token/i;
+const ZB_GEN_NEVER_WRITE_ = /status|award|book(ed|ing)|\bpaid\b|payment|approv|role/i;   // Canvas owns status and award; pay and book stay people's
+const ZB_GEN_NEVER_FN_ = /status|award|book|pay|delet|remove|trash|clear|role|propert|secret|token|password|allow|mail|send|email|sms|guest|^zb|^cue|^do(Get|Post)$/i;
+const ZB_GEN_MAX_ = { rows: 500, page: 100, value: 2000, args: 10 };
+const ZB_GEN_TYPES_ = { text: 'string', number: 'number', yesno: 'boolean', list: 'array' };
+
+function zbAllowBook_() {
+  const id = PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID');
+  if (!id) throw new Error('ledger not configured');
+  return SpreadsheetApp.openById(id);
+}
+/** The allow-list tab, made and protected on first use. */
+function zbAllowSheet_(ss) {
+  return ss.getSheetByName(ZB_ALLOW_TAB_) || locked_(() => {
+    let sh = ss.getSheetByName(ZB_ALLOW_TAB_); if (sh) return sh;
+    sh = ss.insertSheet(ZB_ALLOW_TAB_);
+    sh.getRange(1, 1, 1, ZB_ALLOW_HEAD_.length).setValues([ZB_ALLOW_HEAD_]);
+    sh.getRange(2, 1, ZB_ALLOW_SEED_.length, ZB_ALLOW_HEAD_.length).setValues(ZB_ALLOW_SEED_);
+    const p = sh.protect().setDescription('Cue allow-list (generic bridge): only Kiko edits it');
+    OWNER_EMAILS.forEach(e => p.addEditor(e));
+    p.removeEditors(p.getEditors().filter(u => !zbAllowEditorOk_(ss, u.getEmail())));
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+    try { logEvent('Made the Cue allow-list', 'Cue bridge', ZB_ALLOW_SEED_.length + ' rows, protected'); } catch (e) { /* logging never blocks */ }
+    return sh;
+  });
+}
+function zbAllowEditorOk_(ss, email) {
+  const e = String(email || '').toLowerCase(); if (!e) return false;
+  let owner = ''; try { owner = String(ss.getOwner() ? ss.getOwner().getEmail() : '').toLowerCase(); } catch (x) { owner = ''; }
+  let me = ''; try { me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); } catch (x) { me = ''; }
+  return isKiko_(e) || e === owner || e === me;
+}
+/** '' when the tab is protected so that only Kiko, the owner and this script can edit it; else why not. */
+function zbAllowGuard_(ss, sh) {
+  const p = (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET) || [])[0];
+  if (!p) return 'allow-list not protected';
+  if (p.canDomainEdit()) return 'allow-list not protected (everyone in the domain can edit it)';
+  const other = p.getEditors().map(u => u.getEmail()).filter(e => !zbAllowEditorOk_(ss, e));
+  return other.length ? 'allow-list not protected (' + other.length + ' other editor' + (other.length > 1 ? 's' : '') + ')' : '';
+}
+const zbGenList_ = s => String(s || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filter(Boolean);
+const zbGenOn_ = v => /^(true|yes|on|1)$/i.test(String(v || '').trim());
+/** "project_id:text, qty:number?" -> [{name, type, required}]; null when a part is not understood. */
+function zbGenArgs_(s) {
+  const out = [];
+  for (const part of zbGenList_(s)) {
+    const m = part.match(/^([A-Za-z_]\w{0,40})\s*:\s*(text|number|yesno|list)(\?)?$/);
+    if (!m) return null;
+    out.push({ name: m[1], type: m[2], required: !m[3] });
+  }
+  return out;
+}
+/** The allow-list in force: {tabs, functions, hash}. Rows that are off, on a never-list, or not understood are left out. */
+function zbAllow_() {
+  const ss = zbAllowBook_(), sh = zbAllowSheet_(ss), bad = zbAllowGuard_(ss, sh);
+  if (bad) throw new Error(bad);
+  const v = sh.getDataRange().getDisplayValues(), head = (v[0] || []).map(h => String(h).trim().toLowerCase());
+  const at = (r, h) => { const c = head.indexOf(h.toLowerCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); };
+  const tabs = [], functions = [];
+  v.slice(1).forEach((r, i) => {
+    if (!zbGenOn_(at(r, 'On'))) return;
+    const type = at(r, 'Type').toLowerCase(), name = at(r, 'Name'), mode = at(r, 'Mode').toLowerCase(), row = i + 2;
+    if (type === 'tab') {
+      const book = at(r, 'Book').toLowerCase();
+      if (!name || !ZB_GEN_BOOKS_()[book] || ZB_GEN_NEVER_TAB_.test(name) || ['read', 'update', 'append'].indexOf(mode) < 0) return;
+      tabs.push({ book, tab: name, read: at(r, 'Read columns') || 'all', write: zbGenList_(at(r, 'Write columns')), key: at(r, 'Key column'), mode, row });
+    } else if (type === 'function') {
+      const args = zbGenArgs_(at(r, 'Arguments'));
+      if (!/^[A-Za-z_$][\w$]{1,80}$/.test(name) || ZB_GEN_NEVER_FN_.test(name) || !args || ['read', 'write'].indexOf(mode) < 0) return;
+      functions.push({ name, kind: mode, args, row });
+    }
+  });
+  return { tabs, functions, hash: zbHash_(JSON.stringify([tabs, functions])) };
+}
+/** One allowed tab, opened: header (row 1), readable and writable columns, rows with at(header). Throws a plain refusal. */
+function zbGenOpen_(al, book, tab) {
+  const e = al.tabs.filter(x => x.book === String(book || '').toLowerCase() && x.tab.toLowerCase() === String(tab || '').trim().toLowerCase())[0];
+  if (!e) throw new Error(book + ' › ' + tab + ' is not on the allow-list');
+  const sh = book_(ZB_GEN_BOOKS_()[e.book]).getSheetByName(e.tab);
+  if (!sh) throw new Error('tab ' + e.tab + ' was not found in ' + e.book);
+  const w = Math.max(1, sh.getLastColumn()), n = sh.getLastRow();
+  const v = n ? sh.getRange(1, 1, n, w).getDisplayValues() : [[]];
+  const head = (v[0] || []).map(h => String(h).trim()), up = head.map(h => h.toUpperCase());
+  const ok = h => h && !ZB_GEN_NEVER_COL_.test(h);
+  const listed = l => l.map(x => up.indexOf(x.toUpperCase())).filter(c => c >= 0).map(c => head[c]);
+  const readable = (/^all$/i.test(e.read) ? head : listed(zbGenList_(e.read))).filter((h, i, a) => ok(h) && a.indexOf(h) === i);
+  const key = head[up.indexOf(String(e.key).toUpperCase())] || '';
+  const writable = e.mode === 'read' ? [] : listed(e.write).filter(h => ok(h) && !ZB_GEN_NEVER_WRITE_.test(h) && h !== key);
+  const rows = v.slice(1).map((r, i) => ({ r: i + 2, v: r, at: h => { const c = up.indexOf(String(h).toUpperCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); } }))
+    .filter(x => x.v.some(c => String(c).trim() !== ''));
+  return { e, sh, head, up, readable, writable, key, rows };
+}
+function zbGenDay_(s) {
+  const t = String(s || '').trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return Date.UTC(+m[3], +m[1] - 1, +m[2]);
+  const d = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return d ? Date.UTC(+d[1], +d[2] - 1, +d[3]) : null;
+}
+function zbReadRows_(a) {
+  const al = zbAllow_(), T = zbGenOpen_(al, a.book, a.tab);
+  const col = n => { const h = T.readable.filter(x => x.toUpperCase() === String(n).trim().toUpperCase())[0]; if (!h) throw new Error('column ' + n + ' is not readable in ' + T.e.tab); return h; };
+  const where = (a.where || []).map(w => Object.assign({}, w, { column: col(w.column) }));
+  const low = s => String(s || '').toLowerCase();
+  const hit = x => where.every(w => {
+    const v = x.at(w.column);
+    if (w.equals != null && low(v) !== low(w.equals)) return false;
+    if (w.contains != null && low(v).indexOf(low(w.contains)) < 0) return false;
+    if (w.from != null || w.to != null) { const d = zbGenDay_(v); if (d == null) return false;
+      if (w.from != null && d < zbGenDay_(w.from)) return false; if (w.to != null && d > zbGenDay_(w.to)) return false; }
+    return true;
+  });
+  const all = T.rows.filter(hit), start = a.start || 0, lim = Math.min(a.limit || ZB_GEN_MAX_.page, ZB_GEN_MAX_.rows);
+  const page = all.slice(start, start + lim).map(x => { const o = { _row: x.r }; T.readable.forEach(h => { o[h] = x.at(h); }); return o; });
+  return { book: T.e.book, tab: T.e.tab, key: T.key, columns: T.readable, writable: T.writable, mode: T.e.mode, total: all.length, rows: page,
+    next: start + lim < all.length ? start + lim : null, allow_hash: al.hash };
+}
+// Rules Canvas's own pages keep on a tab, which a generic write must keep too.
+const ZB_GEN_GUARD_ = {
+  'tracker|bi': (T, x) => biEditWhy_(x, x.at('BI NUMBER'))   // Finance Desk's Edit invoice lock: not Paid, no payment advice
+};
+const zbGenSame_ = (a, b) => { const x = String(a == null ? '' : a).trim(), y = String(b == null ? '' : b).trim();
+  if (x === y) return true; const n = s => Number(s.replace(/[,₱\s]/g, '')); return x !== '' && y !== '' && isFinite(n(x)) && isFinite(n(y)) && n(x) === n(y); };
+function zbWriteRows_(a) {
+  const no = m => ({ refused: m + ' Nothing was saved.' });
+  let al; try { al = zbAllow_(); } catch (e) { return no(zbErr_(e) + '.'); }
+  return withLock_(function () {
+    let T; try { T = zbGenOpen_(al, a.book, a.tab); } catch (e) { return no(zbErr_(e) + '.'); }
+    if (T.e.mode === 'read') return no(T.e.tab + ' is read only on the allow-list.');
+    if (!T.key) return no(T.e.tab + ' has no key column ' + T.e.key + '.');
+    const key = String(a.key).trim(), cols = Object.keys(a.set), set = {};
+    for (const c of cols) {
+      const h = T.writable.filter(x => x.toUpperCase() === c.trim().toUpperCase())[0];
+      if (!h) return no(c + ' can\'t be written in ' + T.e.tab + ' (allowed: ' + (T.writable.join(', ') || 'none') + ').');
+      const v = a.set[c]; if (typeof v !== 'string' && typeof v !== 'number') return no(c + ' must be text or a number.');
+      if (String(v).length > ZB_GEN_MAX_.value) return no(c + ' is too long.');
+      set[h] = v;
+    }
+    const same = T.rows.filter(x => x.at(T.key) === key), gk = T.e.book + '|' + T.e.tab.toLowerCase();
+    if (a.add) {
+      if (T.e.mode !== 'append') return no(T.e.tab + ' does not take new rows on the allow-list.');
+      if (same.length) { const x = same[0];   // a retry of the same add finds its own row
+        return Object.keys(set).every(h => zbGenSame_(x.at(h), set[h])) ? { saved: true, already: true, added: true, row: x.r, key, now: zbGenNow_(T, x.r, set) }
+          : no(T.key + ' ' + key + ' is already in ' + T.e.tab + '.'); }
+      const vals = T.head.map(h => h === T.key ? safe_(key) : zbOwn_(set, h) ? (typeof set[h] === 'number' ? set[h] : safe_(set[h])) : '');
+      T.sh.appendRow(vals);
+      const r = T.sh.getLastRow();
+      try { logEvent('Cue added a row', 'Cue', T.e.tab + ' ' + key + ': ' + Object.keys(set).join(', ')); } catch (e) { /* logging never blocks */ }
+      return { saved: true, added: true, book: T.e.book, tab: T.e.tab, key, row: r, was: {}, now: zbGenNow_(T, r, set) };
+    }
+    if (T.e.mode !== 'update') return no(T.e.tab + ' takes new rows only.');
+    if (!same.length) return no(T.key + ' ' + key + ' is not in ' + T.e.tab + '.');
+    if (same.length > 1) return no(same.length + ' rows in ' + T.e.tab + ' have ' + T.key + ' ' + key + ', so Cue can\'t tell which one.');
+    const x = same[0], why = ZB_GEN_GUARD_[gk] ? ZB_GEN_GUARD_[gk](T, x) : '';
+    if (why) return no(why);
+    const was = {}; Object.keys(set).forEach(h => { was[h] = x.at(h); });
+    for (const h of Object.keys(set)) if (T.sh.getRange(x.r, T.head.indexOf(h) + 1).getFormula()) return no(h + ' on ' + key + ' is a formula, so it can\'t be changed here.');
+    if (Object.keys(set).every(h => zbGenSame_(was[h], set[h]))) return { saved: true, already: true, book: T.e.book, tab: T.e.tab, key, row: x.r, was, now: was };
+    auditEdit_(T.sh, x.r, { headRow: 1 });
+    Object.keys(set).forEach(h => T.sh.getRange(x.r, T.head.indexOf(h) + 1).setValue(typeof set[h] === 'number' ? set[h] : safe_(set[h])));
+    try { logEvent('Cue edited a row', 'Cue', T.e.tab + ' ' + key + ': ' + Object.keys(set).join(', ')); } catch (e) { /* logging never blocks */ }
+    return { saved: true, book: T.e.book, tab: T.e.tab, key, row: x.r, was, now: zbGenNow_(T, x.r, set) };
+  });
+}
+function zbGenNow_(T, r, set) { const o = {}; Object.keys(set).forEach(h => { o[h] = String(T.sh.getRange(r, T.head.indexOf(h) + 1).getDisplayValue()).trim(); }); return o; }
+/** One allowed function: its entry and its arguments, checked with the bridge's own rules. */
+function zbRunFn_(al, a) {
+  const f = al.functions.filter(x => x.name === a.name)[0];
+  if (!f) throw new Error(a.name + ' is not on the allow-list');
+  const fn = globalThis[f.name];
+  if (typeof fn !== 'function') throw new Error(f.name + ' is not a Canvas function');
+  const given = a.args || [];
+  if (given.length > f.args.length) throw new Error(f.name + ' takes ' + f.args.length + ' argument' + (f.args.length === 1 ? '' : 's'));
+  f.args.forEach((x, i) => { const bad = zbCheck_(given[i], { type: ZB_GEN_TYPES_[x.type], required: x.required, max: ZB_GEN_MAX_.value, maxItems: 200 }, x.name);
+    if (bad) throw new Error(bad); });
+  return { f, fn };
+}
+/** A refusal (not allowed, bad arguments) comes back as {refused} so a write is Rejected; an error inside the function stays an error. */
+function zbRunCall_(a) {
+  let x; try { x = zbRunFn_(zbAllow_(), a); } catch (e) { return { refused: zbErr_(e) + '. Nothing was run.' }; }
+  const res = x.fn.apply(null, a.args || []);
+  return { name: x.f.name, kind: x.f.kind, result: res === undefined ? null : JSON.parse(JSON.stringify(res)) };
+}
+/** allow_list_set: one row, made or changed, after Kiko's Approve. The never-lists apply here too, so a row can't name them. */
+function zbAllowSet_(a, task) {
+  const no = m => ({ refused: m + ' Nothing was saved.' });
+  const book = String(a.book || '').toLowerCase(), name = String(a.name).trim(), mode = String(a.mode).toLowerCase();
+  if (a.type === 'tab') {
+    if (!ZB_GEN_BOOKS_()[book]) return no('Book must be one of ' + Object.keys(ZB_GEN_BOOKS_()).join(', ') + '.');
+    if (ZB_GEN_NEVER_TAB_.test(name)) return no(name + ' can never be on the allow-list.');
+    if (['read', 'update', 'append'].indexOf(mode) < 0) return no('A tab\'s mode is read, update or append.');
+    const bad = zbGenList_(a.write).filter(c => ZB_GEN_NEVER_COL_.test(c) || ZB_GEN_NEVER_WRITE_.test(c));
+    if (bad.length) return no(bad.join(', ') + ' can never be written by Cue.');
+    if (mode !== 'read' && !String(a.key || '').trim()) return no('A tab Cue writes needs its key column.');
+  } else {
+    if (!/^[A-Za-z_$][\w$]{1,80}$/.test(name) || ZB_GEN_NEVER_FN_.test(name)) return no(name + ' can never be on the allow-list.');
+    if (typeof globalThis[name] !== 'function') return no(name + ' is not a Canvas function.');
+    if (['read', 'write'].indexOf(mode) < 0) return no('A function\'s mode is read or write.');
+    if (!zbGenArgs_(a.arguments || '')) return no('Arguments look like "project_id:text, qty:number?".');
+  }
+  const ss = zbAllowBook_(), sh = zbAllowSheet_(ss), guard = zbAllowGuard_(ss, sh);
+  if (guard) return no(guard + '.');
+  return locked_(() => {
+    const v = sh.getDataRange().getDisplayValues(), head = v[0].map(h => String(h).trim().toLowerCase()), c = h => head.indexOf(h.toLowerCase());
+    const i = v.findIndex((r, j) => j > 0 && String(r[c('Type')]).toLowerCase() === a.type && String(r[c('Name')]).trim().toLowerCase() === name.toLowerCase()
+      && (a.type !== 'tab' || String(r[c('Book')]).toLowerCase() === book));
+    const row = { Type: a.type, Book: a.type === 'tab' ? book.replace(/^./, x => x.toUpperCase()) : '', Name: name, 'Read columns': a.type === 'tab' ? String(a.read || 'all') : '',
+      'Write columns': a.type === 'tab' ? String(a.write || '') : '', 'Key column': a.type === 'tab' ? String(a.key || '') : '', Mode: mode,
+      Arguments: a.type === 'function' ? String(a.arguments || '') : '', Approved: 'Kiko on Cue card ' + task + ' ' + Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy-MM-dd'),
+      On: a.on === false ? 'FALSE' : 'TRUE' };
+    const vals = ZB_ALLOW_HEAD_.map(h => row[h] == null ? '' : safe_(row[h]));
+    const at = i > 0 ? i + 1 : sh.getLastRow() + 1;
+    sh.getRange(at, 1, 1, vals.length).setValues([vals]);
+    try { logEvent('Cue allow-list row', 'Cue bridge', a.type + ' ' + name + ' ' + mode + (a.on === false ? ' off' : ' on')); } catch (e) { /* logging never blocks */ }
+    return { saved: true, row: at, changed: i > 0, entry: row };
+  });
+}
+const ZB_GEN_WHERE_ = { column: { type: 'string', required: true, nonBlank: true, max: 120 }, equals: { type: 'string', max: 500 },
+  contains: { type: 'string', max: 500 }, from: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ }, to: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ } };
+const ZB_GEN_BOOK_ARG_ = { type: 'string', required: true, oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] };
+ZB_ACTIONS_.allow_list = {
+  kind: 'read', needsProject: false, schema: {},
+  run: () => { const al = zbAllow_(); return { tabs: al.tabs, functions: al.functions, hash: al.hash, books: Object.keys(ZB_GEN_BOOKS_()), protected: true }; }
+};
+ZB_ACTIONS_.read_rows = {
+  kind: 'read', needsProject: false,
+  schema: { book: ZB_GEN_BOOK_ARG_, tab: { type: 'string', required: true, nonBlank: true, max: 100 },
+    where: { type: 'array', maxItems: 6, items: ZB_GEN_WHERE_ }, start: { type: 'number', min: 0 }, limit: { type: 'number', positive: true } },
+  run: (r) => zbReadRows_(r.args)
+};
+ZB_ACTIONS_.write_rows = {
+  kind: 'write', needsProject: false, retrySafe: true,   // an update writes the same values again; an add finds its own row
+  schema: { book: ZB_GEN_BOOK_ARG_, tab: { type: 'string', required: true, nonBlank: true, max: 100 }, key: { type: 'string', required: true, nonBlank: true, max: 120 },
+    set: { type: 'object', required: true, minKeys: 1 }, add: { type: 'boolean' } },
+  run: (r) => zbWriteRows_(r.args),
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const set = r.args.set, now = (res && res.now) || {};
+    const off = Object.keys(now).filter(h => { const k = Object.keys(set).filter(c => c.trim().toUpperCase() === h.toUpperCase())[0]; return !zbGenSame_(now[h], set[k]); });
+    return res && res.saved && Object.keys(now).length === Object.keys(set).length && !off.length ? { ok: true }
+      : { ok: false, error: 'read back differs: ' + (off.join(', ') || 'no columns read back') };
+  }
+};
+ZB_ACTIONS_.run_function = {
+  kind: 'write', needsProject: false, retrySafe: false,   // a function's effects are its own, so a lost answer goes to manual review
+  kindOf: (r) => { try { const f = zbAllow_().functions.filter(x => x.name === String((r.args || {}).name || ''))[0]; return f && f.kind === 'read' ? 'read' : 'write'; } catch (e) { return 'write'; } },
+  schema: { name: { type: 'string', required: true, re: /^[A-Za-z_$][\w$]{1,80}$/ }, args: { type: 'array', maxItems: ZB_GEN_MAX_.args } },
+  run: (r) => zbRunCall_(r.args),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.result && res.result.ok === false ? { ok: false, rejected: true, error: String(res.result.error || 'refused') } : { ok: true }
+};
+ZB_ACTIONS_.allow_list_set = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { type: { type: 'string', required: true, oneOf: ['tab', 'function'] }, name: { type: 'string', required: true, nonBlank: true, max: 100 },
+    book: { type: 'string', oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] }, read: { type: 'string', max: 1000 },
+    write: { type: 'string', max: 1000 }, key: { type: 'string', max: 120 }, mode: { type: 'string', required: true, oneOf: ['read', 'update', 'append', 'write'] },
+    arguments: { type: 'string', max: 500 }, on: { type: 'boolean' } },
+  run: (r) => zbAllowSet_(r.args, r.task_id),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
