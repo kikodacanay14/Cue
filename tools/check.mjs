@@ -17,7 +17,12 @@ import { execFileSync } from 'node:child_process';
 const mode = process.argv[2];
 if (!['open', 'close'].includes(mode)) { console.error('usage: check.mjs open|close'); process.exit(2); }
 const cfg = JSON.parse(fs.readFileSync('deploy.json', 'utf8'));
-const conf = JSON.parse(fs.readFileSync(path.join('test', 'checks', 'config.json'), 'utf8'));
+// The script being checked (CUE_CHECK_SCRIPT, set by the workflow) may bring its own test/checks/<name>.config.json, so each
+// check names its own project and send setting; otherwise test/checks/config.json.
+const SCRIPT = String(process.env.CUE_CHECK_SCRIPT || '');
+if (SCRIPT && !/^[A-Za-z0-9._-]+$/.test(SCRIPT)) { console.error('STOPPED: CUE_CHECK_SCRIPT must be a name like 1.27.33-crew-docs'); process.exit(1); }
+const confFile = SCRIPT && fs.existsSync(path.join('test', 'checks', SCRIPT + '.config.json')) ? path.join('test', 'checks', SCRIPT + '.config.json') : path.join('test', 'checks', 'config.json');
+const conf = JSON.parse(fs.readFileSync(confFile, 'utf8'));
 const fail = m => { console.error('STOPPED: ' + m); process.exit(1); };
 const RUN_MINUTES = 45;                      // the door shuts by itself after this (check_finish works 30 minutes more)
 const CHECK_DESC = 'Cue check', OFF_DESC = 'Cue check off';
@@ -104,8 +109,8 @@ function point(desc, version) {
 }
 
 if (mode === 'open') {
-  if (!/^[A-Za-z0-9-]{4,}$/.test(String(conf.project_id || ''))) fail('test/checks/config.json has no Canvas project id');
-  try { new RegExp(conf.mail); } catch (e) { fail('test/checks/config.json mail is not a valid pattern'); }
+  if (!/^[A-Za-z0-9-]{4,}$/.test(String(conf.project_id || ''))) fail(confFile + ' has no Canvas project id');
+  try { new RegExp(conf.mail); } catch (e) { fail(confFile + ' mail is not a valid pattern'); }
   const key = crypto.randomBytes(32).toString('hex');
   if (process.env.GITHUB_ACTIONS) console.log('::add-mask::' + key);
   const fp = crypto.createHash('sha256').update(key).digest('hex'), until = Date.now() + RUN_MINUTES * 60e3;

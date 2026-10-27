@@ -16,7 +16,9 @@ const URL_ = process.env.CUE_CHECK_URL, KEY = process.env.CUE_CHECK_KEY;
 if (!scriptArg || !URL_ || !KEY) { console.error('usage: CUE_CHECK_URL=... CUE_CHECK_KEY=... node test/checks/run.mjs <script> [out-dir]'); process.exit(2); }
 const OUT = path.resolve(outArg || 'check-out');
 fs.mkdirSync(OUT, { recursive: true });
-const config = JSON.parse(fs.readFileSync(process.env.CUE_CHECK_CONFIG || path.join(ROOT, 'test', 'checks', 'config.json'), 'utf8'));   // CUE_CHECK_CONFIG: dry runs only
+// A script's own <name>.config.json wins over config.json (tools/check.mjs open reads the same file); CUE_CHECK_CONFIG: dry runs only.
+const own = path.join(path.dirname(path.resolve(scriptArg)), path.basename(scriptArg).replace(/\.check\.mjs$/, '') + '.config.json');
+const config = JSON.parse(fs.readFileSync(process.env.CUE_CHECK_CONFIG || (fs.existsSync(own) ? own : path.join(ROOT, 'test', 'checks', 'config.json')), 'utf8'));
 const script = (await import(pathToFileURL(path.resolve(scriptArg)).href)).default;
 
 /** One call to the check door. Apps Script answers a POST with a redirect to the result, which fetch follows as a GET. */

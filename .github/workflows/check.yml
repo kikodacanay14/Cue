@@ -53,6 +53,8 @@ jobs:
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:DEPLOY_KEY -a -in .deploy/clasprc.enc -out ~/.clasprc.json
       - name: Open the check link
         id: open
+        env:
+          CUE_CHECK_SCRIPT: ${{ inputs.script }}   # a script's own test/checks/<name>.config.json names its project
         run: node tools/check.mjs open
       - name: Run the check
         env:
