@@ -21,7 +21,7 @@ export default {
     } },
     { title: '"allow cue to ..." shows its Approve card with no AI call; Not that leaves the allow-list as it is', run: async h => {
       await h.say(h.config.allow_ask);
-      await h.see(/^Let Cue read /, 60000);
+      await h.see(/Let Cue read Supplier Entries/i, 60000);   // no ^: h.see matches the whole page text
       await h.see('Each edit still needs your Approve.');
       await h.tap('Not that');
       await h.see('OK, the allow-list stays as it is.', 60000);
