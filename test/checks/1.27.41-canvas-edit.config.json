@@ -1,0 +1,13 @@
+{
+  "about": "Cloud check for the 1.27.41 Canvas edit on BI 0014 (Trick or Treat - Manila). The robot taps Not that on both cards, so nothing is written to Canvas, and check mode would stop write_rows and allow_list_set anyway (they name no project). send stays false.",
+  "project_id": "S-25506500TR",
+  "project_name": "Trick or Treat - Manila",
+  "ask": "put \"Cloud check\" at the start of the description of BI 0014",
+  "tab": "BI",
+  "key_col": "BI NUMBER",
+  "key": "0014",
+  "value": "Cloud check",
+  "allow_ask": "allow cue to read Supplier Entries in scopes",
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}
