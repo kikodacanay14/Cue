@@ -5462,6 +5462,17 @@ test('ED1 "put Attn: Kressy Pascual on BI 0014": the chat call routes it to Clau
   assert.throws(() => t.ctx.cueAskPick(id, 'approve'), /already answered/, 'one answer per card, so one write');
   assert.strictEqual(bridgeCheck('write_rows', t.log.genWrites[0].args), '', 'real bridge schema');
 });
+test('ED5 the cloud check\'s ask, \'put "Cloud check" at the start of the description of BI 0014\', is a Canvas edit, not an invoice REC line', () => {
+  const t = sandbox({ talk: Object.assign({}, TALK_ED, { canvas_edit: 'Put "Cloud check" at the start of the description of BI 0014.' }) });
+  t.ctx.cueSend('put "Cloud check" at the start of the description of BI 0014', [], '');
+  const msgs = t.tabs.Chat.rows.map(x => String(x[2]));
+  assert.ok(!msgs.some(m => /^No project with a billing invoice or PO matches/.test(m)), msgs.join(' | '));
+  assert.strictEqual(t.log.claude.length, 1, 'one Claude call');
+  assert.ok(t.tabs.Chat.rows.some(x => /^\?ask-/.test(String(x[3])) && /^Change this in Canvas\?\nBI, BI NUMBER 0014/.test(String(x[2]))), msgs.join(' | '));
+  // A REC number still takes the invoice line route, BI number or not.
+  const u = txBox(); u.ctx.cueSend('add REC-10307792 to the Telus trick or treat invoice');
+  assert.ok(/^Put this line on Trick or Treat - Manila's invoice\?/.test(String((u.tabs.Chat.rows.find(x => /^\?ask-/.test(String(x[3]))) || [])[2])));
+});
 test('ED2 a column Cue may not write, no matching row, two rows, already there, Not that, and a Canvas refusal all stop with nothing written', () => {
   const cardOf = t => t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length;
   const last = t => String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
