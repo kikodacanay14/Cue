@@ -1575,6 +1575,8 @@ test('AR8 PC check 27 Oct 01:53Z: the card keeps Kiko\'s ticks across a warning,
   assert.ok(/var ck = function \(x, attr, on, off\) \{ on = arOn\(attr, r\.id, x, on\);/.test(html), 'every crew docs box reads the kept tick');
   assert.ok(/arTick\[attr \+ '\|' \+ x\.getAttribute\(attr\) \+ '\|' \+ x\.value\] = x\.checked/.test(html), 'a tap, Tick all and Untick all are kept');
   assert.ok(/blocked\.map\(function \(x\) \{ return row\(x, '', x\.why\); \}\)/.test(html), 'the reason shows under each blocked name');
+  assert.ok(/ticked of ' \+ \(of == null \? rows\.length : of\)/.test(html) && /x\.tick\) && !x\.off; \}\)\.length, n\)/.test(html), 'the count is of the names that can be ticked, as in the chat');
+  assert.ok(/input\[' \+ attr \+ '\]:not\(\[disabled\]\)'/.test(html), 'the live count leaves out the turned-off rows too');
 });
 test('AR7 FSAs (Kiko 13:24Z "generate FSAs for ..."): the same command lists crew from Canvas, makes and sends FSAs', () => {
   const t = arCard({}, 'generate FSAs for S-31628060SP');
