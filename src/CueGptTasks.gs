@@ -179,8 +179,35 @@ function cueGtRun_(s, save) {
 }
 
 /* ---------- step 1: code reads the records ---------- */
+/* CUE-SHEET-READS-2026-10-27 (spec specs/bridge-sheet-reads.md): a records tab on Canvas's allow-list is read through read_rows, so a
+ * Canvas rename comes back as Canvas's own refusal and the bridge's never-lists apply. The rest stay direct: Tasks and Kiko's own sheets
+ * are not Canvas books, and the P0 tabs keep their header below row 1, which read_rows does not read yet. */
+const CUE_GT_BRIDGE_ = { tri: ['tri', 'TRI'], suppliers: ['suppliers', 'Main'], directory: ['admin', 'Projects'], personal2: ['tracker', 'Personal Expenses'],
+  transfers: ['scopes', 'Transfers'], payreq: ['scopes', 'Payment Request'] };
+let cueGtAllow_ = null;   // { id, tabs }: the allow-list, read once per run
+/** True when this key's tab is on the allow-list. An unreadable allow-list means no: the tab is read direct, as before. */
+function cueGtListed_(s, name) {
+  const b = CUE_GT_BRIDGE_[name]; if (!b || !s || !s.id) return false;
+  if (!cueGtAllow_ || cueGtAllow_.id !== s.id) {
+    let tabs = []; try { tabs = (cueBridge_(s, 'allow_list', {}) || {}).tabs || []; } catch (e) { tabs = []; }
+    cueGtAllow_ = { id: s.id, tabs };
+  }
+  return cueGtAllow_.tabs.some(x => x.book === b[0] && String(x.tab).toLowerCase() === b[1].toLowerCase());
+}
+/** One allowed tab through read_rows, every page (500 rows; the pages after the first in one batch, at most 5000 rows), as
+ * { head, rows: [{ _row, Header: text }] }. Values are display text. Throws Canvas's refusal. */
+function cueGtBridgeTab_(s, name) {
+  const b = CUE_GT_BRIDGE_[name], args = at => ({ book: b[0], tab: b[1], start: at, limit: 500 });
+  const first = cueBridge_(s, 'read_rows', args(0)) || {}; let rows = first.rows || [];
+  if (first.next != null) {
+    const at = []; for (let i = first.next; i < Math.min(first.total || 0, 5000); i += 500) at.push(i);
+    cueBridgeAll_(s, at.map(i => ['read_rows', args(i)])).forEach(r => { rows = rows.concat((r && r.rows) || []); });
+  }
+  return { head: (first.columns || []).slice(), rows };
+}
 /** One tab as { head, rows: [{ _row, Header: value }] }. Header row = the first of the top 6 rows with 3+ filled cells (P0 uses row 4). Throws. */
-function cueGtTab_(name) {
+function cueGtTab_(name, s) {
+  if (cueGtListed_(s, name)) return cueGtBridgeTab_(s, name);
   const t = CUE_GT_TABS_[name], ss = SpreadsheetApp.openById(cueProp_(t[0], t[1]));
   const sh = (t[2] && ss.getSheets ? ss.getSheets().filter(x => x.getSheetId && x.getSheetId() === t[2])[0] : null) || ss.getSheetByName(t[3]);
   if (!sh) throw new Error('the "' + t[3] + '" tab was not found');
@@ -199,7 +226,7 @@ function cueGtFail_(s, what, e) {
 }
 /** Reads a tab for a task; an unreadable tab becomes a failed read and an empty list, so one locked sheet never stops the run. */
 function cueGtTry_(s, name) {
-  try { return cueGtTab_(name); }
+  try { return cueGtTab_(name, s); }
   catch (e) { cueGtFail_(s, CUE_GT_TABS_[name][3], e); return { head: [], rows: [] }; }
 }
 /** Canvas's project list, tried twice (a release can leave the bridge briefly unanswered). The tasks that need it stop with Try again when it fails. */

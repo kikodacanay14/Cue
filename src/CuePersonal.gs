@@ -136,7 +136,18 @@ function cuePeTab_(ss, name) {
   const nr = sh.getLastRow(), nc = sh.getLastColumn();
   const all = nr ? sh.getRange(1, 1, nr, nc).getValues() : [[]], head = all[0].map(h => String(h).trim());
   const col = n => { const i = head.findIndex(h => h.toLowerCase() === n.toLowerCase()); return i; };
-  return { sh, head, rows: all.slice(1), col, nc };
+  return { sh, head, rows: all.slice(1), col, nc, rowOf: i => i + 2 };
+}
+/** Transfers and Payment Request, in cuePeTab_'s shape: through read_rows when Canvas allows them (CUE-SHEET-READS-2026-10-27), else direct. */
+function cuePeBse_(s) {
+  let ss = null; const open = () => ss || (ss = SpreadsheetApp.openById(cueProp_('CUE_PERSONAL_BSE_SHEET', CUE_PE_BSE_)));
+  const one = (key, name) => {
+    if (!cueGtListed_(s, key)) return cuePeTab_(open(), name);
+    const t = cueGtBridgeTab_(s, key), head = t.head;
+    return { sh: null, head, rows: t.rows.map(o => head.map(h => o[h] == null ? '' : o[h])), col: n => head.findIndex(h => h.toLowerCase() === n.toLowerCase()),
+      nc: head.length, rowOf: i => t.rows[i]._row };
+  };
+  return { tr: one('transfers', 'Transfers'), pr: one('payreq', 'Payment Request') };
 }
 const cuePeWords_ = t => cueWords_(t).filter(w => !/^(inc|corp|gcash|maya|bank|payment|transfer)$/.test(w));
 
@@ -146,7 +157,7 @@ function cuePeCheck_(s) {
   const [cRef, cDate, cAmt, cTot, cPay] = ['Reference Number', 'Date', 'Amount (PHP)', 'Total Charged (PHP)', 'Supplier / Payee'].map(pe.col);
   if (cRef < 0 || cDate < 0) throw new Error('Personal Expense 2 has no "Reference Number" or "Date" column. Was it renamed?');
   let bse = null, bseErr = '';
-  try { const ss = SpreadsheetApp.openById(cueProp_('CUE_PERSONAL_BSE_SHEET', CUE_PE_BSE_)); bse = { tr: cuePeTab_(ss, 'Transfers'), pr: cuePeTab_(ss, 'Payment Request') }; }
+  try { bse = cuePeBse_(s); }
   catch (e) { bseErr = cueStr_((e && e.message) || e, 200); }
   s.checked = ['Personal Expense 2 (' + pe.rows.length + ' rows)'].concat(bse ? ['BSE Scopes and Transfers: Transfers and Payment Request (read-only)'] : []);
   if (bseErr) s.notes.push('Could not open BSE Scopes and Transfers to look for a project expense (' + bseErr + '). Check it yourself before saving.');
@@ -168,11 +179,11 @@ function cuePeCheck_(s) {
     if (x.state === 'new' && bse) {
       const tr = bse.tr, refCols = ['CONFIRMATION NUMBER', 'Merchant Reference', 'Invoice Number'].map(tr.col).filter(c => c >= 0), rid = tr.col('Request ID');
       const t = key.length >= 6 ? tr.rows.findIndex(r => refCols.some(c => cuePeKey_(r[c]) && (cuePeKey_(r[c]).indexOf(key) >= 0 || key.indexOf(cuePeKey_(r[c])) >= 0 && cuePeKey_(r[c]).length >= 6))) : -1;
-      if (t >= 0) { x.state = 'project'; x.request_id = cueStr_(tr.rows[t][rid], 60); x.why = 'Transfers row ' + (t + 2) + (x.request_id ? ' (' + x.request_id + ')' : '') + ' has the same reference.'; }
+      if (t >= 0) { x.state = 'project'; x.request_id = cueStr_(tr.rows[t][rid], 60); x.why = 'Transfers row ' + tr.rowOf(t) + (x.request_id ? ' (' + x.request_id + ')' : '') + ' has the same reference.'; }
       const pr = bse.pr, [pA, pP, pR] = ['Amount', 'Payee', 'Request ID'].map(pr.col), mine = cuePeWords_(x.payee + ' ' + x.recipient_name);
       if (x.state === 'new' && pA >= 0 && pP >= 0 && amt != null && mine.length) {
         const p = pr.rows.findIndex(r => cuePeNum_(r[pA]) === amt && cuePeWords_(r[pP]).some(w => mine.indexOf(w) >= 0));
-        if (p >= 0) { x.state = 'project'; x.request_id = cueStr_(pr.rows[p][pR], 60); x.why = 'Payment Request ' + (x.request_id || 'row ' + (p + 2)) + ' is for ' + cueStr_(pr.rows[p][pP], 60) + ', same amount. It may be a project expense.'; }
+        if (p >= 0) { x.state = 'project'; x.request_id = cueStr_(pr.rows[p][pR], 60); x.why = 'Payment Request ' + (x.request_id || 'row ' + pr.rowOf(p)) + ' is for ' + cueStr_(pr.rows[p][pP], 60) + ', same amount. It may be a project expense.'; }
       }
     }
     // 3. Not a personal expense debit.
