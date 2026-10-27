@@ -188,7 +188,7 @@ function cueArDue_() {
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Needs you') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
-    if (s.kind !== 'ar' || s.stage !== 'Send later' || !(s.ar && s.ar.send_at <= now)) return;
+    if (s.kind !== 'ar' || s.stage !== 'Send later' || !(s.ar && s.ar.send_at <= now) || s.check) return;   // a cloud check's Send later never sends
     cueLocked_(() => { const L = cueLoad_(s.id); if (!L || L.s.status !== 'Needs you' || L.s.stage !== 'Send later') return;
       L.s.status = 'Working'; L.s.stage = 'Sending'; cueSave_(L.sh, L.row, L.s); });
   });

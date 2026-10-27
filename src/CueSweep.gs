@@ -514,6 +514,7 @@ function cueSweepTick_() {
   const rows = cueRows_(cueSheet_('Requests'));
   rows.forEach(r => {
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
+    if (s.check) return;   // a cloud check's task never sends on a schedule (CueCheck.gs)
     try {
       if (s.kind === 'sweep' && s.status === 'Scheduled' && s.batch && s.batch.send_at <= now) {
         const x = cueLocked_(() => {

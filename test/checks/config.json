@@ -1,0 +1,23 @@
+{
+  "about": "The Canvas test project the cloud check may write to (src/CueCheck.gs, tools/check.mjs). project_id stays empty until Kiko's CUE TEST project exists in Canvas; Check Cue refuses to run until then. The project's event date must be in the past, so Canvas never sends its FSAs on its own. Its crew: One (email alias, registered with crew sign-in), Two (email alias, not registered), Three (no email).",
+  "project_id": "",
+  "project_name": "CUE TEST",
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$",
+  "crew": [
+    {
+      "name": "Cue Test One",
+      "email": true,
+      "registered": true
+    },
+    {
+      "name": "Cue Test Two",
+      "email": true,
+      "registered": false
+    },
+    {
+      "name": "Cue Test Three",
+      "email": false,
+      "registered": false
+    }
+  ]
+}
