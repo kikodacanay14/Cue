@@ -5132,6 +5132,18 @@ test('CK7 every server function the page calls is either a check function or lis
   assert.ok(!/\bMailApp\.|GmailApp\.(send|createDraft)|Gmail\.Users\.(Messages|Drafts)\.send|messages\/send/.test(CODE), 'mail leaves only through drafts/send, which the lock reads');
 });
 
+test('CK11 the 1.27.34 email log check only reads: it lists the client emails this hour would log, claims no plan, writes no crm_log and adds no tab', () => {
+  const t = checkBox({ waiting: WAIT });
+  const r = t.call('cueCrmLogCheck'); assert.ok(r.ok, r.error);
+  deq(r.result.would.map(a => [a.who, a.kind, a.email, a.date]), [['Client', 'Email', 'ana@acme.example', '2026-10-21'], ['Client', 'Email', 'joy@beta.example', '2026-10-21']]);
+  deq([r.result.waiting, r.result.logged], [3, 0]);
+  assert.ok(r.result.would.every(a => bridgeCheck('crm_log', { request_id: a.request_id, kind: a.kind, contact: a.contact, email: a.email, summary: a.summary, date: a.date }) === ''), 'each row fits the bridge schema');
+  deq(t.log.bridge.map(b => b.action), ['mail_waiting']);
+  assert.ok(!t.tabs['CRM Email Log'], 'no tab added');
+  deq(t.door('check_finish').stopped, []);
+  assert.throws(() => sandbox({ waiting: WAIT }).ctx.cueCrmLogCheck(), /Only a cloud check/);
+});
+
 // ---------- CUE-EDIT-2026-10-27: generic Canvas edits (CueEdit.gs) ----------
 const ED_ALLOW = [
   { book: 'tracker', tab: 'BI', key: 'BI NUMBER', mode: 'update', columns: ['PROJECT ID', 'BI NUMBER', 'DESCRIPTION', 'STATUS'], writable: ['DESCRIPTION'],
