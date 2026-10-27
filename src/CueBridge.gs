@@ -36,6 +36,8 @@ function cueBridge_(s, action, args, pid) { return cueBridgeAll_(s, [[action, ar
 const cueSha_ = t => Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t)).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
 function cueBridgePlan_(s, cmds) {   // cmds: [{ command_id, action, args, pid }]
   const commands = cmds.map(c => ({ command_id: c.command_id, payload_hash: cueSha_(JSON.stringify([c.action, c.pid || '', '', c.args])) }));
-  const res = UrlFetchApp.fetchAll([cueBridgeReq_(s, 'claim_plan', { plan_hash: cueSha_(JSON.stringify(commands)), commands }, '', 'plan:' + s.id)])[0];
+  const planHash = cueSha_(JSON.stringify(commands));
+  if (globalThis.CUE_CHECK_ON_) cueCheckPlan_(cmds, planHash);   // cloud check: every command must name the test project (CueCheck.gs)
+  const res = UrlFetchApp.fetchAll([cueBridgeReq_(s, 'claim_plan', { plan_hash: planHash, commands }, '', 'plan:' + s.id)])[0];
   return cueBridgeParse_('claim_plan', res);
 }
