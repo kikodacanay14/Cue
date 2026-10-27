@@ -746,6 +746,7 @@ function cueResume() {
   try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
   try { cueFixStuckWrites_(); } catch (e) { console.error('cueFixStuckWrites_: ' + e); }   // 1.27.7: CE cost / expense approved before the save fix
   try { cueArDue_(); } catch (e) { console.error('cueArDue_: ' + e); }   // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
+  try { cueCrmLogTick_(); } catch (e) { console.error('cueCrmLogTick_: ' + e); }   // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }

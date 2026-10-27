@@ -225,6 +225,47 @@ function sandbox(o = {}) {
         if (o.invRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.invRefused } });
         return resp(200, { ok: true, status: 'Completed', result: body.args.bi_no ? { saved: true, where: 'bi', bi_no: body.args.bi_no, now: body.args.line + '. old', pdf: 'https://drive.example/bi.pdf' }
           : { saved: true, where: 'po', po_no: body.args.po_no, now: body.args.line + '. PO dated August 27, 2026' } }); }
+      // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
+      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
+      // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
+      if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
+        if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
+        pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
+      if (body.action === 'crm_log') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c) return resp(200, { ok: false, status: 'Rejected', error: 'command is not in the claimed plan for this task' });
+        if (c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command payload differs from the claimed plan' });
+        (log.crmLog = log.crmLog || []).push(body.args);
+        if ((o.crmRefused || []).indexOf(body.args.email) >= 0) return resp(200, { ok: true, status: 'Completed', result: { refused: 'No account matches. Nothing was saved.' } });
+        if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
+        const again = (log.crmSeen = log.crmSeen || {})[body.args.request_id]; log.crmSeen[body.args.request_id] = 1;
+        return resp(200, { ok: true, status: 'Completed', result: { act: { ID: 'A-' + log.crmLog.length }, again: !!again } }); }
+      // CUE-EDIT-2026-10-27: the generic bridge (allow_list, read_rows; write_rows and allow_list_set as claimed plans' commands).
+      if (body.action === 'allow_list') return resp(200, { ok: true, status: 'Completed', result: { tabs: (o.allow || ED_ALLOW).map(x => ({ book: x.book, tab: x.tab, key: x.key, mode: x.mode })), functions: [], hash: 'h', protected: true } });
+      if (body.action === 'read_rows') { (log.readRows = log.readRows || []).push(body.args);
+        const T = (o.allow || ED_ALLOW).find(x => x.book === body.args.book && x.tab === body.args.tab);
+        if (!T) return resp(200, { ok: false, status: 'Blocked', error: body.args.book + ' › ' + body.args.tab + ' is not on the allow-list' });
+        const rows = T.rows.filter(r => (body.args.where || []).every(w => w.equals != null ? String(r[w.column]).toLowerCase() === w.equals.toLowerCase() : String(r[w.column]).toLowerCase().indexOf(w.contains.toLowerCase()) >= 0));
+        const lim = body.args.limit || 100;
+        return resp(200, { ok: true, status: 'Completed', result: { book: T.book, tab: T.tab, key: T.key, mode: T.mode, columns: T.columns, writable: T.writable, total: rows.length, rows: rows.slice(0, lim), next: null } }); }
+      if (body.action === 'write_rows' || body.action === 'allow_list_set') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
+        (log.genWrites = log.genWrites || []).push({ action: body.action, args: body.args });
+        if (o.genRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.genRefused } });
+        return resp(200, { ok: true, status: 'Completed', result: body.action === 'write_rows' ? { saved: true, key: body.args.key, now: body.args.set } : { saved: true, row: 6 } }); }
+      // CUE-LOOKUP-2026-10-27: Canvas's bi_list (read) and invoice_line (a claimed plan's write), with the bridge's shapes.
+      if (body.action === 'bi_list') { (log.biList = log.biList || []).push(body.args); return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.bis || BI_LIST)) }); }
+      if (body.action === 'invoice_line') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
+        (log.invLines = log.invLines || []).push({ pid: body.project_id, args: body.args });
+        if (o.invRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.invRefused } });
+        return resp(200, { ok: true, status: 'Completed', result: body.args.bi_no ? { saved: true, where: 'bi', bi_no: body.args.bi_no, now: body.args.line + '. old', pdf: 'https://drive.example/bi.pdf' }
+          : { saved: true, where: 'po', po_no: body.args.po_no, now: body.args.line + '. PO dated August 27, 2026' } }); }
       if (body.action === 'accreditation_gaps') { log.accrGaps = (log.accrGaps || 0) + 1; return o.accrFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: o.accr || { today: '2026-10-21', rows: [] } }); }
       if (body.action === 'log_accreditation_reminder') { (log.accrLog = log.accrLog || []).push(body.args);
@@ -659,8 +700,9 @@ test('C10 Canvas changes a number on re-check: nothing written, card returns wit
 test('C11 apply fails: stops "Failed", never retried by the trigger; "Check Canvas and finish" calls apply only', () => {
   const t = startToCard({ applyFails: true }), v = t.ctx.cueApprove(t.id, {});
   assert.strictEqual(v.status, 'Failed'); assert.ok(/trying again never writes twice/.test(v.error));
-  const before = t.log.bridge.length; t.ctx.cueResume(); assert.strictEqual(t.log.bridge.length, before);
-  t.ctx.cueApprove(t.id, {}); deq(t.log.bridge.slice(before).map(b => b.action), ['apply_intake']);
+  const own = () => t.log.bridge.filter(b => b.action !== 'mail_waiting' && b.action !== 'crm_log');   // the hourly email log reads on its own (CL1)
+  const before = own().length; t.ctx.cueResume(); assert.strictEqual(own().length, before);
+  t.ctx.cueApprove(t.id, {}); deq(own().slice(before).map(b => b.action), ['apply_intake']);
 });
 test('C12 reject: nothing goes to Canvas', () => {
   const t = startToCard(), v = t.ctx.cueReject(t.id, 'Duplicate');
@@ -1882,11 +1924,12 @@ test('X4 approve needs every doubt ticked and the same files; then Canvas record
 test('X4b 1.27.7 backfill: an expense approved before the fix (stuck at Writing to Canvas, summary posted) is marked Done on the tick; no Canvas call', () => {
   const t = expenseCard(); t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });
   const L = t.ctx.cueLoad_(t.id); L.s.status = 'Writing to Canvas'; L.s.stage = 'Writing to Canvas'; t.ctx.cueSave_(L.sh, L.row, L.s);   // as the old code left it
-  const calls = t.log.bridge.length;
+  const own = () => t.log.bridge.filter(b => b.action !== 'mail_waiting').length;   // the hourly email log reads on its own (CL1)
+  const calls = own();
   t.ctx.cueFixStuckWrites_(); assert.strictEqual(t.state(t.id).status, 'Writing to Canvas', 'not within 10 minutes of Approve');
   t.ctx.__wait(11 * 60 * 1000); t.ctx.cueResume();
   const s = t.state(t.id); deq([s.status, s.stage], ['Done', 'Done']); assert.ok(s.notes.some(n => /from its summary line/.test(n)));
-  assert.strictEqual(t.log.bridge.length, calls, 'no Canvas call');
+  assert.strictEqual(own(), calls, 'no Canvas call');
   const u = expenseCard(); const M = u.ctx.cueLoad_(u.id); M.s.status = 'Writing to Canvas'; M.s.approved_at = new Date(0).toISOString(); u.ctx.cueSave_(M.sh, M.row, M.s);
   u.ctx.cueFixStuckWrites_(); assert.strictEqual(u.state(u.id).status, 'Writing to Canvas', 'no summary line: left alone');
 });
@@ -5448,6 +5491,77 @@ test('ED4 Canvas allows nothing yet: a plain answer with how to allow a tab, no 
   let t = sandbox({ talk: TALK_ED, allow: [] }); t.ctx.cueSend('put Attn on BI 0014', [], '');
   assert.ok(/not allowed to edit any Canvas tab yet/.test(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2])); assert.strictEqual(t.log.claude.length, 0);
 });
+
+// CUE-CRM-EMAIL-LOG-2026-10-26 (spec canvas-crm-funnel.md F5; Kiko 16:10Z "Log automatically").
+const WAIT = { on: true, stale: false, checked: 3, items: [
+  { id: 'aa01b2c3d4e5f6a7', from: 'Ana Reyes <ana@acme.example>', email: 'ana@acme.example', subject: 'Re: Year-end party CE', at: '2026-10-21T01:30:00Z', unread: true, who: 'Client', name: 'Ana Reyes', pid: 'S-1', project: 'Acme Gala' },
+  { id: 'aa02b2c3d4e5f6a7', from: 'Sonic Pro <sales@sonicpro.example>', email: 'sales@sonicpro.example', subject: 'Invoice', at: '2026-10-21T01:00:00Z', unread: false, who: 'Supplier', name: 'Sonic Pro', pid: '', project: '' },
+  { id: 'aa03b2c3d4e5f6a7', from: 'joy@beta.example', email: 'joy@beta.example', subject: 'Booth size?', at: '2026-10-20T23:00:00Z', unread: true, who: 'Client', name: '', pid: '', project: '' }] };
+const crmTabRows = t => (t.tabs['CRM Email Log'] ? t.tabs['CRM Email Log'].rows.slice(1) : []);
+
+test('CL1 client emails are logged to Accounts once an hour with no tap: clients only, one row per thread per day, no AI call', () => {
+  const t = sandbox({ waiting: WAIT });
+  const r = t.ctx.cueCrmLogTick_();
+  deq([r.logged, r.failed], [2, 0]);
+  deq(t.log.crmLog.map(a => [a.kind, a.email, a.date]), [['Email', 'ana@acme.example', '2026-10-21'], ['Email', 'joy@beta.example', '2026-10-21']]);
+  assert.ok(/^Email from Ana Reyes: Re: Year-end party CE \(project Acme Gala\)$/.test(t.log.crmLog[0].summary), t.log.crmLog[0].summary);
+  assert.ok(t.log.crmLog.every(a => /^cuemail:[A-Za-z0-9_-]+:\d{4}-\d{2}-\d{2}$/.test(a.request_id)), 'request_id fits the bridge pattern');
+  assert.ok(!t.log.crmLog.some(a => a.email === 'sales@sonicpro.example'), 'suppliers are not logged');
+  deq(crmTabRows(t).map(x => x[7]), ['Logged', 'Logged']);
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  assert.strictEqual(t.ctx.cueCrmLogTick_(), null, 'the same hour does not run twice');
+  t.ctx.__wait(3600 * 1000); const r2 = t.ctx.cueCrmLogTick_();
+  deq([r2.logged, t.log.crmLog.length, t.log.mailWaiting], [0, 2, 2]);
+});
+
+test('CL2 a refused write is listed as Failed and retried next hour; outside 08:00 to 21:00 Manila nothing runs; email check off says so', () => {
+  const t = sandbox({ waiting: WAIT, crmFail: ['joy@beta.example'] });
+  const r = t.ctx.cueCrmLogRun_();
+  deq([r.logged, r.failed], [1, 1]);
+  assert.ok(/^Failed: Canvas refused crm_log/.test(crmTabRows(t)[1][7]));
+  t.opts.crmFail.length = 0; const r2 = t.ctx.cueCrmLogRun_();
+  deq([r2.logged, t.log.crmLog.slice(-1)[0].email], [1, 'joy@beta.example']);
+  t.ctx.__wait(12 * 3600 * 1000); const before = t.log.mailWaiting;
+  assert.strictEqual(t.ctx.cueCrmLogTick_(), null); assert.strictEqual(t.log.mailWaiting, before, 'no Canvas read at night');
+  const off = sandbox({ waiting: { on: false, items: [] } });
+  assert.ok(/Email check is off/.test(off.ctx.cueCrmLogRun_().note)); assert.ok(!(off.log.crmLog || []).length);
+});
+
+test('CL4 each run claims a plan before its crm_log writes (Canvas refuses a write without one); a CRM refusal is Failed, not Logged', () => {
+  const t = sandbox({ waiting: WAIT, crmRefused: ['joy@beta.example'] });
+  const r = t.ctx.cueCrmLogRun_();
+  deq([r.logged, r.failed], [1, 1]);
+  const acts = t.log.bridge.map(b => b.action).filter(a => a !== 'mail_waiting');
+  deq(acts, ['claim_plan', 'crm_log', 'crm_log']);
+  const plan = t.log.bridge.find(b => b.action === 'claim_plan');
+  assert.strictEqual(plan.command_id, 'plan:' + plan.task_id); assert.strictEqual(plan.args.commands.length, 2);
+  assert.ok(/^Failed: Canvas refused crm_log: No account matches/.test(crmTabRows(t)[1][7]), crmTabRows(t)[1][7]);
+  t.ctx.__wait(60 * 1000); t.ctx.cueCrmLogRun_();
+  const plans = t.log.bridge.filter(b => b.action === 'claim_plan');
+  assert.strictEqual(plans.length, 2); assert.notStrictEqual(plans[0].task_id, plans[1].task_id, 'a new run is a new task, so its plan is never refused as different');
+});
+
+test('CL3 cueResume runs the email log; a Canvas failure never stops the rest of the tick', () => {
+  const t = sandbox({ waiting: WAIT });
+  t.ctx.cueResume();
+  assert.strictEqual((t.log.crmLog || []).length, 2);
+  const u = sandbox({ waiting: WAIT, crmFail: ['ana@acme.example', 'joy@beta.example'] });
+  u.ctx.cueResume();
+  deq(crmTabRows(u).map(x => /^Failed/.test(x[7])), [true, true]);
+});
+
+test('CK11 the 1.27.34 email log check only reads: it lists the client emails this hour would log, claims no plan, writes no crm_log and adds no tab', () => {
+  const t = checkBox({ waiting: WAIT });
+  const r = t.call('cueCrmLogCheck'); assert.ok(r.ok, r.error);
+  deq(r.result.would.map(a => [a.who, a.kind, a.email, a.date]), [['Client', 'Email', 'ana@acme.example', '2026-10-21'], ['Client', 'Email', 'joy@beta.example', '2026-10-21']]);
+  deq([r.result.waiting, r.result.logged], [3, 0]);
+  assert.ok(r.result.would.every(a => bridgeCheck('crm_log', { request_id: a.request_id, kind: a.kind, contact: a.contact, email: a.email, summary: a.summary, date: a.date }) === ''), 'each row fits the bridge schema');
+  deq(t.log.bridge.map(b => b.action), ['mail_waiting']);
+  assert.ok(!t.tabs['CRM Email Log'], 'no tab added');
+  deq(t.door('check_finish').stopped, []);
+  assert.throws(() => sandbox({ waiting: WAIT }).ctx.cueCrmLogCheck(), /Only a cloud check/);
+});
+
 
 if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox
 else {
