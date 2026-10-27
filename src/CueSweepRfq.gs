@@ -13,6 +13,10 @@ const CUE_RFQ_ = { lookbackDays: 30, maxThreads: 60, soonDays: 7 };
 // Used only when the Chaser rules card has no rfq rule (Kiko approved 3 / 3 / max 2 working days; event within 7 days: 1 and 1).
 const CUE_RFQ_RULE_ = { on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 };
 const CUE_RFQ_Q_ = '(RFQ OR RFQs OR requote OR "request for quotation" OR "request for quote")';
+// Bug fix 27 Oct: BSE's own applications to become a client's supplier (accreditation, vendor registration) mention "RFQ" in the
+// body, so the search found them and they were chased as RFQs. They are left out of the search and, by their first subject, here.
+const CUE_RFQ_NOT_Q_ = ' -subject:accreditation -subject:"vendor registration" -subject:"supplier registration"';
+function cueRfqNotRfq_(subj) { return /accredit|\b(vendor|supplier)\s+(registration|enroll?ment|onboarding)\b|procurement process/i.test(String(subj || '')); }
 const CUE_PUBLIC_MAIL_ = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
 
 /** Mon to Fri days after day `from` up to and including `to` (both YYYY-MM-DD, PH dates). */
@@ -63,7 +67,7 @@ function cueRfqFind_(ctx) {
     .map(r => (r.getResponseCode() === 200 ? JSON.parse(r.getContentText() || '{}') : null));
   // 1. Candidate threads: Kiko's sent RFQs (search), plus every RFQ Cue sent itself, whatever its subject.
   const known = cueRfqKnown_(), threads = {};
-  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + CUE_RFQ_Q_)).messages || [])
+  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + CUE_RFQ_Q_ + CUE_RFQ_NOT_Q_)).messages || [])
     .forEach(m => { threads[m.threadId] = 1; });
   const ours = Object.keys(known.byMsg);
   many(ours.map(id => CUE_GMAIL_ + '/messages/' + encodeURIComponent(id) + '?format=minimal')).forEach(m => { if (m && m.threadId) threads[m.threadId] = 1; });
@@ -78,6 +82,7 @@ function cueRfqFind_(ctx) {
       return { id: m.id, ms: Number(m.internalDate) || 0, draft: (m.labelIds || []).indexOf('DRAFT') >= 0, h, from: cueRfqAddr_(h.from)[0] || '', snippet: cueStr_(m.snippet, 300) }; })
       .sort((a, b) => a.ms - b.ms);
     if (msgs.some(m => m.draft)) return;                          // a nudge or reply is already waiting in Drafts
+    if (cueRfqNotRfq_(msgs[0].h.subject)) return;                 // BSE's own supplier application, not an RFQ
     const last = msgs[msgs.length - 1];
     if (!isUs(last.from)) return;                                 // the supplier (or someone else) spoke last
     const to = cueRfqAddr_(last.h.to).filter(a => !isUs(a));

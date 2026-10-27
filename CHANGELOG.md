@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (chaser bug fixes, not deployed)
+
+Found 27 Oct 2026 by the "Show chaser setup and email content" thread, after Kiko asked at 09:57Z whether the chasers were set up and what they say. The coordinator asked for both fixes at 10:01Z (bugs first). Built on the live line, release branch claude/project-thread-mg5lcj-rel12733 (Cue 1.27.33).
+
+- RFQ chasers no longer chase BSE's own applications to become a client's supplier. These are emails about supplier accreditation, vendor registration or a procurement process inquiry, and they mention "RFQ" in the body. On 22 Oct three were sent as "RFQ reminder", and on 27 Oct three more were waiting. They are left out of the Gmail search, and a thread whose first subject names them is skipped.
+- Accreditation chasers never email an address that cannot take a reply, such as no-reply, bounce, mailer-daemon, notifications or an invoicing app's sender like message-service@sender.zohoinvoice.com. A supplier with only such addresses becomes a "No email address on file" line.
+- Accreditation emails never ask for an account number or account name. Code turns down a ChatGPT draft that does, and the template is used instead. Canvas's ask list item "Bank details for payment (bank, account name and account number)" becomes "Bank details for payment". Kiko's own edit that asks is refused with a plain reason, and no draft is made.
+- Tests: Q5, AC8 and AC9 (354/354).
+
 ## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
 
 Kiko 26 Oct 13:22Z ("i need you to have a command that can trigger this"), 13:24Z ("generate ARs, for... generate FSAs, for ... and then you will ask do you want me to send those after?"), 13:25Z (making the files takes a while, so the send question comes after), 13:30Z ("Generating 15 of 50") and 13:31Z ("60 files done. Do you want me to send these files... a draft with buttons... Send, Edit and Send Later").
