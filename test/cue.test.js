@@ -1275,6 +1275,16 @@ test('PY6 the Chaser rules card drives payments: first sets the days late asked 
   const u = payBox(); u.ctx.cueRulesSave({ 'payment.on': false }); u.ctx.cueSweep(); assert.ok(!u.log.overdue, 'paused: no Canvas read');
 });
 
+test('Q5 BSE\'s own supplier applications (accreditation, vendor registration) are not RFQs: left out of the search and never chased', () => {
+  const mine = { bbbb0000000000b1: [gm('b1', PH('2026-10-12', 10), KIKO, 'karen@results.example', 'Request for Supplier Accreditation — Events Management & Technical Production | Blank Space Events OPC')],
+    bbbb0000000000b2: [gm('b2', PH('2026-10-12', 10), KIKO, 'manila@state.example', 'Vendor Registration / Procurement Process Inquiry — Events & Technical Production')],
+    bbbb0000000000b3: [gm('b3', PH('2026-10-12', 10), KIKO, 'supplier@dxc.example', 'Philippines event supplier accreditation — Blank Space Events OPC')] };
+  const threads = Object.assign({}, RFQ_THREADS, mine), sent = Object.keys(threads).map(t => ({ id: threads[t][0].id, thread: t, ms: Number(threads[t][0].internalDate), to: '', subject: '', snippet: '' }));
+  const t = rfqBox({ threads, sent, sentSearch: sent.filter(m => m.id !== 'cue-sent-1') }); t.ctx.cueSweep();
+  deq(rfqBatch(t).batch.items.map(i => i.key), ['rfq:aaaa0000000000a6', 'rfq:aaaa0000000000a1']);
+  assert.ok(/-subject:accreditation -subject:"vendor registration"/.test(t.log.gmailQ), t.log.gmailQ);
+  deq(['RFQ | BEKO Booth', 'Request for Supplier Accreditation', 'Vendor Registration / Procurement Process Inquiry', 'Supplier enrollment form', 'Re: RFQ: LED wall'].map(x => t.ctx.cueRfqNotRfq_(x)), [false, true, true, true, false]);
+});
 test('Q1 finds only RFQs still waiting: 3 working days, no reply in or out of the thread, no draft waiting, project open, not muted by setting, outside BSE', () => {
   const t = rfqBox(); t.ctx.cueSweep(); const b = rfqBatch(t);
   assert.strictEqual(b.status, 'Needs you');
@@ -2787,6 +2797,32 @@ test('AC7 a form Kiko sent by hand from a Drafts-only batch counts as sent: no s
 test('AC6 Canvas down: the other kinds still run and the batch says accreditation could not be checked', () => {
   const t = sweepBox({ accrFail: true }); t.ctx.cueSweep(); const b = batchOf(t);
   assert.ok(b.batch.items.length > 0 && b.notes.some(n => /Accreditation chasers: could not check/.test(n)));
+});
+test('AC8 no-reply senders are never emailed: dropped from To and from the Gmail search; a supplier with only a no-reply address is a call line', () => {
+  const rows = ACCR.rows.map(r => r.supplier === 'Build Co' ? Object.assign({}, r, { sent_to: ['message-service@sender.zohoinvoice.com', 'Heidi@Build.example'] })
+    : r.supplier === 'Fresh Co' ? Object.assign({}, r, { form_sent: '', sent_to: ['noreply@fresh.example', 'bounce@mailer.fresh.example'] }) : r);
+  const t = accrBox({ accr: Object.assign({}, ACCR, { rows }) }); t.ctx.cueSweep(); const st = t.state(batchOf(t).id).batch.items;
+  deq(st.find(i => i.who === 'Build Co').to, 'heidi@build.example');
+  const fresh = accrItems(batchOf(t)).find(i => i.who === 'Fresh Co');
+  assert.ok(fresh.no_email && /No email address on file/.test(fresh.why), 'only no-reply addresses: nothing to email');
+  assert.ok(!t.log.gmailQs.some(q => /zohoinvoice|noreply@|mailer\.fresh/.test(q)), 'no-reply addresses are not searched either');
+  deq(['no-reply@x.example', 'do-not-reply@x.example', 'mailer-daemon@x.example', 'notifications@x.example', 'a@sender.zohoinvoice.com', 'ben@sonic.example', 'replies@x.example']
+    .map(e => t.ctx.cueNoReply_(e)), [true, true, true, true, true, false, false]);
+});
+
+test('AC9 the email never asks for an account number: a ChatGPT draft that does is replaced by the template, Canvas\'s ask list is cut to "Bank details", and Kiko\'s edit that asks is refused', () => {
+  const rows = ACCR.rows.map(r => r.supplier === 'Build Co' ? Object.assign({}, r, { asks: [['Everyone', ['Your TIN', 'Bank details for payment (bank, account name and account number)']]] }) : r);
+  const t = accrBox({ accr: Object.assign({}, ACCR, { rows }), chaserBody: x => 'Hi ' + x.facts.supplier + ', please send your bank, account name and account number. ' + x.facts.form_url });
+  t.ctx.cueSweep(); const b = batchOf(t), st = t.state(b.id).batch.items.filter(i => i.kind === 'accreditation' && !i.no_email);
+  assert.ok(st.length === 2 && st.every(i => i.drafted_by === 'template'), 'ChatGPT asked for the account number: template used');
+  assert.ok(st.every(i => !/account (name|number|no)/i.test(i.body)), 'the template never asks either');
+  const build = st.find(i => i.who === 'Build Co'); assert.ok(/- Bank details for payment\n/.test(build.body) || /- Bank details for payment$/m.test(build.body), build.body);
+  assert.ok(b.notes.some(n => /left out a required detail|fixed wording/.test(n)));
+  const u = accrBox(); u.ctx.cueSweep(); u.at('2026-10-21', 10, 0);
+  u.ctx.cueApprove(batchOf(u).id, { send: false, bodies: { 'accr-form:buildco': 'Hi, please reply with your account number. https://docs.google.com/forms/d/VAF/viewform' } });
+  const e = u.state(batchOf(u).id).batch.items.find(i => i.who === 'Build Co');
+  assert.ok(/never asks for an account number/.test(e.error), e.error); assert.ok(!u.log.gmail.some(r => /build\.example/.test(r)), 'no draft made');
+  deq(['Please send your acct. no.', 'Account No: ___', 'your account name please', 'send your bank details', 'Account #'].map(x => t.ctx.cueAccrAsksAccount_(x)), [true, true, true, false, true]);
 });
 /* ---------- Write Like Me (specs/write-like-me.md) ---------- */
 const MINE = [

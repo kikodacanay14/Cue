@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.27.40: Chaser bug fixes (not deployed)
+
+Found 27 Oct 2026 by the "Show chaser setup and email content" thread, after Kiko asked at 09:57Z whether the chasers were set up and what they say. The coordinator asked for both fixes at 10:01Z (bugs first). Built on the live line 1.27.33 (6be58a7, Cue PR #117), then moved by the deploys thread onto live 1.27.38, release branch claude/project-thread-y5l4x9-rel12740. 1.27.39 is held for New mail.
+
+- RFQ chasers no longer chase BSE's own applications to become a client's supplier. These are emails about supplier accreditation, vendor registration or a procurement process inquiry, and they mention "RFQ" in the body. On 22 Oct three were sent as "RFQ reminder", and on 27 Oct three more were waiting. They are left out of the Gmail search, and a thread whose first subject names them is skipped.
+- Accreditation chasers never email an address that cannot take a reply, such as no-reply, bounce, mailer-daemon, notifications or an invoicing app's sender like message-service@sender.zohoinvoice.com. A supplier with only such addresses becomes a "No email address on file" line.
+- Accreditation emails never ask for an account number or account name. Code turns down a ChatGPT draft that does, and the template is used instead. Canvas's ask list item "Bank details for payment (bank, account name and account number)" becomes "Bank details for payment". Kiko's own edit that asks is refused with a plain reason, and no draft is made.
+- Tests: Q5, AC8 and AC9 new (367/367 on the release branch).
+
 ## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (deployed 27 Oct 2026 10:18Z as Version 90)
 
 Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat refused to check the Transfers sheet for a GCash payment matching a cash one (Cups, AP-CUP-TRI-1) and refused to add REC-10307792 to the Telus Trick or Treat invoice. Cue had the access; it had no command. Kiko approved the spec (`transfer-lookup-invoice-edit.md`) at 09:20Z: "give cue edit rights and look up rights".
