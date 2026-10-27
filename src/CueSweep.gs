@@ -160,6 +160,7 @@ function cueChaseLog_() {
 }
 /** Writes one log line (adds it when new). */
 function cueChaseWrite_(log, it, patch) {
+  if (globalThis.CUE_CHECK_ON_) return Object.assign({}, log[it.key] || {}, patch);   // CUE-CLOUD-CHECK: a check never changes the Chase log
   const sh = cueChaseSheet_(), was = log[it.key] || { kind: it.kind, project: it.project || '', who: it.who || '', last: '', times: 0, next: '', muted: false, note: '' };
   const x = Object.assign({}, was, patch);
   const row = [it.key, x.kind, x.project, x.who, x.last, x.times, x.next, !!x.muted, String(x.note || '').slice(0, 500)];
@@ -180,7 +181,9 @@ function cueSweep() {
 function cueSweepNow() {
   cueOwner_();
   const today = cuePh_(cueNow_()).day;
-  const open = cueRecent_(2).filter(x => x.kind === 'sweep' && x.day === today && (x.status === 'Needs you' || x.status === 'Working'))[0];
+  // CUE-CLOUD-CHECK: a check run never opens Kiko's own batch, and Kiko's page never opens a check's batch.
+  const mine = String(globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '');
+  const open = cueRecent_(2).filter(x => x.kind === 'sweep' && x.day === today && (x.status === 'Needs you' || x.status === 'Working') && String(x.check || '') === mine)[0];
   if (open) return cueView_(open);
   return cueView_(cueSweepStart_('manual'));
 }
@@ -190,10 +193,10 @@ function cueSweepStart_(how) {
   const s = { id, version: CUE_VERSION_, kind: 'sweep', how, created: new Date(now).toISOString(), started: now, day: ph.day,
     text: 'Morning batch for ' + ph.day, status: 'Working', stage: 'Finding', ref: '', metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => {
-    PropertiesService.getScriptProperties().setProperty('CUE_SWEEP_DAY', ph.day);
-    const sh = cueSheet_('Requests');
+    const sh = cueSheet_('Requests'), check = !!globalThis.CUE_CHECK_ON_;   // a check run leaves the 07:00 batch and Kiko's batches alone
+    if (!check) PropertiesService.getScriptProperties().setProperty('CUE_SWEEP_DAY', ph.day);
     // An older batch Kiko never approved is closed: its lines were not chased, so today's batch lists them again.
-    cueRows_(sh).forEach((r, i) => {
+    if (!check) cueRows_(sh).forEach((r, i) => {
       if (String(r[2]) !== 'Needs you') return;
       let x = null; try { x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
       if (x.kind === 'sweep' && x.day !== ph.day) { x.status = 'Closed'; x.closed_from = 'Needs you'; x.superseded = id; cueSave_(sh, i + 2, x); }
@@ -260,12 +263,12 @@ function cueSweepRun_(s, save) {
   s.card_at = s.ready_at = cueNow_();
   if (!items.length && !stopped.length) {
     s.status = 'Done'; s.stage = 'Done'; s.quiet = true;
-    cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
+    if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
     cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), '');
     return;
   }
   s.status = 'Needs you'; s.stage = 'Needs you';
-  cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
+  if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
   const counts = {}; items.forEach(it => { counts[it.label] = (counts[it.label] || 0) + 1; });
   const what = Object.keys(counts).map(l => counts[l] + ' ' + l).concat(stopped.length ? [stopped.length + ' to decide on (chased the max times)'] : []).join(', ');
   const line = 'Morning batch is ready: ' + what + (over ? '. ' + over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.';

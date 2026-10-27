@@ -5315,6 +5315,39 @@ test('CK9 check mode reads BSE Scopes and Transfers through a read-only view: th
   assert.doesNotThrow(() => t.ctx.cueCheckBridgeOk_(JSON.stringify({ action: 'bi_list', args: { query: 'telus' } })));
   assert.throws(() => t.ctx.cueCheckBridgeOk_(JSON.stringify({ action: 'invoice_line', project_id: 'S-25506500TR' })), /invoice_line on S-25506500TR/);
 });
+// Cloud check 1.27.40 chasers (test/checks/1.27.40-chasers.check.mjs): RFQ and accreditation chasers in a check run, with BSE's own
+// supplier applications in Kiko's sent mail and a supplier whose only other address is an invoicing app's no-reply sender.
+const CHASE_APPS = { bbbb0000000000b1: [gm('b1', PH('2026-10-12', 10), KIKO, 'karen@results.example', 'Request for Supplier Accreditation — Events Management & Technical Production | Blank Space Events OPC')],
+  bbbb0000000000b2: [gm('b2', PH('2026-10-12', 10), KIKO, 'manila@state.example', 'Vendor Registration / Procurement Process Inquiry — Events & Technical Production')] };
+function chaseBox(o = {}) {
+  const threads = Object.assign({}, RFQ_THREADS, CHASE_APPS), sent = Object.keys(threads).map(t => ({ id: threads[t][0].id, thread: t, ms: Number(threads[t][0].internalDate), to: '', subject: '', snippet: '' }));
+  const rows = ACCR.rows.map(r => r.supplier === 'Build Co' ? Object.assign({}, r, { sent_to: ['message-service@sender.zohoinvoice.com', 'Heidi@Build.example'] }) : r);
+  const sentSearch = sent.filter(m => m.id !== 'cue-sent-1');
+  return rfqBox(Object.assign({ threads, sent, sentSearch, accr: Object.assign({}, ACCR, { rows }), msgs: ACCR_MSGS,
+    gmailList: q => (/Supplier accreditation/.test(q) ? (/sonic/.test(q) ? ACCR_MSGS : []) : sentSearch),
+    talk: { reply: 'Running the sweep now.', looks_like_inquiry: false, start_intake: '', task: '', run_sweep: true } }, o));
+}
+test('CK10 the chasing sweep in a check run reads only: its own batch, no sweep day, no Chase log, no Canvas posted-hook; applications and no-reply To left out', () => {
+  const t = chaseBox({ code: checkCode({ until: Date.parse('2030-01-01T00:00:00Z') }) }); t.door = doorOf(t); t.call = (fn, ...args) => t.door('check_call', { fn, args });
+  t.ctx.CUE_CHECK_ON_ = false; const kiko = t.ctx.cueSweepNow().id; t.ctx.CUE_CHECK_ON_ = true;   // Kiko's own batch for today, open
+  const day = t.ctx.PropertiesService.getScriptProperties().getProperty('CUE_SWEEP_DAY'), chased = (t.tabs['Chase log'] || { rows: [] }).rows.length;
+  t.ctx.PropertiesService.getScriptProperties().deleteProperty('CUE_SWEEP_DAY');
+  t.call('cueSend', 'run the chasing sweep now', [], '');
+  const st = t.call('cueState').result, b = st.requests.filter(r => r.kind === 'sweep');
+  deq(b.length, 1); assert.notStrictEqual(b[0].id, kiko, 'the check opened its own batch, not Kiko\'s');
+  assert.ok(st.chat.some(c => /^Morning batch is ready: /.test(c.text)), JSON.stringify(st.chat.map(c => c.text)));
+  const items = b[0].batch.items, rfq = items.filter(i => i.kind === 'rfq'), accr = items.filter(i => i.kind === 'accreditation');
+  assert.ok(rfq.length && accr.length, 'both kinds found something');
+  assert.ok(!rfq.some(i => /accredit|registration|procurement/i.test(i.project + ' ' + i.subject + ' ' + i.body)), JSON.stringify(rfq.map(i => i.project)));
+  assert.ok(!items.some(i => t.ctx.cueNoReply_(i.to) || /zohoinvoice/.test(i.to)), JSON.stringify(items.map(i => i.to)));
+  assert.ok(!accr.some(i => t.ctx.cueAccrAsksAccount_(i.body)), 'no account number asked');
+  assert.strictEqual(t.ctx.PropertiesService.getScriptProperties().getProperty('CUE_SWEEP_DAY'), null, 'no sweep day set');
+  assert.strictEqual((t.tabs['Chase log'] || { rows: [] }).rows.length, chased, 'no Chase log row');
+  assert.ok(day, 'Kiko\'s own run still sets the sweep day');
+  assert.ok(t.call('cueCloseTask', b[0].id).ok); assert.ok(!t.log.replies && !t.log.sent, 'nothing drafted or sent');
+  t.ctx.CUE_CHECK_ON_ = false; assert.strictEqual(t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0].id, kiko, 'Kiko still sees only his batch');
+  deq(t.door('check_finish').stopped, []);
+});
 test('CK7 every server function the page calls is either a check function or listed as never; nothing in Cue sends mail around the mail lock', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), ctx = sandbox().ctx;
   const page = [...new Set((html.match(/call\('(\w+)'/g) || []).map(x => x.slice(6, -1)))];
@@ -5323,7 +5356,7 @@ test('CK7 every server function the page calls is either a check function or lis
   assert.ok(!/\bMailApp\.|GmailApp\.(send|createDraft)|Gmail\.Users\.(Messages|Drafts)\.send|messages\/send/.test(CODE), 'mail leaves only through drafts/send, which the lock reads');
 });
 
-if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox };   // test/checks/dry-run.mjs reuses the sandbox
+if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox
 else {
   for (const [n, f] of tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }
   console.log(pass + '/' + tests.length + ' passed');
