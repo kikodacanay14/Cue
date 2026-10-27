@@ -1,10 +1,10 @@
 # Changelog
 
-## Cue 1.27.44: each Canvas project gets a log of its emails, Ask Cue results and chasers (not deployed)
+## Cue 1.27.44: each Canvas project gets a log of its emails, Ask Cue results and chasers (deployed 27 Oct 2026 11:27Z as Version 97; rollback Version 93)
 
 Kiko 27 Oct 2026 10:34Z: "i want a section on Projects and then all communications and updates done in other chats are also
 typed in the project in that section", and "include the mails that i receive in that section". Feature group "Projects
-section"; the Canvas part is `releases/rel-v293-projects-main` and `rel-v153-projects-client`.
+section"; the Canvas part is `releases/rel-v294-projects-main` and `rel-v154-projects-client` (live as Canvas V294 / Client C154).
 
 - New `CueProjectLog.gs`. Cue sends Canvas the lines only Cue knows, through the new bridge action `project_log`:
   - Emails: every inbox thread with a new message that the 10-minute email check reads (received or sent, sender, subject,
