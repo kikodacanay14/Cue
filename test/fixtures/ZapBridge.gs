@@ -1866,3 +1866,50 @@ ZB_ACTIONS_.crm_lead = {
   check: zbCrmCheck_
 };
 ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
+
+/* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
+ * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for
+ * crew, clients and suppliers. help_qa reads the Live rows (Cue matches a pasted question against them, in code). help_qa_add
+ * adds one question nobody has answered yet as a Draft row, for Kiko to answer in the tab. Draft rows are never read out. */
+const HQ_TAB_ = 'Help Q&A';
+const HQ_HEAD_ = ['ID', 'Audience', 'Type', 'Question', 'Answer', 'Opens (Canvas page)', 'Also asked as', 'Status', 'Updated'];
+const HQ_AUD_ = ['Crew', 'Client', 'Supplier', 'All'], HQ_PRE_ = { Crew: 'CRW', Client: 'CLI', Supplier: 'SUP', All: 'ALL' };
+const hqNorm_ = s => String(s == null ? '' : s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function hqSheet_() { return logSheet_().getParent().getSheetByName(HQ_TAB_); }
+/** Every row of the tab as objects. The header row names the columns, so a column moved by hand still reads right. */
+function hqRows_(sh) {
+  if (!sh || sh.getLastRow() < 2) return [];
+  const v = sh.getRange(1, 1, sh.getLastRow(), Math.max(sh.getLastColumn(), HQ_HEAD_.length)).getDisplayValues(), h = v[0].map(x => String(x).trim());
+  const col = k => h.indexOf(k);
+  return v.slice(1).map(r => { const o = {}; HQ_HEAD_.forEach(k => { o[k] = col(k) >= 0 ? String(r[col(k)] || '').trim() : ''; }); return o; }).filter(o => o.ID || o.Question);
+}
+/** help_qa: the Live rows for one audience (and the All rows), or every Live row. Nothing else leaves the tab. */
+function zbHelpQa_(aud) {
+  return hqRows_(hqSheet_()).filter(o => o.Status === 'Live' && o.Question && o.Answer && (!aud || aud === 'All' || o.Audience === aud || o.Audience === 'All'))
+    .map(o => ({ id: o.ID, audience: o.Audience, type: o.Type, question: o.Question, answer: o.Answer, opens: o['Opens (Canvas page)'],
+      also: o['Also asked as'].split(';').map(x => x.trim()).filter(Boolean).slice(0, 20) }));
+}
+/** help_qa_add: one Draft row (no answer) for a question the bank does not answer yet. The same question twice adds nothing. */
+function zbHelpQaAdd_(a) {
+  const q = String(a.question).replace(/\s+/g, ' ').trim(), aud = a.audience || 'All';
+  return locked_(() => {
+    const sh = hqSheet_();
+    if (!sh) return { ok: false, error: 'The Help Q&A tab is missing in Canvas.' };
+    const rows = hqRows_(sh), same = rows.find(o => hqNorm_(o.Question) === hqNorm_(q) || o['Also asked as'].split(';').some(x => hqNorm_(x) === hqNorm_(q)));
+    if (same) return { ok: true, existed: true, id: same.ID, status: same.Status };
+    const pre = HQ_PRE_[aud] + '-Q-', n = rows.reduce((m, o) => o.ID.indexOf(pre) === 0 ? Math.max(m, parseInt(o.ID.slice(pre.length), 10) || 0) : m, 0);
+    const id = pre + ('0' + (n + 1)).slice(-2), safe = v => /^[=+\-@]/.test(v) ? "'" + v : v;   // text is never read as a formula
+    sh.appendRow([id, aud, '', safe(q), '', '', '', 'Draft', Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy-MM-dd')]);
+    return { ok: true, existed: false, id, status: 'Draft' };
+  });
+}
+ZB_ACTIONS_.help_qa = {
+  kind: 'read', needsProject: false, schema: { audience: { type: 'string', oneOf: HQ_AUD_ } },
+  run: (r) => zbHelpQa_(r.args.audience || '')
+};
+ZB_ACTIONS_.help_qa_add = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, audience: { type: 'string', oneOf: HQ_AUD_ },
+    question: { type: 'string', required: true, nonBlank: true, max: 300 } },
+  run: (r) => zbHelpQaAdd_(r.args)
+};

@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.36: Help answers from Canvas's Help Q&A list (not deployed)
+
+Kiko 27 Oct 2026 01:48Z asked to store the How to and What is questions crew, clients and suppliers ask, chose the Canvas tab at 02:00Z, and chose "Yes, build it" at 02:34Z for Cue answering from that list (spec `help-qa-bank.md`, phase 2).
+
+- "help: <question>" or "faq: <question>" in the chat starts a Help answer card. "help crew: …", "help client: …" and "help supplier: …" limit it to that audience's rows and the All rows.
+- Cue reads the Live rows of Canvas's "Help Q&A" tab through the bridge (`help_qa`, cached 10 minutes) and matches the question in code: BSE terms, Taglish fillers and synonyms are normalised, rare words weigh more, and "what is" or "how / where" leans to that type of row. No AI call. On the 200 seed phrasings, leave-one-out, it puts the right row first 143 times and in the top three 177 times; off-topic questions match nothing.
+- The card shows the best answer, its Canvas page and up to two close matches to switch to. Copy reply copies the answer. Rephrase is one Claude Haiku 5.5 call that rewrites it as a short Taglish reply with the same facts. Edit answer in bank opens the tab.
+- When nothing matches, the card waits for Kiko: Add as Draft puts the question on the list as a Draft row (`help_qa_add`), once, for Kiko to answer and set Live. A question already on the list is not added twice.
+- Cue sends nothing to anyone and changes no answer. Draft rows are never read out.
+- Needs the Canvas release with the `help_qa` and `help_qa_add` bridge actions (CanvasWorkspace `releases/rel-v281-helpqa-main`, then `rel-v138-helpqa-client`). test/fixtures/ZapBridge.gs is refreshed from it; test/fixtures/help-qa.json is the seed list.
+- `cueClaude_` takes an optional model, so a cheap step can name Haiku.
+- Tests: HQ1 to HQ6 new. 343 tests.
+
 ## Cue 1.27.34: Client emails logged to Canvas Accounts (not deployed)
 
 Kiko 26 Oct 2026 09:23Z asked for a CRM with a funnel; he approved the spec (`canvas-crm-funnel.md`) at 16:08Z and chose "Log automatically" at 16:10Z, so these email logs go to Canvas with no tap. This is the spec's part F5; the funnel page itself is Canvas Integration's.
