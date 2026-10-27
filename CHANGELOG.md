@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.37: Transfer lookup and invoice line edit in the chat (not deployed)
+
+Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat refused to check the Transfers sheet for a GCash payment matching a cash one (Cups, AP-CUP-TRI-1) and refused to add REC-10307792 to the Telus Trick or Treat invoice. Cue had the access; it had no command. Kiko approved the spec (`transfer-lookup-invoice-edit.md`) at 09:20Z: "give cue edit rights and look up rights".
+
+- Transfer lookup (`CueLookup.gs`, read only, no AI call): a question naming a transfer, GCash, InstaPay or PESONet ("is there a gcash transfer for Cups that day", "any transfer of 1,200 on 12 Oct", "find transfer 7046033873147") is answered in code from BSE Scopes and Transfers. Cue finds the payment request by request ID or by the words in the message, then lists transfers of the same amount from 3 days before to 3 days after its date. A same-amount row is never called a match. The answer also lists that day's transfers and any same-amount transfer within 30 days. Account numbers are never shown.
+- Invoice line edit (`CueLookup.gs`): "add REC-<number> to the <project> invoice" (or a line in quotes) reads the project's billing invoices and POs through Canvas's new `bi_list`, and shows an Approve card with where the line goes and what the Description becomes. The line goes first, so the printed form never cuts it. A REC number gets " for <PO number>" added, as on BI 0013. Approve writes it once through Canvas's new `invoice_line`, as the one command of a claimed plan: on the open BI's Description, or, when the project has no BI yet, on its unbilled PO's Full Description, which New invoice copies. Paid BIs and BIs with payment advice stay locked, as in Finance Desk. Two open BIs, two unbilled POs or two equally likely projects make Cue ask which.
+- Needs the Canvas release with `bi_list` and `invoice_line` (CanvasWorkspace `releases/rel-v289-invoiceline-main` on live V288, then `rel-v147-invoiceline-client` pinning 289). test/fixtures/ZapBridge.gs is refreshed from it.
+- The question cards take a new Approve button label.
+- Tests: LK1, LK2, IL1, IL2 new. 349 tests.
+
 ## Cue 1.27.36: Help answers from Canvas's Help Q&A list (not deployed)
 
 Kiko 27 Oct 2026 01:48Z asked to store the How to and What is questions crew, clients and suppliers ask, chose the Canvas tab at 02:00Z, and chose "Yes, build it" at 02:34Z for Cue answering from that list (spec `help-qa-bank.md`, phase 2).

@@ -1088,7 +1088,7 @@
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
