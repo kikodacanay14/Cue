@@ -30,9 +30,10 @@ jobs:
       - name: Check script exists
         env:
           SCRIPT: ${{ inputs.script }}
+          REF: ${{ inputs.ref }}
         run: |
           case "$SCRIPT" in *[!A-Za-z0-9._-]*|'') echo "script must be a name like 1.27.33-crew-docs"; exit 1;; esac
-          [ -f "test/checks/$SCRIPT.check.mjs" ] || { echo "No test/checks/$SCRIPT.check.mjs on ${{ inputs.ref }}"; exit 1; }
+          [ -f "test/checks/$SCRIPT.check.mjs" ] || { echo "No test/checks/$SCRIPT.check.mjs on $REF"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
