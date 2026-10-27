@@ -1,0 +1,8 @@
+{
+  "about": "The Canvas project the cloud check may write to (src/CueCheck.gs, tools/check.mjs). Kiko 27 Oct 2026 09:16Z: no new test project; use the past project Hiraya Rewards and Recognitions (event 28 Aug 2026, so Canvas never emails its documents on its own), which the PC check already used. Its crew are real people, so send stays false: check mode refuses every Canvas send and the script finishes without sending. Its FSAs were all made on 27 Oct (Kiko 08:40Z), so doc is AR: Make is tried on one AR row and the FSA list is read only. Set send to true only for a project whose crew are all Kiko's own aliases.",
+  "project_id": "S-28453824HI",
+  "project_name": "Hiraya Rewards and Recognitions",
+  "doc": "AR",
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}
