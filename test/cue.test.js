@@ -209,8 +209,8 @@ function sandbox(o = {}) {
         const T = (o.allow || ED_ALLOW).find(x => x.book === body.args.book && x.tab === body.args.tab);
         if (!T) return resp(200, { ok: false, status: 'Blocked', error: body.args.book + ' › ' + body.args.tab + ' is not on the allow-list' });
         const rows = T.rows.filter(r => (body.args.where || []).every(w => w.equals != null ? String(r[w.column]).toLowerCase() === w.equals.toLowerCase() : String(r[w.column]).toLowerCase().indexOf(w.contains.toLowerCase()) >= 0));
-        const lim = body.args.limit || 100;
-        return resp(200, { ok: true, status: 'Completed', result: { book: T.book, tab: T.tab, key: T.key, mode: T.mode, columns: T.columns, writable: T.writable, total: rows.length, rows: rows.slice(0, lim), next: null } }); }
+        const lim = body.args.limit || 100, at = body.args.start || 0;
+        return resp(200, { ok: true, status: 'Completed', result: { book: T.book, tab: T.tab, key: T.key, mode: T.mode, columns: T.columns, writable: T.writable, total: rows.length, rows: rows.slice(at, at + lim), next: at + lim < rows.length ? at + lim : null } }); }
       if (body.action === 'write_rows' || body.action === 'allow_list_set') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
         if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
         const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
@@ -2551,7 +2551,7 @@ const PE_ITEM = { date: '2026-10-21', time: '12:30 PM', payee: 'Jollibee Homewor
   ref: '0012345678901', ref_kind: 'bank', recipient_name: 'Jollibee', recipient_account: '09171234567', invoice_no: 'OR 000123', evidence: 'paid_proof', direction: 'outgoing',
   cost_type: 'Personal — Food', description: 'Lunch', details: 'PHP250 sent', files: ['lunch.png'], confidence: 'High', unsure: false, unsure_why: '' };
 function peBox(o = {}) {
-  const t = sandbox(Object.assign({ props: { CUE_PERSONAL_FOLDER: 'pe-folder' } }, o, { personal: o.personal || { items: [PE_ITEM], notes: '' } }));
+  const t = sandbox(Object.assign({ props: { CUE_PERSONAL_FOLDER: 'pe-folder' }, allow: [] }, o, { personal: o.personal || { items: [PE_ITEM], notes: '' } }));   // allow: [] keeps Transfers direct (SH2 covers the bridge read)
   const pe = gridSheet([PE_HEAD, PE_OLD], [[], PE_HEAD.map(h => (h === 'MONTH' ? '=MONTH(A2)' : ''))]);
   const tr = gridSheet([['Request ID', 'CONFIRMATION NUMBER', 'PAID AMOUNT', 'Merchant Reference', 'Invoice Number'], ['AP-TEN-ANN-1', 'BN-555666777', 27450, '', '']]);
   const pr = gridSheet([['Amount', 'Request ID', 'Payee'], [1580, 'AP-HOS-1', 'Thirst GK Mobile Beverage Services']]);
@@ -2567,7 +2567,7 @@ function peCard(o, text) { const t = peBox(o); const r = t.ctx.cueSend(text || '
 test('PE1 "personal expense" routes to its own task: one GPT read with the image, no Canvas, card waits for Kiko', () => {
   const t = peCard();
   assert.strictEqual(t.v.kind, 'personal'); assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.metrics.ai_calls, 1);
-  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.claude.length, 0); assert.strictEqual(t.log.bridge.length, 0);
+  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.claude.length, 0); deq(t.log.bridge.map(b => b.action), ['allow_list'], 'no Canvas call but the allow-list read');
   assert.ok(JSON.stringify(t.log.gpt[0].input).indexOf('input_image') >= 0, 'GPT sees the proof');
   const x = t.v.personal.items[0]; assert.strictEqual(x.state, 'new'); assert.strictEqual(x.selected, true);
   assert.ok(t.tabs.Chat.rows.some(r => /Nothing is saved yet/.test(r[2])));
@@ -2603,7 +2603,7 @@ test('PE4 approve: one row after the last, formulas kept, references as text, pr
   assert.ok(t.pe.log.text.some(e => e[0] === 3 && e[1] === col('Reference Number') + 1 && e[2] === '@'));
   assert.ok(/^https:\/\/drive\.google\.com\/file\/d\/f1\/view$/.test(row[col('Supporting Proof / Reference Links')]));
   assert.ok(/pe-folder&removeParents=folder-1/.test(t.drive.parent.f1), 'moved from Cue uploads into the proofs folder');
-  assert.strictEqual(t.log.bridge.length, 0); assert.strictEqual(t.log.gmail.length, 0);
+  deq(t.log.bridge.map(b => b.action), ['allow_list'], 'no Canvas write'); assert.strictEqual(t.log.gmail.length, 0);
   assert.ok(t.tabs.Chat.rows.some(r => /^Summary for Personal expense: Jollibee Homeworks: saved 1 row to Personal Expense 2 \(row 3\)/.test(r[2]) && r[3] === '>' + t.id));
 });
 test('PE5 never a second row: approving again is refused, and a reference saved meanwhile is not written', () => {
@@ -4730,6 +4730,29 @@ test('GT12 bug 27 Oct: no bank, account number, TIN or signature cell from a rec
   ['BPI', 'Ma Ocampo', '4059494908', '345-232-386', 'Non-Vat', '123', 'X1', 'sig.png', 'Password'].forEach(x => assert.ok(line.indexOf(x) < 0, x + ' must not reach ChatGPT: ' + line));
   const p = t.ctx.cueGtLine_('Admin Directory', { _row: 3, 'ACCOUNT': 'ING', 'ACCOUNT OWNER': 'Kiko Dacanay', 'Account Status': 'Active' });
   assert.ok(/ACCOUNT: ING/.test(p) && /ACCOUNT OWNER: Kiko Dacanay/.test(p) && /Account Status: Active/.test(p), p);
+});
+// CUE-SHEET-READS-2026-10-27 (spec specs/bridge-sheet-reads.md): allow-listed records tabs come through read_rows; the rest stay direct.
+const SR_TR = { book: 'scopes', tab: 'Transfers', key: 'Request ID', mode: 'read', columns: ['Request ID', 'PAID AMOUNT', 'CONFIRMATION NUMBER'], writable: [],
+  rows: Array.from({ length: 1200 }, (_, i) => ({ _row: i + 2, 'Request ID': 'PR-' + (i + 1), 'PAID AMOUNT': '1,250.00', 'CONFIRMATION NUMBER': 'REF' + (1000 + i) })) };
+const srBox = (allow) => { const t = gtBox({ allow }); const pr = gridSheet([['Request ID', 'Payee', 'Amount'], ['PR-9', 'Ana', 500]]);
+  t.tabs['Payment Request'] = pr; return t; };
+test('SH1 a records tab on the allow-list is read through read_rows in 500-row pages (no direct read); one not on it stays direct; P0 never goes through the bridge', () => {
+  const t = srBox([SR_TR, { book: 'priority', tab: 'P0', key: 'Company', mode: 'read', columns: ['Company'], writable: [], rows: [] }]);
+  const s = { id: 'cue-sh1', notes: [], gt: {} };
+  const tr = t.ctx.cueGtTry_(s, 'transfers');
+  assert.strictEqual(tr.rows.length, 1200, 'every page read'); assert.strictEqual(tr.rows[1199]['Request ID'], 'PR-1200'); assert.strictEqual(tr.rows[0]._row, 2);
+  deq(tr.head, ['Request ID', 'PAID AMOUNT', 'CONFIRMATION NUMBER']);
+  const reads = t.log.readRows.filter(a => a.tab === 'Transfers'); deq(reads.map(a => [a.start || 0, a.limit]), [[0, 500], [500, 500], [1000, 500]]);
+  const pr = t.ctx.cueGtTry_(s, 'payreq'); assert.strictEqual(pr.rows[0].Payee, 'Ana', 'not on the allow-list: read direct as before');
+  assert.ok(!t.log.readRows.some(a => a.tab === 'Payment Request' || a.tab === 'P0'), 'no bridge read for a tab not listed, nor for P0');
+  assert.strictEqual(t.log.bridge.filter(b => b.action === 'allow_list').length, 1, 'the allow-list is read once per run');
+  assert.strictEqual(s.notes.length, 0);
+});
+test('SH2 the personal-expense check reads Transfers through read_rows when it is allowed; text amounts and references match as before', () => {
+  const t = srBox([SR_TR]); const s = { id: 'cue-sh2', notes: [], gt: {} };
+  const b = t.ctx.cuePeBse_(s);
+  assert.strictEqual(b.tr.rows.length, 1200); assert.strictEqual(b.tr.rows[4][b.tr.col('CONFIRMATION NUMBER')], 'REF1004');
+  assert.strictEqual(b.pr.rows[0][b.pr.col('Payee')], 'Ana', 'Payment Request not allowed: direct');
 });
 test('GT9 PC test 22 Oct: Canvas not answering the project list is tried once more, then stops with Try again (never "Nothing new, all passed"); one miss recovers', () => {
   const P = [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }];

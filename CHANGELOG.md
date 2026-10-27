@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.47: sheet reads through the Canvas bridge (not deployed; feature group "Integration specs")
+
+Kiko 26 Oct 2026 09:05Z chose this second ("2,3,4,1"); spec `specs/bridge-sheet-reads.md`, tracked on the Feature Board card
+"Integration specs". Uses Canvas's generic bridge (live since V293), so no Canvas release.
+
+- ChatGPT tasks (`cueGtTab_`) and the personal-expense check (`cuePeBse_`) read TRI, Supplier Database (`Main`), Admin
+  Directory Projects, Tracker Personal Expenses, Transfers and Payment Request through `read_rows` when the tab is on Canvas's
+  allow-list. Pages of 500 rows; the pages after the first go out in one batch. The allow-list is read once per run.
+- A tab not on the list is read direct as before, so nothing stops working before its allow-list row is approved. Transfers
+  and Payment Request are seed rows, so they switch at once. A refused read is a failed "Every record read" check with
+  Canvas's own message.
+- The P0 tabs stay direct: their header is in row 4 and `read_rows` reads row 1 only (asked of Canvas Integration).
+  Tasks and Kiko's own sheets stay direct: they are not Canvas books.
+- New tests SH1, SH2; PE1 and PE4 now allow the one allow-list read. Tests: 373.
+
 ## Cue 1.27.46 fix: no bank or TIN details go to ChatGPT from records tabs (deployed 27 Oct 2026 14:02Z as Version 101; rollback Version 99)
 
 Found 27 Oct 2026 by the "Generate integration spec" thread while planning the sheet reads (focus area 3). Bug fix, so it
