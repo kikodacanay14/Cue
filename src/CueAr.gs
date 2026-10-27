@@ -43,9 +43,10 @@ function cueArRun_(s, save) {
   }
   if (s.stage === 'Reading the list' || s.stage === 'Reading receipts from Canvas') {
     cueArList_(s);
-    a.items.forEach(x => { x.tick = cueArMakeable_(x); });
+    // PC check 27 Oct 01:53Z: the card opens with nothing ticked, so one tap on Make can never make the whole list.
+    a.items.forEach(x => { x.tick = false; });
     s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
-    const ready = a.items.filter(x => x.tick).length;
+    const ready = a.items.filter(cueArMakeable_).length;
     cueChat_('Cue', a.items.length ? cueArN_(ready, a.doc) + ' ready to make for ' + a.project + '. Tick the ones you want and press Make.'
       : (a.doc === 'fsa' ? 'Canvas shows no crew on ' + a.project + '\'s Resources yet.' : 'Canvas shows no paid suppliers, talents or freelancers on ' + a.project + ' yet.'), s.id);
     return;

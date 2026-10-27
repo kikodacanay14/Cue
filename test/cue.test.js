@@ -1492,7 +1492,8 @@ test('AR1 ARs (Kiko 07:42Z): the chat call picks the command, Canvas lists, the 
   assert.strictEqual(v.kind, 'ar'); assert.strictEqual(v.ar.doc, 'ar'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.ar.project_id, 'S-31628060SP');
   deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects'), ['find_similar_projects', 'crew_docs']); assert.ok((t.log.search || []).indexOf('globe') >= 0, 'the chat lookup, also a read'); assert.strictEqual(t.log.arList, 'S-31628060SP'); assert.strictEqual(t.log.docKind, 'ar');
   assert.strictEqual(v.metrics.ai_calls, 0, 'the run itself makes no AI call'); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.claude.length, 0);
-  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked, already-made and no-email crew are not ticked');
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), [], 'PC check 27 Oct: the card opens with nothing ticked');
+  deq(v.ar.items.filter(x => !x.why && !x.doc && !x.off).map(x => x.key), ['Q|PR-001', 'Q|PR-003', 'R|ben cruz|usher'], 'blocked, already-made and no-email crew cannot be made');
   assert.ok(v.ar.items.find(x => x.key === 'R|carla lim|host').off, 'Kiko 12:58Z: a resource with no email is turned off');
   assert.ok(t.tabs.Chat.rows.some(x => x[2] === 'Started a thread for it.' && x[3] === '>' + r.request_id), 'main chat points at the new thread');
   assert.ok(/acknowledgement receipts/i.test(JSON.stringify(t.log.gpt[0].instructions)) && /FSAs/.test(JSON.stringify(t.log.gpt[0].instructions)), 'the chat model knows the command, FSAs too');
@@ -1565,11 +1566,21 @@ test('AR6 the bridge fixture accepts exactly what Cue sends (crew_docs, crew_doc
   assert.strictEqual(bridgeCheck('crew_docs_send', { request_id: 'cue-20261021080000-ab12', kind: 'fsa', key: 'juan cruz', intro: 'Hi' }), '');
   assert.ok(bridgeCheck('crew_docs_send', { request_id: 'cue-20261021080000-ab12', kind: 'fsa', key: 'juan cruz', remake: true }));
 });
+test('AR8 PC check 27 Oct 01:53Z: the card keeps Kiko\'s ticks across a warning, and each "Can\'t make yet" row says why', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const on = eval('(' + /function arOn\(attr, id, x, def\) \{[^\n]+\}/.exec(html)[0].replace(/^function arOn/, 'function') + ')');
+  global.arTick = {}; arTick['data-amk|r1|juan'] = false; arTick['data-amk|r1|ana'] = true;
+  deq([on('data-amk', 'r1', { key: 'juan' }, true), on('data-amk', 'r1', { key: 'ana' }, false), on('data-amk', 'r1', { key: 'carla' }, false), on('data-amk', 'r2', { key: 'ana' }, false)],
+    [false, true, false, false], 'a kept tick wins over the default, per card'); delete global.arTick;
+  assert.ok(/var ck = function \(x, attr, on, off\) \{ on = arOn\(attr, r\.id, x, on\);/.test(html), 'every crew docs box reads the kept tick');
+  assert.ok(/arTick\[attr \+ '\|' \+ x\.getAttribute\(attr\) \+ '\|' \+ x\.value\] = x\.checked/.test(html), 'a tap, Tick all and Untick all are kept');
+  assert.ok(/blocked\.map\(function \(x\) \{ return row\(x, '', x\.why\); \}\)/.test(html), 'the reason shows under each blocked name');
+});
 test('AR7 FSAs (Kiko 13:24Z "generate FSAs for ..."): the same command lists crew from Canvas, makes and sends FSAs', () => {
   const t = arCard({}, 'generate FSAs for S-31628060SP');
   assert.strictEqual(t.log.gpt.length, 0, 'typed command: no AI call at all');
   let v = t.ctx.cueView_(t.state(t.id)); assert.strictEqual(v.ar.doc, 'fsa'); assert.strictEqual(t.log.docKind, 'fsa');
-  deq(v.ar.items.filter(x => x.tick).map(x => x.key), ['juan cruz', 'ana reyes']); assert.ok(v.ar.items.find(x => x.key === 'carla lim').off);
+  deq(v.ar.items.filter(x => x.tick).map(x => x.key), [], 'nothing ticked at first'); deq(v.ar.items.filter(x => !x.why && !x.doc && !x.off).map(x => x.key), ['juan cruz', 'ana reyes']); assert.ok(v.ar.items.find(x => x.key === 'carla lim').off);
   assert.ok(t.tabs.Chat.rows.some(x => /2 FSAs ready to make for S-31628060SP/.test(x[2])));
   t.ctx.cueApprove(t.id, { make: ['juan cruz', 'ana reyes'] }); v = t.ctx.cueRun(t.id);
   assert.strictEqual(v.stage, 'Ready to send'); assert.strictEqual(t.log.bridge.filter(b => b.action === 'crew_docs_make')[0].args.kind, 'fsa');
