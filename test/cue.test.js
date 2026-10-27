@@ -197,7 +197,17 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
       if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
-      if (body.action === 'crm_log') { (log.crmLog = log.crmLog || []).push(body.args);
+      // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
+      if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
+        if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
+        pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
+      if (body.action === 'crm_log') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c) return resp(200, { ok: false, status: 'Rejected', error: 'command is not in the claimed plan for this task' });
+        if (c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command payload differs from the claimed plan' });
+        (log.crmLog = log.crmLog || []).push(body.args);
+        if ((o.crmRefused || []).indexOf(body.args.email) >= 0) return resp(200, { ok: true, status: 'Completed', result: { refused: 'No account matches. Nothing was saved.' } });
         if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
         const again = (log.crmSeen = log.crmSeen || {})[body.args.request_id]; log.crmSeen[body.args.request_id] = 1;
         return resp(200, { ok: true, status: 'Completed', result: { act: { ID: 'A-' + log.crmLog.length }, again: !!again } }); }
@@ -438,7 +448,7 @@ function sandbox(o = {}) {
     ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { after: () => tb, everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },
     Utilities: { sleep: () => {}, formatDate: (d) => d.toISOString().slice(0, 10),
-      computeDigest: (_a, v) => Array.from(crypto.createHash('sha256').update(Buffer.from(v.map(x => x & 255))).digest()).map(b => (b > 127 ? b - 256 : b)),
+      computeDigest: (_a, v) => Array.from(crypto.createHash('sha256').update(typeof v === 'string' ? Buffer.from(v, 'utf8') : Buffer.from(v.map(x => x & 255))).digest()).map(b => (b > 127 ? b - 256 : b)),
       DigestAlgorithm: { SHA_256: 'sha256' },
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
       newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
@@ -4802,6 +4812,20 @@ test('CL2 a refused write is listed as Failed and retried next hour; outside 08:
   assert.strictEqual(t.ctx.cueCrmLogTick_(), null); assert.strictEqual(t.log.mailWaiting, before, 'no Canvas read at night');
   const off = sandbox({ waiting: { on: false, items: [] } });
   assert.ok(/Email check is off/.test(off.ctx.cueCrmLogRun_().note)); assert.ok(!(off.log.crmLog || []).length);
+});
+
+test('CL4 each run claims a plan before its crm_log writes (Canvas refuses a write without one); a CRM refusal is Failed, not Logged', () => {
+  const t = sandbox({ waiting: WAIT, crmRefused: ['joy@beta.example'] });
+  const r = t.ctx.cueCrmLogRun_();
+  deq([r.logged, r.failed], [1, 1]);
+  const acts = t.log.bridge.map(b => b.action).filter(a => a !== 'mail_waiting');
+  deq(acts, ['claim_plan', 'crm_log', 'crm_log']);
+  const plan = t.log.bridge.find(b => b.action === 'claim_plan');
+  assert.strictEqual(plan.command_id, 'plan:' + plan.task_id); assert.strictEqual(plan.args.commands.length, 2);
+  assert.ok(/^Failed: Canvas refused crm_log: No account matches/.test(crmTabRows(t)[1][7]), crmTabRows(t)[1][7]);
+  t.ctx.__wait(60 * 1000); t.ctx.cueCrmLogRun_();
+  const plans = t.log.bridge.filter(b => b.action === 'claim_plan');
+  assert.strictEqual(plans.length, 2); assert.notStrictEqual(plans[0].task_id, plans[1].task_id, 'a new run is a new task, so its plan is never refused as different');
 });
 
 test('CL3 cueResume runs the email log; a Canvas failure never stops the rest of the tick', () => {
