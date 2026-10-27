@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.44: each Canvas project gets a log of its emails, Ask Cue results and chasers (not deployed)
+
+Kiko 27 Oct 2026 10:34Z: "i want a section on Projects and then all communications and updates done in other chats are also
+typed in the project in that section", and "include the mails that i receive in that section". Feature group "Projects
+section"; the Canvas part is `releases/rel-v293-projects-main` and `rel-v153-projects-client`.
+
+- New `CueProjectLog.gs`. Cue sends Canvas the lines only Cue knows, through the new bridge action `project_log`:
+  - Emails: every inbox thread with a new message that the 10-minute email check reads (received or sent, sender, subject,
+    time and a Gmail link; headers only). Canvas files a line under the sender's contact project or a project named in the
+    subject, and drops the rest, so Cue never decides which emails belong to a project. The first run after this ships
+    reads the 40 newest inbox threads once, so each log starts with them.
+  - Ask Cue: the one-line summary a finished task posts, when the task is about a Canvas project.
+  - Chasers: each chaser email the Morning batch sent, under its project.
+- Lines wait in a small queue (Script Property `CUE_PLOG_Q`, at most 300) and go in one bridge call per 5-minute tick. Each
+  line has a key, so a repeat is a no-op on Canvas's side. A refusal keeps the lines for the next tick. The cloud check never
+  queues. No AI call and no new access: the email check already reads these headers.
+- `test/fixtures/ZapBridge.gs` has the `project_log` schema from Canvas rel-v294-projects-main (rebuilt by the deploys thread on V293).
+- Tests: PL1 to PL3 are new. 377 tests on the live line (`claude/project-thread-y5l4x9-rel12744`, on top of 1.27.43).
+
 ## Cue 1.27.43: Cue edits Canvas records through the generic bridge (not deployed; built as 1.27.41)
 
 Kiko 27 Oct 2026 09:41Z ("Cue should be able to edit in the first place right coz thats why you were given API access to Claude... Claude will edit") and 10:06Z ("Cue received it - should passed to Claude - Claude should have updated the file"). Kiko tapped "Yes, build it" on the generic bridge (`specs/generic-bridge.md`) at 10:10Z.
