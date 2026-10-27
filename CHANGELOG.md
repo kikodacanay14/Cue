@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.42: Emails waiting stays up to date, because Cue now runs the email check (not deployed)
+## Cue 1.27.42: Emails waiting stays up to date, because Cue now runs the email check (deployed 27 Oct 2026 10:47Z as Version 93)
 
 Bug fix. On 27 Oct 2026 Kiko's Emails waiting thread in Canvas said "The email check hasn't run for a while" (coordinator
 10:34Z: "find out why the mailcheck stopped and fix it first").
