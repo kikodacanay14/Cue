@@ -1391,13 +1391,16 @@ function zbSaveFile_(r) {
 const zbArView_ = a => a ? { ar_id: a.id, status: a.status, url: a.url, generated: a.generated, emailed: a.emailed, signed_at: a.signedAt || '', signed_url: a.signedUrl || '' } : null;
 // CREW-DOCS-2026-10-26: Cue's Generate FSAs / ARs list. Crew rows carry has_email, registered, can_sign and send_why (AutoDocs adSendTo_).
 function zbCrewDocs_(pid, kind) {
-  if (kind === 'ar') {
-    const o = arPeople(pid), items = (o.items || []).slice(0, 200);
-    const em = {}; arItems_(pid).forEach(p => { em[p.key] = p.email || ''; });
-    return { draft: adDraft_('ar', ntfProject_(pid).name), more: (o.items || []).length > 200, items: items.map(p => Object.assign({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount,
-      paid_on: p.paidOn || '', why: p.why || '', doc: zbArView_(p.ar) }, p.kind === 'Resource' ? zbSendView_(adSendTo_(p.name, null, em[p.key]))
-      : { has_email: !!p.hasEmail, registered: true, can_sign: false, send_why: p.hasEmail ? '' : 'No email on file.' })) };
-  }
+  // CREW-DOCS-SPEED-2026-10-27 (Cue PC check 02:07Z: the AR list took 272 s for 59 rows): one arItems_ pass instead of two
+  // (arPeople, then again for the emails), with each tab it reads read once. Same rows and fields as arPeople gave.
+  if (kind === 'ar') return tmemo_(ZB_AR_TABS_(), () => {
+    const all = zbArFlags_(arItems_(pid)), items = all.slice(0, 200), cur = {};
+    arStatus_(pid).forEach(a => { cur[a.key] = a; });
+    return { draft: adDraft_('ar', ntfProject_(pid).name), more: all.length > 200, items: items.map(p => { const ar = arCovers_(arCur_(cur, p), p) ? arCur_(cur, p) : null;
+      return Object.assign({ key: p.key, kind: p.kind, name: p.name, role: p.role, amount: p.amount, paid_on: p.paidOn || '', why: p.why || '', doc: zbArView_(ar) },
+        p.kind === 'Resource' ? zbSendView_(adSendTo_(p.name, null, p.email || ''))
+        : { has_email: !!p.email, registered: true, can_sign: false, send_why: p.email ? '' : 'No email on file.' }); }) };
+  });
   const cur = {}, sent = {}; fsaStatus_(pid).forEach(f => { cur[f.key] = f; });
   fsaRows_(fsaTab_(false)).forEach(o => { if (norm_(o.r[FSA_C_['Project ID']]) !== norm_(pid) || /replaced/i.test(o.r[FSA_C_['Status']])) return;
     const fp = adFpOf_(o.r[FSA_C_['Fingerprint']]); sent[fsaKey_(o.r[FSA_C_['Name']], o.r[FSA_C_['Role']])] = fp.sent ? 'Sent ' + (fp.at || '') : ''; });
@@ -1407,6 +1410,36 @@ function zbCrewDocs_(pid, kind) {
       doc: f ? { id: f.id, status: f.status, url: f.url, generated: f.generated, signed_at: f.signedAt || '', sent: sent[p.key] || '' } : null },
       zbSendView_(adSendTo_(p.name, p.person, p.person && p.person.email))); }) };
 }
+/* CREW-DOCS-AR-FLAGS-2026-10-27 (Cue PC check 02:13Z on Hiraya): Cue's AR list keeps two kinds of payment out of Make, with the
+ * reason on the row. Canvas's own Generate window is unchanged.
+ *  - A rounding fix (Cost Item says rounding, e.g. "Combined-transfer rounding variance", ₱4): not a payment for work.
+ *    AR-FLAGS-NARROW-2026-10-27 (Cue PC recheck 03:06Z): only the Cost Item is read. "Do not pay again" is the standard note
+ *    on every historical paid row (Maxicom, Jollibee/McDonald's, Lalamove, Transportify), not a no-AR mark, and a real payment
+ *    can mention a rounding in its Service Provided note (Mariana's ₱4,936 food row), so neither blocks Make any more.
+ *  - A group payment whose request names crew who also have their own Resources row on this project (e.g. "Jerry Palo and
+ *    Batangas Crew", listing each person's share): making it and their crew ARs would receipt the same money twice. Their
+ *    crew ARs stay tickable; the group one can still be made from Canvas's Generate window if that is the one Kiko wants. */
+const ZB_AR_ODD_ = /\brounding\b/i;
+function zbArFlags_(all) {
+  const crew = all.filter(p => p.kind === 'Resource').map(p => ({ name: p.name, w: normName_(p.name).split(' ').filter(x => x.length > 1 && !/^(jr|sr|ii|iii|iv)$/.test(x)) })).filter(c => c.w.length >= 2);
+  return all.map(p => {
+    if (p.kind === 'Resource' || p.why || !p.req) return p;
+    const q = p.req;
+    if (ZB_AR_ODD_.test(normName_(q.item))) return Object.assign({}, p, { why: 'A rounding fix, not a payment for work, so no AR.' });
+    // AR-GROUP-NARROW-2026-10-27 (Cue PC recheck 03:25Z): a group payment is a breakdown that lists at least two crew, each
+    // name followed by an amount ("Jerry Mercado Palo ₱2,500; Cesar Marasigan Jr ₱1,500"), in Cost Item or Service Provided.
+    // The payee and supplier names are not read: Maxicom and the dancer meals were paid through Mariana, who is crew here.
+    // A merged installment item (arMergeInstallments_) carries its requests in members; each one's breakdown is read.
+    const listed = ' ' + normName_((p.members || [p]).map(m => [m.req.item, m.req.service].join(' ; ')).join(' ; ')) + ' ', esc = w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const named = crew.filter(c => new RegExp('\\s' + esc(c.w[0]) + '(\\s\\S+){0,3}?\\s' + esc(c.w[c.w.length - 1])
+      + '(\\s(jr|sr|ii|iii|iv))?\\s*[:\\-\u2013\u2014]?\\s*(\u20b1|php|p)?\\s*\\d').test(listed)).map(c => c.name);
+    return named.length >= 2 ? Object.assign({}, p, { why: 'Group payment that names crew with their own rows here (' + named.slice(0, 4).join(', ') + (named.length > 4 ? ' and ' + (named.length - 4) + ' more' : '')
+      + '). Make their crew ARs, or make this one in Canvas if that is the receipt you want.' }) : p;
+  });
+}
+// The tabs one AR list reads (arItems_, arRequests_, arPerson_ and the roles table), each read once inside tmemo_.
+const ZB_AR_TABS_ = () => [[SRC.TRI, 'Resource'], [SRC.SCOPES, 'Payment Request'], [SRC.SCOPES, 'Transfers'], [SRC.SCOPES, 'Supplier Entries'],
+  [SRC.SCOPES, 'Scope Categories'], [SRC.SUPPLIERS, 'Main'], [SRC.ROCKETEERS, 'QRY'], [AR_.rolesBook, AR_.rolesTab]];
 const zbSendView_ = t => ({ has_email: t.has_email, registered: t.registered, can_sign: t.can_sign, send_why: t.send_why });
 function zbCrewMake_(r) {
   const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
@@ -1866,3 +1899,152 @@ ZB_ACTIONS_.crm_lead = {
   check: zbCrmCheck_
 };
 ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
+
+/* RELEASE-NOTES-2026-10-27 (spec daily-release-notes.md, Kiko 02:34Z "ok"): Cue posts the day's release notes as one Canvas
+ * announcement after Kiko taps Post on Cue's card. Staff groups only, from Kiko, never emailed; annBridgePost_ in Code.gs.
+ * A repeat of the same request_id (relnotes:<day>) returns the first post. Cue only, not open to ChatGPT. */
+ZB_ACTIONS_.ann_post = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, title: { type: 'string', required: true, nonBlank: true, max: 150 },
+    message: { type: 'string', required: true, nonBlank: true, max: 5000 }, groups: { type: 'array', maxItems: 3 }, track: { type: 'boolean' } },
+  run: (r) => annBridgePost_(r.args)
+};
+
+/* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
+ * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for
+ * crew, clients and suppliers. help_qa reads the Live rows (Cue matches a pasted question against them, in code). help_qa_add
+ * adds one question nobody has answered yet as a Draft row, for Kiko to answer in the tab. Draft rows are never read out. */
+const HQ_TAB_ = 'Help Q&A';
+const HQ_HEAD_ = ['ID', 'Audience', 'Type', 'Question', 'Answer', 'Opens (Canvas page)', 'Also asked as', 'Status', 'Updated'];
+const HQ_AUD_ = ['Crew', 'Client', 'Supplier', 'All'], HQ_PRE_ = { Crew: 'CRW', Client: 'CLI', Supplier: 'SUP', All: 'ALL' };
+const hqNorm_ = s => String(s == null ? '' : s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function hqSheet_() { return logSheet_().getParent().getSheetByName(HQ_TAB_); }
+/** Every row of the tab as objects. The header row names the columns, so a column moved by hand still reads right. */
+function hqRows_(sh) {
+  if (!sh || sh.getLastRow() < 2) return [];
+  const v = sh.getRange(1, 1, sh.getLastRow(), Math.max(sh.getLastColumn(), HQ_HEAD_.length)).getDisplayValues(), h = v[0].map(x => String(x).trim());
+  const col = k => h.indexOf(k);
+  return v.slice(1).map(r => { const o = {}; HQ_HEAD_.forEach(k => { o[k] = col(k) >= 0 ? String(r[col(k)] || '').trim() : ''; }); return o; }).filter(o => o.ID || o.Question);
+}
+/** help_qa: the Live rows for one audience (and the All rows), or every Live row. Nothing else leaves the tab. */
+function zbHelpQa_(aud) {
+  return hqRows_(hqSheet_()).filter(o => o.Status === 'Live' && o.Question && o.Answer && (!aud || aud === 'All' || o.Audience === aud || o.Audience === 'All'))
+    .map(o => ({ id: o.ID, audience: o.Audience, type: o.Type, question: o.Question, answer: o.Answer, opens: o['Opens (Canvas page)'],
+      also: o['Also asked as'].split(';').map(x => x.trim()).filter(Boolean).slice(0, 20) }));
+}
+/** help_qa_add: one Draft row (no answer) for a question the bank does not answer yet. The same question twice adds nothing. */
+function zbHelpQaAdd_(a) {
+  const q = String(a.question).replace(/\s+/g, ' ').trim(), aud = a.audience || 'All';
+  return locked_(() => {
+    const sh = hqSheet_();
+    if (!sh) return { ok: false, error: 'The Help Q&A tab is missing in Canvas.' };
+    const rows = hqRows_(sh), same = rows.find(o => hqNorm_(o.Question) === hqNorm_(q) || o['Also asked as'].split(';').some(x => hqNorm_(x) === hqNorm_(q)));
+    if (same) return { ok: true, existed: true, id: same.ID, status: same.Status };
+    const pre = HQ_PRE_[aud] + '-Q-', n = rows.reduce((m, o) => o.ID.indexOf(pre) === 0 ? Math.max(m, parseInt(o.ID.slice(pre.length), 10) || 0) : m, 0);
+    const id = pre + ('0' + (n + 1)).slice(-2), safe = v => /^[=+\-@]/.test(v) ? "'" + v : v;   // text is never read as a formula
+    sh.appendRow([id, aud, '', safe(q), '', '', '', 'Draft', Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy-MM-dd')]);
+    return { ok: true, existed: false, id, status: 'Draft' };
+  });
+}
+ZB_ACTIONS_.help_qa = {
+  kind: 'read', needsProject: false, schema: { audience: { type: 'string', oneOf: HQ_AUD_ } },
+  run: (r) => zbHelpQa_(r.args.audience || '')
+};
+ZB_ACTIONS_.help_qa_add = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, audience: { type: 'string', oneOf: HQ_AUD_ },
+    question: { type: 'string', required: true, nonBlank: true, max: 300 } },
+  run: (r) => zbHelpQaAdd_(r.args)
+};
+
+/* CUE-INVOICE-LINE-2026-10-27 (Kiko 09:20Z "give cue edit rights and look up rights"; specs/transfer-lookup-invoice-edit.md).
+ * bi_list (read): the billing invoices and POs of the projects in the BI and PO tabs that best match a name, ID or account.
+ * invoice_line (write, a claimed plan's command, so it runs once after Kiko's Approve in Cue): puts one line, such as a Telus REC
+ * number, at the start of a BI's DESCRIPTION, under the same lock as Finance Desk's Edit invoice (not Paid, no payment advice).
+ * When the project has no BI yet, it goes at the start of the unbilled PO's Full Description, which New invoice copies into the
+ * invoice's Description. Either way the line prints under "Purchase Order #" on the With PO layout. Nothing else changes. */
+const ZB_INV_MAX_ = { line: 200, desc: 2000, projects: 3 };
+function zbInvTab_(name) {
+  const sh = book_(TRACKER_ID).getSheetByName(name);
+  if (!sh) throw new Error('the ' + name + ' tab was not found in 2026 Project Tracker');
+  const v = sh.getLastRow() > 1 ? sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues() : [sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0]];
+  const head = v[0].map(h => String(h).trim().toUpperCase());
+  return { sh, head, rows: v.slice(1).map((r, i) => ({ r: i + 2, at: h => { const c = head.indexOf(h); return c < 0 ? '' : String(r[c]).trim(); } })) };
+}
+function zbBiList_(query) {
+  const B = zbInvTab_('BI'), O = zbInvTab_('PO'), ids = {};
+  B.rows.forEach(x => { const id = x.at('PROJECT ID'); if (id && x.at('BI NUMBER')) ids[id] = true; });
+  O.rows.forEach(x => { const id = x.at('PROJECT ID'); if (id && x.at('PO NO')) ids[id] = true; });
+  const raw = String(query || '').trim().toLowerCase(), want = aiToks_(raw).filter(t => t && AI_GENERIC_TOKS_.indexOf(t) < 0);
+  const projects = getProjectsAll_().filter(p => p.id && ids[p.id]).map(p => {
+    const hay = aiToks_([p.id, p.name, p.account].join(' '));
+    const score = String(p.id).toLowerCase() === raw ? 100 : want.filter(w => hay.indexOf(w) >= 0 || (w.length >= 4 && hay.some(h => h.indexOf(w) === 0))).length;
+    return { p, score };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, ZB_INV_MAX_.projects);
+  return { projects: projects.map(({ p, score }) => {
+    const billedPo = {};
+    const bis = B.rows.filter(x => x.at('PROJECT ID') === p.id && x.at('BI NUMBER')).map(x => {
+      const no = x.at('BI NUMBER'); if (x.at('PO NO')) billedPo[x.at('PO NO')] = true;
+      return { no, status: x.at('STATUS'), sent: x.at('SENT TO CLIENT'), po_no: x.at('PO NO'), description: x.at('DESCRIPTION'), pdf: x.at('BI PDF LINK'),
+        locked: biEditWhy_(x, no) };
+    });
+    const pos = O.rows.filter(x => x.at('PROJECT ID') === p.id && x.at('PO NO')).map(x => ({ no: x.at('PO NO'), description: x.at('FULL DESCRIPTION'),
+      line_item: x.at('LINE ITEM DESCRIPTION'), billed: !!billedPo[x.at('PO NO')] }));
+    return { project_id: String(p.id), name: String(p.name || ''), account: String(p.account || ''), score, bis, pos };
+  }) };
+}
+/** The new description: the line first (so the printed form, three description lines at most, never cuts it), then the old text. */
+function zbInvJoin_(line, old) {
+  const l = String(line || '').replace(/\s+/g, ' ').trim(), o = String(old || '').trim();
+  if (o.indexOf(l) >= 0) return o;
+  return (o ? l.replace(/[.;,:\s]+$/, '') + '. ' + o : l).slice(0, ZB_INV_MAX_.desc);
+}
+function zbInvoiceLine_(pid, a) {
+  const line = String(a.line || '').replace(/\s+/g, ' ').trim();
+  if (!!a.bi_no === !!a.po_no) return { refused: 'Name either the BI number or the PO number. Nothing was saved.' };
+  return withLock_(function () {
+    if (a.bi_no) {
+      const T = zbInvTab_('BI'), want = String(a.bi_no).trim(), x = T.rows.filter(y => y.at('BI NUMBER') === want)[0];
+      if (!x) return { refused: 'BI ' + want + ' is not in the BI tab. Nothing was saved.' };
+      if (x.at('PROJECT ID') !== pid) return { refused: 'BI ' + want + ' belongs to ' + (x.at('PROJECT ID') || 'no project') + ', not ' + pid + '. Nothing was saved.' };
+      const why = biEditWhy_(x, want); if (why) return { refused: why + ' Nothing was saved.' };
+      const c = T.head.indexOf('DESCRIPTION'); if (c < 0) return { refused: 'the BI tab has no DESCRIPTION column. Nothing was saved.' };
+      if (T.sh.getRange(x.r, c + 1).getFormula()) return { refused: 'DESCRIPTION on BI ' + want + ' is a formula, so it can\'t be changed here. Nothing was saved.' };
+      const was = x.at('DESCRIPTION'), to = zbInvJoin_(line, was);
+      if (to === was) return { saved: true, already: true, where: 'bi', bi_no: want, row: x.r, was, now: was };
+      auditEdit_(T.sh, x.r, { headRow: 1 });
+      T.sh.getRange(x.r, c + 1).setValue(safe_(to));
+      const now = String(T.sh.getRange(x.r, c + 1).getDisplayValue()).trim();
+      try { logEvent('Edited billing invoice', 'Cue', 'BI ' + want + ': Description (' + line + ')'); } catch (e) { /* logging never blocks a save */ }
+      return { saved: true, where: 'bi', bi_no: want, row: x.r, was, now, pdf: x.at('BI PDF LINK') };
+    }
+    const T = zbInvTab_('PO'), want = String(a.po_no).trim(), x = T.rows.filter(y => y.at('PROJECT ID') === pid && y.at('PO NO') === want)[0];
+    if (!x) return { refused: 'PO ' + want + ' is not listed for ' + pid + ' in the PO tab. Nothing was saved.' };
+    const billed = zbInvTab_('BI').rows.filter(y => y.at('PROJECT ID') === pid && y.at('PO NO') === want)[0];
+    if (billed) return { refused: 'PO ' + want + ' is already on BI ' + billed.at('BI NUMBER') + '. Put the line on that BI instead. Nothing was saved.' };
+    const c = T.head.indexOf('FULL DESCRIPTION'); if (c < 0) return { refused: 'the PO tab has no Full Description column. Nothing was saved.' };
+    if (T.sh.getRange(x.r, c + 1).getFormula()) return { refused: 'Full Description on PO ' + want + ' is a formula, so it can\'t be changed here. Nothing was saved.' };
+    const was = x.at('FULL DESCRIPTION'), to = zbInvJoin_(line, was);
+    if (to === was) return { saved: true, already: true, where: 'po', po_no: want, row: x.r, was, now: was };
+    auditEdit_(T.sh, x.r, { headRow: 1 });
+    T.sh.getRange(x.r, c + 1).setValue(safe_(to));
+    const now = String(T.sh.getRange(x.r, c + 1).getDisplayValue()).trim();
+    try { logEvent('Edited PO description', 'Cue', 'PO ' + want + ': ' + line); } catch (e) { /* logging never blocks a save */ }
+    return { saved: true, where: 'po', po_no: want, row: x.r, was, now };
+  });
+}
+ZB_ACTIONS_.bi_list = {
+  kind: 'read', needsProject: false, schema: { query: { type: 'string', required: true, nonBlank: true, max: 200 } },
+  run: (r) => zbBiList_(r.args.query)
+};
+ZB_ACTIONS_.invoice_line = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { line: { type: 'string', required: true, nonBlank: true, max: 200 }, bi_no: { type: 'string', re: /^\d{1,6}$/ },
+    po_no: { type: 'string', re: /^[A-Za-z0-9-]{3,40}$/ } },
+  run: (r) => zbInvoiceLine_(r.project_id, r.args),
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const l = String(r.args.line || '').replace(/\s+/g, ' ').trim().replace(/[.;,:\s]+$/, '');
+    return res && res.saved && String(res.now || '').indexOf(l) >= 0 ? { ok: true } : { ok: false, error: 'read back differs: ' + String((res && res.now) || '').slice(0, 200) };
+  }
+};

@@ -1,6 +1,16 @@
 # Changelog
 
-## Cue 1.27.33: Generate FSAs and ARs, then send them (not deployed)
+## Cue 1.27.38: Transfer lookup and invoice line edit in the chat (not deployed)
+
+Kiko 27 Oct 2026 08:47Z asked "do you really not have access?" after the chat refused to check the Transfers sheet for a GCash payment matching a cash one (Cups, AP-CUP-TRI-1) and refused to add REC-10307792 to the Telus Trick or Treat invoice. Cue had the access; it had no command. Kiko approved the spec (`transfer-lookup-invoice-edit.md`) at 09:20Z: "give cue edit rights and look up rights".
+
+- Transfer lookup (`CueLookup.gs`, read only, no AI call): a question naming a transfer, GCash, InstaPay or PESONet ("is there a gcash transfer for Cups that day", "any transfer of 1,200 on 12 Oct", "find transfer 7046033873147") is answered in code from BSE Scopes and Transfers. Cue finds the payment request by request ID or by the words in the message, then lists transfers of the same amount from 3 days before to 3 days after its date. A same-amount row is never called a match. The answer also lists that day's transfers and any same-amount transfer within 30 days. Account numbers are never shown.
+- Invoice line edit (`CueLookup.gs`): "add REC-<number> to the <project> invoice" (or a line in quotes) reads the project's billing invoices and POs through Canvas's new `bi_list`, and shows an Approve card with where the line goes and what the Description becomes. The line goes first, so the printed form never cuts it. A REC number gets " for <PO number>" added, as on BI 0013. Approve writes it once through Canvas's new `invoice_line`, as the one command of a claimed plan: on the open BI's Description, or, when the project has no BI yet, on its unbilled PO's Full Description, which New invoice copies. Paid BIs and BIs with payment advice stay locked, as in Finance Desk. Two open BIs, two unbilled POs or two equally likely projects make Cue ask which.
+- Needs the Canvas release with `bi_list` and `invoice_line` (CanvasWorkspace `releases/rel-v289-invoiceline-main` on live V288, then `rel-v149-invoiceline-client` pinning 289). test/fixtures/ZapBridge.gs is refreshed from it.
+- The question cards take a new Approve button label.
+- Tests: LK1, LK2, IL1, IL2 new. 349 tests on main.
+- Release branch `claude/project-thread-y5l4x9-rel12738b` is live 1.27.33 (`claude/project-thread-mg5lcj-rel12733`) plus the claimed-plan bridge helper from afbbe23 (without the 1.27.34 email log, which waits for its own check) plus this change (d2dde8b; 73bb2d6 on main). 355 tests.
+
 
 Kiko 26 Oct 13:22Z ("i need you to have a command that can trigger this"), 13:24Z ("generate ARs, for... generate FSAs, for ... and then you will ask do you want me to send those after?"), 13:25Z (making the files takes a while, so the send question comes after), 13:30Z ("Generating 15 of 50") and 13:31Z ("60 files done. Do you want me to send these files... a draft with buttons... Send, Edit and Send Later").
 
