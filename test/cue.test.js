@@ -3063,6 +3063,20 @@ test('TC4 Teach Cue is invisible until Kiko approves: no tabs means every call i
   t.ctx.cueWorkflowTab_(); deq(t.tabs.Workflows.rows[0][12], 'Use in prompts', 'an old Workflows tab gets the new header');
 });
 
+test('FAST1 page load and task load read only the rows they need, not every task\'s stored data', () => {
+  const t = sandbox({ props: { CUE_BIDS_TIDY: '2' } }), rq = t.tabs.Requests;   // the one-off bid tidy already ran on Kiko's sheet
+  const up = t.ctx.cueUpload({ name: 'image.png', type: 'image/png', data: PNG }), id = t.ctx.cueSend('new project intake', [{ id: up.id }], 'intake').request_id;
+  const base = rq.rows[rq.rows.length - 1], js = JSON.parse(base.slice(10, 14).join(''));
+  for (let k = 0; k < 300; k++) { const c = base.slice(); c[0] = 'later-' + k; c[10] = JSON.stringify(Object.assign({}, js, { id: 'later-' + k })); c[11] = c[12] = c[13] = ''; rq.appendRow(c); }
+  let cells = 0; const gr = rq.getRange; rq.getRange = (r, c, nr = 1, nc = 1) => { cells += nr * nc; return gr(r, c, nr, nc); };
+  const st = t.ctx.cueState();
+  deq(st.requests.length, 20); deq(st.requests[0].id, 'later-299');
+  assert.ok(cells <= 40 * 14, 'cueState read ' + cells + ' cells; the whole sheet is ' + rq.rows.length * 14);
+  cells = 0; deq(t.ctx.cueLoad_(id).s.id, id);
+  assert.ok(cells <= rq.rows.length + 14, 'cueLoad_ read ' + cells + ' cells: column A plus one row');
+  deq(t.ctx.cueLoad_('nope'), null);
+});
+
 test('SAME1 live 16:45Z: "new project intake" for a project Canvas already has asks Same project? before phase 1, never an error', () => {
   const rd = JSON.parse(JSON.stringify(READ)); rd.client.company = 'AMI Group'; rd.event.name = 'UNILEVER YEAR END PARTY 2026'; rd.event.date = '2026-12-11';
   const t = sandbox({ phased: true, gpt: { intake: rd }, similar: [{ project_id: 'S-11267432UN', name: 'Unilever Year End Party 2026', account: 'AMI Group', date: '12/11/2026', status: 'For Admin Completion', why: 'same client within 7 days, similar name' }] });

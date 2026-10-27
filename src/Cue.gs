@@ -135,9 +135,14 @@ function cueRows_(sh) { const n = sh.getLastRow() - 1; return n > 0 ? sh.getRang
 
 /** Loads one request: {row, s} where s is its saved state, or null. */
 function cueLoad_(id) {
-  const sh = cueSheet_('Requests'), rows = cueRows_(sh), i = rows.findIndex(r => String(r[0]) === String(id));
+  // FAST-LOAD-2026-10-27: find the id in column A only, then read that one row. Reading every row's JSON cells made each tap slow.
+  const sh = cueSheet_('Requests'), n = sh.getLastRow() - 1;
+  if (n < 1) return null;
+  const ids = sh.getRange(2, 1, n, 1).getValues();
+  let i = -1; for (let k = ids.length - 1; k >= 0; k--) if (String(ids[k][0]) === String(id)) { i = k; break; }   // newest first; ids are unique
   if (i < 0) return null;
-  let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
+  const r = sh.getRange(i + 2, 1, 1, CUE_TABS_.Requests.length).getValues()[0];
+  let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
   if (!s) throw new Error('Request ' + id + ' cannot be read.');
   return { sh, row: i + 2, s };
 }
@@ -744,7 +749,10 @@ function cueResume() {
   try { cueMaTick_(); } catch (e) { console.error('cueMaTick_: ' + e); }   // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
   try { cuePlogFlush_(); } catch (e) { console.error('cuePlogFlush_: ' + e); }   // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
   try { cueCrmLogTick_(); } catch (e) { console.error('cueCrmLogTick_: ' + e); }   // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
-  cueRows_(cueSheet_('Requests')).forEach(r => {
+  // FAST-LOAD-2026-10-27: read the Status column first, then only the Working rows (not every task's stored data every 5 minutes).
+  const rq = cueSheet_('Requests'), nRq = rq.getLastRow() - 1, width = CUE_TABS_.Requests.length;
+  const working = nRq > 0 ? rq.getRange(2, 3, nRq, 1).getValues().map((v, k) => String(v[0]) === 'Working' ? k + 2 : 0).filter(Boolean) : [];
+  working.map(row => rq.getRange(row, 1, 1, width).getValues()[0]).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
     if (s.check) return;   // a cloud check's task runs only from its check (CueCheck.gs), never from this trigger
@@ -958,10 +966,14 @@ function cueState() {
   const chk = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';   // a cloud check sees only its own tasks and lines; Kiko never sees them
   if (!chk && cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }
   if (!chk) { try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); } }   // once: one Bid check thread per day (Kiko 22 Oct 05:52Z)
-  const rows = cueRows_(cueSheet_('Requests')).reverse(), list = [];
-  for (let i = 0; i < rows.length && list.length < 20; i++) {
-    let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
-    if (s && String(s.check || '') === chk) list.push(cueView_(s));
+  // FAST-LOAD-2026-10-27: read the newest rows in blocks of 40 until 20 tasks are found, not the whole sheet.
+  const rq = cueSheet_('Requests'), width = CUE_TABS_.Requests.length, list = [];
+  for (let end = rq.getLastRow(); end >= 2 && list.length < 20; end -= 40) {
+    const start = Math.max(2, end - 39), rows = rq.getRange(start, 1, end - start + 1, width).getValues().reverse();
+    for (let i = 0; i < rows.length && list.length < 20; i++) {
+      let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
+      if (s && String(s.check || '') === chk) list.push(cueView_(s));
+    }
   }
   let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;

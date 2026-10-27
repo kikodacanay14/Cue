@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue fast load: opening Cue and each tap read only the rows they need (not deployed)
+
+Kiko 27 Oct 2026 15:28Z: "If you can make saving and loading 5 seconds then i will test. But 3 minutes per load? No way!"
+
+- Opening Cue (`cueState`) read every task's stored data (up to 180,000 characters a row) on each load. It now reads the newest 40 rows, and more only until it has 20 tasks.
+- Each tap and save loaded its task (`cueLoad_`) by reading the whole Requests sheet. It now reads the ID column, then that one row.
+- The 5-minute resume (`cueResume`) read the whole sheet too. It now reads the Status column, then only the Working rows.
+- Nothing else changed: same tasks shown, same order, same saves.
+- Not measured live yet. The test proves how much is read (FAST1: 40 rows instead of 302), not the seconds.
+- Tests: FAST1 new. 374 tests.
+
 ## Cue sheet reads: Canvas records tabs through the bridge (not deployed)
 
 Kiko 26 Oct 2026 09:05Z chose this second ("2,3,4,1"); spec `specs/bridge-sheet-reads.md`, tracked on the Feature Board card
