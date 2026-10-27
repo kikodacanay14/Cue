@@ -224,8 +224,10 @@ function cueGtDay_(v) {
 const cueGtAddDays_ = (day, n) => new Date(Date.parse(day + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 const cueGtAddMonth_ = day => { const d = new Date(Date.parse(day + 'T00:00:00Z')); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); };
 /** One row as "Tab row N: Header: value; ..." with empty cells left out. */
+// Bug 27 Oct: Supplier Database rows carried Bank, Account Name, AccountNumber and TIN into the ChatGPT prompt. These never go.
+const CUE_GT_SECRET_COL_ = /^\s*(bank\b.*|account\s*name|acc(oun)?t\.?\s*(no|num|number|#).*|iban|swift.*|routing.*|card\s*(no|num).*|tin\b.*|.*signature.*|e-?sign.*|password|passcode|pin|secret|token)\s*$/i;
 function cueGtLine_(tab, o, max) {
-  const parts = Object.keys(o).filter(k => k !== '_row' && String(o[k] == null ? '' : o[k]).trim())
+  const parts = Object.keys(o).filter(k => k !== '_row' && !CUE_GT_SECRET_COL_.test(k) && String(o[k] == null ? '' : o[k]).trim())
     .map(k => k + ': ' + (o[k] instanceof Date ? cueGtDay_(o[k]) : cueStr_(String(o[k]).replace(/\s+/g, ' '), 300)));
   return cueStr_(tab + ' row ' + o._row + ': ' + parts.join('; '), max || 1500);
 }
