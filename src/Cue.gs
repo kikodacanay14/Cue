@@ -177,6 +177,9 @@ function cueSendWith_(text, files, mode, ref, forced) {
   if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
   // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
   if (!has && mode !== 'intake') { const sc = cueSchedSaid_(text, ref); if (sc) return sc; }
+  // Transfer lookup and invoice line edit (Kiko 09:20Z 27 Oct, CueLookup.gs): Transfers read only, no AI call; an invoice line waits Approve.
+  if (!has && mode !== 'intake') { const tx = cueTxSaid_(text, ref); if (tx) return tx; }
+  if (!has && mode !== 'intake') { const iv = cueInvSaid_(text, ref); if (iv) return iv; }
   // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
   // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
   // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
