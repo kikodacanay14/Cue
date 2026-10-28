@@ -11,7 +11,7 @@ const CUE_ROUTE_TAB_ = 'Routing examples', CUE_ROUTE_HEAD_ = ['Saved', 'Phrase',
 const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search',
   workflow: 'Workflow map', email: 'Email', money: 'Money question', chat: 'Just chat' };
 const CUE_ROUTE_TALK_ = ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email'];   // the commands the chat call fills in
-const CUE_ROUTE_KIND_ = { intake: 'intake', change: 'intake', readiness: 'readiness', pipeline: 'pipeline', ar: 'ar', vendor: 'vendor', workflow: 'workflow', email: 'email', finance: 'money' };
+// The command each task kind is (STRUCTURE-PHASE-2 item 2.2): the cmd field of its line in cueCommands_ (CueCommands.gs), not a second list here.
 const CUE_ROUTE_MAX_ = { examples: 5, phrase: 300, rows: 300 };
 
 /* ---------- short, vague messages (PC test 17:30Z) ---------- */
@@ -153,7 +153,7 @@ function cueAskPick(id, pick, note) {
 /* ---------- wrong command ---------- */
 /** Whether "Wrong command?" shows on a task: it waits for Kiko, came from a message (no files), and nothing is saved in Canvas yet. */
 function cueRouteCan_(s) {
-  return !!CUE_ROUTE_KIND_[s.kind] && (s.status === 'Needs you' || s.status === 'Failed') && !(s.files || []).length
+  return !!cueCommand_(s.kind).cmd && (s.status === 'Needs you' || s.status === 'Failed') && !(s.files || []).length
     && !(s.canvas && (s.canvas.project_id || s.canvas.submitted)) && !s.approved_at && String(s.text || '').trim().length >= 3;
 }
 
@@ -168,7 +168,7 @@ function cueWrongCommand(id, cmd) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (!cueRouteCan_(L.s)) throw new Error('This task can no longer be redone as another command.');
-    if (CUE_ROUTE_KIND_[L.s.kind] === cmd) throw new Error('That is the command it already is.');
+    if (cueCommand_(L.s.kind).cmd === cmd) throw new Error('That is the command it already is.');
     text = String(L.s.said || L.s.text).trim();
     cueCloseAny_(L); L.s.wrong_command = cmd; cueSave_(L.sh, L.row, L.s);
   });

@@ -11,7 +11,15 @@ options (`canvas-integration/previews/cue-button-options.png`) he chose B, the c
   bar (`src/Index.html`), and the browser-tab favicon (`src/Cue.gs`; icon version `bubble-1` makes Cue upload the new PNG
   to Kiko's Drive once). Same size, place, drag and unread behaviour.
 - The Canvas Cue button (Workspace.html `.qc-btn.cue`) is Canvas Integration's; the matching change goes to it as a handoff.
-- Tests: 381 of 381 pass (CB1 new; SN2 now expects extension 1.4.2).
+- Tests: 385 of 385 pass on main with phase 2 part 1 (CB1 new in `test/features/50-cue-button.js`; SN2 now expects extension 1.4.2).
+## Cue structure phase 2, part 1: one command list (not deployed)
+
+Kiko approved phase 2 of the structure review on 28 Oct 2026 04:21Z ("okay lets do that"; list `canvas-integration/specs/cue-structure-review.md`, items 2.1 and 2.2, stories Cue #138 and #139 under epic #133). No change in what Cue does.
+
+- New `src/CueCommands.gs` holds the command list. `cueCommands_` has one line per task kind: its name, its command in the Wrong command? list, its run, its Approve and its "stopped" line. `cueRoutes_` lists the 29 word checks a message meets before the AI chat call, in order. `cueTalkRoutes_` lists the 7 things the chat call can start.
+- `cueSendWith_`, `cueRunLeased_` and `cueApprove` (in `Cue.gs`) now go down these lists instead of hand-written chains and maps. The Wrong command? check (`CueRoute.gs`) reads each kind's command from the same list; the separate `CUE_ROUTE_KIND_` map is gone. The note on who asked for each check and when is kept word for word in `CueCommands.gs`.
+- `FEATURE-MAP.md` section 1 now has the Wrong command? name of each kind. Section 2 reads the list itself: who answers which words first, what each check calls and what it starts.
+- Tests: 384 of 384 pass (380 before plus CMD1 to CMD4). CMD1 replays the order the old chain called its checks in, recorded from commit 67c282a, for 11 kinds of message (plain, chat, intake form, in a thread, files, forced, Bid check thread, workflow thread, money thread and others). Swapping two lines of the list makes it fail. CMD4 fails when two server files define the same top-level name; the first draft of this change hit exactly that (`cueKinds_` already existed in `CueSweep.gs`).
 
 ## Cue structure phase 1: map and tidy, no change in what Cue does (not deployed)
 
