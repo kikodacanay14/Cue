@@ -85,7 +85,7 @@ test('CK8 send lock (Kiko 27 Oct 09:16Z): on a real stand-in project Send is sto
   deq(ok.log.bridge.filter(b => b.action === 'crew_docs_send').map(b => b.project_id), [CHECK_PID]); deq(ok.door('check_finish').stopped, []);
 });
 test('CK7 every server function the page calls is either a check function or listed as never; nothing in Cue sends mail around the mail lock', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), ctx = sandbox().ctx;
+  const html = cuePage(), ctx = sandbox().ctx;
   const page = [...new Set((html.match(/call\('(\w+)'/g) || []).map(x => x.slice(6, -1)))];
   const FNS = vm.runInContext('CUE_CHECK_FNS_', ctx), NEVER = vm.runInContext('CUE_CHECK_NEVER_', ctx), listed = FNS.concat(NEVER); deq(page.filter(f => listed.indexOf(f) < 0), [], 'new page call: add it to CUE_CHECK_FNS_ or CUE_CHECK_NEVER_');
   deq(FNS.filter(f => NEVER.indexOf(f) >= 0 || typeof ctx[f] !== 'function'), []);

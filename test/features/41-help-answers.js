@@ -63,7 +63,7 @@ test('HQ5 Canvas cannot be read: Failed with the reason; Try again reads it and 
 });
 
 test('HQ6 the Help card: answer with Copy reply, Rephrase and Edit answer in bank; close matches; Add as Draft when nothing matches; only the owner taps', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"']/g, c => '&#' + c.charCodeAt(0) + ';'), metricLine: () => '' };
   vm.createContext(ctx); vm.runInContext(grab('helpCardHtml') + '\n' + grab('kindName'), ctx);

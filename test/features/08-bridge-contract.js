@@ -19,7 +19,7 @@ test('BC2 the fixture is the exact copy named in ZapBridge.version', () => {
   assert.strictEqual(got, want, 'test/fixtures/ZapBridge.gs changed without updating ZapBridge.version (or is not an exact copy)');
 });
 test('AR8 PC check 27 Oct 01:53Z: the card keeps Kiko\'s ticks across a warning, and each "Can\'t make yet" row says why', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const on = eval('(' + /function arOn\(attr, id, x, def\) \{[^\n]+\}/.exec(html)[0].replace(/^function arOn/, 'function') + ')');
   global.arTick = {}; arTick['data-amk|r1|juan'] = false; arTick['data-amk|r1|ana'] = true;
   deq([on('data-amk', 'r1', { key: 'juan' }, true), on('data-amk', 'r1', { key: 'ana' }, false), on('data-amk', 'r1', { key: 'carla' }, false), on('data-amk', 'r2', { key: 'ana' }, false)],

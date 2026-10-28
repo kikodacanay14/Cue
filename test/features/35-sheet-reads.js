@@ -46,7 +46,7 @@ test('GT10 PC test 22 Oct: "What was checked" keeps ChatGPT\'s plain words and d
 });
 
 test('TU20 live 01:22Z: Go or Change on a plan card runs the started request right away, like a send', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/call\('cueAskPick', \[id, b\.getAttribute\('data-pick'\)\], started, fail\)/.test(html), 'Go/Not that use started');
   assert.ok(/call\('cueAskPick', \[id, 'change', v\], started, fail\)/.test(html), 'Change uses started');
   assert.ok(/var started = function \(r\) \{ done\(\); if \(!r \|\| r\.chat \|\| !r\.request_id\) return;[\s\S]{0,80}call\('cueRun', \[r\.request_id\]/.test(html), 'started kicks cueRun only for a run');
@@ -71,7 +71,7 @@ test('TU21 PC test 01:41Z: a preview marks the pushed Cue.gs as the test build, 
 });
 
 test('RD20 live 01:29Z: the readiness card returns what it built, and cardHtml survives a card that draws nothing', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const body = html.slice(html.indexOf('function readyCardHtml('), html.indexOf('\n  }\n', html.indexOf('function readyCardHtml(')) + 4);
   assert.ok(/\n    return h;[^\n]*\n  }$/.test(body), 'readyCardHtml ends with return h');
   assert.ok(/var h = cardBody\(r\) \|\| '';/.test(html), 'cardHtml guards an empty card');
@@ -84,7 +84,7 @@ test('TU21 22 Oct: a learned pattern under 3 Go taps shows Reset, which puts its
   t.ctx.cuePatApprove_('ARs: prepare ARs', 'ar', 'prepare ars', null);
   let v = t.ctx.cueMyPatternDemote('ARs: prepare ARs');
   deq(v.patterns.map(x => [x.key, x.n, x.graduated]), [['Readiness check: is <project> ready?', 3, true], ['Supplier search: find suppliers for <item>', 2, false], ['ARs: prepare ARs', 0, false]]);
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const a = html.indexOf('function patternsHtml('), src = html.slice(a, html.indexOf('\n  }\n', a) + 4);
   const run = vm.runInNewContext('(' + src + ')', { myPat: true, esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';') });
   const out = run(v.patterns), btn = k => { const m = out.split('<div').filter(r => r.indexOf(k) >= 0)[0].match(/data-my="demote"[^>]*>(\w+)</); return m ? m[1] : ''; };

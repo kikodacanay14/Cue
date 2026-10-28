@@ -114,7 +114,7 @@ test('TC16 PC test 18:17Z: a table pasted as "phrase<TAB>meaning" rows (3 rows o
     deq([t.log.gpt.length, t.state(out.request_id).kind], [0, 'memory'], 'tabbed paste ' + i);
   });
   const c = sandbox().ctx; deq([c.cueMemPaste_(receipt), c.cueMemPaste_('Top 3\tpick the best three suppliers for it')], [false, true]);
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const fn = page.match(/function memPaste\(t\) \{[\s\S]*?\n  \}\n/)[0], box = {}, expRe = new RegExp(page.match(/EXP_RE = \/(.+?)\/i;/)[1], 'i');
   vm.runInNewContext(fn + 'out = [memPaste(a), memPaste(b), memPaste(c)];', Object.assign(box, { a: three, b: one, c: receipt }));
   deq([box.out, expRe.test(three), expRe.test(one)], [[true, true, false], true, true], 'EXP_RE matches these, so memPaste is what keeps them from expense()');
@@ -147,7 +147,7 @@ test('TU8 PC test 18:15Z: a rejected expense\'s summary names the expense, not "
 });
 
 test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; ✕ forgets earlier threads; Kiko\'s line shows once when a poll beats the send; learn summaries name facts by words', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const wf = page.match(/function workflowCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   assert.ok(/\n    return h;[^\n]*\n  \}\n$/.test(wf), 'workflowCardHtml returns its card');
   const close = page.match(/function paneClose\(\) \{[\s\S]*?\n  \}\n/)[0];
@@ -161,7 +161,7 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
 });
 
 test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the buttons; all buttons on one row with Cancel intake last; the text is a tooltip', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   const box = { pickMode: {}, pickCount: (pk, pm) => pm === 'all' ? pk.all.length : new Set([].concat(...pk.lines.filter(l => l.on).map(l => l.suppliers.map(x => x.name)))).size, PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
     esc: v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
