@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue structure review phase 3: job runs list and one project finder (not deployed; ships from the live line as 1.27.53)
+
+Kiko approved phase 3 on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic Cue #133, stories #142 and #144.
+Built first on live 1.27.52 (branch `claude/project-thread-klmtzh-rel12753p3`) and ported here.
+
+- Job runs (3.1): `cueResume` runs its jobs from one list (`src/CueJobs.gs`); each run writes one row to the new "Job Runs" tab
+  (Started, Finished, Job, Result, Error, Count), one write per tick; rows older than 30 days are deleted once a day (Kiko
+  06:08Z, "Yes, keep 30 days"). Canvas Admin reads it (notifications N8/N9); Cue has no jobs page.
+- One project finder (3.3): crew docs, readiness, supplier search and project status now use `cueCanvasFind_` like Canvas
+  commands, CE cost and expenses: S- id, else every word (search_projects), else a similar name; one exact name wins.
+- One inbox read (3.2): measured; each tick reads the inbox at most once already.
+- Tests: 397 (392 before): JR1-JR3, PF1-PF2; readiness tests follow the finder.
+
 ## Cue email check: each waiting email carries its first line, for Canvas's compact cards (not deployed)
 
 Kiko 28 Oct 2026 04:51Z, on the Team Cue panel in Canvas: "can cards be more compact? and show a summary of the details so we

@@ -64,7 +64,7 @@ function cueStRun_(s, save) {
 function cueStFind_(s) {
   const T = s.st, pid = (String(T.ask).toUpperCase().match(/\bS-[0-9A-Z]{6,14}\b/) || [])[0];
   if (pid) { T.project_ids = [pid]; s.stage = 'Reading Canvas'; return; }
-  const all = cueReadyTimed_(s, ['find_similar_projects'], () => cueBridge_(s, 'find_similar_projects', { name: T.ask })) || [];
+  const all = cueReadyTimed_(s, ['search_projects', 'find_similar_projects'], () => cueCanvasFind_(s, T.ask)) || [];   // STRUCTURE-PHASE-3: the one project finder (CueCanvas.gs)
   const live = all.filter(x => !CUE_DONE_RE_.test(String(x.status || '').trim())), list = (live.length ? live : all).slice(0, 5);
   if (!list.length) throw new Error('Canvas has no project matching "' + T.ask + '". Say the project name as it is in Canvas, or its project ID (S-...).');
   T.project_ids = list.map(x => cueStr_(x.project_id, 20)).filter(x => /^S-[0-9A-Z]{6,14}$/.test(x));

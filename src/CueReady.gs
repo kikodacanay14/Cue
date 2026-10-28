@@ -2,7 +2,7 @@
  * Canvas already scores readiness on its Checklist tab, so Cue never re-judges it: the counts, the rule results and the auto
  * checks come from Canvas (bridge read get_readiness). AI reads the ask, and judges only what Canvas cannot see.
  *   1 GPT  the chat call (already made for every message) names the project: no extra call.
- *   - Canvas finds the project (find_similar_projects). Several open matches = Kiko picks on the card. Asked inside a thread that
+ *   - Canvas finds the project (the one project finder, cueCanvasFind_: search_projects, then find_similar_projects). Several open matches = Kiko picks on the card. Asked inside a thread that
  *     already has its Canvas project (1.25.6), that project is reused and the search is skipped. Each Canvas call's time is kept.
  *   - Canvas returns the checklist (get_readiness) and the folder files (list_project_files), in parallel.
  *   - Code sorts and flags: overdue due or follow-up dates, no owner, blockers open with the event within 7 days.
@@ -142,7 +142,7 @@ const CUE_DONE_RE_ = /^(complete|completed|cancel|canceled|cancelled|not awarded
 function cueReadyFind_(s) {
   const R = s.ready, pid = (String(R.ask).match(/\bS-[0-9A-Z]{6,14}\b/) || [])[0];
   if (pid) { R.match = { project_id: pid, name: pid, date: '', status: '' }; s.stage = 'Reading Canvas'; return; }
-  const all = cueReadyTimed_(s, ['find_similar_projects'], () => cueBridge_(s, 'find_similar_projects', { name: R.ask })) || [];
+  const all = cueReadyTimed_(s, ['search_projects', 'find_similar_projects'], () => cueCanvasFind_(s, R.ask)) || [];   // STRUCTURE-PHASE-3: the one project finder (CueCanvas.gs)
   const live = all.filter(x => !CUE_DONE_RE_.test(String(x.status || '').trim())), list = live.length ? live : all;
   R.options = list.slice(0, 5).map(x => ({ project_id: cueStr_(x.project_id, 20), name: cueStr_(x.name, 200), date: cueStr_(x.date, 20), status: cueStr_(x.status, 60) }));
   if (!list.length) throw new Error('Canvas has no project matching "' + R.ask + '". Say the project name as it is in Canvas, or its project ID (S-...).');
