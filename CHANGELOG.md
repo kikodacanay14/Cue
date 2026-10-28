@@ -2,7 +2,7 @@
 
 ## Cue email on main: New mail and the client email log (live as Cue 1.27.60, Version 134, 28 Oct 2026)
 
-Port to main of the "Cue email" group that went live on the release line as Cue 1.27.60 (Version 134) with Canvas V317 (`inbox_new`). New mail checks Kiko's BSE inbox and info@ every 5 minutes, Claude Haiku 5.5 sorts at most every 30 minutes from 07:00 to 21:00 Manila, and each email offers Start intake, Draft reply, Open in Gmail, Done, Not an inquiry and Mute sender. Emails also on Canvas Emails waiting are tagged with what Canvas knows. Read-only cloud check: `test/checks/1.27.56-new-mail.check.mjs` (cueNmCheck). The client email log was already on main. test/fixtures/ZapBridge.gs is now live Canvas V317's bridge.
+Port to main of the "Cue email" group that went live on the release line as Cue 1.27.60 (Version 134) with Canvas V317 (`inbox_new`). New mail checks Kiko's BSE inbox and info@ every 5 minutes, Claude Haiku 5.5 sorts at most every 30 minutes from 07:00 to 21:00 Manila, and each email offers Start intake, Draft reply, Open in Gmail, Done, Not an inquiry and Mute sender. Emails also on Canvas Emails waiting are tagged with what Canvas knows. Read-only cloud check: `test/checks/1.27.56-new-mail.check.mjs` (cueNmCheck). The AI usage page lists the sort as "New mail". The client email log was already on main. test/fixtures/ZapBridge.gs is now live Canvas V317's bridge.
 
 ## Cue 1.27.56: RFPs Kiko sends from Canvas go out from his own Gmail (not deployed; number may change when the deploys thread cuts the release)
 

@@ -54,6 +54,7 @@ function cueUsageKinds_() {
 function cueUsageCmd_(kinds, req, step) {
   req = String(req || '');
   if (/^chat-/.test(req)) return 'Chat';
+  if (/^cue-nm-/.test(req)) return 'New mail';   // CueNewMail.gs: the sort runs under its tick's own id, not a request's
   return kinds[req] || (String(step || '').trim() ? 'Other (' + String(step).trim().replace(/\s+\d+( of \d+)?$/, '') + ')' : 'Other');
 }
 

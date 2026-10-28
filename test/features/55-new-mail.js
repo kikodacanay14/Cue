@@ -126,3 +126,9 @@ test('NM6 cloud check door: cueNmCheck reads the last day of both inboxes and fi
   const d = nmSandbox({ infoFail: true }).ctx.cueNmCheck(); assert.ok(/Canvas busy/.test(d.info_error), 'Canvas down is reported, not thrown');
   assert.ok(/CUE_CHECK_FNS_ = \[[^\]]*'cueNmCheck'/.test(CODE) && /CUE_CHECK_READS_ = \['inbox_new'/.test(CODE), 'the check door may call it, and inbox_new is a read');
 });
+
+test('NM7 usage: the New mail sort counts as "New mail" on the AI usage page, not Other', () => {
+  const { ctx } = sandbox();
+  assert.strictEqual(ctx.cueUsageCmd_({}, 'cue-nm-abc123', 'New mail sort'), 'New mail');
+  assert.strictEqual(ctx.cueUsageCmd_({}, 'cue-xyz', 'Some step'), 'Other (Some step)');
+});
