@@ -23,6 +23,8 @@ const gptOk = data => resp(200, { status: 'completed', model: 'gpt-5-mini', usag
 const claudeOk = data => resp(200, { model: 'claude-sonnet-5-5', stop_reason: 'end_turn', usage: { input_tokens: 4000, output_tokens: 1500 },
   content: [{ type: 'text', text: JSON.stringify(data) }] });
 
+// Help answers (CueHelp.gs): the seed Help Q&A list (canvas-integration/help-qa/help-qa-seed.csv), as help_qa returns it.
+const HELP_QA = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'help-qa.json'), 'utf8'));
 const READ = { client: { company: 'Acme Corp', contact: 'Ana Reyes', email: 'ana@acme.example', phone: '0917 000 0000' },
   event: { name: 'Acme Year-End Party', type: 'Party', date: '2026-12-12', venue: 'SMX Aura', city: 'Taguig', pax: 300, budget: '' },
   requirements: [{ category: 'Lights and sound', description: 'LED wall 4m x 3m', quantity: 1, occurrence: 1, search_terms: 'led wall' },
@@ -165,6 +167,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You are Cue, the personal assistant/.test(body.system)) { log.claude.push(body); log.plans = (log.plans || 0) + 1;   // tutor mode's plan call
       const g = o.plan || o.talk || { reply: 'Doing well! Ready when you are.', looks_like_inquiry: false };
       return claudeOk(Array.isArray(g) ? g[Math.min(log.plans, g.length) - 1] : g); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You rewrite one help answer/.test(body.system)) { log.claude.push(body); return claudeOk(o.rephrase || { reply: 'Hi! Mag-sign in ka po sa crew site, tapos open To sign.' }); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn one event inquiry/.test(body.system)) { log.claude.push(body); log.breaks = (log.breaks || 0) + 1;
       if ((o.fail || {}).breakdown) return o.fail.breakdown();
       return claudeOk(Array.isArray(o.breakdown) ? o.breakdown[Math.min(log.breaks, o.breakdown.length) - 1] : (o.breakdown || BREAKDOWN)); }
@@ -189,6 +192,11 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      // CUE-HELP-2026-10-27: the Help Q&A list (help_qa, Live rows) and one Draft question (help_qa_add), with the bridge's shapes.
+      if (body.action === 'help_qa') { log.helpReads = (log.helpReads || 0) + 1; return o.helpFail && log.helpReads <= o.helpFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
+        : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
+      if (body.action === 'help_qa_add') { (log.helpAdds = log.helpAdds || []).push(body.args);
+        return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
       // CUE-PROJECT-LOG-2026-10-27: log lines for the projects' threads (project_log); Canvas files what it can and skips the rest.
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
