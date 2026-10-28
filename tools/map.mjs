@@ -79,8 +79,9 @@ const routeRows = (fn) => [...body('CueCommands.gs', fn).matchAll(/^ {4}\{ key: 
 const steps = routeRows('cueRoutes_'), talkSteps = routeRows('cueTalkRoutes_');
 
 // ---------- background jobs ----------
-const resume = body('Cue.gs', 'cueResume');
-const jobs = [...resume.matchAll(/^  try \{ (cue[A-Za-z0-9_]+)\(\);[^\n]*\}(?:\s*\/\/\s*([^\n]*))?$/gm)].map(m => [m[1], (m[2] || '').trim()]);
+// STRUCTURE-PHASE-3: the job list is cueJobs_ (CueJobs.gs); a job whose function this build lacks is left out, as cueResume skips it.
+const jobs = [...body('CueJobs.gs', 'cueJobs_').matchAll(/\{ job: '([^']+)', fn: '(cue[A-Za-z0-9_]+)'[^}]*\},?(?:\s*\/\/\s*([^\n]*))?/g)]
+  .filter(m => def[m[2]]).map(m => [m[2], m[1], (m[3] || '').trim()]);
 
 // ---------- page calls ----------
 const pageCalls = [...new Set([...page.matchAll(/call\('(cue[A-Za-z0-9]+)'/g)].map(m => m[1]))].sort();
@@ -115,10 +116,10 @@ talkSteps.forEach((r, i) => L.push(`${i + 1}. \`talk.${r.key}\`: ${esc(r.name)}.
 L.push('', 'Last, `talk.start_intake` starts a project intake (or a supplier registration).', '');
 
 L.push('## 3. Background jobs (one trigger, every 5 minutes)', '');
-L.push('`cueResume` in `Cue.gs` runs these in order, resumes waiting tasks, and last runs the scheduler (`cueSchedTick_`). Each job has its own');
-L.push('timing inside its own code.', '');
-L.push('| # | Job | File | Note in the code |', '|---|---|---|---|');
-jobs.forEach(([n, note], i) => L.push(`| ${i + 1} | \`${n}\` | ${home(n)} | ${esc(note)} |`));
+L.push('`cueResume` in `Cue.gs` runs the list in `cueJobs_` (`CueJobs.gs`) in order, resumes waiting tasks, and last runs the scheduler');
+L.push('(`cueSchedTick_`). Each job has its own timing inside its own code. Each run writes one row to the Job Runs tab, which Canvas Admin reads.', '');
+L.push('| # | Job (Job Runs name) | Function | File | Note in the code |', '|---|---|---|---|---|');
+jobs.forEach(([n, name, note], i) => L.push(`| ${i + 1} | ${esc(name)} | \`${n}\` | ${home(n)} | ${esc(note)} |`));
 L.push('');
 
 L.push('## 4. Files: what each one touches', '');

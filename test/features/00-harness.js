@@ -12,7 +12,7 @@ const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRE
 
 function sheetMock() {
   const rows = [];
-  return { rows, getLastRow: () => rows.length, appendRow: v => rows.push(v.slice()), setFrozenRows: () => {}, deleteRow: r => rows.splice(r - 1, 1),
+  return { rows, getLastRow: () => rows.length, appendRow: v => rows.push(v.slice()), setFrozenRows: () => {}, deleteRow: r => rows.splice(r - 1, 1), deleteRows: (r, n) => rows.splice(r - 1, n),
     getRange: (r, c, nr = 1, nc = 1) => ({
       getValues: () => rows.slice(r - 1, r - 1 + nr).map(x => { const y = x.slice(c - 1, c - 1 + nc); while (y.length < nc) y.push(''); return y; }),
       setValues: v => v.forEach((vals, i) => { while (rows.length < r + i) rows.push([]); vals.forEach((x, j) => { rows[r - 1 + i][c - 1 + j] = x; }); }) }) };
