@@ -187,6 +187,8 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You write the daily release notes/.test(body.system)) { log.claude.push(body); return (o.fail || {}).relnotes ? o.fail.relnotes() : claudeOk(o.relnotes || RN_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You write Kiko's Monday status digest/.test(body.system)) { log.claude.push(body); return (o.fail || {}).digest ? o.fail.digest() : claudeOk(o.digest || ST_DIGEST); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You sort emails for Kiko/.test(body.system)) { log.claude.push(body); log.nmSorts = (log.nmSorts || 0) + 1;   // New mail (CueNewMail.gs)
+      return (o.fail || {}).nmSort ? o.fail.nmSort() : claudeOk(typeof o.nmSort === 'function' ? o.nmSort(body) : o.nmSort || { items: [] }); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
     if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
@@ -205,6 +207,9 @@ function sandbox(o = {}) {
       // CUE-PROJECT-LOG-2026-10-27: log lines for the projects' threads (project_log); Canvas files what it can and skips the rest.
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
+      // CUE-NEW-MAIL-2026-10-27: info@'s new inbox mail (inbox_new), with the bridge's shape.
+      if (body.action === 'inbox_new') { (log.inboxNew = log.inboxNew || []).push(body.args);
+        return o.infoFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }) : resp(200, { ok: true, status: 'Completed', result: { until: now, items: typeof o.info === 'function' ? o.info(body.args) : o.info || [] } }); }
       // CUE-HELP-2026-10-27: the Help Q&A list (help_qa, Live rows) and one Draft question (help_qa_add), with the bridge's shapes.
       if (body.action === 'help_qa') { log.helpReads = (log.helpReads || 0) + 1; return o.helpFail && log.helpReads <= o.helpFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
@@ -216,7 +221,7 @@ function sandbox(o = {}) {
       if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
-      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
+      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; if (o.waitingFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
       if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
         if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
@@ -477,6 +482,10 @@ function sandbox(o = {}) {
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.at)), snippet: m.snippet, labelIds: m.sent ? ['SENT'] : ['INBOX'],
         payload: { headers: [{ name: 'From', value: m.from }, { name: 'To', value: m.to }, { name: 'Subject', value: m.subject }, { name: 'Message-ID', value: '<' + m.id + '@mail>' }] } });
     }
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/profile') >= 0) { log.profile = (log.profile || 0) + 1; return resp(200, { emailAddress: 'kiko@example.com', historyId: o.historyId || '500' }); }
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/history?') >= 0) { (log.history = log.history || []).push(u);   // New mail: what changed since startHistoryId
+      if (o.historyGone) return resp(404, { error: { code: 404, message: 'Requested entity was not found.' } });
+      const h = typeof o.history === 'function' ? o.history(u) : o.history || {}; return resp(200, Object.assign({ historyId: o.historyId || '500' }, h)); }
     if (u.indexOf('gmail.googleapis.com') >= 0 && (req.method || 'get') === 'get') { const r = inboxRoute(o.inbox || [], u, log); if (r) return r; }   // an empty inbox unless a test gives one
     if (o.award && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/threads/') >= 0) {   // CE award chasers: thread headers (their own thread format)
       const id = decodeURIComponent(u.split('/threads/')[1].split('?')[0]), th = (o.threads || {})[id];

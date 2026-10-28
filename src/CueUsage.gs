@@ -56,6 +56,7 @@ function cueUsageCmd_(kinds, req, step) {
   if (/^chat-/.test(req)) return 'Chat';
   if (req === 'canvas') return 'Canvas: ' + (String(step || '').trim() || 'AI');   // CUE-STRUCTURE-4.6: a Canvas AI Runs row, by its job
   if (/^cue-ed-/.test(req)) return 'Other (canvas edit)';   // Canvas edits (CueEdit.gs) are not in the Requests tab
+  if (/^cue-nm-/.test(req)) return 'New mail';   // CueNewMail.gs: the sort runs under its tick's own id, not a request's
   return kinds[req] || (String(step || '').trim() ? 'Other (' + String(step).trim().replace(/\s+\d+( of \d+)?$/, '') + ')' : 'Other');
 }
 
