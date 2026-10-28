@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue contact scan: never refill a cell with history (not deployed)
+
+Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
+he have done so far to not overwrite what changes we already did". Needs the Canvas release with the history check
+(CanvasWorkspace branch claude/project-thread-p7h45p @ 1abee15, `src/ZapBridge.gs` md5 7d86216f57ad34d0b74d212e322af7d9).
+
+- Canvas's `contact_gaps` and `contact_fill` now leave a blank P0 Contacts cell alone when it has history: a CRM Auto Added
+  row for that contact and column (still added or undone in Accounts › Auto add), or an edit of that column for that contact
+  in the Canvas Changes log.
+- `contact_gaps` lists those cells under `held` with the reason. Cue names up to 8 of them on the Approve card and in the
+  "nothing to fill" answers ("Left alone, changed before: Ana Cruz Position (changed in Canvas by … (2026-10-20))").
+- `contact_fill` checks again under the lock and reports any such cell as skipped, with the same reason.
+- Bridge copy `test/fixtures/ZapBridge.gs` is that branch file. New test CS6. Tests: 391.
+
 ## Cue structure phase 2, part 3: card families (not deployed)
 
 Kiko approved phase 2 on 28 Oct 2026 04:21Z ("okay lets do that"). This is item 2.3, story Cue #140 under epic #133. Nothing on the page changes.

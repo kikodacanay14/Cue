@@ -244,7 +244,7 @@ function sandbox(o = {}) {
       // CUE-CONTACT-SCAN-2026-10-27: Canvas's contact_gaps (read, paged) and contact_fill (a claimed plan's write).
       if (body.action === 'contact_gaps') { (log.gaps = log.gaps || []).push(body.args); const G = o.gaps || CS_GAPS, at = body.args.start_row || 0, lim = body.args.limit || 50;
         const rows = G.filter(r => r.row >= at).slice(0, lim), more = G.filter(r => r.row >= at).length > lim;
-        return resp(200, { ok: true, status: 'Completed', result: { tab: 'P0 Contacts', rows, next_row: more ? G.filter(r => r.row >= at)[lim].row : null, total_rows: 900 } }); }
+        return resp(200, { ok: true, status: 'Completed', result: { tab: 'P0 Contacts', rows, held: at ? [] : (o.held || []), next_row: more ? G.filter(r => r.row >= at)[lim].row : null, total_rows: 900 } }); }
       if (body.action === 'contact_fill') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
         if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
         const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
