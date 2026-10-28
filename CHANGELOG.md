@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.56: RFPs Kiko sends from Canvas go out from his own Gmail (not deployed; number may change when the deploys thread cuts the release)
+
+Kiko 28 Oct 2026 07:35Z ("i want it to send it when i click send") and 07:45Z, on who it comes from: "from me". Built with Canvas
+PR #230 (CanvasWorkspace branch `claude/project-thread-03c4fn-direct`), which adds the RFP Outbox and the bridge actions
+`rfp_outbox` (read) and `rfp_sent` (queue). The two ship together as one feature group.
+
+- New job "RFPs from your Gmail" (`CueRfpSend.gs`), on its own 1-minute trigger `cueRfpKick` (Kiko 08:33Z: "i need the rfp
+  sending faster"), so Cue now has two triggers. It reads the RFPs and RFP follow-ups Kiko pressed
+  Send on in Canvas and sends each from Kiko's Gmail with the supplier contacts in To and AccountsPayables@ plus the RFP's CC in
+  CC. A follow-up goes as a reply in the RFP's own Gmail thread.
+- Canvas is told each result: Sent with Kiko's Gmail thread and message, or Failed with the reason (the scope card then shows
+  Not sent). An email is sent once; if Canvas does not answer the report, the next minute reports again without sending again.
+- Settings > Scheduled tasks lists it as "RFPs from your Gmail" (Every minute). Run now sends at once; switching it off stops
+  the minutes. Two runs never overlap. A minute writes a Job Runs row only when it sent, failed or could not report.
+- A cloud check only reads the outbox and returns what it would send.
+- Staff RFPs are unchanged: they open in the staff member's own Gmail.
+- `test/fixtures/ZapBridge.gs`: the CRM funnel bridge (Canvas PR #232) plus the two RFP actions (PR #230). No AI call. Tests: 415 (RS1 to RS6).
 ## Cue page opens again: page parts read raw (bug fix on main; ships from the live line as Cue 1.27.54.1, branch claude/project-thread-o4roiy-rel12754fix)
 
 Kiko's screenshot, 28 Oct 2026 08:07Z: the Cue panel in Canvas showed "Exception: Malformed HTML content" and Cue's script as text.

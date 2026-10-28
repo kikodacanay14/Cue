@@ -1,4 +1,5 @@
-Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc (PR #232), the CRM funnel release built on live Canvas V314
-(28 Oct 2026): adds the read crm_funnel and labels Cue's crm_log rows "Cue". Not live until that release ships.
-md5 68055090959bb763bcdbfd8a4af9d5f6
+Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc (PR #232, the CRM funnel release built on live Canvas V314)
+plus rfp_outbox (read) and rfp_sent (queue) from branch claude/project-thread-03c4fn-direct (PR #230, RFPs from Kiko's Gmail), 28 Oct 2026.
+Not live until those releases ship.
+md5 0462cfa5b617246fc65441ceb4b4cdb1
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 56 server files, 1155 top-level names, 27 task kinds, 29 word checks before the
-chat call, 10 background jobs in the 5-minute trigger, 68 page-to-server functions, 55 bridge actions in the Canvas bridge copy.
+Counts: 57 server files, 1161 top-level names, 27 task kinds, 29 word checks before the
+chat call, 10 background jobs in the 5-minute trigger, 68 page-to-server functions, 57 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -115,32 +115,32 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 49 | 37 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 50 | 38 |
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 32 | 3 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 5 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
 | `CueBids.gs` |  | Requests | 1 | 0 | 6 | 3 |
-| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 30 | 3 |
+| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 31 | 3 |
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 10 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 4 | 9 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 26 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 26 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
 | `CueCommands.gs` |  |  | 0 | 0 | 2 | 32 |
 | `CueContactScan.gs` |  | Contact scan | 0 | 1 | 2 | 9 |
 | `CueCrmLog.gs` | `mail_waiting` |  | 0 | 0 | 2 | 4 |
-| `CueDates.gs` |  |  | 0 | 0 | 12 | 0 |
+| `CueDates.gs` |  |  | 0 | 0 | 13 | 0 |
 | `CueEdit.gs` | `contains` |  | 0 | 1 | 2 | 5 |
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 4 | 5 |
-| `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 14 | 3 |
+| `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
-| `CueGmail.gs` |  |  | 0 | 0 | 19 | 3 |
+| `CueGmail.gs` |  |  | 0 | 0 | 20 | 3 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 5 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakePhases.gs` | `client_check`, `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `search_projects` |  | 1 | 3 | 5 | 9 |
-| `CueJobs.gs` |  | Job Runs | 0 | 0 | 2 | 10 |
+| `CueJobs.gs` |  | Job Runs | 0 | 0 | 3 | 10 |
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 5 |
 | `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 5 |
@@ -150,8 +150,9 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueReady.gs` | `find_similar_projects`, `get_readiness`, `list_project_files`, `search_projects` | Requests | 1 | 1 | 5 | 7 |
 | `CueRelay.gs` | `ar_list`, `ce_lines`, `finance_snapshot`, `get_project`, `get_project_board`, `get_readiness`, `list_project_files`, `overdue_billings`, `search_projects`, `status_digest` | Relay, Requests | 0 | 0 | 6 | 10 |
 | `CueRelnotes.gs` |  | Release Notes, Requests | 0 | 1 | 5 | 6 |
+| `CueRfpSend.gs` | `rfp_outbox`, `rfp_sent` |  | 0 | 0 | 2 | 8 |
 | `CueRoute.gs` |  | Routing examples | 0 | 0 | 10 | 15 |
-| `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 5 | 12 |
+| `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 6 | 13 |
 | `CueStatus.gs` | `add_tri_items`, `find_similar_projects`, `search_projects`, `status_digest` | AI Runs, Requests | 2 | 1 | 4 | 12 |
 | `CueStyle.gs` |  | Requests, Style | 0 | 1 | 13 | 4 |
 | `CueSupplier.gs` | `handoff_put`, `register_supplier`, `save_supplier_file`, `supplier_check` |  | 2 | 1 | 3 | 7 |
@@ -164,7 +165,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepSignature.gs` | `list_unsigned_docs`, `send_doc_reminder` |  | 0 | 0 | 0 | 4 |
 | `CueTeach.gs` |  | Memory, Requests, Workflows | 0 | 3 | 7 | 9 |
-| `CueText.gs` |  |  | 0 | 0 | 42 | 0 |
+| `CueText.gs` |  |  | 0 | 0 | 43 | 0 |
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueTriage.gs` |  | Triage log, Triage rules | 1 | 0 | 4 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
@@ -178,32 +179,32 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueNow_` | `Cue.gs` | 43 |
-| `cueStr_` | `CueText.gs` | 41 |
+| `cueNow_` | `Cue.gs` | 44 |
+| `cueStr_` | `CueText.gs` | 42 |
 | `cueChat_` | `Cue.gs` | 36 |
 | `cueLocked_` | `Cue.gs` | 31 |
 | `cueProp_` | `Cue.gs` | 31 |
+| `cueBridge_` | `CueBridge.gs` | 28 |
 | `cueLoad_` | `Cue.gs` | 28 |
 | `cueSheet_` | `Cue.gs` | 28 |
 | `cueAiAll_` | `CueAi.gs` | 27 |
-| `cueBridge_` | `CueBridge.gs` | 27 |
 | `cueSave_` | `Cue.gs` | 27 |
 | `cueOwner_` | `Cue.gs` | 23 |
 | `cueGpt_` | `CueAi.gs` | 22 |
 | `CUE_VERSION_` | `Cue.gs` | 21 |
-| `cueEmail_` | `CueText.gs` | 20 |
+| `cueEmail_` | `CueText.gs` | 21 |
 | `cueClaude_` | `CueAi.gs` | 19 |
 | `cueMetrics_` | `Cue.gs` | 18 |
 | `cueSummary_` | `Cue.gs` | 16 |
-| `CUE_GMAIL_` | `CueGmail.gs` | 13 |
+| `CUE_GMAIL_` | `CueGmail.gs` | 14 |
+| `cuePh_` | `CueDates.gs` | 12 |
 | `cueView_` | `Cue.gs` | 12 |
 | `cueGmailSend_` | `CueGmail.gs` | 11 |
 | `cueName_` | `CueText.gs` | 11 |
-| `cuePh_` | `CueDates.gs` | 11 |
 | `cueResume` | `Cue.gs` | 11 |
+| `cueGmail_` | `CueGmail.gs` | 10 |
 | `cueKey_` | `CueAi.gs` | 10 |
 | `cueRunLeased_` | `Cue.gs` | 10 |
-| `cueGmail_` | `CueGmail.gs` | 9 |
 | `cueMe_` | `Cue.gs` | 9 |
 | `cueAddDays_` | `CueDates.gs` | 8 |
 | `cueAskOpen_` | `CueRoute.gs` | 8 |
