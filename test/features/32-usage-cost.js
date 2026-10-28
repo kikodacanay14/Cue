@@ -56,7 +56,7 @@ test('UG4 the AI Runs Cost column now fills for ChatGPT, web searches included',
   assert.strictEqual(t.ctx.cueAiCost_('Claude', 'claude-sonnet-5-5', 4000, 1500, 9), 0.023, 'web searches only on GPT rows');
 });
 test('UG5 Settings page: AI usage and cost section loads only when opened, shows ESTIMATE, ₱ and US$, and the bill links', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(html.indexOf('<button data-s="usage">AI usage and cost</button>') > 0 && html.indexOf('data-sec="usage"') > 0);
   assert.ok(/if \(sec === 'usage'\) loadUsage\(\);/.test(html) && /call\('cueUsage', \[\]/.test(html) && /call\('cueUsagePrices', \[p\]/.test(html));
   ['ESTIMATE', 'Likely by month end', 'platform.openai.com', 'console.anthropic.com', 'rough: under 7 days of data'].forEach(x => assert.ok(html.indexOf(x) > 0, x));

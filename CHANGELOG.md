@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue structure phase 2, part 2: the page in parts (not deployed)
+
+Kiko approved phase 2 on 28 Oct 2026 04:21Z ("okay lets do that"); item 2.4, story Cue #141 under epic #133. Nothing on the page changes.
+
+- The 3,053-line `src/Index.html` is split into six parts: `IndexStyle.html`, `IndexChat.html`, `IndexViewer.html`, `IndexThreads.html`, `IndexPages.html` and `IndexCards.html`. `Index.html` keeps the markup and puts each part in place with `<?!= cueInclude_('Name') ?>`.
+- `doGet` now serves `Index` as a template (`HtmlService.createTemplateFromFile('Index').evaluate()`), with the same title, viewport, frame mode and icon. `cueInclude_` (in `Cue.gs`) gives a part's text without its last newline.
+- Joined, the page is the old file byte for byte, plus one blank line where the note on the parts sits. That was checked once at the split.
+- `test/page.js` joins the page the way `doGet` does. The tests, `tools/map.mjs` and the cloud check robot (`test/checks/run.mjs`) all read the joined page.
+- Tests: 387 of 387 pass (384 before plus PG1 to PG3: every part is put in once and in order, the joined script is valid JavaScript inside its one wrapping function, and `doGet` and `cueInclude_` behave as above). The cloud check dry run passes in Chromium on the joined page.
+- Only Apps Script itself runs the template. So the /dev preview and the PC check confirm the page loads before this goes live.
+
 ## Cue structure phase 2, part 1: one command list (not deployed)
 
 Kiko approved phase 2 of the structure review on 28 Oct 2026 04:21Z ("okay lets do that"; list `canvas-integration/specs/cue-structure-review.md`, items 2.1 and 2.2, stories Cue #138 and #139 under epic #133). No change in what Cue does.

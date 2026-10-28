@@ -1,0 +1,182 @@
+(function () {
+  var state = { requests: [], chat: [], metrics: {} }, editing = {}, polling = null, running = {};
+  // Expenses (Kiko 07:27Z): their files stay here, never in Cue uploads, until Approve sends them to the project's Admin folder.
+  var held = {}, expRoute = {}, EXP_RE = /\b(record (an? |this |the )?(expense|payment)|expenses?|receipts?|official receipt|proof of (payment|transfer)|liquidat\w*|reimburs\w*|paid (to|for|via|in cash|cash|by))\b/i;
+  var EXPENSE = [['GPT reading', 'GPT', 'GPT reads your line and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the project and its records'],
+    ['Claude matching', 'Claude', 'Claude matches it to a request or a scope'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Writing to Canvas', 'Canvas', 'Canvas records it and reads it back']];
+  var STEPS = [['GPT reading', 'GPT', 'GPT reads the request'], ['Checking Canvas', 'Canvas', 'Canvas checks duplicates, prices and history'], ['Same project?', 'Kiko', 'You say if Canvas\'s look-alike is this project'],
+    ['Claude costing', 'Claude + GPT', 'Claude costs the CE while GPT researches the gaps'], ['GPT drafting RFQs', 'GPT', 'GPT drafts one RFQ per supplier'],
+    ['Needs you', 'Kiko', 'Waiting for your approval']];
+  var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
+    ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Done', 'Done', 'Done']];
+  var HSTEPS = [['Reading HubSpot', 'Canvas', 'Canvas reads HubSpot and Client Desk (changes nothing)'], ['Claude checking', 'Claude', 'Claude checks the look-alikes and names'],
+    ['GPT looking up', 'GPT', 'ChatGPT looks up missing websites'], ['Fixing', 'Canvas', 'Canvas applies the ticked fixes and reads them back'], ['Needs you', 'Kiko', 'Waiting for your approval']];
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+  function call(fn, args, ok, bad) {
+    var r = google.script.run.withSuccessHandler(function (x) { $('dot').style.background = 'var(--ok)'; ok && ok(x); })
+      .withFailureHandler(function (e) { $('dot').style.background = 'var(--bad)'; (bad || alertErr)(e); });
+    r[fn].apply(r, args || []);
+  }
+  // Cue's own question box (the browser's prompt() shows the Apps Script sandbox address).
+  function ask(title, sub, placeholder, okLabel, cb) {
+    var d = $('ask'); $('ask-t').textContent = title; $('ask-sub').textContent = sub; $('ask-in').value = ''; $('ask-in').hidden = placeholder === null; $('ask-in').placeholder = placeholder || ''; $('ask-ok').textContent = okLabel;
+    d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
+    d.returnValue = ''; d.showModal(); if (placeholder !== null) $('ask-in').focus(); else $('ask-ok').focus();
+  }
+  // Kiko 15:43Z: an error about a task goes to that task's thread, never the main chat.
+  function alertErr(e, ref) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m, ref); }
+  // Google access (Kiko 05:32Z): one button that checks Cue's access and, if some is missing, resets it so Google asks again.
+  var ACCESS_RE = /access yet|insufficient authentication scopes/i, accessNeeded = false, accessUrl = '';
+  function accessHtml() {
+    if (accessUrl) return '<div class="card need"><b>Google access reset</b><div class="small">Open Cue again and click <b>Allow</b> on every Google screen. Your keys and requests are kept.</div>'
+      + '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none;color:#0b1320" href="' + esc(accessUrl) + '" target="_top">Open Cue again</a></div></div>';
+    if (!accessNeeded) return '';
+    return '<div class="card need"><b>Cue needs Google access</b><div class="small muted">Google has not given Cue all the access it needs (Gmail or Drive). This checks and fixes it.</div>'
+      + '<div class="actions"><button class="btn" data-act="fix-access" data-id="">Fix Google access</button></div></div>';
+  }
+  // Lines shown at once and kept across refreshes until the server's chat has them (Kiko 05:59Z: a sent message vanished
+  // while Cue was busy, and Enter did nothing while the last send was still running).
+  var outbox = [];
+  function addLocal(who, text, ref) { var last = outbox[outbox.length - 1]; if (last && last.who === who && last.text === text && last.request_id === (ref || '')) return renderChat();   // live 17:03Z: the same error once, not four times
+    outbox.push({ who: who, text: text, request_id: ref || '', time: new Date().toISOString() }); renderChat(); }
+  var hintT = 0;
+  function hint(text) { var h = $('hint'); h.textContent = text; h.hidden = false; clearTimeout(hintT); hintT = setTimeout(function () { h.hidden = true; }, 12000); }
+  // PC test 18:30Z: a poll can bring Kiko's line from the server before the send returns; show it once, not twice.
+  function allLines() {
+    var recent = state.chat.slice(-12);
+    return state.chat.concat(outbox.filter(function (m) {
+      return !(m.sent && recent.some(function (x) { return x.who === m.who && x.request_id === m.request_id && x.text === m.text && Date.parse(x.time) >= m.sent - 30000; }));
+    }));
+  }
+  function unbox() { for (var i = 0; i < arguments.length; i++) { var k = outbox.indexOf(arguments[i]); if (k >= 0) outbox.splice(k, 1); } renderChat(); }
+
+  // Left: the main chat, always. Right pane (Kiko 12:59Z, 13:58Z): tabs for the Threads list, each opened thread
+  // (openThread = its first task's id) and each opened file. The chat's box always posts to the main chat; a thread has its own box.
+  var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1 };   // Kiko 14:03Z: no Widgets tab; what it showed lives in the Threads list and each thread
+  try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.filter(function (k) { return k.type === 'thread'; }).slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
+  // In a narrow window the pane opens beside the chat; the Cue bubble (1.3+) widens the window by the pane's width and gives it back on close.
+  var bubble = false, grown = 0, GROW = 440;
+  function paneOpen(on) {
+    var narrow = window.innerWidth <= 900, was = $('pane').classList.contains('open');
+    $('pane').classList.toggle('open', on); $('pane').classList.toggle('shut', !on);
+    if (on && !was && narrow && bubble && !grown) { grown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
+    if (!on && grown) { window.postMessage({ cueResize: -grown }, '*'); grown = 0; }
+  }
+  function openPane(it) {
+    if (!FIXED[it.key] && !ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
+    pactive = it.key; paneOpen(true); paneShow();
+  }
+  function goThread(id) {
+    openPane({ key: 't:' + id, type: 'thread', id: id });
+    $('pscroll').scrollTop = $('pscroll').scrollHeight; if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus();
+  }
+  function closeTab(key) {
+    var i = ptabs.map(function (k) { return k.key; }).indexOf(key); if (i < 0) return;
+    ptabs.splice(i, 1);
+    if (pactive === key) pactive = ptabs[i] ? ptabs[i].key : ptabs[i - 1] ? ptabs[i - 1].key : 'list';
+    paneShow();
+  }
+  // PC test 18:30Z: ✕ closes the pane and forgets the threads opened before, so it never steps back to one or keeps its title.
+  function paneClose() {
+    ptabs = []; pactive = 'list'; $('tmsgs').innerHTML = ''; $('tmsgs')._h = null; setHtml($('tdock'), '');
+    paneShow(); paneOpen(false);
+  }
+  function paneShow() {
+    var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
+    if (!it && !FIXED[pactive]) pactive = 'list';
+    openThread = it && it.type === 'thread' ? it.id : '';
+    $('page-threads').hidden = pactive !== 'list'; $('page-thread').hidden = !openThread;
+    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tcomposer').hidden = !openThread;
+    if (!openThread && fileHost === 'tfiles') hostFiles('files');
+    try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}
+    lastThread = -1; renderChat();
+  }
+  // Drive and Google Docs files open in the pane (Kiko 12:59Z); folders, Gmail and other sites still open a new tab.
+  function previewUrl(u) {
+    var m = /^https:\/\/(drive|docs)\.google\.com\/(?:file|document|spreadsheets|presentation)\/d\/([\w-]{10,})/.exec(u || '') || /^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]{10,})/.exec(u || '');
+    if (!m) return '';
+    var id = m[m.length - 1], kind = /\/(document|spreadsheets|presentation)\/d\//.exec(u);
+    return kind ? 'https://docs.google.com/' + kind[1] + '/d/' + id + '/preview' : 'https://drive.google.com/file/d/' + id + '/preview';
+  }
+  /* CUE-CANVAS (Kiko 18:59Z "opens the page and populates the details and show me the screen in Canvas"; specs/open-in-canvas.md).
+     A Canvas link opens Canvas in the viewer pane on a PC; on a phone, where Google blocks the sign-in inside a frame, in a new tab.
+     Canvas pages post {canvasWs:'ready'} up to every window above them when they load; with no ready in 12 s the pane says so and
+     offers a new tab instead. Links come as [[canvas|title|url]] in a chat line, or as a card's r.open. */
+  var PHONE = !!(window.matchMedia && (matchMedia('(pointer:coarse)').matches || matchMedia('(max-width: 900px)').matches));
+  // Mirrors cueCanvasParse_ (CueCanvas.gs): these go to the server as Canvas commands, never to the expense shortcut ("open Globe expenses").
+  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
+  var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
+  var cvWait = 0, cvGone = 0, cvReady = false;
+  function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
+  function cvLink(l, primary, hand) {
+    if (!l || !CV_URL.test(l.url || '')) return '';
+    return '<a class="btn' + (primary ? '' : ' ghost') + '" data-canvas="1"' + (hand ? ' data-hand="' + esc(hand) + '"' : '') + ' data-name="' + esc(l.title) + '" href="' + esc(l.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas · ' + esc(l.title) + '</a>';
+  }
+  function canvasOpen(l) {
+    if (!l || !CV_URL.test(l.url || '')) return;
+    if (PHONE) return void window.open(l.url, '_blank', 'noopener');
+    viewOpen([{ canvas: true, url: l.url, preview: l.url, name: l.title || 'Canvas' }], 0);
+  }
+  function canvasShow(f) {
+    $('v-menu').hidden = true; $('v-more').setAttribute('aria-expanded', 'false');
+    $('v-name').textContent = f.name; $('v-name').title = f.name; $('v-ic').textContent = '🗂'; $('v-open').href = f.url;
+    $('v-type').textContent = 'Canvas · save there'; $('v-pos').textContent = ''; $('v-prev').disabled = true; $('v-next').disabled = true; $('v-pct').textContent = '';
+    cvReady = false; clearTimeout(cvGone);
+    // Canvas sends "ready" as soon as its page starts, before the project's data comes in (that can take 30 s), so the
+    // loading line stays until 30 s or until Kiko clicks into Canvas. No "ready" in 12 s: the sign-in note instead.
+    $('v-stage').innerHTML = '<iframe id="v-cv" title="' + esc(f.name) + '" allow="clipboard-read; clipboard-write" src="' + esc(f.url) + '"></iframe>'
+      + '<div class="cvnote cvload" role="status">Loading Canvas… a project can take up to 30 seconds.</div>';
+    cvWait = setTimeout(function () {
+      if (cvReady || !$('v-cv')) return;
+      cvUnload();
+      $('v-stage').insertAdjacentHTML('afterbegin', '<div class="cvnote" role="status">Canvas hasn\'t shown up here yet. It may need you to sign in, which Google only allows in its own tab. '
+        + '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in a new tab</a></div>');
+    }, 12000);
+    cvGone = setTimeout(cvUnload, 30000);
+  }
+  function cvUnload() { var n = $('v-stage').querySelector('.cvload'); if (n) n.remove(); }
+  window.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement && document.activeElement.id === 'v-cv') cvUnload(); }, 0); });
+  // Canvas 194 says "saved" after a save. A supplier saved from a supplier card's link moves that card on by itself
+  // (the same as tapping Saved in Canvas); any other save shows a short line on the pane.
+  var cvFrom = '';
+  window.addEventListener('message', function (e) {
+    var d = e.data, fr = $('v-cv'); if (!d || (d.canvasWs !== 'ready' && d.canvasWs !== 'saved') || !fr) return;
+    for (var w = e.source, i = 0; w && i < 6; i++, w = w.parent) if (w === fr.contentWindow) {
+      if (d.canvasWs === 'ready') { cvReady = true; var n = $('v-stage').querySelector('.cvnote:not(.cvload)'); if (n) n.remove(); return; }
+      var b = d.what === 'supplier' && d.added && cvFrom && document.querySelector('[data-act="saved-supplier"][data-id="' + cvFrom + '"]');
+      if (b && !b.disabled) { cvFrom = ''; b.click(); }
+      cvUnload(); var o = $('v-stage').querySelector('.cvsaved'); if (o) o.remove();
+      $('v-stage').insertAdjacentHTML('afterbegin', '<div class="cvnote cvload cvsaved" role="status">Saved in Canvas' + (b ? '. Cue is filing the documents.' : '.') + '</div>');
+      setTimeout(function () { var x = $('v-stage').querySelector('.cvsaved'); if (x) x.remove(); }, 6000);
+      return;
+    }
+  });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-canvas]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    var hand = a.getAttribute('data-hand'), title = a.getAttribute('data-name') || 'Canvas';
+    var card = a.closest('.card'), sb = card && card.querySelector('[data-act="saved-supplier"]'); cvFrom = sb ? sb.getAttribute('data-id') : '';
+    if (!hand) { if (PHONE) return; e.preventDefault(); return canvasOpen({ url: a.href, title: title }); }
+    // A supplier card with bank details: Canvas keeps them for 10 minutes under a one-time code, and only the code is in the link.
+    e.preventDefault(); var tab = PHONE ? window.open('', '_blank') : null;
+    call('cueSupplierCanvas', [hand], function (l) { l = l || { url: a.href, title: title };
+      if (l.note) addLocal('Cue', l.note);
+      if (tab) tab.location.href = l.url; else canvasOpen({ url: l.url, title: l.title || title }); },
+      function (err) { if (tab) tab.close(); alertErr(err); });
+  });
+  // Kiko 14:54Z: a Drive or Docs link opens in the viewer, the third pane. Its "1 of N" steps through the files in the same
+  // thread (or the main chat) it was opened from.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    if (a.closest('#viewer') || !previewUrl(a.href)) return;
+    e.preventDefault();
+    var box = a.closest('#tmsgs, #msgs, #pscroll') || document, seen = {}, list = [];
+    box.querySelectorAll('a[href]').forEach(function (x) {
+      var pv = previewUrl(x.href); if (!pv || seen[pv]) return; seen[pv] = 1;
+      list.push({ preview: pv, url: x.href, name: (x.getAttribute('data-name') || x.textContent || 'File').trim() });
+    });
+    var pv = previewUrl(a.href), at = list.map(function (f) { return f.preview; }).indexOf(pv);
+    if (at < 0) { list = [{ preview: pv, url: a.href, name: (a.getAttribute('data-name') || a.textContent || 'File').trim() }]; at = 0; }
+    viewOpen(list, at);
+  });

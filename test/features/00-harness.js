@@ -7,6 +7,7 @@ const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
+const { cuePage } = require(path.join(__dirname, 'page.js'));   // the page joined from its parts, as doGet serves it
 const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRET = 'test-secret-not-real';
 
 function sheetMock() {

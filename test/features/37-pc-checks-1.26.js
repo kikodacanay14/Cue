@@ -8,7 +8,7 @@ test('CC8 a lump-sum quote is shown as a lot: never ticked onto one line, whethe
   const one = cecRun({ gpt: { cecost: { changes: [{ key: 'L1', unit_cost: 616000, basis: 'unit', quoted: 'Booth fabrication lot - 616,000 VAT inclusive', why: 'booth' }], lots: [], unmatched: [], note: '' } } });
   deq([one.v.cec.rows.filter(r => r.tick).length, one.v.cec.rows[0].cost, one.v.cec.lots.length], [0, null, 1], 'the lot on one line is taken off it');
   assert.throws(() => one.ctx.cueApprove(one.id, {}), /Tick at least one/);
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';'), NEED: { 'Needs you': 1 }, metricLine: () => '', cvLink: l => '<a>' + l.title + '</a>' };
   vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml'), ctx);
@@ -79,7 +79,7 @@ test('CC13 Go on a readiness plan card that joins an earlier thread: one "On it.
   deq(u.ctx.cueLoad_(go.request_id).s.kind, 'readiness');
   const ptr = u.tabs.Chat.rows.filter(r => /^>/.test(r[3]));
   deq(ptr.map(r => r[2]), ['On it. Continuing in the Acme Year-End Party thread.'], 'one pointer, never also "Answered in"');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const a = html.indexOf('function renderMain('), body = html.slice(a, html.indexOf('\n  }\n', a) + 4);
   assert.ok(/pq && !pq\.open && !pq\.where/.test(body), 'a pointer right after a main-chat Go tap shows even when the thread showed before');
 });

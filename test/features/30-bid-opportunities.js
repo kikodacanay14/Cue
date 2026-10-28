@@ -124,7 +124,7 @@ test('BD5 daily 08:00 run happens once a Manila day and posts in its own thread'
 });
 
 test('BD6 page: the bid card shows new and updated notices, links only https, the process check and sources; no Pursue button', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   const t = bidBox(); const v = JSON.parse(JSON.stringify(t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id)));
   v.bids.items[0].documents.push({ name: 'evil', url: 'javascript:alert(1)', status: 'read' });
@@ -136,14 +136,14 @@ test('BD6 page: the bid card shows new and updated notices, links only https, th
 });
 
 test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense filed into it does not rename it', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const fn = page.match(/function threadTitle\(th\) \{[\s\S]*?\n  \}\n/)[0], box = { personalName: () => '', kindName: r => r.kind };
   vm.runInNewContext(fn + 'out = threadTitle({ reqs: [{ kind: "sweep", day: "2026-10-22" }, { kind: "intake", proposal: { client: { company: "AMI Group" } } }, { kind: "expense", expense: { project: { name: "AMI Group" } } }] });', box);
   deq(box.out, 'AMI Group');
 });
 
 test('BD7 PC test 19:23Z: a bid check never shows as an intake: its own name while working, its own stopped card with Try again, which runs it again', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const kn = page.match(/function kindName\(r\) \{[^\n]*\n/)[0], fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   assert.strictEqual(vm.runInNewContext(kn + 'kindName({ kind: "bids" })', {}), 'Bid check');
   const f = bidBox({ fail: { bids: () => resp(500, {}) } }); const id = f.ctx.cueSend('check bids', [], '').request_id; const w = JSON.parse(JSON.stringify(f.ctx.cueRun(id)));
