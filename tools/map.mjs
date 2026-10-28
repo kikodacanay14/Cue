@@ -62,6 +62,10 @@ const rc = (src['CueRoute.gs'] || '').match(/const CUE_ROUTE_CMDS_ = \{([^}]*)\}
 if (rc) for (const m of rc[1].matchAll(/([a-z]+): '([^']+)'/g)) routeNames[m[1]] = m[2];
 const pageKinds = {};
 for (const m of page.matchAll(/kind === '([a-z]+)'/g)) pageKinds[m[1]] = (pageKinds[m[1]] || 0) + 1;
+// Card families (STRUCTURE-PHASE-2 item 2.3): kindOf in the page, one line per kind.
+const famMap = {};
+for (const m of page.matchAll(/^ {6}([a-z]+): \{ name: .*?, family: '([a-z]+)', steps: /gm)) famMap[m[1]] = m[2];
+const FAM = { approve: 'Approve', draft: 'Draft and send', info: 'Info', question: 'Question' };
 const kinds = [...new Set([...Object.keys(nameMap), ...Object.keys(pageKinds)])].sort();
 const label = k => nameMap[k] || 'Page only (not in the command list)';
 
@@ -94,9 +98,11 @@ L.push(`chat call, ${jobs.length} background jobs in the 5-minute trigger, ${pag
 
 L.push('## 1. Commands (task kinds)', '');
 L.push('A kind is the name a task carries from start to card. Each kind is one line in `cueCommands_` (`CueCommands.gs`): its run, its Approve');
-L.push('and its "stopped" line. "Wrong command?" is its name in that list (`CUE_ROUTE_CMDS_`). Page checks count the kind\'s checks in `Index.html`.', '');
-L.push('| Kind | What it is | Wrong command? | Runs in | Approve in | Page checks |', '|---|---|---|---|---|---|');
-for (const k of kinds) L.push(`| \`${k}\` | ${esc(label(k))} | ${esc(routeNames[cmdMap[k]] || '')} | ${runMap[k] ? home(runMap[k]) : nameMap[k] ? '`CueIntake.gs` (default)' : 'none'} | ${appMap[k] ? home(appMap[k]) : nameMap[k] ? 'intake (default)' : 'none'} | ${pageKinds[k] || 0} |`);
+L.push('and its "stopped" line. "Wrong command?" is its name in that list (`CUE_ROUTE_CMDS_`). Card family is its line in the page\'s `kindOf`');
+L.push('(`IndexThreads.html`): Approve (one write Kiko approves), Draft and send (emails), Info (an answer or report) or Question (buttons that pick).');
+L.push('Page checks count the kind\'s remaining `kind === ...` checks in the page.', '');
+L.push('| Kind | What it is | Wrong command? | Card family | Runs in | Approve in | Page checks |', '|---|---|---|---|---|---|---|');
+for (const k of kinds) L.push(`| \`${k}\` | ${esc(label(k))} | ${esc(routeNames[cmdMap[k]] || '')} | ${FAM[famMap[k]] || ''} | ${runMap[k] ? home(runMap[k]) : nameMap[k] ? '`CueIntake.gs` (default)' : 'none'} | ${appMap[k] ? home(appMap[k]) : nameMap[k] ? 'intake (default)' : 'none'} | ${pageKinds[k] || 0} |`);
 L.push('');
 
 L.push('## 2. Routing order', '');

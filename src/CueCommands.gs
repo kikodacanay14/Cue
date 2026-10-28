@@ -34,6 +34,7 @@ function cueCommands_() {
     email: { name: 'Email', cmd: 'email', run: cueMailRun_, approve: cueMailApprove_, stopped: 'Drafting the email stopped: ' },
     help: { name: 'Help Q&A', cmd: '', run: cueHelpRun_, approve: null, stopped: 'Reading the Help Q&A list from Canvas stopped: ' },
     finance: { name: 'Money question', cmd: 'money', run: null, approve: null, stopped: '' },
+    relay: { name: 'AI relay', cmd: '', run: null, approve: null, stopped: '' },
   };
 }
 /** One kind's entry, or {} for a kind not in the list. */
