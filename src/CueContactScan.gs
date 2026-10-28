@@ -57,15 +57,20 @@ function cueCsStart_(text, home) {
     if (n > 1) log.getRange(2, 1, n - 1, 2).getValues().forEach(r => { const t = r[1] instanceof Date ? r[1].getTime() : Date.parse(r[1]); if (t >= since) seen[String(r[0]).toLowerCase()] = 1; }); }
   catch (e) { return say('The Cue sheet did not open (' + cueStr_((e && e.message) || e, 200) + '). Nothing was read.'); }
   // 1. Canvas: who has blank cells. Pages until 20 not-yet-scanned people, or the end of the list (then it starts again from the top next time).
-  let start = Number(P.getProperty('CUE_CS_NEXT') || 0), people = [], pages = 0, next = null;
+  let start = Number(P.getProperty('CUE_CS_NEXT') || 0), people = [], pages = 0, next = null, held = [];
   try {
     do { const g = cueBridge_(s, 'contact_gaps', { start_row: start, limit: 50 }) || {}; pages++;
       (g.rows || []).forEach(x => { x.email = String(x.email || '').toLowerCase(); if (people.length < CUE_CS_.people && x.email && !seen[x.email]) { seen[x.email] = 1; people.push(x); } });
+      (g.held || []).forEach(h => (h.cells || []).forEach(c => held.push({ name: h.name || h.email, key: c.key, why: c.why })));   // cells with history (Canvas holds them back)
       next = g.next_row; start = next || 0;
     } while (people.length < CUE_CS_.people && next && pages < 6);
   } catch (e) { return say('Canvas did not answer (' + cueStr_((e && e.message) || e, 200) + '). Nothing was read.'); }
   P.setProperty('CUE_CS_NEXT', String(next || 0));
-  if (!people.length) return say('Every P0 contact with an email either has Position, Phone and Company filled, or was checked in the last ' + CUE_CS_.days + ' days. Nothing to do.');
+  // CUE-CONTACT-HISTORY-2026-10-28 (Kiko 04:43Z): Canvas never fills a cell that was filled, undone or edited before; say which and why.
+  const lab = { title: 'Position', company: 'Company', phone: 'Phone' };
+  const note = held.length ? 'Left alone, changed before: ' + held.slice(0, 8).map(h => h.name + ' ' + lab[h.key] + ' (' + h.why + ')').join('; ') + (held.length > 8 ? '; and ' + (held.length - 8) + ' more' : '') + '.' : '';
+  const sayN = m => say(m + (note ? ' ' + note : ''));
+  if (!people.length) return sayN('Every P0 contact with an email either has Position, Phone and Company filled, or was checked in the last ' + CUE_CS_.days + ' days. Nothing to do.');
   // 2. Gmail, read only: the newest 5 emails from each person, signature lines only.
   const own = cueOwnDomain_();
   let lists;
@@ -79,7 +84,7 @@ function cueCsStart_(text, home) {
     const sig = cueCsSig_(cueStyleBody_(m.payload), own); if (sig.length) { x.sig = sig; x.date = m.internalDate ? cueMnlDay_(Number(m.internalDate)) : ''; } });
   const asked = people.filter(x => x.sig.length);
   const stamp = new Date(cueNow_()), mark = list => { if (list.length) cueLocked_(() => list.forEach(x => log.appendRow([x.email, stamp, x.proposed || '', s.id]))); };
-  if (!asked.length) { mark(people); return say('Checked ' + people.length + ' contacts with blank cells. None of their emails in the last ' + CUE_CS_.years + ' years has a signature to read. Nothing to fill.'); }
+  if (!asked.length) { mark(people); return sayN('Checked ' + people.length + ' contacts with blank cells. None of their emails in the last ' + CUE_CS_.years + ' years has a signature to read. Nothing to fill.'); }
   // 3. One Claude call, signature lines and blank cells only.
   const user = asked.map((x, j) => 'P' + (j + 1) + ' (' + x.email + ') blank: ' + x.blanks.join(', ') + '\n' + x.sig.map(l => '  ' + l).join('\n')).join('\n\n');
   const r = cueAiAll_(s, [cueClaude_({ step: 'contact scan', system: CUE_CS_SYSTEM_, schema: CUE_CS_SCHEMA_, maxTokens: 3000, effort: 'low', user })])[0];
@@ -93,13 +98,12 @@ function cueCsStart_(text, home) {
     ['title', 'company', 'phone'].forEach(k => { if (!f[k]) delete f[k]; });
     if (f.title || f.company || f.phone) { fills.push(f); x.proposed = ['title', 'company', 'phone'].filter(k => f[k]).join(', '); } });
   mark(people);
-  if (!fills.length) return say('Read the signatures of ' + asked.length + ' of ' + people.length + ' contacts. None states a blank cell clearly enough to fill. Nothing to fill.');
+  if (!fills.length) return sayN('Read the signatures of ' + asked.length + ' of ' + people.length + ' contacts. None states a blank cell clearly enough to fill. Nothing to fill.');
   // 4. The Approve card.
-  const lab = { title: 'Position', company: 'Company', phone: 'Phone' };
   const lines = fills.map(f => '• ' + (f.name || f.email) + ' (' + f.email + '): ' + ['title', 'company', 'phone'].filter(k => f[k]).map(k => lab[k] + ' ' + f[k]).join('; ') + (f.date ? ' (email ' + f.date + ')' : ''));
   cueAskOpen_({ type: 'contactfill', fills: fills.map(f => { const o = { row: f.row, email: f.email }; ['title', 'company', 'phone', 'date'].forEach(k => { if (f[k]) o[k] = f[k]; }); return o; }) },
     'Fill these blank P0 Contacts cells in Canvas? From signatures in your Gmail:\n' + lines.join('\n')
-    + '\nCanvas writes only cells that are still blank. Undo any of it in Accounts › Auto add. Nothing is saved until you approve.', ['approve', 'not'], home);
+    + (note ? '\n' + note : '') + '\nCanvas writes only cells that are still blank and were never filled, undone or edited before. Undo any of it in Accounts › Auto add. Nothing is saved until you approve.', ['approve', 'not'], home);
   return { chat: true, task: home };
 }
 /** Approve or Not on the fill card (CueRoute.gs cueAskPick). Approve sends one contact_fill, as the one command of a claimed plan. */

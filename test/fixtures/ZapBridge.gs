@@ -2365,6 +2365,30 @@ function zbGapsPick_(d, col, first, start, limit) {
   }
   return { rows: out, next: i < d.length ? first + i : null };
 }
+/* CUE-CONTACT-HISTORY-2026-10-28 (Kiko 28 Oct 04:43Z: "observe as well the history of what he have done so far to not overwrite what
+ * changes we already did"). A blank cell is left alone when it has history: a CRM Auto Added row for that contact and column (still
+ * added or undone), or a Changes line (the Canvas audit log) editing that column of that contact. Both actions report the reason. */
+/** PURE (unit-tested). c = {row, email, name, company}; auto = CRM Auto Added rows; chg = zbFillChanges_() lines. { key: why } per held cell. */
+function zbFillHist_(c, col, auto, chg) {
+  const out = {}, email = norm_(c.email), who = [norm_(c.name), email].filter(Boolean), here = who.concat(norm_(c.company)).filter(Boolean);
+  Object.keys(ZB_FILL_COLS_).forEach(k => {
+    const j = col(ZB_FILL_COLS_[k]); if (j < 0) return;
+    const a = (auto || []).filter(x => norm_(x.Email) === email && norm_(x.Tab) === norm_(CD.contactsTab)
+      && String(x.Cells || '').split(',').map(Number).indexOf(j + 1) >= 0).pop();
+    if (a) { out[k] = (a.Status === 'Undone' ? 'undone in Auto add' : 'set before by an ' + (a.Kind || 'Canvas') + ' auto add') + ' (' + String(a.When || '').slice(0, 10) + ')'; return; }
+    const e = (chg || []).filter(x => norm_(x.Field) === norm_(ZB_FILL_COLS_[k]) && (who.indexOf(norm_(x.Record)) >= 0 || Number(x.Row) === c.row && here.indexOf(norm_(x.Record)) >= 0)).pop();
+    if (e) out[k] = 'changed in Canvas by ' + (e.Who || 'someone') + ' (' + e.When + ')';
+  });
+  return out;
+}
+/** The Changes tab lines for the contacts tab's three fill columns: { When (yyyy-MM-dd), Who, Action, Row, Record, Field }. */
+function zbFillChanges_() {
+  const sh = logSheet_().getParent().getSheetByName(CHANGES_TAB_); if (!sh || sh.getLastRow() < 2) return [];
+  const want = Object.keys(ZB_FILL_COLS_).map(k => norm_(ZB_FILL_COLS_[k])), tab = norm_(CD.contactsTab);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues().filter(r => norm_(r[6]) === tab && want.indexOf(norm_(r[11])) >= 0)
+    .map(r => ({ When: r[0] && typeof r[0].getTime === 'function' ? Utilities.formatDate(r[0], CD.tz, 'yyyy-MM-dd') : String(r[0]).slice(0, 10), Who: String(r[1]), Action: String(r[4]),
+      Row: Number(r[7]), Record: String(r[8]), Field: String(r[11]) }));
+}
 /** PURE (unit-tested). One fill checked against the row as it is now: { write: [{ key, j, value }], skipped: [key], error }. */
 function zbFillCheck_(r, col, f, isFormula) {
   const at = i => i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim();
@@ -2381,19 +2405,28 @@ function zbFillCheck_(r, col, f, isFormula) {
 function zbContactGaps_(a) {
   const T = cdcRead_(book_(CD.sheetId), CD.contactsTab), first = CD.headerRow + 1;
   const res = zbGapsPick_(T.d, T.col, first, a.start_row || first, Math.min(a.limit || 50, 50));
-  return { tab: CD.contactsTab, rows: res.rows, next_row: res.next, total_rows: T.d.length };
+  const auto = crmRows_('auto'), chg = zbFillChanges_(), rows = [], held = [];   // CUE-CONTACT-HISTORY-2026-10-28
+  res.rows.forEach(x => {
+    const h = zbFillHist_(x, T.col, auto, chg), cells = x.blanks.filter(k => h[k]).map(k => ({ key: k, why: h[k] }));
+    if (cells.length) held.push({ row: x.row, name: x.name, email: x.email, cells });
+    x.blanks = x.blanks.filter(k => !h[k]); if (x.blanks.length) rows.push(x);
+  });
+  return { tab: CD.contactsTab, rows, held, next_row: res.next, total_rows: T.d.length };
 }
 function zbContactFill_(a, task) {
   return withLock_(function () {
     const ss = book_(CD.sheetId), T = cdcRead_(ss, CD.contactsTab), first = CD.headerRow + 1;
-    const seen = {}; crmRows_('auto').forEach(x => { if (x.Kind === 'Email scan' && x.Run === a.request_id) seen[norm_(x.Email)] = 1; });
+    const auto = crmRows_('auto'), chg = zbFillChanges_(), seen = {};
+    auto.forEach(x => { if (x.Kind === 'Email scan' && x.Run === a.request_id) seen[norm_(x.Email)] = 1; });
     const filled = [], skipped = [], log = [], now = new Date();
     auditPage_('Client Desk');
     a.fills.forEach(f => {
       if (seen[norm_(f.email)]) { skipped.push({ row: f.row, email: f.email, why: 'already filled by this request' }); return; }
       const r = T.d[f.row - first];
-      const c = zbFillCheck_(r, T.col, f, j => !!T.sh.getRange(f.row, j + 1).getFormula());
+      const h = r ? zbFillHist_({ row: f.row, email: f.email, name: String(r[T.col('Contact Name')] || ''), company: String(r[T.col('Company')] || '') }, T.col, auto, chg) : {};
+      const c = zbFillCheck_(r, T.col, Object.assign({}, f, ...Object.keys(h).map(k => ({ [k]: '' }))), j => !!T.sh.getRange(f.row, j + 1).getFormula());
       if (c.error) { skipped.push({ row: f.row, email: f.email, why: c.error }); return; }
+      Object.keys(ZB_FILL_COLS_).forEach(k => { if (h[k] && String(f[k] || '').trim()) skipped.push({ row: f.row, email: f.email, why: ZB_FILL_COLS_[k] + ': ' + h[k] }); });
       c.skipped.forEach(k => skipped.push({ row: f.row, email: f.email, why: ZB_FILL_COLS_[k] + ' is no longer blank' }));
       if (!c.write.length) return;
       auditEdit_(T.sh, f.row, { headRow: CD.headerRow, record: String(r[T.col('Company')] || '') });
