@@ -147,7 +147,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:run\s+|do\s+|check\s+)?(?:the\s+|a\s+|my\s+)?(?:sales\s+)?pipeline(?:\s+(?:review|check|health))?$/i.test(t)) return { run: 'pipeline', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Status report', pipeline: 'Pipeline review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Status report', relnotes: 'Release notes', pipeline: 'Pipeline review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -156,6 +156,7 @@ function cueSchedSystem_() {
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: String(CUE_BIDS_RULES_.hour).padStart(2, '0') + ':00', run: 'bids', command: 'Bid opportunity check', on: true },
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
     { id: 'sys-status', name: 'Monday status report', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'status', command: 'Status report', on: true },   // CueStatus.gs, Kiko 15:56Z 22 Oct
+    { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-unsched', name: 'Unscheduled check', repeat: 'daily', time: '07:00', run: 'unsched', command: 'Alarm me about anything unscheduled', on: true }];
   // The lead-gen and review tasks (CueGptTasks.gs, kind gtask) register through cueGtSchedules_ when that file is in Cue.
@@ -171,7 +172,7 @@ function cueSchedSystem_() {
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check, v3 the status report), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v3:' + gt;
+  const sig = 'v4:' + gt;   // v4 added the release notes
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -216,6 +217,11 @@ function cueSchedRun_(x, manual) {
     }
     if (x.run === 'unsched') { const n = cueUnschedCheck_(manual); return { result: n ? n + ' to look at' : 'All scheduled', task: '' }; }
     if (x.run === 'pipeline') return { result: 'Started', task: id(cuePipeStart_(x.command || 'Pipeline review', '')) };
+    if (x.run === 'relnotes') {   // CUE-RELNOTES-2026-10-27: a day with nothing live makes no thread
+      if (!manual && P.getProperty('CUE_RN_DAY') === today) return { result: 'Already ran today', task: '' };
+      if (!manual) P.setProperty('CUE_RN_DAY', today);
+      const o = cueRnStart_(manual); return o.skip ? { result: o.skip, task: '' } : { result: 'Started', task: id(o) };
+    }
     if (/^gtask:/.test(x.run)) {
       if (typeof cueGtScheduled !== 'function') return { result: 'Not in this Cue yet', task: '' };
       const o = cueGtScheduled(x.run.slice(6));

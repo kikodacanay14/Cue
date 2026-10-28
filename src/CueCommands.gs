@@ -20,6 +20,7 @@ function cueCommands_() {
     ar: { name: 'ARs', cmd: 'ar', run: cueArRun_, approve: cueArApprove_, stopped: 'The receipts stopped: ' },
     hubspot: { name: 'HubSpot clean-up', cmd: '', run: cueHsRun_, approve: cueHsApprove_, stopped: 'The HubSpot clean-up stopped: ' },
     status: { name: 'Status report', cmd: '', run: cueStRun_, approve: cueStApprove_, stopped: 'The status report stopped: ' },
+    relnotes: { name: 'Release notes', cmd: '', run: cueRnRun_, approve: cueRnApprove_, stopped: 'The release notes stopped: ' },   // CUE-RELNOTES-2026-10-27 (CueRelnotes.gs)
     bids: { name: 'Bid check', cmd: '', run: cueBidsRun_, approve: null, stopped: 'The bid check stopped: ' },
     gtask: { name: 'ChatGPT task', cmd: '', run: cueGtRun_, approve: null, stopped: 'The ChatGPT task stopped: ' },
     vendor: { name: 'Supplier search', cmd: 'vendor', run: cueVendorRun_, approve: cueVendorApprove_, stopped: 'The supplier search stopped: ' },

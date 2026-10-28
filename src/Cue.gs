@@ -587,6 +587,7 @@ function cueTaskName_(x) {
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
   if (x.kind === 'status') return (x.st && x.st.title) || 'the status report';
+  if (x.kind === 'relnotes') return (x.rn && x.rn.title) || 'the release notes';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
@@ -797,6 +798,7 @@ function cueReject(id, why) {
   if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
   if (L && L.s.kind === 'status') return cueView_(cueStClose_(id));
+  if (L && L.s.kind === 'relnotes') return cueView_(cueRnSkip_(id));   // Skip today: nothing is posted
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
   if (L && L.s.phased && L.s.kind === 'intake') return cueView_(cuePhReject_(id));   // one tap, no reason (Kiko 14:56Z)
   return cueView_(cueIntakeReject_(id, why));
@@ -895,6 +897,7 @@ function cueState() {
 function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
+    if (s.kind === 'relnotes') { const rl = cueRnSummaryLine_(s); cueChat_('Cue', rl, '>' + s.id); cueChat_('Cue', rl, s.id); return; }
     if (s.kind === 'status') { const sl = cueStSummaryLine_(s); cueChat_('Cue', sl, '>' + s.id); cueChat_('Cue', sl, s.id); return; }
     if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
@@ -986,6 +989,7 @@ function cueView_(s) {
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     st: s.kind === 'status' ? cueStView_(s) : null,
+    rn: s.kind === 'relnotes' ? cueRnView_(s) : null,   // CUE-RELNOTES-2026-10-27
     relay: s.kind === 'relay' ? cueRelayView_(s) : null,
     help: s.kind === 'help' ? cueHelpView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
