@@ -115,14 +115,18 @@ function cueCanvasParse_(text) {
   return rest.length >= 3 ? { what: 'project', project: rest.replace(/^project\s+/i, ''), tab: 'Main' } : null;
 }
 
-/** Canvas's matches for a project Kiko named: an S- id as is; else every word must match (search_projects); else a similar name. */
+/** Canvas's matches for a project Kiko named: an S- id as is; else every word must match (search_projects); else a similar name.
+ * STRUCTURE-PHASE-3 (3.3, Kiko 28 Oct 2026 06:05Z): the one project finder. Canvas commands, CE cost, expenses, TRI, crew docs
+ * (FSAs and ARs), readiness and supplier search all ask it, so the same name picks the same project whatever command runs.
+ * search_projects goes first because find_similar_projects leaves out the client's own name ("Unilever" alone finds no Unilever
+ * project there). Each caller still decides what to do with several matches. */
 function cueCanvasFind_(s, name) {
   const n = cueStr_(name, 200).trim(), id = (n.toUpperCase().match(CUE_PID_RE_) || [])[0];
   if (id) return [{ project_id: id, name: id }];
   let hits = ((cueBridge_(s, 'search_projects', { query: n, limit: 10 }) || {}).projects || []);
   if (!hits.length) hits = cueBridge_(s, 'find_similar_projects', { name: n }) || [];
   const exact = hits.filter(p => cueName_(p.name) === cueName_(n));
-  return (exact.length === 1 ? exact : hits).slice(0, 5).map(p => ({ project_id: String(p.project_id || ''), name: String(p.name || ''), account: String(p.account || ''), date: String(p.date || '') }))
+  return (exact.length === 1 ? exact : hits).slice(0, 5).map(p => ({ project_id: String(p.project_id || ''), name: String(p.name || ''), account: String(p.account || ''), date: String(p.date || ''), status: String(p.status || '') }))
     .filter(p => CUE_PID_RE_.test(p.project_id));
 }
 
