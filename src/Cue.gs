@@ -33,11 +33,16 @@ function doGet(e) {
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
   if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  const out = HtmlService.createHtmlOutputFromFile('Index').setTitle('Cue')
+  const out = HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Cue')   // joined from its parts (cueInclude_)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
   return out;
 }
+
+/** STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z): the page is split into parts (IndexStyle, IndexChat, IndexViewer, IndexThreads,
+ * IndexPages, IndexCards). Index.html puts each part in its place with <?!= cueInclude_('Name') ?>. A part's last newline is dropped,
+ * since the include line in Index.html ends with its own. test/page.js joins the page the same way for the tests and the cloud check. */
+function cueInclude_(name) { return HtmlService.createHtmlOutputFromFile(name).getContent().replace(/\n$/, ''); }
 
 /* Favicon (Kiko 05:42Z: the window still showed the Apps Script icon). The Cue orb, 48 px, saved once to Kiko's Drive
  * (drive.file, private to Kiko; Kiko's browser loads it signed in). Apps Script wants a .png-looking address, hence &format=png.

@@ -107,7 +107,7 @@ test('CV9 qcadd never carries bank, account, IBAN or SWIFT, whatever the supplie
   });
 });
 test('CV10 PC test 19:40Z: an Open in Canvas link on a card keeps a readable label; the pane says Loading Canvas until the project can show', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/\.card a \{ color:var\(--act\); \}/.test(html) && /\.card a\.btn \{ color:#fff; \} \.card a\.btn\.ghost \{ color:var\(--text\); \}/.test(html), 'label not the button colour');
   assert.ok(html.indexOf('class="cvnote cvload"') > 0 && /cvGone = setTimeout\(cvUnload, 30000\)/.test(html), 'loading line, gone by 30 s');
   assert.ok(/querySelector\('\.cvnote:not\(\.cvload\)'\)/.test(html), '"ready" removes only the sign-in note');
@@ -137,7 +137,7 @@ test('CV12 supplier card Open in Canvas (Canvas 194): every column filled, bank 
   ['001234567890', 'BDO', 'Account Name', 'AccountNumber', '"Bank"'].forEach(k => assert.ok(u.url.indexOf(encodeURIComponent(k)) < 0 && JSON.stringify(d).indexOf(k) < 0, k + ' kept out of the link'));
   const f = supToCard({ handoffFail: true }), v = f.ctx.cueSupplierCanvas(f.id);
   assert.ok(!cvQ(v.url).h && /Copy them from the card/.test(v.note), 'Canvas without handoff: the plain link and a note');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/call\('cueSupplierCanvas', \[hand\]/.test(html) && /d\.canvasWs !== 'saved'/.test(html), 'page asks for the code on tap and hears "saved"');
 });
 test('CV13 PC test 20:33Z: "Record project expense 979 ... for <project>" with no file: Kiko\'s amount counts, and Canvas\'s project search finds the project', () => {
@@ -162,11 +162,11 @@ test('CV14 1.25.2 (PC test 20:41Z): only an amount means quantity 1; Request pay
   assert.strictEqual(qc.scope, 'SCP26-017-09'); assert.strictEqual(qc.etype, 'Supplies and Materials'); assert.strictEqual(qc.amount, 979);
   assert.ok(/SCP26-017-09 is "Awarded".*For Payment Request/.test(l.note), l.note);
   assert.strictEqual(t.ctx.cueCanvasFor_(ex('For Payment Request')).note, undefined, 'no note when Canvas lists it');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/r\.open\.note \? '<div class="small muted"/.test(html), 'the card shows the note under Open in Canvas');
 });
 test('CV8 the page sends every Canvas command to the server, never to the expense shortcut (CV_SAY mirrors cueCanvasParse_)', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), m = /var CV_SAY = (\/.+\/i);/.exec(html);
+  const html = cuePage(), m = /var CV_SAY = (\/.+\/i);/.exec(html);
   assert.ok(m); const re = eval(m[1]), t = sandbox({});
   ['open Globe party expenses', 'Please open the Globe party expenses in Canvas', 'request payment for Globe party', 'add scope duct tape to Globe party',
     'close task send floor plan in Globe party', 'past prices of LED wall', 'show Globe expenses in canvas', 'go to Globe party']
@@ -239,7 +239,7 @@ test('TR5 "<project> tasks" opens Main scrolled to Tasks (&focus=tasks); "add pr
   assert.ok(r.request_id); const s = u.ctx.cueView_(u.ctx.cueLoad_(r.request_id).s);
   assert.strictEqual(s.kind, 'intake'); assert.strictEqual(s.text, 'New project intake: Unilever townhall, 300 pax, Dec 5 at SMX');
   assert.ok(!u.log.gpt.some(b => b.text.format.name === 'chat'), 'no chat call');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), re = eval(/var CV_SAY = (\/.+\/i);/.exec(html)[1]);
+  const html = cuePage(), re = eval(/var CV_SAY = (\/.+\/i);/.exec(html)[1]);
   ['add task buy tape 450 to Globe party', 'add issue x to Globe', 'add project Unilever townhall', 'tasks of Globe party'].forEach(x => assert.ok(re.test(x), 'page: ' + x));
   assert.ok(/if \(r\.kind === 'tri'\) return triCardHtml\(r\);/.test(html) && /data-act="approve-tri"/.test(html));
 });

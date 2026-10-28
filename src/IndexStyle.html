@@ -1,0 +1,268 @@
+<style>
+  /* CUE-IN-CANVAS (Kiko 23 Oct 08:52Z "make sure the UI matches Canvas since it will be inside it moving forward"): Canvas's
+     Workspace tokens. Cream ground, white cards, ink text, deep purple = action, magenta = needs you, yellow = highlight.
+     --white is the strongest text colour (ink here); the name stays so the cards' inline styles keep working. */
+  :root { --font:'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Archivo Black', 'DM Sans', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
+    --text:#16151B; --white:#16151B; --need:#F000AA; --act:#23006F; --ok:#1E8E57; --warn:#8A6D00; --bad:#C2410C; --sun:#F4F12C; --side:#FBF8F1; --soft:#EFEAFB; }
+  * { box-sizing:border-box; }
+  /* The page never scrolls: header, tabs and composer stay put, and only the middle (chat or widgets) scrolls. */
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:500 15px/1.5 var(--font); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+  header, nav, .composer { flex:none; }
+  #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
+  .logo { width:30px; height:30px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
+  /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only. */
+  header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
+  .card b { letter-spacing:-0.01em; }
+  header .sub { color:var(--muted); font-size:13px; }
+  header .dot { margin-left:auto; width:9px; height:9px; border-radius:50%; background:var(--ok); }
+  /* Kiko 14:24Z: no pill button; the ☰ Threads tab sits at the right of the chat's top bar, level with the pane's tabs. */
+  nav { display:flex; justify-content:flex-end; gap:4px; padding:8px 10px; min-height:53px; border-bottom:1px solid var(--line); background:var(--head); }
+  .ntab { all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:7px 10px; border:1px solid transparent; border-radius:6px; color:var(--muted); font:600 13px var(--font); }
+  .ntab:hover { color:var(--text); } .ntab[aria-pressed="true"] { background:var(--panel); border-color:var(--line2); color:var(--white); }
+  .ntab:focus-visible { outline:2px solid var(--act); }
+  .badge { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; border-radius:9999px; background:var(--need); color:#fff; font-size:12px; }
+  /* Two panes (Kiko 21 Oct 12:59Z, like Claude's desktop app): the main chat on the left; on the right, tabs for the Threads list,
+     each opened thread, and files or images opened from a thread. On a phone the right pane slides over the chat. */
+  .split { flex:1; min-height:0; display:flex; }
+  .left { flex:1; min-width:0; display:flex; flex-direction:column; }
+  main { padding:16px; max-width:860px; margin:0 auto; }
+  .col { min-width:0; }
+  .pane { width:44%; min-width:380px; max-width:720px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--side); }
+  /* Kiko 14:38Z: the pane looks like Claude's Threads panel. A header bar (Threads + count + search, filter, more; or a
+     "Threads › name" breadcrumb with resolve, more, expand and close), a welcome line, grouped rows, and a thread read as a
+     conversation with a full-width reply box. */
+  .phead { flex:none; display:flex; gap:6px; align-items:center; min-height:53px; padding:8px 10px 8px 14px; border-bottom:1px solid var(--line); background:var(--head); }
+  .phead .pico svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .phead .pico { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--panel); color:var(--act); flex:none; }
+  .phead .pname { font:700 17px var(--font); color:var(--white); }
+  .phead .pcount { display:inline-block; min-width:22px; padding:1px 7px; border-radius:6px; background:var(--act); color:#fff; font:800 14px var(--font); text-align:center; }
+  .phead .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
+  .phead .crumb button { all:unset; cursor:pointer; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }
+  .phead .crumb button:hover { color:var(--white); text-decoration-color:var(--muted); }
+  .phead .crumb .sep { color:var(--muted); flex:none; }
+  .phead .crumb span.t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .phead .grow { flex:1; }
+  .ibtn { all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; color:var(--text); flex:none; }
+  .ibtn:hover, .ibtn[aria-pressed="true"] { background:var(--panel); color:var(--white); } .ibtn:focus-visible { outline:2px solid var(--act); }
+  .ibtn svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .pane-x, .pane-wide { display:none; }
+  .pane.shut { display:none; }   /* PC test 17:42Z: ✕ closes the pane on a wide screen too; ☰ Threads opens it again */
+  @media (min-width: 901px) { .pane-wide { display:inline-flex; } }
+  .pane.wide { width:65%; max-width:none; }
+  #pscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px; }
+  .tsearch { width:100%; margin:0 0 10px; }
+  .welcome { font:400 26px var(--display); color:var(--white); letter-spacing:-.01em; margin:6px 0 2px; }
+  .welcome + p { margin:0 0 14px; color:var(--muted); font-size:15px; }
+  .tgroup { all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:flex; align-items:center; gap:10px; padding:8px 12px; margin:10px 0 4px; border-radius:6px; background:#EFE9DC; color:var(--white); font-size:15px; }
+  .tgroup .n { color:var(--muted); } .tgroup svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; transition:transform .15s; }
+  .tgroup[aria-expanded="false"] svg { transform:rotate(-90deg); }
+  .tgroup:focus-visible { outline:2px solid var(--act); }
+  .trow { all:unset; box-sizing:border-box; width:100%; cursor:pointer; display:flex; gap:12px; align-items:flex-start; padding:9px 10px 9px 14px; border-radius:6px; }
+  .trow:hover, .trow:focus-visible { background:var(--panel); }
+  .trow.sel { background:var(--soft); box-shadow:inset 0 0 0 1px rgba(35,0,111,.35); }
+  .trow .dot { margin-top:7px; width:10px; height:10px; }
+  .trow .tx { flex:1; min-width:0; } .trow .tx b { display:block; color:var(--white); font-weight:600; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .trow .tx span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--muted); font-size:13px; line-height:1.4; margin-top:1px; }
+  .trow .tx em { font-style:normal; color:var(--warn); }
+  .trow .chip { flex:none; display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border:1px solid var(--line2); border-radius:9999px; color:var(--text); font-size:13px; font-weight:600; min-height:0; background:none; }
+  .trow .chip svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; }
+  .trow .tm { flex:none; color:var(--muted); font-size:13px; white-space:nowrap; padding-top:3px; min-width:26px; text-align:right; }
+  .tmore { all:unset; cursor:pointer; display:block; width:100%; text-align:center; color:var(--act); font-size:13px; font-weight:600; padding:6px; }
+  /* Kiko 14:54Z: three panes. Files and images open in a viewer on the right of the threads pane, like Claude's: name and ✕,
+     Download / Open externally / More, zoom − Fit + with a % readout, rotate, fullscreen, then the type and "1 of N" at the foot. */
+  .viewer { width:34%; min-width:360px; max-width:760px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--side); }
+  .viewer[hidden] { display:none; }
+  body.v3 .pane { width:33%; min-width:340px; }
+  .viewer.max { position:fixed; inset:0; width:auto; max-width:none; z-index:40; border-left:0; }
+  .vhead { flex:none; display:flex; align-items:center; gap:10px; min-height:53px; padding:8px 10px 8px 16px; border-bottom:1px solid var(--line); background:var(--head); }
+  .vhead b { flex:1; min-width:0; font:600 16px var(--font); color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vhead .vic { font-size:20px; flex:none; }
+  .vbar { flex:none; display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .vbtn { all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:0 14px; border:1px solid var(--line2); border-radius:8px; color:var(--text); font:600 14px var(--font); white-space:nowrap; }
+  .vbtn:hover { background:var(--panel); color:var(--white); } .vbtn:focus-visible { outline:2px solid var(--act); }
+  .vbtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .vmore { position:relative; }
+  .vmenu { position:absolute; right:0; top:44px; z-index:5; min-width:180px; padding:6px; border:1px solid var(--line2); border-radius:8px; background:var(--panel); box-shadow:0 8px 24px rgba(22,21,27,.16); }
+  .vmenu button { all:unset; box-sizing:border-box; cursor:pointer; display:block; width:100%; padding:8px 10px; border-radius:6px; font-size:14px; color:var(--text); }
+  .vmenu button:hover, .vmenu button:focus-visible { background:var(--head); color:var(--white); }
+  .vzoom { flex:none; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; }
+  .vzoom .vbtn { border-color:transparent; background:var(--panel); padding:0 16px; }
+  .vzoom #v-pct { min-width:58px; text-align:center; color:var(--text); font-size:14px; }
+  .vzoom .vsep { width:1px; height:22px; background:var(--line2); margin:0 6px; }
+  .vzoom .zc:disabled { opacity:.35; cursor:default; }
+  .vstage { flex:1; min-height:0; margin:0 12px; overflow:auto; border-radius:6px; background:#EFE9DC; display:flex; }
+  .vstage img { margin:auto; display:block; transition:transform .15s; transform-origin:center; image-orientation:from-image; }
+  .vstage img.fit { max-width:100%; max-height:100%; object-fit:contain; }
+  .vstage iframe { flex:1; width:100%; border:0; background:#fff; }
+  /* CUE-CANVAS (Kiko 18:59Z): a Canvas page in the viewer. The note shows when Canvas sends no "ready" (not signed in, or blocked). */
+  .vstage.cv { position:relative; background:#fff; }
+  .cvnote { position:absolute; left:12px; right:12px; top:12px; z-index:2; padding:12px 14px; border:1px solid var(--line2); border-radius:8px; background:var(--panel); color:var(--text); font-size:14px; }
+  .cvnote a { color:var(--act); font-weight:600; }
+  .cvnote.cvload { pointer-events:none; width:max-content; max-width:calc(100% - 24px); padding:8px 12px; color:var(--muted); }
+  .cvrow { margin-top:10px; }
+  .vstage .vmsg { margin:auto; color:var(--muted); padding:20px; text-align:center; }
+  .vfoot { flex:none; display:flex; align-items:center; gap:8px; padding:10px 16px; color:var(--text); font-size:14px; }
+  .vfoot #v-pos { min-width:54px; text-align:center; }
+  .vfoot .ibtn { border:1px solid var(--line2); }
+  .vfoot .ibtn:disabled { opacity:.35; cursor:default; }
+  /* An open thread reads like Claude's: Kiko's messages in bubbles on the right, Cue's as plain text, files as cards. */
+  #tmsgs { gap:14px; }
+  #tmsgs .msg .who { display:none; }
+  #tmsgs .msg.cue { max-width:100%; background:none; border:0; padding:0 2px; line-height:1.5; }
+  #tmsgs .msg.me { border-radius:10px; }
+  .fcards { display:flex; flex-wrap:wrap; gap:10px; }
+  .fcard { display:flex; flex-direction:column; gap:8px; width:160px; padding:10px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); text-decoration:none; }
+  .fcard:hover { border-color:var(--muted); } .fcard:focus-visible { outline:2px solid var(--act); }
+  .fcard .ft { align-self:flex-start; padding:1px 6px; border:1px solid var(--line2); border-radius:4px; font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; }
+  .fcard .fth img, #v-img { background:#fff; }
+  .fcard .fth { height:64px; border-radius:6px; background:#EFE9DC center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; overflow:hidden; }
+  .fcard .fth img { width:100%; height:100%; object-fit:cover; }
+  .fcard .fn { font-size:14px; line-height:1.3; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .tcomposer { flex:none; background:var(--side); padding:8px 14px 10px; }
+  /* Kiko 17:42Z: a thread's task card minimizes, like Claude's, to a bar that sits on top of the reply box. */
+  .tdock { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; margin:0 0 8px; padding:8px 12px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+  .tdock:hover, .tdock:focus-visible { border-color:var(--muted); }
+  .tdock .tdt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .tdock .need { color:var(--need); font-size:12px; } .tdock .st { color:var(--muted); font-size:12px; }
+  .tcards-bar { display:flex; justify-content:flex-end; margin:4px 0 -4px; }
+  .rbox { display:flex; align-items:flex-end; gap:6px; padding:4px 6px 4px 14px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); }
+  .rbox:focus-within { border-color:var(--act); }
+  .rbox textarea { flex:1; min-height:40px; max-height:160px; border:0; background:none; padding:9px 0; resize:none; outline:none; }
+  .rbox textarea:focus, .rbox textarea:focus-visible { border:0; box-shadow:none; outline:none; }
+  .rtools { display:flex; gap:4px; margin-top:4px; }
+  /* Narrow window (Kiko 13:58Z, the bubble's Cue window): the pane stays shut until Threads or Widgets is tapped, then sits beside
+     the chat, never over it; the Cue bubble 1.3 widens the window to make room and narrows it again on close. Only a real
+     phone-width screen with no room to grow gets the pane full-screen. */
+  @media (max-width: 900px) {
+    body.v3 .pane { display:none; }
+    .viewer { width:50%; min-width:0; }
+    .pane { width:50%; min-width:0; }
+    .pane:not(.open) { display:none; }
+    .pane-x { display:inline-flex; }
+  }
+  @media (max-width: 640px) {
+    .pane.open { position:fixed; inset:0; width:auto; max-width:none; z-index:20; border-left:0; }
+    .viewer { position:fixed; inset:0; width:auto; max-width:none; z-index:30; border-left:0; }
+  }
+  .label { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:18px 0 8px; font-weight:700; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:12px; }
+  .card.need { border-left:4px solid var(--need); }
+  .msgs { display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.me { align-self:flex-end; background:var(--soft); }
+  .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
+  .msg.plan { border-left:4px solid var(--need); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
+  /* Threads (Kiko 06:07Z, like Claude's project chat): a task's first message shows in the chat with a reply counter; its replies and cards live in the thread. */
+  .thread-row { align-self:flex-start; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-4px 0 4px; padding:4px 10px; font-size:13px; color:var(--muted); max-width:85%; }
+  .msg.me + .thread-row { align-self:flex-end; }
+  .thread-row .need { color:#C2008A; font-weight:700; }
+  /* Kiko 12:59Z: the thread's name is what opens it (in the right pane); the reply count is only a count. */
+  .thread-row .tt { all:unset; cursor:pointer; color:var(--act); font-weight:700; text-decoration:underline; text-underline-offset:2px; }
+  .thread-row .tt:hover { color:var(--white); } .thread-row .tt:focus-visible { outline:2px solid var(--act); border-radius:4px; }
+  .msg[data-thread] { cursor:pointer; }
+  .say { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); cursor:default; }
+  .say .row input { flex:1; min-width:0; min-height:40px; } .say .btn { min-height:40px; }
+  .say-last { margin-bottom:6px; }
+  .tap { cursor:pointer; } .tap > .card { transition:border-color .15s; } .tap:hover > .card { border-color:var(--line2); }
+  .flink { color:inherit; text-decoration:underline; text-underline-offset:2px; } .flink:hover { color:var(--white); }
+  .msg .who { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
+  .composer { background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
+  .composer .in { max-width:828px; margin:0 auto; }
+  .row { display:flex; gap:8px; align-items:flex-end; }
+  textarea, input, select { background:var(--input); color:var(--text); border:1px solid var(--line2); border-radius:6px; font:500 14px var(--font); padding:8px 10px; }
+  textarea { flex:1; min-height:44px; max-height:200px; resize:vertical; }
+  textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
+  .card a { color:var(--act); }
+  .card a.btn { color:#fff; } .card a.btn.ghost { color:var(--text); }   /* an Open in Canvas button is a link: keep its label readable */
+  .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px var(--font); cursor:pointer; background:var(--act); color:#fff; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
+  .btn.bad { background:transparent; color:var(--bad); border:1px solid #E8B9A5; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .attach { width:44px; min-height:44px; padding:0; flex:none; font-size:20px; }
+  .files { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .files:empty { display:none; }
+  .file { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line2); border-radius:9999px; padding:4px 6px 4px 12px; font-size:13px; background:var(--input); }
+  .file button { border:0; background:transparent; color:var(--muted); cursor:pointer; font:700 14px system-ui, sans-serif; width:24px; height:24px; border-radius:50%; }
+  .file button:hover { color:var(--text); background:var(--line); }
+  .composer.drop { outline:2px dashed var(--act); outline-offset:-6px; }
+  /* Image batches (1.27.5): the held count, kept up to date, above the box it belongs to */
+  .batchbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:13px; }
+  .batchbar[hidden] { display:none; }
+  .batchbar span { flex:1; min-width:0; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line2); border-radius:8px; padding:18px; width:min(420px, calc(100vw - 48px)); }
+  dialog::backdrop { background:rgba(22,21,27,.35); }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .chips:not(:has(.chip:not([hidden]))) { display:none; }
+  .chip { border:1px solid var(--line2); border-radius:9999px; padding:6px 12px; font-size:13px; color:var(--muted); background:transparent; cursor:pointer; font-family:inherit; }
+  .muted { color:var(--muted); } .small { font-size:13px; }
+  .worker { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; background:var(--soft); color:var(--act); }
+  .work-head { all:unset; box-sizing:border-box; width:100%; display:flex; justify-content:space-between; gap:8px; align-items:center; cursor:pointer; }
+  .work-head:focus-visible { outline:2px solid var(--act); outline-offset:4px; border-radius:8px; }
+  .chev { color:var(--muted); font-size:14px; }
+  .steps { list-style:none; margin:10px 0 0; padding:0; }
+  .steps li { display:flex; gap:8px; align-items:center; padding:3px 0; font-size:14px; color:var(--muted); }
+  .steps li .d { width:9px; height:9px; border-radius:50%; background:var(--line2); flex:none; }
+  .steps li.done { color:var(--text); } .steps li.done .d { background:var(--ok); }
+  .steps li.now { color:var(--white); font-weight:700; } .steps li.now .d { background:var(--act); box-shadow:0 0 0 4px rgba(35,0,111,.18); }
+  .bar { height:6px; background:var(--input); border-radius:9999px; overflow:hidden; margin-top:10px; }
+  .bar i { display:block; height:100%; background:var(--act); transition:width .4s; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .facts td:first-child { color:var(--muted); width:42%; }
+  .tag { display:inline-block; padding:0 8px; border-radius:9999px; font-size:11px; font-weight:700; margin:1px 2px 1px 0; }
+  .tag.new { background:#FCF9C4; color:var(--warn); } .tag.pref { background:#E3F4EA; color:var(--ok); } .tag.flag { background:#FDE3F4; color:#C2008A; }
+  .warn { background:#FDE3F4; border:1px solid var(--need); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
+  .err { background:#FCE8DF; border:1px solid var(--bad); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  details { margin-top:8px; } summary { cursor:pointer; color:var(--act); font-weight:600; }
+  /* Kiko 14:49Z: the Project intake card's sections fold; only the first is open on load. */
+  details.sec { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  details.sec > summary { list-style:none; display:flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); font-weight:700; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary::before { content:'›'; display:inline-block; width:10px; font-size:16px; letter-spacing:0; transition:transform .15s; }
+  details.sec[open] > summary::before { transform:rotate(90deg); }
+  details.sec > summary:hover { color:var(--text); } details.sec > summary:focus-visible { outline:2px solid var(--act); border-radius:4px; }
+  details.sec > :not(summary) { margin-top:8px; }
+  pre { white-space:pre-wrap; font:500 13px/1.5 var(--font); background:var(--input); padding:10px; border-radius:6px; }
+  .scroll { overflow-x:auto; }
+  .edit input { width:90px; } .edit input.wide { width:100%; }
+  textarea.mail { display:block; width:100%; min-height:140px; margin-top:8px; resize:vertical; font:500 14px/1.5 var(--font); }
+  [hidden] { display:none !important; }
+  /* Kiko 17:44Z: settings and config live on one page, opened from Kiko's avatar (like Claude's settings). */
+  .avatar { all:unset; box-sizing:border-box; cursor:pointer; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--act); color:#fff; font-weight:800; font-size:14px; }
+  .avatar:focus-visible { outline:2px solid var(--white); outline-offset:2px; }
+  #settings { position:fixed; inset:0; z-index:30; background:var(--bg, #121316); display:flex; flex-direction:column; }
+  #settings .shead { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--head); }
+  #settings .shead h2 { margin:0; font:400 20px/1.1 var(--display); color:var(--white); flex:1; }
+  #settings .sbody { flex:1; min-height:0; display:flex; }
+  #settings .snav { flex:none; width:200px; padding:12px; border-right:1px solid var(--line); overflow:auto; }
+  #settings .snav button { all:unset; box-sizing:border-box; display:block; width:100%; padding:8px 10px; border-radius:6px; cursor:pointer; color:var(--text); font-size:14px; }
+  #settings .snav button[aria-current="true"] { background:var(--head); color:var(--white); font-weight:700; }
+  #settings .smain { flex:1; min-width:0; overflow:auto; padding:16px 20px 40px; }
+  #settings .smain > section { max-width:760px; }
+  #settings button.link { all:unset; cursor:pointer; color:var(--white); font-weight:600; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); }
+  #settings button.link:focus-visible { outline:2px solid var(--act); }
+  @media (max-width: 700px) { #settings .sbody { flex-direction:column; } #settings .snav { width:auto; display:flex; gap:4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } #settings .snav button { width:auto; white-space:nowrap; } }
+  /* CUE-IN-CANVAS: the cover over Cue until Canvas says it is Kiko's Canvas (or for good, inside anything else). */
+  #cue-cover { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; background:var(--bg); color:var(--muted); font:600 15px var(--font); }
+  /* Kiko 24 Oct 06:49Z "make the window smaller and tighter": inside Canvas's slide-in Cue is denser. Canvas's own bar already says
+     "Cue", so the header keeps only the logo, name, dot and K; bars, rows, cards and buttons are smaller. Cue in its own tab is unchanged. */
+  body.in-canvas { font-size:14px; line-height:1.45; }
+  body.in-canvas header { padding:5px 10px; gap:8px; } body.in-canvas header .sub { display:none; }
+  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:22px; height:22px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
+  body.in-canvas nav, body.in-canvas .phead, body.in-canvas .vhead { min-height:40px; padding:4px 8px; }
+  body.in-canvas .phead .pico { width:28px; height:28px; } body.in-canvas .phead .pname { font-size:15px; } body.in-canvas .ibtn { width:30px; height:30px; }
+  body.in-canvas main { padding:10px 12px; } body.in-canvas #pscroll { padding:8px 10px; }
+  body.in-canvas .pane { min-width:300px; } body.in-canvas.v3 .pane { min-width:280px; } body.in-canvas .viewer { min-width:300px; }
+  body.in-canvas .welcome { font-size:18px; margin:2px 0 0; } body.in-canvas .welcome + p { margin:0 0 6px; font-size:13px; }
+  body.in-canvas .tgroup { padding:5px 10px; margin:6px 0 2px; font-size:13px; }
+  body.in-canvas .trow { padding:5px 8px 5px 10px; gap:8px; } body.in-canvas .trow .tx b { font-size:13.5px; } body.in-canvas .trow .tx span { font-size:12px; -webkit-line-clamp:1; }
+  body.in-canvas .trow .chip, body.in-canvas .trow .tm { font-size:12px; }
+  body.in-canvas .card { padding:10px 12px; margin-bottom:8px; } body.in-canvas .msg { padding:7px 10px; max-width:92%; }
+  body.in-canvas .composer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
+  body.in-canvas .btn { min-height:34px; padding:0 14px; font-size:13px; }
+</style>
