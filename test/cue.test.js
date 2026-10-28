@@ -2874,6 +2874,50 @@ test('AC9 the email never asks for an account number: a ChatGPT draft that does 
   assert.ok(/never asks for an account number/.test(e.error), e.error); assert.ok(!u.log.gmail.some(r => /build\.example/.test(r)), 'no draft made');
   deq(['Please send your acct. no.', 'Account No: ___', 'your account name please', 'send your bank details', 'Account #'].map(x => t.ctx.cueAccrAsksAccount_(x)), [true, true, true, false, true]);
 });
+/* ---------- project status fit (Kiko 28 Oct 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a different status") ---------- */
+test('PS1 the map: each chaser kind fits only the Canvas phases it belongs to; Canvas\'s phase wins, unknown or blank status is kept', () => {
+  const t = sandbox(), fit = (k, st, ad, ph) => t.ctx.cueStatusFits_(k, { status: st, admin: ad, phase: ph });
+  assert.ok(fit('rfq', 'For CE Creation') && fit('rfq', 'For Production Start') && !fit('rfq', 'For Service Invoicing') && !fit('rfq', 'Completed') && !fit('rfq', 'On Hold') && !fit('rfq', 'Cancelled'));
+  assert.ok(fit('award', 'For Client Awarding') && !fit('award', 'For Event Execution') && !fit('award', 'Not Awarded'));
+  assert.ok(fit('accreditation', 'For Production Start') && fit('accreditation', 'For Project Review') && !fit('accreditation', 'Completed') && !fit('accreditation', 'Cancelled') && !fit('accreditation', 'Not Awarded'));
+  assert.ok(fit('signature', 'For Event Execution') && fit('signature', 'Completed') && !fit('signature', 'On Hold') && !fit('signature', 'Canceled'));
+  assert.ok(fit('payment', 'Cancelled') && fit('payment', 'On Hold') && fit('payment', 'Completed'), 'money owed is chased whatever the status');
+  assert.ok(fit('rfq', '', '') && fit('rfq', 'For Event Proper') && fit('accreditation', 'Closed Lost'), 'blank or unknown status: kept (the kind\'s own checks still apply)');
+  assert.ok(!fit('rfq', '', 'Cancelled'), 'blank PROJECT STATUS: ADMIN STATUS decides, as on the Canvas board');
+  assert.ok(!fit('rfq', 'For CE Creation', '', 'Complete'), 'the phase Canvas sends wins');
+  assert.ok(fit('rfq', 'For Event Proper', '', 'Other Status'), 'Canvas files an unknown status under Other Status: still kept');
+  assert.ok(fit('nudge', 'Cancelled'), 'a kind with no project (inbox, HubSpot) is never filtered');
+});
+test('PS2 accreditation: a supplier on a cancelled, not awarded or completed project gets no line; a note says how many were left out and why', () => {
+  const rows = ACCR.rows.map(r => r.supplier === 'Sonic Pro' ? Object.assign({}, r, { project_status: 'Cancelled' })
+    : r.supplier === 'Fresh Co' ? Object.assign({}, r, { project_id: 'S-9', project_status: 'Completed', form_sent: '2026-10-10' }) : r);
+  const t = accrBox({ accr: Object.assign({}, ACCR, { rows }) }); t.ctx.cueSweep(); const b = batchOf(t), it = accrItems(b);
+  assert.ok(!it.some(i => /Sonic Pro|Fresh Co/.test(i.who)), it.map(i => i.who).join());
+  assert.ok(it.some(i => i.who === 'Build Co'), 'no project: kept');
+  assert.ok(b.notes.some(n => /Left out 2 lines whose project status does not fit: Accreditation chasers for Acme Gala \(Cancelled\), Accreditation chasers for Acme Gala \(Completed\)/.test(n)), b.notes.join(' | '));
+  assert.ok(!t.log.board, 'the rows carry the status: no extra Canvas read');
+});
+test('PS3 RFQ: a supplier quote on a project in Closure, Complete or On Hold is not chased; a live project still is', () => {
+  const t = rfqBox({ projects: [{ id: 'S-1', name: 'Acme Party', status: 'For Service Invoicing', phase: 'Closure', date: '2026-10-25' }, { id: 'S-2', name: 'Beta Expo', status: 'Closed Lost', date: '2026-11-20' }] });
+  t.ctx.cueSweep(); const b = rfqBatch(t);
+  deq(b.batch.items.map(i => i.key), ['rfq:aaaa0000000000a1'], 'SkyLights (Acme Party, now invoicing) left out; the unlinked RFQ stays');
+  assert.ok(b.notes.some(n => /Left out 1 line whose project status does not fit: RFQ chasers for Acme Party \(For Service Invoicing\)/.test(n)), b.notes.join(' | '));
+  assert.strictEqual(t.log.board, 1, 'still one Canvas read');
+});
+test('PS4 signature: crew papers on an On Hold project are not chased; payment chasers keep a cancelled project\'s overdue BI', () => {
+  const t = signBox({ unsigned: UNSIGNED.map(d => d.name === 'Ana Cruz' ? Object.assign({}, d, { project_status: 'On Hold' }) : d) }); t.at('2026-11-15', 7, 0); t.ctx.cueSweep();
+  const b = batchOf(t); assert.ok(!b.batch.items.some(i => i.who === 'Ana Cruz')); assert.ok(b.batch.items.some(i => i.who === 'Dee Paz')); assert.ok(!t.log.board, 'no board read');
+  const p = payBox({ projects: [{ id: 'S-31628060SP', name: 'Synthetic Expo', status: 'Cancelled' }] }); p.ctx.cueSweep();
+  assert.ok(payItems(p).some(i => i.who === 'Fe Santos'), 'BI still owed'); assert.ok(!p.log.board, 'payment needs no status read');
+});
+test('PS5 Canvas board down: lines that need a status read are kept, with one note; the batch still comes', () => {
+  const t = sweepBox({ boardFail: true, accr: { today: '2026-10-21', rows: [] } }, null);
+  t.ctx.cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, template: it => ({ subject: 'x', body: 'y' }),
+    find: () => [{ key: 'rfq:dddddddddddddddd', project: 'Acme Party', project_id: 'S-1', who: 'Sonic Pro', to: 's@sonic.example', why: 'No quote', due_since: '2026-10-18' }] });
+  t.ctx.cueSweep(); const b = batchOf(t);
+  assert.ok(b.batch.items.some(i => i.key === 'rfq:dddddddddddddddd'));
+  assert.ok(b.notes.some(n => /Project status could not be read from Canvas/.test(n)), b.notes.join(' | '));
+});
 /* ---------- Write Like Me (specs/write-like-me.md) ---------- */
 const MINE = [
   { id: 's1', to: 'Sonic Pro <sales@sonicpro.example>', subject: 'RFQ: LED wall', body: 'Hi Sonic Pro team!\n\nCan you send us a quote for a 4x3m LED wall on Dec 12? Call me at 0917 123 4567.\n\nThanks po,\nKiko\n\nOn Mon, 20 Oct 2026 at 9:00, Sonic <sales@sonicpro.example> wrote:\n> old quoted text' },

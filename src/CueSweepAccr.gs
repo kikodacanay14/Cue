@@ -61,7 +61,7 @@ function cueAccrFind_(ctx) {
     const last = [r.form_sent || '', r.last_reminder || '', byHand].sort().pop(), first = !r.form_sent && !byHand;
     const soon = r.event_date && r.event_date >= today && r.event_date <= cueAddDays_(today, CUE_ACCR_.soon);
     const contact = r.contact && (r.contact.name || r.contact.phone) ? ' Contact: ' + [r.contact.name, r.contact.phone].filter(String).join(', ') + '.' : '';
-    const base = { key: (first ? 'accr-form:' : 'accr:') + cueAccrKey_(r.supplier), project: r.project || '', project_id: r.project_id || '', who: r.supplier,
+    const base = { key: (first ? 'accr-form:' : 'accr:') + cueAccrKey_(r.supplier), project: r.project || '', project_id: r.project_id || '', project_status: r.project_status, who: r.supplier,
       to: r.sent_to.join(', '), priority: soon ? 'urgent' : 'normal', due_since: last || r.opened || today,
       facts: { supplier: r.supplier, contact_name: (r.contact && r.contact.name) || '', missing: r.missing, project: r.project || '', event_date: r.event_date || '',
         form_url: g.form_url || '', first_email: first, asks: (r.asks || []).map(([h, items]) => [h, (items || []).map(cueAccrAskItem_)]) } };

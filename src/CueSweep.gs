@@ -206,12 +206,74 @@ function cueSweepStart_(how) {
   return cueRunLeased_(id);
 }
 
+/* CUE-STATUS-FIT (Kiko 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
+ * different status"). Each chaser kind lists the Canvas project phases it belongs to; a line whose project is in another phase is
+ * left out of the morning batch, with one note naming them. The phases are Canvas's own (Code.gs PROJECT_PHASES_); Canvas owns
+ * the status, so the phase Canvas sends wins and Cue only works it out when a row carries the status words alone. A blank or
+ * unknown status is kept (each kind's own checks still apply), and so is a line with no project. Payment has no list: money
+ * owed is chased whatever the status. Kinds with no project (inbox triage, HubSpot) are never filtered. */
+const CUE_PHASES_ = [
+  ['Initiation', ['For Admin Completion']],
+  ['Planning', ['For CE Creation', 'For Pitch Presentation', 'For Client Awarding']],
+  ['Execution', ['For Production Start', 'For Event Execution']],
+  ['Closure', ['For Service Invoicing', 'For Project Review', 'For Invoice Billing', 'For Payment Advice', 'Fore Service Invoicing']],
+  ['Complete', ['Completed', 'Complete']],
+  ['Other Status', ['On Hold', 'Cancelled', 'Canceled', 'Not Awarded']]];
+const CUE_FIT_ = {
+  rfq: ['Initiation', 'Planning', 'Execution'],             // supplier quotes: until the event is under way
+  award: ['Planning'],                                     // the kind itself keeps only For Client Awarding
+  accreditation: ['Initiation', 'Planning', 'Execution', 'Closure'],   // the supplier still has to be paid
+  signature: ['Initiation', 'Planning', 'Execution', 'Closure', 'Complete'] };   // crew papers: not On Hold, Cancelled or Not Awarded
+/** The Canvas phase of a project: Canvas's own when it sends one, else from PROJECT STATUS, else ADMIN STATUS (as on the board). */
+function cuePhaseOf_(p) {
+  const n = x => String(x || '').trim().toLowerCase().replace(/\s+/g, ' '), names = CUE_PHASES_.map(x => x[0]);
+  const of = v => { const hit = v && CUE_PHASES_.filter(x => x[1].some(y => n(y) === v))[0]; return hit ? hit[0] : ''; };
+  const s = n(p.status), a = n(p.admin), ph = String(p.phase || '').trim();
+  // Canvas files a status it does not know under Other Status; Cue keeps that line instead (unknown is kept, see above).
+  if (names.indexOf(ph) >= 0 && !(ph === 'Other Status' && s && of(s) !== 'Other Status')) return ph;
+  if (s) return of(s);
+  return of(a) || (names.filter(x => n(x) === a)[0] || '');
+}
+/** Does a chaser kind fit this project? p = { status, admin, phase }. True when the kind has no list or the phase is unknown. */
+function cueStatusFits_(kind, p) {
+  const list = CUE_FIT_[kind], ph = list ? cuePhaseOf_(p || {}) : '';
+  return !list || !ph || list.indexOf(ph) >= 0;
+}
+/** "RFQ chasers for Acme Party (For Service Invoicing)": one left-out line for the note. */
+const cueStatusLine_ = (label, project, p) => label + ' for ' + project + ' (' + (String(p.status || '').trim() || String(p.admin || '').trim() || p.phase) + ')';
+/** Takes the lines whose project status does not fit out of found (in place), with one note. Reads the Canvas board only for a
+ * line that has a project but no status of its own, through the engine's one cached read. */
+function cueStatusFilter_(ctx, found) {
+  let byId = null, failed = false;
+  const board = () => {
+    if (byId || failed) return byId;
+    try { byId = {}; ((ctx.board() || {}).projects || []).forEach(p => { byId[String(p.id)] = p; }); }
+    catch (e) { byId = null; failed = true; }
+    return byId;
+  };
+  const out = [];
+  for (let i = found.length - 1; i >= 0; i--) {
+    const it = found[i];
+    if (!CUE_FIT_[it.kind] || !it.project_id || it.status_checked) continue;   // status_checked: the kind checked each project itself
+    let p = null;
+    if (it.project_status != null || it.project_phase) p = { status: it.project_status, admin: it.admin_status, phase: it.project_phase };
+    else { const b = board(), q = b && b[String(it.project_id)]; if (q) p = { status: q.status, admin: q.adminStatus, phase: q.phase }; }
+    if (!p || cueStatusFits_(it.kind, p)) continue;
+    const k = cueKinds_().filter(x => x.kind === it.kind)[0] || {};
+    out.unshift(cueStatusLine_(k.label || it.kind, it.project || it.project_id, p));
+    found.splice(i, 1);
+  }
+  if (failed) ctx.s.notes.push('Project status could not be read from Canvas, so lines were not checked against it.');
+  out.unshift.apply(out, ctx.leftOut || []);
+  if (out.length) ctx.s.notes.push('Left out ' + out.length + (out.length === 1 ? ' line' : ' lines') + ' whose project status does not fit: ' + out.join(', ') + '.');
+}
+
 /** The sweep's pipeline (cueRunLeased_ runs it under the request lease). */
 function cueSweepRun_(s, save) {
   const now = cueNow_(), today = s.day || cuePh_(now).day, rules = cueRules_(), G = rules.general;
   rules.notes.forEach(n => s.notes.push(n));
   let board = null, boardErr = '';
-  const ctx = { now, today, s,
+  const ctx = { now, today, s, leftOut: [],   // leftOut: lines dropped for their project status (cueStatusFilter_ writes the note)
     board: () => {   // one Canvas read per sweep, only when a kind asks for it
       if (board) return board;
       if (boardErr) throw new Error(boardErr);
@@ -228,6 +290,7 @@ function cueSweepRun_(s, save) {
     catch (e) { s.notes.push(k.label + ': could not check (' + String((e && e.message) || e).slice(0, 200) + ')'); return; }
     list.forEach(it => found.push(Object.assign({}, it, { kind: k.kind, key: String(it.key).slice(0, 200) })));
   });
+  cueStatusFilter_(ctx, found);
   s.stage = 'Filtering'; save();
   // 2. Filter with the Chase log: muted, skipped today, chased inside its repeat window, chased the max times.
   const log = cueChaseLog_(), keep = [], stopped = [], seen = {};

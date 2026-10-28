@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (not deployed)
+
+Kiko asked on 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
+different status". Built on live 1.27.47 (release branch `claude/project-thread-y5l4x9-rel12747`) as a bug fix. Numbered
+1.27.50 because 1.27.48 (Cue button) and 1.27.49 (structure Phase 1+2) are already taken; the deploys thread decides the order.
+
+- The morning batch (`src/CueSweep.gs`, `cueStatusFilter_`) now checks every line that has a Canvas project against a map of
+  the Canvas phases each chaser kind fits (`CUE_FIT_`). The phases are Canvas's own (`PROJECT_PHASES_` in Canvas Code.gs), and
+  the phase Canvas sends wins:
+  - RFQ chasers: Initiation, Planning, Execution (no supplier quote chasing once a project is in Closure, Complete, On Hold,
+    Cancelled or Not Awarded).
+  - CE award chasers: Planning (the kind itself still keeps only For Client Awarding).
+  - Accreditation chasers: Initiation, Planning, Execution, Closure (none for Complete, On Hold, Cancelled, Not Awarded).
+  - Signature chasers (FSA and AR): every phase except On Hold, Cancelled and Not Awarded.
+  - Payment chasers: no limit, because money owed is chased whatever the status.
+- A blank or unknown status, and a line with no project, are kept; each kind's own checks still apply. Inbox triage and the
+  HubSpot line have no project and are never filtered.
+- Lines left out are named in one batch note ("Left out 2 lines whose project status does not fit: ..."). Accreditation and
+  signature lines use the status Canvas already sends with them, so there is no extra Canvas read; RFQ uses the board read the
+  kind already makes. If Canvas cannot be read, the lines are kept and the batch says the status was not checked.
+- New tests PS1 to PS5. Tests: 391.
+
 ## Cue 1.27.47: contact scan fills blank P0 Contacts cells from old email signatures (deployed 28 Oct 2026 03:22Z as Version 103; rollback Version 101; feature group "Integration specs")
 
 Kiko 26 Oct 2026 09:05Z chose this third ("2,3,4,1"); spec `specs/crm-email-scanner.md`, tracked on the Feature Board card

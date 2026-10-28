@@ -16,6 +16,9 @@ function cueSignFind_(ctx) {
   const o = cueBridge_(ctx.s, 'list_unsigned_docs', {}) || {}, url = cueStr_(o.sign_url || '', 200), by = {};
   (o.docs || []).forEach(d => {
     if (CUE_SIGN_.closed.test(String(d.project_status || '') + ' ' + String(d.admin_status || ''))) return;
+    // Kiko 28 Oct 04:46Z: papers on a project whose status does not fit (e.g. On Hold) are left out, named in the batch note.
+    const st = { status: d.project_status, admin: d.admin_status };
+    if (!cueStatusFits_('signature', st)) { if (ctx.leftOut) ctx.leftOut.push(cueStatusLine_('Signature chasers', d.project || d.project_id, st)); return; }
     const end = cueSignDay_(d.event_end) || cueSignDay_(d.event_date), made = cueSignDay_(d.generated);
     if (!end) return;   // no event date in Canvas: nothing to time it from
     const start = [cueAddDays_(end, first), made ? cueAddDays_(made, first) : ''].sort().pop();
@@ -31,7 +34,7 @@ function cueSignFind_(ctx) {
     // Keyed by person and projects, so a new project's papers start a fresh count instead of inheriting an old one.
     const pids = p.docs.map(d => d.project_id).filter((x, i, a) => a.indexOf(x) === i).sort();
     const base = { key: 'signature:' + k + ':' + pids.join('+'), who: p.name || p.email, to: p.email, project: projects.join(', '), project_id: p.docs[0].project_id,
-      due_since: p.since, docs: p.docs, sign_url: url,
+      due_since: p.since, docs: p.docs, sign_url: url, status_checked: true,
       why: cueSignList_(p.docs) + ' not signed yet. Event ended ' + p.docs.map(d => d.event_end).sort()[0] + '.' };
     return p.email ? base : Object.assign(base, { no_email: true, why: base.why + ' No email on file in Canvas: remind them by text or call.' });
   });
