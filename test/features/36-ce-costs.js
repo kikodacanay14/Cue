@@ -92,9 +92,9 @@ test('CC7 the CE costs card: ticked rows with editable costs, Approve and update
   const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';'), NEED: { 'Needs you': 1 }, metricLine: () => '', cvLink: l => '<a>' + l.title + '</a>' };
-  vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml') + '\n' + grab('kindName'), ctx);
+  vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml'), ctx);
   const out = ctx.cecCardHtml(JSON.parse(JSON.stringify(t.v)));
   assert.ok(/data-act="approve-cec"/.test(out) && (out.match(/data-cec-tick="L\d"/g) || []).length === 3 && /value="85000"/.test(out), out.slice(0, 400));
   assert.ok(/₱70,000 to/.test(out) && /a line total, divided by qty/.test(out) && /Delivery 3,500/.test(out));
-  assert.strictEqual(ctx.kindName({ kind: 'cecost' }), 'CE costs');
+  assert.strictEqual(pageKindName({ kind: 'cecost' }), 'CE costs');
 });
