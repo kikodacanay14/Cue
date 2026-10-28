@@ -9,7 +9,8 @@ The "Cue email" group on the live line. It is built on live 1.27.54 (Version 117
 - `cueClaude_` takes an optional model, as on main.
 - Needs the Canvas release with `inbox_new` (CanvasWorkspace PR #145) for the info@ lines. Kiko's BSE inbox works without it. test/fixtures/ZapBridge.gs is that branch's bridge (live V310 + `inbox_new`).
 - Cloud checks, both read only: `test/checks/1.27.34-email-log.check.mjs` (cueCrmLogCheck, now on the check door's list) and `test/checks/1.27.56-new-mail.check.mjs` (cueNmCheck: the last day of Kiko's inbox and info@ through New mail's code filters, saving nothing, with no AI call). In check mode `inbox_new` counts as a read. Both pass a dry run.
-- Tests: CL1 to CL4 (email log) and NM1 to NM6 (New mail) are new. 419 tests.
+- The AI usage page counts the New mail sort under "New mail" (its runs use their own id, which would otherwise show as Other).
+- Tests: CL1 to CL4 (email log) and NM1 to NM7 (New mail) are new. 420 tests.
 
 ## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
