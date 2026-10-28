@@ -1,5 +1,36 @@
 # Changelog
 
+## Cue 1.27.56: structure review phase 4, Cue into Canvas (not deployed)
+
+Kiko approved phase 4 of the Cue structure review on 28 Oct 2026 07:42Z ("yes"). Spec: `specs/cue-structure-review.md`. Epic: Cue
+#133. Stories: #145, #147, #148 and #150. Built on live 1.27.54 (Version 117, 24c7942). The deploys thread renumbers it and restacks
+it on whatever ships first: 1.27.55 is taken by Cue's button, and the Client Desk line is also waiting.
+
+- **Chase history (4.1):** each chaser's line in the Canvas project log now ends with how many times this person has been chased
+  ("chase 3").
+- **Bid leads (4.3):** each new bid that the bid check finds also becomes a lead in Canvas's CRM.
+  - It is sent through `crm_lead` as one claimed plan, with stage Inquiry and source "Bid finder".
+  - `request_id bid:<key>` makes a repeat return the same lead.
+  - Updated bids are not sent, and the bid sheet rows are written as before.
+  - A failure is one note on the card.
+  - A check run sends nothing; `cueBidsLeadsCheck` shows what would go.
+- **Bridge reads (4.4):**
+  - The transfer lookup reads Transfers and Payment Request through Canvas's `read_rows`. Both tabs are already on the
+    allow-list.
+  - GPT tasks read the P0 funnel tabs through `read_rows` once Canvas lists them, which needs Canvas `rel-cue-p4-main`. Until
+    then they open the sheet as before.
+- **One AI cost view (4.6):** once Canvas `rel-cue-p4-main` is live, the usage section adds Canvas's own AI calls (Ledger › AI
+  Runs).
+  - They are priced by the same table and shown as "Canvas: <job>" under By command, with no separate total.
+  - Until then the section says in one line that Canvas calls are not included yet.
+  - Canvas edit runs (`cue-ed-` ids) show as "Other (canvas edit)".
+- **Bridge copy:** `test/fixtures/ZapBridge.gs` is the `rel-cue-p4-main` copy (CanvasWorkspace PR #233).
+- **Cloud check:** `test/checks/1.27.56-into-canvas.check.mjs`, read only. It covers the transfer lookup, the bid leads it would
+  send and the usage view.
+- **Not in this release:** 4.2 (new suppliers into the Supplier DB) is handed to Canvas Integration, because Canvas allocates
+  the Supplier ID. 4.5 waits on Kiko's call.
+- **Tests:** 415.
+
 ## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
 Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
