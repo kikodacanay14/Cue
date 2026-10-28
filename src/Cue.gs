@@ -20,7 +20,8 @@ const CUE_TABS_ = {
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
-  'Triage rules': ['Sender', 'Rule', 'Set', 'Why']                                                // mute / keep / no_inquiry; Kiko can delete rows
+  'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
+  'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count']                          // one row per background job run (CueJobs.gs); Canvas Admin reads it
 };
 const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
@@ -671,22 +672,16 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
-  try { cueSweepTick_(); } catch (e) { console.error('cueSweepTick_: ' + e); }   // reminders, and 9:00 sends Kiko approved
-  try { cueBidsTidyAll_(); } catch (e) { console.error('cueBidsTidyAll_: ' + e); }   // once: one Bid check thread per day
-  try { cueRelaySweep_(); } catch (e) { console.error('cueRelaySweep_: ' + e); }   // notes claude.ai added to the Relay tab
-  try { cueRelayTasks_(); } catch (e) { console.error('cueRelayTasks_: ' + e); }   // tasks ChatGPT handed over (if the one-off trigger missed them)
-  try { cueArDue_(); } catch (e) { console.error('cueArDue_: ' + e); }   // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
-  try { cueMaTick_(); } catch (e) { console.error('cueMaTick_: ' + e); }   // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
-  try { cuePlogFlush_(); } catch (e) { console.error('cuePlogFlush_: ' + e); }   // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
-  try { cueCrmLogTick_(); } catch (e) { console.error('cueCrmLogTick_: ' + e); }   // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
+  const jobs = cueJobs_(), rows = [];   // STRUCTURE-PHASE-3: the job list and its Job Runs rows (CueJobs.gs)
+  jobs.filter(j => !j.last).forEach(j => cueJobRun_(j, rows));
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
     if (s.check) return;   // a cloud check's task runs only from its check (CueCheck.gs), never from this trigger
     if (!(s.lease_until > now)) { try { cueRunLeased_(s.id); } catch (e) { console.error('cueResume ' + s.id + ': ' + e); } }
   });
-  // Last, so a task it starts runs on the next tick in its own 6 minutes (the sweep still runs at once, as its trigger did).
-  try { cueSchedTick_(); } catch (e) { console.error('cueSchedTick_: ' + e); }
+  jobs.filter(j => j.last).forEach(j => cueJobRun_(j, rows));
+  cueJobLog_(rows);
 }
 
 function cueRunLeased_(id) {
