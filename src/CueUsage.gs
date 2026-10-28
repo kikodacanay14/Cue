@@ -55,6 +55,8 @@ function cueUsageCmd_(kinds, req, step) {
   req = String(req || '');
   if (/^chat-/.test(req)) return 'Chat';
   if (/^cue-nm-/.test(req)) return 'New mail';   // CueNewMail.gs: the sort runs under its tick's own id, not a request's
+  if (req === 'canvas') return 'Canvas: ' + (String(step || '').trim() || 'AI');   // CUE-STRUCTURE-4.6: a Canvas AI Runs row, by its job
+  if (/^cue-ed-/.test(req)) return 'Other (canvas edit)';   // Canvas edits (CueEdit.gs) are not in the Requests tab
   return kinds[req] || (String(step || '').trim() ? 'Other (' + String(step).trim().replace(/\s+\d+( of \d+)?$/, '') + ')' : 'Other');
 }
 
@@ -68,6 +70,7 @@ function cueUsage_() {
   let rows = [];
   try { const sh = cueSheet_('AI Runs'), n = sh.getLastRow() - 1; rows = n > 0 ? sh.getRange(2, 1, n, CUE_TABS_['AI Runs'].length).getValues() : []; }
   catch (e) { return { prices: P, months: [], unpriced: [], error: String((e && e.message) || e) }; }
+  const cv = cueUsageCanvas_(); rows = rows.concat(cv.rows);
   let first = 0;
   const daily = [];   // [ms, usd] for the projection
   rows.forEach(r => {
@@ -107,7 +110,36 @@ function cueUsage_() {
     list[0].rough = !first || now - first < 7 * 86400000;
     list[0].days = Math.ceil((now - monthStart) / 86400000);
   }
-  return { prices: P, months: list, unpriced: Object.keys(unpriced), first: first ? new Date(first).toISOString() : '' };
+  return { prices: P, months: list, unpriced: Object.keys(unpriced), first: first ? new Date(first).toISOString() : '', canvas: { rows: cv.rows.length, note: cv.note } };
+}
+
+/* CUE-STRUCTURE-4.6 (Kiko 28 Oct 2026 07:42Z, Phase 4 "yes"; specs/cue-structure-review.md): one AI cost view. Canvas logs its own
+ * Claude calls in the Ledger's AI Runs tab (AiCore.gs aiLog_: Time, Job, Model, Input tokens, Output tokens, Cost (USD), Status, Note).
+ * When Canvas's allow-list has that tab, its rows join Cue's in the same months, priced by the same table, under "Canvas: <job>".
+ * Not listed or unreadable: Cue's own rows only, with a note. Values come as display text; times are Manila. */
+function cueUsageCanvas_() {
+  const s = { id: 'usage-' + cueNow_().toString(36) };
+  let T;
+  try { if (!cueGtListed_(s, 'airuns')) return { rows: [], note: 'Canvas AI calls not included yet (AI Runs is not on Canvas\'s allow-list).' };
+    T = cueGtBridgeTab_(s, 'airuns'); }
+  catch (e) { return { rows: [], note: 'Canvas AI calls could not be read: ' + cueStr_((e && e.message) || e, 160) }; }
+  const get = (o, h) => { const k = Object.keys(o).filter(x => x.toLowerCase() === h.toLowerCase())[0]; return k ? o[k] : ''; };
+  const num = v => Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')) || 0;
+  const rows = [];
+  T.rows.forEach(o => {
+    const t = cueUsageMnl_(get(o, 'Time')); if (!isFinite(t)) return;
+    rows.push([new Date(t), 'canvas', String(get(o, 'Job') || ''), 'Claude', String(get(o, 'Model') || ''), num(get(o, 'Input tokens')), num(get(o, 'Output tokens')),
+      '', '', String(get(o, 'Status') || ''), String(get(o, 'Note') || '')]);
+  });
+  return { rows, note: '' };
+}
+/** A sheet time as display text ("10/28/2026 14:03:22", "2026-10-28 14:03") in Manila time, as ms; NaN when unclear. */
+function cueUsageMnl_(v) {
+  if (v instanceof Date) return v.getTime();
+  const t = String(v || '').trim(); let m;
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(t))) return Date.UTC(+m[3], +m[1] - 1, +m[2], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) - CUE_USAGE_MANILA_;
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t))) return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) - CUE_USAGE_MANILA_;
+  return Date.parse(t);
 }
 
 /** Save prices from the Settings form: { models: { name: [in, out] }, web, fx }. Blank or bad values keep the old ones. */

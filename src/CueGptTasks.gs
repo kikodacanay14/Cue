@@ -181,9 +181,13 @@ function cueGtRun_(s, save) {
 /* ---------- step 1: code reads the records ---------- */
 /* CUE-SHEET-READS-2026-10-27 (spec specs/bridge-sheet-reads.md): a records tab on Canvas's allow-list is read through read_rows, so a
  * Canvas rename comes back as Canvas's own refusal and the bridge's never-lists apply. The rest stay direct: Tasks and Kiko's own sheets
- * are not Canvas books, and the P0 tabs keep their header below row 1, which read_rows does not read yet. */
+ * are not Canvas books. The P0 tabs keep their header below row 1, which read_rows reads from Canvas rel-cue-p4 on. */
 const CUE_GT_BRIDGE_ = { tri: ['tri', 'TRI'], suppliers: ['suppliers', 'Main'], directory: ['admin', 'Projects'], personal2: ['tracker', 'Personal Expenses'],
-  transfers: ['scopes', 'Transfers'], payreq: ['scopes', 'Payment Request'] };
+  transfers: ['scopes', 'Transfers'], payreq: ['scopes', 'Payment Request'],
+  // CUE-STRUCTURE-4.4 (Kiko 28 Oct 2026 07:42Z): the P0 funnel tabs, once Canvas lists them (its header-row fix reads P0's row-4 header)
+  p0: ['priority', 'P0'], contacts: ['priority', 'P0 Contacts'], events: ['priority', 'Event History'], social: ['priority', 'Social Event Sources'],
+  invalid: ['priority', 'Invalid & Bounced Contacts'],
+  airuns: ['ledger', 'AI Runs'] };   // CUE-STRUCTURE-4.6: Canvas's own AI calls, for the one usage view (CueUsage.gs)
 let cueGtAllow_ = null;   // { id, tabs }: the allow-list, read once per run
 /** True when this key's tab is on the allow-list. An unreadable allow-list means no: the tab is read direct, as before. */
 function cueGtListed_(s, name) {
