@@ -527,6 +527,16 @@ const ZB_ACTIONS_ = {
       thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ } },
     run: (r) => zbPaySend_(r.args)
   },
+  inbox_new: {
+    // CUE-NEW-MAIL-2026-10-27 (Kiko 09:32Z tapped Yes on "Build New mail for your BSE inbox and info@, sorted by Claude?"; Cue spec
+    // specs/new-mail-check.md). The newest message of each info@ inbox thread that got mail after `since` (ms), for Cue's New mail
+    // thread: sender, subject, a few headers for Cue's junk rules, and the message's own text (quotes cut, 1,500 characters). Canvas
+    // runs as info@, so this is the only way Cue sees info@ mail. Promotions, Social and Forums are left out by the search. Read only:
+    // nothing is labelled, marked read, archived or sent. Replies go from Kiko's own Gmail, never from info@.
+    kind: 'read', needsProject: false,
+    schema: { since: { type: 'number', required: true, min: 0 }, max: { type: 'number', min: 1 } },
+    run: (r) => zbInboxNew_(r.args)
+  },
   mail_waiting: {
     // CUE-REPLY-DRAFTS-2026-10-26 (Kiko 04:49Z "if its an Emails waiting... shouldnt there be a draft already that we need to
     // review and send?"; 05:58Z "Draft every waiting email"; 06:04Z "just me"; 06:09Z "Yes, Cue drafts them"; spec
@@ -535,6 +545,22 @@ const ZB_ACTIONS_ = {
     // no email text passes here. Cue reads the thread in Kiko's own Gmail and drafts the reply there. Read only.
     kind: 'read', needsProject: false, schema: {},
     run: () => zbMailWaiting_()
+  },
+  rfp_outbox: {
+    // RFP-FROM-KIKO-2026-10-28 (Kiko 07:35Z "i want it to send it when i click send", 07:45Z "from me"): the RFPs and RFP
+    // follow-ups Kiko pressed Send on in Canvas, queued for his Cue to send from his own Gmail (Code.gs rfpOutbox_). Only rows
+    // Kiko queued, oldest first, at most 20. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => rfpOutbox_()
+  },
+  rfp_sent: {
+    // RFP-FROM-KIKO-2026-10-28: Cue reports one queued email Sent (its Gmail thread and message id) or Failed. Marks the RFP
+    // Outbox row and, for an RFP, its RFP Log row. A repeat for a row already reported changes nothing.
+    kind: 'queue', needsProject: false,
+    schema: { key: { type: 'string', required: true, re: /^[a-z]+:[A-Za-z0-9-]{3,40}:[a-z0-9ñ]{0,80}:[a-z0-9]{1,20}$/ },
+      status: { type: 'string', required: true, oneOf: ['Sent', 'Failed'] }, thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ },
+      message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
+    run: (r) => rfpOutboxDone_(r.args)
   },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
@@ -714,7 +740,58 @@ function zbGptDoorRun_(raw, now, seen) {
   if (r.project_id) q.project_id = r.project_id;
   if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
   seen.q = q; seen.task = r.task_id;
-  return zbHandle_(JSON.stringify(q), '', now, true);
+  return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
+}
+
+/* SITE-ACCESS-1-2026-10-28 F3 (Kiko 28 Oct 04:44Z "yes"; spec site-access-audit/SPEC.md R4: "Answers to ChatGPT (GPT door and
+ * @Canvas connector) carry bank and GCash numbers as the last 4 only, TINs masked, and no personal phones or home addresses").
+ * The door runs as the bridge's Manager identity, so results can carry full account numbers (getProject payBank, Transfers bank
+ * columns, Payment Request rows). They are cut here, on the server, before the answer leaves Apps Script; the GPT prompt rule stays
+ * as a second layer. GPT door path only: the HMAC-signed Cue bridge (zbHandle_ called from zapBridge with a signature) is
+ * unchanged. A ChatGPT task that needs a full number asks Canvas to match (expense_evidence already matches on the server).
+ *   - account / GCash number fields (and "no" beside a "bank"): every run of 6 or more digits becomes "•••• " + its last 4;
+ *   - TIN fields: "•••-•••-•••-" + the last 3 digits;
+ *   - birthday, emergency contact (name and number) and home address: removed wherever they appear;
+ *   - mobile, phone, contact number and address: removed from records that carry bank details (payees and freelancers), so a
+ *     client's business phone on a project contact still goes through. */
+const ZB_GPT_ACCT_RE_ = /(^|\s)(account ?(no|numbers?|num|#)|accountnumbers?|acct|acc no|bank account|bank (no|number)|gcash)(\s|$)/;
+// Bank and account name cells sometimes carry the number too ("GCash 0917 ..."): their digit runs are masked, the words stay.
+const ZB_GPT_BANKTXT_RE_ = /^(bank|bank name|preferred bank|(bank )?(account|acct) name)$/;
+const ZB_GPT_TIN_RE_ = /^(tin|tin (no|number|#)|tax id|tax id (no|number)|tax identification number|billed tin)$/;
+const ZB_GPT_DROP_RE_ = /^(birthday|birth ?date|date of birth|emergency contact.*|ecn|home address|permanent address)$/;
+const ZB_GPT_PAYEE_DROP_RE_ = /^(mobile|mobile (no|number)|contact (no|number)|phone|phone (no|number)|address|ec)$/;
+const zbGptKey_ = k => String(k).replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9#]+/g, ' ').trim();
+function zbGptMaskNo_(v) {
+  if (v == null || v === '' || typeof v === 'boolean') return v;
+  return String(v).replace(/\+?\d[\d\s.\-]{4,}\d/g, run => { const n = run.replace(/\D/g, ''); return n.length >= 6 ? '•••• ' + n.slice(-4) : run; });
+}
+function zbGptMaskTin_(v) {
+  if (v == null || v === '' || typeof v === 'boolean') return v;
+  const n = String(v).replace(/\D/g, ''); return n.length > 3 ? '•••-•••-•••-' + n.slice(-3) : n ? '•••' : String(v);
+}
+/** PURE (unit-tested). A masked copy of a door answer; the original object (it may be a kept page copy) is never changed. */
+function zbGptMask_(v, depth) {
+  depth = depth || 0;
+  if (v == null || typeof v !== 'object' || depth > 30 || v instanceof Date) return v;
+  if (Array.isArray(v)) return v.map(x => zbGptMask_(x, depth + 1));
+  const keys = Object.keys(v), K = keys.map(zbGptKey_), hasBank = K.indexOf('bank') >= 0;
+  const payee = hasBank || K.some(k => ZB_GPT_ACCT_RE_.test(k));
+  const out = {};
+  keys.forEach((k, i) => {
+    const n = K[i], x = v[k];
+    if (ZB_GPT_DROP_RE_.test(n) || (payee && ZB_GPT_PAYEE_DROP_RE_.test(n))) return;
+    const acct = ZB_GPT_ACCT_RE_.test(n) || ZB_GPT_BANKTXT_RE_.test(n) || (n === 'no' && hasBank), tin = ZB_GPT_TIN_RE_.test(n);
+    if ((acct || tin) && x && typeof x === 'object') out[k] = zbGptMaskAll_(x, tin ? zbGptMaskTin_ : zbGptMaskNo_, depth + 1);
+    else out[k] = acct ? zbGptMaskNo_(x) : tin ? zbGptMaskTin_(x) : zbGptMask_(x, depth + 1);
+  });
+  return out;
+}
+// Every plain value under a number field (a list of accounts, say) gets the same mask.
+function zbGptMaskAll_(v, f, depth) {
+  if (v == null || depth > 30) return v;
+  if (Array.isArray(v)) return v.map(x => zbGptMaskAll_(x, f, depth + 1));
+  if (typeof v === 'object') { const o = {}; Object.keys(v).forEach(k => { o[k] = zbGptMaskAll_(v[k], f, depth + 1); }); return o; }
+  return f(v);
 }
 // One row per ChatGPT call in the ledger book (tab _ChatGPT Door Log), for the read-only write check. Never blocks the answer.
 function zbGptLog_(q, out, task) {
@@ -1109,6 +1186,26 @@ function zbMailWaiting_() {
   return { on: !!r.on, stale: !!r.stale, checked: Number(r.checked) || 0,
     items: (r.items || []).map(i => ({ id: i.id, from: i.from, email: i.email, subject: i.subject, at: i.at, unread: !!i.unread,
       who: i.who, name: i.name || '', pid: i.pid || '', project: i.project || '' })) };
+}
+/* CUE-NEW-MAIL-2026-10-27: info@'s new inbox mail for Cue's New mail thread (bridge action inbox_new). Read only. */
+const ZB_INBOX_NEW_ = { max: 40, text: 1500 };
+function zbInboxNew_(a) {
+  const since = Math.max(0, Number(a.since) || 0), max = Math.min(Math.max(1, Number(a.max) || ZB_INBOX_NEW_.max), ZB_INBOX_NEW_.max), until = Date.now();
+  const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(), addr = f => String((String(f || '').match(/<([^>]+)>/) || [0, f])[1] || '').trim().toLowerCase();
+  const q = 'in:inbox -in:chats -category:promotions -category:social -category:forums after:' + Math.floor(since / 1000);
+  const items = [];
+  GmailApp.search(q, 0, max).forEach(t => {
+    const msgs = t.getMessages().filter(m => !m.isDraft()), m = msgs[msgs.length - 1];
+    if (!m || m.getDate().getTime() <= since || addr(m.getFrom()) === me) return;   // already answered from info@, or older than the window
+    const head = h => { try { return String(m.getHeader(h) || '').slice(0, 300); } catch (e) { return ''; } };
+    const body = String(m.getPlainBody() || '').split(/\r?\n(?:On .{5,200} wrote:|-{2,} ?Original Message ?-{2,}|From: .{3,200}\r?\nSent: )/)[0]
+      .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    items.push({ id: m.getId(), thread_id: t.getId(), ms: m.getDate().getTime(), from: addr(m.getFrom()),
+      name: String(m.getFrom() || '').replace(/\s*<[^>]*>\s*/, '').replace(/"/g, '').slice(0, 120), subject: String(m.getSubject() || '').slice(0, 300),
+      snippet: body.slice(0, 300), text: body.slice(0, ZB_INBOX_NEW_.text), message_id: head('Message-ID'),
+      h: { 'List-Unsubscribe': head('List-Unsubscribe'), 'List-Id': head('List-Id'), Precedence: head('Precedence'), 'Auto-Submitted': head('Auto-Submitted') } });
+  });
+  return { until, items };
 }
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
@@ -1913,6 +2010,50 @@ ZB_ACTIONS_.crm_lead = {
   check: zbCrmCheck_
 };
 ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
+
+/* GPT-FIND-SUPPLIERS-2026-10-28 (Kiko 07:41Z "didnt we have integration already with ChatGPT?", 07:43Z picked "1"): ChatGPT finds
+ * stores for a scope on the web and Kiko picks which to save. supplier_add puts one in the Supplier Database (Supplier, Main
+ * Service, Supplier Type, City, Province, Website/Social Media: the same add as Support Desk and the RFP window's New supplier)
+ * and saves its contact through addQuoteContact (Supplier Quotes' add). A supplier already in the database only gets the contact.
+ * No person listed: the contact is "<Store> Sales", position "Sales". No email: the contact is saved with its phone only (the RFP
+ * window then has no address to tick for it). A repeat adds nothing twice: the supplier is found, and a contact with the same email
+ * (or, without one, the same name) is skipped. */
+ZB_ACTIONS_.supplier_add = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, name: { type: 'string', required: true, nonBlank: true, max: 150 },
+    main_service: { type: 'string', required: true, nonBlank: true, max: 150 }, supplier_type: { type: 'string', max: 200 },
+    city: { type: 'string', max: 80 }, province: { type: 'string', max: 80 }, link: { type: 'string', max: 500 },
+    contact_name: { type: 'string', max: 120 }, position: { type: 'string', max: 80 }, phone: { type: 'string', max: 60 }, email: { type: 'string', max: 200 } },
+  run: (r) => { try { return zbSupplierAdd_(r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : { ok: true, evidence: { supplier: res && res.supplier, added: !!(res && res.added), contact: res && res.contact } }
+};
+ZB_GPT_ACTIONS_.push('supplier_add');
+function zbSupplierAdd_(a) {
+  const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const name = clean(a.name).slice(0, 150), email = clean(a.email).toLowerCase();
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error(email + ' is not an email address. Nothing was saved.');
+  let p = supplierProfile(name), added = false;
+  if (!p.found) {
+    const cfg = CONFIG.ENTITIES.suppliers, rec = {};
+    rec[cfg.nameHeader] = name; rec[cfg.serviceHeader] = clean(a.main_service).slice(0, 150);
+    if (clean(a.supplier_type)) rec[cfg.typeHeader] = clean(a.supplier_type);
+    if (clean(a.city)) rec[cfg.cityHeader] = clean(a.city);
+    if (clean(a.province)) rec[cfg.provinceHeader] = clean(a.province);
+    if (clean(a.link)) rec['Website/Social Media'] = clean(a.link);
+    const res = (addSuppliers([rec]).results || [])[0] || {};
+    if (!res.ok) throw new Error((res.error || name + ' was not added') + '. Nothing was saved.');
+    try { logEvent('Added supplier', 'Projects', name + ' (from ChatGPT)'); } catch (e) { /* logging never blocks */ }
+    p = supplierProfile(name); added = true;
+    if (!p.found) return { supplier: name, added, contact: 'not saved: the new supplier could not be read back yet' };
+  }
+  const person = clean(a.contact_name) || p.name + ' Sales', pos = clean(a.position) || 'Sales', phone = clean(a.phone);
+  if (!email && !phone) return { supplier: p.name, added, contact: 'none: no email or phone found' };
+  const rows = ((p.contacts || {}).rows || []).map(x => JSON.stringify(x).toLowerCase());
+  if (rows.some(x => email ? x.indexOf(email) >= 0 : x.indexOf(person.toLowerCase()) >= 0)) return { supplier: p.name, added, contact: 'already saved' };
+  addQuoteContact(p.name, [person, phone, email, pos]);
+  return { supplier: p.name, added, contact: person + (email ? ' · ' + email : '') + (phone ? ' · ' + phone : '') };
+}
 
 /* PROJECT-LOG-2026-10-27 (Kiko 10:34Z: everything about a project done in other threads is also written in the project's thread;
  * "include the mails that i receive"). Cue sends log lines: emails in and out (headers only), Ask Cue task summaries and

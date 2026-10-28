@@ -184,6 +184,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn a list Kiko pasted/.test(body.system)) { log.claude.push(body); return (o.fail || {}).memory ? o.fail.memory() : claudeOk(o.memory || MEMORY); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You write the daily release notes/.test(body.system)) { log.claude.push(body); return (o.fail || {}).relnotes ? o.fail.relnotes() : claudeOk(o.relnotes || RN_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You write Kiko's Monday status digest/.test(body.system)) { log.claude.push(body); return (o.fail || {}).digest ? o.fail.digest() : claudeOk(o.digest || ST_DIGEST); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
@@ -209,9 +210,18 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
       if (body.action === 'help_qa_add') { (log.helpAdds = log.helpAdds || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
+      // CUE-RFP-SEND-2026-10-28: Kiko's queued RFPs (rfp_outbox, read) and the report of each send (rfp_sent, queue), with the bridge's shapes.
+      if (body.action === 'rfp_outbox') { log.rfpReads = (log.rfpReads || 0) + 1; if (o.rfpBoxFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
+      if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
       if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
+      if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
+        if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        const again = (log.annSeen = log.annSeen || {})[body.args.request_id]; log.annSeen[body.args.request_id] = log.annSeen[body.args.request_id] || 'ANN-00' + (10 + log.annPost.length);
+        return resp(200, { ok: true, status: 'Completed', result: { id: log.annSeen[body.args.request_id], again: !!again, groups: body.args.groups } }); }
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
         pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
@@ -499,10 +509,11 @@ function sandbox(o = {}) {
     }
     if (u.indexOf('/drafts/send') >= 0) {
       log.sent = log.sent || []; log.sent.push(JSON.parse(req.payload).id);
-      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent-' + log.sent.length });
+      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent' + log.sent.length + 'abcdef', threadId: 'thr' + log.sent.length + 'abcdef' });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
+      (log.draftThreads = log.draftThreads || []).push(JSON.parse(req.payload).message.threadId || '');
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
     }
     if (u.indexOf('ticktick.com') >= 0) {   // CueTickTick.gs
@@ -519,7 +530,7 @@ function sandbox(o = {}) {
     console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
     ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { after: () => tb, everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },

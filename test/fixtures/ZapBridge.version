@@ -1,6 +1,3 @@
-Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc (PR #232), the CRM funnel release built on live Canvas V314
-(28 Oct 2026): adds the read crm_funnel and labels Cue's crm_log rows "Cue". Then the Cue structure phase 4 bridge change (CanvasWorkspace
-PR #233, releases/rel-cue-p4-main) is applied on top: P0 funnel tabs and Ledger AI Runs added once to the allow-list (read only), read_rows
-header below a title row, ledger book. Neither is live until those releases ship.
-md5 c014741dc59a2a4dcf1e3baf022dcf2f
-Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
+Copied from CanvasWorkspace src/ZapBridge.gs on main (Sync src to one-live-v318), the live Canvas V318 bridge, 28 Oct 2026. It carries the CRM funnel read,
+rfp_outbox and rfp_sent, and the Cue structure phase 4 change (P0 funnel tabs and Ledger AI Runs on the allow-list, header below a title row, ledger book).
+md5 24f4d7a0e2900deb9f89a0e208766044
