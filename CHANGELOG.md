@@ -16,9 +16,7 @@ If 1.27.55 (Client Desk on phase 1 Approve) ships first, this stacks on it uncha
   `IndexCards.html` and `IndexThreads.html`, and the tests are `test/features/48-help-qa.js` (HQ1 to HQ6). CMD2 now lists the
   help run and stopped line. Cloud check `test/checks/1.27.56-help-answers.check.mjs` (read only; dry run passes). Tests: 415.
 
-## Cue 1.27.55: Cue's button chat bubble on the live line (not deployed)
-
-## Cue 1.27.54.1: the Cue page opens again (bug fix, not deployed; branch claude/project-thread-o4roiy-rel12754fix)
+## Cue 1.27.54.1: the Cue page opens again (bug fix, deployed 28 Oct 2026 08:22Z as Version 124; Kiko 08:20Z)
 
 Kiko sent a screenshot on 28 Oct 2026 08:07Z: the Cue panel inside Canvas showed "Exception: Malformed HTML content" followed by
 Cue's own script as text, so Cue could not be used at all.
