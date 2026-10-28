@@ -21,7 +21,7 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules',
-  'cueCrmLogCheck', 'cueFunnelCheck', 'cueJobsCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs); the sales funnel one for the lines the morning batch would list (CueSweepFunnel.gs)
+  'cueCrmLogCheck', 'cueFunnelCheck', 'cueJobsCheck', 'cueRnCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs); the sales funnel one for the lines the morning batch would list (CueSweepFunnel.gs); the 1.27.57 one for made-up release notes (CueRelnotes.gs)
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
