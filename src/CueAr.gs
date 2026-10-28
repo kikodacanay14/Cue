@@ -34,7 +34,7 @@ function cueArRun_(s, save) {
     const typed = (String(a.asked).toUpperCase().match(CUE_PID_RE_) || String(s.text).toUpperCase().match(CUE_PID_RE_) || [])[0];
     if (typed) { a.project_id = typed; a.project = typed; }
     else {
-      const hits = cueBridge_(s, 'find_similar_projects', { name: a.asked }) || [];
+      const hits = cueCanvasFind_(s, a.asked);   // STRUCTURE-PHASE-3: the one project finder (CueCanvas.gs)
       if (!hits.length) throw new Error('Canvas found no project called "' + a.asked + '". Send the project name as it is in Canvas, or its id (S-...).');
       a.project_id = hits[0].project_id; a.project = hits[0].name || hits[0].project_id;
       a.others = hits.slice(1, 4).map(h => h.name + ' (' + h.project_id + ')');

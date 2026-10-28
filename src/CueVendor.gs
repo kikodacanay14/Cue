@@ -95,7 +95,7 @@ function cueVendorCanvas_(s) {
   const V = s.vendor;
   let pid = (String(V.project).match(/\bS-[0-9A-Z]{6,14}\b/) || [])[0] || '';
   if (V.project && !pid) {
-    const all = cueBridge_(s, 'find_similar_projects', { name: V.project }) || [], live = all.filter(x => !CUE_VDONE_RE_.test(String(x.status || '').trim()));
+    const all = cueCanvasFind_(s, V.project), live = all.filter(x => !CUE_VDONE_RE_.test(String(x.status || '').trim()));
     const m = (live.length ? live : all)[0];
     if (!m) throw new Error('Canvas has no project matching "' + V.project + '". Say the project name as it is in Canvas, or its project ID (S-...).');
     pid = m.project_id; V.match = { project_id: m.project_id, name: cueStr_(m.name, 200), date: cueStr_(m.date, 20) };
