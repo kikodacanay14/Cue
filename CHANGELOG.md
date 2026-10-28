@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.47: contact scan fills blank P0 Contacts cells from old email signatures (not deployed; feature group "Integration specs")
+## Cue 1.27.47: contact scan fills blank P0 Contacts cells from old email signatures (deployed 28 Oct 2026 03:22Z as Version 103; rollback Version 101; feature group "Integration specs")
 
 Kiko 26 Oct 2026 09:05Z chose this third ("2,3,4,1"); spec `specs/crm-email-scanner.md`, tracked on the Feature Board card
 "Integration specs". Kiko said Yes on that card on 27 Oct 2026 15:54Z to Cue reading the signatures in his own Gmail for it.
@@ -20,7 +20,7 @@ Needs the Canvas release with `contact_gaps` and `contact_fill` (CanvasWorkspace
 - Bridge copy `test/fixtures/ZapBridge.gs` is the PR #183 branch file (live V294 plus the two actions); refresh it from main
   when that release ships. New tests CS1 to CS5. Tests: 378.
 
-## Cue 1.27.47: sheet reads through the Canvas bridge (not deployed; feature group "Integration specs")
+## Cue 1.27.47: sheet reads through the Canvas bridge (deployed 28 Oct 2026 03:22Z as Version 103; rollback Version 101; feature group "Integration specs")
 
 Kiko 26 Oct 2026 09:05Z chose this second ("2,3,4,1"); spec `specs/bridge-sheet-reads.md`, tracked on the Feature Board card
 "Integration specs". Uses Canvas's generic bridge (live since V293), so no Canvas release.
