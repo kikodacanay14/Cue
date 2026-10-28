@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.54: structure review phase 3, job runs list and one project finder (not deployed)
+
+Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
+Cue #133, stories #142 and #144. Built on live 1.27.53 (Version 114, ed62d61, compact cards) plus the 1.27.52 deployed mark, as the deploys thread asked. No bridge, email or AI change.
+
+- Job runs (3.1): `cueResume` runs its jobs from one list (`src/CueJobs.gs`). Each run writes one row to a new "Job Runs" tab in
+  Cue's sheet: Started, Finished, Job, Result (OK or Failed), Error (first line) and Count. One write per tick. Rows older than
+  30 days are deleted once a day (Kiko 06:08Z, "Yes, keep 30 days"). Canvas Admin reads the tab (notifications story N8) and
+  raises the one failure alert (N9); Cue has no jobs page. A job whose function this build lacks is skipped, so the same file
+  fits main and the live line.
+- One project finder (3.3): crew docs (FSAs and ARs), readiness and supplier search now find the project the way Canvas
+  commands, CE cost, expenses and TRI already did (`cueCanvasFind_`): an S- id as typed, else every word (search_projects),
+  else a similar name, and one exact name wins. Before, those three used only find_similar_projects, which drops the client's
+  own name, so "Unilever" found no Unilever project there. Readiness now opens straight away when one project has exactly the
+  name asked.
+- One inbox read (3.2): measured instead of built. Each 5-minute tick reads the inbox at most once (the email check, every
+  10 minutes); the project log reuses it. Triage (07:00) and RFQ chasers (Sent) read once a day each.
+- Tests: 409 (404 before): JR1-JR3, PF1-PF2; readiness tests follow the finder.
+
 ## Cue 1.27.53: each waiting email carries its first line, for Canvas's compact cards (deployed 28 Oct 2026 06:20Z as Version 114)
 
 Kiko 28 Oct 2026 04:51Z, on the Team Cue panel in Canvas: "can cards be more compact? and show a summary of the details so we
