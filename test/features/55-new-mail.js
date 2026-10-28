@@ -114,3 +114,15 @@ test('NM4 new mail: old Gmail history starts again from now; one inbox failing n
   const page = cuePage();
   assert.ok(/function nmCardHtml\(r\)/.test(page) && /call\('cueNmItem', \[id, b\.getAttribute\('data-key'\), nmw\]/.test(page) && /'New mail · ' \+ r\.nm\.day/.test(page) && /<i class="badge"/.test(page));
 });
+
+test('NM6 cloud check door: cueNmCheck reads the last day of both inboxes and filters it, and saves nothing', () => {
+  const t = nmSandbox(), before = JSON.stringify(t.props), rows = t.tabs.Requests ? t.tabs.Requests.rows.length : 0;
+  const r = t.ctx.cueNmCheck();
+  assert.strictEqual(r.history, '500'); assert.strictEqual(r.info_error, '');
+  assert.ok(r.keep.some(l => l.inbox === 'info' && l.who === 'Leo Cruz'), 'info@ mail through Canvas');
+  assert.ok(r.skip.some(l => /mailing list/.test(l.why)), 'junk is skipped with its reason');
+  assert.strictEqual(JSON.stringify(t.props), before, 'no property moves'); assert.strictEqual(t.tabs.Requests ? t.tabs.Requests.rows.length : 0, rows, 'no thread');
+  assert.ok(!t.log.nmSorts, 'no AI call');
+  const d = nmSandbox({ infoFail: true }).ctx.cueNmCheck(); assert.ok(/Canvas busy/.test(d.info_error), 'Canvas down is reported, not thrown');
+  assert.ok(/CUE_CHECK_FNS_ = \[[^\]]*'cueNmCheck'/.test(CODE) && /CUE_CHECK_READS_ = \['inbox_new'/.test(CODE), 'the check door may call it, and inbox_new is a read');
+});

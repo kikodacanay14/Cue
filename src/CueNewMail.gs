@@ -86,8 +86,9 @@ function cueNmLine_(inbox, threadId, m) {
     message_id: m.message_id || '', subject: m.subject || '', summary: m.snippet || m.subject || '', ms: m.ms || 0, date: m.date || '', urgent: false, _m: m };
 }
 
-/** Code filters (no AI), then the lines join today's New mail thread and the Triage log. Returns the thread's id ('' when nothing new). */
-function cueNmAdd_(run, found) {
+/** The code filters, no AI and no writes: mail another task owns or a Canvas project's mail is dropped; junk and muted senders
+ * are kept apart as skipped; the rest is kept with Kiko's rule for the sender. */
+function cueNmFilter_(run, found) {
   const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [];
   let ids = null;
   const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
@@ -101,6 +102,12 @@ function cueNmAdd_(run, found) {
     l.rule = rule || '';
     keep.push(l);
   });
+  return { keep, skip };
+}
+
+/** Code filters (no AI), then the lines join today's New mail thread and the Triage log. Returns the thread's id ('' when nothing new). */
+function cueNmAdd_(run, found) {
+  const f = cueNmFilter_(run, found), keep = f.keep, skip = f.skip;
   if (!keep.length && !skip.length) return '';
   const day = cuePh_(cueNow_()).day;
   const s = cueLocked_(() => {
@@ -281,6 +288,27 @@ function cueNmReply_(nm, it) {
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   cueChat_('Cue', 'Drafting a reply to ' + (it.who || it.sender) + (it.inbox === 'info' ? '. It goes from your Gmail, not info@' : '') + '. Nothing is sent before you tap.', id);
   return { request_id: id, task: nm.id };
+}
+
+/* ---------- cloud check (test/checks/1.27.56-new-mail.check.mjs, through the check door) ---------- */
+/** Read only, no AI: what New mail would show now from the last day of Kiko's inbox and info@. Nothing is saved: no thread, no
+ * Triage log row, no property. info@ reports Canvas's answer (an error until the inbox_new release is live). */
+function cueNmCheck() {
+  cueOwner_();
+  const run = { id: 'cue-nm-check', metrics: { ai_calls: 0, calls: [] }, notes: [] }, own = cueMe_().toLowerCase(), found = [];
+  const history = String(cueGmail_('/profile').historyId || '');
+  const list = cueGmail_('/threads?labelIds=INBOX&q=' + encodeURIComponent('newer_than:1d') + '&maxResults=20').threads || [];
+  cueGmailAll_(list.map(t => '/threads/' + t.id + '?format=metadata' + CUE_TRIAGE_HEADERS_)).forEach(t => {
+    const m = cueTriageNewest_(t, own); if (m) found.push(cueNmLine_('mine', t.id, m));
+  });
+  let info = '';
+  try {
+    const r = cueBridge_(run, 'inbox_new', { since: cueNow_() - 864e5, max: CUE_NM_.max }) || {};
+    (r.items || []).forEach(x => { if (x && x.id && x.thread_id) found.push(cueNmLine_('info', x.thread_id, { id: String(x.id), from: String(cueEmail_(x.from) || '').toLowerCase(),
+      name: cueStr_(x.name, 120), subject: cueStr_(x.subject, 300), snippet: cueStr_(x.snippet, 300), h: x.h || {}, labels: ['INBOX'] })); });
+  } catch (e) { info = String((e && e.message) || e).slice(0, 300); }
+  const f = cueNmFilter_(run, found), out = l => ({ inbox: l.inbox, who: cueStr_(l.who, 120), subject: cueStr_(l.subject, 160), why: l.why || '' });
+  return { history, info_error: info, threads: list.length, keep: f.keep.map(out), skip: f.skip.map(out) };
 }
 
 /* ---------- the page ---------- */
