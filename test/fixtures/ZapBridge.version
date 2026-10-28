@@ -1,5 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc (PR #232, the CRM funnel release built on live Canvas V314)
-plus rfp_outbox (read) and rfp_sent (queue) from branch claude/project-thread-03c4fn-direct (PR #230, RFPs from Kiko's Gmail), 28 Oct 2026.
-Not live until those releases ship.
-md5 0462cfa5b617246fc65441ceb4b4cdb1
+Copied from CanvasWorkspace src/ZapBridge.gs on main at 5e7cb2a ("Sync src to one-live-v317", #249): live Canvas V317, 28 Oct 2026.
+It carries rfp_outbox and rfp_sent (V316) and inbox_new for New mail (V317).
+md5 24f4d7a0e2900deb9f89a0e208766044
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

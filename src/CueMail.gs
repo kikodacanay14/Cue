@@ -88,7 +88,8 @@ function cueMailDraft_(s) {
   if (!r.ok) throw new Error(r.error);
   const body = cueStr_(r.data.body, 6000).trim();
   if (!body) throw new Error('GPT returned an empty email. Try again.');
-  M.draft = { to: M.to_addr || '', subject: T ? (/^re:/i.test(T.subject) ? T.subject : 'Re: ' + T.subject) : cueStr_(r.data.subject, 200).replace(/[\r\n]+/g, ' ').trim() || 'Hello from BSE', body };
+  // New mail's Draft reply to an info@ email has no thread in Kiko's Gmail: it keeps the email's own "Re: <subject>" (CueNewMail.gs).
+  M.draft = { to: M.to_addr || '', subject: T ? (/^re:/i.test(T.subject) ? T.subject : 'Re: ' + T.subject) : M.reply_subject || cueStr_(r.data.subject, 200).replace(/[\r\n]+/g, ' ').trim() || 'Hello from BSE', body };
   M.note = cueStr_(r.data.note, 400);
   s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = cueNow_();
   cueChat_('Cue', 'Your email to ' + (M.to || M.to_addr || 'them') + ' is ready' + (T ? ', as a reply in your thread "' + T.subject + '"' : '') + '. Edit it on the card, then send or save it to Drafts.'
