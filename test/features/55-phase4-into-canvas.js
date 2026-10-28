@@ -49,6 +49,8 @@ test('P4e 4.6 one AI cost view: Canvas AI Runs rows join Cue\'s months, priced b
   assert.ok(c && c.calls === 2, JSON.stringify(m.by_cmd)); if (p) assert.strictEqual(c.usd, Math.round(p[0] * 10000) / 10000, 'priced by Cue\'s table, not Canvas\'s cost column');
   assert.strictEqual(u.canvas.rows, 2); assert.strictEqual(u.canvas.note, '');
   t = sandbox({ allow: [] }); u = t.ctx.cueUsage(); assert.strictEqual(u.canvas.rows, 0); assert.ok(/not on Canvas's allow-list/.test(u.canvas.note));
+  t = sandbox({ allow }); t.ctx.cueGtBridgeTab_ = () => { throw new Error('Canvas refused read_rows (Blocked): tab AI Runs was not found in ledger'); };
+  u = t.ctx.cueUsage(); assert.strictEqual(u.canvas.rows, 0); assert.ok(/^No Canvas AI calls yet/.test(u.canvas.note), u.canvas.note);   // no tab until Canvas's first AI call
   assert.strictEqual(t.ctx.cueUsageCmd_({}, 'cue-ed-abc', ''), 'Other (canvas edit)');
   assert.strictEqual(t.ctx.cueUsageMnl_('10/28/2026 09:15:00'), Date.parse('2026-10-28T01:15:00Z'), 'Manila time');
 });

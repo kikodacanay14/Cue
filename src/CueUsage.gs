@@ -122,7 +122,11 @@ function cueUsageCanvas_() {
   let T;
   try { if (!cueGtListed_(s, 'airuns')) return { rows: [], note: 'Canvas AI calls not included yet (AI Runs is not on Canvas\'s allow-list).' };
     T = cueGtBridgeTab_(s, 'airuns'); }
-  catch (e) { return { rows: [], note: 'Canvas AI calls could not be read: ' + cueStr_((e && e.message) || e, 160) }; }
+  catch (e) {
+    const m = String((e && e.message) || e);
+    if (/tab AI Runs was not found/.test(m)) return { rows: [], note: 'No Canvas AI calls yet (Canvas makes its AI Runs tab on its first AI call).' };   // the Ledger has no AI Runs tab until Canvas's first AI call
+    return { rows: [], note: 'Canvas AI calls could not be read: ' + cueStr_(m, 160) };
+  }
   const get = (o, h) => { const k = Object.keys(o).filter(x => x.toLowerCase() === h.toLowerCase())[0]; return k ? o[k] : ''; };
   const num = v => Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')) || 0;
   const rows = [];

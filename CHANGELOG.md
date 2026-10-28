@@ -4,6 +4,9 @@
 
 Cut by the deploys thread on live 1.27.59 (Version 130) after Canvas V317 / Client V177 went live (28 Oct 2026 08:55Z). Three groups in one release, each below with its own notes. Kiko's yes: "fucking yes" to ship all (08:25Z), "go ahead" for phase 4 (08:33Z).
 
+- Fix found by the cloud check: before Canvas's first AI call, the Ledger has no AI Runs tab. Settings > AI usage now says
+  "No Canvas AI calls yet" instead of "could not be read".
+
 ### Structure review phase 4, Cue into Canvas
 
 Kiko approved phase 4 of the Cue structure review on 28 Oct 2026 07:42Z ("yes"). Spec: `specs/cue-structure-review.md`. Epic: Cue
