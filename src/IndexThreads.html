@@ -36,13 +36,15 @@
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
       var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
       var failed = lastReq.status === 'Failed';
-      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length,
+      var nmOpen = t.reqs.filter(function (r) { return r.kind === 'newmail' && r.nm && r.status !== 'Closed'; }).reduce(function (a, r) { return a + nmOpenCount(r); }, 0);
+      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length, nm: nmOpen,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
     // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
     var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
+      + (x.nm ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + x.nm + ' email' + (x.nm === 1 ? '' : 's') + ' waiting">' + x.nm + '</i>' : '')   // New mail: emails still waiting
       + (x.n ? '<span class="chip" title="' + x.n + ' message' + (x.n === 1 ? '' : 's') + '">' + icon('reply') + x.n + '</span>' : '')
       + '<span class="tm">' + esc(ago(x.when).replace(' ago', '').replace('just now', 'now')) + '</span></button>'; };
     var h = '', n = waiting;
@@ -408,7 +410,7 @@
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
     if (th.hst) return 'HubSpot tasks';
-    var nm = function (r) { return (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'newmail' && r.nm && 'New mail · ' + r.nm.day) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
@@ -425,6 +427,7 @@
     kindsMemo = kindsMemo || {
       intake: { name: 'Project intake', family: 'approve', steps: null, card: null },
       change: { name: 'Change request', family: 'draft', steps: CHANGE, card: function (r) { return !!r.change; } },
+      newmail: { name: 'New mail', family: 'question', steps: null, card: function () { return true; } },   // CueNewMail.gs: one card per day
       sweep: { name: function (r) { return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/'); }, family: 'draft', steps: null, card: null },
       readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
       pipeline: { name: 'Pipeline review', family: 'draft', steps: PIPE, card: null },
@@ -613,6 +616,7 @@
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      else if (r.kind === 'newmail' && r.nm) h += nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
       else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);

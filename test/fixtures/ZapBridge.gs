@@ -527,6 +527,16 @@ const ZB_ACTIONS_ = {
       thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ } },
     run: (r) => zbPaySend_(r.args)
   },
+  inbox_new: {
+    // CUE-NEW-MAIL-2026-10-27 (Kiko 09:32Z tapped Yes on "Build New mail for your BSE inbox and info@, sorted by Claude?"; Cue spec
+    // specs/new-mail-check.md). The newest message of each info@ inbox thread that got mail after `since` (ms), for Cue's New mail
+    // thread: sender, subject, a few headers for Cue's junk rules, and the message's own text (quotes cut, 1,500 characters). Canvas
+    // runs as info@, so this is the only way Cue sees info@ mail. Promotions, Social and Forums are left out by the search. Read only:
+    // nothing is labelled, marked read, archived or sent. Replies go from Kiko's own Gmail, never from info@.
+    kind: 'read', needsProject: false,
+    schema: { since: { type: 'number', required: true, min: 0 }, max: { type: 'number', min: 1 } },
+    run: (r) => zbInboxNew_(r.args)
+  },
   mail_waiting: {
     // CUE-REPLY-DRAFTS-2026-10-26 (Kiko 04:49Z "if its an Emails waiting... shouldnt there be a draft already that we need to
     // review and send?"; 05:58Z "Draft every waiting email"; 06:04Z "just me"; 06:09Z "Yes, Cue drafts them"; spec
@@ -1109,6 +1119,26 @@ function zbMailWaiting_() {
   return { on: !!r.on, stale: !!r.stale, checked: Number(r.checked) || 0,
     items: (r.items || []).map(i => ({ id: i.id, from: i.from, email: i.email, subject: i.subject, at: i.at, unread: !!i.unread,
       who: i.who, name: i.name || '', pid: i.pid || '', project: i.project || '' })) };
+}
+/* CUE-NEW-MAIL-2026-10-27: info@'s new inbox mail for Cue's New mail thread (bridge action inbox_new). Read only. */
+const ZB_INBOX_NEW_ = { max: 40, text: 1500 };
+function zbInboxNew_(a) {
+  const since = Math.max(0, Number(a.since) || 0), max = Math.min(Math.max(1, Number(a.max) || ZB_INBOX_NEW_.max), ZB_INBOX_NEW_.max), until = Date.now();
+  const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(), addr = f => String((String(f || '').match(/<([^>]+)>/) || [0, f])[1] || '').trim().toLowerCase();
+  const q = 'in:inbox -in:chats -category:promotions -category:social -category:forums after:' + Math.floor(since / 1000);
+  const items = [];
+  GmailApp.search(q, 0, max).forEach(t => {
+    const msgs = t.getMessages().filter(m => !m.isDraft()), m = msgs[msgs.length - 1];
+    if (!m || m.getDate().getTime() <= since || addr(m.getFrom()) === me) return;   // already answered from info@, or older than the window
+    const head = h => { try { return String(m.getHeader(h) || '').slice(0, 300); } catch (e) { return ''; } };
+    const body = String(m.getPlainBody() || '').split(/\r?\n(?:On .{5,200} wrote:|-{2,} ?Original Message ?-{2,}|From: .{3,200}\r?\nSent: )/)[0]
+      .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    items.push({ id: m.getId(), thread_id: t.getId(), ms: m.getDate().getTime(), from: addr(m.getFrom()),
+      name: String(m.getFrom() || '').replace(/\s*<[^>]*>\s*/, '').replace(/"/g, '').slice(0, 120), subject: String(m.getSubject() || '').slice(0, 300),
+      snippet: body.slice(0, 300), text: body.slice(0, ZB_INBOX_NEW_.text), message_id: head('Message-ID'),
+      h: { 'List-Unsubscribe': head('List-Unsubscribe'), 'List-Id': head('List-Id'), Precedence: head('Precedence'), 'Auto-Submitted': head('Auto-Submitted') } });
+  });
+  return { until, items };
 }
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));

@@ -154,7 +154,8 @@ function cueAskPick(id, pick, note) {
 /** Whether "Wrong command?" shows on a task: it waits for Kiko, came from a message (no files), and nothing is saved in Canvas yet. */
 function cueRouteCan_(s) {
   return !!cueCommand_(s.kind).cmd && (s.status === 'Needs you' || s.status === 'Failed') && !(s.files || []).length
-    && !(s.canvas && (s.canvas.project_id || s.canvas.submitted)) && !s.approved_at && String(s.text || '').trim().length >= 3;
+    && !(s.canvas && (s.canvas.project_id || s.canvas.submitted)) && !s.approved_at && String(s.text || '').trim().length >= 3
+    && !(s.mail && s.mail.from_inbox); // a New mail Draft reply was a button tap, not a typed command
 }
 
 /** Kiko says Cue picked the wrong command. The task is closed (nothing was written or sent), the right one starts from the same

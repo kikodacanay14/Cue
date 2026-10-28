@@ -115,27 +115,31 @@ function cueTriageJunk_(m) {
   return '';
 }
 
-/** ONE GPT call sorts every line in `ask` in place. Failure is a note, not a stop: everything shows as FYI. */
-function cueTriageSort_(s, ask) {
-  const run = s || { id: 'triage', metrics: { ai_calls: 0, calls: [] } };
-  const full = cueGmailAll_(ask.map(l => '/messages/' + l._m.id + '?format=full'));
+/** ONE AI call sorts every line in `ask` in place. Failure is a note, not a stop: everything shows as FYI.
+ * o (optional, New mail in CueNewMail.gs): { claude, model, label, fetch(line) } = sort with Claude instead of ChatGPT, and read the text
+ * from Gmail only for lines fetch() accepts (info@ lines bring their text from Canvas in _m.text). */
+function cueTriageSort_(s, ask, o) {
+  o = o || {};
+  const run = s || { id: 'triage', metrics: { ai_calls: 0, calls: [] } }, who = o.label || 'ChatGPT';
+  const full = cueGmailAll_(ask.filter(l => !o.fetch || o.fetch(l)).map(l => '/messages/' + l._m.id + '?format=full'));
   const text = {}; full.forEach(x => { text[x.id] = cueTriageText_(x.payload); });
-  const lines = ask.map((l, i) => { l._k = 'M' + (i + 1); l.context = cueStr_(text[l._m.id] || l._m.snippet, CUE_TRIAGE_MAX_.text); return l; });
+  const lines = ask.map((l, i) => { l._k = 'M' + (i + 1); l.context = cueStr_(text[l._m.id] || l._m.text || l._m.snippet, CUE_TRIAGE_MAX_.text); return l; });
   const user = 'Sort these ' + lines.length + ' emails.\n\n' + lines.map(l => '[' + l._k + '] From: ' + l.who + ' <' + l.to + '>\nSubject: ' + l.subject
     + '\n' + l.context).join('\n\n---\n\n');
-  const r = cueAiAll_(run, [cueGpt_({ step: 'Inbox triage', system: CUE_TRIAGE_SYSTEM_, user, schema: CUE_TRIAGE_SCHEMA_, name: 'triage', maxTokens: 4000 })])[0];
+  const r = cueAiAll_(run, [o.claude ? cueClaude_({ step: 'New mail sort', model: o.model, effort: 'low', system: CUE_TRIAGE_SYSTEM_, user, schema: CUE_TRIAGE_SCHEMA_, maxTokens: 4000 })
+    : cueGpt_({ step: 'Inbox triage', system: CUE_TRIAGE_SYSTEM_, user, schema: CUE_TRIAGE_SCHEMA_, name: 'triage', maxTokens: 4000 })])[0];
   const by = {}; if (r.ok) (r.data.items || []).forEach(x => { if (x && !by[x.k] && CUE_TRIAGE_GROUPS_.indexOf(x.group) >= 0) by[x.k] = x; });
   lines.forEach(l => {
     const x = by[l._k];
     l.group = x ? x.group : 'fyi';
     if (x) { l.summary = cueStr_(x.summary, 300) || l.summary; l.urgent = !!x.urgent; }
-    else l.why = r.ok ? 'ChatGPT left it out' : 'ChatGPT could not sort it';
+    else l.why = r.ok ? who + ' left it out' : who + ' could not sort it';
     if (l.group === 'inquiry' && l.rule === 'no_inquiry') { l.group = 'fyi'; l.why = 'you said this sender is not an inquiry'; }
     l.needs_draft = l.group === 'reply'; l.action = l.group === 'inquiry' ? 'start_intake' : 'none';
     if (l.group !== 'reply') l.context = '';    // only reply briefs go on to the draft call
     delete l._k;
   });
-  if (!r.ok && s) (s.notes || (s.notes = [])).push('Inbox: ChatGPT could not sort the emails, so they are all under FYI (' + r.error + ').');
+  if (!r.ok && s) (s.notes || (s.notes = [])).push('Inbox: ' + who + ' could not sort the emails, so they are all under FYI (' + r.error + ').');
 }
 
 /** Plain text of a message: the first text/plain part, else text/html with the tags taken out. */
