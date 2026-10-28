@@ -301,7 +301,9 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: live.length ? { ok: true, sent: true, existed: false, docs: live.map(d => d.doc + ' ' + d.id) } : { ok: true, sent: false, reason: 'already signed or replaced', docs: [] } }); }
       // CUE-CRM-FUNNEL-2026-10-28: Canvas's crm_funnel read (Sales funnel; no amounts). Empty unless a test gives o.funnel.
       if (body.action === 'crm_funnel') { log.funnel = (log.funnel || 0) + 1; if (o.funnelFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        (log.funnelArgs = log.funnelArgs || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.funnel || { today: '2026-10-21', limits: {}, steps: [], stuck: [], due: [] })) }); }
+      if (body.action === 'crm_report') { log.report = (log.report || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.report || { won: 0, lost: 0, months: [], sources: [], clients: [], reasons: [], award: {} })) }); }
       if (body.action === 'overdue_billings') { log.overdue = (log.overdue || 0) + 1; if (o.overdueFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.overdue || { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [], bis: [] } }); }
       if (body.action === 'send_payment_chasers') { log.paySends = log.paySends || []; log.paySends.push(body.args);
         if (o.payRefuse) return resp(200, { ok: false, status: 'Rejected', error: o.payRefuse });

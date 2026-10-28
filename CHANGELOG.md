@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed)
+
+Spec `canvas-crm-funnel.md` F6 (Kiko approved 26 Oct 2026 16:08Z). On 28 Oct the coordinator relayed that Kiko wants the rest of the approved
+spec built now.
+
+- New kind `inquiry` ("Inquiry chasers"): an Inquiry gone quiet past Canvas's limit with a client email on file gets a short follow-up
+  draft. Every 3 days (Canvas's Inquiry limit), no maximum; Kiko can change both on the Chaser rules card.
+- New kind `winback` ("Win-back drafts"): Canvas's win-back clients (no open deal, last event older than the win-back months) with an email
+  on file get a check-in draft. Every 30 days, no maximum.
+- Both are drafts only (sendAllowed false): Approve puts them in Kiko's Gmail Drafts and Kiko sends each one himself. The words come from the
+  morning batch's one shared ChatGPT call, or the template when that fails. All three sales kinds share one `crm_funnel` read
+  (now with `winback: true`).
+- An Inquiry with no email on file stays a plain "Sales: do these today" line, as before.
+- Monday sales funnel review: a new Scheduled tasks row (Mon 07:00, on) reads `crm_funnel` and `crm_report` (counts only), makes one
+  ChatGPT call and posts 3 to 5 lines in Cue's chat: where deals leak, which source wins most, what to do this week. Nothing is sent.
+- `test/fixtures/ZapBridge.gs` refreshed from the Canvas branch (crm_funnel email and winback, new read crm_report); `crm_report` joins the
+  check's read list; `test/checks/sales-funnel.check.mjs` checks the draft lines too.
+- Tests: 431 (428 before): SF5 to SF7.
+
+## Cue email on main: New mail and the client email log (live as Cue 1.27.60, Version 134, 28 Oct 2026)
+
 ## Cue 1.27.61: "Sales: do these today" lines in the morning batch (not deployed)
 
 Cut by the deploys thread on live 1.27.60 (Version 134) from Cue main 0141cd2 (PR #183). Needs Canvas V316 (CRM funnel), live.

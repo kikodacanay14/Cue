@@ -148,7 +148,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel|hub\s?spot\s+tasks)$/i.test(t)) return { run: 'funnel', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel and HubSpot tasks', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel and HubSpot tasks', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -158,6 +158,7 @@ function cueSchedSystem_() {
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-funnel', name: 'Sales funnel and HubSpot tasks', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
+    { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: true },   // CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
     { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
     { id: 'sys-unsched', name: 'Unscheduled check', repeat: 'daily', time: '07:00', run: 'unsched', command: 'Alarm me about anything unscheduled', on: true }];
@@ -174,7 +175,7 @@ function cueSchedSystem_() {
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v5:' + gt;   // v4 added the release notes, v5 the RFP sender
+  const sig = 'v6:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -218,6 +219,12 @@ function cueSchedRun_(x, manual) {
       if (o.busy) return { result: 'Already sending', task: '' };
       if (o.row && o.row[3] === 'Failed') return { result: 'Failed: ' + o.row[4], task: '' };
       return { result: o.sent || o.failed ? 'Sent ' + (o.sent || 0) + (o.failed ? ', ' + o.failed + ' not sent' : '') : o.note && /^Could not read/.test(o.note) ? o.note : 'Nothing waiting', task: '' };
+    }
+    if (x.run === 'funnelreview') {   // CRM-FUNNEL-REST-2026-10-28: one GPT call, lines in Cue's chat
+      if (!manual && P.getProperty('CUE_FREV_DAY') === today) return { result: 'Already ran today', task: '' };
+      if (!manual) P.setProperty('CUE_FREV_DAY', today);
+      try { const o = cueFunnelReview_(manual); return { result: o.lines ? 'Posted ' + o.lines + ' lines in the chat' : 'Posted the numbers (no AI answer)', task: '' }; }
+      catch (e) { return { result: 'Failed: ' + String((e && e.message) || e).slice(0, 200), task: '' }; }
     }
     if (x.run === 'pipeline') return { result: 'Started', task: id(cuePipeStart_(x.command || 'Pipeline review', '')) };
     if (x.run === 'funnel') {
