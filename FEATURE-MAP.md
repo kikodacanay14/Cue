@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 59 server files, 1189 top-level names, 29 task kinds, 30 word checks before the
+Counts: 59 server files, 1191 top-level names, 29 task kinds, 30 word checks before the
 chat call, 10 background jobs in the 5-minute trigger, 67 page-to-server functions, 58 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -127,12 +127,12 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 11 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 26 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 27 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
 | `CueCheckPost.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueCommands.gs` |  |  | 0 | 0 | 2 | 32 |
 | `CueContactScan.gs` |  | Contact scan | 0 | 1 | 2 | 9 |
-| `CueCrmLog.gs` | `mail_waiting` |  | 0 | 0 | 1 | 4 |
+| `CueCrmLog.gs` | `mail_waiting` |  | 0 | 0 | 2 | 4 |
 | `CueDates.gs` |  |  | 0 | 0 | 13 | 0 |
 | `CueEdit.gs` | `contains` |  | 0 | 1 | 2 | 5 |
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 3 | 5 |
