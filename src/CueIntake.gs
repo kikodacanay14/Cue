@@ -12,12 +12,6 @@
  * Budget (Kiko 02:39Z): 3-5 AI calls and 3 minutes per run. Recorded and flagged by cueMetrics_ (Cue.gs). */
 
 const CUE_MAX_LINES_ = 40, CUE_MAX_RFQS_ = 20, CUE_SUPS_ = 5;   // Kiko 18:47Z: up to 5 suppliers per line
-const cueStr_ = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, n);
-const cueR2_ = n => Math.round((Number(n) || 0) * 100) / 100;
-const cuePos_ = v => (Number(v) > 0 && isFinite(Number(v)) ? Math.min(Number(v), 1e6) : 1);
-const cueName_ = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const cueEmail_ = e => (/^[^\s@,;<>"]{1,64}@[^\s@,;<>"]{1,190}\.[a-z]{2,}$/i.test(String(e || '').trim()) ? String(e).trim() : '');
-const CUE_DATE_RE_ = /^\d{4}-\d{2}-\d{2}$/;
 const CUE_BASES_ = ['past quotes', 'owned stock', 'none', 'set by Kiko', 'market research'];
 
 /* ---------- AI call 1: GPT reads ---------- */
@@ -542,18 +536,6 @@ function cueIntakeDraftsRun_(s) {
   s.status = bad ? 'Done, drafts incomplete' : 'Done'; s.stage = 'Done';
   cueChat_('Cue', !done.length ? 'No RFQ drafts to make.' : (s.send ? sent + ' RFQ(s) sent from your Gmail.' + (noTo ? ' ' + noTo + ' had no email address, so they wait in your Drafts.' : '')
     : (done.length - bad) + ' RFQ draft(s) are in Gmail, not sent.') + (bad ? ' ' + bad + ' did not go through; use "Make drafts again".' : ''), s.id);
-}
-/** Makes one Gmail draft through the Gmail API (gmail.compose scope only). To is left blank when the supplier has no email. */
-function cueGmailDraft_(to, subject, body) {
-  const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
-  const mime = (cueEmail_(to) ? 'To: ' + cueEmail_(to) + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(String(subject || '').replace(/[\r\n]+/g, ' ')) + '?=\r\n'
-    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(body || '');
-  const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', { method: 'post', contentType: 'application/json',
-    muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-    payload: JSON.stringify({ message: { raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) } }) });
-  let o = null; try { o = JSON.parse(res.getContentText()); } catch (e) { o = null; }
-  if (res.getResponseCode() !== 200 || !o || !o.id) throw new Error('Gmail did not make the draft (HTTP ' + res.getResponseCode() + ')');
-  return o.id;
 }
 
 // Words that say what kind of event it is, not which one (Kiko 14:22Z: "Unilever Year End Party" is not "Exilara Year End Party").

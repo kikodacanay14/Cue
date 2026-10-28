@@ -14,10 +14,8 @@
  * - Task basics (Part B): due date, priority, reminder, Close and Archive on every task. */
 
 const CUE_SWEEP_ = { perCall: 20 };   // timing and caps are Kiko's Chaser rules (below)
-const CUE_PH_MS_ = 8 * 3600 * 1000;               // the Philippines is UTC+8 all year (no daylight saving)
 const CUE_PRIORITIES_ = ['High', 'Normal', 'Low'];
 
-/** Philippine date (YYYY-MM-DD) and hour of a moment. */
 /* ---------- chaser rules (Kiko 08:12Z, spec specs/chaser-rules.md, approved 08:15Z) ----------
  * Kiko changes the timing on the Chaser rules card in the Threads pane. The values live in the Rules tab of Kiko's Cue sheet (Rule, Value,
  * Changed, Was), one row per changed setting; anything missing or broken falls back to these defaults. Code only, no AI. */
@@ -101,12 +99,6 @@ const cueRuleName_ = f => ({ on: 'on', first: 'first chase after', every: 'then 
 const cueRuleShow_ = (f, v) => f === 'on' ? (v ? 'on' : 'off') : /^(build|send|quiet_from|quiet_to)$/.test(f) ? String(v).padStart(2, '0') + ':00' : String(v);
 /** Moves the morning sweep to a new hour: its row in the Schedule tab (CueSchedule.gs; it has no trigger of its own since the scheduler). */
 function cueSweepTrigger_(hour) { cueSchedSweepHour_(hour); }
-/** Adds n working days (Monday to Friday) to a PH day. */
-function cueAddWork_(day, n) {
-  let d = day;
-  for (let i = 0; i < n;) { d = cueAddDays_(d, 1); const w = new Date(d + 'T00:00:00Z').getUTCDay(); if (w !== 0 && w !== 6) i++; }
-  return d;
-}
 /** The next day a line is due, by its kind's rule. */
 /** it.every (a whole number from 1 to 60) overrides the rule for that line, e.g. RFQ's event-soon interval. */
 function cueNextDue_(rule, today, it) {
@@ -114,10 +106,6 @@ function cueNextDue_(rule, today, it) {
   return rule.unit === 'working' ? cueAddWork_(today, e) : cueAddDays_(today, e);
 }
 
-function cuePh_(ms) { const d = new Date(ms + CUE_PH_MS_); return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours(), minute: d.getUTCMinutes() }; }
-/** The moment of hour:00 Philippine time on day (YYYY-MM-DD). */
-function cuePhAt_(day, hour) { return Date.parse(day + 'T00:00:00Z') - CUE_PH_MS_ + hour * 3600 * 1000; }
-function cueAddDays_(day, n) { return new Date(Date.parse(day + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
 
 /* ---------- chaser kinds ---------- */
 // Kept on the global object so a kind file that Apps Script loads before this one can still register (no const in its dead zone).
