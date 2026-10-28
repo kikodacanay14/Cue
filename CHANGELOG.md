@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.53: each waiting email carries its first line, for Canvas's compact cards (not deployed)
+
+Kiko 28 Oct 2026 04:51Z, on the Team Cue panel in Canvas: "can cards be more compact? and show a summary of the details so we
+know what the card is about?"; 04:55Z: "the one that says Open Gmail needs to show more summary and buttons can they be more
+compact". Kiko's go: 05:33Z ("yes"). First built as 1.27.52 on 1.27.51; restacked on live 1.27.52 (Version 112,
+`claude/project-thread-klmtzh-rel12752` @ 9cabc60). Ships with the Canvas release that shows the line (built by the deploys thread).
+
+- The 10-minute email check (`CueMailAlerts.gs`) writes `gist` for each waiting thread: the first words of the newest message
+  from Gmail's own preview line, greetings left out, at most 220 characters. No AI, nothing sent anywhere new: it goes only into
+  Kiko's `canvas-email-alerts.json`, which Canvas shows to Kiko alone. Staff email checks stay headers only.
+- The thread cache key moves to `cue_ma_seen2`, so the first run after the deploy reads every waiting thread once.
+- New test MA3 (`test/features/40-mail-alerts.js`). Tests: 404.
+
 ## Cue 1.27.52: structure review phases 1 and 2 on the live line, no visible change (not deployed)
 
 Kiko approved phase 1 of the Cue structure review on 28 Oct 2026 03:47Z ("yes") and phase 2 at 04:21Z ("okay lets do that");
