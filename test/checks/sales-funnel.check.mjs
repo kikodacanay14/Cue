@@ -1,7 +1,7 @@
 // Cloud check for the morning batch's "Sales: do these today" lines (CueSweepFunnel.gs; spec canvas-crm-funnel.md F6). Needs the
 // Canvas CRM funnel release live first (bridge read crm_funnel, CanvasWorkspace PR #232). Through the check door, one read-only run
 // asks Canvas for the real funnel and returns the lines today's batch would list. Nothing is written to Canvas, the Cue sheet or Gmail.
-const KEY = /^(crmfu|funnel):[A-Za-z0-9#._-]+$/;
+const KEY = /^(crmfu|funnel|inq|winback):[A-Za-z0-9#._-]+$/;
 let lines = null;
 
 export default {
@@ -15,9 +15,11 @@ export default {
     } },
     { title: 'Each line has a key, a name and what to do; no amounts', run: async h => {
       if (!lines.length) return 'SKIP: nothing is due or quiet in the funnel today, so there is nothing to check line by line';
-      const bad = lines.filter(i => !KEY.test(i.key) || !i.project || !/^(Overdue since|Due today|Due tomorrow|Inquiry, quiet|Delivered, quiet)/.test(i.why));
+      const bad = lines.filter(i => !KEY.test(i.key) || !i.project || !/^(Overdue since|Due today|Due tomorrow|Inquiry, quiet|Delivered, quiet|Inquiry from|Last event)/.test(i.why));
       if (bad.length) throw new Error(bad.length + ' line(s) look wrong: ' + JSON.stringify(bad.slice(0, 3)));
       if (/₱|PHP|amount/i.test(JSON.stringify(lines))) throw new Error('A line carries an amount');
+      const bad2 = lines.filter(i => /^(inq|winback):/.test(i.key) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(i.to || ''));
+      if (bad2.length) throw new Error(bad2.length + ' draft line(s) have no valid email: ' + bad2.map(i => i.key).join(', '));
     } },
     { title: 'The lines the morning batch would list (nothing was written)', run: async h => {
       await h.page().evaluate(L => {

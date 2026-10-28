@@ -148,7 +148,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:run\s+|do\s+|check\s+)?(?:the\s+|a\s+|my\s+)?(?:sales\s+)?pipeline(?:\s+(?:review|check|health))?$/i.test(t)) return { run: 'pipeline', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Status report', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', pipeline: 'Pipeline review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Status report', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', pipeline: 'Pipeline review', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -157,6 +157,7 @@ function cueSchedSystem_() {
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: String(CUE_BIDS_RULES_.hour).padStart(2, '0') + ':00', run: 'bids', command: 'Bid opportunity check', on: true },
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
     { id: 'sys-status', name: 'Monday status report', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'status', command: 'Status report', on: true },   // CueStatus.gs, Kiko 15:56Z 22 Oct
+    { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: true },   // CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
     { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
@@ -174,7 +175,7 @@ function cueSchedSystem_() {
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check, v3 the status report), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v5:' + gt;   // v4 added the release notes, v5 the RFP sender
+  const sig = 'v6:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -223,6 +224,12 @@ function cueSchedRun_(x, manual) {
       if (o.busy) return { result: 'Already sending', task: '' };
       if (o.row && o.row[3] === 'Failed') return { result: 'Failed: ' + o.row[4], task: '' };
       return { result: o.sent || o.failed ? 'Sent ' + (o.sent || 0) + (o.failed ? ', ' + o.failed + ' not sent' : '') : o.note && /^Could not read/.test(o.note) ? o.note : 'Nothing waiting', task: '' };
+    }
+    if (x.run === 'funnelreview') {   // CRM-FUNNEL-REST-2026-10-28: one GPT call, lines in Cue's chat
+      if (!manual && P.getProperty('CUE_FREV_DAY') === today) return { result: 'Already ran today', task: '' };
+      if (!manual) P.setProperty('CUE_FREV_DAY', today);
+      try { const o = cueFunnelReview_(manual); return { result: o.lines ? 'Posted ' + o.lines + ' lines in the chat' : 'Posted the numbers (no AI answer)', task: '' }; }
+      catch (e) { return { result: 'Failed: ' + String((e && e.message) || e).slice(0, 200), task: '' }; }
     }
     if (x.run === 'pipeline') return { result: 'Started', task: id(cuePipeStart_(x.command || 'Pipeline review', '')) };
     if (x.run === 'relnotes') {   // CUE-RELNOTES-2026-10-27: a day with nothing live makes no thread

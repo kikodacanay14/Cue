@@ -37,7 +37,7 @@ test('SF3 crm_funnel is a read the cloud check may call, and the fixture bridge 
   const t = sandbox(); assert.ok(vm.runInContext('CUE_CHECK_READS_', t.ctx).includes('crm_funnel'));
   const src = fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8');
   assert.ok(/ZB_ACTIONS_\.crm_funnel = \{\s*kind: 'read'/.test(src));
-  assert.ok(!/amount|ce_no|lost_reason/i.test(src.split('ZB_ACTIONS_.crm_funnel')[1].split('ZB_ACTIONS_.crm_followup')[0]));
+  assert.ok(!/amount|ce_no|lost_reason/i.test(src.split('ZB_ACTIONS_.crm_funnel')[1].split('function zbCrmWinback_')[0]));
 });
 test('SF4 the cloud check door runs one read-only funnel read and returns the lines; outside a check it refuses', () => {
   const t = checkBox({ funnel: FUNNEL });
@@ -45,4 +45,37 @@ test('SF4 the cloud check door runs one read-only funnel read and returns the li
   deq(r.result.map(i => i.key), ['crmfu:F-1', 'crmfu:F-2', 'funnel:S-1', 'funnel:S-4', 'funnel:D-1']);
   deq(t.log.bridge.map(b => b.action), ['crm_funnel']);
   assert.throws(() => sandbox({ funnel: FUNNEL }).ctx.cueFunnelCheck(), /Only a cloud check/);
+});
+
+// CRM-FUNNEL-REST-2026-10-28: Inquiry chasers and win-back drafts (Kiko's Gmail Drafts only) and the Monday funnel review.
+const FUNNEL2 = Object.assign({}, FUNNEL, {
+  stuck: FUNNEL.stuck.concat([{ kind: 'deal', id: 'D-9', name: 'Kappa year-end party', client: 'Kappa', step: 'Inquiry', status: 'Deal: Inquiry', date: '2026-12-12', days: 6, quiet: 6, limit: 3, email: 'kim@kappa.example', contact: 'Kim Santos' }]),
+  winback: [{ client: 'Lambda Corp', last: '2026-02-10', what: 'Lambda Town Hall', email: 'lia@lambda.example', contact: 'Lia' }, { client: 'No Mail Inc', last: '2026-01-05', what: '', email: '', contact: '' }] });
+test('SF5 quiet Inquiries and win-back clients with an email get chaser drafts in one ChatGPT call; Approve makes Gmail drafts, never sends', () => {
+  const t = sweepBox({ funnel: FUNNEL2 }, null); t.ctx.cueSweep(); const b = batchOf(t);
+  assert.strictEqual(t.log.funnel, 1, 'one Canvas read shared by the three kinds'); assert.strictEqual(t.log.funnelArgs[0].winback, true);
+  const inq = b.batch.items.filter(i => i.kind === 'inquiry'), wb = b.batch.items.filter(i => i.kind === 'winback');
+  deq(inq.map(i => [i.key, i.to, i.send_ok]), [['inq:D-9', 'kim@kappa.example', false]]);
+  deq(wb.map(i => [i.key, i.to, i.send_ok]), [['winback:lambdacorp', 'lia@lambda.example', false]]);
+  assert.ok(!lines(t).some(i => i.key === 'funnel:D-9'), 'with an email the Inquiry is a draft, not a plain line');
+  assert.strictEqual(t.log.gpt.filter(g => g.text.format.name === 'chasers').length, 1, 'one shared ChatGPT call');
+  assert.ok(/GPT nudge for Kim Santos about Kappa/.test(inq[0].body) && /GPT nudge for Lia about Lambda Corp/.test(wb[0].body), inq[0].body + ' | ' + wb[0].body);
+  t.at('2026-10-21', 9, 30); t.ctx.cueApprove(b.id, { send: true });
+  assert.ok(!t.log.sent, 'nothing sent'); assert.ok(t.log.gmail.length >= 2, 'drafts made in Kiko\'s Gmail');
+});
+test('SF6 without ChatGPT the drafts use the templates: warm, no prices', () => {
+  const t = sweepBox({ funnel: FUNNEL2, fail: { chasers: () => ({ getResponseCode: () => 500, getContentText: () => '{}' }) } }, null); t.ctx.cueSweep();
+  const it = batchOf(t).batch.items.find(i => i.key === 'inq:D-9'), w = batchOf(t).batch.items.find(i => i.key === 'winback:lambdacorp');
+  assert.ok(/^Hi Kim,/.test(it.body) && /Kappa year-end party on 2026-12-12/.test(it.body) && !/₱|price/i.test(it.body), it.body);
+  assert.ok(/^Hi Lia,/.test(w.body) && /Lambda Town Hall/.test(w.body), w.body);
+});
+test('SF7 Monday sales funnel review: one row at Mon 07:00, one funnel + report read, one ChatGPT call, 3 to 5 lines in Cue\'s chat; nothing sent', () => {
+  const t = sandbox({ funnel: FUNNEL2, report: { won: 9, lost: 4, rate: 69, months: [], sources: [{ name: 'Referral', won: 5, lost: 1, open: 2, rate: 83 }], clients: [], reasons: [{ name: 'Price', n: 3 }], award: { n: 7, median: 12, avg: 14 } },
+    gpt: { funnel_review: { lines: ['Inquiries leak most: 2 are stuck past 3 days.', 'Referral wins 83% of decided deals.', 'Price lost 3 deals; check CE pricing.', 'This week: chase Kappa and Acme.'] } } });
+  const o = t.ctx.cueFunnelReview_(false);
+  assert.strictEqual(o.lines, 4); assert.strictEqual(t.log.funnel, 1); assert.strictEqual(t.log.report, 1);
+  assert.strictEqual(t.log.gpt.filter(g => g.text.format.name === 'funnel_review').length, 1);
+  assert.ok(/"Referral"/.test(t.log.gpt[0].input) && !/kim@kappa/.test(t.log.gpt[0].input), 'numbers go to ChatGPT, client emails do not');
+  assert.ok(t.tabs.Chat.rows.some(r => /^Monday sales funnel review \(\d{4}-\d{2}-\d{2}\):\n• Inquiries leak most/.test(r[2])));
+  assert.ok(!t.log.sent && !(t.log.gmail || []).length);
 });
