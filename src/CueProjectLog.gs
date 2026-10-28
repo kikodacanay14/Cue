@@ -73,6 +73,6 @@ function cuePlogTask_(id, text) {
 function cuePlogChaser_(it, s) {
   const pid = String((it && it.project_id) || '').trim(); if (!/^S-\d{3,12}[A-Z0-9]{2}$/.test(pid)) return;
   cuePlogQ_({ key: 'chase:' + String(it.key || '').replace(/[^A-Za-z0-9:_.@-]/g, '').slice(0, 80) + ':' + cuePh_(cueNow_()).day,
-    kind: 'Chaser', title: String(it.subject || ('Chaser to ' + (it.who || it.to || ''))), details: [it.who, it.to].filter(Boolean).join(' · '),
+    kind: 'Chaser', title: String(it.subject || ('Chaser to ' + (it.who || it.to || ''))), details: [it.who, it.to, 'chase ' + ((Number(it.times) || 0) + 1)].filter(Boolean).join(' · '),   // CUE-STRUCTURE-4.1: how many times
     project_id: pid, from: 'Morning batch', at: new Date(cueNow_()).toISOString() });
 }

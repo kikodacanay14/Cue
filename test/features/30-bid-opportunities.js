@@ -42,7 +42,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   deq(v.bids.sources.filter(x => x.source === 'NCCA').map(x => x.status), ['Not reported']);
   assert.ok(/3 new, 1 updated\. 9 of 11 sources fully checked, 2 partial or blocked\. Process check: 7 of 9 passed\./.test(v.bids.summary), v.bids.summary);
   assert.ok(t.tabs.Chat.rows.some(r => /Started a bid opportunity check/.test(r[2]) && r[3] === '>' + r[3].slice(1)));
-  assert.ok(!t.log.bridge.length && !(t.log.gmail || []).length, 'no Canvas, no Gmail');
+  deq(t.log.bridge.map(b => b.action), ['claim_plan', 'crm_lead', 'crm_lead', 'crm_lead'], 'only the 3 new bids go to Canvas CRM (CUE-STRUCTURE-4.3)');
+  assert.ok(!(t.log.gmail || []).length, 'no Gmail');
 });
 test('BD2 bid words: asks route to the check; an intake ask or plain words do not', () => {
   const t = sandbox();
