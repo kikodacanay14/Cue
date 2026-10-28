@@ -1,5 +1,30 @@
 # Changelog
 
+## Cue 1.27.57: daily release notes at 8 PM (not deployed)
+
+Kiko 27 Oct 2026 02:12Z: "Everyday at 8PM i would like release an announcement. This includes bug fixes and functions deploy in
+Canvas and Cue." At 02:17Z he chose staff only, with his approval each day, and at 02:34Z he approved the spec
+(`daily-release-notes.md`). Built 27 Oct as 1.27.35 (Cue PR #108) and restacked on the live line on 28 Oct after Kiko's 07:39Z "stop dillydallying"; Kiko's go 08:20Z ("yes"). Rebased on live
+1.27.56 (Version 126, `claude/project-thread-y5l4x9-rel12757` @ fea47f2). 1.27.55 is held for Cue's button. The 8 PM tick is a
+line in the background job list (CueJobs.gs), so it shows in the Job Runs tab as "Release notes at 8 PM".
+
+- A new Scheduled tasks row, "Daily release notes", runs at 19:45 Manila. It reads the "Release Log" tab of the Cue sheet. The
+  "Cue and Canvas deploys" thread adds one row there for each release it ships: went live, app, release and what it changes.
+  The job keeps the releases, Canvas and Cue, that went live in the 24 hours before 19:45 and were never announced. If a run is
+  missed until the next morning, it covers the day it missed. If the tab is missing, Cue makes it, and the run says "Nothing went live".
+- When nothing went live, there is no thread, no AI call and no post.
+- Otherwise one Claude call turns the entries into plain New and Fixed lines. If the call fails, the card shows the entries
+  themselves to edit. The card shows the title and text to edit and an "Ask people to confirm they read it" tick. It has
+  Post at 8 PM (Post now after 8 PM) and Skip today.
+- Canvas posts the notes once, at 8:00 PM or at Kiko's tap if that is later, through the bridge write `ann_post` (live since
+  Canvas V283): to Business Lead, Manager and Specialist only, from Kiko, not emailed. The request id `relnotes:<day>` means a
+  retry never posts twice. A new Cue sheet tab, "Release Notes", lists every entry posted or skipped, so no entry is listed twice.
+- No new access and nothing for Kiko to set up (no GitHub token: Kiko 27 Oct 09:21Z, no tasks for him).
+- Cloud check `test/checks/1.27.57-release-notes.check.mjs` runs the card on two made-up releases through `cueRnCheck` (check
+  mode only). It edits the text, taps Post at 8 PM, and then taps Skip today. A check's notes never post: check mode refuses `ann_post`, and
+  the 8 PM tick skips a check's tasks. The dry run passes.
+- Tests: new `test/features/48-release-notes.js` (RN1 to RN7); SC4, CMD2 and the feature map are updated. 422 tests.
+
 ## Cue 1.27.56: Help answers from Canvas's Help Q&A list (not deployed)
 
 Kiko 27 Oct 2026 01:48Z: "Can you store How to questions? and What is questions? something that Crew, Client and Suppliers

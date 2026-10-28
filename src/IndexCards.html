@@ -175,6 +175,29 @@
   // CE costs (CueCeCost.gs, Kiko 02:37Z 22 Oct): every CE line with its unit cost, old to new. Lines the email prices come ticked and
   // editable; Approve writes only the ticked ones to the CE in Canvas, which reads each back. Prices and filed CEs never change.
   function pesoC(n) { return n == null || n === '' ? 'blank' : '₱' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+  // Daily release notes (CUE-RELNOTES-2026-10-27, specs/daily-release-notes.md): Kiko edits, then Post (8 PM) or Skip today.
+  function rnCardHtml(r) {
+    var N = r.rn, waiting = r.status === 'Needs you', later = r.stage === 'Posts at 8 PM', id = esc(r.id);
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Release notes · ' + esc(N.day) + '</div>';
+    if (r.status === 'Failed') return h + '<b>' + esc(N.title) + '</b><div class="err">' + esc(r.error) + '</div><div class="small muted">Nothing was posted.</div>'
+      + '<div class="actions"><button class="btn" data-act="retry" data-id="' + id + '">Try again</button></div></div>';
+    if (r.status === 'Working') return h + '<b>' + esc(N.title) + '</b><div class="small muted">' + esc(r.stage === 'Posting' ? 'Posting to Canvas' : 'Writing the notes') + '…</div></div>';
+    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    var to = '<div class="small muted">To: staff in Canvas Announcements (' + esc(N.groups.join(', ')) + '). Not emailed.</div>';
+    if (waiting && !later) h += '<input data-rn-title="' + id + '" data-say="rn-title-' + id + '" value="' + esc(N.title) + '" aria-label="Title" style="display:block;width:100%;box-sizing:border-box;font-weight:600">'
+      + '<textarea class="mail" data-rn-msg="' + id + '" data-say="rn-msg-' + id + '" aria-label="Release notes" style="min-height:180px">' + esc(N.message) + '</textarea>' + to
+      + '<label class="small" style="display:block;margin-top:6px"><input type="checkbox" data-rn-track="' + id + '"' + (N.track ? ' checked' : '') + '> Ask people to confirm they read it</label>';
+    else h += '<b style="font-size:17px;color:var(--white)">' + esc(N.title) + '</b><div class="small" style="white-space:pre-wrap;margin-top:6px">' + esc(N.message) + '</div>' + to;
+    h += '<details style="margin-top:8px"><summary class="small" style="display:inline">From the release log: ' + N.entries.length + ' release' + (N.entries.length === 1 ? '' : 's') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + N.entries.map(function (e) { return '<li>' + esc(e.app) + ': ' + esc(e.name) + (e.at ? ' <span class="muted">· ' + esc(e.at.slice(0, 16).replace('T', ' ')) + 'Z</span>' : '') + '</li>'; }).join('') + '</ul></details>';
+    if (N.posted) h += '<div class="small" style="margin-top:6px"><span class="tag pref">Posted</span> ' + esc(N.posted) + '</div>';
+    else if (N.skipped) h += '<div class="small muted" style="margin-top:6px">Skipped. Nothing was posted.</div>';
+    if (waiting) h += '<div class="actions">' + (later ? '<span class="small muted" style="align-self:center">Posts at 8:00 PM.</span><button class="btn" data-act="rn-now" data-id="' + id + '">Post now</button>'
+      : '<button class="btn" data-act="rn-post" data-id="' + id + '">' + (N.late ? 'Post now' : 'Post at 8 PM') + '</button>')
+      + '<button class="btn ghost" data-act="rn-skip" data-id="' + id + '">Skip today</button></div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cecCardHtml(r) {
     var c = r.cec || {}, waiting = r.status === 'Needs you' && (c.rows || []).length, done = !!c.result, pj = c.project || {}, em = c.email;
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-ccard="' + esc(r.id) + '"><div class="label" style="margin-top:0">CE costs</div>'
@@ -1099,6 +1122,7 @@
     if (r.kind === 'workflow') return workflowCardHtml(r);
     if (r.kind === 'tri') return triCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
+    if (r.kind === 'relnotes' && r.rn) return rnCardHtml(r);   // CUE-RELNOTES-2026-10-27
     if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
     if (r.kind === 'gtask') return gtCardHtml(r);
@@ -1446,6 +1470,10 @@
           return; }
         if (act === 'help-pick' || act === 'help-rephrase' || act === 'help-draft') { b.disabled = true;
           return call('cueHelpAct', [id, act.slice(5), act === 'help-pick' ? Number(b.getAttribute('data-n')) : ''], done, fail); }
+        if (act === 'rn-post') { var rt = scope.querySelector('[data-rn-title="' + id + '"]'), rm = scope.querySelector('[data-rn-msg="' + id + '"]'), rk = scope.querySelector('[data-rn-track="' + id + '"]');
+          return call('cueApprove', [id, { title: rt ? rt.value : null, message: rm ? rm.value : null, track: !!(rk && rk.checked) }], done, fail); }
+        if (act === 'rn-now') return call('cueApprove', [id, { now: true }], done, fail);
+        if (act === 'rn-skip') return call('cueReject', [id, ''], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);

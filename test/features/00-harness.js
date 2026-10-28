@@ -176,6 +176,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn a list Kiko pasted/.test(body.system)) { log.claude.push(body); return (o.fail || {}).memory ? o.fail.memory() : claudeOk(o.memory || MEMORY); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You write the daily release notes/.test(body.system)) { log.claude.push(body); return (o.fail || {}).relnotes ? o.fail.relnotes() : claudeOk(o.relnotes || RN_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
     if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
@@ -201,6 +202,10 @@ function sandbox(o = {}) {
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
+      if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
+        if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        const again = (log.annSeen = log.annSeen || {})[body.args.request_id]; log.annSeen[body.args.request_id] = log.annSeen[body.args.request_id] || 'ANN-00' + (10 + log.annPost.length);
+        return resp(200, { ok: true, status: 'Completed', result: { id: log.annSeen[body.args.request_id], again: !!again, groups: body.args.groups } }); }
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
         pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }

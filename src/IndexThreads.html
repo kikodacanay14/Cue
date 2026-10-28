@@ -440,6 +440,7 @@
       personal: { name: 'Personal expense', family: 'approve', steps: PERSONAL, card: function (r) { return !!r.personal; } },
       expense: { name: 'Expense', family: 'approve', steps: EXPENSE, card: function () { return true; } },
       cecost: { name: 'CE costs', family: 'approve', steps: CECOST, card: function (r) { return !!r.cec; } },
+      relnotes: { name: 'Release notes', family: 'approve', steps: null, card: function (r) { return !!r.rn; } },   // CUE-RELNOTES-2026-10-27
       style: { name: 'Writing style', family: 'approve', steps: STYLE, card: null },
       memory: { name: 'Teach Cue: memory', family: 'approve', steps: TEACH, card: null },
       process: { name: 'Teach Cue: process', family: 'approve', steps: TEACH, card: null },
