@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.27.48: the Cue button is a chat bubble (not deployed; feature group "Cue button chat bubble", waits for the Canvas card)
+
+Kiko 28 Oct 2026 04:25Z: "can we redesign Cue's button look - now it kinda looks like a loading image". From three rendered
+options (`canvas-integration/previews/cue-button-options.png`) he chose B, the chat bubble, at 04:29Z.
+
+- The Cue mark is now a white speech bubble with a "C" on the BSE gradient (the `--bs-gradient` from Canvas Brand.html, a
+  flat 135° fill), replacing the conic colour wheel that read as a loading spinner.
+- Changed in: the Chrome bubble (`extension/content.js`, extension 1.4.2, and its 16/48/128 px icons), the logo in Cue's top
+  bar (`src/Index.html` markup, `src/IndexStyle.html` style), and the browser-tab favicon (`src/Cue.gs`; icon version `bubble-1` makes Cue upload the new PNG
+  to Kiko's Drive once). Same size, place, drag and unread behaviour.
+- The Canvas Cue button (Workspace.html `.qc-btn.cue`) is Canvas Integration's; the matching change goes to it as a handoff.
+- Tests: 388 of 388 pass on main with phase 2 parts 1 and 2 (CB1 new in `test/features/50-cue-button.js`; SN2 now expects extension 1.4.2).
+
 ## Cue 1.27.47: contact scan fills blank P0 Contacts cells from old email signatures (deployed 28 Oct 2026 03:22Z as Version 103; rollback Version 101; feature group "Integration specs")
 
 Kiko 26 Oct 2026 09:05Z chose this third ("2,3,4,1"); spec `specs/crm-email-scanner.md`, tracked on the Feature Board card

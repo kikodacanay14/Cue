@@ -2534,7 +2534,7 @@ test('SN1 snapshots (Kiko 08:17Z): a Cue bubble screen snapshot goes with the br
 
 test('SN2 Cue bubble 1.2: manifest asks only for what snapshots need; scripts parse; the page only fills the box', () => {
   const ext = path.join(__dirname, '..', 'extension'), m = JSON.parse(fs.readFileSync(path.join(ext, 'manifest.json'), 'utf8'));
-  assert.strictEqual(m.version, '1.4.1');
+  assert.strictEqual(m.version, '1.4.2');
   deq(m.permissions.slice().sort(), ['activeTab', 'contextMenus', 'storage']); deq(m.host_permissions, ['<all_urls>']);
   assert.strictEqual(m.commands['cue-snap'].suggested_key.default, 'Alt+Shift+S');
   const drop = m.content_scripts.find(c => c.js.indexOf('cue-drop.js') >= 0);
@@ -5677,6 +5677,26 @@ test('CS5 the signature reader: after the last short sign-off, before the quoted
   deq(sig('No sign-off here\nJust text'), []);
   assert.strictEqual(sig('Salamat,\n' + Array.from({ length: 20 }, (_, i) => 'L' + i).join('\n')).length, 12);
   const re = vm.runInContext('CUE_CS_RE_', t.ctx); assert.ok(re.test('Fill contact details from old emails.') && !re.test('fill contact details from old emails for Acme'));
+});
+
+/* ---------- CUE-BUTTON (Kiko 28 Oct 2026 04:25Z "it kinda looks like a loading image"; chose B, chat bubble, 04:29Z) ---------- */
+test('CB1 the Cue button is the chat bubble on the BSE gradient everywhere, not the colour wheel', () => {
+  const root = path.join(__dirname, '..'), read = f => fs.readFileSync(path.join(root, f), 'utf8');
+  const GR = 'linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%)';
+  [['extension/content.js', read('extension/content.js')], ['the Cue page', read('src/Index.html')]].forEach(([f, t]) => {
+    assert.ok(!/conic-gradient/.test(t), f + ' still draws the colour wheel');
+    assert.ok(t.includes(GR), f + ' uses the BSE gradient');
+    assert.ok(t.includes('M16 5C9.4 5 4 9.6 4 15.3'), f + ' draws the speech bubble');
+  });
+  assert.ok(/aria-label="Open Cue"/.test(read('extension/content.js')), 'the bubble keeps its name for screen readers');
+  const gs = read('src/Cue.gs');
+  assert.ok(gs.includes("v = 'bubble-1'"), 'a new icon version makes Cue upload the new favicon once');
+  const png = Buffer.from(/const CUE_ICON_PNG_ = '([^']+)'/.exec(gs)[1], 'base64');
+  assert.strictEqual(png.readUInt32BE(16), 48); assert.strictEqual(png.readUInt32BE(20), 48);
+  [16, 48, 128].forEach(n => {
+    const b = fs.readFileSync(path.join(root, 'extension', 'icons', 'cue-' + n + '.png'));
+    assert.strictEqual(b.readUInt32BE(16), n, 'cue-' + n + '.png is ' + n + ' px');
+  });
 });
 
 if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox
