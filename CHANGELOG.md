@@ -6,7 +6,7 @@ Kiko asked on 28 Oct 2026 for structure improvements from Cue's current capabili
 
 - Feature map: `node tools/map.mjs` writes `FEATURE-MAP.md` from the code: every task kind (where it runs, where it is approved, how often the page checks it), the routing order in `cueSendWith_`, the 9 background jobs in the 5-minute trigger, each file's Canvas bridge actions, sheet tabs and AI call sites, the shared helpers and what the page calls. Test FM1 fails when the map is out of date; FM2 checks its content.
 - Shared helpers moved, unchanged, out of feature files: Gmail read, draft, reply and send into `CueGmail.gs` (from `CueChange.gs` and `CueIntake.gs`); text and number helpers into `CueText.gs` (from `CueIntake.gs`); Philippine-time dates into `CueDates.gs` (from `CueSweep.gs`). Apps Script shares one global space and none of them is used while files load, so no call changed and file order does not matter.
-- The version label in the page header read "Cue 1.31"; it now reads "Cue 1.27.46+" (the last live release plus main). README intro and file list updated (it still said "Cue 1.0" and described the removed Widgets page).
+- The version label in the page header read "Cue 1.31"; it now reads "Cue 1.27.47+" (the last live release, Version 103, plus main). README intro and file list updated (it still said "Cue 1.0" and described the removed Widgets page).
 - Tests split from one 5,469-line file into `test/features/`, one file per feature (48 files, `00-harness.js` first). `node test/cue.test.js` loads them in file-name order into one shared scope, so every test runs exactly as before; `test/checks/dry-run.mjs` still gets the sandbox from it.
 - Tests: 380 of 380 pass (378 before plus FM1 and FM2).
 
