@@ -7,7 +7,7 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 ## Test
 
 - `node test/cue.test.js` runs every test in about 6 s. Run it before every commit; CI (Test Cue) runs it on every PR and push to main.
-- A new feature gets tests in `test/cue.test.js`. Bridge calls must match `test/fixtures/ZapBridge.gs`; refresh that copy
+- A new feature gets tests in `test/features/` (its own numbered file; `test/cue.test.js` loads them all). Bridge calls must match `test/fixtures/ZapBridge.gs`; refresh that copy
   from Canvas `src/ZapBridge.gs` whenever a Canvas release changes the bridge.
 
 ## How code reaches Kiko
