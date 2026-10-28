@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.27.56: Help answers from Canvas's Help Q&A list (not deployed)
+
+Kiko 27 Oct 2026 01:48Z: "Can you store How to questions? and What is questions? something that Crew, Client and Suppliers
+might ask"; 02:34Z "Yes, build it" (Cue answers from the list); 02:54Z "go ship"; 28 Oct 07:39Z "stop dillydallying". First built
+as 1.27.36 on main (#109, 29b617e); rebuilt here on live 1.27.54 (Version 117, `claude/project-thread-klmtzh-rel12754p3` @
+24c7942). The Canvas side (bridge `help_qa` and `help_qa_add`) is live since Canvas V283, so this release needs no Canvas release.
+If 1.27.55 (Client Desk on phase 1 Approve) ships first, this stacks on it unchanged.
+
+- "help: <question>", "faq: <question>" or "help crew|client|supplier: <question>" reads the Live rows of the "Help Q&A" tab
+  (cached 10 minutes) and matches the question in code, with no AI call. The card shows the best answer, its Canvas page and up
+  to two close matches, with Copy reply, Rephrase (one Claude Haiku call, Taglish, same facts) and Edit answer in bank.
+- With no match, Add as Draft puts the question on the list once (`help_qa_add`) for Kiko to answer. Nothing is sent to anyone.
+- Ported onto the structure phase 2 layout: the kind and its route are one line each in `CueCommands.gs`, the card is in
+  `IndexCards.html` and `IndexThreads.html`, and the tests are `test/features/48-help-qa.js` (HQ1 to HQ6). CMD2 now lists the
+  help run and stopped line. Cloud check `test/checks/1.27.56-help-answers.check.mjs` (read only; dry run passes). Tests: 415.
+
 ## Cue 1.27.55: Cue's button chat bubble on the live line (not deployed)
 
 Kiko 28 Oct 2026 04:25Z: "can we redesign Cue's button look - now it kinda looks like a loading image"; he chose B, the
@@ -12,7 +28,7 @@ chat bubble, at 04:29Z, and said "yes" to the group (Cue part and Canvas part) a
 - Pairs with Canvas release `rel-v314-cue-button-main` (Cue's button in Canvas); the group ships together.
 - Tests: 410 of 410 pass (CB1 added; SN2 expects extension 1.4.2).
 
-## Cue 1.27.54: structure review phase 3, job runs list and one project finder (not deployed)
+## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
 Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
 Cue #133, stories #142 and #144. Built on live 1.27.53 (Version 114, ed62d61, compact cards) plus the 1.27.52 deployed mark, as the deploys thread asked. No bridge, email or AI change.
