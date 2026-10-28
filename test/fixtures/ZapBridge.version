@@ -1,3 +1,3 @@
-Copied from CanvasWorkspace releases/rel-v316-rfp-button-crm-sms-main/files/ZapBridge.gs (Canvas V316, 28 Oct 2026, deploys thread):
-V315 plus the CRM funnel actions and rfp_outbox (read) / rfp_sent (queue) for RFPs sent from Kiko's Gmail.
-md5 b0d32f479038a2bf1907c429fa32c56a
+Copied from CanvasWorkspace releases/rel-v317-supplier-inbox-p4-upload-main/files/ZapBridge.gs (live Canvas V317, 28 Oct 2026 08:55Z):
+V316 plus the supplier stack, inbox_new (read, info@ New mail) and the structure phase 4 reads.
+md5 24f4d7a0e2900deb9f89a0e208766044

@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.60: Cue email, so new mail and client emails are seen and logged (not deployed)
+
+The "Cue email" group on the live line. It is built on live 1.27.54 (Version 117), not on 1.27.55 (the Cue button bubble, on its own branch). On 28 Oct 2026 07:39Z Kiko said "stop dillydallying", and the coordinator asked for New mail and the email log to be restacked on the live line for one yes.
+
+- **New mail** (built as 1.27.39; Kiko asked 27 Oct 2026 08:27Z, chose Yes 09:32Z, and asked for "a command to create draft and send from the same window" at 09:32Z; spec `new-mail-check.md`). Every 5 minutes Cue checks Kiko's BSE inbox (Gmail history, read only) and info@ (Canvas bridge read `inbox_new`). New emails pass the Morning batch filters and land on one "New mail" thread per day. Claude Haiku 5.5 sorts them at most every 30 minutes, 07:00 to 21:00 Manila, which is at most 28 calls a day. Each email offers Start intake, Draft reply (the email card in the same thread; it is sent from Kiko's Gmail, never from info@, and only after his tap), Open in Gmail, Done, Not an inquiry and Mute sender. An email that is also on Canvas's Emails waiting shows the sender type and project Canvas knows. Nothing is labelled, archived or sent. On the live line it is one job in the Job Runs list ("New mail"), and its card uses the Canvas look.
+- **Client email log** (built as 1.27.34; Kiko 26 Oct 2026 16:10Z "Log automatically"). Once an hour, from 08:00 to 21:00, Kiko's client emails on Emails waiting go to Canvas Accounts › Activity, one row per thread per day, with no AI call. The Job Runs list already named this job ("CRM email log"). Until now the live line skipped it, because the code was not there.
+- `cueClaude_` takes an optional model, as on main.
+- Needs the Canvas release with `inbox_new` (CanvasWorkspace PR #145) for the info@ lines. Kiko's BSE inbox works without it. test/fixtures/ZapBridge.gs is that branch's bridge (live V310 + `inbox_new`).
+- Tests: CL1 to CL4 (email log) and NM1 to NM5 (New mail) are new. 418 tests.
+
 ## Cue 1.27.60: phase 1 Approve also registers the client in Client Desk; the card says New or Existing client first (not deployed)
 
 Kiko 24 Oct 2026 13:36Z ("Register the new client as well"); spec `specs/bid-contacts-reminder.md` part B (Kiko "Go" 13:54Z). First

@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.60';   // release branch: Client Desk on phase 1 Approve (1.27.60) on live 1.27.58 + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.60';   // release branch: Client Desk on phase 1 Approve + Cue email: New mail and client email log (1.27.60) on live 1.27.58 + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -620,7 +620,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri'];
+const CUE_RELATED_SKIP_ = ['newmail', 'pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri'];
 const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project\b(?!\s+intake)\s*[:,-]?/i;
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
@@ -1034,6 +1034,7 @@ function cueView_(s) {
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     help: s.kind === 'help' ? cueHelpView_(s) : null,   // HELP-QA-2026-10-27 (CueHelp.gs)
     rn: s.kind === 'relnotes' ? cueRnView_(s) : null,   // CUE-RELNOTES-2026-10-27
+    nm: s.kind === 'newmail' ? cueNmView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
     cec: s.kind === 'cecost' ? cueCecView_(s) : null,

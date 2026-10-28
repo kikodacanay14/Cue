@@ -2,6 +2,46 @@
   // Inbox triage groups (CueTriage.gs): a tag and what Kiko does with the line.
   var SWEEP_GROUP = { inquiry: ['New inquiry', 'Someone wants a quote or event. Tap Start intake to begin it.'], reply: ['Needs your reply', 'Cue drafted a reply below. Edit it, tick it, then Approve and send.'],
     fyi: ['FYI', 'For your information. Nothing to do: tap Got it.'] };
+  // ---- New mail (Kiko 27 Oct 08:27-09:32Z, spec new-mail-check.md, CueNewMail.gs): new emails in Kiko's inbox and info@ within 5 minutes ----
+  var NM_GROUP = { new: ['Not sorted yet', 'Claude sorts new mail every 30 minutes, 7 AM to 9 PM.'], inquiry: ['New inquiry', 'Someone wants a quote or event. Start intake to begin it.'],
+    reply: ['Needs your reply', 'Draft reply writes it here. Edit it, then Approve and send.'], fyi: ['FYI', 'Worth knowing. No reply needed.'], skip: ['Skipped', ''] };
+  function nmOpenCount(r) { return ((r.nm || {}).items || []).filter(function (it) { return !it.removed && !it.task_id; }).length; }
+  function nmCardHtml(r) {
+    var N = r.nm, live = r.status !== 'Closed', rank = { inquiry: 0, reply: 1, new: 2, fyi: 3, skip: 4 };
+    var items = N.items.slice().sort(function (a, b) { return (a.removed || a.task_id ? 1 : 0) - (b.removed || b.task_id ? 1 : 0) || rank[a.group] - rank[b.group] || Number(b.urgent) - Number(a.urgent) || String(b.date).localeCompare(String(a.date)); });
+    var open = nmOpenCount(r);
+    var h = '<div class="card' + (open && live ? ' need' : '') + '"><div class="label" style="margin-top:0">New mail</div><b style="font-size:17px;color:var(--white)">' + esc(N.day) + '</b>'
+      + '<div class="small muted">Your inbox and info@, checked every 5 minutes. Read only: nothing is sent, labelled or archived.' + (N.sorted_at ? ' Last sorted ' + esc(ago(N.sorted_at)) + '.' : '') + '</div>'
+      + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    if (!live) h += '<div class="small muted" style="margin-top:6px">Emails you had not handled moved to the next day\'s New mail.</div>';
+    if (!items.length) h += '<div class="small muted" style="margin-top:8px">No new email yet today.</div>';
+    items.forEach(function (it) {
+      var g = NM_GROUP[it.group] || NM_GROUP.fyi, done = it.removed || it.task_id;
+      h += '<div class="card" style="margin:8px 0 0;background:var(--input)' + (done ? ';opacity:.5' : '') + '">'
+        + '<span class="tag' + (it.group === 'inquiry' ? ' flag' : it.group === 'reply' ? ' new' : '') + '">' + esc(g[0]) + '</span>' + (it.urgent ? ' <span class="tag flag">today</span>' : '')
+        + ' <span class="small muted">' + (it.inbox === 'info' ? 'info@ · ' : '') + esc(it.who) + (it.date ? ' · ' + esc(ago(it.date)) : '') + '</span>'
+        + (it.known ? '<div class="small muted">' + esc([it.known.who, it.known.name !== it.who && it.known.name, it.known.project].filter(Boolean).join(' · ')) + ' · also in Canvas Emails waiting</div>' : '')
+        + '<div style="margin-top:4px"><b>' + esc(it.subject || '(no subject)') + '</b></div>'
+        + (it.summary && it.summary !== it.subject ? '<div class="small">' + esc(it.summary) + '</div>' : '')
+        + (it.why ? '<div class="small muted">' + esc(it.why) + '</div>' : '')
+        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply drafted below.' : 'Done.') + '</div>' : '');
+      if (it.task_id && it.acted === 'intake') h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open intake</button></div>';
+      if (!done && live) {
+        var k = ' data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '"';
+        h += '<div class="actions">'
+          + (it.group === 'inquiry' ? '<button class="btn"' + k + ' data-act="nm-intake">Start intake</button>' : '')
+          + (it.group !== 'fyi' ? '<button class="btn' + (it.group === 'inquiry' ? ' ghost' : '') + '"' + k + ' data-act="nm-reply">Draft reply</button>' : '')
+          + (it.url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(it.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '')
+          + '<button class="btn ghost"' + k + ' data-act="nm-done">' + (it.group === 'fyi' ? 'Got it' : 'Done') + '</button>'
+          + (it.group === 'inquiry' ? '<button class="btn ghost"' + k + ' data-act="nm-noinq">Not an inquiry</button>' : '')
+          + '<button class="btn bad"' + k + ' data-act="nm-mute">Mute sender</button></div>';
+      }
+      h += '</div>';
+    });
+    if ((N.skipped || []).length) h += '<details style="margin-top:8px"><summary class="small">' + N.skipped.length + ' skipped (newsletters, promotions, no-reply, muted)</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + N.skipped.map(function (x) { return '<li><b>' + esc(x.who) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + (x.inbox === 'info' ? ' · info@' : '') + '</span></li>'; }).join('') + '</ul></details>';
+    return h + '</div>';
+  }
   function sweepCardHtml(r) {
     var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
     b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });

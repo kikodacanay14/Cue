@@ -527,6 +527,16 @@ const ZB_ACTIONS_ = {
       thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ } },
     run: (r) => zbPaySend_(r.args)
   },
+  inbox_new: {
+    // CUE-NEW-MAIL-2026-10-27 (Kiko 09:32Z tapped Yes on "Build New mail for your BSE inbox and info@, sorted by Claude?"; Cue spec
+    // specs/new-mail-check.md). The newest message of each info@ inbox thread that got mail after `since` (ms), for Cue's New mail
+    // thread: sender, subject, a few headers for Cue's junk rules, and the message's own text (quotes cut, 1,500 characters). Canvas
+    // runs as info@, so this is the only way Cue sees info@ mail. Promotions, Social and Forums are left out by the search. Read only:
+    // nothing is labelled, marked read, archived or sent. Replies go from Kiko's own Gmail, never from info@.
+    kind: 'read', needsProject: false,
+    schema: { since: { type: 'number', required: true, min: 0 }, max: { type: 'number', min: 1 } },
+    run: (r) => zbInboxNew_(r.args)
+  },
   mail_waiting: {
     // CUE-REPLY-DRAFTS-2026-10-26 (Kiko 04:49Z "if its an Emails waiting... shouldnt there be a draft already that we need to
     // review and send?"; 05:58Z "Draft every waiting email"; 06:04Z "just me"; 06:09Z "Yes, Cue drafts them"; spec
@@ -1176,6 +1186,26 @@ function zbMailWaiting_() {
   return { on: !!r.on, stale: !!r.stale, checked: Number(r.checked) || 0,
     items: (r.items || []).map(i => ({ id: i.id, from: i.from, email: i.email, subject: i.subject, at: i.at, unread: !!i.unread,
       who: i.who, name: i.name || '', pid: i.pid || '', project: i.project || '' })) };
+}
+/* CUE-NEW-MAIL-2026-10-27: info@'s new inbox mail for Cue's New mail thread (bridge action inbox_new). Read only. */
+const ZB_INBOX_NEW_ = { max: 40, text: 1500 };
+function zbInboxNew_(a) {
+  const since = Math.max(0, Number(a.since) || 0), max = Math.min(Math.max(1, Number(a.max) || ZB_INBOX_NEW_.max), ZB_INBOX_NEW_.max), until = Date.now();
+  const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(), addr = f => String((String(f || '').match(/<([^>]+)>/) || [0, f])[1] || '').trim().toLowerCase();
+  const q = 'in:inbox -in:chats -category:promotions -category:social -category:forums after:' + Math.floor(since / 1000);
+  const items = [];
+  GmailApp.search(q, 0, max).forEach(t => {
+    const msgs = t.getMessages().filter(m => !m.isDraft()), m = msgs[msgs.length - 1];
+    if (!m || m.getDate().getTime() <= since || addr(m.getFrom()) === me) return;   // already answered from info@, or older than the window
+    const head = h => { try { return String(m.getHeader(h) || '').slice(0, 300); } catch (e) { return ''; } };
+    const body = String(m.getPlainBody() || '').split(/\r?\n(?:On .{5,200} wrote:|-{2,} ?Original Message ?-{2,}|From: .{3,200}\r?\nSent: )/)[0]
+      .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    items.push({ id: m.getId(), thread_id: t.getId(), ms: m.getDate().getTime(), from: addr(m.getFrom()),
+      name: String(m.getFrom() || '').replace(/\s*<[^>]*>\s*/, '').replace(/"/g, '').slice(0, 120), subject: String(m.getSubject() || '').slice(0, 300),
+      snippet: body.slice(0, 300), text: body.slice(0, ZB_INBOX_NEW_.text), message_id: head('Message-ID'),
+      h: { 'List-Unsubscribe': head('List-Unsubscribe'), 'List-Id': head('List-Id'), Precedence: head('Precedence'), 'Auto-Submitted': head('Auto-Submitted') } });
+  });
+  return { until, items };
 }
 function zbBoardAwaiting_(b) {
   const list = ((b && b.projects) || []).filter(p => p && /^for client awarding$/i.test(String(p.status || '').trim()));
@@ -1981,6 +2011,50 @@ ZB_ACTIONS_.crm_lead = {
 };
 ZB_GPT_ACTIONS_.push('crm_log', 'crm_followup', 'crm_lead');
 
+/* GPT-FIND-SUPPLIERS-2026-10-28 (Kiko 07:41Z "didnt we have integration already with ChatGPT?", 07:43Z picked "1"): ChatGPT finds
+ * stores for a scope on the web and Kiko picks which to save. supplier_add puts one in the Supplier Database (Supplier, Main
+ * Service, Supplier Type, City, Province, Website/Social Media: the same add as Support Desk and the RFP window's New supplier)
+ * and saves its contact through addQuoteContact (Supplier Quotes' add). A supplier already in the database only gets the contact.
+ * No person listed: the contact is "<Store> Sales", position "Sales". No email: the contact is saved with its phone only (the RFP
+ * window then has no address to tick for it). A repeat adds nothing twice: the supplier is found, and a contact with the same email
+ * (or, without one, the same name) is skipped. */
+ZB_ACTIONS_.supplier_add = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, name: { type: 'string', required: true, nonBlank: true, max: 150 },
+    main_service: { type: 'string', required: true, nonBlank: true, max: 150 }, supplier_type: { type: 'string', max: 200 },
+    city: { type: 'string', max: 80 }, province: { type: 'string', max: 80 }, link: { type: 'string', max: 500 },
+    contact_name: { type: 'string', max: 120 }, position: { type: 'string', max: 80 }, phone: { type: 'string', max: 60 }, email: { type: 'string', max: 200 } },
+  run: (r) => { try { return zbSupplierAdd_(r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : { ok: true, evidence: { supplier: res && res.supplier, added: !!(res && res.added), contact: res && res.contact } }
+};
+ZB_GPT_ACTIONS_.push('supplier_add');
+function zbSupplierAdd_(a) {
+  const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const name = clean(a.name).slice(0, 150), email = clean(a.email).toLowerCase();
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error(email + ' is not an email address. Nothing was saved.');
+  let p = supplierProfile(name), added = false;
+  if (!p.found) {
+    const cfg = CONFIG.ENTITIES.suppliers, rec = {};
+    rec[cfg.nameHeader] = name; rec[cfg.serviceHeader] = clean(a.main_service).slice(0, 150);
+    if (clean(a.supplier_type)) rec[cfg.typeHeader] = clean(a.supplier_type);
+    if (clean(a.city)) rec[cfg.cityHeader] = clean(a.city);
+    if (clean(a.province)) rec[cfg.provinceHeader] = clean(a.province);
+    if (clean(a.link)) rec['Website/Social Media'] = clean(a.link);
+    const res = (addSuppliers([rec]).results || [])[0] || {};
+    if (!res.ok) throw new Error((res.error || name + ' was not added') + '. Nothing was saved.');
+    try { logEvent('Added supplier', 'Projects', name + ' (from ChatGPT)'); } catch (e) { /* logging never blocks */ }
+    p = supplierProfile(name); added = true;
+    if (!p.found) return { supplier: name, added, contact: 'not saved: the new supplier could not be read back yet' };
+  }
+  const person = clean(a.contact_name) || p.name + ' Sales', pos = clean(a.position) || 'Sales', phone = clean(a.phone);
+  if (!email && !phone) return { supplier: p.name, added, contact: 'none: no email or phone found' };
+  const rows = ((p.contacts || {}).rows || []).map(x => JSON.stringify(x).toLowerCase());
+  if (rows.some(x => email ? x.indexOf(email) >= 0 : x.indexOf(person.toLowerCase()) >= 0)) return { supplier: p.name, added, contact: 'already saved' };
+  addQuoteContact(p.name, [person, phone, email, pos]);
+  return { supplier: p.name, added, contact: person + (email ? ' · ' + email : '') + (phone ? ' · ' + phone : '') };
+}
+
 /* PROJECT-LOG-2026-10-27 (Kiko 10:34Z: everything about a project done in other threads is also written in the project's thread;
  * "include the mails that i receive"). Cue sends log lines: emails in and out (headers only), Ask Cue task summaries and
  * chasers sent. Canvas files each under its project (project_id, else the sender's contact project or a project named in the
@@ -2106,7 +2180,7 @@ function zbInvoiceLine_(pid, a) {
       if (T.sh.getRange(x.r, c + 1).getFormula()) return { refused: 'DESCRIPTION on BI ' + want + ' is a formula, so it can\'t be changed here. Nothing was saved.' };
       const was = x.at('DESCRIPTION'), to = zbInvJoin_(line, was);
       if (to === was) return { saved: true, already: true, where: 'bi', bi_no: want, row: x.r, was, now: was };
-      auditEdit_(T.sh, x.r, { headRow: 1 });
+      auditEdit_(T.sh, x.r, { headRow: T.headRow });
       T.sh.getRange(x.r, c + 1).setValue(safe_(to));
       const now = String(T.sh.getRange(x.r, c + 1).getDisplayValue()).trim();
       try { logEvent('Edited billing invoice', 'Cue', 'BI ' + want + ': Description (' + line + ')'); } catch (e) { /* logging never blocks a save */ }
@@ -2160,8 +2234,16 @@ const ZB_ALLOW_SEED_ = [
   ['tab', 'Tracker', 'PO', 'all', 'Full Description', 'PO No', 'update', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
   ['tab', 'Scopes', 'Transfers', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
   ['tab', 'Scopes', 'Payment Request', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE']];
+/* CUE-STRUCTURE-4.4 / 4.6 (Kiko 28 Oct 2026 07:42Z, Cue structure Phase 4 "yes"; Cue specs/cue-structure-review.md): read-only
+ * rows added once to an allow-list that already exists (seed rows above go in only when the tab is first made). Cue reads the P0
+ * funnel tabs through read_rows instead of opening the sheet, and Canvas's AI Runs for one AI cost view. Added once
+ * (property ZB_ALLOW_SEED_2), so a row Kiko later turns off or deletes stays that way. */
+const ZB_ALLOW_SEED_2_ = ['P0', 'P0 Contacts', 'Event History', 'Social Event Sources', 'Invalid & Bounced Contacts']
+  .map(t => ['tab', 'Priority', t, 'all', '', '', 'read', '', 'Kiko 28 Oct 2026 (cue-structure-review.md phase 4)', 'TRUE'])
+  .concat([['tab', 'Ledger', 'AI Runs', 'all', '', '', 'read', '', 'Kiko 28 Oct 2026 (cue-structure-review.md phase 4)', 'TRUE']]);
 // The spreadsheets an allow-list row may name. The main workbook (Users, Settings, roles) is not one of them.
-const ZB_GEN_BOOKS_ = () => ({ tracker: TRACKER_ID, admin: SRC.ADMIN, tri: SRC.TRI, scopes: SRC.SCOPES, suppliers: SRC.SUPPLIERS, priority: SRC.PRIORITY });
+const ZB_GEN_BOOKS_ = () => ({ tracker: TRACKER_ID, admin: SRC.ADMIN, tri: SRC.TRI, scopes: SRC.SCOPES, suppliers: SRC.SUPPLIERS, priority: SRC.PRIORITY,
+  ledger: PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID') });   // CUE-STRUCTURE-4.6: the Ledger's AI Runs tab (AiCore.gs aiLog_)
 const ZB_GEN_NEVER_TAB_ = /^_|^(users?|settings|roles?|access|accounts?\s*payable\s*bank.*)$/i;
 const ZB_GEN_NEVER_COL_ = /bank\s*(account|acct|details|info|no\b|num|#)|account\s*(no|num|#)|acct\.?\s*(no|num|#)|card\s*(no|num)|iban|swift|routing|signature|e-?sign|password|passcode|\bpin\b|secret|token/i;
 const ZB_GEN_NEVER_WRITE_ = /status|award|book(ed|ing)|\bpaid\b|payment|approv|role/i;   // Canvas owns status and award; pay and book stay people's
@@ -2188,6 +2270,21 @@ function zbAllowSheet_(ss) {
     try { logEvent('Made the Cue allow-list', 'Cue bridge', ZB_ALLOW_SEED_.length + ' rows, protected'); } catch (e) { /* logging never blocks */ }
     return sh;
   });
+}
+/** Adds ZB_ALLOW_SEED_2_ rows that are not on the list yet (same Type, Book and Name), once. A failure is logged and tried next time. */
+function zbAllowSeed2_(sh) {
+  const P = PropertiesService.getScriptProperties(); if (P.getProperty('ZB_ALLOW_SEED_2')) return;
+  try {
+    locked_(() => {
+      if (P.getProperty('ZB_ALLOW_SEED_2')) return;
+      const v = sh.getDataRange().getDisplayValues(), have = {}, k = r => [r[0], r[1], r[2]].map(x => String(x).trim().toLowerCase()).join('|');
+      v.slice(1).forEach(r => { have[k(r)] = 1; });
+      const add = ZB_ALLOW_SEED_2_.filter(r => !have[k(r)]);
+      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, ZB_ALLOW_HEAD_.length).setValues(add);
+      P.setProperty('ZB_ALLOW_SEED_2', new Date().toISOString());
+      try { logEvent('Added Cue allow-list rows', 'Cue bridge', add.length + ' read-only rows (Cue structure phase 4)'); } catch (e) { /* logging never blocks */ }
+    });
+  } catch (e) { console.error('Allow-list rows (phase 4): ' + e); }
 }
 function zbAllowEditorOk_(ss, email) {
   const e = String(email || '').toLowerCase(); if (!e) return false;
@@ -2219,6 +2316,7 @@ function zbGenArgs_(s) {
 function zbAllow_() {
   const ss = zbAllowBook_(), sh = zbAllowSheet_(ss), bad = zbAllowGuard_(ss, sh);
   if (bad) throw new Error(bad);
+  zbAllowSeed2_(sh);
   const v = sh.getDataRange().getDisplayValues(), head = (v[0] || []).map(h => String(h).trim().toLowerCase());
   const at = (r, h) => { const c = head.indexOf(h.toLowerCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); };
   const tabs = [], functions = [];
@@ -2245,15 +2343,19 @@ function zbGenOpen_(al, book, tab) {
   if (!sh) throw new Error('tab ' + e.tab + ' was not found in ' + e.book);
   const w = Math.max(1, sh.getLastColumn()), n = sh.getLastRow();
   const v = n ? sh.getRange(1, 1, n, w).getDisplayValues() : [[]];
-  const head = (v[0] || []).map(h => String(h).trim()), up = head.map(h => h.toUpperCase());
+  // CUE-STRUCTURE-4.4: the header is row 1, unless row 1 has fewer than 3 filled cells and one of rows 2 to 6 has 3 or more
+  // (the P0 funnel tabs keep their header on row 4).
+  const filled = r => (r || []).filter(c => String(c).trim() !== '').length;
+  let hi = 0; if (filled(v[0]) < 3) { const j = v.slice(0, 6).findIndex(r => filled(r) >= 3); if (j > 0) hi = j; }
+  const head = (v[hi] || []).map(h => String(h).trim()), up = head.map(h => h.toUpperCase());
   const ok = h => h && !ZB_GEN_NEVER_COL_.test(h);
   const listed = l => l.map(x => up.indexOf(x.toUpperCase())).filter(c => c >= 0).map(c => head[c]);
   const readable = (/^all$/i.test(e.read) ? head : listed(zbGenList_(e.read))).filter((h, i, a) => ok(h) && a.indexOf(h) === i);
   const key = head[up.indexOf(String(e.key).toUpperCase())] || '';
   const writable = e.mode === 'read' ? [] : listed(e.write).filter(h => ok(h) && !ZB_GEN_NEVER_WRITE_.test(h) && h !== key);
-  const rows = v.slice(1).map((r, i) => ({ r: i + 2, v: r, at: h => { const c = up.indexOf(String(h).toUpperCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); } }))
+  const rows = v.slice(hi + 1).map((r, i) => ({ r: i + hi + 2, v: r, at: h => { const c = up.indexOf(String(h).toUpperCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); } }))
     .filter(x => x.v.some(c => String(c).trim() !== ''));
-  return { e, sh, head, up, readable, writable, key, rows };
+  return { e, sh, head, up, readable, writable, key, rows, headRow: hi + 1 };
 }
 function zbGenDay_(s) {
   const t = String(s || '').trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -2380,7 +2482,7 @@ function zbAllowSet_(a, task) {
 }
 const ZB_GEN_WHERE_ = { column: { type: 'string', required: true, nonBlank: true, max: 120 }, equals: { type: 'string', max: 500 },
   contains: { type: 'string', max: 500 }, from: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ }, to: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ } };
-const ZB_GEN_BOOK_ARG_ = { type: 'string', required: true, oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] };
+const ZB_GEN_BOOK_ARG_ = { type: 'string', required: true, oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority', 'ledger'] };
 ZB_ACTIONS_.allow_list = {
   kind: 'read', needsProject: false, schema: {},
   run: () => { const al = zbAllow_(); return { tabs: al.tabs, functions: al.functions, hash: al.hash, books: Object.keys(ZB_GEN_BOOKS_()), protected: true }; }
@@ -2415,7 +2517,7 @@ ZB_ACTIONS_.run_function = {
 ZB_ACTIONS_.allow_list_set = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { type: { type: 'string', required: true, oneOf: ['tab', 'function'] }, name: { type: 'string', required: true, nonBlank: true, max: 100 },
-    book: { type: 'string', oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] }, read: { type: 'string', max: 1000 },
+    book: { type: 'string', oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority', 'ledger'] }, read: { type: 'string', max: 1000 },
     write: { type: 'string', max: 1000 }, key: { type: 'string', max: 120 }, mode: { type: 'string', required: true, oneOf: ['read', 'update', 'append', 'write'] },
     arguments: { type: 'string', max: 500 }, on: { type: 'boolean' } },
   run: (r) => zbAllowSet_(r.args, r.task_id),
