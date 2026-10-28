@@ -154,6 +154,7 @@
       + '<tr><td>Likely by month end</td><td><b style="color:#fff">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
       + usageDetail(cur) + '</div>';
     else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
+    if (U.canvas) h += '<div class="small muted" style="margin:4px 0 8px">' + (U.canvas.note ? esc(U.canvas.note) : 'Includes Canvas AI calls (' + U.canvas.rows + ' logged), shown as "Canvas: …" in By command.') + '</div>';   // CUE-STRUCTURE-4.6
     if (M.length) h += '<div class="label">Monthly</div><div class="card"><div class="scroll"><table><tr><th>Month</th><th>Claude calls</th><th>ChatGPT calls</th><th>US$</th><th>₱</th><th></th></tr>'
       + M.map(function (m) { return '<tr><td><button class="link" data-um="' + esc(m.month) + '" aria-expanded="' + (usageMonth === m.month) + '">' + esc(m.label) + '</button>' + (m.current ? ' <span class="small muted">so far</span>' : '') + '</td><td>' + m.claude + '</td><td>' + m.gpt + '</td><td>' + esc(usd(m.usd).slice(4)) + '</td><td>' + esc(php(m.usd)) + '</td><td class="small muted">' + (m.current ? 'likely ' + esc(php(m.likely_usd)) : '') + '</td></tr>'
         + (usageMonth === m.month ? '<tr><td colspan="6">' + usageDetail(m) + '</td></tr>' : ''); }).join('')

@@ -4,10 +4,11 @@
 //        has Transfers and Payment Request (it does: seeded 27 Oct). No AI call, no account number on the page.
 //   4.3: the check door works out the crm_lead requests the newest bid check would send, with nothing sent (a check run never
 //        claims a plan). Each must carry source "Bid finder" and a bid:<key> request id.
+//   4.6: the usage section reads Canvas's AI Runs when Canvas lists it; before the Canvas release it says so plainly (read only).
 //   4.1 (the chase count on a project log line) only runs when a chaser is really sent, so the local tests (P4c) carry it.
 //   Dry run: DRY_ALLOW must hold an allow-list with Transfers and Payment Request rows (the sandbox default has neither with rows).
 export default {
-  name: '1.27.56 Cue into Canvas (transfer lookup through the bridge, bid leads)',
+  name: '1.27.56 Cue into Canvas (transfer lookup through the bridge, bid leads, one AI cost view)',
   steps: [
     { title: 'A transfer lookup answers from the bridge, read only', run: async h => {
       await h.say('is there a gcash transfer of 1,200 on 12 Oct?');
@@ -22,6 +23,13 @@ export default {
       const w = (r.result && r.result.would) || [];
       const bad = w.filter(a => a.source !== 'Bid finder' || !/^bid:[A-Za-z0-9:_-]{4,}$/.test(a.request_id) || !a.name);
       if (bad.length) throw new Error('Lead requests not in the agreed shape: ' + JSON.stringify(bad));
+    } },
+    { title: 'Usage: Canvas AI calls join the view, or a plain note says why not', run: async h => {
+      const r = await h.door('check_call', { fn: 'cueUsage', args: [] });
+      if (!r.ok) throw new Error('cueUsage failed: ' + r.error);
+      const c = (r.result && r.result.canvas) || null;
+      if (!c) throw new Error('The usage view has no Canvas part: ' + JSON.stringify(Object.keys(r.result || {})));
+      if (/could not be read/.test(c.note || '')) throw new Error(c.note);
     } },
     { title: 'Cue opens as usual', run: async h => { await h.see(/Cue/, 60000); } }
   ]

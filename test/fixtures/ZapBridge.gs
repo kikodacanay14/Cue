@@ -2039,7 +2039,7 @@ function zbInvoiceLine_(pid, a) {
       if (T.sh.getRange(x.r, c + 1).getFormula()) return { refused: 'DESCRIPTION on BI ' + want + ' is a formula, so it can\'t be changed here. Nothing was saved.' };
       const was = x.at('DESCRIPTION'), to = zbInvJoin_(line, was);
       if (to === was) return { saved: true, already: true, where: 'bi', bi_no: want, row: x.r, was, now: was };
-      auditEdit_(T.sh, x.r, { headRow: 1 });
+      auditEdit_(T.sh, x.r, { headRow: T.headRow });
       T.sh.getRange(x.r, c + 1).setValue(safe_(to));
       const now = String(T.sh.getRange(x.r, c + 1).getDisplayValue()).trim();
       try { logEvent('Edited billing invoice', 'Cue', 'BI ' + want + ': Description (' + line + ')'); } catch (e) { /* logging never blocks a save */ }
@@ -2093,8 +2093,16 @@ const ZB_ALLOW_SEED_ = [
   ['tab', 'Tracker', 'PO', 'all', 'Full Description', 'PO No', 'update', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
   ['tab', 'Scopes', 'Transfers', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE'],
   ['tab', 'Scopes', 'Payment Request', 'all', '', 'Request ID', 'read', '', 'Kiko 27 Oct 2026 (generic-bridge.md)', 'TRUE']];
+/* CUE-STRUCTURE-4.4 / 4.6 (Kiko 28 Oct 2026 07:42Z, Cue structure Phase 4 "yes"; Cue specs/cue-structure-review.md): read-only
+ * rows added once to an allow-list that already exists (seed rows above go in only when the tab is first made). Cue reads the P0
+ * funnel tabs through read_rows instead of opening the sheet, and Canvas's AI Runs for one AI cost view. Added once
+ * (property ZB_ALLOW_SEED_2), so a row Kiko later turns off or deletes stays that way. */
+const ZB_ALLOW_SEED_2_ = ['P0', 'P0 Contacts', 'Event History', 'Social Event Sources', 'Invalid & Bounced Contacts']
+  .map(t => ['tab', 'Priority', t, 'all', '', '', 'read', '', 'Kiko 28 Oct 2026 (cue-structure-review.md phase 4)', 'TRUE'])
+  .concat([['tab', 'Ledger', 'AI Runs', 'all', '', '', 'read', '', 'Kiko 28 Oct 2026 (cue-structure-review.md phase 4)', 'TRUE']]);
 // The spreadsheets an allow-list row may name. The main workbook (Users, Settings, roles) is not one of them.
-const ZB_GEN_BOOKS_ = () => ({ tracker: TRACKER_ID, admin: SRC.ADMIN, tri: SRC.TRI, scopes: SRC.SCOPES, suppliers: SRC.SUPPLIERS, priority: SRC.PRIORITY });
+const ZB_GEN_BOOKS_ = () => ({ tracker: TRACKER_ID, admin: SRC.ADMIN, tri: SRC.TRI, scopes: SRC.SCOPES, suppliers: SRC.SUPPLIERS, priority: SRC.PRIORITY,
+  ledger: PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID') });   // CUE-STRUCTURE-4.6: the Ledger's AI Runs tab (AiCore.gs aiLog_)
 const ZB_GEN_NEVER_TAB_ = /^_|^(users?|settings|roles?|access|accounts?\s*payable\s*bank.*)$/i;
 const ZB_GEN_NEVER_COL_ = /bank\s*(account|acct|details|info|no\b|num|#)|account\s*(no|num|#)|acct\.?\s*(no|num|#)|card\s*(no|num)|iban|swift|routing|signature|e-?sign|password|passcode|\bpin\b|secret|token/i;
 const ZB_GEN_NEVER_WRITE_ = /status|award|book(ed|ing)|\bpaid\b|payment|approv|role/i;   // Canvas owns status and award; pay and book stay people's
@@ -2121,6 +2129,21 @@ function zbAllowSheet_(ss) {
     try { logEvent('Made the Cue allow-list', 'Cue bridge', ZB_ALLOW_SEED_.length + ' rows, protected'); } catch (e) { /* logging never blocks */ }
     return sh;
   });
+}
+/** Adds ZB_ALLOW_SEED_2_ rows that are not on the list yet (same Type, Book and Name), once. A failure is logged and tried next time. */
+function zbAllowSeed2_(sh) {
+  const P = PropertiesService.getScriptProperties(); if (P.getProperty('ZB_ALLOW_SEED_2')) return;
+  try {
+    locked_(() => {
+      if (P.getProperty('ZB_ALLOW_SEED_2')) return;
+      const v = sh.getDataRange().getDisplayValues(), have = {}, k = r => [r[0], r[1], r[2]].map(x => String(x).trim().toLowerCase()).join('|');
+      v.slice(1).forEach(r => { have[k(r)] = 1; });
+      const add = ZB_ALLOW_SEED_2_.filter(r => !have[k(r)]);
+      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, ZB_ALLOW_HEAD_.length).setValues(add);
+      P.setProperty('ZB_ALLOW_SEED_2', new Date().toISOString());
+      try { logEvent('Added Cue allow-list rows', 'Cue bridge', add.length + ' read-only rows (Cue structure phase 4)'); } catch (e) { /* logging never blocks */ }
+    });
+  } catch (e) { console.error('Allow-list rows (phase 4): ' + e); }
 }
 function zbAllowEditorOk_(ss, email) {
   const e = String(email || '').toLowerCase(); if (!e) return false;
@@ -2152,6 +2175,7 @@ function zbGenArgs_(s) {
 function zbAllow_() {
   const ss = zbAllowBook_(), sh = zbAllowSheet_(ss), bad = zbAllowGuard_(ss, sh);
   if (bad) throw new Error(bad);
+  zbAllowSeed2_(sh);
   const v = sh.getDataRange().getDisplayValues(), head = (v[0] || []).map(h => String(h).trim().toLowerCase());
   const at = (r, h) => { const c = head.indexOf(h.toLowerCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); };
   const tabs = [], functions = [];
@@ -2178,15 +2202,19 @@ function zbGenOpen_(al, book, tab) {
   if (!sh) throw new Error('tab ' + e.tab + ' was not found in ' + e.book);
   const w = Math.max(1, sh.getLastColumn()), n = sh.getLastRow();
   const v = n ? sh.getRange(1, 1, n, w).getDisplayValues() : [[]];
-  const head = (v[0] || []).map(h => String(h).trim()), up = head.map(h => h.toUpperCase());
+  // CUE-STRUCTURE-4.4: the header is row 1, unless row 1 has fewer than 3 filled cells and one of rows 2 to 6 has 3 or more
+  // (the P0 funnel tabs keep their header on row 4).
+  const filled = r => (r || []).filter(c => String(c).trim() !== '').length;
+  let hi = 0; if (filled(v[0]) < 3) { const j = v.slice(0, 6).findIndex(r => filled(r) >= 3); if (j > 0) hi = j; }
+  const head = (v[hi] || []).map(h => String(h).trim()), up = head.map(h => h.toUpperCase());
   const ok = h => h && !ZB_GEN_NEVER_COL_.test(h);
   const listed = l => l.map(x => up.indexOf(x.toUpperCase())).filter(c => c >= 0).map(c => head[c]);
   const readable = (/^all$/i.test(e.read) ? head : listed(zbGenList_(e.read))).filter((h, i, a) => ok(h) && a.indexOf(h) === i);
   const key = head[up.indexOf(String(e.key).toUpperCase())] || '';
   const writable = e.mode === 'read' ? [] : listed(e.write).filter(h => ok(h) && !ZB_GEN_NEVER_WRITE_.test(h) && h !== key);
-  const rows = v.slice(1).map((r, i) => ({ r: i + 2, v: r, at: h => { const c = up.indexOf(String(h).toUpperCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); } }))
+  const rows = v.slice(hi + 1).map((r, i) => ({ r: i + hi + 2, v: r, at: h => { const c = up.indexOf(String(h).toUpperCase()); return c < 0 ? '' : String(r[c] == null ? '' : r[c]).trim(); } }))
     .filter(x => x.v.some(c => String(c).trim() !== ''));
-  return { e, sh, head, up, readable, writable, key, rows };
+  return { e, sh, head, up, readable, writable, key, rows, headRow: hi + 1 };
 }
 function zbGenDay_(s) {
   const t = String(s || '').trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -2313,7 +2341,7 @@ function zbAllowSet_(a, task) {
 }
 const ZB_GEN_WHERE_ = { column: { type: 'string', required: true, nonBlank: true, max: 120 }, equals: { type: 'string', max: 500 },
   contains: { type: 'string', max: 500 }, from: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ }, to: { type: 'string', re: /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})$/ } };
-const ZB_GEN_BOOK_ARG_ = { type: 'string', required: true, oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] };
+const ZB_GEN_BOOK_ARG_ = { type: 'string', required: true, oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority', 'ledger'] };
 ZB_ACTIONS_.allow_list = {
   kind: 'read', needsProject: false, schema: {},
   run: () => { const al = zbAllow_(); return { tabs: al.tabs, functions: al.functions, hash: al.hash, books: Object.keys(ZB_GEN_BOOKS_()), protected: true }; }
@@ -2348,7 +2376,7 @@ ZB_ACTIONS_.run_function = {
 ZB_ACTIONS_.allow_list_set = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { type: { type: 'string', required: true, oneOf: ['tab', 'function'] }, name: { type: 'string', required: true, nonBlank: true, max: 100 },
-    book: { type: 'string', oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority'] }, read: { type: 'string', max: 1000 },
+    book: { type: 'string', oneOf: ['tracker', 'admin', 'tri', 'scopes', 'suppliers', 'priority', 'ledger'] }, read: { type: 'string', max: 1000 },
     write: { type: 'string', max: 1000 }, key: { type: 'string', max: 120 }, mode: { type: 'string', required: true, oneOf: ['read', 'update', 'append', 'write'] },
     arguments: { type: 'string', max: 500 }, on: { type: 'boolean' } },
   run: (r) => zbAllowSet_(r.args, r.task_id),

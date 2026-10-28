@@ -47,7 +47,8 @@ test('UG3 prices: saved in CUE_AI_PRICES, bad values ignored, every month recalc
   near(u.months[1].usd, 0.5, 'Sep repriced'); assert.deepStrictEqual(u.unpriced, []); assert.strictEqual(u.prices.models['claude-sonnet-5-5'][1], 10, 'half-filled row kept');
   near(t.ctx.cueAiCost_('GPT', 'gpt-5-mini-2025-08-07', 1e6, 0, 1), 0.51, 'the log uses the same table');
   assert.strictEqual(t.ctx.cueAiCost_('GPT', 'gpt-unknown', 1e6, 0, 0), '');
-  assert.strictEqual(t.log.batches.length + t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  assert.ok(t.log.bridge.every(b => b.action === 'allow_list' || b.action === 'read_rows'), 'Canvas reads only (CUE-STRUCTURE-4.6)');
   const s = usageBox({ viewer: 'someone@example.com' });
   assert.throws(() => s.ctx.cueUsage(), /private/); assert.throws(() => s.ctx.cueUsagePrices({ fx: 1 }), /private/);
 });

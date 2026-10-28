@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 55 server files, 1135 top-level names, 26 task kinds, 29 word checks before the
+Counts: 55 server files, 1137 top-level names, 26 task kinds, 29 word checks before the
 chat call, 9 background jobs in the 5-minute trigger, 68 page-to-server functions, 55 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -133,7 +133,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 14 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
 | `CueGmail.gs` |  |  | 0 | 0 | 19 | 3 |
-| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 5 | 8 |
+| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 6 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
@@ -161,11 +161,11 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepSignature.gs` | `list_unsigned_docs`, `send_doc_reminder` |  | 0 | 0 | 0 | 4 |
 | `CueTeach.gs` |  | Memory, Requests, Workflows | 0 | 3 | 7 | 9 |
-| `CueText.gs` |  |  | 0 | 0 | 41 | 0 |
+| `CueText.gs` |  |  | 0 | 0 | 42 | 0 |
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueTriage.gs` |  | Triage log, Triage rules | 1 | 0 | 4 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
-| `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 3 | 2 |
+| `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 3 | 4 |
 | `CueVendor.gs` | `supplier_lookup` | Requests | 2 | 1 | 3 | 7 |
 | `CueWorkflow.gs` |  | Requests, Workflows | 2 | 1 | 3 | 4 |
 
@@ -176,7 +176,7 @@ Names used by 5 or more other files, and the file that holds them.
 | Helper | Lives in | Used by files |
 |---|---|---|
 | `cueNow_` | `Cue.gs` | 42 |
-| `cueStr_` | `CueText.gs` | 40 |
+| `cueStr_` | `CueText.gs` | 41 |
 | `cueChat_` | `Cue.gs` | 35 |
 | `cueLocked_` | `Cue.gs` | 30 |
 | `cueProp_` | `Cue.gs` | 30 |

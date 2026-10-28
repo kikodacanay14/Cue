@@ -37,3 +37,27 @@ test('P4d 4.4 the transfer lookup reads Transfers and Payment Request through re
   assert.ok(/AP-SU-TRI-1 · GCash SU••••E M\. · 12 Oct · 7046033873147 · ₱3,120\.00/.test(a), a);
   assert.ok(!/0917|000111222/.test(a), 'no account numbers');
 });
+test('P4e 4.6 one AI cost view: Canvas AI Runs rows join Cue\'s months, priced by the same table, under "Canvas: <job>"; not listed or unreadable is a note', () => {
+  const runs = [{ _row: 2, Time: '10/28/2026 09:15:00', Job: 'Doc check', Model: 'claude-sonnet-4-6', 'Input tokens': '1,000,000', 'Output tokens': '0', 'Cost (USD)': '3', Status: 'OK', Note: '' },
+    { _row: 3, Time: '10/28/2026 09:20:00', Job: 'Doc check', Model: 'claude-sonnet-4-6', 'Input tokens': '0', 'Output tokens': '0', 'Cost (USD)': '', Status: 'Failed', Note: 'timeout' }];
+  const allow = [{ book: 'ledger', tab: 'AI Runs', key: '', mode: 'read', columns: Object.keys(runs[0]).slice(1), writable: [], rows: runs }];
+  let t = sandbox({ allow }); t.ctx.cueNow_ = () => Date.parse('2026-10-28T03:00:00Z');
+  const P = t.ctx.cueUsagePrices_(), p = P.models['claude-sonnet-4-6'];
+  let u = t.ctx.cueUsage(); const m = u.months.filter(x => x.month === '2026-10')[0];
+  assert.ok(m, JSON.stringify(u.months.map(x => x.month)));
+  const c = m.by_cmd.filter(x => x.name === 'Canvas: Doc check')[0];
+  assert.ok(c && c.calls === 2, JSON.stringify(m.by_cmd)); if (p) assert.strictEqual(c.usd, Math.round(p[0] * 10000) / 10000, 'priced by Cue\'s table, not Canvas\'s cost column');
+  assert.strictEqual(u.canvas.rows, 2); assert.strictEqual(u.canvas.note, '');
+  t = sandbox({ allow: [] }); u = t.ctx.cueUsage(); assert.strictEqual(u.canvas.rows, 0); assert.ok(/not on Canvas's allow-list/.test(u.canvas.note));
+  assert.strictEqual(t.ctx.cueUsageCmd_({}, 'cue-ed-abc', ''), 'Other (canvas edit)');
+  assert.strictEqual(t.ctx.cueUsageMnl_('10/28/2026 09:15:00'), Date.parse('2026-10-28T01:15:00Z'), 'Manila time');
+});
+test('P4f 4.4 a GPT task reads the P0 funnel tab through read_rows once Canvas lists it; not listed, it opens the sheet as before', () => {
+  const p0 = [{ _row: 5, Company: 'Acme', Priority: 'P0', Industry: 'Tech' }];
+  let t = sandbox({ allow: [{ book: 'priority', tab: 'P0', key: '', mode: 'read', columns: ['Company', 'Priority', 'Industry'], writable: [], rows: p0 }] });
+  t.ctx.SpreadsheetApp = Object.assign({}, t.ctx.SpreadsheetApp, { openById: () => { throw new Error('opened the sheet'); } });
+  const T = t.ctx.cueGtTab_('p0', { id: 'gt-1' });
+  deq(Array.from(T.head), ['Company', 'Priority', 'Industry']); deq(T.rows.map(r => [r._row, r.Company]), [[5, 'Acme']]);
+  t = sandbox({ allow: [] }); t.ctx.SpreadsheetApp = Object.assign({}, t.ctx.SpreadsheetApp, { openById: () => { throw new Error('opened the sheet'); } });
+  assert.throws(() => t.ctx.cueGtTab_('p0', { id: 'gt-2' }), /opened the sheet/);
+});
