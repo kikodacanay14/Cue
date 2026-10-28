@@ -192,6 +192,8 @@ function sandbox(o = {}) {
       // CUE-PROJECT-LOG-2026-10-27: log lines for the projects' threads (project_log); Canvas files what it can and skips the rest.
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
+      // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting), with the bridge's shape.
+      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; if (o.waitingFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });

@@ -80,8 +80,9 @@ test('C10 Canvas changes a number on re-check: nothing written, card returns wit
 test('C11 apply fails: stops "Failed", never retried by the trigger; "Check Canvas and finish" calls apply only', () => {
   const t = startToCard({ applyFails: true }), v = t.ctx.cueApprove(t.id, {});
   assert.strictEqual(v.status, 'Failed'); assert.ok(/trying again never writes twice/.test(v.error));
-  const before = t.log.bridge.length; t.ctx.cueResume(); assert.strictEqual(t.log.bridge.length, before);
-  t.ctx.cueApprove(t.id, {}); deq(t.log.bridge.slice(before).map(b => b.action), ['apply_intake']);
+  const own = () => t.log.bridge.filter(b => b.action !== 'mail_waiting' && b.action !== 'crm_log');   // the hourly email log reads on its own (CL1)
+  const before = own().length; t.ctx.cueResume(); assert.strictEqual(own().length, before);
+  t.ctx.cueApprove(t.id, {}); deq(own().slice(before).map(b => b.action), ['apply_intake']);
 });
 test('C12 reject: nothing goes to Canvas', () => {
   const t = startToCard(), v = t.ctx.cueReject(t.id, 'Duplicate');
