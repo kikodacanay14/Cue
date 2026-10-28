@@ -28,18 +28,19 @@ function cueTxSaid_(text, ref) {
   if (!t || !CUE_TX_RE_.test(t) || !CUE_TX_ASK_RE_.test(t) || /\bpersonal\b/i.test(t)) return null;
   cueChat_('Kiko', t, ref || '');
   let out;
-  try { out = cueTxAnswer_(t, cueTxData_()); }
+  try { out = cueTxAnswer_(t, cueTxData_({ id: ref || 'tx-' + cueNow_().toString(36) })); }
   catch (e) { out = 'I could not open BSE Scopes and Transfers (' + cueStr_((e && e.message) || e, 160) + '). Nothing was changed.'; }
   cueChat_('Cue', out, ref || '');
   return { chat: true, task: ref || '' };
 }
 
-/** The Transfers and Payment Request tabs, read only, as plain objects keyed by lower-case header. */
-function cueTxData_() {
-  const ss = SpreadsheetApp.openById(cueProp_('CUE_PERSONAL_BSE_SHEET', CUE_PE_BSE_));
-  const rows = name => { const T = cuePeTab_(ss, name), h = T.head.map(x => x.toLowerCase());
-    return T.rows.map((r, i) => { const o = { _row: i + 2 }; h.forEach((k, j) => { if (k && !(k in o)) o[k] = r[j]; }); return o; }); };
-  return { tr: rows('Transfers'), pr: rows('Payment Request') };
+/** The Transfers and Payment Request tabs, read only, as plain objects keyed by lower-case header. CUE-STRUCTURE-4.4: through
+ * Canvas's read_rows when the allow-list has them (cuePeBse_, CuePersonal.gs), else straight from BSE Scopes and Transfers. */
+function cueTxData_(s) {
+  const B = cuePeBse_(s || { id: 'tx-' + cueNow_().toString(36) });
+  const rows = T => { const h = T.head.map(x => String(x).toLowerCase());
+    return T.rows.map((r, i) => { const o = { _row: T.rowOf(i) }; h.forEach((k, j) => { if (k && !(k in o)) o[k] = r[j]; }); return o; }); };
+  return { tr: rows(B.tr), pr: rows(B.pr) };
 }
 
 const cueTxNum_ = v => { if (typeof v === 'number') return v; const n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, '')); return String(v || '').trim() && isFinite(n) ? n : null; };

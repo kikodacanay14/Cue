@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 58 server files, 1183 top-level names, 28 task kinds, 29 word checks before the
+Counts: 58 server files, 1188 top-level names, 28 task kinds, 29 word checks before the
 chat call, 11 background jobs in the 5-minute trigger, 69 page-to-server functions, 58 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -121,8 +121,8 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 32 | 3 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 5 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
-| `CueBids.gs` |  | Requests | 1 | 0 | 6 | 3 |
-| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 32 | 3 |
+| `CueBids.gs` |  | Requests | 1 | 0 | 6 | 4 |
+| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 33 | 3 |
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 10 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 4 | 9 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
@@ -137,7 +137,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
 | `CueGmail.gs` |  |  | 0 | 0 | 21 | 3 |
-| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 5 | 8 |
+| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 6 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
@@ -168,11 +168,11 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepSignature.gs` | `list_unsigned_docs`, `send_doc_reminder` |  | 0 | 0 | 0 | 4 |
 | `CueTeach.gs` |  | Memory, Requests, Workflows | 0 | 3 | 7 | 9 |
-| `CueText.gs` |  |  | 0 | 0 | 44 | 0 |
+| `CueText.gs` |  |  | 0 | 0 | 45 | 0 |
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueTriage.gs` |  | Triage log, Triage rules | 1 | 1 | 5 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
-| `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 3 | 2 |
+| `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 3 | 4 |
 | `CueVendor.gs` | `supplier_lookup` | Requests | 2 | 1 | 3 | 7 |
 | `CueWorkflow.gs` |  | Requests, Workflows | 2 | 1 | 3 | 4 |
 
@@ -183,10 +183,10 @@ Names used by 5 or more other files, and the file that holds them.
 | Helper | Lives in | Used by files |
 |---|---|---|
 | `cueNow_` | `Cue.gs` | 45 |
-| `cueStr_` | `CueText.gs` | 43 |
+| `cueStr_` | `CueText.gs` | 44 |
 | `cueChat_` | `Cue.gs` | 37 |
 | `cueLocked_` | `Cue.gs` | 32 |
-| `cueProp_` | `Cue.gs` | 32 |
+| `cueProp_` | `Cue.gs` | 31 |
 | `cueBridge_` | `CueBridge.gs` | 29 |
 | `cueLoad_` | `Cue.gs` | 29 |
 | `cueSheet_` | `Cue.gs` | 29 |
@@ -224,13 +224,13 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueTerm_` | `CueText.gs` | 7 |
 | `CUE_DATE_RE_` | `CueText.gs` | 6 |
 | `cueAskPick` | `CueRoute.gs` | 6 |
+| `cueBridgeParse_` | `CueBridge.gs` | 6 |
+| `cueBridgePlan_` | `CueBridge.gs` | 6 |
+| `cueBridgeReq_` | `CueBridge.gs` | 6 |
 | `cueCanvasFind_` | `CueCanvas.gs` | 6 |
 | `cueR2_` | `CueText.gs` | 6 |
 | `cueSendWith_` | `Cue.gs` | 6 |
 | `CUE_TABS_` | `Cue.gs` | 5 |
-| `cueBridgeParse_` | `CueBridge.gs` | 5 |
-| `cueBridgePlan_` | `CueBridge.gs` | 5 |
-| `cueBridgeReq_` | `CueBridge.gs` | 5 |
 | `cueFilesParts_` | `CueFiles.gs` | 5 |
 | `cueGmailReply_` | `CueGmail.gs` | 5 |
 | `cueSend` | `Cue.gs` | 5 |
