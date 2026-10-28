@@ -52,16 +52,17 @@ function pickArea(reply) {
   const root = host.attachShadow({ mode: 'closed' });
   root.innerHTML = `<style>
     .b{position:fixed;width:52px;height:52px;border-radius:50%;cursor:grab;touch-action:none;user-select:none;
-      background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169);box-shadow:0 4px 14px rgba(0,0,0,.45);
+      background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%);box-shadow:0 4px 14px rgba(0,0,0,.45);
       display:flex;align-items:center;justify-content:center;transition:transform .12s;}
     .b:hover{transform:scale(1.06)} .b.drag{cursor:grabbing;transform:scale(1.1)}
     .b:focus-visible{outline:3px solid #559fef;outline-offset:3px}
-    .in{width:40px;height:40px;border-radius:50%;background:#141518;color:#fff;font:700 15px/40px 'DM Sans','Segoe UI',system-ui,sans-serif;text-align:center}
+    /* Kiko 28 Oct 04:29Z chose the chat bubble: the old colour wheel read as a loading spinner. */
+    .in{width:32px;height:32px;display:block}
     .x{position:fixed;display:none;width:20px;height:20px;border-radius:50%;background:#262930;color:#e4e6ea;border:1px solid #3d4250;
       font:700 12px/18px system-ui,sans-serif;text-align:center;cursor:pointer}
     .wrap:hover .x{display:block}
     @media (prefers-reduced-motion: reduce){.b{transition:none}}
-  </style><div class="wrap"><div class="b" role="button" tabindex="0" aria-label="Open Cue" title="Open Cue (drag to move)"><div class="in">Cue</div></div>
+  </style><div class="wrap"><div class="b" role="button" tabindex="0" aria-label="Open Cue" title="Open Cue (drag to move)"><svg class="in" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3.2 1.7 6 4.4 7.9L7.3 28l5.6-3c1 .2 2 .3 3.1.3 6.6 0 12-4.6 12-10.2S22.6 5 16 5z" fill="#fff"/><text x="16" y="19.6" text-anchor="middle" font-family="DM Sans,Segoe UI,system-ui,sans-serif" font-weight="700" font-size="11" fill="#23006F">C</text></svg></div>
   <div class="x" title="Hide on this site" aria-label="Hide Cue on this site">×</div></div>`;
   const b = root.querySelector('.b'), x = root.querySelector('.x');
   const clamp = (v, max) => Math.min(Math.max(8, v), max - 60);

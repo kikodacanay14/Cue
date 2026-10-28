@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.55: Cue's button chat bubble on the live line (not deployed)
+
+Kiko 28 Oct 2026 04:25Z: "can we redesign Cue's button look - now it kinda looks like a loading image"; he chose B, the
+chat bubble, at 04:29Z, and said "yes" to the group (Cue part and Canvas part) at 04:43Z. Main: Cue PR #157 (5b4b8ad).
+
+- Cue's top-bar logo (`src/Index.html` markup, `src/IndexStyle.html` style) and the tab favicon (`src/Cue.gs`, icon version
+  `bubble-1`, uploaded to Kiko's Drive once) show a white speech bubble with a "C" on the BSE gradient instead of the colour wheel.
+- Built on 1.27.54 (`claude/project-thread-klmtzh-rel12754p3` @ b548fc3), so it ships after 1.27.54.
+- The Chrome bubble files (extension 1.4.2) match main, but Deploy Cue does not ship the extension.
+- Pairs with Canvas release `rel-v314-cue-button-main` (Cue's button in Canvas); the group ships together.
+- Tests: 410 of 410 pass (CB1 added; SN2 expects extension 1.4.2).
+
 ## Cue 1.27.54: structure review phase 3, job runs list and one project finder (not deployed)
 
 Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
