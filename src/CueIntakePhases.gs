@@ -97,7 +97,33 @@ function cuePhCheck_(s, save) {
   s.similar = named.length ? named : s.said_change ? same : [];
   if (!s.as_new && !full && (s.similar.length || s.said_change)) return cueChangeStart_(s);
   s.similar = [];
+  s.desk = cuePhDesk_(s);
   cuePhCard_(s, 1, 'Project details are ready. Check them and approve to add the project to Canvas.');
+}
+
+/* CUE-CLIENT-REG (Kiko 24 Oct 13:36Z "Register the new client as well"; spec bid-contacts-reminder part B). Phase 1 Approve also puts the
+ * client in Client Desk (Canvas P0 and P0 Contacts). Before the tap, Canvas says (read only) whether the company is new there and how many
+ * contacts it would add. null when Canvas cannot say (before its update, or a read error): the card then shows no line. */
+function cuePhDesk_(s) {
+  const c = (s.x && s.x.client) || {};
+  if (!String(c.company || '').trim()) return null;
+  const people = ((c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email }]).filter(x => x && (x.name || x.email)).slice(0, 10)
+    .map(x => ({ name: cueStr_(x.name, 200), email: cueStr_(x.email, 200) }));
+  try {
+    const r = cueBridge_(s, 'client_check', { company: cueStr_(c.company, 200), contacts: people }) || {};
+    return ['new', 'existing'].indexOf(r.client) >= 0 ? { client: r.client, company: cueStr_(r.company, 200), contacts_new: Number(r.contacts_new) || 0 } : null;
+  } catch (e) { return null; }
+}
+/** What the Client Desk part of phase 1 did, in one sentence. */
+function cuePhDeskLine_(d) {
+  if (!d || ['new', 'existing'].indexOf(d.client) < 0) return '';
+  const n = (d.contacts_added || []).length, ct = n + ' contact' + (n === 1 ? '' : 's');
+  return d.client === 'new' ? 'Client Desk: ' + d.company + ' added as a new client with ' + ct + '.' : 'Client Desk: ' + d.company + ' was already there; ' + (n ? ct + ' added.' : 'no new contacts.');
+}
+/** Industry for Client Desk: Government for a notice on a .gov.ph site (bid intakes say "Notice: <link>"). */
+function cuePhIndustry_(s) {
+  const m = /^New project intake from a bid notice/.test(String(s.text || '')) && String(s.text).match(/\nNotice: https:\/\/([^/\s?#:]+)/i);
+  return m && /\.gov\.ph$/i.test(m[1]) ? 'Government' : '';
 }
 
 /** A phase's card is waiting for Kiko. One short line in the thread; the card itself updates in place. */
@@ -269,6 +295,7 @@ function cuePhCancel_(id, pid) {
   }
   const said = 'Removed ' + P + ' from Canvas: the project, ' + (Number(r.lines_removed) || 0) + ' requirement line' + (r.lines_removed === 1 ? '' : 's') + ', '
     + (Number(r.contacts_removed) || 0) + ' contact' + (r.contacts_removed === 1 ? '' : 's') + ((r.folders_trashed || []).length ? ' and its folders (in the Drive trash)' : '') + '.'
+    + (Number(r.client_desk_removed) ? ' Client Desk: ' + r.client_desk_removed + ' row' + (r.client_desk_removed === 1 ? '' : 's') + ' this intake added removed.' : '')
     + ((r.left || []).length ? ' Still there: ' + r.left.join('; ') + '.' : '');
   const out = cueLocked_(() => {
     const N = cueLoad_(id), t = N.s; delete t.busy_until; t.error = '';
@@ -289,12 +316,16 @@ const CUE_PH_STILL_ = 'Canvas is still saving this from your earlier tap. The ca
 function cuePhProject_(s, edits) {
   cueIntakeEditDetails_(s.x, edits);
   const w = cueIntakeWire_({ client: s.x.client, event: s.x.event, lines: [], rfqs: [] });
+  // industry only when Canvas answered client_check: an older Canvas refuses a field it does not know, so Cue can ship first.
+  const ind = s.desk ? cuePhIndustry_(s) : ''; if (ind) w.client.industry = ind;
   const ap = cueBridge_(s, 'intake_add_project', { request_id: s.id, project: { client: w.client, event: Object.assign(w.event, { date_tbc: !w.event.date }) } });
   if (!ap || !ap.project_id) throw new Error('Canvas answered without a project id. Check Canvas before trying again; trying again never makes a second project.');
   s.canvas = { project_id: String(ap.project_id), project_number: String(ap.project_number || ''), name: cueStr_(ap.name, 200), date: cueStr_(ap.date, 10), date_tbc: !!ap.date_tbc,
-    contacts_added: Number(ap.contacts_added) || 0, folders: ap.folders || {}, folders_missing: (ap.folders_missing || []).slice(0, 10), warnings: (ap.warnings || []).map(x => cueStr_(x, 300)).slice(0, 10) };
+    contacts_added: Number(ap.contacts_added) || 0, folders: ap.folders || {}, folders_missing: (ap.folders_missing || []).slice(0, 10), warnings: (ap.warnings || []).map(x => cueStr_(x, 300)).slice(0, 10),
+    client_desk: ap.client_desk && ap.client_desk.client ? { client: cueStr_(ap.client_desk.client, 20), company: cueStr_(ap.client_desk.company, 200), contacts_added: (ap.client_desk.contacts_added || []).slice(0, 10) } : null };
+  const desk = cuePhDeskLine_(s.canvas.client_desk);
   cueChat_('Cue', 'Added to Canvas as project ' + (s.canvas.project_number || s.canvas.project_id) + ' (' + s.canvas.project_id + ')' + (s.canvas.date_tbc ? ', Date TBC' : '')
-    + (s.canvas.folders_missing.length ? '. Missing folders: ' + s.canvas.folders_missing.join(', ') : '') + '. Claude is breaking down the requirements.', s.id);
+    + (s.canvas.folders_missing.length ? '. Missing folders: ' + s.canvas.folders_missing.join(', ') : '') + '.' + (desk ? ' ' + desk : '') + ' Claude is breaking down the requirements.', s.id);
   try { cueSaveToProject_(s, s.canvas.project_id, s.files, 'Brief & Planning'); } catch (e) { s.notes.push('The files were not saved to the project folder: ' + cueStr_((e && e.message) || e, 200)); }
   s.phase = 2; s.status = 'Working'; s.stage = 'Claude reading requirements'; delete s.card_at;
 }
@@ -548,5 +579,5 @@ function cuePhView_(s) {
     totals: p.totals || null, prices_saved: s.prices_saved || '', pick: p.pick && !p.pick_sel ? p.pick : null,
     rfqs: (p.rfqs || []).map((q, i) => { const x = (q.suppliers || [])[0] || {}; return { i, supplier: x.name || 'Supplier', email: x.email || '', new: !!x.new, keys: q.keys || [],
       subject: q.subject, body: q.body, state: q.state || 'open', error: q.error || '', logged: q.logged !== false }; }),
-    questions: (s.x && s.x.questions) || [], risks: p.risks || [], study: p.study || '', rejected: s.rejected || null, work_s: Math.round((s.work_ms || 0) / 100) / 10 };
+    desk: s.desk || null, questions: (s.x && s.x.questions) || [], risks: p.risks || [], study: p.study || '', rejected: s.rejected || null, work_s: Math.round((s.work_ms || 0) / 100) / 10 };
 }

@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 54 server files, 1114 top-level names, 26 task kinds, 29 word checks before the
+Counts: 54 server files, 1117 top-level names, 26 task kinds, 29 word checks before the
 chat call, 7 background jobs in the 5-minute trigger, 65 page-to-server functions, 55 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -135,7 +135,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 5 | 8 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
-| `CueIntakePhases.gs` | `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `search_projects` |  | 1 | 3 | 3 | 9 |
+| `CueIntakePhases.gs` | `client_check`, `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `search_projects` |  | 1 | 3 | 3 | 9 |
 | `CueJobs.gs` |  | Job Runs | 0 | 0 | 2 | 7 |
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 5 |

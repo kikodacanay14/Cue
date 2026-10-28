@@ -291,6 +291,11 @@ function sandbox(o = {}) {
       if (body.action === 'expense_evidence') { log.xev = (log.xev || []).concat([body.args]); return resp(200, { ok: true, status: 'Completed', result: (o.xev || XEV)(body.args) }); }
       if (body.action === 'record_expense') { log.recorded = (log.recorded || []).concat([{ pid: body.project_id, args: body.args }]);
         return resp(200, { ok: true, status: 'Completed', result: o.xrec ? o.xrec(log.recorded.length) : XREC }); }
+      // CUE-CLIENT-REG: Canvas's read-only Client Desk check (aiIntakeClientDesk_ dry).
+      if (body.action === 'client_check') { (log.deskCheck = log.deskCheck || []).push(body.args);
+        if (o.deskUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        if (o.deskOff) return resp(200, { ok: true, status: 'Completed', result: { ok: false, error: 'Client Desk registration is off (Script Property CLIENT_DESK)' } });
+        return resp(200, { ok: true, status: 'Completed', result: o.desk || { client: 'new', company: body.args.company, contacts_new: (body.args.contacts || []).length, contacts_added: [], p0_row: 0 } }); }
       // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
       if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);
         if (o.projectFail) return resp(200, { ok: false, status: 'Blocked', error: 'Project not added: Canvas busy' });
@@ -298,7 +303,8 @@ function sandbox(o = {}) {
         if (o.projectStill && log.phProject.length <= o.projectStill) return resp(200, { ok: false, status: 'Blocked', error: 'request is Adding project' });
         const e = body.args.project.event, tbc = !e.date;
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, replayed: log.phProject.length > 1, project_id: 'S-99900001ZZ', project_number: '052', name: e.name + (tbc ? ' (Date TBC)' : ''),
-          date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [] } }); }
+          date: tbc ? '2026-12-31' : e.date, date_tbc: tbc, contacts_added: (body.args.project.client.contacts || []).length, folders: { 'Project Folder': 'https://drive.google.com/drive/folders/P' }, folders_missing: [], warnings: [],
+          client_desk: o.deskOff ? null : o.deskOut || { client: 'new', company: body.args.project.client.company, contacts_added: (body.args.project.client.contacts || []).map((c, i) => ({ row: 900 + i, email: c.email, name: c.name })), p0_row: 812 } } }); }
       if (body.action === 'intake_remove') { (log.phRemove = log.phRemove || []).push(body.args);
         if (o.removeUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
         return resp(200, { ok: true, status: 'Completed', result: { ok: true, project_id: body.args.project_id, lines_removed: 2, contacts_removed: 1, folders_trashed: ['a', 'b'], left: [] } }); }
