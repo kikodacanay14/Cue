@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (not deployed; Kiko 28 Oct 04:43Z)
+## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (deployed 28 Oct 2026 05:14Z as Version 108; Kiko 28 Oct 04:43Z)
 
 Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
 he have done so far to not overwrite what changes we already did". Needs the Canvas history check, live in Canvas V310 (28 Oct 05:08Z;
@@ -14,7 +14,7 @@ he have done so far to not overwrite what changes we already did". Needs the Can
 - `contact_fill` checks again under the lock and reports any such cell as skipped, with the same reason.
 - Bridge copy `test/fixtures/ZapBridge.gs` is that branch file. New test CS6. Tests: 391.
 
-## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (not deployed)
+## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (deployed 28 Oct 2026 05:06Z as Version 106)
 
 Kiko asked on 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
 different status". Built on live 1.27.47 (release branch `claude/project-thread-y5l4x9-rel12747`) as a bug fix. Numbered
