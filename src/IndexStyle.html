@@ -9,7 +9,9 @@
   header, nav, .composer { flex:none; }
   #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
   header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
-  .logo { width:30px; height:30px; border-radius:50%; background:conic-gradient(#2b0169,#b00c98,#cd5023,#e9d151,#559fef,#2b0169); flex:none; }
+  /* Kiko 28 Oct 04:29Z chose the chat bubble: the old colour wheel read as a loading spinner. */
+  .logo { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%); flex:none; display:grid; place-items:center; }
+  .logo svg { width:19px; height:19px; }
   /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only. */
   header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
   .card b { letter-spacing:-0.01em; }
