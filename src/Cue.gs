@@ -41,7 +41,10 @@ function doGet(e) {
 /** STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z): the page is split into parts (IndexStyle, IndexChat, IndexViewer, IndexThreads,
  * IndexPages, IndexCards). Index.html puts each part in its place with <?!= cueInclude_('Name') ?>. A part's last newline is dropped,
  * since the include line in Index.html ends with its own. test/page.js joins the page the same way for the tests and the cloud check. */
-function cueInclude_(name) { return HtmlService.createHtmlOutputFromFile(name).getContent().replace(/\n$/, ''); }
+// HOTFIX 28 Oct 2026 (Kiko's screenshot 08:07Z, "Exception: Malformed HTML content"): a part is read raw. createHtmlOutputFromFile
+// runs the HTML parser on each part, and a script-only part (IndexChat and the others, no <script> tag of their own) fails it, so
+// the page never opened. The joined page is still checked once, when Index is evaluated, as it was before the split.
+function cueInclude_(name) { return HtmlService.createTemplateFromFile(name).getRawContent().replace(/\n$/, ''); }
 
 /* Favicon (Kiko 05:42Z: the window still showed the Apps Script icon). The Cue chat bubble (Kiko 28 Oct 04:29Z; was the colour-wheel orb), 48 px, saved once to Kiko's Drive
  * (drive.file, private to Kiko; Kiko's browser loads it signed in). Apps Script wants a .png-looking address, hence &format=png.

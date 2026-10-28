@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue page opens again: page parts read raw (bug fix on main; ships from the live line as Cue 1.27.54.1, branch claude/project-thread-o4roiy-rel12754fix)
+
+Kiko's screenshot, 28 Oct 2026 08:07Z: the Cue panel in Canvas showed "Exception: Malformed HTML content" and Cue's script as text.
+Since the page split (structure phase 2, live in 1.27.52) `cueInclude_` read each part with `createHtmlOutputFromFile`, whose HTML
+parser rejects the script-only parts. Parts are now read with `createTemplateFromFile(name).getRawContent()`; the joined page is
+still parsed once when Index is evaluated. Test PG3 now throws Apps Script's error from `createHtmlOutputFromFile` and fails
+without the fix.
+
 ## Cue daily release notes at 8 PM (not deployed; ships from the live line as 1.27.57, branch claude/project-thread-p1no8l-rel12757)
 
 Kiko 27 Oct 2026 02:12Z: "Everyday at 8PM i would like release an announcement. This includes bug fixes and functions deploy in
