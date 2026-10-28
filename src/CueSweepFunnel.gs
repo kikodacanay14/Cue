@@ -12,7 +12,7 @@
 const CUE_FUNNEL_DO_ = { Inquiry: 'reply or send the CE', Delivered: 'send the billing' };
 
 /** One crm_funnel read per batch (with the win-back list), kept on the batch for the three kinds. */
-function cueFunnelRead_(ctx) {
+function cueSweepFunnelRead_(ctx) {
   const s = ctx.s || {};
   if (s._funnel) return s._funnel;
   Object.defineProperty(s, '_funnel', { value: cueBridge_(s, 'crm_funnel', { winback: true }) || {}, enumerable: false, writable: true });
@@ -20,7 +20,7 @@ function cueFunnelRead_(ctx) {
 }
 
 function cueFunnelFind_(ctx) {
-  const f = cueFunnelRead_(ctx), out = [], tomorrow = cueAddDays_(ctx.today, 1);
+  const f = cueSweepFunnelRead_(ctx), out = [], tomorrow = cueAddDays_(ctx.today, 1);
   (f.due || []).forEach(x => {
     if (!x || !x.id || !x.due || x.due > tomorrow) return;
     const when = x.due < ctx.today ? 'Overdue since ' + x.due : x.due === ctx.today ? 'Due today' : 'Due tomorrow';
@@ -38,7 +38,7 @@ function cueFunnelFind_(ctx) {
 
 /** Inquiry chasers: quiet Inquiries with a client email. */
 function cueInquiryFind_(ctx) {
-  return (cueFunnelRead_(ctx).stuck || []).filter(x => x && x.id && x.step === 'Inquiry' && cueEmail_(x.email)).map(x => ({
+  return (cueSweepFunnelRead_(ctx).stuck || []).filter(x => x && x.id && x.step === 'Inquiry' && cueEmail_(x.email)).map(x => ({
     key: 'inq:' + x.id, project: String(x.name || x.id).slice(0, 120), who: String(x.contact || x.client || '').slice(0, 120), to: cueEmail_(x.email),
     project_id: x.kind === 'project' ? x.id : '', priority: 'normal', due_since: cueAddDays_(ctx.today, -(Number(x.quiet) || 0)),
     facts: { client: x.client || '', contact: x.contact || '', inquiry: x.name || '', event_date: x.date || '', quiet_days: x.quiet },
@@ -53,7 +53,7 @@ function cueInquiryTemplate_(it) {
 
 /** Win-back drafts: Canvas's win-back clients with an email. */
 function cueWinbackFind_(ctx) {
-  return (cueFunnelRead_(ctx).winback || []).filter(x => x && x.client && cueEmail_(x.email)).map(x => ({
+  return (cueSweepFunnelRead_(ctx).winback || []).filter(x => x && x.client && cueEmail_(x.email)).map(x => ({
     key: 'winback:' + String(x.client).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60), project: String(x.client).slice(0, 120), who: String(x.contact || x.client).slice(0, 120),
     to: cueEmail_(x.email), priority: 'normal', due_since: x.last || '', facts: { client: x.client, contact: x.contact || '', last_event: x.last || '', last_event_name: x.what || '' },
     why: 'Last event ' + (x.last || 'a while ago') + (x.what ? ' (' + String(x.what).slice(0, 80) + ')' : '') + ', no open deal' }));
