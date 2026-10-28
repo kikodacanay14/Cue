@@ -591,6 +591,7 @@ function cueBidsFinish_(s) {
   const B = s.bids, now = cueNow_(), T = B.tally || { dup: 0, nodocs: [], not_rechecked: [] };
   B.items = (B.items || []).filter(it => { const why = cueBidsScreen_(it, now); if (why.drop) { B.dropped[why.drop]++; return false; } it.status = why.status; return true; });
   cueBidsWrite_(s);
+  cueBidsLeads_(s);
   const store = (() => { try { return cueBidsDocs_(); } catch (e) { return { by: {} }; } })();
   const upd = (B.updated || []).filter(it => it.row);
   B.still = (B.still || []).filter(it => !B.items.some(x => x.key === it.key));
@@ -787,6 +788,44 @@ function cueBidsStartIntake(id, key) {
     if (known) { const c = { url: it.url }; cueBidsFacts_(c, known.facts); if (c.contacts) it.contacts = c.contacts; if (c.bac_email && !it.bac_email) it.bac_email = c.bac_email; }
   } catch (e) { console.warn('Bid contacts from the store: ' + e); } }
   return cueBidsIntake_('do intake for ' + (it.reference || it.project), '', it);
+}
+
+/* CUE-STRUCTURE-4.3 (Kiko 28 Oct 2026 07:42Z, Phase 4 "yes"; specs/cue-structure-review.md): each new bid also becomes a lead in
+ * Canvas's CRM (crm_lead, stage Inquiry, source "Bid finder"), so the team sees it in the funnel. The bid sheet rows stay as they
+ * are. crm_lead is a bridge write, so the batch claims its plan first; request_id bid:<key> makes a repeat return the same lead.
+ * A check run sends nothing. A failed lead is a note on the card, never a lost run. */
+const cueBidsLeadArgs_ = it => {
+  const ev = /^\d{4}-\d{2}-\d{2}$/.test(String(it.event_date || '').trim()) ? String(it.event_date).trim() : '';
+  const a = { request_id: ('bid:' + String(it.key || '')).replace(/[^A-Za-z0-9:_-]/g, '').slice(0, 80), name: cueStr_(it.project || it.reference, 160),
+    company: cueStr_(it.agency, 120), source: 'Bid finder',
+    notes: cueStr_(['Ref ' + (it.reference || '-'), 'deadline ' + (it.deadline || '-'), it.abc ? 'ABC PHP ' + it.abc : 'ABC not stated', it.url].filter(Boolean).join(' · '), 800) };
+  if (ev) a.event_date = ev;
+  return a;
+};
+function cueBidsLeads_(s) {
+  const B = s.bids, list = (B.items || []).filter(it => it.key && (it.project || it.reference));
+  B.leads = { added: 0, failed: 0 };
+  if (!list.length || globalThis.CUE_CHECK_ON_) return;
+  const t = { id: 'bidlead-' + cueNow_().toString(36) };
+  const part = list.slice(0, 20).map((it, n) => ({ command_id: 'cue:' + t.id + ':crm_lead:' + n, action: 'crm_lead', args: cueBidsLeadArgs_(it) }));
+  let res = null, err = '';
+  try { cueBridgePlan_(t, part); res = UrlFetchApp.fetchAll(part.map(c => cueBridgeReq_(t, c.action, c.args, '', c.command_id))); }
+  catch (e) { err = String((e && e.message) || e); }
+  part.forEach((c, n) => {
+    try { if (err) throw new Error(err);
+      const r = cueBridgeParse_('crm_lead', res[n]) || {};
+      if (r.refused) throw new Error(r.refused);
+      B.leads.added++; }
+    catch (e) { B.leads.failed++; if (B.leads.failed === 1) s.notes.push('Not added to Canvas CRM: ' + cueStr_((e && e.message) || e, 200)); }
+  });
+}
+
+/** Check mode only (test/checks/1.27.56-into-canvas.check.mjs): the crm_lead requests the newest bid check of the last 14 days would
+ * send, worked out the same way, with nothing sent. */
+function cueBidsLeadsCheck() {
+  if (!globalThis.CUE_CHECK_ON_) throw new Error('Only a cloud check runs this.');
+  const last = cueRecent_(CUE_BIDS_MAX_.days).filter(x => x.kind === 'bids' && x.bids)[0];   // newest first
+  return { task: last ? last.id : '', would: last ? (last.bids.items || []).filter(it => it.key && (it.project || it.reference)).slice(0, 20).map(cueBidsLeadArgs_) : [] };
 }
 
 /* ---------- step 8: Kiko asks for an intake ---------- */
