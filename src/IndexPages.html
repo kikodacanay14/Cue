@@ -61,7 +61,7 @@
           + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
           + (it.kind === 'inbox' && it.summary && it.who ? '<br><span class="small">' + esc(it.summary) + '</span>' : '')
           + (SWEEP_GROUP[it.group] && it.who ? '<br><span class="small muted">' + SWEEP_GROUP[it.group][1] + '</span>' : '')
-          + '<br><span class="small muted">' + (esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? '' : ' · no email: stays a draft')
+          + '<br><span class="small muted">' + (esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? (it.send_ok === false ? ' · draft only: you send it from Gmail' : '') : ' · no email: stays a draft')
           + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></label>';
         if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
           + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';

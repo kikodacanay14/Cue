@@ -42,7 +42,7 @@ function cueInquiryFind_(ctx) {
     key: 'inq:' + x.id, project: String(x.name || x.id).slice(0, 120), who: String(x.contact || x.client || '').slice(0, 120), to: cueEmail_(x.email),
     project_id: x.kind === 'project' ? x.id : '', priority: 'normal', due_since: cueAddDays_(ctx.today, -(Number(x.quiet) || 0)),
     facts: { client: x.client || '', contact: x.contact || '', inquiry: x.name || '', event_date: x.date || '', quiet_days: x.quiet },
-    why: 'Inquiry from ' + (x.client || 'the client') + ', quiet ' + x.quiet + ' days (limit ' + x.limit + '). Draft to ' + cueEmail_(x.email) }));
+    why: 'Inquiry from ' + (x.client || 'the client') + ', quiet ' + x.quiet + ' days (limit ' + x.limit + ')' }));
 }
 function cueInquiryTemplate_(it) {
   const f = it.facts || {}, first = String(f.contact || '').split(/\s/)[0] || 'there';
@@ -56,7 +56,7 @@ function cueWinbackFind_(ctx) {
   return (cueSweepFunnelRead_(ctx).winback || []).filter(x => x && x.client && cueEmail_(x.email)).map(x => ({
     key: 'winback:' + String(x.client).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60), project: String(x.client).slice(0, 120), who: String(x.contact || x.client).slice(0, 120),
     to: cueEmail_(x.email), priority: 'normal', due_since: x.last || '', facts: { client: x.client, contact: x.contact || '', last_event: x.last || '', last_event_name: x.what || '' },
-    why: 'Last event ' + (x.last || 'a while ago') + (x.what ? ' (' + String(x.what).slice(0, 80) + ')' : '') + ', no open deal. Draft to ' + cueEmail_(x.email) }));
+    why: 'Last event ' + (x.last || 'a while ago') + (x.what ? ' (' + String(x.what).slice(0, 80) + ')' : '') + ', no open deal' }));
 }
 function cueWinbackTemplate_(it) {
   const f = it.facts || {}, first = String(f.contact || '').split(/\s/)[0] || 'there';
