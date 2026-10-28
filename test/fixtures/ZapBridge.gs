@@ -1986,13 +1986,29 @@ ZB_ACTIONS_.crm_log = {
  * tomorrow. Never amounts, CE numbers or lost reasons (Cue shows these to Kiko only through Canvas). Read only, quiet. */
 ZB_ACTIONS_.crm_funnel = {
   kind: 'read', needsProject: false,
-  schema: { fresh: { type: 'boolean' } },
+  schema: { fresh: { type: 'boolean' }, winback: { type: 'boolean' } },
   run: (r) => {
     const f = crmFunnelCached_(!!r.args.fresh);
     return { today: f.today, limits: f.limits, steps: f.steps.map(s => ({ step: s.step, count: s.count, stuck: s.stuck, limit: s.limit, median_days: s.median_days })),
-      stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit })),
-      due: f.due.slice(0, 40) };
+      stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit,
+        email: x.email || '', contact: x.contact || '' })),   // CRM-FUNNEL-REST-2026-10-28: the client's newest known email, for Cue's chaser drafts
+      due: f.due.slice(0, 40), winback: r.args.winback ? zbCrmWinback_() : undefined };
   }
+};
+/* CRM-FUNNEL-REST-2026-10-28 (F6): clients to win back (no open deal, last event older than the win-back months), with the newest known
+ * email from Activity or deals, for Cue's win-back drafts in Kiko's Gmail. At most 15. */
+function zbCrmWinback_() {
+  const mail = {}, key = s => crmNk_(s), at = {};
+  const seen = (c, e, k, t) => { e = String(e || '').trim().toLowerCase(); if (!c || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || (at[key(c)] || -1) > t) return; mail[key(c)] = { email: e, contact: String(k || '').slice(0, 120) }; at[key(c)] = t; };
+  crmRows_('deal').forEach(x => seen(x.Company, x.Email, x.Contact, crmIso_(x.Updated)));
+  crmRows_('act').forEach(a => seen(a.Company, a.Email, a.Contact, crmIso_(a.When)));
+  return crmWinbackList_().slice(0, 15).map(w => ({ client: w.company, last: w.last, what: String(w.what || '').slice(0, 200), email: (mail[key(w.company)] || {}).email || '', contact: (mail[key(w.company)] || {}).contact || '' }));
+}
+/* CRM-FUNNEL-REST-2026-10-28 (F8): the Reports numbers for Cue's Monday funnel review. Counts only, no amounts. */
+ZB_ACTIONS_.crm_report = {
+  kind: 'read', needsProject: false,
+  schema: { fresh: { type: 'boolean' } },
+  run: (r) => crmReportCached_(!!r.args.fresh)
 };
 ZB_ACTIONS_.crm_followup = {
   kind: 'write', needsProject: false, retrySafe: true,

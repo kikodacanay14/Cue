@@ -1,3 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs on main (Sync src to one-live-v318), the live Canvas V318 bridge, 28 Oct 2026. It carries the CRM funnel read,
-rfp_outbox and rfp_sent, and the Cue structure phase 4 change (P0 funnel tabs and Ledger AI Runs on the allow-list, header below a title row, ledger book).
-md5 24f4d7a0e2900deb9f89a0e208766044
+Copied from CanvasWorkspace main src/ZapBridge.gs = live Canvas V319 (28 Oct 2026 11:26Z, CRM funnel rest): crm_funnel stuck rows carry
+the client's email, crm_funnel winback:true adds the win-back list, new read crm_report.
+md5 243e5a25999d985fac4481fa98c985e5
+Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed; ships after the Canvas CRM funnel rest release, CanvasWorkspace PR for branch `claude/project-thread-oq52vc`)
+
+Spec `canvas-crm-funnel.md` F6 (Kiko approved 26 Oct 2026 16:08Z). On 28 Oct the coordinator relayed that Kiko wants the rest of the approved
+spec built now.
+
+- New kind `inquiry` ("Inquiry chasers"): an Inquiry gone quiet past Canvas's limit with a client email on file gets a short follow-up
+  draft. Every 3 days (Canvas's Inquiry limit), no maximum; Kiko can change both on the Chaser rules card.
+- New kind `winback` ("Win-back drafts"): Canvas's win-back clients (no open deal, last event older than the win-back months) with an email
+  on file get a check-in draft. Every 30 days, no maximum.
+- Both are drafts only (sendAllowed false): Approve puts them in Kiko's Gmail Drafts and Kiko sends each one himself. The words come from the
+  morning batch's one shared ChatGPT call, or the template when that fails. All three sales kinds share one `crm_funnel` read
+  (now with `winback: true`).
+- An Inquiry with no email on file stays a plain "Sales: do these today" line, as before.
+- On the morning batch card, a line from a drafts-only kind now says "draft only: you send it from Gmail".
+- Monday sales funnel review: a new Scheduled tasks row (Mon 07:00, on) reads `crm_funnel` and `crm_report` (counts only), makes one
+  ChatGPT call and posts 3 to 5 lines in Cue's chat: where deals leak, which source wins most, what to do this week. Nothing is sent.
+- `test/fixtures/ZapBridge.gs` refreshed from the Canvas branch (crm_funnel email and winback, new read crm_report); `crm_report` joins the
+  check's read list; `test/checks/sales-funnel.check.mjs` checks the draft lines too.
+- Tests: 431 (428 before): SF5 to SF7.
+
 ## Cue email on main: New mail and the client email log (live as Cue 1.27.60, Version 134, 28 Oct 2026)
 
 Port to main of the "Cue email" group that went live on the release line as Cue 1.27.60 (Version 134) with Canvas V317 (`inbox_new`). New mail checks Kiko's BSE inbox and info@ every 5 minutes, Claude Haiku 5.5 sorts at most every 30 minutes from 07:00 to 21:00 Manila, and each email offers Start intake, Draft reply, Open in Gmail, Done, Not an inquiry and Mute sender. Emails also on Canvas Emails waiting are tagged with what Canvas knows. Read-only cloud check: `test/checks/1.27.56-new-mail.check.mjs` (cueNmCheck). The AI usage page lists the sort as "New mail". The client email log was already on main. test/fixtures/ZapBridge.gs is now live Canvas V317's bridge.
