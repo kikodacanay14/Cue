@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.52: structure review phases 1 and 2 on the live line, no visible change (not deployed)
+## Cue 1.27.52: structure review phases 1 and 2 on the live line, no visible change (deployed 28 Oct 2026 05:54Z as Version 112; Kiko 28 Oct 05:53Z)
 
 Kiko approved phase 1 of the Cue structure review on 28 Oct 2026 03:47Z ("yes") and phase 2 at 04:21Z ("okay lets do that");
 spec `specs/cue-structure-review.md`, epic Cue #133. Both were built on main (#131, #132, #152, #158, #159). Main also carries
