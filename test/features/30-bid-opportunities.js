@@ -422,7 +422,7 @@ test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense fil
 test('BD7 PC test 19:23Z: a bid check never shows as an intake: its own name while working, its own stopped card with Try again, which runs it again', () => {
   const page = cuePage();
   const kn = page.match(/function kindName\(r\) \{[^\n]*\n/)[0], fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
-  assert.strictEqual(vm.runInNewContext(kn + 'kindName({ kind: "bids" })', {}), 'Bid check');
+  assert.strictEqual(pageKindName({ kind: 'bids' }), 'Bid check');
   const f = bidBox({ fail: { bids: () => resp(500, {}) } }); const id = f.ctx.cueSend('check bids', [], '').request_id; const w = JSON.parse(JSON.stringify(f.ctx.cueRun(id)));
   assert.strictEqual(w.status, 'Failed'); assert.ok(w.bids, 'the page still gets the bid view');
   const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

@@ -603,3 +603,10 @@ const CHAT_FIELDS = ['canvas_edit', 'choices', 'command', 'command_client', 'ema
 const deq = (a, b, m) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), b, m); // values from the sandbox's realm
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
+// The page's kindName with its kindOf table (STRUCTURE-PHASE-2 item 2.3), run outside the browser; the step lists are stubbed.
+function pageKindName(r) {
+  const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = {}; ['CHANGE', 'READY', 'PIPE', 'ARSTEPS', 'HSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS', 'FUNNEL'].forEach(k => { ctx[k] = []; });
+  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
+  return ctx.kindName(r);
+}
