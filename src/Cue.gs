@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.53';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53)
+const CUE_VERSION_ = 'Cue 1.27.55';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + daily release notes at 8 PM (1.27.55, built as 1.27.35)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -591,6 +591,7 @@ function cueTaskName_(x) {
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
+  if (x.kind === 'relnotes') return (x.rn && x.rn.title) || 'the release notes';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
@@ -685,6 +686,7 @@ function cueResume() {
   try { cueArDue_(); } catch (e) { console.error('cueArDue_: ' + e); }   // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
   try { cueMaTick_(); } catch (e) { console.error('cueMaTick_: ' + e); }   // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
   try { cuePlogFlush_(); } catch (e) { console.error('cuePlogFlush_: ' + e); }   // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
+  try { cueRnDue_(); } catch (e) { console.error('cueRnDue_: ' + e); }   // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM
   cueRows_(cueSheet_('Requests')).forEach(r => {
     if (String(r[2]) !== 'Working') return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -834,6 +836,7 @@ function cueReject(id, why) {
   if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
   if (L && L.s.kind === 'tri') return cueView_(cueTriClose_(id));
+  if (L && L.s.kind === 'relnotes') return cueView_(cueRnSkip_(id));   // Skip today: nothing is posted
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
   if (L && L.s.phased && L.s.kind === 'intake') return cueView_(cuePhReject_(id));   // one tap, no reason (Kiko 14:56Z)
   return cueView_(cueIntakeReject_(id, why));
@@ -935,6 +938,7 @@ function cueState() {
 function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
+    if (s.kind === 'relnotes') { const rl = cueRnSummaryLine_(s); cueChat_('Cue', rl, '>' + s.id); cueChat_('Cue', rl, s.id); return; }
     if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
@@ -1028,6 +1032,7 @@ function cueView_(s) {
       drafts: (ch.drafts || []).map(d => ({ k: d.k, supplier: d.supplier, to: found(d.k).to, subject: found(d.k).subject, date: found(d.k).date,
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
+    rn: s.kind === 'relnotes' ? cueRnView_(s) : null,   // CUE-RELNOTES-2026-10-27
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
     expense: s.kind === 'expense' ? cueExpView_(s) : null,
     cec: s.kind === 'cecost' ? cueCecView_(s) : null,
