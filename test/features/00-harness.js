@@ -184,6 +184,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn a list Kiko pasted/.test(body.system)) { log.claude.push(body); return (o.fail || {}).memory ? o.fail.memory() : claudeOk(o.memory || MEMORY); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You write the daily release notes/.test(body.system)) { log.claude.push(body); return (o.fail || {}).relnotes ? o.fail.relnotes() : claudeOk(o.relnotes || RN_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You write Kiko's Monday status digest/.test(body.system)) { log.claude.push(body); return (o.fail || {}).digest ? o.fail.digest() : claudeOk(o.digest || ST_DIGEST); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
@@ -217,6 +218,10 @@ function sandbox(o = {}) {
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
       if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
+      if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
+        if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        const again = (log.annSeen = log.annSeen || {})[body.args.request_id]; log.annSeen[body.args.request_id] = log.annSeen[body.args.request_id] || 'ANN-00' + (10 + log.annPost.length);
+        return resp(200, { ok: true, status: 'Completed', result: { id: log.annSeen[body.args.request_id], again: !!again, groups: body.args.groups } }); }
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
         pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
@@ -295,6 +300,9 @@ function sandbox(o = {}) {
       if (body.action === 'send_doc_reminder') { log.reminders = log.reminders || []; log.reminders.push(body.args);
         const live = body.args.docs.filter(d => !(log.signed || []).includes(d.id));
         return resp(200, { ok: true, status: 'Completed', result: live.length ? { ok: true, sent: true, existed: false, docs: live.map(d => d.doc + ' ' + d.id) } : { ok: true, sent: false, reason: 'already signed or replaced', docs: [] } }); }
+      // CUE-CRM-FUNNEL-2026-10-28: Canvas's crm_funnel read (Sales funnel; no amounts). Empty unless a test gives o.funnel.
+      if (body.action === 'crm_funnel') { log.funnel = (log.funnel || 0) + 1; if (o.funnelFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.funnel || { today: '2026-10-21', limits: {}, steps: [], stuck: [], due: [] })) }); }
       if (body.action === 'overdue_billings') { log.overdue = (log.overdue || 0) + 1; if (o.overdueFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.overdue || { today: '2026-10-21', min_days_late: 7, more: 0, skipped: [], bis: [] } }); }
       if (body.action === 'send_payment_chasers') { log.paySends = log.paySends || []; log.paySends.push(body.args);
         if (o.payRefuse) return resp(200, { ok: false, status: 'Rejected', error: o.payRefuse });
@@ -514,7 +522,7 @@ function sandbox(o = {}) {
     console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
     ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { after: () => tb, everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },

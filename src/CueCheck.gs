@@ -21,7 +21,7 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules',
-  'cueCrmLogCheck', 'cueJobsCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs)
+  'cueCrmLogCheck', 'cueFunnelCheck', 'cueJobsCheck', 'cueRnCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs); the sales funnel one for the lines the morning batch would list (CueSweepFunnel.gs); the 1.27.57 one for made-up release notes (CueRelnotes.gs)
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
@@ -31,8 +31,8 @@ const CUE_CHECK_NEVER_ = ['cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRela
 const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
 const CUE_CHECK_READS_ = ['search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
-  'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps',
-  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox'];   // generic bridge reads; rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs) (CueEdit.gs); write_rows and allow_list_set name no project, so a check stops them
+  'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel',
+  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); write_rows and allow_list_set name no project, so a check stops them
 
 const cueCheckTag_ = () => String(CUE_CHECK_FP_).slice(0, 12);
 const cueCheckOn_ = () => !!globalThis.CUE_CHECK_ON_;

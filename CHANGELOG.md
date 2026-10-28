@@ -6,14 +6,63 @@ Kiko 28 Oct 2026 07:35Z ("i want it to send it when i click send") and 07:45Z, o
 PR #230 (CanvasWorkspace branch `claude/project-thread-03c4fn-direct`), which adds the RFP Outbox and the bridge actions
 `rfp_outbox` (read) and `rfp_sent` (queue). The two ship together as one feature group.
 
-- New job "RFPs from your Gmail" (`CueRfpSend.gs`) in the 5-minute resume. It reads the RFPs and RFP follow-ups Kiko pressed
+- New job "RFPs from your Gmail" (`CueRfpSend.gs`), on its own 1-minute trigger `cueRfpKick` (Kiko 08:33Z: "i need the rfp
+  sending faster"), so Cue now has two triggers. It reads the RFPs and RFP follow-ups Kiko pressed
   Send on in Canvas and sends each from Kiko's Gmail with the supplier contacts in To and AccountsPayables@ plus the RFP's CC in
   CC. A follow-up goes as a reply in the RFP's own Gmail thread.
 - Canvas is told each result: Sent with Kiko's Gmail thread and message, or Failed with the reason (the scope card then shows
-  Not sent). An email is sent once; if Canvas does not answer the report, the next tick reports again without sending again.
+  Not sent). An email is sent once; if Canvas does not answer the report, the next minute reports again without sending again.
+- Settings > Scheduled tasks lists it as "RFPs from your Gmail" (Every minute). Run now sends at once; switching it off stops
+  the minutes. Two runs never overlap. A minute writes a Job Runs row only when it sent, failed or could not report.
 - A cloud check only reads the outbox and returns what it would send.
 - Staff RFPs are unchanged: they open in the staff member's own Gmail.
-- `test/fixtures/ZapBridge.gs` refreshed from the PR #230 bridge. No AI call. Tests: 403 on main (398 before): RS1 to RS5.
+- `test/fixtures/ZapBridge.gs`: the CRM funnel bridge (Canvas PR #232) plus the two RFP actions (PR #230). No AI call. Tests: 415 (RS1 to RS6).
+## Cue page opens again: page parts read raw (bug fix on main; ships from the live line as Cue 1.27.54.1, branch claude/project-thread-o4roiy-rel12754fix)
+
+Kiko's screenshot, 28 Oct 2026 08:07Z: the Cue panel in Canvas showed "Exception: Malformed HTML content" and Cue's script as text.
+Since the page split (structure phase 2, live in 1.27.52) `cueInclude_` read each part with `createHtmlOutputFromFile`, whose HTML
+parser rejects the script-only parts. Parts are now read with `createTemplateFromFile(name).getRawContent()`; the joined page is
+still parsed once when Index is evaluated. Test PG3 now throws Apps Script's error from `createHtmlOutputFromFile` and fails
+without the fix.
+
+## Cue daily release notes at 8 PM (not deployed; ships from the live line as 1.27.57, branch claude/project-thread-p1no8l-rel12757)
+
+Kiko 27 Oct 2026 02:12Z: "Everyday at 8PM i would like release an announcement. This includes bug fixes and functions deploy in
+Canvas and Cue." At 02:17Z he chose staff only, with his approval each day, and at 02:34Z he approved the spec
+(`daily-release-notes.md`). Built 27 Oct as 1.27.35 (Cue PR #108) and restacked on the live line (1.27.53, ed62d61) on 28 Oct
+after Kiko's 07:39Z "stop dillydallying". It ships as 1.27.57 because 1.27.54 is held by structure phase 3, and 1.27.55 and 1.27.56 by other threads.
+
+- A new Scheduled tasks row, "Daily release notes", runs at 19:45 Manila. It reads the "Release Log" tab of the Cue sheet. The
+  "Cue and Canvas deploys" thread adds one row there for each release it ships: went live, app, release and what it changes.
+  The job keeps the releases, Canvas and Cue, that went live in the 24 hours before 19:45 and were never announced. If a run is
+  missed until the next morning, it covers the day it missed. If the tab is missing, Cue makes it, and the run says "Nothing went live".
+- When nothing went live, there is no thread, no AI call and no post.
+- Otherwise one Claude call turns the entries into plain New and Fixed lines. If the call fails, the card shows the entries
+  themselves to edit. The card shows the title and text to edit and an "Ask people to confirm they read it" tick. It has
+  Post at 8 PM (Post now after 8 PM) and Skip today.
+- Canvas posts the notes once, at 8:00 PM or at Kiko's tap if that is later, through the bridge write `ann_post` (live since
+  Canvas V283): to Business Lead, Manager and Specialist only, from Kiko, not emailed. The request id `relnotes:<day>` means a
+  retry never posts twice. A new Cue sheet tab, "Release Notes", lists every entry posted or skipped, so no entry is listed twice.
+- No new access and nothing for Kiko to set up (no GitHub token: Kiko 27 Oct 09:21Z, no tasks for him).
+- Cloud check `test/checks/1.27.57-release-notes.check.mjs` runs the card on two made-up releases through `cueRnCheck` (check
+  mode only). It edits the text, taps Post at 8 PM, and then taps Skip today. A check's notes never post: check mode refuses `ann_post`, and
+  the 8 PM tick skips a check's tasks. The dry run passes.
+- On main the 8 PM tick is the job "Release notes at 8 PM" in `CueJobs.gs`. Tests: new `test/features/54-release-notes.js` (RN1 to RN7); SC4, CMD2 and the feature map are updated. 409 tests.
+## Cue sales funnel: "Sales: do these today" lines in the morning batch (not deployed; ships with the Canvas CRM funnel release, CanvasWorkspace PR #232)
+
+Kiko approved the CRM funnel spec (`canvas-crm-funnel.md`) on 26 Oct 2026 16:08Z and split the work (Canvas Integration: the Canvas
+funnel; Cue: F5 email log, F6 to-do list). On 28 Oct 07:39Z ("stop dillydallying") the coordinator asked this thread to build what was
+still missing on both sides. This is F6.
+
+- New kind `funnel` in the morning batch, labelled "Sales: do these today". One Canvas read, `crm_funnel`, per batch.
+- It lists CRM follow-ups due today or tomorrow (overdue ones are urgent), Inquiries that went quiet longer than Canvas's limit
+  ("reply or send the CE"), and Delivered projects that went quiet longer than the limit ("send the billing"). Limits come from
+  Canvas (System Config numbers crmStuckInquiry 3, crmStuckDelivered 30 days).
+- CE sent projects are left out, because the CE award chasers already chase them.
+- No email and no AI call. Skip today and Stop chasing work through the Chase log as for the other lines.
+- `test/fixtures/ZapBridge.gs` is refreshed from the Canvas CRM funnel branch (adds `crm_funnel`); `crm_funnel` joins the check's
+  read list, and `cueFunnelCheck` with `test/checks/sales-funnel.check.mjs` is the read-only cloud check.
+- Tests: 402 on main (398 before): SF1 to SF4.
 
 ## Cue 1.27.55: phase 1 Approve also registers the client in Client Desk; the card says New or Existing client first (not deployed; ships from the live line as 1.27.55, branch `claude/project-thread-nfqkha-rel12755`)
 

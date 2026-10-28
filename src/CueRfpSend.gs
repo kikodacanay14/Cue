@@ -1,9 +1,10 @@
 /**
  * CUE-RFP-SEND-2026-10-28 (Kiko 28 Oct 2026 07:35Z "i want it to send it when i click send", 07:45Z "from me"): the RFPs and RFP
- * follow-ups Kiko presses Send on in Canvas go out from Kiko's own Gmail, sent by his Cue.
+ * follow-ups Kiko presses Send on in Canvas go out from Kiko's own Gmail, sent by his Cue. Kiko 08:33Z: "i need the rfp sending
+ * faster", so it runs from its own 1-minute trigger (cueRfpKick), not the 5-minute resume.
  *
  * Canvas runs as info@ and cannot send as Kiko. So Kiko's Send click in Canvas (Scope Details > Send RFP, or Team Cue > Email >
- * RFP follow-ups > Send follow-up) puts one item per supplier in Canvas's RFP Outbox and logs the RFP as Queued. Every 5 minutes
+ * RFP follow-ups > Send follow-up) puts one item per supplier in Canvas's RFP Outbox and logs the RFP as Queued. Every minute
  * this job reads the outbox (bridge `rfp_outbox`, read), sends each item from Kiko's Gmail (a draft, then drafts.send, so the
  * gmail.compose scope Cue already has covers it), and reports it (bridge `rfp_sent`, queue). Canvas then marks the RFP Log row
  * Sent with Kiko's Gmail thread, or Not sent. A follow-up goes as a reply in the RFP's own thread.
@@ -12,9 +13,35 @@
  * without sending again. Staff RFPs never come here: Canvas opens a compose window in their own Gmail (Kiko 27 Oct 11:22Z).
  * A cloud check only reads the outbox and returns what this tick would send.
  */
-const CUE_RFPS_ = { max: 10 };   // one tick sends at most 10 emails, well inside the 6-minute run
+const CUE_RFPS_ = { max: 10, lease: 5 * 60e3 };   // one run sends at most 10 emails; a run holds the sender for up to 5 minutes
 
-/** From cueResume. Returns { sent, failed, reported, note }. */
+/** The 1-minute trigger. Skipped while Kiko has the "RFPs from your Gmail" row off in Settings > Scheduled tasks. Writes a Job
+ * Runs row only when the run sent, failed or could not report, so quiet minutes (and the minutes before Canvas has the outbox)
+ * leave no rows. */
+function cueRfpKick() {
+  if (globalThis.CUE_CHECK_ON_) return null;   // a cloud check calls cueRfpSendTick_ itself
+  try { if (cueSchedRead_(cueSchedSheet_()).some(x => x.id === 'sys-rfps' && !x.on)) return null; } catch (e) { console.error('RFP row: ' + e); }
+  const o = cueRfpRun_();
+  if (o.row && (o.row[3] === 'Failed' || o.sent || o.failed || (o.note && !/^Could not read/.test(o.note)))) cueJobLog_([o.row]);
+  return o;
+}
+
+/** One run, unless another run still holds the sender (so two runs never send the same email). Used by the trigger and by
+ * Run now. Returns the run's { sent, failed, reported, note } plus its Job Runs row, or { busy: true }. */
+function cueRfpRun_() {
+  const P = PropertiesService.getScriptProperties(), l = LockService.getScriptLock(), now = cueNow_();
+  if (!l.tryLock(10000)) return { busy: true };
+  try { if (Number(P.getProperty('CUE_RFPS_RUN') || 0) > now) return { busy: true }; P.setProperty('CUE_RFPS_RUN', String(now + CUE_RFPS_.lease)); }
+  finally { l.releaseLock(); }
+  const started = new Date(now).toISOString();
+  let out = {}, err = '';
+  try { out = cueRfpSendTick_() || {}; }
+  catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error('RFPs from your Gmail: ' + e); }
+  finally { P.deleteProperty('CUE_RFPS_RUN'); }
+  return Object.assign({}, out, { row: [started, new Date(cueNow_()).toISOString(), 'RFPs from your Gmail', err ? 'Failed' : 'OK', err, out.sent || 0] });
+}
+
+/** One run. Returns { sent, failed, reported, note }. */
 function cueRfpSendTick_() {
   const s = { id: 'rfpsend-' + cuePh_(cueNow_()).day };
   let box;
@@ -36,7 +63,7 @@ function cueRfpSendTick_() {
     if (done.message_id) args.message_id = done.message_id;
     if (done.note) args.note = done.note;
     try { cueBridge_(s, 'rfp_sent', args); P.deleteProperty(mark); out.reported++; }
-    catch (e) { out.note = 'Could not tell Canvas yet (tries again in 5 minutes): ' + String((e && e.message) || e).slice(0, 200); }
+    catch (e) { out.note = 'Could not tell Canvas yet (tries again in a minute): ' + String((e && e.message) || e).slice(0, 200); }
   });
   return out;
 }

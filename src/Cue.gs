@@ -41,7 +41,10 @@ function doGet(e) {
 /** STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z): the page is split into parts (IndexStyle, IndexChat, IndexViewer, IndexThreads,
  * IndexPages, IndexCards). Index.html puts each part in its place with <?!= cueInclude_('Name') ?>. A part's last newline is dropped,
  * since the include line in Index.html ends with its own. test/page.js joins the page the same way for the tests and the cloud check. */
-function cueInclude_(name) { return HtmlService.createHtmlOutputFromFile(name).getContent().replace(/\n$/, ''); }
+// HOTFIX 28 Oct 2026 (Kiko's screenshot 08:07Z, "Exception: Malformed HTML content"): a part is read raw. createHtmlOutputFromFile
+// runs the HTML parser on each part, and a script-only part (IndexChat and the others, no <script> tag of their own) fails it, so
+// the page never opened. The joined page is still checked once, when Index is evaluated, as it was before the split.
+function cueInclude_(name) { return HtmlService.createTemplateFromFile(name).getRawContent().replace(/\n$/, ''); }
 
 /* Favicon (Kiko 05:42Z: the window still showed the Apps Script icon). The Cue chat bubble (Kiko 28 Oct 04:29Z; was the colour-wheel orb), 48 px, saved once to Kiko's Drive
  * (drive.file, private to Kiko; Kiko's browser loads it signed in). Apps Script wants a .png-looking address, hence &format=png.
@@ -91,13 +94,14 @@ function cueSetup() {
   return msg;
 }
 
-/** The 5-minute resume trigger, Cue's only trigger. Also checked when Cue opens, so a deploy needs no extra step.
+/** The 5-minute resume trigger, and the 1-minute RFP sender (cueRfpKick). Also checked when Cue opens, so a deploy needs no extra step.
  * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday HubSpot check had their own
  * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
-const CUE_TRIGGERS_NOW_ = '5';
+const CUE_TRIGGERS_NOW_ = '6';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster")
 function cueTriggers_() {
   ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueRfpKick')) ScriptApp.newTrigger('cueRfpKick').timeBased().everyMinutes(1).create();
   PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', CUE_TRIGGERS_NOW_);
 }
 
@@ -587,6 +591,7 @@ function cueTaskName_(x) {
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
   if (x.kind === 'status') return (x.st && x.st.title) || 'the status report';
+  if (x.kind === 'relnotes') return (x.rn && x.rn.title) || 'the release notes';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
   if (x.kind === 'vendor') return x.vendor ? 'the supplier search for ' + cueVendorAsk_(x.vendor) : 'the supplier search';
@@ -797,6 +802,7 @@ function cueReject(id, why) {
   if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
   if (L && L.s.kind === 'status') return cueView_(cueStClose_(id));
+  if (L && L.s.kind === 'relnotes') return cueView_(cueRnSkip_(id));   // Skip today: nothing is posted
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
   if (L && L.s.phased && L.s.kind === 'intake') return cueView_(cuePhReject_(id));   // one tap, no reason (Kiko 14:56Z)
   return cueView_(cueIntakeReject_(id, why));
@@ -895,6 +901,7 @@ function cueState() {
 function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
+    if (s.kind === 'relnotes') { const rl = cueRnSummaryLine_(s); cueChat_('Cue', rl, '>' + s.id); cueChat_('Cue', rl, s.id); return; }
     if (s.kind === 'status') { const sl = cueStSummaryLine_(s); cueChat_('Cue', sl, '>' + s.id); cueChat_('Cue', sl, s.id); return; }
     if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
@@ -986,6 +993,7 @@ function cueView_(s) {
         body: d.body, selected: d.selected, made: !!d.draft_id, sent: !!d.sent_id, sent_at: d.sent_at || '', thread_url: /^[0-9a-f]{8,24}$/.test(String(found(d.k).thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + found(d.k).thread_id : '', error: d.error || '' })), send: !!s.send }, text: String(s.text || '').slice(0, 6000), files: (s.files || []).map(f => ({ id: f.id, name: f.name, size: f.size })), error: s.error || '',
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     st: s.kind === 'status' ? cueStView_(s) : null,
+    rn: s.kind === 'relnotes' ? cueRnView_(s) : null,   // CUE-RELNOTES-2026-10-27
     relay: s.kind === 'relay' ? cueRelayView_(s) : null,
     help: s.kind === 'help' ? cueHelpView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26

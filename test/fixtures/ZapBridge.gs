@@ -1898,8 +1898,20 @@ ZB_ACTIONS_.crm_log = {
     contact: { type: 'string', max: 120 }, email: { type: 'string', max: 200 }, summary: { type: 'string', required: true, nonBlank: true, max: 1000 },
     date: ZB_CRM_DAY_, follow_up_date: ZB_CRM_DAY_, follow_up: { type: 'string', max: 500 } },
   run: (r) => crmDoor_(() => crmLog_({ kind: r.args.kind, company: r.args.company, contact: r.args.contact, email: r.args.email, summary: r.args.summary,
-    when: r.args.date, follow: r.args.follow_up_date ? { due: r.args.follow_up_date, what: r.args.follow_up || r.args.summary } : null }, crmDoorBy_(), 'gpt:' + r.args.request_id)),
+    when: r.args.date, follow: r.args.follow_up_date ? { due: r.args.follow_up_date, what: r.args.follow_up || r.args.summary } : null }, crmDoorByRid_(r.args.request_id), 'gpt:' + r.args.request_id)),
   check: zbCrmCheck_
+};
+/* CRM-FUNNEL-2026-10-28: Cue's "Do these today" and weekly funnel review. Step counts, stuck rows and follow-ups due by
+ * tomorrow. Never amounts, CE numbers or lost reasons (Cue shows these to Kiko only through Canvas). Read only, quiet. */
+ZB_ACTIONS_.crm_funnel = {
+  kind: 'read', needsProject: false,
+  schema: { fresh: { type: 'boolean' } },
+  run: (r) => {
+    const f = crmFunnelCached_(!!r.args.fresh);
+    return { today: f.today, limits: f.limits, steps: f.steps.map(s => ({ step: s.step, count: s.count, stuck: s.stuck, limit: s.limit, median_days: s.median_days })),
+      stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit })),
+      due: f.due.slice(0, 40) };
+  }
 };
 ZB_ACTIONS_.crm_followup = {
   kind: 'write', needsProject: false, retrySafe: true,

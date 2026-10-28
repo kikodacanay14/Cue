@@ -14,10 +14,10 @@ function sweepBox(o = {}, kind) {
 const chase = t => (t.tabs['Chase log'] ? t.tabs['Chase log'].rows.slice(1) : []);
 const batchOf = t => t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0];
 
-test('S1 Cue has one trigger, the 5-minute resume, installed by setup and when Cue opens (the 07:00 sweep is a Schedule row since the scheduler)', () => {
+test('S1 Cue has two triggers, the 5-minute resume and the 1-minute RFP sender (28 Oct), installed by setup and when Cue opens (the 07:00 sweep is a Schedule row since the scheduler)', () => {
   const t = sandbox(); t.ctx.cueState();
-  deq(t.log.triggers.slice(), ['cueResume']);
-  t.ctx.cueSetup(); deq(t.log.triggers.slice(), ['cueResume'], 'not installed twice, and setup adds no Monday HubSpot trigger');
+  deq(t.log.triggers.slice(), ['cueResume', 'cueRfpKick']);
+  t.ctx.cueSetup(); deq(t.log.triggers.slice(), ['cueResume', 'cueRfpKick'], 'not installed twice, and setup adds no Monday HubSpot trigger');
 });
 test('S2 nothing to chase: no card, one chat line, no AI call, no Canvas read when no kind asks', () => {
   const t = sweepBox({}, null); t.ctx.cueSweep();
