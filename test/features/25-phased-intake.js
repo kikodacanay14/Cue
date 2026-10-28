@@ -12,6 +12,31 @@ test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Appr
   deq([v.ph.phase, v.status, v.canvas.project_id, v.canvas.project_number], [2, 'Needs you', 'S-99900001ZZ', '052']);
   assert.ok(/Added to Canvas as project 052/.test(JSON.stringify(t.tabs.Chat.rows)));
 });
+test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client is new there; Approve registers it; Cancel says what it removed; a Canvas without the check shows no line', () => {
+  const t = phStart();
+  assert.strictEqual(t.log.deskCheck.length, 1, 'one read-only check before the card');
+  const d = t.v.ph.desk; assert.ok(d && d.client === 'new' && d.contacts_new >= 1, JSON.stringify(d));
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8');
+  assert.ok(/Client Desk', P\.desk\.client === 'new' \? '<span class="tag pref">New client<\/span> ' \+ esc\(P\.desk\.company\)/.test(page), 'the card row escapes the company');
+  t.ctx.cueApprove(t.id, {});
+  assert.ok(t.log.phProject[0].project.client.industry === undefined, 'not a bid notice: no industry');
+  const said = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Added to Canvas/.test(x))[0];
+  assert.ok(/Client Desk: .+ added as a new client with \d+ contacts?\./.test(said), said);
+  const c = t.ctx.cuePhCancel_(t.id);
+  assert.ok(c.stage === 'Cancelled');
+  const u = phStart({ deskUnknown: true }); assert.strictEqual(u.v.ph.desk, null, 'before the Canvas update: no Client Desk line, intake still runs');
+  assert.strictEqual(u.v.ph.phase, 1);
+  // Canvas 247 with its switch CLIENT_DESK off (the default): no line, and Approve sends what V246 takes.
+  const f = phStart({ deskOff: true }); assert.strictEqual(f.v.ph.desk, null); f.ctx.cueApprove(f.id, {});
+  assert.ok(f.log.phProject[0].project.client.industry === undefined && !f.tabs.Chat.rows.some(r => /Client Desk:/.test(r[2])), 'switch off: nothing about Client Desk');
+  const e = phStart({ desk: { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }, deskOut: { client: 'existing', company: 'ACME Corp.', contacts_added: [] } });
+  deq(e.v.ph.desk, { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }); e.ctx.cueApprove(e.id, {});
+  assert.ok(e.tabs.Chat.rows.some(r => /Client Desk: ACME Corp\. was already there; no new contacts\./.test(r[2])));
+  // A bid notice on a .gov.ph site registers the agency with Industry Government.
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'New project intake from a bid notice (Kiko asked: "x").\nAgency: TPB\nNotice: https://www.tpb.gov.ph/itb/1' }), 'Government');
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'New project intake from a bid notice (Kiko asked: "x").\nAgency: ADB\nNotice: https://www.adb.org/x' }), '');
+  assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'Hi, Notice: https://x.gov.ph' }), '');
+});
 test('PH2 phase 2: Claude\'s rows are short (item at most 6 words, spec at most 12); Rescan reads again with Kiko\'s note and writes nothing', () => {
   const t = phStart(); const v = t.ctx.cueApprove(t.id, {});
   const r = v.ph.rows[0];
