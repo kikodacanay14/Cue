@@ -1,5 +1,29 @@
 # Changelog
 
+## Cue 1.27.52: structure review phases 1 and 2 on the live line, no visible change (not deployed)
+
+Kiko approved phase 1 of the Cue structure review on 28 Oct 2026 03:47Z ("yes") and phase 2 at 04:21Z ("okay lets do that");
+spec `specs/cue-structure-review.md`, epic Cue #133. Both were built on main (#131, #132, #152, #158, #159). Main also carries
+features that never went live, so the deploys thread asked for the same structure rebuilt on the live code (rel12747, live
+1.27.47 = Version 103). This release is that rebuild, on top of live 1.27.51 (b907e8e, Version 108). Nothing Kiko sees or does changes; no bridge, email, sheet or AI change.
+
+- Shared helpers: the Gmail, text and date helpers move unchanged into `CueGmail.gs`, `CueText.gs` and `CueDates.gs`.
+- Tests by feature: `test/cue.test.js` loads `test/features/NN-*.js` in order, cut the same way as main.
+- Command list (`src/CueCommands.gs`): every task kind with its run, Approve and "stopped" line, and the ordered word checks and
+  chat-call starts that `cueSendWith_` goes down. Fitted to the live kinds (funnel and tri; no status, help or relay) and the
+  live checks (add task|issue|risk, the "add project" intake, the funnel). Test CMD1 replays the order the old chain called
+  its checks in, recorded from the live code, for twelve kinds of message.
+- Page in parts: `src/Index.html` keeps the markup and puts six parts in place (IndexStyle, IndexChat, IndexViewer,
+  IndexThreads, IndexPages, IndexCards); `doGet` serves it as a template (`cueInclude_`). The Today frame is unchanged.
+  Joined, the page is the live 3,156-line file plus one blank line. `test/page.js` joins it for the tests and the cloud check.
+- Card families: the page's `kindOf` table gives each kind its name, family (Approve, Draft and send, Info, Question), work
+  steps and finished-card test, in place of three hand-written chains. Chromium rendered every kind in five states before and
+  after: 184 captures identical.
+- `FEATURE-MAP.md`, written by `node tools/map.mjs`; tests FM1 and FM2 fail when it is out of date.
+- Risk to check: the page has not yet been served as a template on real Apps Script. The cloud check should confirm the page
+  loads and the threads pane renders.
+- Tests: 403 (392 before, plus CMD1 to CMD4, PG1 to PG3, CF1, CF2, FM1, FM2). The cloud check dry run passes. Built first as 1.27.49 on 1.27.47,
+  where Check Cue run 40635150415 (1.27.41-canvas-edit) passed: the template page loads on real Apps Script.
 ## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (not deployed; Kiko 28 Oct 04:43Z)
 
 Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
