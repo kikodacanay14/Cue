@@ -206,6 +206,8 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
       if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
+      // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting), with the bridge's shape.
+      if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; if (o.waitingFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
       if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
         if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });

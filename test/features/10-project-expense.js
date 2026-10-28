@@ -36,11 +36,12 @@ test('X4 approve needs every doubt ticked and the same files; then Canvas record
 test('X4b 1.27.7 backfill: an expense approved before the fix (stuck at Writing to Canvas, summary posted) is marked Done on the tick; no Canvas call', () => {
   const t = expenseCard(); t.ctx.cueApprove(t.id, { cleared: [0], files: [JPG] });
   const L = t.ctx.cueLoad_(t.id); L.s.status = 'Writing to Canvas'; L.s.stage = 'Writing to Canvas'; t.ctx.cueSave_(L.sh, L.row, L.s);   // as the old code left it
-  const calls = t.log.bridge.length;
+  const own = () => t.log.bridge.filter(b => b.action !== 'mail_waiting' && b.action !== 'crm_log');   // the hourly email log reads on its own (CL1)
+  const calls = own().length;
   t.ctx.cueFixStuckWrites_(); assert.strictEqual(t.state(t.id).status, 'Writing to Canvas', 'not within 10 minutes of Approve');
   t.ctx.__wait(11 * 60 * 1000); t.ctx.cueResume();
   const s = t.state(t.id); deq([s.status, s.stage], ['Done', 'Done']); assert.ok(s.notes.some(n => /from its summary line/.test(n)));
-  assert.strictEqual(t.log.bridge.length, calls, 'no Canvas call');
+  assert.strictEqual(own().length, calls, 'no Canvas call');
   const u = expenseCard(); const M = u.ctx.cueLoad_(u.id); M.s.status = 'Writing to Canvas'; M.s.approved_at = new Date(0).toISOString(); u.ctx.cueSave_(M.sh, M.row, M.s);
   u.ctx.cueFixStuckWrites_(); assert.strictEqual(u.state(u.id).status, 'Writing to Canvas', 'no summary line: left alone');
 });
