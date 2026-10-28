@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue sales funnel: "Sales: do these today" lines in the morning batch (not deployed; ships with the Canvas CRM funnel release, CanvasWorkspace PR #232)
+
+Kiko approved the CRM funnel spec (`canvas-crm-funnel.md`) on 26 Oct 2026 16:08Z and split the work (Canvas Integration: the Canvas
+funnel; Cue: F5 email log, F6 to-do list). On 28 Oct 07:39Z ("stop dillydallying") the coordinator asked this thread to build what was
+still missing on both sides. This is F6.
+
+- New kind `funnel` in the morning batch, labelled "Sales: do these today". One Canvas read, `crm_funnel`, per batch.
+- It lists CRM follow-ups due today or tomorrow (overdue ones are urgent), Inquiries that went quiet longer than Canvas's limit
+  ("reply or send the CE"), and Delivered projects that went quiet longer than the limit ("send the billing"). Limits come from
+  Canvas (System Config numbers crmStuckInquiry 3, crmStuckDelivered 30 days).
+- CE sent projects are left out, because the CE award chasers already chase them.
+- No email and no AI call. Skip today and Stop chasing work through the Chase log as for the other lines.
+- `test/fixtures/ZapBridge.gs` is refreshed from the Canvas CRM funnel branch (adds `crm_funnel`); `crm_funnel` joins the check's
+  read list, and `cueFunnelCheck` with `test/checks/sales-funnel.check.mjs` is the read-only cloud check.
+- Tests: 402 on main (398 before): SF1 to SF4.
+
 ## Cue 1.27.55: phase 1 Approve also registers the client in Client Desk; the card says New or Existing client first (not deployed; ships from the live line as 1.27.55, branch `claude/project-thread-nfqkha-rel12755`)
 
 Kiko 24 Oct 2026 13:36Z ("Register the new client as well"); spec `specs/bid-contacts-reminder.md` part B (Kiko "Go" 13:54Z). First

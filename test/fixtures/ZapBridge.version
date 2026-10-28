@@ -1,4 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs as shipped in live Canvas V310 (28 Oct 2026 05:08Z):
-contact history (contact_gaps lists held cells; contact_fill skips cells with history) on top of V307.
-md5 7d86216f57ad34d0b74d212e322af7d9
+Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc (PR #232), the CRM funnel release built on live Canvas V314
+(28 Oct 2026): adds the read crm_funnel and labels Cue's crm_log rows "Cue". Not live until that release ships.
+md5 68055090959bb763bcdbfd8a4af9d5f6
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
