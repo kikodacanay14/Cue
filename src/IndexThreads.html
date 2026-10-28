@@ -1,0 +1,662 @@
+  function renderPaneTabs(th) {
+    var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
+    var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
+    if (!it) {
+      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
+      h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
+        + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
+        + ib('data-p="rules"', 'more', 'Settings') + x;
+    } else {
+      var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
+      var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
+      h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      h += (last && !busy && !CLOSED[last.status] ? ib('data-act="close-task" data-id="' + esc(last.id) + '"', 'check', 'Close this task') : '')
+        + (t && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
+      h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
+    }
+    setHtml($('ptabs'), h);
+  }
+  // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
+  var tq = '', tshut = {}, tmore = false;
+  $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
+  $('tlist').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-thread')) return goThread(b.getAttribute('data-thread'));
+    if (b.hasAttribute('data-tgroup')) { var g = b.getAttribute('data-tgroup'); tshut[g] = !tshut[g]; return renderChat(); }
+    if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
+  });
+  function renderThreadList(th) {
+    var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
+    Object.keys(th).forEach(function (k) {
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
+      var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
+      var lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
+      if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
+      var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
+      var failed = lastReq.status === 'Failed';
+      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length,
+        flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
+        line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
+    });
+    // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
+    var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
+      + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
+      + (x.n ? '<span class="chip" title="' + x.n + ' message' + (x.n === 1 ? '' : 's') + '">' + icon('reply') + x.n + '</span>' : '')
+      + '<span class="tm">' + esc(ago(x.when).replace(' ago', '').replace('just now', 'now')) + '</span></button>'; };
+    var h = '', n = waiting;
+    if (!showArchived) h += '<h2 class="welcome">Welcome back, Kiko.</h2><p>' + (n ? n + ' thread' + (n === 1 ? ' is' : 's are') + ' waiting on you.' : 'Nothing is waiting on you.') + '</p>';
+    else h += '<h2 class="welcome">Archived</h2><p>Closed threads you archived. The filter button brings back the rest.</p>';
+    [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
+      var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
+      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';
+      if (tshut[g[0]]) return;
+      var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
+      h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
+    });
+    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
+      + (showArchived ? '<button class="tmore" data-act="show-archived" data-id="">Back to recent</button>' : ''));
+    bind();
+  }
+  $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
+
+  // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
+  var pending = [], reading = 0, MAX = { count: 30, each: 10 * 1048576, total: 30 * 1048576 };   // 1.27.5: was 10 files, 20 MB
+  var TYPES = { 'image/png': 1, 'image/jpeg': 1, 'image/webp': 1, 'image/gif': 1, 'application/pdf': 1, 'text/plain': 1, 'text/csv': 1, 'message/rfc822': 1 };
+  var BY_EXT = { eml: 'message/rfc822', txt: 'text/plain', csv: 'text/csv', pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
+  function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  var fileHost = 'files';   // the chat's composer or the thread's (tfiles); attachments go with the box they were added to
+  function hostFiles(h) { if (h !== fileHost) { $(fileHost).innerHTML = ''; fileHost = h; renderFiles(); } }
+  function renderFiles() {
+    $(fileHost).innerHTML = pending.map(function (f, i) {
+      return '<span class="file">📎 ' + esc(f.name) + ' <span class="muted">' + kb(f.size) + '</span><button data-rm="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button></span>';
+    }).join('') + (reading ? '<span class="file muted">Reading…</span>' : '');
+    renderBatch();
+  }
+  $('files').onclick = $('tfiles').onclick = function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-rm'); if (i != null) { pending.splice(Number(i), 1); renderFiles(); } };
+  function shrink(file, done) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size < 512000) return done(file);
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function () {
+      var k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function (b) { done(b && b.size < file.size ? new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file); }, 'image/jpeg', 0.82);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); done(file); };
+    img.src = url;
+  }
+  function addFiles(list) {
+    Array.prototype.forEach.call(list || [], function (file) {
+      var ext = String(file.name || '').split('.').pop().toLowerCase(), type = TYPES[file.type] ? file.type : BY_EXT[ext];
+      if (!type) return addLocal('Cue', file.name + ': I can read photos (JPG, PNG, WebP, GIF), PDFs and text files. Save it as a PDF or JPG first.');
+      if (pending.length + reading >= MAX.count) return addLocal('Cue', 'Attach ' + MAX.count + ' files at most.');
+      reading++; renderFiles();
+      shrink(file, function (f) {
+        var r = new FileReader();
+        r.onload = function () {
+          reading--;
+          var used = pending.reduce(function (s, x) { return s + x.size; }, 0);
+          if (f.size > MAX.each) addLocal('Cue', f.name + ' is over 10 MB.');
+          else if (used + f.size > MAX.total) addLocal('Cue', 'The attachments would add up to more than ' + MAX.total / 1048576 + ' MB.');
+          else pending.push({ name: f.name || 'pasted image.png', type: TYPES[f.type] ? f.type : type, size: f.size, data: String(r.result).split(',')[1] || '' });
+          renderFiles();
+        };
+        r.onerror = function () { reading--; addLocal('Cue', 'Could not read ' + f.name + '.'); renderFiles(); };
+        r.readAsDataURL(f);
+      });
+    });
+  }
+  $('attach').onclick = function () { hostFiles('files'); $('picker').click(); };
+  $('tattach').onclick = function () { hostFiles('tfiles'); $('picker').click(); };
+  $('picker').onchange = function () { addFiles($('picker').files); $('picker').value = ''; };
+  [['box', 'composer', 'files'], ['tbox', 'tcomposer', 'tfiles']].forEach(function (k) {
+    $(k[0]).addEventListener('paste', function (e) {
+      var fs = Array.prototype.filter.call((e.clipboardData && e.clipboardData.files) || [], function (f) { return /^image\//.test(f.type); });
+      if (fs.length) { e.preventDefault(); hostFiles(k[2]); addFiles(fs); }
+    });
+    ['dragenter', 'dragover'].forEach(function (n) { $(k[1]).addEventListener(n, function (e) { e.preventDefault(); $(k[1]).classList.add('drop'); }); });
+    ['dragleave', 'drop'].forEach(function (n) { $(k[1]).addEventListener(n, function (e) { e.preventDefault(); $(k[1]).classList.remove('drop'); }); });
+    $(k[1]).addEventListener('drop', function (e) { hostFiles(k[2]); addFiles(e.dataTransfer && e.dataTransfer.files); });
+  });
+
+  // Snapshots (spec screen-snapshot.md, Kiko 08:17Z): the Cue bubble 1.2 captures the Chrome tab Kiko was on and drops it here.
+  // 📷 shows only when the bubble answers (snap an area: right-click "Cue: snap an area"; the chip row went in 1.26.7, Kiko 22 Oct 05:25Z). A snapshot or "Send to Cue" text only fills the box; Enter sends.
+  window.addEventListener('message', function (e) {
+    if (e.source !== window || !e.data) return;
+    if (e.data.cueBubble) { bubble = true; $('snap').hidden = false; }
+    var d = e.data.cueDrop; if (!d) return;
+    if (d.error) return hint(String(d.error));   // Kiko 15:43Z: a snap note is not a chat message
+    var from = (d.title || d.url) ? String(d.title || 'a page') + (d.url ? ' (' + String(d.url) + ')' : '') : '';
+    if (d.file && d.file.data) {
+      var bin = atob(String(d.file.data)), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      addFiles([new File([bytes], String(d.file.name || 'Cue snapshot.jpg'), { type: String(d.file.type || 'image/jpeg') })]);
+      fillBox(from ? 'Snapshot of ' + from + '.' : '');
+    } else if (d.text) fillBox((from ? 'From ' + from + ':' : 'Selected text:') + '\n' + String(d.text));
+    window.focus(); hostFiles('files'); $('box').focus();
+  });
+  function fillBox(line) {
+    var b = $('box'), v = b.value.trim();
+    if (line && v.indexOf(line) >= 0) line = '';                  // a second snap of the same page adds no second line
+    b.value = v ? v + (line ? '\n' + line : '') : 'New project intake.' + (line ? '\n' + line : '');
+  }
+  $('snap').onclick = function () { window.postMessage({ cueSnapAsk: 'page' }, '*'); };
+  window.postMessage({ cueBubbleAsk: 1 }, '*'); setTimeout(function () { window.postMessage({ cueBubbleAsk: 1 }, '*'); }, 2500);
+
+  function sendFrom(box, host, ref) {
+    var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
+    if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
+    var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+    var b = batchOf(ref);
+    if (b && !files.length && BCANCEL_RE.test(t)) { box.value = ''; return batchCancel(ref); }
+    var dn = b ? doneSaid(t) : null;
+    if (dn !== null && !files.length) { box.value = ''; return batchDone(ref, dn); }
+    if (dn !== null) return batchSend(dn, files, ref, box, host, true);   // the last files and "done" in one message
+    if (b && b.asked && !files.length && !BATCH_RE.test(t)) { box.value = ''; return batchDone(ref, t); }   // the answer to "what should I do"
+    if (b || BATCH_RE.test(t)) return batchSend(t, files, ref, box, host);
+    send(t, files, '', ref, undefined, box);
+  }
+  // Image batches (Kiko 22 Oct 03:03Z, specs/image-batches.md): "more coming" or the More coming chip holds the files and text of
+  // several messages for one task; "done" or Done sends them as one message. Cue keeps the held list (state.batches), so a reload
+  // keeps it. This page also keeps the photos themselves, because an expense needs them and not their Drive copies.
+  var BATCH_RE = /\b(?:more (?:coming|to come|(?:images|photos|pics|files|screenshots) (?:coming|to come))|(?:sending|send|i'?ll send|i am sending|i'?m sending) (?:them |it |the |my )?(?:images |photos |pics |files |screenshots )?in batch(?:es)?|batch mode)\b[.,!]*/i;
+  var BCANCEL_RE = /^\s*cancel(?: the)?(?: batch)?\s*[.!]*\s*$/i;
+  var braw = {};   // box -> the photos as attached, for an expense
+  function bkey(ref) { return /^cue-[0-9A-Za-z-]{6,40}$/.test(ref || '') ? ref : 'main'; }
+  function batchOf(ref) { return (state.batches || {})[bkey(ref)]; }
+  // "done", "that's all", "go": null if it is not one. Text after "done" ("done, this is for the Unilever launch") is the instruction.
+  function doneSaid(t) {
+    if (/^\s*(?:go|send (?:them|it))\s*[.!]*\s*$/i.test(t)) return '';
+    var m = /^\s*(?:done|that'?s all|that'?s it|all sent)\b[\s.,!:;-]*([\s\S]*)$/i.exec(t);
+    return m ? m[1].trim() : null;
+  }
+  function batchSend(t, files, ref, box, host, thenDone) {
+    var key = bkey(ref), rest = t.replace(BATCH_RE, ' ').replace(/^[\s,.;:!-]+|[\s,;:-]+$/g, '');
+    var mine = { who: 'Kiko', text: [t, files.length ? '📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''].filter(Boolean).join('\n'), request_id: ref || '', time: new Date().toISOString(), box: box };
+    outbox.push(mine); box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
+    var ids = [], i = 0, note = { who: 'Cue', text: '', request_id: ref || '', time: '' };
+    if (files.length) outbox.push(note);
+    var fail = function (e) { unbox(note, mine); back(mine, t); if (files.length && !pending.length) { hostFiles(host); pending = files; renderFiles(); } alertErr(e, ref); };
+    (function next() {
+      if (i < files.length) {
+        note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
+        return call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); }, fail);
+      }
+      unbox(note);
+      call('cueBatchAdd', [ref || '', rest, ids], function (v) { state.batches = v; braw[key] = (braw[key] || []).concat(files); renderBatch(); if (thenDone) batchDone(ref, ''); }, fail);
+    })();
+  }
+  function batchDone(ref, extra) {
+    var key = bkey(ref);
+    call('cueBatchTake', [ref || '', extra || ''], function (r) {
+      state.batches = r.batches; renderBatch();
+      if (r.ask) return addLocal('Cue', 'What should I do with these ' + r.count + ' files? Type it and send.', ref);
+      var raw = braw[key]; delete braw[key];
+      if (isExpense(r.text)) {
+        if (raw && raw.length === r.files.length) return send(r.text, raw, '', ref);
+        return addLocal('Cue', 'This looks like an expense, but the page was reloaded, so the receipts are not in this page any more. Attach them again with the expense.', ref);
+      }
+      send(r.text, r.files, '', ref);
+    }, function (e) { alertErr(e, ref); });
+  }
+  function batchCancel(ref) {
+    var key = bkey(ref);
+    call('cueBatchCancel', [ref || ''], function (r) {
+      state.batches = r.batches; delete braw[key]; renderBatch();
+      addLocal('Cue', 'Dropped the ' + r.dropped + ' held file' + (r.dropped === 1 ? '' : 's') + '. Nothing was sent.', ref);
+    }, function (e) { alertErr(e, ref); });
+  }
+  function renderBatch() {
+    [['batchbar', 'chip-batch', '', 'files'], ['tbatchbar', 'tchip-batch', openThread ? threadRef() : null, 'tfiles']].forEach(function (k) {
+      var bar = $(k[0]), chip = $(k[1]);
+      if (k[2] === null) { bar.hidden = chip.hidden = true; return; }
+      var b = batchOf(k[2]), n = b ? b.count + ' file' + (b.count === 1 ? '' : 's') : '';
+      chip.hidden = !!b || !(fileHost === k[3] && pending.length);
+      bar.hidden = !b; if (!b) return;
+      setHtml(bar, '<span>' + (b.asked ? 'What should I do with these ' + n + '? Type it and send.'
+        : 'Holding ' + n + ' from ' + b.msgs + ' message' + (b.msgs === 1 ? '' : 's') + ' for one task' + (b.mb ? ' (' + b.mb + ' MB)' : '') + '. Send more, or say done.')
+        + '</span><button class="btn" data-batch="done">Done</button><button class="btn ghost" data-batch="cancel">Cancel</button>');
+    });
+  }
+  [['batchbar', 'chip-batch', 'box', 'files'], ['tbatchbar', 'tchip-batch', 'tbox', 'tfiles']].forEach(function (k) {
+    var ref = function () { return k[0] === 'batchbar' ? '' : threadRef(); };
+    $(k[0]).onclick = function (e) { var a = e.target.getAttribute && e.target.getAttribute('data-batch'); if (a === 'done') batchDone(ref(), ''); else if (a === 'cancel') batchCancel(ref()); };
+    $(k[1]).onclick = function () {
+      if (reading) return addLocal('Cue', 'Still reading the attachments. Tap again in a moment.');
+      var files = fileHost === k[3] ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+      if (files.length) return batchSend($(k[2]).value.trim(), files, ref(), $(k[2]), k[3]);
+      call('cueBatchStart', [ref()], function (v) { state.batches = v; renderBatch(); }, function (e) { alertErr(e, ref()); });
+    };
+  });
+  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };
+  $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
+  var lastTalk = '';
+  $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
+  // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
+  function send(t, files, mode, ref, mine, box) {
+    $('chip-intake').hidden = true;
+    if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
+      ref = ref || '';
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box, sent: Date.now() };
+      outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
+    }
+    if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
+    if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
+    var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueSend', [t, files, mode, ref], function (r) {
+      var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
+      // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
+      if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
+      if (r.chat) { lastTalk = t; $('chip-intake').hidden = !r.suggest_intake; return refresh(swap); }
+      refresh(swap);
+      running[r.request_id] = 1;
+      call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
+    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+  }
+  // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
+  function memPaste(t) {
+    var s = String(t || '');
+    if (/\b(?:re-?)?learn\s+my\s+(?:chatgpt\s+)?(?:memory|memories)\b/i.test(s)) return true;
+    var lines = s.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var tabbed = lines.filter(function (x) { return x.indexOf('\t') >= 0; });   // a copied table: "phrase<TAB>meaning" rows, even one (mirrors cueTabPhrases_)
+    if (tabbed.length && tabbed.length * 2 >= lines.length && tabbed.every(function (x) { var c = x.split('\t').map(function (y) { return y.trim(); }).filter(Boolean);
+      return c.length === 2 && c[0].length <= 80 && c[1].split(/\s+/).length >= 3 && !/\u20b1\s?\d|\b(?:php|p)\s?\d|\d[\d,]{2,}(?:\.\d+)?/i.test(x); })) return true;
+    if (lines.length < 5) return false;
+    if (/^what (?:you|i|kiko) says?\b/im.test(s) && /\bwhat it means\b/i.test(s)) return true;
+    if (lines.filter(function (x) { return /^["\u201c'].{2,80}["\u201d']$/.test(x); }).length >= 3) return true;
+    var hits = lines.filter(function (x) { return /\b(?:kiko|i|he|she|you)\s+(?:prefers?|wants?|likes?|dislikes?|uses?|works?|lives?|hates?|needs?)\b|\bit means\b|^(?:always|never)\b|^when (?:i|kiko|you) says?\b/i.test(x); }).length;
+    return hits >= 3 && hits * 3 >= lines.length;
+  }
+  // Learn from exported chats (Kiko 17:04Z): the export is read here, on Kiko's computer. Only the newest conversations, cut short, go to Cue.
+  var CHATS_RE = /^\s*(?:please\s+)?learn\s+from\s+(?:my\s+)?(?:chatgpt\s+|claude\s+|old\s+)?(?:chats?|conversations?)\b/i;
+  function learnChats(t, mine) {
+    var n = Math.max(1, Math.min(200, Number((t.match(/\b(\d{1,3})\b/) || [])[1]) || 50));
+    var pk = document.createElement('input'); pk.type = 'file'; pk.accept = '.zip,.json,application/zip,application/json';
+    pk.onchange = function () {
+      var f = pk.files && pk.files[0]; if (!f) { unbox(mine); return; }
+      var dots = { who: 'Cue', text: 'Reading ' + f.name + ' on your computer…', request_id: '', time: '' }; outbox.push(dots); renderChat();
+      chatsFrom(f).then(function (json) {
+        var p = chatsPick(JSON.parse(json), n);
+        if (!p.chats.length) throw new Error('I found no conversations in ' + f.name + '. Pick the zip from ChatGPT or Claude\'s data export, or its conversations.json.');
+        call('cueLearnChats', [p], function (r) { refresh(function () { unbox(mine, dots); }); running[r.request_id] = 1;
+          call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); }); },
+          function (e) { unbox(mine, dots); alertErr(e); });
+      }).catch(function (e) { unbox(mine, dots); addLocal('Cue', String((e && e.message) || e)); });
+    };
+    pk.click();
+  }
+  // conversations.json from the export zip, read straight from the zip's directory so a large export never loads whole.
+  function chatsFrom(f) {
+    if (!/\.zip$/i.test(f.name) && f.type !== 'application/zip') return f.text();
+    var u16 = function (b, o) { return b[o] | b[o + 1] << 8; }, u32 = function (b, o) { return (b[o] | b[o + 1] << 8 | b[o + 2] << 16 | b[o + 3] << 24) >>> 0; };
+    var bytes = function (a, z) { return f.slice(a, z).arrayBuffer().then(function (x) { return new Uint8Array(x); }); };
+    var tail = Math.max(0, f.size - 66000);
+    return bytes(tail, f.size).then(function (b) {
+      for (var i = b.length - 22; i >= 0; i--) if (u32(b, i) === 0x06054b50) return bytes(u32(b, i + 16), u32(b, i + 16) + u32(b, i + 12));
+      throw new Error('That zip could not be read. Unzip it and pick conversations.json instead.');
+    }).then(function (cd) {
+      var best = null;
+      for (var o = 0; o + 46 <= cd.length && u32(cd, o) === 0x02014b50;) {
+        var nl = u16(cd, o + 28), name = new TextDecoder().decode(cd.subarray(o + 46, o + 46 + nl));
+        if (/(^|\/)conversations\.json$/i.test(name) && (!best || name.length < best.name.length)) best = { name: name, method: u16(cd, o + 10), size: u32(cd, o + 20), at: u32(cd, o + 42) };
+        o += 46 + nl + u16(cd, o + 30) + u16(cd, o + 32);
+      }
+      if (!best) throw new Error('No conversations.json in that zip. Is it the data export from ChatGPT or Claude?');
+      return bytes(best.at, best.at + 30).then(function (h) {
+        var start = best.at + 30 + u16(h, 26) + u16(h, 28), data = f.slice(start, start + best.size);
+        if (best.method === 0) return data.text();
+        if (best.method !== 8 || typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unzip it. Unzip it and pick conversations.json instead.');
+        return new Response(data.stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+      });
+    });
+  }
+  // ChatGPT (mapping tree) or Claude (chat_messages): the newest n, Kiko's words in full and a little of each answer, ~3,000 characters a chat.
+  function chatsPick(all, n) {
+    var list = Array.isArray(all) ? all : (all && all.conversations) || [], claude = list.some(function (c) { return c && c.chat_messages; });
+    var when = function (c) { return claude ? Date.parse(c.updated_at || c.created_at) || 0 : (Number(c.update_time || c.create_time) || 0) * 1000; };
+    var chats = list.filter(function (c) { return c && typeof c === 'object'; }).sort(function (a, b) { return when(b) - when(a); }).slice(0, n).map(function (c) {
+      var msgs = claude ? (c.chat_messages || []).map(function (m) { return { me: m.sender === 'human', t: String(m.text || ((m.content || []).filter(function (x) { return x && x.type === 'text'; }).map(function (x) { return x.text; }).join('\n')) || '') }; })
+        : Object.keys(c.mapping || {}).map(function (k) { return (c.mapping[k] || {}).message; }).filter(function (m) { return m && m.author && /^(user|assistant)$/.test(m.author.role); })
+          .sort(function (a, b) { return (a.create_time || 0) - (b.create_time || 0); })
+          .map(function (m) { return { me: m.author.role === 'user', t: ((m.content && m.content.parts) || []).filter(function (x) { return typeof x === 'string'; }).join('\n') }; });
+      var text = '';
+      msgs.forEach(function (m) {
+        var x = m.t.replace(/```[\s\S]*?```/g, '[code]').replace(/\s+/g, ' ').trim(); if (!x) return;
+        var line = (m.me ? 'Kiko: ' + x.slice(0, 600) : 'AI: ' + x.slice(0, 160)) + '\n';
+        if (text.length + line.length <= 3000) text += line;
+      });
+      var d = when(c);
+      return { title: String(c.title || c.name || '').slice(0, 150), date: d ? new Date(d).toISOString().slice(0, 10) : '', text: text };
+    }).filter(function (c) { return /Kiko: /.test(c.text); });
+    return { source: claude ? 'Claude' : 'ChatGPT', total: list.length, chats: chats };
+  }
+  function isExpense(t) { return EXP_RE.test(t) && !memPaste(t) && !CV_SAY.test(t) && !/\bpersonal\b/i.test(t); }
+  function back(mine, t) { var b = mine && mine.box; if (b && !b.value) b.value = t; }
+  // An expense: Kiko's line and its files in one call. The files are kept in this page for Approve; nothing is uploaded to Drive.
+  function expense(t, files, ref, mine) {
+    var bad = files.filter(function (f) { return !/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/.test(f.type); });
+    if (bad.length) { unbox(mine); back(mine, t); return addLocal('Cue', bad[0].name + ': for an expense, attach photos or PDFs.'); }
+    var dots = { who: 'Cue', text: 'Reading the expense…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueExpense', [t, files, ref], function (r) { held[r.id] = files; refresh(function () { unbox(mine, dots); }); },
+      function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+  }
+  // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
+  function upload(t, files, mode, ref, mine) {
+    var ids = [], i = 0, note = { who: 'Cue', text: '', request_id: ref, time: '' };
+    outbox.push(note);
+    (function next() {
+      if (i === files.length) { unbox(note); return send(t, ids, mode, ref, mine); }
+      note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
+      call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); },
+        function (e) { unbox(note, mine); back(mine, t); alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
+    })();
+  }
+  // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
+  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
+
+  function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
+  // CREW-DOCS-2026-10-26: Canvas makes FSAs and ARs in the background (it can take 20 minutes), so the page asks Cue to look
+  // every 30 seconds instead of polling every 2; cueResume looks every 5 minutes when the page is closed.
+  var arMaking = function (r) { return r.kind === 'ar' && r.status === 'Working' && r.stage === 'Canvas is making'; }, arLooked = {};
+  function arPoll() { state.requests.forEach(function (r) { if (!arMaking(r) || running[r.id] || Date.now() - (arLooked[r.id] || 0) < 30000) return;
+    arLooked[r.id] = Date.now(); running[r.id] = 1; call('cueRun', [r.id], function () { delete running[r.id]; refresh(); }, function () { delete running[r.id]; }); }); }
+  function busy() { return state.requests.some(function (r) { return WORK[r.status] && !arMaking(r); }) || Object.keys(running).some(function (id) { return !state.requests.some(function (r) { return r.id === id && arMaking(r); }); }); }
+  function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
+
+  function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
+  function setHtml(el, h) {
+    if (el._h === h) return;
+    var keep = {}, f = document.activeElement, fk = f && f.getAttribute && f.getAttribute('data-say');
+    el.querySelectorAll('[data-say]').forEach(function (x) { if (x.value) keep[x.getAttribute('data-say')] = x.value; });
+    el.innerHTML = h; el._h = h;
+    el.querySelectorAll('[data-say]').forEach(function (x) { var k = x.getAttribute('data-say'); if (keep[k]) x.value = keep[k]; if (k === fk) x.focus(); });
+  }   // a poll that changes nothing keeps ticks and edits
+  function dirty() { ['msgs', 'tmsgs', 'tlist', 'ptabs', 'w-access'].forEach(function (k) { $(k)._h = null; }); }
+
+  // Threads. A task started from another task's thread (s.ref) joins that thread, so a redo stays with its project.
+  function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
+  function rootOf(id, by) { for (var i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }
+  function threads() {
+    var by = byId(), t = {};
+    function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
+    allLines().forEach(function (m) {
+      var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
+      if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
+    state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
+    return t;
+  }
+  var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
+  function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
+  var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
+  function threadState(th) {
+    var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
+    var last = th.reqs[th.reqs.length - 1];
+    if (need) return { color: 'var(--need)', text: 'Needs you', need: 1 };
+    if (work) return { color: 'var(--act)', text: 'Working' };
+    return { color: 'var(--muted)', text: last ? last.status : '' };
+  }
+  function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
+    var nm = function (r) { return (r.kind === 'relay' && r.relay && 'AI relay · ' + r.relay.topic) || (r.kind === 'help' && r.help && 'Help · ' + r.help.ask) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.st && r.st.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
+    for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
+    // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
+    var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
+    return r ? kindName(r) : 'Earlier task';
+  }
+  function kindName(r) { return r.kind === 'relay' ? 'AI relay' : r.kind === 'help' ? 'Help answer' : r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? (r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts') : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
+  function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
+  function ago(iso) {
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+  }
+  function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
+    if (typeof thread !== 'string') thread = '';   // map() passes an index
+    var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
+  }
+  // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
+  var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
+    email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+  function askOf(m) {
+    var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
+    return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
+  }
+  function askHtml(m) {
+    var q = askOf(m); if (!q || !q.open) return '';
+    if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
+    return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
+      return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
+    }).join('') + '</div>';
+  }
+  // "Wrong command?" (Kiko 17:00Z): on a waiting task that came from a message. Pick the right one; Cue redoes it and asks once to remember.
+  function wrongHtml(r) {
+    var now = { intake: 'intake', change: 'intake', readiness: 'readiness', pipeline: 'pipeline', ar: 'ar', vendor: 'vendor', workflow: 'workflow', email: 'email', finance: 'money' }[r.kind];
+    return '<details class="small" style="margin:0 0 10px"><summary class="muted">Wrong command?</summary><div class="actions" style="margin-top:6px">'
+      + '<select data-wc="' + esc(r.id) + '" aria-label="The right command">' + Object.keys(ASKL).filter(function (k) { return k !== now && !/^(yes|no|keep|undo)$/.test(k); })
+        .map(function (k) { return '<option value="' + k + '">' + esc(ASKL[k]) + '</option>'; }).join('') + '</select>'
+      + '<button class="btn ghost" data-act="wrong-cmd" data-id="' + esc(r.id) + '">Redo as this</button></div></details>';
+  }
+  // 1.15 fix (Kiko's live check 15:35Z): the "📎 a.jpg, b.pdf" line under Kiko's message was plain text, so tapping a file did
+  // nothing. Each name that matches a saved file of the message's task is now a link that opens in the viewer.
+  function fileText(m) {
+    var t = String(m.text || ''), at = t.lastIndexOf('\n📎 '), r = m.request_id && byId()[String(m.request_id).replace(/^>/, '')];
+    // PC test 17:42Z: a main-chat line has no task id, so its file names were plain text. Find the task that has those files.
+    if (at >= 0 && !r) { var nm = t.slice(at + 4).split(', '); r = state.requests.filter(function (x) { return (x.files || []).some(function (f) { return nm.indexOf(f.name) >= 0; }); })
+      .sort(function (a, b) { return Math.abs(Date.parse(a.created) - Date.parse(m.time)) - Math.abs(Date.parse(b.created) - Date.parse(m.time)); })[0]; }
+    if (at < 0 || !r || !(r.files || []).length) return richText(t);
+    return richText(t.slice(0, at + 4)) + t.slice(at + 4).split(', ').map(function (n) {
+      var f = r.files.filter(function (x) { return x.name === n && /^[\w-]{10,}$/.test(x.id || ''); })[0];
+      return f ? fileLink(f) : esc(n);
+    }).join(', ');
+  }
+  // A chat line's text: the connect ticktick link, and CUE-CANVAS tokens drawn as "Open in Canvas" buttons.
+  function richText(t) {
+    var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
+    var out = '', last = 0, m; CV_TOK.lastIndex = 0;
+    while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
+    return out + plain(t.slice(last));
+  }
+  function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
+
+  var lastChat = -1, lastThread = -1;
+  function renderChat() {
+    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    var n = state.chat.length + outbox.length, grew = n !== lastChat;
+    lastChat = n;
+    renderMain(th);
+    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
+    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (openThread) {
+      var t = th[openThread] || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
+      lastThread = tn; renderThread(t);
+      if (pBottom || tg) ps.scrollTop = ps.scrollHeight;
+    }
+    renderPaneTabs(th); renderThreadList(th);
+  }
+  // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
+  function renderMain(th) {
+    var by = byId(), seen = {}, shown = {}, h = '';
+    // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
+    state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
+    var prev = null;
+    allLines().forEach(function (m) { one(m); prev = m; });
+    function one(m) {
+      var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
+      if (!m.request_id) { h += msgHtml(m); return; }
+      if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
+        var to = rootOf(m.request_id.slice(1), by), pt = th[to];
+        // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
+        // pointers (updates, "Summary for …") live in the thread only.
+        // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
+        // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
+        var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
+        if (pt && shown[to] && !answers) return;
+        if (pt && shown[to]) { h += msgHtml(m, to); return; }
+        if (pt) shown[to] = 1;
+        h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
+        return;
+      }
+      var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
+      h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
+    }
+    setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+  }
+  // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
+  function rowHtml(root, t, head) {
+    var st = threadState(t), n = t.lines.length - (head ? 1 : 0), last = t.lines[t.lines.length - 1];
+    return '<div class="thread-row"><i class="dot" style="background:' + st.color + '"></i>'
+      + '<button class="tt" data-thread="' + esc(root) + '" aria-label="Open the thread ' + esc(threadTitle(t)) + '">' + esc(threadTitle(t)) + '</button>'
+      + (n > 0 ? '<span>' + n + ' repl' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
+      + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</div>';
+  }
+  // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
+  var cardMin = {}; try { cardMin = JSON.parse(localStorage.getItem('cue.cardmin') || '{}') || {}; } catch (e) {}
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-tmin]'); if (!b || !openThread) return;
+    var root = rootOf(openThread, byId()); cardMin[root] = b.getAttribute('data-tmin') === '1';
+    if (!cardMin[root]) delete cardMin[root];
+    try { localStorage.setItem('cue.cardmin', JSON.stringify(cardMin)); } catch (x) {}
+    $('tmsgs')._h = null; lastThread = -1; renderChat();
+  });
+  function renderThread(t) {
+    // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
+    // Kiko 06:51Z: the progress tracker sits at the top of the thread.
+    var kiko = t.lines.some(function (m) { return m.who === 'Kiko'; });
+    // Kiko 14:42Z: no Due / Priority / Remind row. ✓ in the header closes the task; ⋯ (closed threads only) offers Archive.
+    var x0 = t.reqs[0], closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
+    var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
+      + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('')
+      + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
+    var cardsAt = h.length;
+    t.reqs.forEach(function (r) {
+      if (r.kind === 'finance') h += finHtml(r);
+      else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
+      else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
+      else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
+      else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
+      else if (WORK[r.status]) return;
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || (r.kind === 'status' && r.st) || r.kind === 'bids' || r.kind === 'gtask' || r.kind === 'relay' || (r.kind === 'help' && r.help) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else h += doneHtml(r);
+    });
+    var lastR = t.reqs[t.reqs.length - 1];
+    if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
+    // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
+    var cards = h.slice(cardsAt), min = !!cardMin[t.root] && cards.length > 0, st = threadState(t);
+    if (cards) h = h.slice(0, cardsAt) + (min ? '' : '<div class="tcards-bar">' + ib('data-tmin="1"', 'chev', 'Minimize the card') + '</div>' + cards);
+    setHtml($('tdock'), min ? '<button class="tdock" data-tmin="0" aria-label="Open the card"><span class="tdt">' + esc(threadTitle(t)) + '</span>'
+      + (st.need ? '<span class="need">Needs you</span>' : '<span class="st">' + esc(st.text) + '</span>') + '<span aria-hidden="true">⌃</span></button>' : '');
+    setHtml($('tmsgs'), h);
+    bind();
+  }
+  $('msgs').addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a[href]')) return;   // a file link opens the viewer, not the thread
+    var b = e.target.closest && e.target.closest('[data-thread]'); if (b) goThread(b.getAttribute('data-thread'));
+  });
+  // Kiko 14:38Z: when Kiko's message is already in the thread, the request shows only its files, as cards like Claude's.
+  function requestHtml(r, i, kiko) {
+    var f = r.files || [];
+    if (kiko) return f.length ? '<div class="fcards">' + f.map(fileCardHtml).join('') + '</div>' : '';
+    return '<details class="card"' + (i === 0 && !kiko ? ' open' : '') + '><summary>' + (i === 0 ? 'The request' : 'Follow-up run') + ' <span class="small muted">' + esc(String(r.created || '').slice(0, 16).replace('T', ' ')) + '</span></summary>'
+      + '<div style="white-space:pre-wrap;margin-top:8px">' + esc(r.text) + '</div>'
+      + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
+  }
+  function fileCardHtml(x) {
+    var ext = (/\.(\w{1,5})$/.exec(x.name || '') || [])[1] || '', img = /^(png|jpe?g|gif|webp|heic)$/i.test(ext), ok = /^[\w-]{10,}$/.test(x.id || '');
+    var body = '<span class="ft">' + esc((ext || 'file').toUpperCase()) + '</span><span class="fth">' + (img && ok ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(x.id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(x.id) + '\')">' : '📄') + '</span><span class="fn">' + esc(x.name) + '</span>';
+    return ok ? '<a class="fcard" data-name="' + esc(x.name) + '" href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + body + '</a>' : '<span class="fcard">' + body + '</span>';
+  }
+  function doneHtml(r, reopen) {
+    if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r, reopen);
+    if (r.kind === 'finance') return '<div class="card"><b>' + esc((r.fin && r.fin.title) || 'Money') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + '<div class="small muted">' + esc(((r.fin && r.fin.answer) || r.text || '').slice(0, 140)) + '</div>' + metricLine(r) + '</div>';
+    if (r.kind === 'expense') return expenseCardHtml(r, reopen);
+    if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
+    var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
+    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
+      + (v ? '<div class="small">' + esc((v.cands || []).length) + ' supplier' + ((v.cands || []).length === 1 ? '' : 's') + (vp ? ' · Claude\'s pick: ' + esc(vp.name) : '') + '</div>' : '')
+      + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
+      + savedHtml(r) + metricLine(r)
+      + (reopen ? '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(r.id) + '">Reopen</button></div>' : '') + '</div>';
+  }
+  function reopenedHtml(r) {
+    var p = r.proposal || {}, c = p.client || {};
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.vendor && 'Suppliers: ' + r.vendor.ask) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+      + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
+      + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
+  }
+  // Files Cue put in the Canvas project folder (Kiko 06:45Z), each a link.
+  function savedHtml(r) {
+    var l = r.project_saved || []; if (!l.length) return '';
+    return '<div class="small" style="margin-top:6px">📁 In the project folder: ' + l.map(function (x) {
+      return x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> <span class="muted">(' + esc(x.folder) + ')</span>' : esc(x.name) + ' <span class="muted">(not saved yet)</span>'; }).join(', ') + '</div>';
+  }
+  // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
+  function renderWidgets() {
+    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; });
+    $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
+    if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
+    setHtml($('w-access'), accessHtml());
+    bind();
+  }
+  function metricLine(r) {
+    var m = r.metrics || {};
+    return '<div class="small muted">' + esc(m.ai_calls) + ' AI calls' + (m.seconds_to_card != null ? ', card in ' + esc(m.seconds_to_card) + ' s' : '')
+      + (m.seconds_work != null ? ', Cue worked ' + esc(m.seconds_work) + ' s' : m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
+  }
+  var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
+    ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
+    ['GPT drafting requotes', 'GPT', 'GPT drafts one reply per supplier'], ['Needs you', 'Kiko', 'Waiting for your approval'], ['Making Gmail drafts', 'Gmail', 'Replies become Gmail drafts in their threads']];
+  var READY = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading Canvas', 'Canvas', 'Canvas reads its readiness checklist and the project folder'],
+    ['Looking for evidence', 'Gmail', 'Cue looks in your Gmail for proof Canvas has not recorded'], ['Claude reviewing', 'Claude', 'Claude summarises what is open and what closes it'],
+    ['GPT drafting follow-ups', 'GPT', 'GPT drafts follow-ups for items waiting on others'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become replies in their threads']];
+  var PIPE = [['Reading HubSpot', 'HubSpot', 'Cue reads your open deals from HubSpot'], ['Checking Gmail', 'Gmail', 'Cue finds the newest email for each deal'],
+    ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
+    ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],
+    ['Sending', 'Gmail', 'Follow-ups go out from your Gmail as replies in their threads']];
+  var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading the list', 'Canvas', 'Canvas lists the people'],
+    ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Canvas is making', 'Canvas', 'Canvas makes the files'], ['Ready to send', 'Kiko', 'Send, edit or send later'], ['Sending', 'Canvas', 'Canvas emails them']];
+  var VENDOR = [['Reading Canvas', 'Canvas', 'Canvas lists suppliers (Preferred first) and past quotes'], ['GPT researching', 'GPT', 'GPT searches the web for new suppliers'],
+    ['Claude comparing', 'Claude', 'Claude compares them and picks one'], ['GPT drafting RFQs', 'GPT', 'GPT drafts the RFQs you ticked'], ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Sending', 'Gmail', 'RFQs are sent from your Gmail']];
+  var WORKFLOW = [['GPT reading', 'GPT', 'GPT reads the screenshots or files'], ['Claude mapping', 'Claude', 'Claude maps the steps and who handles each'],
+    ['Claude revising', 'Claude', 'Claude changes the map as you asked'], ['GPT checking', 'GPT', 'ChatGPT gives a second opinion'], ['Needs you', 'Kiko', 'Waiting for your approval']];
+  var PERSONAL = [['GPT reading', 'GPT', 'GPT reads your line and the proofs'], ['Second look', 'Claude', 'Claude re-reads the unclear items'],
+    ['Checking records', 'Code', 'Cue checks Personal Expense 2 and BSE Scopes and Transfers'], ['Needs you', 'Kiko', 'Waiting for your approval'],
+    ['Saving', 'Sheets', 'Cue saves the rows and reads them back']];
+  function personalName(r) { var x = ((r.personal || {}).items || [])[0]; return r.kind === 'personal' ? 'Personal expense' + (x && x.payee ? ': ' + x.payee : '') : ''; }
+  var MAILSTEPS = [['Finding the thread', 'Gmail', 'Cue finds your newest thread with them (read only)'], ['GPT drafting', 'GPT', 'GPT drafts it in your style'],
+    ['Needs you', 'Kiko', 'Edit, then send or save to Drafts'], ['Sending', 'Gmail', 'It goes out from your Gmail']];
+  var STYLE = [['Reading sent emails', 'Gmail', 'Cue reads your sent emails (read only)'], ['Claude writing your guide', 'Claude', 'Claude writes your style guide'],
+    ['Needs you', 'Kiko', 'Edit and approve the guide']];
+  var TEACH = [['Claude reading', 'Claude', 'Claude reads what you pasted'], ['Needs you', 'Kiko', 'Tick, edit and approve']];
+  var CECOST = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading the email', 'Gmail', 'Canvas lists the CE lines; Cue finds the email (read only)'],
+    ['GPT matching costs', 'GPT', 'GPT matches the email\'s costs to the CE lines'], ['Needs you', 'Kiko', 'Check the costs and approve'],
+    ['Writing to Canvas', 'Canvas', 'Canvas saves the unit costs and reads them back']];
+  function workHtmlOf(r) {
+    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'cecost' ? CECOST : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var cur = list[i] || list[0], open = !!openWork[r.id];
+    // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
+    return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'
+      + '<b>' + kindName(r) + '</b><span style="display:flex;gap:8px;align-items:center"><span class="worker">' + esc(cur[1]) + '</span>'
+      + '<span class="chev">' + (open ? '▴' : '▾') + '</span></span></button>'
+      + (open ? '<div class="small muted" style="white-space:pre-wrap">' + esc(r.text) + '</div><ul class="steps">' + list.map(function (s, j) {
+          return '<li class="' + (j < i ? 'done' : j === i ? 'now' : '') + '"><span class="d"></span>' + esc(s[2]) + '</li>'; }).join('') + '</ul>'
+        : '<div class="small muted">' + esc(r.text.slice(0, 70)) + (r.text.length > 70 ? '…' : '') + '</div><div class="small" style="margin-top:6px">Step ' + (i + 1) + ' of ' + list.length + ': <b>' + esc(cur[2]) + '</b></div>')
+      + (r.kind === 'ar' && r.ar && r.ar.progress ? arProgressHtml(r, open) : '<div class="bar"><i style="width:' + Math.round((i + 0.5) / list.length * 100) + '%"></i></div>') + (open ? metricLine(r) : '') + '</div>';
+  }
+  // CREW-DOCS (Kiko 13:30Z): "Generating 15 of 50", then a line per name when the card is open.
+  function arProgressHtml(r, open) {
+    var a = r.ar, p = a.progress, sending = r.stage === 'Sending', sent = a.items.filter(function (x) { return x.emailed_now; }).length;
+    var n = sending ? sent : p.made + p.failed, of = sending ? (a.mail || []).length + sent : p.total;
+    var st = { made: '✓ made', failed: '✗ not made', waiting: '… waiting' };
+    return '<div class="small" style="margin-top:6px"><b>' + (sending ? 'Sending ' : 'Generating ') + n + ' of ' + of + '</b> ' + esc(a.doc_many) + (p.failed && !sending ? ' · ' + p.failed + ' not made' : '') + '</div>'
+      + '<div class="bar"><i style="width:' + Math.round(n / Math.max(1, of) * 100) + '%"></i></div>'
+      + (open && !sending ? '<div class="small" style="margin-top:6px">' + a.items.filter(function (x) { return x.state; }).map(function (x) {
+          return '<div>' + esc(x.name) + ' <span class="muted">' + esc(st[x.state] || x.state) + (x.error ? ': ' + esc(x.error) : '') + '</span></div>'; }).join('') + '</div>' : '');
+  }
+  var openWork = {}, showArchived = false;
+

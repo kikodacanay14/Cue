@@ -3,8 +3,7 @@
 test('CB1 the Cue button is the chat bubble on the BSE gradient everywhere, not the colour wheel', () => {
   const root = path.join(__dirname, '..'), read = f => fs.readFileSync(path.join(root, f), 'utf8');
   const GR = 'linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%)';
-  ['extension/content.js', 'src/Index.html'].forEach(f => {
-    const t = read(f);
+  [['extension/content.js', read('extension/content.js')], ['the Cue page', cuePage()]].forEach(([f, t]) => {
     assert.ok(!/conic-gradient/.test(t), f + ' still draws the colour wheel');
     assert.ok(t.includes(GR), f + ' uses the BSE gradient');
     assert.ok(t.includes('M16 5C9.4 5 4 9.6 4 15.3'), f + ' draws the speech bubble');

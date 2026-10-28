@@ -6,12 +6,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'src'), OUT = path.join(ROOT, 'FEATURE-MAP.md');
 const files = fs.readdirSync(SRC).filter(f => f.endsWith('.gs')).sort();
 const src = Object.fromEntries(files.map(f => [f, fs.readFileSync(path.join(SRC, f), 'utf8')]));
-const page = fs.readFileSync(path.join(SRC, 'Index.html'), 'utf8');
+const page = createRequire(import.meta.url)(path.join(ROOT, 'test', 'page.js')).cuePage();   // Index.html joined from its parts
 
 // Where each top-level name is defined.
 const def = {};

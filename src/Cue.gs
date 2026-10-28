@@ -31,11 +31,16 @@ function doGet(e) {
   cueOwner_();
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
-  const out = HtmlService.createHtmlOutputFromFile('Index').setTitle('Cue')
+  const out = HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Cue')   // joined from its parts (cueInclude_)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
   return out;
 }
+
+/** STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z): the page is split into parts (IndexStyle, IndexChat, IndexViewer, IndexThreads,
+ * IndexPages, IndexCards). Index.html puts each part in its place with <?!= cueInclude_('Name') ?>. A part's last newline is dropped,
+ * since the include line in Index.html ends with its own. test/page.js joins the page the same way for the tests and the cloud check. */
+function cueInclude_(name) { return HtmlService.createHtmlOutputFromFile(name).getContent().replace(/\n$/, ''); }
 
 /* Favicon (Kiko 05:42Z: the window still showed the Apps Script icon). The Cue chat bubble (Kiko 28 Oct 04:29Z; was the colour-wheel orb), 48 px, saved once to Kiko's Drive
  * (drive.file, private to Kiko; Kiko's browser loads it signed in). Apps Script wants a .png-looking address, hence &format=png.
