@@ -21,7 +21,8 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
-  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck'];   // cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs)
+  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck',
+  'cueCrmLogCheck', 'cueNmCheck'];   // cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueFunnelTaskDone', 'cueBidsStartIntake', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
@@ -29,7 +30,7 @@ const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'c
 // Bridge actions that only read. Every other action is a write and must name the test project.
 // Canvas bridge actions that email someone. Refused in a check unless CUE_CHECK_SEND_ === 'on'.
 const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
-const CUE_CHECK_READS_ = ['search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
+const CUE_CHECK_READS_ = ['inbox_new', 'search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
   'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps',
   'bi_list', 'allow_list', 'read_rows'];   // generic bridge reads (CueEdit.gs); write_rows and allow_list_set name no project, so a check stops them

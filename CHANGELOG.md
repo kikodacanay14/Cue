@@ -8,7 +8,8 @@ The "Cue email" group on the live line. It is built on live 1.27.54 (Version 117
 - **Client email log** (built as 1.27.34; Kiko 26 Oct 2026 16:10Z "Log automatically"). Once an hour, from 08:00 to 21:00, Kiko's client emails on Emails waiting go to Canvas Accounts › Activity, one row per thread per day, with no AI call. The Job Runs list already named this job ("CRM email log"). Until now the live line skipped it, because the code was not there.
 - `cueClaude_` takes an optional model, as on main.
 - Needs the Canvas release with `inbox_new` (CanvasWorkspace PR #145) for the info@ lines. Kiko's BSE inbox works without it. test/fixtures/ZapBridge.gs is that branch's bridge (live V310 + `inbox_new`).
-- Tests: CL1 to CL4 (email log) and NM1 to NM5 (New mail) are new. 418 tests.
+- Cloud checks, both read only: `test/checks/1.27.34-email-log.check.mjs` (cueCrmLogCheck, now on the check door's list) and `test/checks/1.27.56-new-mail.check.mjs` (cueNmCheck: the last day of Kiko's inbox and info@ through New mail's code filters, saving nothing, with no AI call). In check mode `inbox_new` counts as a read. Both pass a dry run.
+- Tests: CL1 to CL4 (email log) and NM1 to NM6 (New mail) are new. 419 tests.
 
 ## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
