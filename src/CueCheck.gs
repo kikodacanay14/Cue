@@ -21,7 +21,7 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
-  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck'];   // cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs)
+  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_'];   // cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs)
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueFunnelTaskDone', 'cueBidsStartIntake', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
@@ -32,7 +32,7 @@ const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 
 const CUE_CHECK_READS_ = ['search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
   'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps',
-  'bi_list', 'allow_list', 'read_rows'];   // generic bridge reads (CueEdit.gs); write_rows and allow_list_set name no project, so a check stops them
+  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); write_rows and allow_list_set name no project, so a check stops them
 
 const cueCheckTag_ = () => String(CUE_CHECK_FP_).slice(0, 12);
 const cueCheckOn_ = () => !!globalThis.CUE_CHECK_ON_;

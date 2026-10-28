@@ -201,6 +201,11 @@ function sandbox(o = {}) {
       // CUE-PROJECT-LOG-2026-10-27: log lines for the projects' threads (project_log); Canvas files what it can and skips the rest.
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
+      // CUE-RFP-SEND-2026-10-28: Kiko's queued RFPs (rfp_outbox, read) and the report of each send (rfp_sent, queue), with the bridge's shapes.
+      if (body.action === 'rfp_outbox') { log.rfpReads = (log.rfpReads || 0) + 1; if (o.rfpBoxFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
+      if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
       if (body.action === 'ann_post') { (log.annPost = log.annPost || []).push(body.args);   // CUE-RELNOTES: Canvas's announcement write
         if (o.annFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
@@ -480,10 +485,11 @@ function sandbox(o = {}) {
     }
     if (u.indexOf('/drafts/send') >= 0) {
       log.sent = log.sent || []; log.sent.push(JSON.parse(req.payload).id);
-      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent-' + log.sent.length });
+      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent' + log.sent.length + 'abcdef', threadId: 'thr' + log.sent.length + 'abcdef' });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
+      (log.draftThreads = log.draftThreads || []).push(JSON.parse(req.payload).message.threadId || '');
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
     }
     if (u.indexOf('ticktick.com') >= 0) {   // CueTickTick.gs
@@ -500,7 +506,7 @@ function sandbox(o = {}) {
     console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp, isFinite,
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     SpreadsheetApp: { flush: () => {}, openById: () => ({ getId: () => 'cue', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = sheetMock()) }), create: () => ({ getId: () => 'new' }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'kiko@example.com' }), getActiveUser: () => ({ getEmail: () => o.viewer || 'kiko@example.com' }) },
     ScriptApp: { getOAuthToken: () => 'oauth-token', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }), getProjectTriggers: () => (log.triggers || []).map(h => ({ getHandlerFunction: () => h })), newTrigger: h => { const tb = { everyMinutes: () => tb, onWeekDay: d => { tb.day = d; return tb; }, atHour: x => { tb.hour = x; return tb; }, nearMinute: () => tb, everyDays: () => tb, inTimezone: z => { tb.tz = z; return tb; }, create: () => { (log.triggers = log.triggers || []).push(h); log.triggerTz = log.triggerTz || {}; log.triggerTz[h] = [tb.hour, tb.tz]; if (tb.day) log.weekly = [tb.day, tb.hour]; return {}; } }; return { timeBased: () => tb }; }, WeekDay: { MONDAY: 'MONDAY' }, invalidateAuth: () => { log.invalidated = (log.invalidated || 0) + 1; }, deleteTrigger: tr => { const i = (log.triggers || []).indexOf(tr.getHandlerFunction()); if (i >= 0) log.triggers.splice(i, 1); },
       getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/CUE/exec' }) },

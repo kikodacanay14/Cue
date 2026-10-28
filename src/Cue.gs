@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.57';   // release branch: live 1.27.56 (Version 126) + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.58';   // release branch: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -96,13 +96,14 @@ function cueSetup() {
   return msg;
 }
 
-/** The 5-minute resume trigger, Cue's only trigger. Also checked when Cue opens, so a deploy needs no extra step.
+/** The 5-minute resume trigger, and the 1-minute RFP sender (cueRfpKick). Also checked when Cue opens, so a deploy needs no extra step.
  * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday HubSpot check had their own
  * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
-const CUE_TRIGGERS_NOW_ = '5';
+const CUE_TRIGGERS_NOW_ = '6';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster")
 function cueTriggers_() {
   ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueRfpKick')) ScriptApp.newTrigger('cueRfpKick').timeBased().everyMinutes(1).create();
   PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', CUE_TRIGGERS_NOW_);
 }
 

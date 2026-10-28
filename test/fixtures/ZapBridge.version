@@ -1,4 +1,3 @@
-Copied from CanvasWorkspace src/ZapBridge.gs, as shipped in live Canvas V310 (28 Oct 2026 05:08Z):
-contact history (contact_gaps lists held cells; contact_fill skips cells with history) on top of V307.
-md5 7d86216f57ad34d0b74d212e322af7d9
-Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
+Copied from CanvasWorkspace releases/rel-v316-rfp-button-crm-sms-main/files/ZapBridge.gs (Canvas V316, 28 Oct 2026, deploys thread):
+V315 plus the CRM funnel actions and rfp_outbox (read) / rfp_sent (queue) for RFPs sent from Kiko's Gmail.
+md5 b0d32f479038a2bf1907c429fa32c56a

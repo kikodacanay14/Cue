@@ -536,6 +536,22 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: false, schema: {},
     run: () => zbMailWaiting_()
   },
+  rfp_outbox: {
+    // RFP-FROM-KIKO-2026-10-28 (Kiko 07:35Z "i want it to send it when i click send", 07:45Z "from me"): the RFPs and RFP
+    // follow-ups Kiko pressed Send on in Canvas, queued for his Cue to send from his own Gmail (Code.gs rfpOutbox_). Only rows
+    // Kiko queued, oldest first, at most 20. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => rfpOutbox_()
+  },
+  rfp_sent: {
+    // RFP-FROM-KIKO-2026-10-28: Cue reports one queued email Sent (its Gmail thread and message id) or Failed. Marks the RFP
+    // Outbox row and, for an RFP, its RFP Log row. A repeat for a row already reported changes nothing.
+    kind: 'queue', needsProject: false,
+    schema: { key: { type: 'string', required: true, re: /^[a-z]+:[A-Za-z0-9-]{3,40}:[a-z0-9ñ]{0,80}:[a-z0-9]{1,20}$/ },
+      status: { type: 'string', required: true, oneOf: ['Sent', 'Failed'] }, thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ },
+      message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
+    run: (r) => rfpOutboxDone_(r.args)
+  },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
     kind: 'read', needsProject: false, schema: {},
@@ -714,7 +730,58 @@ function zbGptDoorRun_(raw, now, seen) {
   if (r.project_id) q.project_id = r.project_id;
   if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
   seen.q = q; seen.task = r.task_id;
-  return zbHandle_(JSON.stringify(q), '', now, true);
+  return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
+}
+
+/* SITE-ACCESS-1-2026-10-28 F3 (Kiko 28 Oct 04:44Z "yes"; spec site-access-audit/SPEC.md R4: "Answers to ChatGPT (GPT door and
+ * @Canvas connector) carry bank and GCash numbers as the last 4 only, TINs masked, and no personal phones or home addresses").
+ * The door runs as the bridge's Manager identity, so results can carry full account numbers (getProject payBank, Transfers bank
+ * columns, Payment Request rows). They are cut here, on the server, before the answer leaves Apps Script; the GPT prompt rule stays
+ * as a second layer. GPT door path only: the HMAC-signed Cue bridge (zbHandle_ called from zapBridge with a signature) is
+ * unchanged. A ChatGPT task that needs a full number asks Canvas to match (expense_evidence already matches on the server).
+ *   - account / GCash number fields (and "no" beside a "bank"): every run of 6 or more digits becomes "•••• " + its last 4;
+ *   - TIN fields: "•••-•••-•••-" + the last 3 digits;
+ *   - birthday, emergency contact (name and number) and home address: removed wherever they appear;
+ *   - mobile, phone, contact number and address: removed from records that carry bank details (payees and freelancers), so a
+ *     client's business phone on a project contact still goes through. */
+const ZB_GPT_ACCT_RE_ = /(^|\s)(account ?(no|numbers?|num|#)|accountnumbers?|acct|acc no|bank account|bank (no|number)|gcash)(\s|$)/;
+// Bank and account name cells sometimes carry the number too ("GCash 0917 ..."): their digit runs are masked, the words stay.
+const ZB_GPT_BANKTXT_RE_ = /^(bank|bank name|preferred bank|(bank )?(account|acct) name)$/;
+const ZB_GPT_TIN_RE_ = /^(tin|tin (no|number|#)|tax id|tax id (no|number)|tax identification number|billed tin)$/;
+const ZB_GPT_DROP_RE_ = /^(birthday|birth ?date|date of birth|emergency contact.*|ecn|home address|permanent address)$/;
+const ZB_GPT_PAYEE_DROP_RE_ = /^(mobile|mobile (no|number)|contact (no|number)|phone|phone (no|number)|address|ec)$/;
+const zbGptKey_ = k => String(k).replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9#]+/g, ' ').trim();
+function zbGptMaskNo_(v) {
+  if (v == null || v === '' || typeof v === 'boolean') return v;
+  return String(v).replace(/\+?\d[\d\s.\-]{4,}\d/g, run => { const n = run.replace(/\D/g, ''); return n.length >= 6 ? '•••• ' + n.slice(-4) : run; });
+}
+function zbGptMaskTin_(v) {
+  if (v == null || v === '' || typeof v === 'boolean') return v;
+  const n = String(v).replace(/\D/g, ''); return n.length > 3 ? '•••-•••-•••-' + n.slice(-3) : n ? '•••' : String(v);
+}
+/** PURE (unit-tested). A masked copy of a door answer; the original object (it may be a kept page copy) is never changed. */
+function zbGptMask_(v, depth) {
+  depth = depth || 0;
+  if (v == null || typeof v !== 'object' || depth > 30 || v instanceof Date) return v;
+  if (Array.isArray(v)) return v.map(x => zbGptMask_(x, depth + 1));
+  const keys = Object.keys(v), K = keys.map(zbGptKey_), hasBank = K.indexOf('bank') >= 0;
+  const payee = hasBank || K.some(k => ZB_GPT_ACCT_RE_.test(k));
+  const out = {};
+  keys.forEach((k, i) => {
+    const n = K[i], x = v[k];
+    if (ZB_GPT_DROP_RE_.test(n) || (payee && ZB_GPT_PAYEE_DROP_RE_.test(n))) return;
+    const acct = ZB_GPT_ACCT_RE_.test(n) || ZB_GPT_BANKTXT_RE_.test(n) || (n === 'no' && hasBank), tin = ZB_GPT_TIN_RE_.test(n);
+    if ((acct || tin) && x && typeof x === 'object') out[k] = zbGptMaskAll_(x, tin ? zbGptMaskTin_ : zbGptMaskNo_, depth + 1);
+    else out[k] = acct ? zbGptMaskNo_(x) : tin ? zbGptMaskTin_(x) : zbGptMask_(x, depth + 1);
+  });
+  return out;
+}
+// Every plain value under a number field (a list of accounts, say) gets the same mask.
+function zbGptMaskAll_(v, f, depth) {
+  if (v == null || depth > 30) return v;
+  if (Array.isArray(v)) return v.map(x => zbGptMaskAll_(x, f, depth + 1));
+  if (typeof v === 'object') { const o = {}; Object.keys(v).forEach(k => { o[k] = zbGptMaskAll_(v[k], f, depth + 1); }); return o; }
+  return f(v);
 }
 // One row per ChatGPT call in the ledger book (tab _ChatGPT Door Log), for the read-only write check. Never blocks the answer.
 function zbGptLog_(q, out, task) {
@@ -1882,8 +1949,20 @@ ZB_ACTIONS_.crm_log = {
     contact: { type: 'string', max: 120 }, email: { type: 'string', max: 200 }, summary: { type: 'string', required: true, nonBlank: true, max: 1000 },
     date: ZB_CRM_DAY_, follow_up_date: ZB_CRM_DAY_, follow_up: { type: 'string', max: 500 } },
   run: (r) => crmDoor_(() => crmLog_({ kind: r.args.kind, company: r.args.company, contact: r.args.contact, email: r.args.email, summary: r.args.summary,
-    when: r.args.date, follow: r.args.follow_up_date ? { due: r.args.follow_up_date, what: r.args.follow_up || r.args.summary } : null }, crmDoorBy_(), 'gpt:' + r.args.request_id)),
+    when: r.args.date, follow: r.args.follow_up_date ? { due: r.args.follow_up_date, what: r.args.follow_up || r.args.summary } : null }, crmDoorByRid_(r.args.request_id), 'gpt:' + r.args.request_id)),
   check: zbCrmCheck_
+};
+/* CRM-FUNNEL-2026-10-28: Cue's "Do these today" and weekly funnel review. Step counts, stuck rows and follow-ups due by
+ * tomorrow. Never amounts, CE numbers or lost reasons (Cue shows these to Kiko only through Canvas). Read only, quiet. */
+ZB_ACTIONS_.crm_funnel = {
+  kind: 'read', needsProject: false,
+  schema: { fresh: { type: 'boolean' } },
+  run: (r) => {
+    const f = crmFunnelCached_(!!r.args.fresh);
+    return { today: f.today, limits: f.limits, steps: f.steps.map(s => ({ step: s.step, count: s.count, stuck: s.stuck, limit: s.limit, median_days: s.median_days })),
+      stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit })),
+      due: f.due.slice(0, 40) };
+  }
 };
 ZB_ACTIONS_.crm_followup = {
   kind: 'write', needsProject: false, retrySafe: true,
