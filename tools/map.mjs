@@ -46,32 +46,32 @@ function body(f, name) {
   return s.slice(i, j < 0 ? s.length : j + 2);
 }
 
-// ---------- commands: kinds, their run, approve and stopped line ----------
-const runLeased = body('Cue.gs', 'cueRunLeased_');
-const objAfter = (s, key) => { const m = s.match(new RegExp('const ' + key + ' = \\{([^\\n]*)\\}\\[s\\.kind\\]')); return m ? m[1] : ''; };
-const runMap = Object.fromEntries([...objAfter(runLeased, 'run').matchAll(/([a-z]+): (cue[A-Za-z0-9_]+)/g)].map(m => [m[1], m[2]]));
-const stopMap = Object.fromEntries([...objAfter(runLeased, 'stopped').matchAll(/([a-z]+): '((?:[^'\\]|\\.)*)'/g)].map(m => [m[1], m[2].replace(/\\'/g, "'")]));
-const approve = body('Cue.gs', 'cueApprove');
-const appMap = {};
-for (const m of approve.matchAll(/kind === '([a-z]+)'(?: \|\| L\.s\.kind === '([a-z]+)')?\) return cueView_\((cue[A-Za-z0-9_]+)\(/g)) { appMap[m[1]] = m[3]; if (m[2]) appMap[m[2]] = m[3]; }
+// ---------- commands: kinds, their run, approve and stopped line (the command list, CueCommands.gs) ----------
+// STRUCTURE-PHASE-2 (items 2.1 and 2.2): the kinds and the routing order are read from the command list itself, one entry per line.
+const cmds = src['CueCommands.gs'] || '';
+const runMap = {}, appMap = {}, stopMap = {}, nameMap = {}, cmdMap = {};
+for (const m of body('CueCommands.gs', 'cueCommands_').matchAll(/^ {4}([a-z]+): \{ name: '((?:[^'\\]|\\.)*)', cmd: '([a-z]*)', run: (cue[A-Za-z0-9_]+|null), approve: ([^,]+), stopped: '((?:[^'\\]|\\.)*)' \},$/gm)) {
+  nameMap[m[1]] = m[2].replace(/\\'/g, "'"); cmdMap[m[1]] = m[3];
+  if (m[4] !== 'null') runMap[m[1]] = m[4];
+  const ap = (m[5].match(/cue[A-Za-z0-9_]+/) || [])[0]; if (ap) appMap[m[1]] = ap;
+  stopMap[m[1]] = m[6].replace(/\\'/g, "'");
+}
 const routeNames = {};
 const rc = (src['CueRoute.gs'] || '').match(/const CUE_ROUTE_CMDS_ = \{([^}]*)\}/);
 if (rc) for (const m of rc[1].matchAll(/([a-z]+): '([^']+)'/g)) routeNames[m[1]] = m[2];
 const pageKinds = {};
 for (const m of page.matchAll(/kind === '([a-z]+)'/g)) pageKinds[m[1]] = (pageKinds[m[1]] || 0) + 1;
-const kinds = [...new Set([...Object.keys(runMap), ...Object.keys(appMap), ...Object.keys(pageKinds), 'intake'])].sort();
-const label = k => { const t = (stopMap[k] || '').replace(/ stopped: $/, '').replace(/^The /, '') || routeNames[k] || (k === 'finance' ? routeNames.money : '') || '';
-  return t ? t[0].toUpperCase() + t.slice(1) : 'Page only (no run or approve on the server)'; };
+const kinds = [...new Set([...Object.keys(nameMap), ...Object.keys(pageKinds)])].sort();
+const label = k => nameMap[k] || 'Page only (not in the command list)';
 
-// ---------- routing: the checks a message meets before the AI chat call, in order ----------
-const send = body('Cue.gs', 'cueSendWith_');
-const seen = new Set(), steps = [];
-for (const m of send.matchAll(/\b(cue[A-Za-z0-9]+_|CUE_[A-Z0-9_]+_RE_)\b|talk\.([a-z_]+)\)/g)) {
-  const n = m[1] || ('talk.' + m[2]);
-  if (seen.has(n) || /^talk\.(pointed|lookup|task)$|^CUE_SUP_RE_$/.test(n)) continue;   // details of a route, not a route
-  if (m[1] && !/(Said|Asked|Reply|Exact|Paste|For|Redo|Thread|Ask|Is[A-Z][a-z]+|Talk)_$|_RE_$/.test(n)) continue;
-  seen.add(n); steps.push(n);
-}
+// ---------- routing: the command list's word checks, then what the chat call can start, in order ----------
+const HELPERS = new Set(['cueRoutes_', 'cueTalkRoutes_', 'cueOnIt_', 'cueChat_', 'cueReadyHome_']);   // list plumbing and chat lines, not commands
+const routeRows = (fn) => [...body('CueCommands.gs', fn).matchAll(/^ {4}\{ key: '([a-z_-]+)', name: '((?:[^'\\]|\\.)*)', (.*)\},?$/gm)].map(m => {
+  const [, key, name, rest] = m, said = rest.split(/\b(?:go): /)[0], go = rest.split(/\bgo: /)[1] || '';
+  const fns = s => [...new Set([...s.matchAll(/\b(cue[A-Za-z0-9]+_|CUE_[A-Z0-9_]+_RE_)/g)].map(x => x[1]).filter(n => !HELPERS.has(n)))];
+  return { key, name: name.replace(/\\'/g, "'"), checks: fns(said), starts: fns(go).filter(n => fns(said).indexOf(n) < 0) };
+});
+const steps = routeRows('cueRoutes_'), talkSteps = routeRows('cueTalkRoutes_');
 
 // ---------- background jobs ----------
 const resume = body('Cue.gs', 'cueResume');
@@ -88,20 +88,24 @@ const L = [];
 L.push('# Cue feature map', '');
 L.push('Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run');
 L.push('the script again. `test/cue.test.js` fails when this file is out of date.', '');
-L.push(`Counts: ${files.length} server files, ${Object.keys(def).length} top-level names, ${kinds.length} task kinds, ${steps.length} routing checks before the`);
+L.push(`Counts: ${files.length} server files, ${Object.keys(def).length} top-level names, ${kinds.length} task kinds, ${steps.length} word checks before the`);
 L.push(`chat call, ${jobs.length} background jobs in the 5-minute trigger, ${pageCalls.length} page-to-server functions, ${actions.size} bridge actions in the Canvas bridge copy.`, '');
 
 L.push('## 1. Commands (task kinds)', '');
-L.push('A kind is the name a task carries from start to card. Each column is one of the places the kind is written by hand today.', '');
-L.push('| Kind | What it is | Runs in | Approve in | Page checks |', '|---|---|---|---|---|');
-for (const k of kinds) L.push(`| \`${k}\` | ${esc(label(k))} | ${runMap[k] ? home(runMap[k]) : k === 'intake' ? '`CueIntake.gs` (default)' : 'none'} | ${appMap[k] ? home(appMap[k]) : k === 'intake' ? '`CueIntake.gs` (default)' : 'none'} | ${pageKinds[k] || 0} |`);
+L.push('A kind is the name a task carries from start to card. Each kind is one line in `cueCommands_` (`CueCommands.gs`): its run, its Approve');
+L.push('and its "stopped" line. "Wrong command?" is its name in that list (`CUE_ROUTE_CMDS_`). Page checks count the kind\'s checks in `Index.html`.', '');
+L.push('| Kind | What it is | Wrong command? | Runs in | Approve in | Page checks |', '|---|---|---|---|---|---|');
+for (const k of kinds) L.push(`| \`${k}\` | ${esc(label(k))} | ${esc(routeNames[cmdMap[k]] || '')} | ${runMap[k] ? home(runMap[k]) : nameMap[k] ? '`CueIntake.gs` (default)' : 'none'} | ${appMap[k] ? home(appMap[k]) : nameMap[k] ? 'intake (default)' : 'none'} | ${pageKinds[k] || 0} |`);
 L.push('');
 
 L.push('## 2. Routing order', '');
-L.push('What `cueSendWith_` (in `Cue.gs`) checks, in this order, before or around the AI chat call. The first match wins.');
-L.push('`talk.x` lines are answers from the chat call itself.', '');
-steps.forEach((n, i) => L.push(`${i + 1}. \`${n}\`${n.startsWith('talk.') ? ' (chat call)' : ' in ' + home(n)}`));
-L.push('');
+L.push('Who answers which words first. `cueSendWith_` (in `Cue.gs`) goes down `cueRoutes_` (`CueCommands.gs`); the first that answers wins.');
+L.push('If none answers, the AI chat call reads the message, and its answer starts the first command in the second list that it filled in.', '');
+const fnList = a => a.map(n => '`' + n + '`' + (def[n] && def[n] !== 'CueCommands.gs' ? ' in ' + home(n) : '')).join(', ');
+steps.forEach((r, i) => L.push(`${i + 1}. \`${r.key}\`: ${esc(r.name)}. Checks ${fnList(r.checks) || 'nothing'}${r.starts.length ? '; starts ' + fnList(r.starts) : ''}.`));
+L.push('', 'Then a supplier to register (`cueIsSupplier_` in ' + home('cueIsSupplier_') + ') skips the chat call. Otherwise the chat call (`cueTalk_`) answers, and it starts, in this order:', '');
+talkSteps.forEach((r, i) => L.push(`${i + 1}. \`talk.${r.key}\`: ${esc(r.name)}. Starts ${fnList(r.starts) || 'nothing'}.`));
+L.push('', 'Last, `talk.start_intake` starts a project intake (or a supplier registration).', '');
 
 L.push('## 3. Background jobs (one trigger, every 5 minutes)', '');
 L.push('`cueResume` in `Cue.gs` runs these in order, resumes waiting tasks, and last runs the scheduler (`cueSchedTick_`). Each job has its own');
