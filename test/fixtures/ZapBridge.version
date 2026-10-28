@@ -1,3 +1,3 @@
-Copied from CanvasWorkspace releases/rel-v317-supplier-inbox-p4-upload-main/files/ZapBridge.gs (live Canvas V317, 28 Oct 2026 08:55Z):
-V316 plus the supplier stack, inbox_new (read, info@ New mail) and the structure phase 4 reads.
-md5 24f4d7a0e2900deb9f89a0e208766044
+Copied from CanvasWorkspace releases/rel-v319-crm-rest-main/files/ZapBridge.gs (Canvas V319, 28 Oct 2026, deploys thread):
+V318 plus crm_funnel winback and the crm_report read.
+md5 243e5a25999d985fac4481fa98c985e5

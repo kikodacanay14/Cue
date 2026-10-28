@@ -1,6 +1,8 @@
 # Changelog
 
-## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed)
+## Cue 1.27.62: sales funnel part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed)
+
+Cut by the deploys thread on live 1.27.61 (Version 136) from Cue PR #190. Needs Canvas V319 (crm_funnel winback, crm_report). The deploys thread renamed the sweep's cueFunnelRead_ to cueSweepFunnelRead_: the live line's HubSpot funnel (CueFunnel.gs) already has a function with that name, and the second one broke it.
 
 Spec `canvas-crm-funnel.md` F6 (Kiko approved 26 Oct 2026 16:08Z). On 28 Oct the coordinator relayed that Kiko wants the rest of the approved
 spec built now.
@@ -19,8 +21,6 @@ spec built now.
 - `test/fixtures/ZapBridge.gs` refreshed from the Canvas branch (crm_funnel email and winback, new read crm_report); `crm_report` joins the
   check's read list; `test/checks/sales-funnel.check.mjs` checks the draft lines too.
 - Tests: 431 (428 before): SF5 to SF7.
-
-## Cue email on main: New mail and the client email log (live as Cue 1.27.60, Version 134, 28 Oct 2026)
 
 ## Cue 1.27.61: "Sales: do these today" lines in the morning batch (not deployed)
 
