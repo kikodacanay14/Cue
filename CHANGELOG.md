@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.54: structure review phase 3, job runs list and one project finder (not deployed)
+## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
 Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
 Cue #133, stories #142 and #144. Built on live 1.27.53 (Version 114, ed62d61, compact cards) plus the 1.27.52 deployed mark, as the deploys thread asked. No bridge, email or AI change.
