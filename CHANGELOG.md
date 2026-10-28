@@ -13,6 +13,7 @@ spec built now.
   morning batch's one shared ChatGPT call, or the template when that fails. All three sales kinds share one `crm_funnel` read
   (now with `winback: true`).
 - An Inquiry with no email on file stays a plain "Sales: do these today" line, as before.
+- On the morning batch card, a line from a drafts-only kind now says "draft only: you send it from Gmail".
 - Monday sales funnel review: a new Scheduled tasks row (Mon 07:00, on) reads `crm_funnel` and `crm_report` (counts only), makes one
   ChatGPT call and posts 3 to 5 lines in Cue's chat: where deals leak, which source wins most, what to do this week. Nothing is sent.
 - `test/fixtures/ZapBridge.gs` refreshed from the Canvas branch (crm_funnel email and winback, new read crm_report); `crm_report` joins the
