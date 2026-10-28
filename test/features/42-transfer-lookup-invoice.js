@@ -9,7 +9,7 @@ const TX_PR = [['Request ID', 'Category', "Supplier's Name", 'Payee', 'Cost Item
   ['AP-SU-TRI-1', 'Costumes', 'Sue M', 'Sue M', 'Costume rental', 3120, '2026-10-12', 'Trick or Treat - Manila'],
   ['AP-CUP-TRI-1', 'Cups', 'Unidentified supplier — cups (cash)', 'Divisoria', 'Cups — PHP1200 paid cash per Kiko', 1200, '2026-10-12', 'Trick or Treat - Manila']];
 function txBox(o = {}, tr) {
-  const t = sandbox(o), cue = t.ctx.SpreadsheetApp.openById, T = gridSheet(tr || TX_TR), P = gridSheet(TX_PR);
+  const t = sandbox(Object.assign({ allow: [] }, o)), cue = t.ctx.SpreadsheetApp.openById, T = gridSheet(tr || TX_TR), P = gridSheet(TX_PR);
   t.ctx.cueNow_ = () => Date.parse('2026-10-27T08:50:00Z');
   t.ctx.SpreadsheetApp = Object.assign({}, t.ctx.SpreadsheetApp, { openById: id => id === '1Z9n6mrG_0kjzafkTxE_F9GzqU3IlQ0P388wV3wwny74'
     ? (o.bseFails ? (() => { throw new Error('no access'); })() : { getSheetByName: n => ({ Transfers: T, 'Payment Request': P })[n] || null }) : cue(id) });
@@ -18,7 +18,8 @@ function txBox(o = {}, tr) {
 const lastCue = t => t.tabs.Chat.rows.slice(-1)[0][2];
 test('LK1 "is there a gcash transfer for Cups that day": no AI call, no Canvas call; none from 9 to 15 Oct, cash stands; same-day transfers listed; no account numbers', () => {
   const t = txBox(); t.ctx.cueSend('i did pay cash is there a gcash transfer for that day with the same amount for Cups');
-  assert.strictEqual(t.log.gpt.length + t.log.claude.length + t.log.bridge.length, 0, 'no AI or Canvas call');
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  deq(t.log.bridge.map(b => b.action), ['allow_list'], 'no Canvas call but the allow-list read (CUE-STRUCTURE-4.4)');
   const a = lastCue(t);
   assert.ok(/^No GCash transfer of ₱1,200\.00 from 9 Oct to 15 Oct\. Cash stands\./.test(a), a);
   assert.ok(/AP-CUP-TRI-1 · Cups · Trick or Treat - Manila · ₱1,200\.00 · 12 Oct · Cash/.test(a), a);

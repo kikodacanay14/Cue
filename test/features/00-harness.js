@@ -225,6 +225,14 @@ function sandbox(o = {}) {
         if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
         const again = (log.crmSeen = log.crmSeen || {})[body.args.request_id]; log.crmSeen[body.args.request_id] = 1;
         return resp(200, { ok: true, status: 'Completed', result: { act: { ID: 'A-' + log.crmLog.length }, again: !!again } }); }
+      // CUE-STRUCTURE-4.3: crm_lead (a bid becomes a CRM lead), a claimed plan's command like crm_log; a repeat request_id returns the same deal.
+      if (body.action === 'crm_lead') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
+        if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
+        const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
+        if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
+        if (o.leadFail) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
+        (log.crmLeads = log.crmLeads || []).push(body.args);
+        return resp(200, { ok: true, status: 'Completed', result: { ID: 'D-' + log.crmLeads.length, Stage: 'Inquiry' } }); }
       // CUE-EDIT-2026-10-27: the generic bridge (allow_list, read_rows; write_rows and allow_list_set as claimed plans' commands).
       if (body.action === 'allow_list') return resp(200, { ok: true, status: 'Completed', result: { tabs: (o.allow || ED_ALLOW).map(x => ({ book: x.book, tab: x.tab, key: x.key, mode: x.mode })), functions: [], hash: 'h', protected: true } });
       if (body.action === 'read_rows') { (log.readRows = log.readRows || []).push(body.args);
