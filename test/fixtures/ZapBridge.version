@@ -1,4 +1,5 @@
-Copied from CanvasWorkspace src/ZapBridge.gs, as shipped in live Canvas V310 (28 Oct 2026 05:08Z):
-contact history (contact_gaps lists held cells; contact_fill skips cells with history) on top of V307.
-md5 7d86216f57ad34d0b74d212e322af7d9
+Copied from CanvasWorkspace releases/rel-cue-p4-main/files/ZapBridge.gs (PR #233), built on live Canvas V313 (28 Oct 2026): Cue structure
+phase 4 adds the P0 funnel tabs and Ledger AI Runs once to the allow-list (read only), reads a header below a title row, and names the
+ledger book. Not live until that release ships; Cue works as before until then (it reads those tabs only when Canvas lists them).
+md5 7005573e21f53c0113610938b1154ea0
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
