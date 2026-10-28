@@ -48,5 +48,5 @@ test('MA2 the email check rides cueResume and never runs for a non-BSE account; 
   assert.ok(!(t.log.cache || {}).cue_ma_seen, 'kiko@example.com: Canvas would not read it, so nothing is read');
   const u = maBox([]); u.ctx.UrlFetchApp.fetch = () => { throw new Error('Gmail down'); };
   assert.doesNotThrow(() => u.ctx.cueResume());
-  assert.ok(/cueMaTick_\(\); \} catch/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8')));
+  assert.ok(u.ctx.cueJobs_().some(j => j.fn === 'cueMaTick_'), 'a job in the cueResume list (CueJobs.gs)');
 });
