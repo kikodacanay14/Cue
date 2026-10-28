@@ -171,92 +171,21 @@ function cueSendWith_(text, files, mode, ref, forced) {
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   const inThread = !!ref;
-  // Kiko 17:03Z "expedite how he learns": "remember: …" / "from now on …" anywhere is saved as a rule at once (no AI call).
-  if (!has && mode !== 'intake') { const learned = cueLearnSaid_(text, ref); if (learned) return learned; }
-  // TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
-  if (!has && mode !== 'intake') { const tt = cueTtConnectSaid_(text, ref); if (tt) return tt; }
-  // Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
-  if (!has && mode !== 'intake') { const sc = cueSchedSaid_(text, ref); if (sc) return sc; }
-  // Transfer lookup and invoice line edit (Kiko 09:20Z 27 Oct, CueLookup.gs): Transfers read only, no AI call; an invoice line waits Approve.
-  if (!has && mode !== 'intake') { const tx = cueTxSaid_(text, ref); if (tx) return tx; }
-  if (!has && mode !== 'intake') { const iv = cueInvSaid_(text, ref); if (iv) return iv; }
-  // Generic Canvas edits (Kiko 10:10Z 27 Oct, CueEdit.gs): "allow cue to read|edit ..." asks for an allow-list row on an Approve card, no AI call.
-  if (!has && mode !== 'intake') { const al = cueAllowSaid_(text, ref); if (al) return al; }
-  if (!has && mode !== 'intake') { const cs = cueCsSaid_(text, ref); if (cs) return cs; }   // old-email contact scan (CueContactScan.gs)
-  // Open in Canvas (Kiko 18:59Z, specs/open-in-canvas.md): "open <project>", "request payment for <project>", "add scope … to …",
-  // "close task … in …", "price watch …", "open supplier …", "open finance": Canvas's own page, filled, with no AI call.
-  // CE costs (Kiko 02:37Z 22 Oct, CueCeCost.gs): "update CE cost for <project> from <person>'s email" is its own task, never an intake
-  // or a change request, and needs no tutor plan card (nothing is written before Approve). A reply to its question carries on.
-  // PC recheck 22 Oct 05:00Z: in a Bid check thread that an earlier build had turned into an intake card, "redo bid check" re-ran
-  // that card. Bid words in any thread whose root is a Bid check run a fresh check before any waiting card sees them, and the
-  // stray intake card there (nothing approved, nothing in Canvas) is closed.
-  const bidsHome = !has && mode !== 'intake' ? cueBidsThread_(ref) : '';
-  if (bidsHome && !cueBidsFor_(text) && cueBidsRedo_(text)) {   // 1.27.3: only an explicit redo; questions are answered in the thread
-    const out = cueBidsStart_(String(text || '').trim(), 'chat', ref);
-    cueCloseSuperseded_((x, root) => root === bidsHome && x.kind === 'intake' && !(x.canvas && x.canvas.project_id) && !x.approved_at && (!x.phased || (x.phase || 1) === 1),
-      'Closed. This thread is a bid check, not a project intake. Nothing was written to Canvas.', true);   // PC recheck 05:13Z: that card had failed
-    return out;
+  // STRUCTURE-PHASE-2 (Kiko 28 Oct 2026 04:21Z): the word checks are one ordered list, cueRoutes_ in CueCommands.gs. Each entry
+  // keeps its note on who asked for it and when. The first that answers wins, in the same order as the hand-written chain before.
+  const c = { text, files, has, mode, ref, inThread, forced };
+  for (const r of cueRoutes_()) {
+    if (r.said) { const out = r.said(c); if (out) return out; }
+    else if (r.when(c)) return r.go(c);
   }
-  if (!has && mode !== 'intake') { const cr = cueCecReply_(ref, text); if (cr) return cr; }
-  if (!has && mode !== 'intake' && cueCecAsked_(text)) return cueCecStart_(text, ref);
-  // Kiko 06:47Z 24 Oct (specs/cue-add-tasks.md): "add task|issue|risk … to <project>" shows an Approve card; no AI call.
-  if (!has && mode !== 'intake') { const tr = cueTriSaid_(text, ref); if (tr) return tr; }
-  if (!has && mode !== 'intake') { const cv = cueCanvasSaid_(text, ref); if (cv) return cv; }
-  // Same spec: "add project …" / "new project …" is a project intake in Kiko's own words, so no chat call routes it.
-  if (mode !== 'chat' && mode !== 'intake' && CUE_ADD_PROJECT_RE_.test(String(text || '').trim())) { text = 'New project intake: ' + String(text).trim().replace(CUE_ADD_PROJECT_RE_, '').trim(); mode = 'intake'; }
-  // CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
-  if (inThread && mode !== 'chat') { const ph = cuePhReply_(ref, text, files); if (ph) return ph; }
-  // Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
-  if (mode !== 'intake' && !has && CUE_STYLE_RE_.test(String(text || ''))) return cueStyleStart_(text);
-  // Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
-  if (mode !== 'intake' && !has && CUE_MEM_RE_.test(String(text || ''))) return cueTeachStart_('memory', text);
-  if (mode !== 'intake' && !has && CUE_PROC_RE_.test(String(text || ''))) return cueTeachStart_('process', text);
-  if (mode !== 'intake' && !has && cueMemPaste_(text)) return cueTeachStart_('memory', text);
-  // Teach Cue add-on (Kiko 17:00Z): a phrase Kiko taught Cue word for word is a money question with no AI call routing it.
-  if (!forced && !has && mode !== 'intake' && !inThread && cueRouteExact_(text) === 'money') return cueFinance_(String(text).trim(), '');
-  // ChatGPT scheduled tasks (CueGptTasks.gs, Kiko "Go" 22 Oct 00:55Z): "run daily plan", "prospect follow-ups"... start one in its own thread, no chat call.
-  if (mode !== 'intake' && !has && !ref && cueGtAsked_(text)) return cueGtStart_(cueGtAsked_(text), String(text || '').trim(), 'chat');
-  // Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
-  if (mode !== 'chat' && mode !== 'intake' && cueIsPersonal_(text)) return cuePersonalStart_(String(text || '').trim(), files, ref);
-  // CFO Advisor (Kiko 07:41Z): a money question is answered from Canvas numbers with one Claude call, instead of the chat call.
-  // A reply in a money thread stays a money question; a reply in any other task's thread never becomes one.
-  if (!has && mode !== 'intake' && String(text || '').trim() && !/^\s*new project intake/i.test(String(text || ''))
-    && (ref ? (cueLoad_(ref) || { s: {} }).s.kind === 'finance' : cueFinAsk_(text))) return cueFinance_(String(text).trim(), ref);
+  text = c.text; mode = c.mode;   // "add project …" turns the message into an intake (cueAddProjectSaid_)
   let asked = '', reopened = '';
-  // Kiko 08:07Z (specs/process-mapper.md): a reply in a workflow map's thread revises the map; files with a map word start a map.
-  const wf = ref && mode !== 'intake' ? cueLoad_(ref) : null;
-  if (wf && wf.s.kind === 'workflow' && wf.s.status === 'Needs you') return cueWorkflowReply_(ref, text);
-  if (has && mode !== 'intake' && cueWorkflowAsked_(text)) { const out = cueWorkflowStart_({ name: '' }, ref, String(text || '').trim(), files); if (!ref) cueChat_('Cue', 'Started a thread to map it.', '>' + out.request_id); return out; }
-  if (mode !== 'intake' && !has && !ref && cueHsAsked_(text)) return cueHsStart_(String(text || '').trim(), 'chat');   // command C12, its own thread
-  // Kiko 24 Oct 13:50Z (CueFunnel.gs): "show the funnel", "my HubSpot tasks" read HubSpot in their own thread, no AI call.
-  if (mode !== 'intake' && !has && !ref && cueFunnelAsked_(text)) return cueFunnelStart_(String(text || '').trim(), 'chat');
-  // Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
-  if (mode !== 'chat' && mode !== 'intake' && !has && cueBidsFor_(text)) return cueBidsIntake_(String(text).trim(), ref);
-  // PC check 22 Oct 04:45Z: "redo bid check" in a Bid check thread became a Project intake plan. A bid ask there (or "again", "redo",
-  // "re-run") runs a fresh bid check in its own thread, with no AI call. (Its thread check runs first, near the top.)
-  if (mode !== 'intake' && !has && !ref && cueBidsAsked_(text)) return cueBidsStart_(String(text || '').trim(), 'chat', '');
   // A supplier to register (CueSupplier.gs) skips the chat call: Kiko's own words say what it is.
-  // Kiko 08:55Z: "can you cost them by item?" restarted the whole intake. Costing starts mid-way when the thread already has the read.
-  if (!has && mode !== 'chat') { const rc = cueRecostStart_(String(text || '').trim(), ref); if (rc) return rc; }
   let sup = mode !== 'intake' && mode !== 'chat' && cueIsSupplier_(text);
   if (!sup && mode !== 'intake' && (mode === 'chat' || (!has && !/^\s*new project intake/i.test(String(text || ''))))) {
     const talk = forced || cueTalk_(String(text || '').trim(), ref);
-    if (talk.workflow) { const out = cueWorkflowStart_(talk.workflow, ref || talk.task || '', String(text || '').trim(), []); cueOnIt_(ref, talk.task, 'Started a thread to map it.', out.request_id, talk.pointed); return out; }
-    // Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
-    if (talk.readiness) { const home = ref || talk.task || cueReadyHome_(talk.readiness); const out = cueReadyStart_(talk.readiness, home, null, false); cueOnIt_(ref, home, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
-    if (talk.pipeline) return cuePipeStart_(String(text || '').trim(), talk.pipeline.client);   // command C11, its own thread
-    if (talk.start_ar) {   // CUE-AR: "prepare ARs for <project>" (GPT picked it in the same chat call)
-      const home = ref || talk.task || '', id = cueArStart_(talk.start_ar, String(text || '').trim(), home);
-      if (!home) cueChat_('Cue', 'Started a thread for it.', '>' + id);
-      return { request_id: id, task: home };
-    }
-    // Kiko 07:54Z (specs/vendor-management.md): "find / compare / assess suppliers" starts a supplier search in its own thread.
-    // Kiko 08:21Z (specs/write-like-me.md step 2): "email X about Y" / "reply to X" drafts one email in Kiko's style in its own thread.
-    if (talk.email) { const out = cueMailStart_(talk.email, ref || talk.task || '', String(text || '').trim(), talk.lookup); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
-    if (talk.vendor) { const out = cueVendorStart_(talk.vendor, ref || talk.task || '', String(text || '').trim()); cueOnIt_(ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; }
-    // Kiko 10:06Z 27 Oct: "Cue received it - should passed to Claude - Claude should have updated the file". A change to a Canvas
-    // record goes to Claude, then an Approve card (CueEdit.gs); the chat call's own reply is not shown.
-    if (talk.canvas_edit) return cueEditStart_(talk.canvas_edit, ref || talk.task || '', String(text || '').trim(), true);
+    // What the chat call can start: cueTalkRoutes_ in CueCommands.gs, checked in its order.
+    for (const r of cueTalkRoutes_()) if (talk[r.key]) return r.go(talk, c, String(text || '').trim());
     if (!talk.start_intake) return talk;
     if (!ref && talk.task) ref = talk.task;   // the run joins the thread GPT matched
     asked = talk.start_intake;      // Kiko asked Cue to do it now (05:48Z "load again with new files"): start it, no extra tap
@@ -799,8 +728,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
-  const run = { sweep: cueSweepRun_, readiness: cueReadyRun_, pipeline: cuePipeRun_, funnel: cueFunnelRun_, ar: cueArRun_, hubspot: cueHsRun_, bids: cueBidsRun_, gtask: cueGtRun_, vendor: cueVendorRun_, workflow: cueWorkflowRun_, supplier: cueSupplierRun_, personal: cuePersonalRun_, cecost: cueCecRun_, style: cueStyleRun_, email: cueMailRun_, memory: cueTeachRun_, process: cueTeachRun_ }[s.kind] || cueIntakeRun_;
-  const stopped = { sweep: 'The morning sweep stopped: ', readiness: 'The readiness check stopped: ', pipeline: 'The pipeline review stopped: ', funnel: 'The sales funnel stopped: ', ar: 'The receipts stopped: ', hubspot: 'The HubSpot clean-up stopped: ', bids: 'The bid check stopped: ', gtask: 'The ChatGPT task stopped: ', vendor: 'The supplier search stopped: ', workflow: 'The workflow map stopped: ', supplier: 'The supplier registration stopped: ', personal: 'The personal expense stopped: ', cecost: 'The CE cost update stopped: ', style: 'Learning your style stopped: ', memory: 'Learning your memory stopped: ', process: 'Learning your process stopped: ', email: 'Drafting the email stopped: ' }[s.kind] || 'The intake stopped: ';
+  const kind = cueCommand_(s.kind);   // STRUCTURE-PHASE-2: run and "stopped" line from the command list (cueCommands_ in CueCommands.gs)
+  const run = kind.run || cueIntakeRun_, stopped = kind.stopped || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
   catch (e) { s.status = 'Failed'; s.error = String((e && e.message) || e).slice(0, 500); cueChat_('Cue', stopped + s.error, s.id); }
   delete s.lease_until;
@@ -843,22 +772,8 @@ function cueRetry(id) {
 function cueApprove(id, edits) {
   cueOwner_();
   const L = cueLoad_(id);
-  if (L && L.s.kind === 'change') return cueView_(cueChangeApprove_(id, edits || {}));
-  if (L && L.s.kind === 'sweep') return cueView_(cueSweepApprove_(id, edits || {}));
-  if (L && L.s.kind === 'readiness') return cueView_(cueReadyApprove_(id, edits || {}));
-  if (L && L.s.kind === 'style') return cueView_(cueStyleApprove_(id, edits || {}));
-  if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachApprove_(id, edits || {}));
-  if (L && L.s.kind === 'email') return cueView_(cueMailApprove_(id, edits || {}));
-  if (L && L.s.kind === 'pipeline') return cueView_(cuePipeApprove_(id, edits || {}));
-  if (L && L.s.kind === 'ar') return cueView_(cueArApprove_(id, edits || {}));
-  if (L && L.s.kind === 'expense') return cueView_(cueExpenseApprove_(id, edits || {}));
-  if (L && L.s.kind === 'cecost') return cueView_(cueCecApprove_(id, edits || {}));
-  if (L && L.s.kind === 'hubspot') return cueView_(cueHsApprove_(id, edits || {}));
-  if (L && L.s.kind === 'vendor') return cueView_(cueVendorApprove_(id, edits || {}));
-  if (L && L.s.kind === 'workflow') return cueView_(cueWorkflowApprove_(id));
-  if (L && L.s.kind === 'tri') return cueView_(cueTriApprove_(id, edits || {}));
-  if (L && L.s.kind === 'supplier') return cueView_(cueSupplierApprove_(id, edits || {}));
-  if (L && L.s.kind === 'personal') return cueView_(cuePersonalApprove_(id, edits || {}));
+  const approve = L ? cueCommand_(L.s.kind).approve : null;   // STRUCTURE-PHASE-2: each kind's Approve is in cueCommands_ (CueCommands.gs)
+  if (approve) return cueView_(approve(id, edits || {}));
   if (L && L.s.phased) return cueView_(cuePhApprove_(id, edits || {}));
   return cueView_(cueIntakeApprove_(id, edits || {}));
 }
