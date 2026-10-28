@@ -1,4 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs, live in Canvas V310 (28 Oct 2026 05:08Z):
+Copied from CanvasWorkspace src/ZapBridge.gs, as shipped in live Canvas V310 (28 Oct 2026 05:08Z):
 contact history (contact_gaps lists held cells; contact_fill skips cells with history) on top of V307.
 md5 7d86216f57ad34d0b74d212e322af7d9
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

@@ -5,7 +5,7 @@
 Kiko approved phase 1 of the Cue structure review on 28 Oct 2026 03:47Z ("yes") and phase 2 at 04:21Z ("okay lets do that");
 spec `specs/cue-structure-review.md`, epic Cue #133. Both were built on main (#131, #132, #152, #158, #159). Main also carries
 features that never went live, so the deploys thread asked for the same structure rebuilt on the live code (rel12747, live
-1.27.47 = Version 103). This release is that rebuild, on top of live 1.27.51 (b907e8e, Version 108). Nothing Kiko sees or does changes; no bridge, email, sheet or AI change.
+1.27.47 = Version 103). This release is that rebuild, on top of live 1.27.51 (69285e7, Version 108). Nothing Kiko sees or does changes; no bridge, email, sheet or AI change.
 
 - Shared helpers: the Gmail, text and date helpers move unchanged into `CueGmail.gs`, `CueText.gs` and `CueDates.gs`.
 - Tests by feature: `test/cue.test.js` loads `test/features/NN-*.js` in order, cut the same way as main.
@@ -20,11 +20,10 @@ features that never went live, so the deploys thread asked for the same structur
   steps and finished-card test, in place of three hand-written chains. Chromium rendered every kind in five states before and
   after: 184 captures identical.
 - `FEATURE-MAP.md`, written by `node tools/map.mjs`; tests FM1 and FM2 fail when it is out of date.
-- Risk to check: the page has not yet been served as a template on real Apps Script. The cloud check should confirm the page
-  loads and the threads pane renders.
 - Tests: 403 (392 before, plus CMD1 to CMD4, PG1 to PG3, CF1, CF2, FM1, FM2). The cloud check dry run passes. Built first as 1.27.49 on 1.27.47,
   where Check Cue run 40635150415 (1.27.41-canvas-edit) passed: the template page loads on real Apps Script.
-## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (not deployed; Kiko 28 Oct 04:43Z)
+
+## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (deployed 28 Oct 2026 05:14Z as Version 108; Kiko 28 Oct 04:43Z)
 
 Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
 he have done so far to not overwrite what changes we already did". Needs the Canvas history check, live in Canvas V310 (28 Oct 05:08Z;
@@ -38,7 +37,7 @@ he have done so far to not overwrite what changes we already did". Needs the Can
 - `contact_fill` checks again under the lock and reports any such cell as skipped, with the same reason.
 - Bridge copy `test/fixtures/ZapBridge.gs` is that branch file. New test CS6. Tests: 391.
 
-## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (not deployed)
+## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (deployed 28 Oct 2026 05:06Z as Version 106)
 
 Kiko asked on 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
 different status". Built on live 1.27.47 (release branch `claude/project-thread-y5l4x9-rel12747`) as a bug fix. Numbered
