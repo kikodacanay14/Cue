@@ -119,7 +119,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
 | `CueBids.gs` |  | Requests | 1 | 0 | 6 | 3 |
 | `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 28 | 3 |
-| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 9 | 5 |
+| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 10 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 4 | 9 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
 | `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 3 | 23 |
@@ -149,7 +149,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueRelay.gs` | `ar_list`, `ce_lines`, `finance_snapshot`, `get_project`, `get_project_board`, `get_readiness`, `list_project_files`, `overdue_billings`, `search_projects`, `status_digest` | Relay, Requests | 0 | 0 | 6 | 10 |
 | `CueRoute.gs` |  | Routing examples | 0 | 0 | 10 | 15 |
 | `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 5 | 11 |
-| `CueStatus.gs` | `add_tri_items`, `find_similar_projects`, `status_digest` | AI Runs, Requests | 2 | 1 | 4 | 11 |
+| `CueStatus.gs` | `add_tri_items`, `find_similar_projects`, `search_projects`, `status_digest` | AI Runs, Requests | 2 | 1 | 4 | 12 |
 | `CueStyle.gs` |  | Requests, Style | 0 | 1 | 13 | 4 |
 | `CueSupplier.gs` | `handoff_put`, `register_supplier`, `save_supplier_file`, `supplier_check` |  | 2 | 1 | 3 | 7 |
 | `CueSweep.gs` | `get_project_board` | Chase log, Requests, Rules | 1 | 0 | 14 | 10 |
@@ -216,12 +216,12 @@ Names used by 5 or more other files, and the file that holds them.
 | `CUE_DATE_RE_` | `CueText.gs` | 6 |
 | `cueAddDays_` | `CueDates.gs` | 6 |
 | `cueAskPick` | `CueRoute.gs` | 6 |
+| `cueCanvasFind_` | `CueCanvas.gs` | 6 |
 | `cueR2_` | `CueText.gs` | 6 |
 | `cueSendWith_` | `Cue.gs` | 6 |
 | `cueBridgeParse_` | `CueBridge.gs` | 5 |
 | `cueBridgePlan_` | `CueBridge.gs` | 5 |
 | `cueBridgeReq_` | `CueBridge.gs` | 5 |
-| `cueCanvasFind_` | `CueCanvas.gs` | 5 |
 | `cueFilesParts_` | `CueFiles.gs` | 5 |
 | `cueGmailReply_` | `CueGmail.gs` | 5 |
 

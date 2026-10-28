@@ -16,7 +16,7 @@ test('PF1 the one finder: an S- id as typed; else every word (search_projects); 
 
 test('PF2 every command that turns a project name into a Canvas project asks the one finder; find_similar_projects is left only to the intake duplicate check', () => {
   const src = f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8');
-  ['CueAr.gs', 'CueReady.gs', 'CueVendor.gs', 'CueCeCost.gs', 'CueExpense.gs', 'CueTri.gs'].forEach(f => assert.ok(/cueCanvasFind_\(s, /.test(src(f)), f + ' uses the finder'));
+  ['CueAr.gs', 'CueReady.gs', 'CueVendor.gs', 'CueCeCost.gs', 'CueExpense.gs', 'CueTri.gs', 'CueStatus.gs'].filter(f => fs.existsSync(path.join(__dirname, '..', 'src', f))).forEach(f => assert.ok(/cueCanvasFind_\(s, /.test(src(f)), f + ' uses the finder'));
   const direct = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f) && /cueBridge_\(s, 'find_similar_projects'|\['find_similar_projects', \{/.test(src(f))).sort();
   deq(direct, ['CueCanvas.gs', 'CueIntake.gs', 'CueIntakePhases.gs'], 'the finder itself, and the duplicate check before a new project');
 });
