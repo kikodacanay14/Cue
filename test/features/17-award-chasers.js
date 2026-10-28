@@ -88,7 +88,7 @@ test('SN2 Cue bubble 1.2: manifest asks only for what snapshots need; scripts pa
   ['background.js', 'content.js', 'cue-drop.js', 'options.js'].forEach(f => new vm.Script(fs.readFileSync(path.join(ext, f), 'utf8'), { filename: f }));
   const bg = fs.readFileSync(path.join(ext, 'background.js'), 'utf8');
   assert.ok(/isCueTab\(sender\.tab\)\.then\(ok => \{ if \(ok\) snap/.test(bg), 'only Cue\'s own page can ask for a snapshot');
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   const h = page.slice(page.indexOf('// Snapshots (spec screen-snapshot.md'), page.indexOf("$('snap').onclick"));
   assert.ok(h.length > 200 && /e\.source !== window/.test(h), 'listens to its own window only');
   assert.ok(!/\bsend\(|call\(/.test(h), 'a snapshot never sends or calls the server by itself');

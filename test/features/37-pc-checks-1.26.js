@@ -8,7 +8,7 @@ test('CC8 a lump-sum quote is shown as a lot: never ticked onto one line, whethe
   const one = cecRun({ gpt: { cecost: { changes: [{ key: 'L1', unit_cost: 616000, basis: 'unit', quoted: 'Booth fabrication lot - 616,000 VAT inclusive', why: 'booth' }], lots: [], unmatched: [], note: '' } } });
   deq([one.v.cec.rows.filter(r => r.tick).length, one.v.cec.rows[0].cost, one.v.cec.lots.length], [0, null, 1], 'the lot on one line is taken off it');
   assert.throws(() => one.ctx.cueApprove(one.id, {}), /Tick at least one/);
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';'), NEED: { 'Needs you': 1 }, metricLine: () => '', cvLink: l => '<a>' + l.title + '</a>' };
   vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml'), ctx);
@@ -79,7 +79,7 @@ test('CC13 Go on a readiness plan card that joins an earlier thread: one "On it.
   deq(u.ctx.cueLoad_(go.request_id).s.kind, 'readiness');
   const ptr = u.tabs.Chat.rows.filter(r => /^>/.test(r[3]));
   deq(ptr.map(r => r[2]), ['On it. Continuing in the Acme Year-End Party thread.'], 'one pointer, never also "Answered in"');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const a = html.indexOf('function renderMain('), body = html.slice(a, html.indexOf('\n  }\n', a) + 4);
   assert.ok(/pq && !pq\.open && !pq\.where/.test(body), 'a pointer right after a main-chat Go tap shows even when the thread showed before');
 });
@@ -171,11 +171,11 @@ test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will n
 /* CUE-IN-CANVAS (Kiko 23 Oct 07:39Z, 08:48Z, 08:52Z; specs/cue-in-canvas.md) */
 test('CIC1 Cue may show inside Canvas: doGet allows framing, and the page guards itself instead', () => {
   assert.ok(/setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/.test(CODE), 'ALLOWALL');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/var CUE_HOST = cueFrameCheck\(window\);/.test(html) && html.indexOf('#cue-cover {') > 0, 'guard runs on load and has a cover');
 });
 test('CIC2 frame guard: own tab is free; inside Canvas waits for cueHost; any non-Google ancestor or a deep frame without ancestorOrigins is covered', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const src = html.slice(html.indexOf('function cueFrameCheck('), html.indexOf('function cueAncestor('));
   const ctx = vm.createContext({}); vm.runInContext(src, ctx);
   const chain = (depth, anc) => { let top = {}; top.parent = top; let w = top; for (let i = 0; i < depth; i++) { const c = { parent: w }; w = c; } w.location = { ancestorOrigins: anc }; return w; };
@@ -194,13 +194,13 @@ test('CIC2 frame guard: own tab is free; inside Canvas waits for cueHost; any no
   deq(ctx.cueFrameCheck(chain(2, undefined)).nested, false, 'no ancestorOrigins in its own tab: free');
 });
 test('CIC3 inside Canvas: Open in Canvas goes to Canvas itself; only the host that sent cueHost may open a thread', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/if \(CUE_HOST\.canvas\) return void CUE_HOST\.canvas\.postMessage\(\{ canvasWs: 'cueOpen', url: l\.url \}, '\*'\);/.test(html));
   assert.ok(/d\.canvasWs === 'cueThread' && e\.source === CUE_HOST\.canvas/.test(html), 'thread only from the host');
   assert.ok(/!cueAncestor\(e\.source\)/.test(html), 'messages only from windows above Cue');
 });
 test('CIC4 Cue wears Canvas: Workspace tokens (cream, ink, purple action, magenta need), no graphite left', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   ['--bg:#F7F3EA', '--text:#16151B', '--act:#23006F', '--need:#F000AA', '--line:#E2DCCF', '--muted:#5B5766'].forEach(t => assert.ok(html.indexOf(t) > 0, t));
   ['#141518', '#17181c', '#0e0f11', '#262930', '#22344d', '#1f2b3d', '#0b1320'].forEach(c => assert.ok(html.indexOf(c) < 0, c + ' left'));
   assert.ok(!/<b [^>]*color:#fff/.test(html), 'card titles use the ink token, not white');
@@ -261,7 +261,7 @@ test('TD3 Today frame: silent until cueHost from a Google window above it; doGet
   assert.throws(() => t.ctx.cueToday(), /owner|Kiko|only/i);
 });
 test('TD4 Cue chat: a day\'s scheduled-job pointer lines fold into one Today line', () => {
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   assert.ok(/var jd = jobDay\(pt\); if \(jd && !answers\) \{ if \(!dayShown\[jd\]\) \{ dayShown\[jd\] = 1; h \+= todayHtml\(jd, th\); \} return; \}/.test(page));
   const src = page.slice(page.indexOf('var TODAY_K = '), page.indexOf('  // The chat: Kiko\'s general messages'));
   const ctx = vm.createContext({ esc: x => String(x), state: { today: { day: '2026-10-21', rows: [{ title: 'Send 3 emails', detail: '3 RFQ.', by: 'Done by ChatGPT · checked by Cue', thread: 's1' }], done: 'bid check (no new bids) (by ChatGPT)' } } });

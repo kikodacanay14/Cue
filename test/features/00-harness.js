@@ -3,6 +3,7 @@
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-f9ie51: live V193 + canvas_link / handoff_put). Run: node test/cue.test.js
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
+const { cuePage } = require(path.join(__dirname, 'page.js'));   // the page joined from its parts, as doGet serves it
 const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');   // Apps Script's own load order
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
