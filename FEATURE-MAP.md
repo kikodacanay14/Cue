@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 54 server files, 1113 top-level names, 26 task kinds, 29 word checks before the
+Counts: 54 server files, 1114 top-level names, 26 task kinds, 29 word checks before the
 chat call, 7 background jobs in the 5-minute trigger, 65 page-to-server functions, 55 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -120,7 +120,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 11 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 21 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 22 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
 | `CueCheckPost.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueCommands.gs` |  |  | 0 | 0 | 2 | 30 |
@@ -136,7 +136,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakePhases.gs` | `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `search_projects` |  | 1 | 3 | 3 | 9 |
-| `CueJobs.gs` |  | Job Runs | 0 | 0 | 1 | 7 |
+| `CueJobs.gs` |  | Job Runs | 0 | 0 | 2 | 7 |
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 5 |
 | `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 5 |
@@ -183,8 +183,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueAiAll_` | `CueAi.gs` | 24 |
 | `cueBridge_` | `CueBridge.gs` | 22 |
 | `cueGpt_` | `CueAi.gs` | 21 |
+| `cueOwner_` | `Cue.gs` | 21 |
 | `CUE_VERSION_` | `Cue.gs` | 20 |
-| `cueOwner_` | `Cue.gs` | 20 |
 | `cueEmail_` | `CueText.gs` | 19 |
 | `cueMetrics_` | `Cue.gs` | 18 |
 | `cueClaude_` | `CueAi.gs` | 16 |

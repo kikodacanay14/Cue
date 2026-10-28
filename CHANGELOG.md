@@ -17,6 +17,8 @@ Cue #133, stories #142 and #144. Built on live 1.27.53 (Version 114, ed62d61, co
   name asked.
 - One inbox read (3.2): measured instead of built. Each 5-minute tick reads the inbox at most once (the email check, every
   10 minutes); the project log reuses it. Triage (07:00) and RFQ chasers (Sent) read once a day each.
+- Cloud check: `test/checks/1.27.54-job-runs.check.mjs` runs one job (Bid check tidy) through the tick runner via the check
+  door (`cueJobsCheck`, check only) and reads its Job Runs row back. It writes that row (and the tab on first use) in Cue's own sheet.
 - Tests: 409 (404 before): JR1-JR3, PF1-PF2; readiness tests follow the finder.
 
 ## Cue 1.27.53: each waiting email carries its first line, for Canvas's compact cards (deployed 28 Oct 2026 06:20Z as Version 114)

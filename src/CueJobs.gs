@@ -66,3 +66,17 @@ function cueJobTrim_(sh, nowIso) {
   if (old) sh.deleteRows(2, old);
   return old;
 }
+
+/** Cloud check only (test/checks/1.27.54-job-runs.check.mjs, through the check door): runs one job the way cueResume does (looked
+ * up by name, timed, its row written in one write with the daily trim) and reads its row back from the Job Runs tab. The job is
+ * "Bid check tidy": a one-off from 1.27.2 that returns 0 without writing once it has run. Writes that one row to Cue's own sheet. */
+function cueJobsCheck() {
+  cueOwner_();
+  const j = cueJobs_().filter(x => x.fn === 'cueBidsTidyAll_')[0], rows = [];
+  cueJobRun_(j, rows);
+  cueJobLog_(rows);
+  const sh = cueSheet_('Job Runs'), n = sh.getLastRow() - 1;
+  const back = n > 0 ? sh.getRange(2, 1, n, CUE_TABS_['Job Runs'].length).getValues().filter(r => String(r[0]) === rows[0][0] && r[2] === j.job) : [];
+  return { wrote: rows[0], read: back.map(r => r.map(String)), header: sh.getRange(1, 1, 1, CUE_TABS_['Job Runs'].length).getValues()[0], rows: n,
+    trim_day: PropertiesService.getScriptProperties().getProperty('CUE_JOB_TRIM_DAY') || '' };
+}
