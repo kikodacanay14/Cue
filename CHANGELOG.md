@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue button: chat bubble instead of the colour wheel (not deployed)
+
+Kiko 28 Oct 2026 04:25Z: "can we redesign Cue's button look - now it kinda looks like a loading image". From three rendered
+options (`canvas-integration/previews/cue-button-options.png`) he chose B, the chat bubble, at 04:29Z.
+
+- The Cue mark is now a white speech bubble with a "C" on the BSE gradient (the `--bs-gradient` from Canvas Brand.html, a
+  flat 135° fill), replacing the conic colour wheel that read as a loading spinner.
+- Changed in: the Chrome bubble (`extension/content.js`, extension 1.4.2, and its 16/48/128 px icons), the logo in Cue's top
+  bar (`src/Index.html`), and the browser-tab favicon (`src/Cue.gs`; icon version `bubble-1` makes Cue upload the new PNG
+  to Kiko's Drive once). Same size, place, drag and unread behaviour.
+- The Canvas Cue button (Workspace.html `.qc-btn.cue`) is Canvas Integration's; the matching change goes to it as a handoff.
+- Tests: 381 of 381 pass (CB1 new; SN2 now expects extension 1.4.2).
+
 ## Cue structure phase 1: map and tidy, no change in what Cue does (not deployed)
 
 Kiko asked on 28 Oct 2026 for structure improvements from Cue's current capabilities (list: `canvas-integration/specs/cue-structure-review.md`) and approved phase 1 at 03:47Z ("yes").
