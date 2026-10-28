@@ -1057,6 +1057,31 @@
     return { to: box.querySelector('[data-rq-to]').value, subject: box.querySelector('[data-rq-subj]').value, body: box.querySelector('[data-rq-body]').value };
   }
   // CUE-CANVAS: every card with a Canvas page gets "Open in Canvas" above its buttons. AR and supplier cards place their own.
+  // Help answers (CueHelp.gs, Kiko 27 Oct 02:34Z): the best row from Canvas's Help Q&A list for a pasted question, matched in code.
+  // Copy reply copies the answer (or its Taglish rephrase); nothing is sent. No match: Add as Draft puts the question on the list.
+  function helpCardHtml(r) {
+    var H = r.help, hit = H.hits[H.pick] || null, aud = H.audience ? H.audience + ' asked' : 'Someone asked';
+    var h = '<div class="card' + (r.status === 'Needs you' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Help answer</div>'
+      + '<div class="small muted">' + esc(aud) + '</div><b style="font-size:17px;color:var(--white)">' + esc(H.ask) + '</b>';
+    if (hit) {
+      h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><div class="small muted">' + esc(hit.id) + ' · ' + esc(hit.audience) + ' · ' + esc(hit.type) + ' · matched by code, no AI call</div>'
+        + '<div class="small" style="margin-top:4px"><b>' + esc(hit.question) + '</b></div>'
+        + '<div class="small" style="white-space:pre-wrap;margin-top:4px" data-help-reply="' + esc(r.id) + '">' + esc(H.reply || hit.answer) + '</div>'
+        + (H.reply ? '<div class="small muted" style="margin-top:4px">Rephrased in Taglish by Claude (1 AI call). The list\'s own answer is unchanged.</div>' : '')
+        + (hit.opens ? '<div class="small muted" style="margin-top:4px">Opens in Canvas: ' + esc(hit.opens) + '</div>' : '') + '</div>'
+        + '<div class="actions"><button class="btn" data-act="help-copy" data-id="' + esc(r.id) + '">Copy reply</button>'
+        + (H.reply ? '' : '<button class="btn ghost" data-act="help-rephrase" data-id="' + esc(r.id) + '">Rephrase</button>')
+        + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Edit answer in bank</a></div>';
+      var others = H.hits.map(function (x, i) { return i === H.pick ? '' : '<button class="btn ghost" data-act="help-pick" data-id="' + esc(r.id) + '" data-n="' + i + '">' + esc(x.question) + '</button>'; }).join('');
+      if (others) h += '<div class="small muted" style="margin-top:8px">Not this one? Close matches:</div><div class="actions">' + others + '</div>';
+    } else {
+      h += '<div class="small" style="margin-top:8px">The Help Q&amp;A list has no answer for this yet.</div>';
+    }
+    if (H.added) h += '<div class="small muted" style="margin-top:8px">' + (H.added.existed ? 'Already on the list as ' : 'On the list as ') + esc(H.added.id) + ' (' + esc(H.added.status) + '). Answer it in the tab and set Status to Live.</div>';
+    else if (!hit) h += '<div class="actions"><button class="btn" data-act="help-draft" data-id="' + esc(r.id) + '">Add as Draft</button>'
+      + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Open the list</a></div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
     var h = cardBody(r) || '';   // a card that draws nothing must not stop the whole page drawing
     if (!r.open || r.kind === 'ar' || r.kind === 'supplier') return h;
@@ -1078,6 +1103,7 @@
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
     if (r.kind === 'gtask') return gtCardHtml(r);
     if (r.kind === 'finance') return finHtml(r);
+    if (r.kind === 'help' && r.help && r.status !== 'Failed') return helpCardHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
     if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
@@ -1415,6 +1441,11 @@
         if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
         if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
+        if (act === 'help-copy') { var ht = (scope.querySelector('[data-help-reply="' + id + '"]') || {}).textContent || '';
+          if (navigator.clipboard) navigator.clipboard.writeText(ht).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy reply'; }, 1500); }, function () { alertErr('Copy did not work. Select the text and copy it.'); });
+          return; }
+        if (act === 'help-pick' || act === 'help-rephrase' || act === 'help-draft') { b.disabled = true;
+          return call('cueHelpAct', [id, act.slice(5), act === 'help-pick' ? Number(b.getAttribute('data-n')) : ''], done, fail); }
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);

@@ -34,6 +34,7 @@ function cueCommands_() {
     process: { name: 'Learning your process', cmd: '', run: cueTeachRun_, approve: cueTeachApprove_, stopped: 'Learning your process stopped: ' },
     email: { name: 'Email', cmd: 'email', run: cueMailRun_, approve: cueMailApprove_, stopped: 'Drafting the email stopped: ' },
     finance: { name: 'Money question', cmd: 'money', run: null, approve: null, stopped: '' },
+    help: { name: 'Help answer', cmd: '', run: cueHelpRun_, approve: null, stopped: 'Reading the Help Q&A list from Canvas stopped: ' },
   };
 }
 /** One kind's entry, or {} for a kind not in the list. */
@@ -44,6 +45,7 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
  * said: Cue's own reply, or nothing when the words are not for it. when + go: go runs, and its result is the answer, when when is true. */
 /* Where each check came from (the notes that sat on each line of cueSendWith_ before, kept word for word):
  * learn: Kiko 17:03Z "expedite how he learns": "remember: …" / "from now on …" anywhere is saved as a rule at once (no AI call).
+ * help: Help answers (Kiko 27 Oct 02:34Z, CueHelp.gs): "help: <question>" matches the Help Q&A list in code, no AI call.
  * ticktick: TickTick (Kiko 17:26Z, specs/cue-skills-connectors.md): "connect ticktick" gives the sign-in link, no AI call.
  * schedule: Task scheduler (Kiko 19:13Z, CueSchedule.gs): "Schedule <when> <command>" shows a Save card; "show my schedules" lists them. No AI call.
  * transfer, invoice: Transfer lookup and invoice line edit (Kiko 09:20Z 27 Oct, CueLookup.gs): Transfers read only, no AI call; an invoice line waits Approve.
@@ -75,6 +77,7 @@ function cueRoutes_() {
   const words = c => !c.has && c.mode !== 'intake';   // typed words, not an intake form
   return [
     { key: 'learn', name: '"remember: …" saves a rule', said: c => words(c) ? cueLearnSaid_(c.text, c.ref) : null },
+    { key: 'help', name: '"help: <question>" answers from the Help Q&A list', said: c => words(c) ? cueHelpSaid_(c.text, c.ref) : null },
     { key: 'ticktick', name: '"connect ticktick"', said: c => words(c) ? cueTtConnectSaid_(c.text, c.ref) : null },
     { key: 'schedule', name: '"schedule …" and "show my schedules"', said: c => words(c) ? cueSchedSaid_(c.text, c.ref) : null },
     { key: 'transfer', name: 'Transfer lookup', said: c => words(c) ? cueTxSaid_(c.text, c.ref) : null },
