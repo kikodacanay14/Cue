@@ -13,7 +13,7 @@ Built first on live 1.27.52 (branch `claude/project-thread-klmtzh-rel12753p3`) a
 - One inbox read (3.2): measured; each tick reads the inbox at most once already.
 - Tests: 397 (392 before): JR1-JR3, PF1-PF2; readiness tests follow the finder.
 
-## Cue email check: each waiting email carries its first line, for Canvas's compact cards (not deployed)
+## Cue email check: each waiting email carries its first line, for Canvas's compact cards (deployed 28 Oct 2026 06:20Z as Cue 1.27.53, Version 114, with Canvas V313 / Client C173; Kiko's go 05:33Z)
 
 Kiko 28 Oct 2026 04:51Z, on the Team Cue panel in Canvas: "can cards be more compact? and show a summary of the details so we
 know what the card is about?"; 04:55Z: "the one that says Open Gmail needs to show more summary and buttons can they be more
