@@ -22,12 +22,15 @@ test('PG2 the joined page is one page with one script, and that script is valid 
 
 test('PG3 doGet serves Index as a template, and cueInclude_ gives a part without its last newline', () => {
   const t = sandbox(), seen = [];
-  t.ctx.HtmlService.createTemplateFromFile = n => { seen.push(n); return { evaluate: () => ({ setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode() { return this; }, setFaviconUrl() { return this; } }) }; };
+  t.ctx.HtmlService.createTemplateFromFile = n => { seen.push(n); return { evaluate: () => ({ setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode() { return this; }, setFaviconUrl() { return this; } }), getRawContent: () => fs.readFileSync(path.join(__dirname, '..', 'src', n + '.html'), 'utf8') }; };
   t.ctx.HtmlService.XFrameOptionsMode = { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' };
-  t.ctx.HtmlService.createHtmlOutputFromFile = n => ({ getContent: () => fs.readFileSync(path.join(__dirname, '..', 'src', n + '.html'), 'utf8') });
+  t.ctx.HtmlService.createHtmlOutputFromFile = n => { throw new Error('Exception: Malformed HTML content: ' + n); };   // what Apps Script does to a script-only part
   t.ctx.cueIconUrl_ = () => '';
   t.ctx.doGet({ parameter: {} });
   deq(seen, ['Index']);
+  seen.length = 0;
   const part = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexViewer.html'), 'utf8');
   deq([part.endsWith('\n'), t.ctx.cueInclude_('IndexViewer') === part.slice(0, -1)], [true, true]);
+  PG_PARTS.forEach(n => t.ctx.cueInclude_(n));   // hotfix 28 Oct: every part is read raw, never through the HTML parser
+  deq(seen, ['IndexViewer'].concat(PG_PARTS));
 });

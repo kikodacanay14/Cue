@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.54';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.54.1';   // release branch: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54) + the page opens again: parts read raw (1.27.54.1 fix)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -43,7 +43,10 @@ function doGet(e) {
 /** STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z): the page is split into parts (IndexStyle, IndexChat, IndexViewer, IndexThreads,
  * IndexPages, IndexCards). Index.html puts each part in its place with <?!= cueInclude_('Name') ?>. A part's last newline is dropped,
  * since the include line in Index.html ends with its own. test/page.js joins the page the same way for the tests and the cloud check. */
-function cueInclude_(name) { return HtmlService.createHtmlOutputFromFile(name).getContent().replace(/\n$/, ''); }
+// HOTFIX 28 Oct 2026 (Kiko's screenshot 08:07Z, "Exception: Malformed HTML content"): a part is read raw. createHtmlOutputFromFile
+// runs the HTML parser on each part, and a script-only part (IndexChat and the others, no <script> tag of their own) fails it, so
+// the page never opened. The joined page is still checked once, when Index is evaluated, as it was before the split.
+function cueInclude_(name) { return HtmlService.createTemplateFromFile(name).getRawContent().replace(/\n$/, ''); }
 
 /* Favicon (Kiko 05:42Z: the window still showed the Apps Script icon). The Cue orb, 48 px, saved once to Kiko's Drive
  * (drive.file, private to Kiko; Kiko's browser loads it signed in). Apps Script wants a .png-looking address, hence &format=png.

@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.54.1: the Cue page opens again (bug fix, not deployed; branch claude/project-thread-o4roiy-rel12754fix)
+
+Kiko sent a screenshot on 28 Oct 2026 08:07Z: the Cue panel inside Canvas showed "Exception: Malformed HTML content" followed by
+Cue's own script as text, so Cue could not be used at all.
+
+- Cause: structure review phase 2 (live since Cue 1.27.52) split the page into parts. `cueInclude_` read each part with
+  `HtmlService.createHtmlOutputFromFile`, which runs Apps Script's HTML parser on the part by itself. The script parts (IndexChat,
+  IndexViewer, IndexThreads, IndexPages, IndexCards) have no `<script>` tag of their own, so the parser rejected them and doGet failed.
+  The tests and the cloud checks join the parts in Node and never ran Apps Script's parser, so none of them caught it.
+- Fix: `cueInclude_` reads each part raw with `HtmlService.createTemplateFromFile(name).getRawContent()`. The joined page is still
+  checked once, when Index is evaluated, exactly as the single file was before the split. Nothing else changes.
+- Built on live 1.27.54 (Version 117, 24c7942). Releases 1.27.55, 1.27.56 and 1.27.57 sit on the same broken line and need this fix under them.
+- Test PG3 now makes `createHtmlOutputFromFile` throw the same error Apps Script gives, and checks that every part is read raw. It fails
+  without the fix. 409/409 pass.
+
 ## Cue 1.27.54: structure review phase 3, job runs list and one project finder (deployed 28 Oct 2026 07:39Z as Version 117; Kiko 28 Oct 07:36Z)
 
 Kiko approved phase 3 of the Cue structure review on 28 Oct 2026 06:05Z ("yes"); spec `specs/cue-structure-review.md`, epic
