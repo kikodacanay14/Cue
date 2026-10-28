@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 59 server files, 1191 top-level names, 29 task kinds, 30 word checks before the
+Counts: 59 server files, 1194 top-level names, 29 task kinds, 30 word checks before the
 chat call, 10 background jobs in the 5-minute trigger, 67 page-to-server functions, 58 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -122,8 +122,8 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 31 | 3 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 6 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
-| `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 6 | 5 |
-| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 30 | 3 |
+| `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 6 | 6 |
+| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 31 | 3 |
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 11 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
@@ -188,9 +188,9 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueStr_` | `CueText.gs` | 43 |
 | `cueChat_` | `Cue.gs` | 37 |
 | `cueLocked_` | `Cue.gs` | 32 |
-| `cueProp_` | `Cue.gs` | 30 |
 | `cueSheet_` | `Cue.gs` | 30 |
 | `cueLoad_` | `Cue.gs` | 29 |
+| `cueProp_` | `Cue.gs` | 29 |
 | `cueSave_` | `Cue.gs` | 28 |
 | `cueBridge_` | `CueBridge.gs` | 27 |
 | `cueAiAll_` | `CueAi.gs` | 26 |
@@ -225,12 +225,12 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueStyleFor_` | `CueStyle.gs` | 7 |
 | `CUE_DATE_RE_` | `CueText.gs` | 6 |
 | `cueAskPick` | `CueRoute.gs` | 6 |
+| `cueBridgeParse_` | `CueBridge.gs` | 6 |
+| `cueBridgePlan_` | `CueBridge.gs` | 6 |
+| `cueBridgeReq_` | `CueBridge.gs` | 6 |
 | `cueCanvasFind_` | `CueCanvas.gs` | 6 |
 | `cueStyleSignOff_` | `CueStyle.gs` | 6 |
 | `cueTerm_` | `CueText.gs` | 6 |
-| `cueBridgeParse_` | `CueBridge.gs` | 5 |
-| `cueBridgePlan_` | `CueBridge.gs` | 5 |
-| `cueBridgeReq_` | `CueBridge.gs` | 5 |
 | `cueCloseSuperseded_` | `Cue.gs` | 5 |
 | `cueFilesParts_` | `CueFiles.gs` | 5 |
 | `cueGmailReply_` | `CueGmail.gs` | 5 |

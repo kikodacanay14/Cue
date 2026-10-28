@@ -78,7 +78,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   assert.strictEqual(v.bids.title, 'Bid opportunities · 2026-10-21 · 3 new, 1 still open');
   assert.ok(/^3 new, 1 still open\. 11 sources checked, 2 partial or blocked\. 2 of 5 documents opened by Cue\. Process check: 8 of 10 passed\.$/.test(v.bids.summary), v.bids.summary);
   assert.ok(t.tabs.Chat.rows.some(r => /Started a bid opportunity check/.test(r[2]) && r[3] === '>' + r[3].slice(1)));
-  assert.ok(!t.log.bridge.length && !(t.log.gmail || []).length, 'no Canvas, no Gmail');
+  deq(t.log.bridge.map(b => b.action), ['claim_plan', 'crm_lead', 'crm_lead', 'crm_lead'], 'only the 3 new bids go to Canvas CRM (CUE-STRUCTURE-4.3)');
+  assert.ok(!(t.log.gmail || []).length, 'no Gmail');
 });
 test('BD13 read once (Kiko 24 Oct 06:52Z): the next day nothing already opened is fetched or read again; a new document link on a still open notice is', () => {
   const t = bidBox(); t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
