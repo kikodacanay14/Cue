@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.60: phase 1 Approve also registers the client in Client Desk; the card says New or Existing client first (not deployed)
+
+Kiko 24 Oct 2026 13:36Z ("Register the new client as well"); spec `specs/bid-contacts-reminder.md` part B (Kiko "Go" 13:54Z). First
+built as 1.27.28 (8db7016) on the old line; rebuilt here on live 1.27.54 (Version 117). Canvas side is live: `client_check` and
+Client Desk registration in `intake_add_project` (Canvas V248), switch CLIENT_DESK set to On by Kiko 25 Oct 18:55Z (Admin >
+System Config > Switches).
+
+- Before the phase 1 card, Cue asks Canvas (read only, `client_check`) whether the company is already in Client Desk and how
+  many of its contacts are new. The card shows one "Client Desk" row: "New client ... will be added with N contacts" or
+  "Existing client ...; N new contacts will be added". No row when Canvas cannot say or the switch is off.
+- After Approve, the thread line says what Canvas did ("Client Desk: X added as a new client with 2 contacts."). Cancel intake
+  says how many Client Desk rows it removed.
+- A bid notice on a .gov.ph site sends Industry "Government" for the new client.
+- No new AI call. Tests: 410 (409 before): PH1b.
+
 ## Cue 1.27.59: Cue's button chat bubble (not deployed)
 
 Built as 1.27.55; cut by the deploys thread on 1.27.58 (RFPs from Kiko's Gmail).
