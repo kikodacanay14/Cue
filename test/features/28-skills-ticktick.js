@@ -142,7 +142,7 @@ test('TC15 Kiko 18:00Z: a pasted phrasebook or memory list starts Learn my memor
     deq([t.log.gpt.length, t.state(out.request_id).kind, t.state(out.request_id).text], [0, 'memory', 'Learn my memory'], 'paste ' + i);
   });
   const c = sandbox().ctx; deq([c.cueMemPaste_(brief), c.cueMemPaste_('Record project expense 500 for AMI tarp'), c.cueMemPaste_('learn my memory')], [false, false, true]);
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const page = cuePage();
   assert.ok(/EXP_RE\.test\(t\) && !memPaste\(t\)/.test(page), 'the page does not send a pasted list to expense()');
   const fn = page.match(/function memPaste\(t\) \{[\s\S]*?\n  \}\n/)[0], box = {}; vm.runInNewContext(fn + 'out = [memPaste(a), memPaste(b), memPaste(c), memPaste(d)];', Object.assign(box, { a: book, b: list, c: brief, d: 'Record project expense 500 for AMI tarp' }));
   deq(box.out, [true, true, false, false], 'page and server agree');

@@ -63,7 +63,7 @@ test('P4 pipeline cards (Kiko 24 Oct): system emails are not the client, a conta
     assert.ok(vb['Embassy of Belgium'].canvas && /page=clientdesk/.test(vb['Embassy of Belgium'].canvas.url), 'a deal to fix opens Canvas');
     assert.strictEqual(vb.Telus.canvas, null, 'nothing to fix, no Canvas button');
     assert.ok(/The card already shows the stage, amount, event date, days to the event and each flag/.test(t.log.claude[0].system.replace(/\s+/g, ' ')), 'Claude does not repeat the countdown');
-    const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+    const html = cuePage();
     const i = html.indexOf('function pipeCardHtml'), part = html.slice(i, i + 6000);
     assert.ok(part.indexOf('>Last email ') < part.indexOf('<b>Next:</b> ') && part.indexOf('<b>Next:</b> ') < part.indexOf('+ pipeAct(d)'), 'last email, then Next, then the action');
     assert.ok(/data-act="pipe-draft1"/.test(part) && /Fix in Canvas/.test(part) && /counted \? 'event'/.test(part));
@@ -80,7 +80,7 @@ test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the th
   deq([id, 'cue-20261021110500-aaaa', 'cue-20261021110600-bbbb'].map(k => C.cueLoad_(k).s.status), ['Closed', 'Closed', 'Working']);
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Closed 2 runs\. Nothing was written or sent\. 1 still running/.test(x[2])));
   deq(C.cueCloseThread(id), { closed: 0, running: 1 }); assert.ok(!t.log.sent && !t.log.replies, 'nothing sent');
-  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/data-act="close-thread" data-id="' \+ esc\(it\.id\)/.test(html) && /return !CLOSED\[r\.status\]/.test(html), 'the header ✓ shows while any run is open');
   assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
 });
@@ -148,7 +148,7 @@ test('FN5 the 07:00 row starts one funnel a day; the page draws it with no AI wo
   t.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); for (let i = 0; i < 6; i++) t.ctx.cueResume();
   const f = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'funnel');
   assert.strictEqual(f.length, 1); assert.strictEqual(f[0].how, 'daily'); assert.strictEqual(t.props.CUE_FUNNEL_DAY, '2026-10-22');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/function funnelCardHtml\(r, only\)/.test(html) && /data-act="fn-task"/.test(html) && /call\('cueFunnelTaskDone', \[id, b\.getAttribute\('data-t'\)\]/.test(html));
   // PC check 14:13Z: the Inquiry (2) header showed no deals. Every section in the funnel card has the visible .sec marker; none hides it.
   const card = html.slice(html.indexOf('function funnelCardHtml(r, only)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
@@ -206,7 +206,7 @@ test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older wai
   const before = t.tabs.Chat.rows.length; deq(C.cueCloseOlder(), { closed: 3 }, 'the replaced review from today and both runs of the old bid thread');
   deq([C.cueLoad_(fresh).s.status, C.cueLoad_(held).s.status, C.cueLoad_(extra).s.status], ['Closed', 'Needs you', 'Needs you'], 'newest and drafting reviews stay');
   assert.strictEqual(t.tabs.Chat.rows.slice(before).filter(x => /Close older runs/.test(x[2])).length, 2, 'one line per thread, not per run');
-  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
   const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);
   assert.ok(html.indexOf('var OLDK = { ' + kinds.map(k => k + ': 1').join(', ') + ' }') > 0, 'the page and the server close the same kinds');
