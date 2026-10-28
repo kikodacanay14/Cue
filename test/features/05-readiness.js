@@ -30,7 +30,7 @@ test('RD1 readiness: chat names the project, Canvas scores it, Claude summarises
   const t = readyRun(), v = t.v, R = v.ready;
   assert.strictEqual(v.kind, 'readiness'); assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.metrics.ai_calls, 1, 'only Claude in the run (the chat call is the message itself)');
   deq(t.log.bridge.map(b => b.action).filter(a => a !== 'search_projects').sort(), ['find_similar_projects', 'get_readiness', 'list_project_files'], 'reads only');
-  deq(t.log.search || [], ['acme', 'party'], 'the chat lookup, also a read');
+  deq(t.log.search || [], ['acme', 'party', 'Acme Year-End Party'], 'the chat lookup, then the one project finder (STRUCTURE-PHASE-3), also reads');
   assert.strictEqual(t.log.readyFor, 'S-31628060SP', 'the open project, not the completed one from last year');
   deq(R.canvas.counts, READINESS.counts, 'Canvas\'s counts as given');
   deq(R.canvas.items.map(i => i.id), ['PER-1.05', 'PER-9.03', 'PER-1.04', 'PER-2.06'], 'blockers first, then by due date, undated last');
@@ -48,13 +48,15 @@ test('RD1 readiness: chat names the project, Canvas scores it, Claude summarises
   assert.ok(bridgeCheck('get_readiness', { gate: 'auto' }) === '' && bridgeCheck('get_readiness', { gate: 'approve' }) !== '', 'real bridge schema');
 });
 test('RD2 several open matches: Kiko picks on the card; a Canvas project id skips the search; nothing found stops with a plain message', () => {
-  const two = [ACME[0], Object.assign({}, ACME[0], { project_id: 'S-22222222BB', name: 'Acme Year-End Party Cebu' })];
+  const two = [Object.assign({}, ACME[0], { name: 'Acme Year-End Party Manila' }), Object.assign({}, ACME[0], { project_id: 'S-22222222BB', name: 'Acme Year-End Party Cebu' })];
   const t = readyRun({ similar: two });
   assert.strictEqual(t.v.status, 'Needs you'); assert.strictEqual(t.v.stage, 'Pick project'); assert.strictEqual(t.v.ready.options.length, 2);
   assert.throws(() => t.ctx.cueReadyPick(t.id, 'S-99999999ZZ'), /not one of the choices/);
   const v = t.ctx.cueReadyPick(t.id, 'S-22222222BB'); assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.log.readyFor, 'S-22222222BB');
   const u = readyRun({ talk: Object.assign({}, ASK, { readiness: 'S-31628060SP' }) });
   assert.strictEqual(u.v.status, 'Done'); assert.ok(!u.log.bridge.some(b => b.action === 'find_similar_projects'));
+  // STRUCTURE-PHASE-3: the one project finder keeps the one project whose name is exactly what Kiko said, as Canvas commands do.
+  const e = readyRun({ similar: [ACME[0], two[1]] }); assert.strictEqual(e.v.status, 'Done'); assert.strictEqual(e.log.readyFor, 'S-31628060SP');
   const w = readyRun({ similar: [] }); assert.strictEqual(w.v.status, 'Failed'); assert.ok(/no project matching/.test(w.v.error));
   const x = readyRun({ noReadiness: true }); assert.strictEqual(x.v.status, 'Failed'); assert.ok(/next Canvas release/.test(x.v.error));
 });
@@ -84,8 +86,9 @@ test('RD4 close follow-ups keeps the check; Re-check is a new run in the same th
 
 test('RD5 asked inside a thread that already has its Canvas project: no project search; another project name still searches; each Canvas call timed', () => {
   const t = readyRun({ batchStep: 4000 });
-  deq(t.state(t.id).metrics.canvas.map(c => c.calls), ['find_similar_projects', 'get_readiness + list_project_files'], 'kept on the request, one entry per Canvas round trip');
-  assert.ok(t.state(t.id).metrics.canvas.every(c => c.ok && c.secs === 4), 'seconds per call, from the clock');
+  deq(t.state(t.id).metrics.canvas.map(c => c.calls), ['search_projects + find_similar_projects', 'get_readiness + list_project_files'], 'kept on the request, one entry per Canvas step');
+  // STRUCTURE-PHASE-3: the project finder is one step of up to two round trips (no word match here, so the similar-name read follows).
+  deq(t.state(t.id).metrics.canvas.map(c => [c.ok, c.secs]), [[true, 8], [true, 4]], 'seconds per step, from the clock');
   const before = t.log.bridge.length;
   t.opts.talk = Object.assign({}, ASK, { readiness: 'Acme party' });
   const out = t.ctx.cueSend('is it ready now?', [], '', t.id), v = t.ctx.cueRun(out.request_id);
@@ -96,6 +99,6 @@ test('RD5 asked inside a thread that already has its Canvas project: no project 
   t.opts.talk = Object.assign({}, ASK, { readiness: 'Beko launch' });
   const w = t.ctx.cueRun(t.ctx.cueSend('and is Beko ready?', [], '', t.id).request_id);
   assert.ok(t.log.bridge.slice(mid).some(b => b.action === 'find_similar_projects'), 'another project: normal search'); assert.ok(!t.state(w.id).ready.from_thread);
-  const f = readyRun({ similar: [] }); deq(f.state(f.id).metrics.canvas.map(c => [c.calls, c.ok]), [['find_similar_projects', true]]);
+  const f = readyRun({ similar: [] }); deq(f.state(f.id).metrics.canvas.map(c => [c.calls, c.ok]), [['search_projects + find_similar_projects', true]]);
   const x = readyRun({ noReadiness: true }); assert.strictEqual(x.state(x.id).metrics.canvas.length, 2, 'a refused read is still timed');
 });

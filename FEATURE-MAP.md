@@ -113,11 +113,11 @@ not calls per run. "Used by" and "Uses" count other files.
 |---|---|---|---|---|---|---|
 | `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 46 | 36 |
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 29 | 3 |
-| `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send`, `find_similar_projects` | Requests | 0 | 0 | 6 | 3 |
+| `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 6 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
 | `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 6 | 5 |
 | `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 25 | 3 |
-| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 8 | 5 |
+| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 11 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
 | `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 21 |
@@ -143,7 +143,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 5 | 5 |
 | `CuePipeline.gs` |  | Pipeline, Requests | 1 | 1 | 8 | 7 |
 | `CueProjectLog.gs` |  |  | 0 | 0 | 4 | 5 |
-| `CueReady.gs` | `find_similar_projects`, `get_readiness`, `list_project_files` | Requests | 1 | 1 | 4 | 6 |
+| `CueReady.gs` | `find_similar_projects`, `get_readiness`, `list_project_files`, `search_projects` | Requests | 1 | 1 | 4 | 7 |
 | `CueRoute.gs` |  | Routing examples | 0 | 0 | 10 | 15 |
 | `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 5 | 11 |
 | `CueStyle.gs` |  | Requests, Style | 0 | 1 | 12 | 4 |
@@ -163,7 +163,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueTriage.gs` |  | Triage log, Triage rules | 1 | 0 | 4 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
 | `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 2 | 2 |
-| `CueVendor.gs` | `find_similar_projects`, `supplier_lookup` | Requests | 2 | 1 | 3 | 6 |
+| `CueVendor.gs` | `supplier_lookup` | Requests | 2 | 1 | 3 | 7 |
 | `CueWorkflow.gs` |  | Requests, Workflows | 2 | 1 | 3 | 4 |
 
 ## 5. Shared helpers
@@ -181,7 +181,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueLoad_` | `Cue.gs` | 26 |
 | `cueSave_` | `Cue.gs` | 25 |
 | `cueAiAll_` | `CueAi.gs` | 24 |
-| `cueBridge_` | `CueBridge.gs` | 23 |
+| `cueBridge_` | `CueBridge.gs` | 22 |
 | `cueGpt_` | `CueAi.gs` | 21 |
 | `CUE_VERSION_` | `Cue.gs` | 20 |
 | `cueOwner_` | `Cue.gs` | 20 |
@@ -213,6 +213,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `CUE_DATE_RE_` | `CueText.gs` | 6 |
 | `cueAddDays_` | `CueDates.gs` | 6 |
 | `cueAskPick` | `CueRoute.gs` | 6 |
+| `cueCanvasFind_` | `CueCanvas.gs` | 6 |
 | `cueStyleSignOff_` | `CueStyle.gs` | 6 |
 | `cueTerm_` | `CueText.gs` | 6 |
 | `cueCloseSuperseded_` | `Cue.gs` | 5 |
