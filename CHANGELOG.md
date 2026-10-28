@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.56: RFPs Kiko sends from Canvas go out from his own Gmail (not deployed; number may change when the deploys thread cuts the release)
+
+Kiko 28 Oct 2026 07:35Z ("i want it to send it when i click send") and 07:45Z, on who it comes from: "from me". Built with Canvas
+PR #230 (CanvasWorkspace branch `claude/project-thread-03c4fn-direct`), which adds the RFP Outbox and the bridge actions
+`rfp_outbox` (read) and `rfp_sent` (queue). The two ship together as one feature group.
+
+- New job "RFPs from your Gmail" (`CueRfpSend.gs`) in the 5-minute resume. It reads the RFPs and RFP follow-ups Kiko pressed
+  Send on in Canvas and sends each from Kiko's Gmail with the supplier contacts in To and AccountsPayables@ plus the RFP's CC in
+  CC. A follow-up goes as a reply in the RFP's own Gmail thread.
+- Canvas is told each result: Sent with Kiko's Gmail thread and message, or Failed with the reason (the scope card then shows
+  Not sent). An email is sent once; if Canvas does not answer the report, the next tick reports again without sending again.
+- A cloud check only reads the outbox and returns what it would send.
+- Staff RFPs are unchanged: they open in the staff member's own Gmail.
+- `test/fixtures/ZapBridge.gs` refreshed from the PR #230 bridge. No AI call. Tests: 403 on main (398 before): RS1 to RS5.
+
 ## Cue 1.27.55: phase 1 Approve also registers the client in Client Desk; the card says New or Existing client first (not deployed; ships from the live line as 1.27.55, branch `claude/project-thread-nfqkha-rel12755`)
 
 Kiko 24 Oct 2026 13:36Z ("Register the new client as well"); spec `specs/bid-contacts-reminder.md` part B (Kiko "Go" 13:54Z). First

@@ -536,6 +536,22 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: false, schema: {},
     run: () => zbMailWaiting_()
   },
+  rfp_outbox: {
+    // RFP-FROM-KIKO-2026-10-28 (Kiko 07:35Z "i want it to send it when i click send", 07:45Z "from me"): the RFPs and RFP
+    // follow-ups Kiko pressed Send on in Canvas, queued for his Cue to send from his own Gmail (Code.gs rfpOutbox_). Only rows
+    // Kiko queued, oldest first, at most 20. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => rfpOutbox_()
+  },
+  rfp_sent: {
+    // RFP-FROM-KIKO-2026-10-28: Cue reports one queued email Sent (its Gmail thread and message id) or Failed. Marks the RFP
+    // Outbox row and, for an RFP, its RFP Log row. A repeat for a row already reported changes nothing.
+    kind: 'queue', needsProject: false,
+    schema: { key: { type: 'string', required: true, re: /^[a-z]+:[A-Za-z0-9-]{3,40}:[a-z0-9ñ]{0,80}:[a-z0-9]{1,20}$/ },
+      status: { type: 'string', required: true, oneOf: ['Sent', 'Failed'] }, thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ },
+      message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
+    run: (r) => rfpOutboxDone_(r.args)
+  },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
     kind: 'read', needsProject: false, schema: {},

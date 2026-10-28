@@ -209,6 +209,11 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
       if (body.action === 'help_qa_add') { (log.helpAdds = log.helpAdds || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
+      // CUE-RFP-SEND-2026-10-28: Kiko's queued RFPs (rfp_outbox, read) and the report of each send (rfp_sent, queue), with the bridge's shapes.
+      if (body.action === 'rfp_outbox') { log.rfpReads = (log.rfpReads || 0) + 1; if (o.rfpBoxFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
+      if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
       if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.
@@ -488,10 +493,11 @@ function sandbox(o = {}) {
     }
     if (u.indexOf('/drafts/send') >= 0) {
       log.sent = log.sent || []; log.sent.push(JSON.parse(req.payload).id);
-      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent-' + log.sent.length });
+      return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent' + log.sent.length + 'abcdef', threadId: 'thr' + log.sent.length + 'abcdef' });
     }
     if (u.indexOf('gmail.googleapis.com') >= 0) {
       log.gmail.push(Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8'));
+      (log.draftThreads = log.draftThreads || []).push(JSON.parse(req.payload).message.threadId || '');
       return (o.gmailFail && log.gmail.length === 1) ? resp(500, {}) : resp(200, { id: 'draft-' + log.gmail.length });
     }
     if (u.indexOf('ticktick.com') >= 0) {   // CueTickTick.gs
