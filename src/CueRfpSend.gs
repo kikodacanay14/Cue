@@ -20,6 +20,7 @@ const CUE_RFPS_ = { max: 10, lease: 5 * 60e3 };   // one run sends at most 10 em
  * leave no rows. */
 function cueRfpKick() {
   if (globalThis.CUE_CHECK_ON_) return null;   // a cloud check calls cueRfpSendTick_ itself
+  try { cueRunNowTick_(); } catch (e) { console.error('Run now (Cue chasers): ' + e); }   // CUE-RUN-NOW-2026-10-28: Canvas > Admin > Run now presses
   try { if (cueSchedRead_(cueSchedSheet_()).some(x => x.id === 'sys-rfps' && !x.on)) return null; } catch (e) { console.error('RFP row: ' + e); }
   const o = cueRfpRun_();
   if (o.row && (o.row[3] === 'Failed' || o.sent || o.failed || (o.note && !/^Could not read/.test(o.note)))) cueJobLog_([o.row]);

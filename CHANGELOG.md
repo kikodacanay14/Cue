@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue Run now: Cue chasers pressed in Canvas (not deployed; ships after Canvas rel-run-now-cue-main, CanvasWorkspace branch `claude/project-thread-klmtzh-cuechasers`)
+
+Kiko 28 Oct 2026 11:46Z ("i was asking for a screen where we can manually trigger") and 12:01Z ("i am allowing all notifications
+except for client sends. also allowed are the chasers"). The coordinator asked for this second Run now batch at 13:04Z.
+
+- New `src/CueRunNow.gs`. Every minute, from the RFP sender's trigger (`cueRfpKick`, whatever the RFP row's switch), Cue sends Canvas
+  the RFQ, accreditation and FSA / AR signature lines of today's waiting Morning batch (bridge `cue_chasers`, only when they change
+  or every 30 minutes). Client chasers (CE awards, payments, sales) never go there.
+- It runs the presses Canvas hands back. Send ticked sends those lines from Kiko's Gmail now, the same way Approve and send does
+  (`cueSweepSendNow_`): each is logged as chased and taken off the batch, and the rest of the batch still waits for Kiko. Find
+  chasers now builds today's batch when none is waiting. Each result goes back to Canvas on the next call and to Job Runs.
+- `test/fixtures/ZapBridge.gs` is the bridge of Canvas rel-run-now-cue-main (new action `cue_chasers`).
+- Tests: 435 (4 new, test/features/57-run-now-cue.js).
+
 ## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed; ships after the Canvas CRM funnel rest release, CanvasWorkspace PR for branch `claude/project-thread-oq52vc`)
 
 Spec `canvas-crm-funnel.md` F6 (Kiko approved 26 Oct 2026 16:08Z). On 28 Oct the coordinator relayed that Kiko wants the rest of the approved

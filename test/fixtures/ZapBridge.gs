@@ -562,6 +562,21 @@ const ZB_ACTIONS_ = {
       message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
     run: (r) => rfpOutboxDone_(r.args)
   },
+  cue_chasers: {
+    // RUN-NOW-CUE-2026-10-28 (Kiko 28 Oct 12:01Z "also allowed are the chasers"): Admin > Run now > Cue chasers. Every minute Kiko's
+    // Cue sends the lines of today's Morning batch it can send now (RFQ, accreditation, FSA / AR signatures; never client chasers),
+    // only when they changed, and the results of the presses it ran. Canvas returns the presses waiting for it (Code.gs
+    // cueChasersSync_), each handed out once. Writes only the Cue Chasers and Cue Chaser Presses tabs.
+    kind: 'queue', needsProject: false,
+    schema: { lines: { type: 'array', maxItems: 60, items: {
+        key: { type: 'string', required: true, max: 200 }, batch: { type: 'string', required: true, re: /^cue-[0-9a-f-]{6,40}$/ },
+        kind: { type: 'string', required: true, oneOf: ['rfq', 'accreditation', 'signature'] }, label: { type: 'string', required: true, max: 80 },
+        project: { type: 'string', max: 200 }, who: { type: 'string', max: 200 }, to: { type: 'string', max: 500 }, why: { type: 'string', max: 300 },
+        times: { type: 'number', min: 0 }, subject: { type: 'string', max: 200 }, body: { type: 'string', max: 1500 } } },
+      done: { type: 'array', maxItems: 20, items: { press: { type: 'string', required: true, re: /^cp-[a-z0-9]{4,20}$/ }, ok: { type: 'boolean', required: true },
+        result: { type: 'string', max: 300 } } } },
+    run: (r) => cueChasersSync_(r.args)
+  },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
     kind: 'read', needsProject: false, schema: {},

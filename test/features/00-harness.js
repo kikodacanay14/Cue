@@ -215,6 +215,9 @@ function sandbox(o = {}) {
         : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
       if (body.action === 'help_qa_add') { (log.helpAdds = log.helpAdds || []).push(body.args);
         return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
+      // CUE-RUN-NOW-2026-10-28: Canvas > Admin > Run now > Cue chasers (cue_chasers, queue): Cue's lines and results in, the waiting presses out once.
+      if (body.action === 'cue_chasers') { (log.cueCh = log.cueCh || []).push(JSON.parse(JSON.stringify(body.args))); if (o.cueChFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        const pr = (o.cuePresses || []).splice(0); return resp(200, { ok: true, status: 'Completed', result: { presses: pr } }); }
       // CUE-RFP-SEND-2026-10-28: Kiko's queued RFPs (rfp_outbox, read) and the report of each send (rfp_sent, queue), with the bridge's shapes.
       if (body.action === 'rfp_outbox') { log.rfpReads = (log.rfpReads || 0) + 1; if (o.rfpBoxFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
