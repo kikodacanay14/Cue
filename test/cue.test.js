@@ -223,7 +223,7 @@ function sandbox(o = {}) {
       // CUE-CONTACT-SCAN-2026-10-27: Canvas's contact_gaps (read, paged) and contact_fill (a claimed plan's write).
       if (body.action === 'contact_gaps') { (log.gaps = log.gaps || []).push(body.args); const G = o.gaps || CS_GAPS, at = body.args.start_row || 0, lim = body.args.limit || 50;
         const rows = G.filter(r => r.row >= at).slice(0, lim), more = G.filter(r => r.row >= at).length > lim;
-        return resp(200, { ok: true, status: 'Completed', result: { tab: 'P0 Contacts', rows, next_row: more ? G.filter(r => r.row >= at)[lim].row : null, total_rows: 900 } }); }
+        return resp(200, { ok: true, status: 'Completed', result: { tab: 'P0 Contacts', rows, held: at ? [] : (o.held || []), next_row: more ? G.filter(r => r.row >= at)[lim].row : null, total_rows: 900 } }); }
       if (body.action === 'contact_fill') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
         if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
         const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
@@ -5721,6 +5721,18 @@ test('CS5 the signature reader: after the last short sign-off, before the quoted
   deq(sig('No sign-off here\nJust text'), []);
   assert.strictEqual(sig('Salamat,\n' + Array.from({ length: 20 }, (_, i) => 'L' + i).join('\n')).length, 12);
   const re = vm.runInContext('CUE_CS_RE_', t.ctx); assert.ok(re.test('Fill contact details from old emails.') && !re.test('fill contact details from old emails for Acme'));
+});
+
+test('CS6 history (Kiko 28 Oct 04:43Z): cells Canvas holds back are named on the card with the reason; nothing to fill says them too', () => {
+  const held = [{ row: 20, name: 'Eve Sy', email: 'eve@sy.test', cells: [{ key: 'phone', why: 'undone in Auto add (2026-10-27)' }] },
+    { row: 12, name: 'Ana Cruz', email: 'ana@acme.test', cells: [{ key: 'title', why: 'changed in Canvas by mariana@blankspaceevent.com (2026-10-20)' }] }];
+  let t = sandbox({ csMail: CS_MAIL, held });
+  t.ctx.cueSend('fill contact details from old emails', [], '');
+  const c = csCard(t);
+  assert.ok(/\nLeft alone, changed before: Eve Sy Phone \(undone in Auto add \(2026-10-27\)\); Ana Cruz Position \(changed in Canvas by mariana@blankspaceevent\.com \(2026-10-20\)\)\./.test(c.text), c.text);
+  t = sandbox({ gaps: [], held });
+  t.ctx.cueSend('fill contact details from old emails', [], '');
+  assert.ok(/Nothing to do\. Left alone, changed before: Eve Sy Phone/.test(csLast(t)), csLast(t)); assert.strictEqual(t.log.claude.length, 0);
 });
 
 if (require.main !== module) module.exports = { sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox };   // test/checks/dry-run.mjs reuses the sandbox

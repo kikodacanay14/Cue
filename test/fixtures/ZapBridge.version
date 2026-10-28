@@ -1,4 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs as shipped in releases/rel-v307-contacts-main (live V307, 28 Oct 2026):
-live Canvas V306 plus contact_gaps and contact_fill for the old-email contact scan (from PR #183 @ 7ee77e7).
-md5 6d2910d3afddee16a2e9710525a7dc0a
+Copied from CanvasWorkspace src/ZapBridge.gs, live in Canvas V310 (28 Oct 2026 05:08Z):
+contact history (contact_gaps lists held cells; contact_fill skips cells with history) on top of V307.
+md5 7d86216f57ad34d0b74d212e322af7d9
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.27.51: the contact scan leaves alone cells changed before, and says which (not deployed; Kiko 28 Oct 04:43Z)
+
+Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
+he have done so far to not overwrite what changes we already did". Needs the Canvas history check, live in Canvas V310 (28 Oct 05:08Z;
+`src/ZapBridge.gs` md5 7d86216f57ad34d0b74d212e322af7d9). Built on 1.27.50 (Version 106), Kiko's go 05:05Z.
+
+- Canvas's `contact_gaps` and `contact_fill` now leave a blank P0 Contacts cell alone when it has history: a CRM Auto Added
+  row for that contact and column (still added or undone in Accounts › Auto add), or an edit of that column for that contact
+  in the Canvas Changes log.
+- `contact_gaps` lists those cells under `held` with the reason. Cue names up to 8 of them on the Approve card and in the
+  "nothing to fill" answers ("Left alone, changed before: Ana Cruz Position (changed in Canvas by … (2026-10-20))").
+- `contact_fill` checks again under the lock and reports any such cell as skipped, with the same reason.
+- Bridge copy `test/fixtures/ZapBridge.gs` is that branch file. New test CS6. Tests: 391.
+
 ## Cue 1.27.50 fix: no chasers for projects in a status they do not fit (not deployed)
 
 Kiko asked on 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
