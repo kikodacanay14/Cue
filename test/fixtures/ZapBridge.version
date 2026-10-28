@@ -1,4 +1,4 @@
-Copied from CanvasWorkspace src/ZapBridge.gs on branch claude/project-thread-oq52vc, the CRM funnel rest release built on live Canvas V318
-(28 Oct 2026): crm_funnel stuck rows carry the client's email, crm_funnel winback:true adds the win-back list, new read crm_report. Not live until it ships.
+Copied from CanvasWorkspace main src/ZapBridge.gs = live Canvas V319 (28 Oct 2026 11:26Z, CRM funnel rest): crm_funnel stuck rows carry
+the client's email, crm_funnel winback:true adds the win-back list, new read crm_report.
 md5 243e5a25999d985fac4481fa98c985e5
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
