@@ -12,7 +12,7 @@ Kiko approved phase 2 on 28 Oct 2026 04:21Z ("okay lets do that"). This is item 
 - `FEATURE-MAP.md` section 1 adds a "Card family" column, read from `kindOf`.
 - Proof of no change: a robot browser rendered the page before and after with 24 kinds in 5 states each (working, writing to Canvas, done, done with its card, rejected). It captured the main list and every thread view: 192 captures, all identical, including the same page errors from the thin test data.
 - Button order and the Approve wording were measured, not changed. Every Draft and send card already shows "Approve and send", then "Drafts only", then its close button. The other buttons keep the words each card was built with.
-- Tests: 389 of 389 pass (387 before plus CF1 and CF2). Three older tests that read `kindName` alone now go through `pageKindName` in the harness. The cloud check dry run passes.
+- Tests: 390 of 390 pass (388 on main plus CF1 and CF2). Three older tests that read `kindName` alone now go through `pageKindName` in the harness. The cloud check dry run passes.
 
 ## Cue button: chat bubble instead of the colour wheel (not deployed)
 
