@@ -8,7 +8,7 @@ parser rejects the script-only parts. Parts are now read with `createTemplateFro
 still parsed once when Index is evaluated. Test PG3 now throws Apps Script's error from `createHtmlOutputFromFile` and fails
 without the fix.
 
-## Cue daily release notes at 8 PM (not deployed; ships from the live line as 1.27.57, branch claude/project-thread-p1no8l-rel12757)
+## Cue daily release notes at 8 PM (deployed 28 Oct 2026 ~08:35Z as Cue 1.27.57, Version 128, rollback Version 126, from `claude/project-thread-p1no8l-rel12757` @ 4bdc575; Kiko's go 08:20Z)
 
 Kiko 27 Oct 2026 02:12Z: "Everyday at 8PM i would like release an announcement. This includes bug fixes and functions deploy in
 Canvas and Cue." At 02:17Z he chose staff only, with his approval each day, and at 02:34Z he approved the spec
