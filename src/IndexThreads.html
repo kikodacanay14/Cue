@@ -405,7 +405,42 @@
     var rest = th.reqs.filter(function (x) { return x.kind !== 'sweep'; }), r = rest[rest.length - 1] || th.reqs[th.reqs.length - 1];
     return r ? kindName(r) : 'Earlier task';
   }
-  function kindName(r) { return r.kind === 'relay' ? 'AI relay' : r.kind === 'help' ? 'Help answer' : r.kind === 'email' ? 'Email' : r.kind === 'style' ? 'Writing style' : r.kind === 'memory' ? 'Teach Cue: memory' : r.kind === 'process' ? 'Teach Cue: process' : r.kind === 'personal' ? 'Personal expense' : r.kind === 'supplier' ? 'Supplier registration' : r.kind === 'workflow' ? 'Workflow map' : r.kind === 'vendor' ? 'Supplier search' : r.kind === 'hubspot' ? 'HubSpot clean-up' : r.kind === 'bids' ? 'Bid check' : r.kind === 'gtask' ? 'ChatGPT task' : r.kind === 'finance' ? 'Money' : r.kind === 'expense' ? 'Expense' : r.kind === 'cecost' ? 'CE costs' : r.kind === 'ar' ? (r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts') : r.kind === 'sweep' ? 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/') : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'readiness' ? 'Readiness check' : r.kind === 'change' ? 'Change request' : 'Project intake'; }
+  // STRUCTURE-PHASE-2 item 2.3 (Kiko 28 Oct 2026 04:21Z; story Cue #140): each task kind on one line. name: what its work card and an
+  // unnamed thread say (default "Project intake"). family: Approve (Kiko approves one write), Draft (emails Kiko sends or keeps as
+  // drafts), Info (an answer or a report) or Question (buttons that pick what happens). steps: its work card's steps (default the
+  // intake's). card: whether a finished task still shows its card rather than a short done line. Same names, steps and cards as before.
+  // Built on first use, since some step lists are set further down the script. tools/map.mjs reads these lines.
+  var kindsMemo = null;
+  function kindOf(r) {
+    kindsMemo = kindsMemo || {
+      intake: { name: 'Project intake', family: 'approve', steps: null, card: null },
+      change: { name: 'Change request', family: 'draft', steps: CHANGE, card: function (r) { return !!r.change; } },
+      sweep: { name: function (r) { return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/'); }, family: 'draft', steps: null, card: null },
+      readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
+      pipeline: { name: 'Pipeline review', family: 'draft', steps: PIPE, card: null },
+      ar: { name: function (r) { return r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts'; }, family: 'draft', steps: ARSTEPS, card: function (r) { return !!r.ar; } },
+      hubspot: { name: 'HubSpot clean-up', family: 'approve', steps: HSTEPS, card: function (r) { return !!r.hs; } },
+      status: { name: '', family: 'draft', steps: null, card: function (r) { return !!r.st; } },
+      bids: { name: 'Bid check', family: 'info', steps: null, card: function () { return true; } },
+      gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
+      vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
+      workflow: { name: 'Workflow map', family: 'approve', steps: WORKFLOW, card: function (r) { return !!(r.workflow && r.workflow.map); } },
+      supplier: { name: 'Supplier registration', family: 'approve', steps: SUPPLIER, card: function (r) { return !!r.supplier; } },
+      personal: { name: 'Personal expense', family: 'approve', steps: PERSONAL, card: function (r) { return !!r.personal; } },
+      expense: { name: 'Expense', family: 'approve', steps: EXPENSE, card: function () { return true; } },
+      cecost: { name: 'CE costs', family: 'approve', steps: CECOST, card: function (r) { return !!r.cec; } },
+      style: { name: 'Writing style', family: 'approve', steps: STYLE, card: null },
+      memory: { name: 'Teach Cue: memory', family: 'approve', steps: TEACH, card: null },
+      process: { name: 'Teach Cue: process', family: 'approve', steps: TEACH, card: null },
+      email: { name: 'Email', family: 'draft', steps: MAILSTEPS, card: null },
+      help: { name: 'Help answer', family: 'info', steps: null, card: function (r) { return !!r.help; } },
+      finance: { name: 'Money', family: 'info', steps: null, card: null },
+      relay: { name: 'AI relay', family: 'question', steps: null, card: function () { return true; } },
+      inbox: { name: '', family: 'info', steps: null, card: null }
+    };
+    return Object.prototype.hasOwnProperty.call(kindsMemo, r.kind) ? kindsMemo[r.kind] : kindsMemo.intake;
+  }
+  function kindName(r) { var n = kindOf(r).name; return (typeof n === 'function' ? n(r) : n) || 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
   function threadRef() { if (!openThread) return ''; var th = threads()[openThread], r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
@@ -539,7 +574,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || (r.kind === 'change' && r.change) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.kind === 'ar' && r.ar) || r.kind === 'expense' || (r.kind === 'cecost' && r.cec) || (r.kind === 'hubspot' && r.hs) || (r.kind === 'status' && r.st) || r.kind === 'bids' || r.kind === 'gtask' || r.kind === 'relay' || (r.kind === 'help' && r.help) || (r.kind === 'vendor' && r.vendor) || (r.kind === 'workflow' && r.workflow && r.workflow.map) || (r.kind === 'supplier' && r.supplier) || (r.kind === 'personal' && r.personal) || (r.same && r.same.length)) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h += cardHtml(r);
       else h += doneHtml(r);
     });
     var lastR = t.reqs[t.reqs.length - 1];
@@ -637,7 +672,7 @@
     ['GPT matching costs', 'GPT', 'GPT matches the email\'s costs to the CE lines'], ['Needs you', 'Kiko', 'Check the costs and approve'],
     ['Writing to Canvas', 'Canvas', 'Canvas saves the unit costs and reads them back']];
   function workHtmlOf(r) {
-    var list = r.kind === 'email' ? MAILSTEPS : r.kind === 'style' ? STYLE : r.kind === 'memory' || r.kind === 'process' ? TEACH : r.kind === 'personal' ? PERSONAL : r.kind === 'supplier' ? SUPPLIER : r.kind === 'workflow' ? WORKFLOW : r.kind === 'vendor' ? VENDOR : r.kind === 'hubspot' ? HSTEPS : r.kind === 'expense' ? EXPENSE : r.kind === 'cecost' ? CECOST : r.kind === 'ar' ? ARSTEPS : r.kind === 'readiness' ? READY : r.kind === 'pipeline' ? PIPE : r.kind === 'change' ? CHANGE : r.status === 'Writing to Canvas' ? WRITE : STEPS, i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
+    var list = kindOf(r).steps || (r.status === 'Writing to Canvas' ? WRITE : STEPS), i = Math.max(0, list.findIndex(function (s) { return s[0] === r.stage; }));
     var cur = list[i] || list[0], open = !!openWork[r.id];
     // Collapsed (Kiko 05:39Z): title, the current step and the bar. Tap to see the whole request and every step.
     return '<div class="card"><button class="work-head" data-act="toggle-work" data-id="' + esc(r.id) + '" aria-expanded="' + open + '">'

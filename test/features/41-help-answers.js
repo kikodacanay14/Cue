@@ -66,13 +66,13 @@ test('HQ6 the Help card: answer with Copy reply, Rephrase and Edit answer in ban
   const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"']/g, c => '&#' + c.charCodeAt(0) + ';'), metricLine: () => '' };
-  vm.createContext(ctx); vm.runInContext(grab('helpCardHtml') + '\n' + grab('kindName'), ctx);
+  vm.createContext(ctx); vm.runInContext(grab('helpCardHtml'), ctx);
   const t = helpAsk('help crew: When will I get paid?'), out = ctx.helpCardHtml(JSON.parse(JSON.stringify(t.v)));
   assert.ok(/data-act="help-copy"/.test(out) && /data-act="help-rephrase"/.test(out) && /Edit answer in bank/.test(out) && /matched by code, no AI call/.test(out), out.slice(0, 300));
   assert.ok(new RegExp('data-help-reply="' + t.id + '"').test(out) && !/data-act="help-draft"/.test(out));
   const n = helpAsk('help: can i bring my dog'), none = ctx.helpCardHtml(JSON.parse(JSON.stringify(n.v)));
   assert.ok(/data-act="help-draft"/.test(none) && /no answer for this yet/.test(none) && !/help-copy/.test(none));
-  assert.strictEqual(ctx.kindName({ kind: 'help' }), 'Help answer');
+  assert.strictEqual(pageKindName({ kind: 'help' }), 'Help answer');
   const o = sandbox({ viewer: 'someone@example.com' }); assert.throws(() => o.ctx.cueHelpAct(t.id, 'pick', 0), /private/);
   const x = sandbox(); assert.throws(() => x.ctx.cueHelpAct('cue-nope', 'pick', 0), /not a Help card/);
 });

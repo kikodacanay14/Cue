@@ -9,36 +9,38 @@ chat call, 9 background jobs in the 5-minute trigger, 68 page-to-server function
 ## 1. Commands (task kinds)
 
 A kind is the name a task carries from start to card. Each kind is one line in `cueCommands_` (`CueCommands.gs`): its run, its Approve
-and its "stopped" line. "Wrong command?" is its name in that list (`CUE_ROUTE_CMDS_`). Page checks count the kind's checks in `Index.html`.
+and its "stopped" line. "Wrong command?" is its name in that list (`CUE_ROUTE_CMDS_`). Card family is its line in the page's `kindOf`
+(`IndexThreads.html`): Approve (one write Kiko approves), Draft and send (emails), Info (an answer or report) or Question (buttons that pick).
+Page checks count the kind's remaining `kind === ...` checks in the page.
 
-| Kind | What it is | Wrong command? | Runs in | Approve in | Page checks |
-|---|---|---|---|---|---|
-| `ar` | ARs | ARs | `CueAr.gs` | `CueAr.gs` | 7 |
-| `avoid` | Page only (not in the command list) |  | none | none | 1 |
-| `bids` | Bid check |  | `CueBids.gs` | intake (default) | 3 |
-| `cecost` | CE cost update |  | `CueCeCost.gs` | `CueCeCost.gs` | 6 |
-| `change` | Change request | Project intake | `CueIntake.gs` | `CueChange.gs` | 4 |
-| `email` | Email | Email | `CueMail.gs` | `CueMail.gs` | 5 |
-| `example` | Page only (not in the command list) |  | none | none | 2 |
-| `expense` | Project expense |  | `CueIntake.gs` (default) | `CueExpense.gs` | 5 |
-| `finance` | Money question | Money question | `CueIntake.gs` (default) | intake (default) | 4 |
-| `gtask` | ChatGPT task |  | `CueGptTasks.gs` | intake (default) | 3 |
-| `help` | Help Q&A |  | `CueHelp.gs` | intake (default) | 4 |
-| `hubspot` | HubSpot clean-up |  | `CueHubspot.gs` | `CueHubspot.gs` | 4 |
-| `inbox` | Page only (not in the command list) |  | none | none | 4 |
-| `intake` | Project intake | Project intake | `CueIntake.gs` | intake (default) | 0 |
-| `memory` | Learning your memory |  | `CueTeach.gs` | `CueTeach.gs` | 7 |
-| `personal` | Personal expense |  | `CuePersonal.gs` | `CuePersonal.gs` | 6 |
-| `pipeline` | Pipeline review | Pipeline review | `CuePipeline.gs` | `CuePipeline.gs` | 3 |
-| `process` | Learning your process |  | `CueTeach.gs` | `CueTeach.gs` | 5 |
-| `readiness` | Readiness check | Readiness check | `CueReady.gs` | `CueReady.gs` | 3 |
-| `relay` | Page only (not in the command list) |  | none | none | 4 |
-| `status` | Status report |  | `CueStatus.gs` | `CueStatus.gs` | 2 |
-| `style` | Learning your style |  | `CueStyle.gs` | `CueStyle.gs` | 5 |
-| `supplier` | Supplier registration |  | `CueSupplier.gs` | `CueSupplier.gs` | 6 |
-| `sweep` | Morning sweep |  | `CueSweep.gs` | `CueSweep.gs` | 2 |
-| `vendor` | Supplier search | Supplier search | `CueVendor.gs` | `CueVendor.gs` | 4 |
-| `workflow` | Workflow map | Workflow map | `CueWorkflow.gs` | `CueWorkflow.gs` | 4 |
+| Kind | What it is | Wrong command? | Card family | Runs in | Approve in | Page checks |
+|---|---|---|---|---|---|---|
+| `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 4 |
+| `avoid` | Page only (not in the command list) |  |  | none | none | 1 |
+| `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 1 |
+| `cecost` | CE cost update |  | Approve | `CueCeCost.gs` | `CueCeCost.gs` | 3 |
+| `change` | Change request | Project intake | Draft and send | `CueIntake.gs` | `CueChange.gs` | 1 |
+| `email` | Email | Email | Draft and send | `CueMail.gs` | `CueMail.gs` | 3 |
+| `example` | Page only (not in the command list) |  |  | none | none | 2 |
+| `expense` | Project expense |  | Approve | `CueIntake.gs` (default) | `CueExpense.gs` | 2 |
+| `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 3 |
+| `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 1 |
+| `help` | Help Q&A |  | Info | `CueHelp.gs` | intake (default) | 2 |
+| `hubspot` | HubSpot clean-up |  | Approve | `CueHubspot.gs` | `CueHubspot.gs` | 1 |
+| `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
+| `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 0 |
+| `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
+| `personal` | Personal expense |  | Approve | `CuePersonal.gs` | `CuePersonal.gs` | 3 |
+| `pipeline` | Pipeline review | Pipeline review | Draft and send | `CuePipeline.gs` | `CuePipeline.gs` | 1 |
+| `process` | Learning your process |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 3 |
+| `readiness` | Readiness check | Readiness check | Draft and send | `CueReady.gs` | `CueReady.gs` | 1 |
+| `relay` | AI relay |  | Question | `CueIntake.gs` (default) | intake (default) | 2 |
+| `status` | Status report |  | Draft and send | `CueStatus.gs` | `CueStatus.gs` | 1 |
+| `style` | Learning your style |  | Approve | `CueStyle.gs` | `CueStyle.gs` | 3 |
+| `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 3 |
+| `sweep` | Morning sweep |  | Draft and send | `CueSweep.gs` | `CueSweep.gs` | 1 |
+| `vendor` | Supplier search | Supplier search | Draft and send | `CueVendor.gs` | `CueVendor.gs` | 1 |
+| `workflow` | Workflow map | Workflow map | Approve | `CueWorkflow.gs` | `CueWorkflow.gs` | 1 |
 
 ## 2. Routing order
 

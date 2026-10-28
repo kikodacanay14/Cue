@@ -8,6 +8,13 @@ const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Obj
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
 const { cuePage } = require(path.join(__dirname, 'page.js'));   // the page joined from its parts, as doGet serves it
+// The page's kindName with its kindOf table (STRUCTURE-PHASE-2 item 2.3), run outside the browser; the step lists are stubbed.
+function pageKindName(r) {
+  const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = {}; ['CHANGE', 'READY', 'PIPE', 'ARSTEPS', 'HSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS'].forEach(k => { ctx[k] = []; });
+  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
+  return ctx.kindName(r);
+}
 const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRET = 'test-secret-not-real';
 
 function sheetMock() {
