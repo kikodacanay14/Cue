@@ -111,7 +111,7 @@ try {
   page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   await page.exposeFunction('__cueCall', async (fn, args) => { calls.push(fn); return door('check_call', { fn, args }); });
   await page.addInitScript(SHIM);
-  const html = fs.readFileSync(path.join(ROOT, 'src', 'Index.html'), 'utf8');
+  const html = require(path.join(ROOT, 'test', 'page.js')).cuePage();   // src/Index.html joined from its parts, as doGet serves it
   await page.route('https://cue.check/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: html }));
   await page.goto('https://cue.check/');
   await h.see(ping.version.replace(/^Cue /, ''), 60000).catch(() => {});   // the page has loaded its first state

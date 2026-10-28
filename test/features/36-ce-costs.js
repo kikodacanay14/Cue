@@ -89,7 +89,7 @@ test('CC6 live 02:35Z: a new message never "reopens" an email draft thread; tuto
 
 test('CC7 the CE costs card: ticked rows with editable costs, Approve and update CE, and its thread is named "CE costs", never "Project intake"', () => {
   const t = cecRun();
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const grab = name => { const a = html.indexOf('function ' + name + '('); return html.slice(a, html.indexOf('\n  }\n', a) + 4); };
   const ctx = { esc: x => String(x).replace(/[<>&"]/g, c => '&#' + c.charCodeAt(0) + ';'), NEED: { 'Needs you': 1 }, metricLine: () => '', cvLink: l => '<a>' + l.title + '</a>' };
   vm.createContext(ctx); vm.runInContext(grab('pesoC') + '\n' + grab('cecCardHtml') + '\n' + grab('kindName'), ctx);

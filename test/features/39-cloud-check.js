@@ -130,7 +130,7 @@ test('CK10 the chasing sweep in a check run reads only: its own batch, no sweep 
   deq(t.door('check_finish').stopped, []);
 });
 test('CK7 every server function the page calls is either a check function or listed as never; nothing in Cue sends mail around the mail lock', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), ctx = sandbox().ctx;
+  const html = cuePage(), ctx = sandbox().ctx;
   const page = [...new Set((html.match(/call\('(\w+)'/g) || []).map(x => x.slice(6, -1)))];
   const FNS = vm.runInContext('CUE_CHECK_FNS_', ctx), NEVER = vm.runInContext('CUE_CHECK_NEVER_', ctx), listed = FNS.concat(NEVER); deq(page.filter(f => listed.indexOf(f) < 0), [], 'new page call: add it to CUE_CHECK_FNS_ or CUE_CHECK_NEVER_');
   deq(FNS.filter(f => NEVER.indexOf(f) >= 0 || (page.indexOf(f) >= 0 && typeof ctx[f] !== 'function')), []);   // a release line may lack some listed functions; the door refuses a missing one

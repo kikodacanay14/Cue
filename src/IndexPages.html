@@ -1,0 +1,272 @@
+  // ---- Morning batch (Kiko 07:31Z, spec sweep-engine.md): grouped by kind; tick, edit, Skip today, Stop chasing; send at 9:00 ----
+  // Inbox triage groups (CueTriage.gs): a tag and what Kiko does with the line.
+  var SWEEP_GROUP = { inquiry: ['New inquiry', 'Someone wants a quote or event. Tap Start intake to begin it.'], reply: ['Needs your reply', 'Cue drafted a reply below. Edit it, tick it, then Approve and send.'],
+    fyi: ['FYI', 'For your information. Nothing to do: tap Got it.'] };
+  function sweepCardHtml(r) {
+    var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
+    b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
+    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed; }).length;
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
+      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
+      + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
+    kinds.forEach(function (k) {
+      h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
+      by[k].forEach(function (it) {
+        var dim = it.removed ? ' style="opacity:.5"' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
+        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"' + dim + '><label style="display:flex;gap:8px;align-items:flex-start">'
+          + (waiting && !it.no_email && !it.removed ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + '>' : '<span>' + (it.removed ? '–' : it.no_email ? '•' : '✓') + '</span>')
+          + '<span><b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.who && it.project ? ' <span class="small muted">' + esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') + '</span>' : '')
+          + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + ' ' + state
+          + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
+          + (it.kind === 'inbox' && it.summary && it.who ? '<br><span class="small">' + esc(it.summary) + '</span>' : '')
+          + (SWEEP_GROUP[it.group] && it.who ? '<br><span class="small muted">' + SWEEP_GROUP[it.group][1] + '</span>' : '')
+          + '<br><span class="small muted">' + (esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? '' : ' · no email: stays a draft')
+          + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></label>';
+        if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+          + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
+        if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
+        else if (!it.no_email) h += waiting && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+          : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';
+        if (it.action && it.action !== 'none' && !it.acted && waiting) h += '<div class="actions"><button class="btn ghost" data-act="sweep-act" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + esc(it.action === 'start_intake' ? 'Start intake' : it.action) + '</button></div>';
+        // Inbox lines are not chasers: Done hides the email, Mute this sender stops Cue showing that sender again.
+        if (waiting && !it.removed && !it.task_id && it.kind === 'inbox') h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + (it.group === 'fyi' || !it.who ? 'Got it' : 'Done') + '</button>'
+          + (it.sender ? '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Mute this sender</button>' : '') + '</div>';
+        else if (waiting && !it.removed && !it.task_id) h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
+          + '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Stop chasing</button></div>';
+        if (it.error) h += '<div class="err">' + esc(it.error) + '</div>';
+        h += '</div>';
+      });
+    });
+    var st = (b.stopped || []).filter(function (x) { return !x.removed; });
+    if (st.length) {
+      h += '<div class="label">Chased the max times, no reply. Your call</div>';
+      st.forEach(function (x) { h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(x.project || x.who) + '</b> <span class="small muted">' + esc(x.label) + ' · ' + esc(x.who) + ' · chased ' + x.times + ' times</span>'
+        + (waiting ? '<div class="actions"><button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(x.key) + '">Stop chasing</button></div>' : '') + '</div>'; });
+    }
+    h += '<div class="actions">';
+    if (waiting && mail) h += '<button class="btn" data-act="sweep-send" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="sweep-drafts" data-id="' + esc(r.id) + '">Drafts only</button>';
+    if (again) h += '<button class="btn" data-act="sweep-drafts" data-id="' + esc(r.id) + '">Retry the ones that failed</button>';
+    if (r.status === 'Scheduled') h += '<button class="btn bad" data-act="sweep-cancel" data-id="' + esc(r.id) + '">Cancel the 9:00 send</button>';
+    if (waiting) h += '<button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">' + (mail ? 'Close without sending' : 'Got it') + '</button>';
+    h += '</div>' + (waiting && mail ? '<div class="small muted" style="margin-top:6px">Edit any email above. Approve and send makes them now and sends the ticked ones at 9:00 (right away after 9:00). Lines a chaser marks drafts-only stay drafts. Drafts only sends nothing.</div>' : '');
+    return h + metricLine(r) + '</div>';
+  }
+  // ---- Settings page (Kiko 17:44Z): memory, rules, personality, processes, chaser rules, connections, auto-send. ----
+  var settingsData = null;
+  function settingsOpen(sec) {
+    $('settings').hidden = false; settingsTab(sec || 'rules'); loadMyRules(); loadRules();
+    call('cueSettings', [], function (r) { settingsData = r; renderSettings(); }, function () {});
+    var b = $('snav').querySelector('[aria-current="true"]'); if (b) b.focus();
+  }
+  function settingsTab(sec) {
+    $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
+    document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
+    if (sec === 'usage') loadUsage();
+    if (sec === 'sched') loadSched();
+  }
+  function renderSettings() {
+    var S = settingsData || {}, P = S.processes || [];
+    setHtml($('w-procs'), '<div class="card">' + (P.length ? P.map(function (x) {
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span>' + (x.on ? '✓' : '○') + '</span><span style="flex:1">' + esc(x.name) + (x.target ? ' <span class="small muted">· ' + esc(x.target) + '</span>' : '') + '</span><span class="small muted">v' + esc(x.version) + (x.on ? ', used in prompts' : ', off') + '</span></div>'; }).join('')
+      : '<div class="small muted">No processes yet. Say "learn my process" and paste your steps.</div>')
+      + '<div class="small muted" style="margin-top:10px">Edit steps, or switch "Use in prompts", in the Workflows tab' + (S.sheet_url ? ' of <a href="' + esc(S.sheet_url) + '" target="_blank" rel="noopener">your Cue sheet</a>' : ' of your Cue sheet') + '.</div></div>');
+    var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
+    setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
+      + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
+    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
+  }
+  $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
+    call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
+  var schedList = null, schedErr = '';
+  function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }
+  function renderSched() {
+    var L = schedList || [];
+    setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
+      + L.map(function (x) {
+        return '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px">' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
+          + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
+          + '<div class="small muted" style="margin-top:4px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
+          + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
+          + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
+          + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
+          + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>';
+      }).join('')
+      + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
+      + 'Add one in the chat, e.g. "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".</div>');
+  }
+  function schedDone(r) { schedList = r; schedErr = ''; $('w-sched')._h = null; renderSched(); }
+  function schedFail(e) { schedErr = (e && e.message) || String(e); $('w-sched')._h = null; renderSched(); }
+  $('w-sched').addEventListener('change', function (e) { var c = e.target.closest('[data-sc-on]'); if (!c) return; c.disabled = true;
+    call('cueSchedSet', [c.getAttribute('data-sc-on'), { on: c.checked }], schedDone, schedFail); });
+  $('w-sched').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sc-act]'); if (!b) return;
+    var act = b.getAttribute('data-sc-act'), id = b.getAttribute('data-id'), x = (schedList || []).filter(function (y) { return y.id === id; })[0] || {};
+    if (act === 'open') { $('settings').hidden = true; return goThread(rootOf(id, byId())); }
+    if (act === 'run') return ask('Run "' + x.name + '" now?', 'It starts the same task as at its time. Nothing sends without your Approve.', null, 'Run now',
+      function () { b.disabled = true; call('cueSchedRunNow', [id], function (r) { schedDone(r); refresh(); }, schedFail); });
+    if (act === 'edit') return ask('New time for "' + x.name + '"', 'Now: ' + x.when + ' (Manila). Say the days and time.', 'e.g. weekdays 8am, every Tue 9am, 15th of the month 4pm', 'Save',
+      function (v) { if (!v) return; b.disabled = true; call('cueSchedSet', [id, { when: v }], schedDone, schedFail); });
+    if (act === 'del') return ask('Delete "' + x.name + '"?', 'It stops running. Tasks it already started stay.', null, 'Delete',
+      function () { b.disabled = true; call('cueSchedDelete', [id], schedDone, schedFail); });
+  });
+  $('avatar').onclick = function () { settingsOpen(); };
+  $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
+  $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) { $('settings').hidden = true; $('avatar').focus(); } });
+
+  // ---- AI usage and cost (Kiko 19:25Z, spec usage-cost.md): read from the AI Runs log, priced from an editable table. No AI call. ----
+  var usage = null, usageMonth = '';
+  function loadUsage() { call('cueUsage', [], function (r) { usage = r; renderUsage(); }, function () { setHtml($('w-usage'), '<div class="err">Could not read the AI Runs log. Try again.</div>'); }); }
+  function usd(n) { return 'US$ ' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function php(n) { return '₱' + Math.round((Number(n) || 0) * ((usage && usage.prices.fx) || 0)).toLocaleString('en-US'); }
+  function tok(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n); }
+  function usageDetail(m) {
+    return '<div class="label">By AI</div><div class="scroll"><table><tr><th>AI</th><th>Model</th><th>Calls</th><th>Tokens in / out</th><th>Web searches</th><th>US$</th><th>₱</th></tr>'
+      + m.by_ai.map(function (a) { return '<tr><td>' + esc(a.provider === 'GPT' ? 'ChatGPT' : a.provider) + '</td><td>' + esc(a.model) + (a.priced ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + a.calls + (a.failed ? ' <span class="small muted">(' + a.failed + ' failed)</span>' : '') + '</td><td>' + tok(a.in) + ' / ' + tok(a.out) + '</td><td>' + (a.provider === 'GPT' ? a.web : '–') + '</td><td>' + esc(usd(a.usd).slice(4)) + '</td><td>' + esc(php(a.usd)) + '</td></tr>'; }).join('')
+      + '</table></div><div class="label">By command</div><div class="scroll"><table><tr><th>Command</th><th>Calls</th><th>US$</th><th>₱</th><th>Share</th></tr>'
+      + m.by_cmd.map(function (c) { return '<tr><td>' + esc(c.name) + '</td><td>' + c.calls + '</td><td>' + esc(usd(c.usd).slice(4)) + '</td><td>' + esc(php(c.usd)) + '</td><td>' + c.share + '%</td></tr>'; }).join('') + '</table></div>';
+  }
+  function renderUsage() {
+    if (!usage) return;
+    var U = usage, M = U.months || [], cur = M[0] && M[0].current ? M[0] : null, P = U.prices, h = '';
+    if (U.error) h += '<div class="err">' + esc(U.error) + '</div>';
+    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
+      + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:var(--white)">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
+      + '<tr><td>Cost so far</td><td><b style="color:var(--white)">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
+      + '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
+      + usageDetail(cur) + '</div>';
+    else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
+    if (M.length) h += '<div class="label">Monthly</div><div class="card"><div class="scroll"><table><tr><th>Month</th><th>Claude calls</th><th>ChatGPT calls</th><th>US$</th><th>₱</th><th></th></tr>'
+      + M.map(function (m) { return '<tr><td><button class="link" data-um="' + esc(m.month) + '" aria-expanded="' + (usageMonth === m.month) + '">' + esc(m.label) + '</button>' + (m.current ? ' <span class="small muted">so far</span>' : '') + '</td><td>' + m.claude + '</td><td>' + m.gpt + '</td><td>' + esc(usd(m.usd).slice(4)) + '</td><td>' + esc(php(m.usd)) + '</td><td class="small muted">' + (m.current ? 'likely ' + esc(php(m.likely_usd)) : '') + '</td></tr>'
+        + (usageMonth === m.month ? '<tr><td colspan="6">' + usageDetail(m) + '</td></tr>' : ''); }).join('')
+      + '</table></div><div class="small muted" style="margin-top:6px">Tap a month to see its By AI and By command tables.</div></div>';
+    var names = Object.keys(P.models).concat(U.unpriced || []).filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
+    var n = function (k, v, w) { return '<input type="number" step="0.01" min="0" data-up="' + esc(k) + '" value="' + (v == null ? '' : esc(v)) + '" style="width:' + (w || 80) + 'px" aria-label="' + esc(k) + '">'; };
+    h += '<div class="label">Prices used (editable)</div><div class="card"><div class="scroll"><table><tr><th>Model</th><th>US$ / 1M in</th><th>US$ / 1M out</th></tr>'
+      + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
+      + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr></table></div>'
+      + '<div class="actions"><button class="btn" id="usage-save">Save prices</button></div>'
+      + '<div class="small muted" style="margin-top:6px">An estimate from Cue\'s own AI Runs log. Your real bill is on platform.openai.com and console.anthropic.com. Saving recalculates every month.</div></div>';
+    setHtml($('w-usage'), h);
+    $('usage-save').onclick = function () {
+      var b = this, p = { models: {}, web: '', fx: '' };
+      $('w-usage').querySelectorAll('[data-up]').forEach(function (x) {
+        var k = x.getAttribute('data-up'), i = k.indexOf(':'), m = i > 0 ? k.slice(i + 1) : '';
+        if (!m) { p[k] = x.value; return; }
+        (p.models[m] = p.models[m] || ['', ''])[k.slice(0, i) === 'in' ? 0 : 1] = x.value;
+      });
+      b.disabled = true; b.textContent = 'Saving…';
+      call('cueUsagePrices', [p], function (r) { usage = r; $('w-usage')._h = null; renderUsage(); }, function () { b.disabled = false; b.textContent = 'Save prices'; });
+    };
+  }
+  $('w-usage').addEventListener('click', function (e) { var b = e.target.closest('[data-um]'); if (!b) return; var m = b.getAttribute('data-um'); usageMonth = usageMonth === m ? '' : m; renderUsage(); });
+
+  // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
+  // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----
+  var myRules = null, myOpen = true, myOther = false, myPat = false, myEdit = 0, myErr = '', mySig = null;
+  function loadMyRules() { call('cueMyRules', [], function (r) { myRules = r; myErr = ''; renderMyRules(); }, function () {}); }
+  function myRulesCheck() {
+    var sig = state.chat.filter(function (m) { return /^[?!]ask-/.test(m.request_id); }).length + ':'
+      + state.requests.filter(function (r) { return r.kind === 'memory' && r.status === 'Done'; }).length;
+    if (mySig !== null && sig !== mySig) loadMyRules();
+    mySig = sig;
+  }
+  function myRowHtml(x) {
+    var ed = myEdit === x.row, k = 'my' + x.row;
+    return '<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">'
+      + '<input type="checkbox" data-my="on" data-row="' + x.row + '"' + (x.on ? ' checked' : '') + ' aria-label="Use this rule" title="' + (x.on ? 'On: Cue follows this' : 'Off: Cue ignores this') + '">'
+      + '<span style="flex:1;min-width:0">' + (ed ? '<textarea data-say="' + k + '" style="display:block;width:100%;box-sizing:border-box" aria-label="Edit rule">' + esc(x.text) + '</textarea>'
+          + '<span class="actions" style="margin-top:4px"><button class="btn" data-my="save" data-row="' + x.row + '">Save</button><button class="btn ghost" data-my="cancel" data-row="' + x.row + '">Cancel</button></span>'
+        : '<div style="white-space:pre-wrap' + (x.on ? '' : ';opacity:.55;text-decoration:line-through') + '">' + esc(x.text) + '</div>'
+          + '<span class="small muted">' + (x.from === 'seed' ? 'from your corrections' : x.from === 'Kiko' ? 'added by you' : 'learned') + (x.saved ? ' · ' + esc(x.saved) : '') + '</span>')
+      + '</span>' + (ed ? '' : '<span style="display:flex;gap:2px">' + ib('data-my="edit" data-row="' + x.row + '"', 'edit', 'Edit') + ib('data-my="del" data-row="' + x.row + '"', 'x', 'Delete') + '</span>') + '</div>';
+  }
+  function renderMyRules() {
+    if (!myRules) return;
+    var R = myRules.rows.filter(function (x) { return x.topic === 'rules'; }), F = myRules.rows.filter(function (x) { return x.topic !== 'rules'; });
+    var on = R.filter(function (x) { return x.on; }).length; var V = myRules.voice;
+    var h = '<details class="card"' + (myOpen ? ' open' : '') + ' id="myrules-card"><summary><b>Rules Cue follows</b> <span class="small muted">' + on + ' on' + (R.length > on ? ', ' + (R.length - on) + ' off' : '') + '</span></summary>'
+      + (V ? '<div class="small" style="margin-top:8px"><label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" data-my="voice-on"' + (V.on ? ' checked' : '') + '> <b>Personality</b></label> <span class="muted">how Cue sounds in chat replies; cards and emails stay plain</span></div>'
+        + '<div style="display:flex;gap:8px;margin-top:4px;align-items:flex-end"><textarea data-say="my-voice" style="flex:1;min-width:0;min-height:52px" aria-label="Personality">' + esc(V.text) + '</textarea><button class="btn ghost" data-my="voice">Save</button></div>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:8px"><input data-say="my-add" placeholder="Add a rule, e.g. RFQs never go out from info@" style="flex:1;min-width:0" aria-label="New rule"><button class="btn" data-my="add">Add</button></div>'
+      + (myErr ? '<div class="err">' + esc(myErr) + '</div>' : '')
+      + (R.length ? R.map(myRowHtml).join('') : '<div class="small muted" style="margin-top:8px">No rules yet. Correct Cue in any thread, or start a message with "remember:", and the rule shows up here.</div>')
+      + (F.length ? '<details class="sec" id="myrules-other"' + (myOther ? ' open' : '') + '><summary>Other things Cue remembers (' + F.length + ')</summary>' + F.map(myRowHtml).join('') + '</details>' : '')
+      + patternsHtml(myRules.patterns || [])
+      + '<div class="small muted" style="margin-top:8px">Changes apply from your next message. Same list as the Memory tab of your Cue sheet.</div></details>';
+    setHtml($('w-myrules'), h);
+    $('myrules-card').ontoggle = function () { myOpen = $('myrules-card').open; };
+    if ($('myrules-other')) $('myrules-other').ontoggle = function () { myOther = $('myrules-other').open; };
+    if ($('myrules-pat')) $('myrules-pat').ontoggle = function () { myPat = $('myrules-pat').open; };
+  }
+  // Tutor mode (CueTutor.gs): the kinds of request Cue has learned, how many Go taps in a row, Demote for the graduated ones and Reset for any count above 0.
+  function patternsHtml(P) {
+    if (!P.length) return '';
+    var g = P.filter(function (x) { return x.graduated; }).length;
+    return '<details class="sec" id="myrules-pat"' + (myPat ? ' open' : '') + '><summary>Learned patterns (' + P.length + (g ? ', ' + g + ' run on their own' : '') + ')</summary>'
+      + P.map(function (x) {
+        return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span style="flex:1;min-width:0">' + esc(x.key) + '<br><span class="small muted">'
+          + (x.graduated ? 'Runs on its own' : x.never ? 'Always asks first' : 'Asks first · ' + x.n + ' of 3 Go taps in a row') + (x.used ? ' · ' + esc(x.used) : '') + '</span></span>'
+          + (x.graduated || x.n > 0 ? '<button class="btn ghost" data-my="demote" data-key="' + esc(x.key) + '" title="' + (x.graduated ? 'Show the plan card again' : 'Start the count again from 0') + '">' + (x.graduated ? 'Demote' : 'Reset') + '</button>' : '') + '</div>';
+      }).join('') + '</details>';
+  }
+  function mySave(o, b) {
+    if (b) b.disabled = true;
+    call('cueMyRuleSave', [o], function (r) { myRules = r; myErr = ''; myEdit = 0; $('w-myrules')._h = null; if (o.add != null) { var i = document.querySelector('[data-say="my-add"]'); if (i) i.value = ''; } renderMyRules(); },
+      function (e) { myErr = (e && e.message) || String(e); if (b) b.disabled = false; if (/changed since/.test(myErr)) { myEdit = 0; var keep = myErr; call('cueMyRules', [], function (r) { myRules = r; myErr = keep; renderMyRules(); }, function () {}); } else { $('w-myrules')._h = null; renderMyRules(); } });
+  }
+  $('w-myrules').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-my]'); if (!b || b.type === 'checkbox') return;
+    var act = b.getAttribute('data-my'), row = Number(b.getAttribute('data-row')), x = (myRules.rows.filter(function (y) { return y.row === row; })[0]) || {};
+    if (act === 'add') { var v = (document.querySelector('[data-say="my-add"]') || {}).value || ''; if (!v.trim()) return; return mySave({ add: v }, b); }
+    if (act === 'edit') { myEdit = row; myErr = ''; return renderMyRules(); }
+    if (act === 'cancel') { myEdit = 0; return renderMyRules(); }
+    if (act === 'save') { var t = document.querySelector('[data-say="my' + row + '"]'); return mySave({ row: row, was: x.text, text: t ? t.value : x.text }, b); }
+    if (act === 'del') return mySave({ row: row, was: x.text, del: true }, b);
+    if (act === 'demote') { b.disabled = true; return call('cueMyPatternDemote', [b.getAttribute('data-key')], function (r) { myRules = r; myErr = ''; $('w-myrules')._h = null; renderMyRules(); },
+      function (e) { myErr = (e && e.message) || String(e); b.disabled = false; $('w-myrules')._h = null; renderMyRules(); }); }
+    if (act === 'voice') { var vt = (document.querySelector('[data-say="my-voice"]') || {}).value || ''; return mySave({ voice: vt, on: (myRules.voice || {}).on !== false }, b); }
+  });
+  $('w-myrules').addEventListener('change', function (e) {
+    var vc = e.target.closest('[data-my="voice-on"]');
+    if (vc) return mySave({ voice: (myRules.voice || {}).text || '', on: vc.checked }, vc);
+    var c = e.target.closest('[data-my="on"]'); if (!c) return;
+    var row = Number(c.getAttribute('data-row')), x = (myRules.rows.filter(function (y) { return y.row === row; })[0]) || {};
+    mySave({ row: row, was: x.text, on: c.checked }, c);
+  });
+  $('w-myrules').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.getAttribute('data-say') === 'my-add') { e.preventDefault(); var b = $('w-myrules').querySelector('[data-my="add"]'); if (b) b.click(); } });
+
+  // ---- Chaser rules (Kiko 08:12Z, spec chaser-rules.md): timing per chaser, saved to the Rules tab, used from the next batch ----
+  var rules = null, rulesOpen = false;
+  function loadRules() { call('cueRules', [], function (r) { rules = r; renderRules(); }, function () {}); }
+  function renderRules() {
+    if (!rules || !rules.kinds) return;
+    var K = rules.kinds, G = rules.general, n = function (f, v, lo, hi) { return '<input type="number" data-rule="' + f + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" style="width:64px" aria-label="' + esc(f) + '">'; };
+    var h = '<details class="card"' + (rulesOpen ? ' open' : '') + ' id="rules-card"><summary><b>Follow-up timing</b> <span class="small muted">first chase, interval, when to stop, send time</span></summary>'
+      + '<div class="scroll"><table><tr><th>Chaser</th><th>On</th><th>First after</th><th>Then every</th><th>Stop after</th></tr>';
+    Object.keys(K).forEach(function (k) {
+      var x = K[k];
+      h += '<tr><td><b>' + esc(x.label) + '</b><div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
+        + '<td>' + n(k + '.first', x.first, 1, 60) + '</td><td>' + n(k + '.every', x.every, 1, 60) + '</td><td>' + n(k + '.max', x.max, 1, 10) + '</td></tr>';
+      if (x.soon_first != null) h += '<tr><td class="small muted">↳ event within 7 days</td><td></td><td>' + n(k + '.soon_first', x.soon_first, 1, 60) + '</td><td>' + n(k + '.soon_every', x.soon_every, 1, 60) + '</td><td></td></tr>';
+    });
+    h += '</table></div><div class="label">General (all chasers)</div><table class="facts">'
+      + '<tr><td>Build the batch at</td><td>' + n('general.build', G.build, 5, 10) + ' :00</td></tr>'
+      + '<tr><td>Send approved emails at</td><td>' + n('general.send', G.send, 7, 20) + ' :00</td></tr>'
+      + '<tr><td>Quiet hours (no reminders)</td><td>' + n('general.quiet_from', G.quiet_from, 18, 23) + ' :00 to ' + n('general.quiet_to', G.quiet_to, 5, 9) + ' :00</td></tr>'
+      + '<tr><td>Most lines per chaser / per batch</td><td>' + n('general.per_kind', G.per_kind, 1, 30) + ' / ' + n('general.per_batch', G.per_batch, 1, 60) + '</td></tr></table>'
+      + (rules.notes || []).map(function (x) { return '<div class="warn">' + esc(x) + '</div>'; }).join('')
+      + '<div class="actions"><button class="btn" data-act="rules-save" data-id="">Save rules</button></div>'
+      + '<div class="small muted">Changes apply from the next morning batch. Who an email comes from, and your approval, never change here.</div></details>';
+    setHtml($('w-rules'), h);
+    $('rules-card').ontoggle = function () { rulesOpen = $('rules-card').open; };
+    bind();
+  }
+
+  // Task basics (Kiko 07:31Z) had a Due / Priority / Remind row; Kiko 14:42Z removed it. Close is ✓ in the pane header, Archive its ⋯.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-open-task]'); if (!b) return;
+    e.stopPropagation(); goThread(rootOf(b.getAttribute('data-open-task'), byId()));
+  }, true);

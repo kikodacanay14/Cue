@@ -205,7 +205,7 @@ test('C20c image batches: Done with no instruction asks once; threads keep their
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0);
 });
 test('C20d page: phrases that start, finish and cancel a batch', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  const html = cuePage();
   const BATCH_RE = eval(html.match(/var BATCH_RE = (\/.*\/i);/)[1]), CANCEL = eval(html.match(/var BCANCEL_RE = (\/.*\/i);/)[1]);
   const doneSaid = eval('(' + html.match(/function doneSaid\(t\) \{[\s\S]*?\n  \}/)[0] + ')');
   ['more coming', 'New intake for Unilever, more coming', "I'm sending images in batches", 'sending them in batches', 'more photos to come', 'batch mode'].forEach(x => assert.ok(BATCH_RE.test(x), x));
