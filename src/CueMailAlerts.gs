@@ -5,11 +5,16 @@
  * moment Kiko tapped Turn on; the trigger never wrote again and Google sent no failure email, so nobody saw it stop. Cue's own
  * 5-minute trigger has run without a gap since, and Cue runs as Kiko with Gmail read access.
  * The fix: Cue writes the same file for Kiko every 10 minutes from cueResume, with the same rules as mailcheck's mcPick_:
- *   - Inbox threads whose newest message is from outside BSE, within 14 days, not from a no-reply address; headers only.
+ *   - Inbox threads whose newest message is from outside BSE, within 14 days, not from a no-reply address; headers only (since
+ *     COMPACT-CARDS-2026-10-28, also Gmail's preview line of the newest message).
  *   - The file is Cue's own (drive.file), in Kiko's Drive, shared view-only with info@ without a share email. Canvas picks the
  *     newest such file Kiko owns (Canvas rel-v292-mailfix), so this one wins over the stopped one.
  *   - Unchanged threads are not read again: a thread is re-read only when its Gmail historyId moves.
- * No AI, nothing sent, labelled or changed in Gmail. Emails are untrusted data. */
+ * No AI, nothing sent, labelled or changed in Gmail. Emails are untrusted data.
+ * COMPACT-CARDS-2026-10-28 (Kiko 04:51Z "can cards be more compact? and show a summary of the details so we know what the card is
+ * about?"; 04:55Z "the one that says Open Gmail needs to show more summary"): each thread also carries gist, the first line of its
+ * newest message from Gmail's own preview (snippet), with greetings left out, so Emails waiting can say what the email is about.
+ * Still no AI and nothing sent anywhere new: the line goes only into this file, which Canvas shows to Kiko alone. */
 
 const CUE_MA_ = { file: 'canvas-email-alerts.json', every_min: 10, days: 14, max: 40, canvas: 'info@blankspaceevent.com' };
 
@@ -33,7 +38,7 @@ function cueMaRun_() {
 function cueMaWaiting_(me, now) {
   const list = cueGmail_('/threads?labelIds=INBOX&maxResults=' + CUE_MA_.max).threads || [];
   const cache = CacheService.getScriptCache(), old = {};
-  try { (JSON.parse(cache.get('cue_ma_seen') || '[]') || []).forEach(x => { old[x.id] = x; }); } catch (e) { /* read all again */ }
+  try { (JSON.parse(cache.get('cue_ma_seen2') || '[]') || []).forEach(x => { old[x.id] = x; }); } catch (e) { /* read all again */ } // COMPACT-CARDS-2026-10-28: new key, so every thread is read once for its gist
   // CUE-PROJECT-LOG-2026-10-27: the first run after the project log ships reads every thread once, so the log starts with them.
   const first = !cueProp_('CUE_PLOG_MAIL', ''), fresh = first ? list : list.filter(t => !(old[t.id] && old[t.id].h === String(t.historyId)));
   const got = {};
@@ -49,7 +54,7 @@ function cueMaWaiting_(me, now) {
     seen.push({ id: t.id, h: String(t.historyId), r: row });
     if (row && now - row.at <= CUE_MA_.days * 864e5) out.push(row);
   });
-  try { cache.put('cue_ma_seen', JSON.stringify(seen), 6 * 3600); } catch (e) { /* too big: read all next run */ }
+  try { cache.put('cue_ma_seen2', JSON.stringify(seen), 6 * 3600); } catch (e) { /* too big: read all next run */ }
   return out.sort((a, b) => b.at - a.at);
 }
 
@@ -67,9 +72,26 @@ function cueMaPick_(threads, me, now) {
     if (/^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?)@/i.test(from.email)) return;
     const ours = msgs.some(m => dom(cueMaAddr_(head(m, 'from')).email) === own);
     out.push({ id: String(t.id), from: from.name || from.email, email: from.email, subject: String(head(last, 'subject') || '(no subject)').slice(0, 200),
-      at, unread: (last.labelIds || []).indexOf('UNREAD') >= 0, count: msgs.length, repliedBefore: ours });
+      at, unread: (last.labelIds || []).indexOf('UNREAD') >= 0, count: msgs.length, repliedBefore: ours, gist: cueMaGist_(last.snippet) });
   });
   return out.sort((a, b) => b.at - a.at);
+}
+
+/** COMPACT-CARDS-2026-10-28. Pure: Gmail's preview of a message (HTML-escaped) -> its first words without "Hi Kiko," / "Good day!" /
+ * "Hope you are well." at the front, at most 220 characters. Gmail's own preview when nothing is left. */
+function cueMaGist_(snippet) {
+  const ent = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  const raw = String(snippet || '').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (m, k) => ent[k])
+    .replace(/\s+/g, ' ').trim();
+  let s = raw;
+  for (let i = 0; i < 4; i++) {
+    const was = s;
+    s = s.replace(/^(hi|hello|hey|dear|greetings)\b[^,!?]{0,40}[,!]\s*/i, '')
+      .replace(/^good (day|morning|afternoon|evening)\b[^,.!?]{0,30}[,.!]\s*/i, '')
+      .replace(/^(i |we )?(hope|trust) (you|this|all|everyone)[^.!?]{0,80}[.!]\s*/i, '');
+    if (s === was) break;
+  }
+  return (s || raw).slice(0, 220);
 }
 
 /** "Name <a@b.c>" or "a@b.c" -> {name, email}; email is '' when it is not an address. */
@@ -89,7 +111,7 @@ function cueMaWrite_(data) {
   }
   id = cueDrive_('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=media', { contentType: 'application/json', payload: body }).id;
   cueDrive_('patch', CUE_DRIVE_ + '/' + id, { contentType: 'application/json', payload: JSON.stringify({ name: CUE_MA_.file,
-    description: 'Canvas email alerts written by Cue: who emailed you and when, for Emails waiting in Canvas. Headers only.' }) });
+    description: 'Canvas email alerts written by Cue: who emailed you, when, and the first line of the email, for Emails waiting in Canvas.' }) });
   cueDrive_('post', CUE_DRIVE_ + '/' + id + '/permissions?sendNotificationEmail=false', { contentType: 'application/json',
     payload: JSON.stringify({ role: 'reader', type: 'user', emailAddress: CUE_MA_.canvas }) });
   P.setProperty('CUE_MA_FILE', id);

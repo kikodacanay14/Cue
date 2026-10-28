@@ -45,8 +45,20 @@ test('MA1 Cue writes Emails waiting for Canvas every 10 minutes: waiting threads
 
 test('MA2 the email check rides cueResume and never runs for a non-BSE account; a Gmail failure never stops the tick', () => {
   const t = sandbox(); t.ctx.cueResume();
-  assert.ok(!(t.log.cache || {}).cue_ma_seen, 'kiko@example.com: Canvas would not read it, so nothing is read');
+  assert.ok(!(t.log.cache || {}).cue_ma_seen2, 'kiko@example.com: Canvas would not read it, so nothing is read');
   const u = maBox([]); u.ctx.UrlFetchApp.fetch = () => { throw new Error('Gmail down'); };
   assert.doesNotThrow(() => u.ctx.cueResume());
   assert.ok(/cueMaTick_\(\); \} catch/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8')));
+});
+
+test('MA3 each waiting email carries its first line from Gmail\'s preview, greetings left out, for the compact Emails waiting card', () => {
+  const now = Date.parse('2026-10-28T02:00:00Z');
+  const msg = Object.assign(maMsg('Peachy <peachy@client.example>', now - 3e6, ['INBOX']),
+    { snippet: 'Hi Kiko, Good day! I hope you&#39;re well. May we ask for your rate for the video edit &amp; the schedule?' });
+  const t = maBox([{ id: 'c1', h: '1', msgs: [msg] }]);
+  t.ctx.cueNow_ = () => now; t.ctx.cueMaTick_();
+  assert.strictEqual(t.files.F1.threads[0].gist, 'May we ask for your rate for the video edit & the schedule?');
+  const g = t.ctx.cueMaGist_;
+  deq([g('Dear Ms. Ana, Attached is the PO.'), g('Good morning team, please see the quote.'), g('Hello!'), g(''), g('x'.repeat(300)).length],
+    ['Attached is the PO.', 'please see the quote.', 'Hello!', '', 220]);
 });

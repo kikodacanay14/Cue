@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue email check: each waiting email carries its first line, for Canvas's compact cards (not deployed)
+
+Kiko 28 Oct 2026 04:51Z, on the Team Cue panel in Canvas: "can cards be more compact? and show a summary of the details so we
+know what the card is about?"; 04:55Z: "the one that says Open Gmail needs to show more summary and buttons can they be more
+compact". Released as Cue 1.27.52 on the live line (branch `claude/project-thread-dn39bl-rel12752`); this is the same change on
+main.
+
+- The 10-minute email check (`CueMailAlerts.gs`) writes `gist` for each waiting thread: the first words of the newest message
+  from Gmail's own preview line, greetings left out, at most 220 characters. No AI, nothing sent anywhere new.
+- The thread cache key moves to `cue_ma_seen2`, so the first run after the deploy reads every waiting thread once.
+- New test MA3 (`test/features/45-mail-alerts.js`). Tests: 392.
+
 ## Cue contact scan: never refill a cell with history (not deployed)
 
 Kiko 28 Oct 2026 04:43Z, while running "fill contact details from old emails": "please observe as well the history of what
