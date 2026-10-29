@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (not deployed)
+## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
 ok with the suggestions"). Canvas stopped syncing HubSpot on 29 Oct (Canvas V328), so the pipeline review ("which deals went
