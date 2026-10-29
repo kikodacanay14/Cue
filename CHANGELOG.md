@@ -23,7 +23,7 @@ Monday status report (spec of 22 Oct), which never went live.
   email already sent sends nothing. Done skips the emails not sent.
 - No AI call. The Today card shows "N client updates to send".
 
-Tests: 495/495 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
+Tests: 495/495 (feature file `63-friday-status.js`, 9 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
 
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
