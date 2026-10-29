@@ -54,7 +54,7 @@ function cueRfpSendTick_() {
     const mark = 'CUE_RFPS_' + cueSha_(x.key).slice(0, 24);
     let done = null; try { done = JSON.parse(P.getProperty(mark) || 'null'); } catch (e) { done = null; }
     if (!done) {
-      try { done = Object.assign({ status: 'Sent' }, cueRfpSendOne_(x)); out.sent++; }
+      try { done = Object.assign({ status: 'Sent' }, cueRfpSendOne_(x, box.logo)); out.sent++; }
       catch (e) { done = { status: 'Failed', note: cueStr_(String((e && e.message) || e).split('\n')[0], 300) }; out.failed++; }
       P.setProperty(mark, JSON.stringify(done));
     }
@@ -68,8 +68,11 @@ function cueRfpSendTick_() {
   return out;
 }
 
-/** Sends one outbox item from Kiko's Gmail. Returns { thread_id, message_id }. Throws with a plain reason when Gmail can't. */
-function cueRfpSendOne_(x) {
+/** Sends one outbox item from Kiko's Gmail. Returns { thread_id, message_id }. Throws with a plain reason when Gmail can't.
+ * CUE-WELCOME-FROM-KIKO-2026-10-29 (Kiko 29 Oct 07:50Z "the client welcome make the email come from my inbox"): an item with
+ * html (the client welcome) goes as the styled email with its plain text beside it, and logo (the outbox's base64 Canvas logo)
+ * rides inline as cid:canvaslogo, so it looks the way it did from info@. */
+function cueRfpSendOne_(x, logo) {
   const to = (x.to || []).map(cueEmail_).filter(Boolean), cc = (x.cc || []).map(cueEmail_).filter(Boolean);
   if (!to.length) throw new Error('No supplier email to send it to.');
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
@@ -78,7 +81,7 @@ function cueRfpSendOne_(x) {
   const mime = 'To: ' + to.join(', ') + '\r\n' + (cc.length ? 'Cc: ' + cc.join(', ') + '\r\n' : '')
     + 'Subject: =?UTF-8?B?' + b64(subject) + '?=\r\n'
     + (ref ? 'In-Reply-To: ' + ref + '\r\nReferences: ' + ref + '\r\n' : '')
-    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(x.body || '');
+    + 'MIME-Version: 1.0\r\n' + (x.html ? cueRfpRich_(x.body || '', x.html, logo) : 'Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(x.body || ''));
   const message = Object.assign({ raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) }, x.thread_id ? { threadId: x.thread_id } : {});
   const auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
   const res = UrlFetchApp.fetch(CUE_GMAIL_ + '/drafts', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: auth, payload: JSON.stringify({ message }) });
@@ -88,6 +91,21 @@ function cueRfpSendOne_(x) {
   let m = null; try { m = JSON.parse(r2.getContentText()); } catch (e) { m = null; }
   if (r2.getResponseCode() !== 200 || !m || !m.id) throw new Error('Gmail did not send it; it is still in your Drafts (HTTP ' + r2.getResponseCode() + ')' + cueGoogleWhy_(r2));
   return { thread_id: String(m.threadId || x.thread_id || ''), message_id: String(m.id) };
+}
+
+/** The body of a styled item: text and html as alternatives, plus the inline Canvas logo when the outbox sent one and the html
+ * shows it. */
+function cueRfpRich_(text, html, logo) {
+  const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
+  const wrap = t => String(t).replace(/(.{76})/g, '$1\r\n'), id = Utilities.getUuid().replace(/-/g, '');
+  const part = (type, b) => 'Content-Type: ' + type + '; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + wrap(b) + '\r\n';
+  const alt = 'Content-Type: multipart/alternative; boundary="a' + id + '"\r\n\r\n--a' + id + '\r\n' + part('text/plain', b64(text))
+    + '--a' + id + '\r\n' + part('text/html', b64(html)) + '--a' + id + '--\r\n';
+  const png = String(logo || '').replace(/[^A-Za-z0-9+/=]/g, '');
+  if (!png || !/cid:canvaslogo/.test(html)) return alt;
+  return 'Content-Type: multipart/related; boundary="r' + id + '"\r\n\r\n--r' + id + '\r\n' + alt + '--r' + id + '\r\n'
+    + 'Content-Type: image/png; name="canvas.png"\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <canvaslogo>\r\n'
+    + 'Content-Disposition: inline; filename="canvas.png"\r\n\r\n' + wrap(png) + '\r\n--r' + id + '--\r\n';
 }
 
 /** The Message-ID header of the last email in a thread, so the follow-up threads for the supplier too. '' when Gmail can't say. */
