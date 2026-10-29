@@ -217,7 +217,7 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: o.helpExisted ? { ok: true, existed: true, id: 'CRW-Q-01', status: 'Draft' } : { ok: true, existed: false, id: 'CRW-Q-02', status: 'Draft' } }); }
       // CUE-RFP-SEND-2026-10-28: Kiko's queued RFPs (rfp_outbox, read) and the report of each send (rfp_sent, queue), with the bridge's shapes.
       if (body.action === 'rfp_outbox') { log.rfpReads = (log.rfpReads || 0) + 1; if (o.rfpBoxFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
-        return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
+        return resp(200, { ok: true, status: 'Completed', result: Object.assign({ items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) }, o.rfpLogo ? { logo: o.rfpLogo } : {}) }); }
       if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
       // CUE-ADMIN-MOVE-2026-10-29: Canvas chasers (run_now_list / run_now_send) and Send a notice (sn_board, sn_items, sn_prepare, sn_send), with the bridge's shapes.

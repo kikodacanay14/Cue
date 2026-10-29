@@ -87,3 +87,34 @@ test('RS6 Settings > Scheduled tasks has "RFPs from your Gmail" (every minute): 
   delete u.props.CUE_RFPS_RUN; u.ctx.cueRfpKick();
   assert.ok(!(u.log.sent || []).length, 'off: the minute trigger sends nothing');
 });
+
+// CUE-WELCOME-FROM-KIKO-2026-10-29 (Kiko 29 Oct 07:50Z "the client welcome make the email come from my inbox"): Canvas queues the
+// client welcome with its styled body; Cue sends it from Kiko's Gmail with the Canvas logo inline.
+const WELCOME_ITEM = (o) => RFP_ITEM(Object.assign({ key: 'welcome:CLIENT:annaacmeexample:mabc1250', kind: 'welcome', rfp_id: 'CLIENT', supplier: 'anna@acme.example',
+  to: ['anna@acme.example'], cc: [], subject: 'Welcome to Canvas · Acme projects', body: 'Hi Anna,\n\nYou can now follow your Acme projects.\n\nBlank Space Events',
+  html: '<img src="cid:canvaslogo" alt="Canvas"><p>Hi Anna,</p><p>You can now follow your Acme projects.</p>' }, o || {}));
+const mimePart = (m, type) => { const i = m.indexOf('Content-Type: ' + type); if (i < 0) return null;
+  const body = m.slice(m.indexOf('\r\n\r\n', i) + 4).split('\r\n--')[0]; return Buffer.from(body.replace(/\r\n/g, ''), 'base64'); };
+
+test('RS7 the client welcome goes from Kiko\'s Gmail as the styled email (text and html) with the Canvas logo inline, and Canvas is told Sent', () => {
+  const logo = Buffer.from('PNGLOGO'.repeat(40)).toString('base64');
+  const t = sandbox({ rfpBox: [WELCOME_ITEM()], rfpLogo: logo });
+  const r = t.ctx.cueRfpSendTick_();
+  deq([r.sent, r.failed, r.reported], [1, 0, 1]);
+  const m = rfpMime(t)[0];
+  assert.ok(/^To: anna@acme\.example\r\nSubject: Welcome to Canvas · Acme projects\r\n/.test(m), m.slice(0, 200));
+  assert.ok(/Content-Type: multipart\/related; boundary="r/.test(m) && /Content-Type: multipart\/alternative; boundary="a/.test(m));
+  assert.strictEqual(mimePart(m, 'text/plain').toString('utf8'), WELCOME_ITEM().body);
+  assert.strictEqual(mimePart(m, 'text/html').toString('utf8'), WELCOME_ITEM().html);
+  assert.ok(/Content-ID: <canvaslogo>\r\n/.test(m)); assert.strictEqual(mimePart(m, 'image/png').toString('base64'), logo);
+  assert.ok(m.split('\r\n').every(l => l.length <= 998), 'no line over the mail limit');
+  deq(JSON.parse(JSON.stringify(t.log.rfpSent)), [{ key: WELCOME_ITEM().key, status: 'Sent', thread_id: 'thr1abcdef', message_id: 'sent1abcdef' }]);
+});
+
+test('RS8 a styled email without the logo still goes as text and html; a plain RFP stays plain text', () => {
+  const t = sandbox({ rfpBox: [WELCOME_ITEM(), RFP_ITEM()] });
+  t.ctx.cueRfpSendTick_();
+  const [w, p] = rfpMime(t);
+  assert.ok(/multipart\/alternative/.test(w) && !/multipart\/related/.test(w) && !/canvaslogo>/.test(w));
+  assert.ok(/Content-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n/.test(p) && !/multipart/.test(p));
+});
