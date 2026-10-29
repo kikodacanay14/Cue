@@ -37,7 +37,10 @@ test('SF3 crm_funnel is a read the cloud check may call, and the fixture bridge 
   const t = sandbox(); assert.ok(vm.runInContext('CUE_CHECK_READS_', t.ctx).includes('crm_funnel'));
   const src = fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8');
   assert.ok(/ZB_ACTIONS_\.crm_funnel = \{\s*kind: 'read'/.test(src));
-  assert.ok(!/amount|ce_no|lost_reason/i.test(src.split('ZB_ACTIONS_.crm_funnel')[1].split('function zbCrmWinback_')[0]));
+  // CRM-13-2026-10-29: the open list sends only a true/false "priced" flag made from the amount, never the amount itself.
+  const reply = src.split('ZB_ACTIONS_.crm_funnel')[1].split('function zbCrmWinback_')[0].replace(/\/\/[^\n]*/g, '');
+  assert.ok(/priced: x\.amount != null && x\.amount > 0 \}/.test(reply), 'priced is a boolean');
+  assert.ok(!/amount|ce_no|lost_reason/i.test(reply.replace('priced: x.amount != null && x.amount > 0', '')));
 });
 test('SF4 the cloud check door runs one read-only funnel read and returns the lines; outside a check it refuses', () => {
   const t = checkBox({ funnel: FUNNEL });

@@ -2042,7 +2042,12 @@ ZB_ACTIONS_.crm_funnel = {
     return { today: f.today, limits: f.limits, steps: f.steps.map(s => ({ step: s.step, count: s.count, stuck: s.stuck, limit: s.limit, median_days: s.median_days })),
       stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit,
         email: x.email || '', contact: x.contact || '' })),   // CRM-FUNNEL-REST-2026-10-28: the client's newest known email, for Cue's chaser drafts
-      due: f.due.slice(0, 40), winback: r.args.winback ? zbCrmWinback_() : undefined };
+      due: f.due.slice(0, 40), winback: r.args.winback ? zbCrmWinback_() : undefined,
+      // CRM-13-2026-10-29 (Cue #235): every open Inquiry and CE sent row, nearest event first, for Cue's pipeline review (HubSpot is
+      // frozen since V328). priced (true or false) only, never the amount.
+      open: f.rows.filter(x => x.step === 'Inquiry' || x.step === 'CE sent').sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')).slice(0, 60)
+        .map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit,
+          email: x.email || '', contact: x.contact || '', priced: x.amount != null && x.amount > 0 })) };
   }
 };
 /* CRM-FUNNEL-REST-2026-10-28 (F6): clients to win back (no open deal, last event older than the win-back months), with the newest known
@@ -2711,6 +2716,7 @@ ZB_ACTIONS_.contact_fill = {
   run: (r) => zbContactFill_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
+
 ZB_ACTIONS_.sent_log = {
   // SENT-LOG-2026-10-29 (N8 / N9; Kiko 03:43-03:46Z: reports in Cue Admin, "not split", a Log page "filtered by the different
   // Jobs. and Status"): every email and text Canvas sent in the last 1 to 30 days, one row per send, newest first, with the
