@@ -57,7 +57,7 @@ function cuePipeRun_(s, save) {
 /* CRM-13-2026-10-29 (bug, Cue #235; Kiko 29 Oct 11:48Z "im ok with the suggestions"): Canvas stopped syncing HubSpot on 29 Oct
  * (V328), so the HubSpot deals this review read were frozen. The open deals now come from Canvas's Sales funnel (bridge read
  * crm_funnel): Inquiry and CE sent, projects and deals alike. crm_funnel gives no amounts (Kiko sees those in Canvas), only
- * has_amount; until Canvas sends every open row (its reply's open list), Cue reviews the stuck ones Canvas already returns. */
+ * priced (true or false); until Canvas sends every open row (its reply's open list), Cue reviews the stuck ones Canvas already returns. */
 const CUE_PIPE_OPEN_STEPS_ = ['Inquiry', 'CE sent'];
 function cuePipeDeals_(s) {
   const P = s.pipe, cf = cueBridge_(s, 'crm_funnel', {}) || {};
@@ -78,7 +78,7 @@ function cuePipeDeals_(s) {
   P.deals = deals.map((d, i) => {
     const e = ev(d), mail = cueEmail_(d.email), q = Number(d.quiet);
     return { k: 'D' + (i + 1), id: cueStr_(d.id, 60), name: cueStr_(d.name, 300), client: cueStr_(d.client, 120) || cueStr_(String(d.name || '').split(/\s+[—–-]\s+/)[0], 120),
-      stage: cueStr_(d.step, 80), award: String(d.step) === 'CE sent', amount: 0, has_amount: d.has_amount == null ? null : !!d.has_amount, event: e,
+      stage: cueStr_(d.step, 80), award: String(d.step) === 'CE sent', amount: 0, has_amount: d.priced == null ? null : !!d.priced, event: e,
       days: e ? Math.round((Date.parse(e + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / CUE_DAY_) : null,
       project_id: d.kind === 'project' ? cueStr_(d.id, 40) : '', contacted: d.quiet == null || !isFinite(q) ? 0 : now - q * CUE_DAY_, next_step: '',
       contacts: mail ? [mail] : [], contact_n: mail || String(d.contact || '').trim() ? 1 : 0 };

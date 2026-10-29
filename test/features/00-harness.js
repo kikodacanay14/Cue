@@ -614,7 +614,7 @@ const PIPE_OPEN = [
   { kind: 'project', id: 'S-255PR', name: 'Telus — Trick or Treat - Manila', client: 'Telus', step: 'CE sent', status: 'Awaiting award', date: '2026-10-25', days: 2, quiet: 2, email: 'ana@telus.test', contact: 'Ana' },
   { kind: 'project', id: 'S-132ST', name: 'PCAARRD — Stage Design', client: 'PCAARRD', step: 'Inquiry', status: 'Quoting', date: '2026-11-13', days: 11, quiet: 11, email: 'joy@pcaarrd.test', contact: 'Joy' },
   { kind: 'inquiry', id: 'INQ-103', name: 'AMI Group — Selecta Merchandising', client: 'AMI Group', step: 'Inquiry', status: 'Quoting', date: '2026-12-15', days: 3, quiet: null, email: '', contact: '' },
-  { kind: 'inquiry', id: 'INQ-104', name: 'Embassy of Belgium — Tents', client: 'Embassy of Belgium', step: 'Inquiry', status: 'Quoting', date: '2026-10-01', days: 1, quiet: 1, email: 'pollie@belgium.test', contact: 'Pollie', has_amount: false },
+  { kind: 'inquiry', id: 'INQ-104', name: 'Embassy of Belgium — Tents', client: 'Embassy of Belgium', step: 'Inquiry', status: 'Quoting', date: '2026-10-01', days: 1, quiet: 1, email: 'pollie@belgium.test', contact: 'Pollie', priced: false },
   { kind: 'inquiry', id: 'INQ-105', name: 'Asian Development Bank — Printing', client: 'Asian Development Bank', step: 'Inquiry', status: 'Quoting', date: '2027-01-01', days: 1, quiet: 1, email: 'bids@adb.test', contact: '' },
   { kind: 'project', id: 'S-OLD', name: 'Old Co — Won Already', client: 'Old Co', step: 'Delivered', status: 'Won', date: '2026-10-22', days: 0, quiet: 0, email: 'x@old.test', contact: '' }];
 const pipeTalk = client => ({ reply: 'Checking your pipeline now.', looks_like_inquiry: false, start_intake: '', task: '', command: 'pipeline', command_client: client || '' });

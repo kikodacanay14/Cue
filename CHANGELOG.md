@@ -13,7 +13,7 @@ quiet?", "where are we with Telus") was flagging HubSpot deals that no longer ch
   answering fails the run with Canvas's own reason and Try again.
 - **Each deal opens in Canvas** (the project, or the client in Client Desk for an inquiry). The sent line now ends "Canvas was not
   changed." Gmail reading, the flags, the one Claude call and the follow-up drafts are unchanged.
-- Canvas sends no amounts, so "Missing amount" shows only when Canvas says a row has none.
+- Canvas sends no amounts, only whether a row is priced, so "Missing amount" shows only when Canvas says a row has none.
 - The Sales funnel card's HubSpot tasks row is unchanged: HubSpot tasks are still live and its funnel numbers already come from
   Canvas.
 
