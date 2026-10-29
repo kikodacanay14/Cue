@@ -1,7 +1,7 @@
 // Cloud check: project intake on REAL inquiries (backlog card intake-real-check, High, 29 Oct 2026: "intake is built but never run on
 // real inquiries; prove it end to end from Gmail Start intake, from a screenshot and from an uploaded file").
 // Through the check door (CueCheck.gs, CueIntakeCheck.gs):
-//   1 Gmail: Start intake on the newest real inquiry Cue showed (Triage log), the same function the New mail and Inbox triage buttons run.
+//   1 Gmail: Start intake on the newest real inquiry Cue sorted (New mail, Triage log), the same function the New mail and Inbox triage buttons run.
 //   2 Screenshot: the next real inquiry's text drawn as an email screenshot (PNG), sent with no text, the way Kiko pastes a screenshot.
 //   3 File: the next one printed as a PDF and sent with one line, the way Kiko attaches a brief.
 // Each runs phase 1 for real (GPT read, Canvas duplicate check and Client Desk check, both reads). Phase 1 Approve would add a real project
@@ -65,8 +65,9 @@ export default {
       if (!r.ok) throw new Error('cueIcPick_ failed: ' + r.error);
       picks = (r.result || []).filter(p => !p.error && String(p.text || '').trim().length >= 40);
       if (!picks.length) throw new Error('No real inquiry with readable text in the last 30 days: ' + JSON.stringify((r.result || []).map(p => [p.subject, p.error])));
-      // Gmail first: an email in Kiko's own inbox (with its files) when there is one, else info@.
-      picks.sort((a, b) => (a.inbox === 'mine' ? 0 : 1) - (b.inbox === 'mine' ? 0 : 1));
+      // Gmail first: an email in Kiko's own inbox with files when there is one, else his inbox, else info@ (newest first within each).
+      const rank = p => (p.inbox === 'mine' ? 0 : 2) + (p.files ? 0 : 1);
+      picks = picks.map((p, i) => [p, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
     } },
     { title: 'Gmail: Start intake on a real inquiry, phase 1 to the RFQ drafts', stopOnFail: false, run: async h => {
       const p = picks[0];

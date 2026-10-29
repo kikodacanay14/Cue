@@ -33,3 +33,21 @@ test('IR3 a check\'s intake never joins or reopens one of Kiko\'s threads; outsi
   assert.notStrictEqual(out.request_id, mine); assert.strictEqual(JSON.stringify(t.state(mine)), kiko, 'Kiko\'s card is untouched');
   t.ctx.CUE_CHECK_ON_ = false; assert.strictEqual(t.ctx.cueSend(INQ + ' Please add a second LED wall.', [], 'intake').request_id, mine, 'live behaviour unchanged');
 });
+test('IR4 intake-real check: inquiries come from New mail\'s sort (its log lines say "new"), newest first, skipped and check tasks left out', () => {
+  const t = irBox(), day = Date.parse('2026-10-20T08:00:00Z');
+  const it = (k, th, g, ms, extra) => Object.assign({ key: 'inbox:' + k, inbox: 'mine', group: g, sender: 'ruth@moldex.example', subject: 'Request Quotation ' + k, thread_id: th, ms }, extra || {});
+  const nm = (id, items, extra) => Object.assign({ id, kind: 'newmail', day: '2026-10-20', status: 'Needs you', nm: { items } }, extra || {});
+  [nm('cue-nm-1', [it('n1', 'd4d4d4d4d4d4d4d4', 'inquiry', day), it('n2', 'e5e5e5e5e5e5e5e5', 'fyi', day), it('n3', 'f6f6f6f6f6f6f6f6', 'inquiry', day, { removed: 'skip' })]),
+    nm('cue-nm-2', [it('n4', 'a7a7a7a7a7a7a7a7', 'inquiry', day)], { check: 'x' })]
+    .forEach(s => t.tabs.Requests.rows.push([s.id, '', '', '', '', '', '', '', '', '', JSON.stringify(s)]));
+  t.tabs['Triage log'].rows.push([new Date(day), 'n1', 'd4d4d4d4d4d4d4d4', 'ruth@moldex.example', 'Request Quotation n1', 'new', '', 'cue-nm-1']);
+  const pick = t.call('cueIcPick_', 30, 6).result;
+  deq(pick.map(p => [p.key, p.thread_id, p.run]), [['inbox:n1', 'd4d4d4d4d4d4d4d4', 'cue-nm-1'], ['inbox:m1', 'a1a1a1a1a1a1a1a1', 'cue-sweep-1']]);
+});
+test('IR5 RFQ drafts get TBC for blank event details, never an empty line or 0 pax', () => {
+  const t = irBox(), id = t.call('cueIcStart_', t.call('cueIcPick_', 30, 6).result[0]).result.request_id; t.call('cueRun', id);
+  const L = t.ctx.cueLoad_(id); L.s.x.event = Object.assign(L.s.x.event || {}, { venue: '', city: '', pax: 0, date: '' }); t.ctx.cueSave_(L.sh, L.row, L.s);
+  [2, 3, 4].forEach(n => t.call('cueIcDeep_', id, n));
+  const call = t.log.gpt.filter(b => b.text.format.name === 'rfqs').pop(), ev = call && JSON.parse(String(call.input).slice(String(call.input).indexOf('{'))).event;
+  assert.ok(ev, 'the RFQ call carries the event'); deq([ev.venue, ev.city, ev.pax, ev.date], ['TBC', 'TBC', 'TBC', 'TBC']);
+});

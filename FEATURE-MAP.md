@@ -154,7 +154,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
-| `CueIntakeCheck.gs` |  | Triage log | 0 | 0 | 1 | 6 |
+| `CueIntakeCheck.gs` |  | Requests, Triage log | 0 | 0 | 1 | 6 |
 | `CueIntakePhases.gs` | `client_check`, `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `search_projects` |  | 1 | 3 | 4 | 9 |
 | `CueJobs.gs` |  | Job Runs | 0 | 0 | 4 | 11 |
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
