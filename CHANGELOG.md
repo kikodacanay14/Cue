@@ -14,6 +14,9 @@ documents must be bought goes to "for clarification".
   deleted), or Approve and send. The email goes once, from Kiko's Gmail, and the bid sheet notes the day and the address.
 - **Opportunities closing.** Notices recorded earlier that are still open. One already accepted (Intake?? Yes) shows Create CE,
   which opens Canvas Cost Estimates on that reference; one not yet accepted shows Accept. Both show Decline.
+- **Each notice shows a short summary**: organization, bid end date, budget and the summary of requirements (Kiko, 11:23Z: "have a
+  summary of the requirements in the card"). **View details** (Kiko, 11:24Z) opens the rest under it: contact, bid start date,
+  the bid documents and the official notice. The Accept button no longer says "(start intake)" (Kiko, 11:23Z).
 - **Source on every notice**, such as "PhilGEPS Bulletin Board", "PhilGEPS (old site)", CITEM or NPDC.
 - **Decline** writes No in the bid sheet's Intake?? column, so the notice never comes back. **Decide later** writes nothing, so
   tomorrow's 7:00 check shows it again. Accept writes Yes.

@@ -62,5 +62,8 @@ test('BV5 page: three parts with their buttons, the source on each notice, the d
   assert.ok(/data-act="bids-ask"[^>]*data-f="r:pg3">Send email clarification/.test(h), 'clarification button where no draft yet');
   assert.ok(/data-act="bids-send"[^>]*data-f="r:np77">Approve and send/.test(h) && /data-act="bids-edit"/.test(h) && /data-act="bids-cancel"/.test(h) && /May we ask the ABC/.test(h));
   assert.ok(/href="https:\/\/script\.google\.com[^"]*page=cedesk[^"]*"[^>]*>Create CE<\/a>/.test(h), 'Create CE on the accepted notice');
-  ['bids-later', 'bids-decline', 'bids-send', 'bids-edit', 'bids-cancel'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
+  assert.strictEqual((h.match(/data-act="bids-view"[^>]*>View details</g) || []).length, 5, 'View details on every new and closing notice (Kiko 11:24Z)');
+  assert.ok(/Summary of requirements[\s\S]*?<div data-bv="[^"]+" style="display:none">[\s\S]*?Bid documents available/.test(h), 'requirements shown, the rest behind View details');
+  assert.ok(!/start intake\)/.test(h), 'Accept, without "(start intake)" (Kiko 11:23Z)');
+  ['bids-later', 'bids-decline', 'bids-send', 'bids-edit', 'bids-cancel', 'bids-view'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
 });
