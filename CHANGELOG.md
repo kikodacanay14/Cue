@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.76: Back to Team Cue button, and Canvas's CRM and To do in Ask Cue's list (not deployed)
+## Cue 1.27.76: Back to Team Cue button, and Canvas's CRM and To do in Ask Cue's list (live as Version 171, 29 Oct 16:26Z, rollback 170; Canvas V353)
 
 Asked by Kiko on 29 Oct 2026 at 15:59Z: "can there be a button in Ask Cue that switches me back the other chat". At 15:56Z he
 also said Ask Cue keeps its own threads ("Ask Cue can still have its own threads like Job reports, Project Intake, actually CRMs,
