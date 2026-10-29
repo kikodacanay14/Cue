@@ -98,6 +98,11 @@ export default {
         document.body.appendChild(d);
       }, runs);
       await h.see('Nothing was written to Canvas');
+      // The run log keeps what each phase produced, so it can be read without the artifact (the report has the same in pictures).
+      console.log('INTAKE-REAL ' + JSON.stringify(runs.map(r => ({ label: r.label, ok: r.ok, phase1: r.phase1, note: r.note || '',
+        rows: r.phase2 && r.phase2.rows, questions: r.phase2 && r.phase2.questions, excluded: r.phase2 && r.phase2.excluded,
+        totals: r.phase3 && r.phase3.totals, lines: r.phase3 && r.phase3.lines, notes: r.phase3 && r.phase3.notes,
+        rfqs: r.phase4 && r.phase4.rfqs.map(q => ({ supplier: q.supplier, subject: q.subject, body: String(q.body || '').slice(0, 600) })), ai_calls: r.phase4 && r.phase4.ai_calls }))));
       const bad = runs.filter(r => !r.ok);
       if (runs.length < 3) throw new Error('Only ' + runs.length + ' of 3 intakes started');
       if (bad.length) throw new Error(bad.length + ' of ' + runs.length + ' intakes did not finish: ' + bad.map(r => r.label).join('; '));
