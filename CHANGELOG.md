@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (not deployed)
+
+Kiko asked on 29 Oct 2026 at 08:14Z ("rewrite templates make sure that they follow" the approved brand voice guide). His picks at
+08:23Z to 08:24Z: everything that goes out, staff included; the BSE guide first, and the Style tab only for greeting and sign-off.
+
+- The chaser fallback templates (used when ChatGPT cannot draft) open with "Hi", close with "Thank you,", and use event language:
+  RFQ follow-up ("A quick follow-up on our request for quotation"), the second CE award follow-up, the payment follow-up (no "Dear"
+  and no "Good day!", since payment mail has no exclamation marks) and the FSA / AR signature reminder ("Thank you," and
+  "Blank Space Events · Freelancers" instead of "Thank you!"; "close our records for <event>" instead of "close the project").
+- Every Cue drafting call (chasers, emails, RFQs, requotes, readiness and pipeline follow-ups, client status updates, vendor RFQs)
+  now carries the BSE voice: fun yet formal, English only, at most one "!" and none in payment mail, no emoji, "event" not
+  "project" for clients and crew, money as ₱12,500.00, and no "kindly" or "revert". The Style tab's greeting and sign-off lines
+  follow it; its tone, phrase and example lines no longer reach the prompt.
+- No change to who is chased, when, or from which inbox. Before and after: https://claude.ai/artifact/E9dG8AMWRnVKZnSfEZimCZ
+- Ships with the Canvas releases rel-v341-brand-voice-main and rel-c204-brand-voice-client, but does not need them. Tests: 475.
+
 ## Cue 1.27.66: client welcome from Kiko's Gmail (live as Version 147, 29 Oct 08:35Z, rollback 145)
 
 Cut by the deploys thread on live 1.27.65 (Version 145) from Cue PR #207 (commit d079c44). Kiko asked on 29 Oct 2026 at 07:50Z
