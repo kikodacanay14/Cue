@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.73: emails asking for a quotation or proposal start intake (not deployed)
+
+Kiko, 29 Oct 2026 15:13Z, about Moldex's "Request Quotation" email on his Emails waiting card: "i dont think it sensed that its for
+intake - keywords - Request for Quotation, Request for Proposal and variations of it". This release needs Kiko's yes and Canvas's
+part (CanvasWorkspace PR #313).
+
+- **New mail:** an email whose subject says Request for Quotation, Request for Proposal, RFQ, RFP or a variation (Request Quotation,
+  Request for a quote, Quotation request, Proposal request) is a new inquiry, even when the sort calls it FYI or skip.
+- **Emails waiting:** Cue marks those emails in the file Canvas reads (`rfq: true`). Canvas's card then shows **Start intake**. Tapping it
+  opens Cue, which reads the email and its files in Kiko's Gmail and starts intake, the same as Start intake on the New mail card.
+- Tests: 496, all passing (`test/features/64-rfq-intake.js`, RI1 to RI4).
+
 ## Cue 1.27.73: table headers, numbers and short columns centred (not deployed)
 
 Kiko set a standing UI rule on 29 Oct 2026 at 14:32Z: "UI rule - for tables where the table values are numbers - align center.
