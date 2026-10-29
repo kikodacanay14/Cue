@@ -8,9 +8,10 @@ part (CanvasWorkspace PR #313).
 
 - **New mail:** an email whose subject says Request for Quotation, Request for Proposal, RFQ, RFP or a variation (Request Quotation,
   Request for a quote, Quotation request, Proposal request) is a new inquiry, even when the sort calls it FYI or skip.
+  A known supplier's reply ("Re: Request for Quotation") is left as it was: Kiko's card answer 29 Oct 15:20Z, "No, skip supplier replies".
 - **Emails waiting:** Cue marks those emails in the file Canvas reads (`rfq: true`). Canvas's card then shows **Start intake**. Tapping it
   opens Cue, which reads the email and its files in Kiko's Gmail and starts intake, the same as Start intake on the New mail card.
-- Tests: 496, all passing (`test/features/64-rfq-intake.js`, RI1 to RI4).
+- Tests: 497, all passing (`test/features/64-rfq-intake.js`, RI1 to RI5).
 
 ## Cue 1.27.72: RFQ drafts say TBC for blank event details (not deployed)
 
