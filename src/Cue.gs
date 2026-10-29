@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.62';   // release branch: live 1.27.61 (Version 136) + sales funnel part 2: Inquiry chasers, win-back drafts, Monday funnel review (1.27.62). Before that: live 1.27.60 (Version 134) + Sales: do these today in the morning batch (1.27.61). Before that: live 1.27.59 (Version 130) + structure phase 4, Cue email (New mail and client email log) and Client Desk on phase 1 Approve (1.27.60). Before that: 1.27.58 RFPs from Kiko's Gmail + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.63';   // release branch: live 1.27.62 (Version 138) + Cue Admin page (1.27.63). Before that: live 1.27.61 (Version 136) + sales funnel part 2: Inquiry chasers, win-back drafts, Monday funnel review (1.27.62). Before that: live 1.27.60 (Version 134) + Sales: do these today in the morning batch (1.27.61). Before that: live 1.27.59 (Version 130) + structure phase 4, Cue email (New mail and client email log) and Client Desk on phase 1 Approve (1.27.60). Before that: 1.27.58 RFPs from Kiko's Gmail + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -34,7 +34,9 @@ function doGet(e) {
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
   if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  const out = HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Cue')   // joined from its parts (cueInclude_)
+  const page = HtmlService.createTemplateFromFile('Index');
+  page.view = q.view === 'admin' ? 'admin' : '';   // CUE-ADMIN-2026-10-29 (Epic Cue #193): ?view=admin is Cue Admin, the Settings sections as one page
+  const out = page.evaluate().setTitle(page.view ? 'Cue Admin' : 'Cue')   // joined from its parts (cueInclude_)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
   return out;
@@ -929,7 +931,7 @@ function cueState() {
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
-  return { version: CUE_VERSION_, requests: list, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

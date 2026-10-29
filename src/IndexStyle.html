@@ -248,6 +248,24 @@
   #settings .smain > section { max-width:760px; }
   #settings button.link { all:unset; cursor:pointer; color:var(--white); font-weight:600; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); }
   #settings button.link:focus-visible { outline:2px solid var(--act); }
+  /* CUE-ADMIN-2026-10-29 (Epic Cue #193): grouped section list, and Cue Admin (?view=admin) as a full page in Canvas's look (Brand.html colours) */
+  #settings .sgrp { padding:12px 10px 4px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  #settings .sgrp:first-of-type { padding-top:2px; }
+  #settings .achat { min-height:36px; display:inline-flex; align-items:center; text-decoration:none; }
+  #settings .arow { display:flex; gap:12px; align-items:center; }
+  #settings .apill { flex:none; font-size:11px; font-weight:700; border-radius:9999px; padding:2px 9px; background:#FDE4F4; color:#B0007D; }
+  body.admin-page { --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E4DDCF; --line2:#D6CFC0; --muted:#6D6680; --text:#1B1530; --white:#1B1530;
+    --need:#F000AA; --act:#2810DC; --ok:#1F8A55; --bad:#C2410C; }
+  body.admin-page:not(.admin-chat) > header, body.admin-page:not(.admin-chat) > .split { visibility:hidden; }
+  body.admin-page #settings { border-top:6px solid; border-image:linear-gradient(90deg,#F000AA 0 25%,#F06A25 25% 50%,#F4F12C 50% 75%,#23006F 75%) 1; }
+  body.admin-page #settings .shead h2 { font:700 20px/1.1 var(--font); color:#23006F; }
+  body.admin-page #settings .snav button[aria-current="true"] { background:#fff; box-shadow:inset 3px 0 0 #F000AA; }
+  body.admin-page #settings .card { border-radius:10px; }
+  body.admin-page .btn { background:#F000AA; color:#fff; } body.admin-page .btn.ghost { background:#fff; color:var(--text); }
+  body.admin-page .btn.bad { background:#fff; color:#C2410C; border-color:#F0C7B4; }
+  body.admin-page .err { background:#FCEEE7; color:#7A2E0E; }
+  body.admin-page input, body.admin-page textarea, body.admin-page select { background:#fff; color:var(--text); border-color:var(--line2); }
+  body.admin-page dialog { background:#fff; color:var(--text); } body.admin-page #ask-t { color:var(--text) !important; }
   @media (max-width: 700px) { #settings .sbody { flex-direction:column; } #settings .snav { width:auto; display:flex; gap:4px; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } #settings .snav button { width:auto; white-space:nowrap; } }
   /* CUE-IN-CANVAS: the cover over Cue until Canvas says it is Kiko's Canvas (or for good, inside anything else). */
   #cue-cover { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; background:var(--bg); color:var(--muted); font:600 15px var(--font); }

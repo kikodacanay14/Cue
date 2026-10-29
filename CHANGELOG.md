@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.27.63: Cue Admin, Cue's settings and admin as their own page (not deployed)
+
+Kiko asked on 29 Oct 2026 at 02:13Z, 02:16Z and 02:17Z ("On a separate page"), and said "yes" to the mockup
+`previews/admin-settings/cue-admin-page.png` at 02:42Z. Epic Cue #193, stories #194 to #197 (#198, the cue.blankspaceevent.com address,
+is a separate production step).
+
+- `?view=admin` opens **Cue Admin**: the Settings sections as one full page in Canvas's look (cream ground, white cards, magenta accent,
+  the BSE stripe). The page has "Open Cue chat" at the top right.
+- The section list is grouped: How Cue thinks (Memory, rules and personality; Processes; Tutor mode), Rules (Chaser rules; Triage
+  rules; Auto-send), Jobs (Scheduled tasks; Release notes) and System (Connections; AI relay; AI usage and cost). The Settings overlay
+  in the chat uses the same grouping.
+- New section **Triage rules** (`CueAdmin.gs`): the rows of the Triage rules tab, newest first, with Remove for one row. The rules
+  work as before.
+- New section **Release notes**: the newest 30 rows of the Release Notes tab, read only, with a pointer to Scheduled tasks.
+- The chat's Settings button (the avatar) opens Cue Admin in a new tab. Without the app address it opens the sections in place, as before.
+- `cueState` now returns `app_url`. The three new page calls are owner-only and never run by a cloud check.
+- Tests: 435 (4 new in `test/features/57-cue-admin.js`).
+
+## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed; ships after the Canvas CRM funnel rest release, CanvasWorkspace PR for branch `claude/project-thread-oq52vc`)
+
 ## Cue 1.27.62: sales funnel part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed)
 
 Cut by the deploys thread on live 1.27.61 (Version 136) from Cue PR #190. Needs Canvas V319 (crm_funnel winback, crm_report). The deploys thread renamed the sweep's cueFunnelRead_ to cueSweepFunnelRead_: the live line's HubSpot funnel (CueFunnel.gs) already has a function with that name, and the second one broke it.

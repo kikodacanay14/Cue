@@ -19,10 +19,14 @@
   <button class="avatar" id="avatar" title="Settings" aria-label="Settings">K</button>
 </header>
 <div id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-t" hidden>
-  <div class="shead"><h2 id="settings-t">Settings</h2><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="shead"><h2 id="settings-t">Settings</h2><a class="btn ghost achat" id="admin-chat" target="_blank" rel="noopener" hidden>Open Cue chat ↗</a><button class="ibtn" id="settings-x" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
-      <button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="chasers">Chaser rules</button><button data-s="conn">Connections</button><button data-s="sched">Scheduled tasks</button><button data-s="tutor">Tutor mode</button><button data-s="auto">Auto-send</button><button data-s="usage">AI usage and cost</button>
+      <!-- CUE-ADMIN-2026-10-29 (Epic Cue #193): grouped as in Kiko's approved mockup -->
+      <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="tutor">Tutor mode</button>
+      <div class="sgrp">Rules</div><button data-s="chasers">Chaser rules</button><button data-s="triage">Triage rules</button><button data-s="auto">Auto-send</button>
+      <div class="sgrp">Jobs</div><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button>
+      <div class="sgrp">System</div><button data-s="conn">Connections</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -32,6 +36,8 @@
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
+      <section data-sec="triage" hidden><div class="label" style="margin-top:0">Triage rules</div><div id="w-triage"><div class="small muted">Loading…</div></div></section>
+      <section data-sec="rn" hidden><div class="label" style="margin-top:0">Release notes</div><div id="w-rn"><div class="small muted">Loading…</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
     </div>
   </div>
