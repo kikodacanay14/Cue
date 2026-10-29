@@ -24,3 +24,7 @@ test('TA3 short columns (every filled cell 12 characters or fewer) are centred w
   assert.ok(/colShort\[c\] && colFill\[c\]/.test(js), 'a filled short column is tagged whole');
   assert.ok(/button/.test(js.slice(js.indexOf('colShort[c] = false') - 200, js.indexOf('colShort[c] = false'))), 'button columns are not short');
 });
+test('TA4 table cells sit in the middle of their row', () => {
+  const css = TA_SRC('IndexStyle.html');
+  assert.ok(/  th, td \{[^}]*vertical-align:middle;/.test(css) && /table\.rnw td \{[^}]*vertical-align:middle;/.test(css));
+});
