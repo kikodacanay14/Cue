@@ -5,7 +5,9 @@ test('MI1 "run a project intake from the latest email from Ms Ruth Andres" reads
   const t = sandbox({ inbox: INBOX });
   const ask = 'Moldex: find the latest email from Ms Ana Reyes in Gmail and run a project intake from it. The location is in the attached files.';
   deq([t.ctx.cueMailIntakeAsked_(ask), t.ctx.cueMailIntakeAsked_('intake from the email from ana@acme.example'), t.ctx.cueMailIntakeAsked_('find the latest email from Ana Reyes'),
-    t.ctx.cueMailIntakeAsked_('add project Acme launch, 200 pax')], ['Ana Reyes', 'ana@acme.example', '', '']);
+    t.ctx.cueMailIntakeAsked_('add project Acme launch, 200 pax'), t.ctx.cueMailIntakeAsked_('Project Intake for Moldex get the email from Ms Ruth Andres'),
+    t.ctx.cueMailIntakeAsked_('Project intake for Moldex from Ms Ruth Andres\'s email'), t.ctx.cueMailIntakeAsked_('run intake on Ruth Andres’ latest email')],
+    ['Ana Reyes', 'ana@acme.example', '', '', 'Ruth Andres', 'Ruth Andres', 'Ruth Andres']);
   const out = t.ctx.cueSend(ask, [], '');
   assert.ok(/from:\(Ana Reyes\) -in:sent/.test(t.log.inboxQ), t.log.inboxQ);
   const s = t.state(out.request_id);
