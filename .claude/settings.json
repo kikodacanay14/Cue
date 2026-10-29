@@ -12,16 +12,5 @@
         ]
       }
     ]
-  },
-  "extraKnownMarketplaces": {
-    "kiko-claude-addons": {
-      "source": {
-        "source": "github",
-        "repo": "kikodacanay14/Canvas"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "kiko-questions@kiko-claude-addons": true
   }
 }
