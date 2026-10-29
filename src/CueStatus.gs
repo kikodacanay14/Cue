@@ -96,7 +96,11 @@ function cueStScan_(s, save) {
     const left = T.events.filter(e => !e.scanned);
     if (!left.length) break;
     if (cueNow_() - t0 > CUE_ST_MAX_.scan_ms) return false;
+    // A run that died during its fetch (Apps Script's 6-minute cap) left these marked tried: say so, never fetch them again.
+    const dead = left.filter(e => e.tried);
+    if (dead.length) { dead.forEach(e => { e.scanned = true; e.scan_error = 'Canvas took longer than a Cue run allows'; }); save(); continue; }
     const batch = left.slice(0, CUE_ST_MAX_.scan_batch);
+    batch.forEach(e => { e.tried = true; }); save();
     let res = null, why = '';
     try { res = cueReadyTimed_(s, ['get_readiness x' + batch.length], () => UrlFetchApp.fetchAll(batch.map(e => cueBridgeReq_(s, 'get_readiness', { gate: 'pre', max_age_minutes: 1 }, e.id)))); }
     catch (e) { why = cueStr_((e && e.message) || e, 200); }
