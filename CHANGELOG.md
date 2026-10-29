@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.71: Friday status updates to clients (not deployed)
+## Cue 1.27.71: Friday status updates to clients (live as Version 168, 29 Oct 14:56Z, rollback 159)
 
 Asked by Kiko on 29 Oct 2026 at 12:57Z: "lets reopen status updates - sent every Friday / provide an update on the progress of
 each requirement / show progress based on timeline / Project Readiness score - run first Project Readiness scan before sending /
