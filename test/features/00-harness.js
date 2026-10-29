@@ -220,6 +220,17 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: { items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) } }); }
       if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
+      // CUE-ADMIN-MOVE-2026-10-29: Canvas chasers (run_now_list / run_now_send) and Send a notice (sn_board, sn_items, sn_prepare, sn_send), with the bridge's shapes.
+      if (body.action === 'sent_log') { (log.sentLog = log.sentLog || []).push(body.args); if (o.sentLogFail) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        return resp(200, { ok: true, status: 'Completed', result: o.sentLog || { rows: [], failed7: 0, sms_credit: null, days: 30 } }); }
+      if (body.action === 'run_now_list') { log.rnwReads = (log.rnwReads || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.runNow || { ar: [], invoice: [], paid: [], final: [] })) }); }
+      if (body.action === 'run_now_send') { (log.rnwSent = log.rnwSent || []).push(body.args); if (o.rnwFail && log.rnwSent.length <= o.rnwFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: { results: body.args.lines.map(x => Object.assign({ item: '' }, x, { ok: true, to: 'sup@example.com' })), list: { ar: [], invoice: [], paid: [], final: [] } } }); }
+      if (body.action === 'sn_board') return resp(200, { ok: true, status: 'Completed', result: o.snBoard || { kinds: [{ k: 'paid', label: 'Payment sent', who: 'Supplier', item: 'Payment' }], projects: [{ id: 'P-1', name: 'Gala', date: '2026-11-02' }], me: 'bridge@example.com' } });
+      if (body.action === 'sn_items') { (log.snItems = log.snItems || []).push(body.args); return resp(200, { ok: true, status: 'Completed', result: [{ id: 'REQ-1', label: 'REQ-1 · ₱4,500' }] }); }
+      if (body.action === 'sn_prepare') { (log.snPrep = log.snPrep || []).push(body.args);
+        return resp(200, { ok: true, status: 'Completed', result: { people: [{ key: 'k1', name: 'Supplier A', kind: 'supplier', part: '', contact: '', email: 'a@example.com', mobile: '639171234567', on: true, last: '' }], subject: 'Payment sent', text: 'Hi {name}', sms: 'Paid', from: 'info@', note: '' } }); }
+      if (body.action === 'sn_send') { (log.snSent = log.snSent || []).push(body.args); return resp(200, { ok: true, status: 'Completed', result: { sent: body.args.people.map(x => x.name), failed: [], texted: body.args.text ? 1 : 0 } }); }
       // CUE-CRM-EMAIL-LOG-2026-10-26: Kiko's waiting emails (mail_waiting) and the Accounts activity write (crm_log), with the bridge's shapes.
       if (body.action === 'mail_waiting') { log.mailWaiting = (log.mailWaiting || 0) + 1; if (o.waitingFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.waiting || { on: true, stale: false, checked: 1, items: [] } }); }
       // Canvas's plan rule (zbWrite_): a write runs only as a command of its task's claimed plan, with the claimed payload hash.

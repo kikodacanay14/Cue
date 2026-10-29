@@ -25,7 +25,7 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
-  'cueSchedRunNow', 'cueUsagePrices', 'cueAdminTriage', 'cueAdminTriageDel', 'cueAdminRelnotes', 'cueAdminChasers', 'cueFinSave', 'cueFinSheet', 'cueLearnChats', 'cueFileData', 'cueUpload'];
+  'cueSchedRunNow', 'cueUsagePrices', 'cueAdminTriage', 'cueAdminTriageDel', 'cueAdminRelnotes', 'cueAdminChasers', 'cueAdminLog', 'cueAdminCanvasChasers', 'cueAdminCanvasChaseSend', 'cueAdminSnBoard', 'cueAdminSnItems', 'cueAdminSnPrepare', 'cueAdminSnSend', 'cueFinSave', 'cueFinSheet', 'cueLearnChats', 'cueFileData', 'cueUpload'];
 // Bridge actions that only read. Every other action is a write and must name the test project.
 // Canvas bridge actions that email someone. Refused in a check unless CUE_CHECK_SEND_ === 'on'.
 const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
