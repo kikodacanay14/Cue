@@ -434,6 +434,7 @@
       funnel: { name: 'Sales funnel', family: 'info', steps: FUNNEL, card: null },
       ar: { name: function (r) { return r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts'; }, family: 'draft', steps: ARSTEPS, card: function (r) { return !!r.ar; } },
       hubspot: { name: 'HubSpot clean-up', family: 'approve', steps: HSTEPS, card: function (r) { return !!r.hs; } },
+      status: { name: 'Friday status updates', family: 'draft', steps: STSTEPS, card: function (r) { return !!r.st; } },   // CueStatus.gs
       bids: { name: 'Bid check', family: 'info', steps: null, card: function () { return true; } },
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
       vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
@@ -698,6 +699,9 @@
   var READY = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading Canvas', 'Canvas', 'Canvas reads its readiness checklist and the project folder'],
     ['Looking for evidence', 'Gmail', 'Cue looks in your Gmail for proof Canvas has not recorded'], ['Claude reviewing', 'Claude', 'Claude summarises what is open and what closes it'],
     ['GPT drafting follow-ups', 'GPT', 'GPT drafts follow-ups for items waiting on others'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become replies in their threads']];
+  var STSTEPS = [['Finding project', 'Canvas', 'Canvas finds the event you named'], ['Listing events', 'Canvas', 'Canvas lists the active events'],
+    ['Readiness scan', 'Canvas', 'Canvas runs a fresh readiness scan for each event'], ['Building emails', 'Canvas', 'Canvas builds each client\'s Friday update'],
+    ['Needs you', 'Kiko', 'Each email waits for your Send']];
   var PIPE = [['Reading HubSpot', 'HubSpot', 'Cue reads your open deals from HubSpot'], ['Checking Gmail', 'Gmail', 'Cue finds the newest email for each deal'],
     ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
     ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],

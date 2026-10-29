@@ -322,6 +322,38 @@
     return h;   // live 01:29Z: without it a finished readiness thread was blank, and the error stopped the chat from updating
   }
 
+  // Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs): one client email per event, built by Canvas after a fresh readiness
+  // scan. Each email has its To, a Preview (the email as the client sees it) and its own Send (one confirm) or Skip.
+  function stCardHtml(r) {
+    var T = r.st, waiting = r.status === 'Needs you', ms = T.mails || [];
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Friday status updates</div><b style="font-size:17px">' + esc(T.title) + '</b>';
+    if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div></div>';
+    if (T.empty) return h + '<div class="small muted" style="margin-top:6px">' + esc(T.empty) + '</div>' + metricLine(r) + '</div>';
+    if (r.status === 'Working') return h + '<div class="small muted" style="margin-top:6px">' + (T.stage === 'Readiness scan' ? 'Readiness scan: ' + esc(T.scanned) + ' of ' + esc(T.events) + ' events' : esc(T.stage || 'Working')) + '…</div></div>';
+    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    var left = ms.filter(function (m) { return !m.sent && !m.skipped; }).length;
+    h += '<div class="small muted" style="margin-top:6px">' + esc(ms.length) + ' email' + (ms.length === 1 ? '' : 's') + (T.more ? ' (' + esc(T.more) + ' more events not shown)' : '') + ', ' + esc(left) + ' still to send. Nothing goes out before you tap Send.</div>';
+    ms.forEach(function (m) {
+      var ed = waiting && !m.sent && !m.skipped, R = m.readiness, G = m.reqs || {}, L = m.timeline;
+      var facts = [R ? 'Readiness ' + R.pct + '%' + (m.scanned ? '' : ' (not rescanned)') : 'No readiness score', G.total ? 'Requirements ' + G.done + ' of ' + G.total + ' done' : 'No requirements listed',
+        L ? 'Timeline ' + L.done + ' of ' + L.total + (L.late ? ', ' + L.late + ' behind' : '') : 'No timeline', m.risks + ' risk' + (m.risks === 1 ? '' : 's') + ', ' + m.issues + ' issue' + (m.issues === 1 ? '' : 's') + ', ' + m.tasks + ' open task' + (m.tasks === 1 ? '' : 's')];
+      h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><b>' + esc(m.name) + '</b>'
+        + (m.sent ? ' <span class="tag pref">sent</span>' : m.skipped ? ' <span class="tag new">skipped</span>' : '')
+        + '<div class="small muted">' + facts.map(esc).join(' · ') + '</div>'
+        + (ed ? '<input data-stto="' + esc(r.id) + '" data-k="' + esc(m.k) + '" value="' + esc(m.to) + '" placeholder="Client email (none in Canvas)" aria-label="To" style="width:100%;margin-top:6px">'
+          : '<div class="small" style="margin-top:4px">To: ' + esc(m.to || 'nobody') + '</div>')
+        + '<div class="small muted" style="margin-top:4px">' + esc(m.subject) + '</div>'
+        + '<div data-stpv="' + esc(r.id) + '" data-k="' + esc(m.k) + '"></div>'
+        + (m.error ? '<div class="err">' + esc(m.error) + '</div>' : '')
+        + '<div class="actions"><button class="btn ghost" data-act="st-preview" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Preview</button>'
+        + (ed ? '<button class="btn" data-act="st-send" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Send</button><button class="btn ghost" data-act="st-skip" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Skip</button>' : '')
+        + '</div></div>';
+    });
+    h += '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="st-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
+      + (waiting ? '<div class="small muted" style="margin-top:6px">Done skips the emails not sent yet.</div>' : '') + metricLine(r) + '</div>';
+    return h;
+  }
+
   // Pipeline review (command C11, Kiko 07:34Z): open deals grouped by what they need, each with why and the next step. Read only.
   function pipeCardHtml(r) {
     var P = r.pipe, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', dr = P.drafts || [], drafting = waiting && dr.length, k = P.counts || {};
@@ -1175,6 +1207,7 @@
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
     if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
+    if (r.kind === 'status' && r.st) return stCardHtml(r);
     if (r.kind === 'funnel' && r.fn && r.fn.stages.length && r.status !== 'Failed') return funnelCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>' + kindName(r) + ' stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
@@ -1391,6 +1424,27 @@
         if (act === 'ready-pick') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyPick', [id, b.getAttribute('data-pid')], done, fail); }
         if (act === 'ready-followups') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyFollowups', [id], done, fail); }
         if (act === 'ready-recheck') { b.disabled = true; schedule(); return call('cueReadyRecheck', [id], done, fail); }
+        if (act === 'st-done') { b.disabled = true; return call('cueStatusDone', [id], done, fail); }
+        if (act === 'st-preview') {
+          var pk = b.getAttribute('data-k'), pv = scope.querySelector('[data-stpv="' + id + '"][data-k="' + pk + '"]');
+          if (!pv) return;
+          if (pv.innerHTML) { pv.innerHTML = ''; b.textContent = 'Preview'; return; }
+          b.disabled = true;
+          return call('cueStatusPreview', [id, pk], function (o) {
+            b.disabled = false; b.textContent = 'Hide preview';
+            pv.innerHTML = '<iframe sandbox title="Preview of ' + esc(o.subject) + '" style="width:100%;height:560px;border:1px solid var(--line);border-radius:8px;margin-top:8px;background:#fff"></iframe>';
+            pv.querySelector('iframe').srcdoc = o.html;
+          }, function (e) { b.disabled = false; alertErr(e); });
+        }
+        if (act === 'st-skip') { b.disabled = true; return call('cueApprove', [id, { skip: b.getAttribute('data-k') }], done, fail); }
+        if (act === 'st-send') {
+          var sk = b.getAttribute('data-k'), tx = scope.querySelector('[data-stto="' + id + '"][data-k="' + sk + '"]'), sto = tx ? tx.value.trim() : '';
+          var sq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, sm = (((sq.st || {}).mails) || []).filter(function (m) { return m.k === sk; })[0] || {};
+          if (!sto) return addLocal('Cue', 'Type the client\'s email in To first.');
+          return ask('Send the Friday update for ' + (sm.name || 'this event') + '?', 'From your Gmail to: ' + sto + '. Sent emails cannot be called back.', null, 'Send', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, { send: sk, to: sto }], done, fail);
+          });
+        }
         if (act === 'mail-send' || act === 'mail-draft') {
           var mv = function (k) { var x = scope.querySelector('[data-mail-' + k + '="' + id + '"]'); return x ? x.value : null; };
           var ed = { to: mv('to'), subject: mv('subject'), body: mv('body'), send: act === 'mail-send' };

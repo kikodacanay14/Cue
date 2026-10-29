@@ -41,11 +41,11 @@ function cueTodayRow_(r) {
     if (!need || !open.length) return { done: 'HubSpot check (' + (all.length ? n(all.length, 'finding') + ', ' + (H.fixed || 0) + ' fixed' : 'nothing to fix') + ')', by };
     return { need: row({ eyebrow: H.title || 'HubSpot check', title: n(open.length, 'HubSpot fix', 'HubSpot fixes') + ' to review', detail: open.slice(0, 3).map(x => x.title).join(' · '), button: 'Review fixes' }) };
   }
-  if (r.kind === 'status') {
-    const T = r.st || {}, up = (T.updates || []).length, items = (T.items || []).length;
-    if (!need || T.empty) return { done: 'status report (' + (T.empty ? 'nothing to report' : 'done') + ')', by };
-    return { need: row({ eyebrow: T.title || 'Status report', title: 'Status report ready', button: 'Review report',
-      detail: [up ? n(up, 'client update') + ' to send' : '', items ? n(items, 'new item') + ' for Canvas' : ''].filter(Boolean).join(' · ') || 'Projects worst first.' }) };
+  if (r.kind === 'status') {   // CUE-STATUS-FRIDAY-2026-10-29: one client email per event
+    const T = r.st || {}, M = T.mails || [], left = M.filter(m => !m.sent && !m.skipped).length, sent = M.filter(m => m.sent).length;
+    if (!need || T.empty) return { done: 'Friday status updates (' + (T.empty ? 'nothing to send' : n(sent, 'email') + ' sent') + ')', by };
+    return { need: row({ eyebrow: T.title || 'Friday status updates', title: n(left, 'client update') + ' to send', button: 'Review and send',
+      detail: M.filter(m => !m.sent && !m.skipped).slice(0, 3).map(m => m.name).join(' · ') + (left > 3 ? ' and ' + (left - 3) + ' more' : '') }) };
   }
   if (r.kind === 'pipeline') {
     const P = r.pipe || {}, k = P.counts || {};
@@ -61,7 +61,7 @@ function cueTodayRow_(r) {
   return { need: row({ eyebrow: G.title || name, title: n(f.length, 'finding') + ' to look at', detail: f.slice(0, 2).map(x => x.title || x.company).join(' · ') + (f.length > 2 ? ' and ' + (f.length - 2) + ' more' : ''), button: 'Review' }) };
 }
 function cueTodayName_(r) {
-  return r.kind === 'sweep' ? 'Morning batch' : r.kind === 'bids' ? 'Bid check' : r.kind === 'hubspot' ? 'HubSpot check' : r.kind === 'status' ? 'Status report'
+  return r.kind === 'sweep' ? 'Morning batch' : r.kind === 'bids' ? 'Bid check' : r.kind === 'hubspot' ? 'HubSpot check' : r.kind === 'status' ? 'Friday status updates'
     : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : (r.gt && (r.gt.title || r.gt.task)) || 'ChatGPT task';
 }
 

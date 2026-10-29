@@ -20,7 +20,7 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueAsNew', 'cueAskPick', 'cueSameAnswer', 'cueWrongCommand', 'cueCancelIntake', 'cueRescan', 'cueRfq', 'cueRfqPick', 'cueDrafts',
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
-  'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
+  'cueStatusDone', 'cueStatusPreview', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_',
   'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck'];   // cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.

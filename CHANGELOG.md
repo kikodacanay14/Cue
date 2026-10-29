@@ -1,5 +1,29 @@
 # Changelog
 
+## Cue 1.27.71: Friday status updates to clients (not deployed)
+
+Asked by Kiko on 29 Oct 2026 at 12:57Z: "lets reopen status updates - sent every Friday / provide an update on the progress of
+each requirement / show progress based on timeline / Project Readiness score - run first Project Readiness scan before sending /
+Open Risks and Issues / Task Update / If they want to see more details. about the project > Go to Canvas". This replaces the old
+Monday status report (spec of 22 Oct), which never went live.
+
+- **Every Friday at 07:00** (Scheduled tasks row "Friday status updates", on), or when Kiko types "status updates" or "status of
+  <event>". The old Monday row moves to Friday and is turned on.
+- **A fresh readiness scan first.** Canvas lists the active events (For Production Start or later, event no more than 7 days ago),
+  then reruns each event's pre-event readiness checklist (`get_readiness`, at most 1 minute old), five at a time. A long list goes
+  on at the next 5-minute run. If a scan fails, the card says so and that email shows the last score Canvas has.
+- **One email per event, built by Canvas** (new bridge read `client_status`, CanvasWorkspace PR #311), from what the client site
+  already shows: the progress of each requirement (Planning, In production, For delivery, Done), progress on the timeline (done,
+  catching up, coming up), the Readiness score, open risks and issues with the plan, the task update, and a Go to Canvas button
+  that opens the event on the client site. Supplier names and peso amounts are cut, as on the client site. The email is in the
+  BSE look with the Canvas logo, and in the brand voice ("Hi <first name>,", "event", "Thank you," then Blank Space Events).
+- **Nothing goes out on its own.** The card lists each email with its numbers, To (editable; empty when Canvas has no main
+  contact), Preview (the email as the client sees it), Send (one confirm, from Kiko's Gmail) and Skip. A second Send tap on an
+  email already sent sends nothing. Done skips the emails not sent.
+- No AI call. The Today card shows "N client updates to send".
+
+Tests: 494/494 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
+
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
