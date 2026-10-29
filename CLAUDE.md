@@ -42,3 +42,10 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
   batch questions, and keep idle threads quiet.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
+- Labels (Kiko, 29 Oct 2026 14:48Z and 14:49Z: "make your label same - and make it a global UI", "make it a standard UI....
+  dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
+  same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
+  marks what a mockup or release changes says only New, Changed or Removed, with no counts like "+5".
+- Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
+  short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
+  Mockups follow it too.
