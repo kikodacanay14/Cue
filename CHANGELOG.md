@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
+
+Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put
+Canvas's Accounts dashboard into the card; Kiko then said at 16:13Z "it has to be able to give updates not a dashboard. you cant
+fit a dashboard in a chat window", and "yes." at 16:14Z to: what moved since yesterday, what is due today, and a link to Accounts.
+
+- **The 7:00 Sales funnel run is now a sales update.** Cue reads the P0 tab (through Canvas's `read_rows` when it is
+  allow-listed, else directly) and keeps each company's P stage. It compares them with the last run and writes a few plain lines:
+  which companies moved (for example "VXI P1 to P4") and which are new on the list, follow-up emails due (P1 and P2, 3 business
+  days since the last email and no reply, the rule Canvas's dashboard uses), Canvas follow-ups due by tomorrow, deals waiting for
+  award and deals gone quiet, and projects at risk or escalated (P8 and P9).
+- **No dashboard in the chat.** The thread shows the lines and an **Open Accounts in Canvas** button. The bars, cards and counts
+  stay on Canvas's Accounts dashboard. The thread's message carries only the first line, so nothing shows twice.
+- **The Today row** is the update: its first line as the title and the next two as the detail, with Open update.
+- **The Monday sales funnel review** gives ChatGPT the P stage counts as well.
+- **HubSpot tasks are kept** as they were.
+- Names: the Scheduled tasks row is "Sales funnel"; Cue Admin's description says what it reads now.
+- Nothing is written to Canvas or HubSpot. No AI call on the update. Tests: 492 (6 new, FP1 to FP6).
+
 ## Cue 1.27.76: Back to Team Cue button, and Canvas's CRM and To do in Ask Cue's list (live as Version 171, 29 Oct 16:26Z, rollback 170; Canvas V353)
 
 Asked by Kiko on 29 Oct 2026 at 15:59Z: "can there be a button in Ask Cue that switches me back the other chat". At 15:56Z he

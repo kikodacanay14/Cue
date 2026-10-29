@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 66 server files, 1291 top-level names, 33 task kinds, 32 word checks before the
+Counts: 66 server files, 1297 top-level names, 33 task kinds, 32 word checks before the
 chat call, 11 background jobs in the 5-minute trigger, 83 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -134,7 +134,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 7 | 8 |
 | `CueBidsPhilgeps.gs` |  |  | 0 | 0 | 1 | 3 |
 | `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 38 | 3 |
-| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 14 | 5 |
+| `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 15 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
 | `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `client_status`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 32 |
@@ -149,9 +149,9 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 3 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
-| `CueFunnel.gs` |  | Requests | 0 | 0 | 5 | 4 |
+| `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 6 |
 | `CueGmail.gs` |  |  | 0 | 0 | 23 | 3 |
-| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 6 | 8 |
+| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 8 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
@@ -176,7 +176,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweep.gs` | `get_project_board` | Chase log, Requests, Rules | 1 | 0 | 16 | 13 |
 | `CueSweepAccr.gs` | `accreditation_gaps`, `log_accreditation_reminder` |  | 0 | 0 | 0 | 6 |
 | `CueSweepAward.gs` |  |  | 0 | 0 | 0 | 4 |
-| `CueSweepFunnel.gs` |  |  | 1 | 0 | 2 | 6 |
+| `CueSweepFunnel.gs` |  |  | 1 | 0 | 2 | 8 |
 | `CueSweepHubspot.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueSweepPay.gs` | `overdue_billings`, `send_payment_chasers` |  | 0 | 0 | 0 | 3 |
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
@@ -221,9 +221,9 @@ Names used by 5 or more other files, and the file that holds them.
 | `CUE_GMAIL_` | `CueGmail.gs` | 13 |
 | `cueGmailSend_` | `CueGmail.gs` | 12 |
 | `cueGmail_` | `CueGmail.gs` | 12 |
+| `cueRows_` | `Cue.gs` | 11 |
 | `cueKey_` | `CueAi.gs` | 10 |
 | `cueName_` | `CueText.gs` | 10 |
-| `cueRows_` | `Cue.gs` | 10 |
 | `cueMe_` | `Cue.gs` | 9 |
 | `cueRunLeased_` | `Cue.gs` | 9 |
 | `cueAddDays_` | `CueDates.gs` | 8 |

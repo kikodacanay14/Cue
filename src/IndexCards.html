@@ -440,11 +440,20 @@
     else {
     // CRM-FUNNEL-CANVAS-2026-10-29: a run that read Canvas's Sales funnel says so; its steps have no deal list or amounts here.
     var canvas = F.src === 'canvas';
-    h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">Sales funnel · from ' + (canvas ? 'Canvas' : 'HubSpot') + '</div>'
-      + '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
+    // CRM-UPDATES-2026-10-29 (Kiko 29 Oct 16:13Z "it has to be able to give updates not a dashboard. you cant fit a dashboard in a chat
+    // window"): a run with update lines shows them as plain sentences and a link to Accounts in Canvas, where the dashboard lives.
+    var L = F.lines || null;
+    h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">' + (L ? 'Sales update · from Canvas Accounts' : 'Sales funnel · from ' + (canvas ? 'Canvas' : 'HubSpot')) + '</div>'
+      + (L ? '<b style="font-size:16px;color:var(--white)">' + esc(L[0]) + '</b>'
+        : '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
       + '<div class="small muted">' + (canvas ? 'Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.'
-        : 'Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.') + '</div>';
+        : 'Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.') + '</div>');
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    if (L) {
+      h += (L.length > 1 ? '<ul style="margin:8px 0 0;padding-left:18px">' + L.slice(1).map(function (x) { return '<li style="margin:4px 0">' + esc(x) + '</li>'; }).join('') + '</ul>' : '')
+        + '<div class="small muted" style="margin-top:6px">Read at ' + esc(F.read || '') + '. The numbers and lists are on Canvas\'s Accounts dashboard.</div>'
+        + (F.accounts_url ? '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(F.accounts_url) + '" target="_blank" rel="noopener">Open Accounts in Canvas</a></div>' : '');
+    } else {
     // Empty open stages fold into one grey line instead of empty bars.
     var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
     h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
@@ -465,6 +474,7 @@
               + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark task done') + '</div></div>'; }).join('') + '</div>';
         }).join('') + '</details>';
     });
+    }
     h += '<div class="label" id="fnt-' + esc(r.id) + '">HubSpot tasks · yours</div>';
     }
     if (F.task_error) h += '<div class="warn">' + esc(F.task_error) + '</div>';

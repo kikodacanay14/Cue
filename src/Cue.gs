@@ -662,7 +662,7 @@ function cueTaskLine_(id) {
   if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
     return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
       + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
-  if (s.kind === 'funnel') { const F = s.fn || {}; return 'sales funnel and HubSpot tasks, status ' + s.status + (F.stages ? '; ' + cueFunnelLine_(F) : '') + '; ' + (F.task_error || ((F.tasks || []).filter(t => !t.done).length + ' open HubSpot task(s)')); }
+  if (s.kind === 'funnel') { const F = s.fn || {}; return 'sales funnel (P0 to P9, deals and HubSpot tasks), status ' + s.status + (F.stages ? '; ' + cueFunnelLine_(F) : '') + '; ' + (F.task_error || ((F.tasks || []).filter(t => !t.done).length + ' open HubSpot task(s)')); }
   if (s.kind === 'ar') return (s.ar && s.ar.doc === 'fsa' ? 'freelancer service agreements' : 'acknowledgement receipts') + ' for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
