@@ -22,6 +22,10 @@ Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko
   (`CueBidsPhilgeps.gs`, hidden "PhilGEPS notices" tab). The notices then go through the same screen and dedupe as before. No AI
   call; reads are paced and capped at two minutes per run, and the rest carries on at the next resume. The signed-in Bulletin Board
   still needs a login and stays Blocked.
+- **Bid sources, as Kiko set them on 29 Oct.** 10:37Z: "for NCCA lets pause that for now. they require a platinum member", so
+  NCCA is out of the list. UNGM is searched with Country = Philippines and published in the last 3 days, and ADB opens his filtered
+  link (Country Philippines, Status Active). 10:40Z: "you can add this in your list https://manila.gov.ph/invitation-to-bid/", so
+  the City of Manila is in. Still 11 sources.
 - No new rule: the fixes use bridge actions, limits and a bid screen Kiko already approved. Needs Canvas V329 or later (live is V342).
 - Tests: 481 (3 new in `test/features/60-crm-fixes.js`, 3 in `test/features/61-bids-philgeps.js`; FN1, FN3 and FN4 now expect
   Canvas's numbers).

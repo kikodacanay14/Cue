@@ -24,18 +24,22 @@ const CUE_BIDS_RULES_ = { min: 150000, max: 700000, hour: 7 };
 const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
 const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
 const CUE_BIDS_UNSURE_RE_ = /^\s*(|n\/?a|tbd|tba|not (stated|given|verified|disclosed)|unverified|unknown|philippines|nationwide|various|multiple|online)\s*\.?\s*$/i;
+// Kiko 29 Oct 10:37Z: "for NCCA lets pause that for now. they require a platinum member"; UNGM "filter - type Philippines in Country,
+// Published between dates - 3 days ago to today"; ADB his filtered link, "Country - Philippines, Status = Active". 10:40Z: "you can add this in your list"
+// (City of Manila). how = the filter ChatGPT applies.
 const CUE_BIDS_SOURCES_ = [
   ['New PhilGEPS', 'https://philgeps.gov.ph/BulletinBoard/current_oppourtunities', 'A'],
   ['Other PhilGEPS', 'https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashOpenOpportunitiesUI.aspx?ClickFrom=OpenOpp&menuIndex=3', 'A'],
   ['CITEM', 'https://citem.gov.ph/procurement/opportunities/last-updated', 'A'],
   ['TPB', 'https://tpb.gov.ph/invitation-to-bid/', 'A'],
   ['EU / EEAS', 'https://www.eeas.europa.eu/eeas/tenders_en', 'B'],
-  ['UNGM', 'https://www.ungm.org/Public/Notice', 'B'],
-  ['ADB', 'https://www.adb.org/business/institutional-procurement/notices', 'B'],
+  ['UNGM', 'https://www.ungm.org/Public/Notice', 'B', 'filter Country = Philippines and Published between 3 days ago and today'],
+  ['ADB', 'https://www.adb.org/projects/tenders?searchstax[query]=philippines&searchstax[page]=1&searchstax[facets][0]=or:sm_fct_country:Philippines&searchstax[facets][1]=or:its_fct_year:2026&searchstax[facets][2]=or:sm_fct_status:Active', 'B',
+    'filter Country = Philippines and Status = Active'],
   ['GIZ', 'https://ausschreibungen.giz.de/Satellite/common/project/search.do?method=showExtendedSearch', 'B'],
   ['NPDC', 'https://npdc.gov.ph/bids-and-awards/', 'C'],
-  ['NCCA', 'https://ncca.gov.ph/about-ncca-3/invitation-to-bid/', 'C'],
-  ['PCC', 'https://www.phcc.gov.ph/procurement', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2] }));
+  ['PCC', 'https://www.phcc.gov.ph/procurement', 'C'],
+  ['City of Manila', 'https://manila.gov.ph/invitation-to-bid/', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2], how: x[3] || '' }));
 const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\bbids?\s+check\b|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
@@ -178,7 +182,7 @@ function cueBidsSearch_(s) {
   const calls = groups.map((list, i) => {
     const rc = open.filter(r => list.some(x => r.url.indexOf(x.url.split('/')[2].replace(/^www\./, '')) >= 0)).slice(0, 10);
     return cueGpt_({ step: 'Bid search ' + (i + 1) + ' of 3', name: 'bids', web: true, maxTokens: 16000, memory: false, system: cueBidsPrompt_(), schema: CUE_BIDS_SCHEMA_,
-      user: 'Today (Manila): ' + cueBidsDay_() + '\n<sources>\n' + list.map(x => x.name + ': ' + x.url).join('\n') + '\n</sources>\n<recheck>\n'
+      user: 'Today (Manila): ' + cueBidsDay_() + '\n<sources>\n' + list.map(x => x.name + ': ' + x.url + (x.how ? ' (' + x.how + ')' : '')).join('\n') + '\n</sources>\n<recheck>\n'
         + (rc.length ? rc.map(r => [r.agency, r.ref, r.project, 'deadline ' + r.deadline, r.url].join(' | ')).join('\n') : 'none') + '\n</recheck>' });
   });
   const res = cueAiAll_(s, calls);
@@ -609,7 +613,7 @@ function cueBidsFinish_(s) {
   const docs = [].concat.apply([], B.items.concat(B.still).map(it => it.documents)), waiting = docs.filter(d => d.state === 'waiting');
   const okSrc = B.sources.filter(x => ['Checked', 'Partial', 'Blocked'].indexOf(x.status) >= 0), D = B.dropped;
   B.checks = [
-    { id: 1, label: 'All 11 sources reported', ok: okSrc.length === CUE_BIDS_SOURCES_.length, detail: okSrc.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => okSrc.indexOf(x) < 0).map(x => x.source).join(', ') },
+    { id: 1, label: 'All ' + CUE_BIDS_SOURCES_.length + ' sources reported', ok: okSrc.length === CUE_BIDS_SOURCES_.length, detail: okSrc.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => okSrc.indexOf(x) < 0).map(x => x.source).join(', ') },
     { id: 2, label: 'Only single notices with organization, reference, title and their own link', ok: true, detail: D.pages ? D.pages + ' listing, sign-in, award or incomplete items left out' + ((T.left || []).length ? ': ' + T.left.join('; ') : '') : '' },
     { id: 3, label: 'Budget ₱150,000 to ₱700,000 or For verification', ok: true, detail: D.budget ? D.budget + ' outside the range left out' : '' },
     { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: D.area ? D.area + ' outside the area left out' : '' },

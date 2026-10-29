@@ -17,7 +17,7 @@ const BIDS_A = { sources: SRC(['New PhilGEPS', 'Other PhilGEPS', 'CITEM', 'TPB']
   BID({ reference: 'GS-9', project: 'Expo booth', location: 'General Santos', abc: 400000 }),                 // outside the area
   BID({ reference: 'OLD-1', agency: 'TPB', project: 'Travel fair booth', location: 'Makati', abc: 600000, deadline: '2026-10-30T17:00+08:00' })] };   // earlier, deadline moved
 const BIDS_B = { sources: SRC(['EU / EEAS', 'UNGM', 'ADB', 'GIZ']), items: [] };
-const BIDS_C = { sources: SRC(['NPDC', 'PCC']), items: [BID({ source: 'NPDC', agency: 'NPDC', reference: 'NP-77', project: 'Christmas lights styling', location: 'Rizal Park, Manila', abc: 0, documents: [], limitations: '' })] };
+const BIDS_C = { sources: SRC(['NPDC', 'City of Manila']), items: [BID({ source: 'NPDC', agency: 'NPDC', reference: 'NP-77', project: 'Christmas lights styling', location: 'Rizal Park, Manila', abc: 0, documents: [], limitations: '' })] };
 // What ChatGPT reads in a saved PDF (1.27.10), and the agency sites: CITEM's RFQ is a PDF, its drawings are blocked, DOT's TOR asks for a sign-in.
 const BID_DOCS = { abc: 480000, posted: '2026-10-18', deadline: '2026-10-29T17:00+08:00', event_date: '5 Nov 2026', summary: 'Build and style a 9 sqm booth; PhilGEPS Platinum',
   eligibility: 'PhilGEPS Platinum, Mayor permit', bac_email: 'bac@citem.example', pages: 'ABC p.2; deadline p.1', unread: [] };
@@ -59,7 +59,7 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   deq(v.bids.still.map(x => [x.reference, x.tag]), [['OLD-1', 'Deadline moved to 2026-10-30T17:00+08:00 (was 2026-10-27T17:00+08:00)']], 'the earlier notice is Still open, with what changed');
   deq(v.bids.updated, [], 'no separate Updated list any more');
   const ck = n => v.bids.checks.filter(x => x.id === n)[0];
-  assert.strictEqual(v.bids.checks.length, 10); assert.strictEqual(ck(1).ok, false); assert.ok(/NCCA/.test(ck(1).detail), 'NCCA was not reported');
+  assert.strictEqual(v.bids.checks.length, 10); assert.strictEqual(ck(1).ok, false); assert.ok(/PCC/.test(ck(1).detail), 'PCC was not reported');
   assert.ok(/3 listing, sign-in, award or incomplete items left out: Multiple CITEM procurement notices shown on page \(listing page\); PS-PhilGEPS Bulletin Board, login required \(sign-in page\); Notice of Award: Gala dinner \(award notice\)$/.test(ck(2).detail), ck(2).detail);
   assert.ok(!c.bac_email, 'bac@citem.example is not on the notice\'s domain (citem.gov.ph) and not .gov.ph, so To stays blank');
   assert.strictEqual(ck(7).ok, true, 'OLD-1 was rechecked'); assert.strictEqual(ck(8).ok, false); assert.ok(/NP-77/.test(ck(8).detail));
@@ -74,7 +74,7 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   const docs = t.tabs['Bid documents'].rows; deq(docs.slice(1).map(x => [x[0], x[3]]), [['https://citem.gov.ph/procurement/x.pdf', 'Opened · saved (pdf)'],
     ['https://citem.gov.ph/d.zip', 'Could not open: HTTP 403 (blocked or needs sign-in)'], ['https://dot.gov.ph/tor.pdf', 'Could not open: needs sign-in']], 'every document in the read-once record');
   assert.ok(docs[1][7] && JSON.parse(docs[1][8]).abc === 480000, 'read time and what was found are kept');
-  deq(v.bids.sources.filter(x => x.source === 'NCCA').map(x => x.status), ['Not reported']);
+  deq(v.bids.sources.filter(x => x.source === 'PCC').map(x => x.status), ['Not reported']);
   assert.strictEqual(v.bids.title, 'Bid opportunities · 2026-10-21 · 3 new, 1 still open');
   assert.ok(/^3 new, 1 still open\. 11 sources checked, 2 partial or blocked\. 2 of 5 documents opened by Cue\. Process check: 8 of 10 passed\.$/.test(v.bids.summary), v.bids.summary);
   assert.ok(t.tabs.Chat.rows.some(r => /Started a bid opportunity check/.test(r[2]) && r[3] === '>' + r[3].slice(1)));
