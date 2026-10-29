@@ -228,7 +228,10 @@ function cueMailIntakeAsked_(text) {
   const t = String(text || '');
   if (!/\bintake\b/i.test(t)) return '';
   const m = t.replace(/(e-?mail\s+(?:from|of)\s+)(?:ms|mrs|mr|sir|ma'?am|maam|miss)\.?\s+/i, '$1').match(CUE_MI_RE_);
-  return m ? m[1].trim() : '';
+  if (m) return m[1].trim();
+  // "Ruth Andres's email", "Ms Ruth Andres' latest email"
+  const p = t.replace(/\b(?:ms|mrs|mr|sir|ma'?am|maam|miss)\.?\s+(?=[A-Z])/gi, '').match(/([A-Z][\w-]+(?:\s+[A-Z][\w-]+){0,2})(?:'s|’s|'|’)\s+(?:(?:latest|newest|last|new)\s+)?e-?mail\b/);
+  return p ? p[1].trim() : '';
 }
 /** The route (CueCommands.gs mail-intake): null when the words don't name an email, so the other checks go on. */
 function cueMailIntakeSaid_(c) {
