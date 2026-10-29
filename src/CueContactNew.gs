@@ -17,6 +17,9 @@ const CUE_CN_ = { years: 3, page: 100, pages: 4, batch: 50, cos: 25, people: 40,
 const CUE_CN_TAB_ = 'New contacts';
 const CUE_CN_MODEL_ = 'claude-haiku-5-5';
 const CUE_CN_RE_ = /^\s*(?:please\s+)?(?:scan|check|read)\s+(?:my\s+)?(?:gmail|e-?mails?)\s+for\s+new\s+contacts\s*[.!?]?\s*$/i;
+// Kiko 29 Oct 2026 13:40Z, "Yes, skip them" on the card "Skip automated senders (no-reply, notifications, mailer-daemon) in the Gmail
+// contact scan?": addresses like no-reply@, noreply@, notifications@, mailer-daemon@ and bounce@ never reach the cards.
+const CUE_CN_AUTO_ = /^(no-?reply|do-?not-?reply|notifications?|mailer-daemon|bounces?)([+._-]|@)/i;
 const CUE_CN_COL_ = { email: 0, name: 1, via: 2, subject: 3, date: 4, thread: 5, status: 6, company: 7, title: 8, phone: 9, updated: 10, run: 11 };
 
 /** PURE. A From or Cc header -> [{ name, email }]: "Ana Reyes <ana@x.com>, \"Lim, Mark\" <mark@y.com>, joy@z.com". */
@@ -35,7 +38,7 @@ function cueCnPeople_(m) {
   const h = {}; ((m && m.payload && m.payload.headers) || []).forEach(x => { h[String(x.name).toLowerCase()] = String(x.value || ''); });
   const date = m && m.internalDate ? cueMnlDay_(Number(m.internalDate)) : '', thread = /^[0-9a-f]{6,40}$/.test(String((m && m.threadId) || '')) ? m.threadId : '';
   const out = [];
-  [['from', 'From'], ['cc', 'Cc']].forEach(([k, via]) => cueCnAddrs_(h[k]).forEach(a => out.push(Object.assign(a, { via, subject: cueStr_(h.subject, 200), date, thread }))));
+  [['from', 'From'], ['cc', 'Cc']].forEach(([k, via]) => cueCnAddrs_(h[k]).filter(a => !CUE_CN_AUTO_.test(a.email)).forEach(a => out.push(Object.assign(a, { via, subject: cueStr_(h.subject, 200), date, thread }))));
   return out;
 }
 

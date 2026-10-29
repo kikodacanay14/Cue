@@ -22,6 +22,8 @@ contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". 
 - "scan my gmail for new contacts" runs the job at once and says how far it is.
 - Needs Canvas with `contact_new_check` and `contact_add` (CanvasWorkspace branch claude/project-thread-t7caj1); the bridge
   fixture is refreshed from it. Until that Canvas ships, the job reads Gmail and stops at the Canvas check.
+- Automated senders are skipped and never kept: no-reply@, noreply@, do-not-reply@, notifications@, mailer-daemon@ and bounce@
+  addresses (Kiko 29 Oct 13:40Z, "Yes, skip them").
 - Not in this build: filter R1 (skip personal domains, suppliers and BSE staff) waits for Kiko's yes/no.
 ## Cue 1.27.73: emails asking for a quotation or proposal start intake (not deployed)
 

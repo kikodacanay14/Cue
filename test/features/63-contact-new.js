@@ -5,6 +5,7 @@
 const CN_MSGS = [
   { id: 'm1', threadId: '18c3aa0100000001', date: '2025-03-14T02:00:00Z', from: 'Ana Reyes <ana.reyes@northwind.test>', cc: '"Lim, Mark" <mark.lim@northwind.test>, Old Friend <old@acme.test>', subject: 'Year-end party quote' },
   { id: 'm2', threadId: '18c3aa0200000002', date: '2026-09-02T02:00:00Z', from: 'kiko@example.com', cc: 'Joy Santos <joy@acme.test>', subject: 'RFP: Family Day 2026' },
+  { id: 'm4', threadId: '18c3aa0400000004', date: '2026-01-05T02:00:00Z', from: 'Google <no-reply@accounts.google.com>', cc: 'notifications@hubspot.test, MAILER-DAEMON@mx.test, bounce+x@list.test', subject: 'Security alert' },
   { id: 'm3', threadId: '18c3aa0300000003', date: '2024-06-21T02:00:00Z', from: 'carlo.dizon@gmail.com', cc: '', subject: 'Team building inquiry' }];
 const CN_SIG = { 'ana.reyes@northwind.test': [{ id: 's1', body: 'Hi Kiko,\nPlease quote.\n\nThanks,\nAna Reyes\nHR Engagement Lead\nNorthwind Solutions\n+63 917 123 4567\n\nOn Mon wrote:\n> old' }] };
 const CN_AI = { people: [{ k: 'P1', title: 'HR Engagement Lead', title_line: 'HR Engagement Lead', company: 'Northwind Solutions', company_line: 'Northwind Solutions', phone: '0917 123 4567', phone_line: '+63 917 123 4567' }] };
@@ -70,6 +71,7 @@ test('CN1 the 3-year rewind reads only From, Cc and Subject; Canvas checks; one 
   assert.ok(/\nNorthwind Solutions · northwind\.test · New company, P0\n☐1 Ana Reyes · HR Engagement Lead · ana\.reyes@northwind\.test · From · "Year-end party quote" · 2025-03-14\n☐2 Lim, Mark · title not in signature · mark\.lim@northwind\.test · Cc/.test(c.text), c.text);
   assert.ok(/\nAcme Corp · acme\.test · In Canvas, P6, stage stays\n☐3 Joy Santos/.test(c.text) && /\nNo company \(personal email\) · contact only\n☐4 carlo\.dizon/.test(c.text), c.text);
   assert.ok(!/old@acme|kiko@example/.test(c.text), 'people already in Canvas are not on the card');
+  assert.ok(!t.tabs['New contacts'].rows.some(r => /no-reply|notifications@|mailer-daemon|bounce\+/i.test(r[0])), 'automated senders are never kept (Kiko 13:40Z)');
   assert.ok(!(t.log.cnAdd || []).length, 'nothing written before Approve');
   deq(cnRows(t), [['ana.reyes@northwind.test', 'On card', 'Northwind Solutions'], ['mark.lim@northwind.test', 'On card', 'Northwind Solutions'], ['old@acme.test', 'Known', ''],
     ['kiko@example.com', 'Known', ''], ['joy@acme.test', 'On card', 'Acme Corp'], ['carlo.dizon@gmail.com', 'On card', '']]);
