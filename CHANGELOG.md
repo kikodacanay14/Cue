@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.65: Canvas chasers, Send a notice and the Log move into Cue Admin (not deployed)
+
+Cut by the deploys thread on 1.27.64 (not yet live) from Cue PR #205 (commits ad162cf, 989ef5e and c743b05). Kiko asked on 29 Oct 2026
+at 03:43Z ("lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"; reporting "has to be all not split")
+and at 03:46Z ("a Historical or Log page? filtered by the different Jobs. and Status"). Epic Cue #193.
+
+- **Jobs › Chasers** has two tabs. **Canvas chasers** is Canvas Admin's Run now, moved here: AR chaser, Invoice chaser, Payment sent and
+  Final reminder, with search, Not sent yet, tick and Send ticked, and Edit. **Cue chasers** keeps the templates. Canvas still sends;
+  Kiko's press is the approval, and each press is sent once, never retried.
+- **Jobs › Send a notice** is Canvas Admin's Send a notice, moved here. "Send a test to me" now comes from Kiko's own Gmail as plain text.
+- **Jobs › Log**: every email and text Canvas sent and every job Cue ran in the last 30 days, filtered by job, status and words, with
+  the failed count for 7 days and the text credit on top. Read only.
+- Needs Canvas rel-cue-admin-move-main (bridge run_now_*, sn_*; Canvas Admin loses Run now and Send a notice) and rel-sent-log-main
+  (bridge sent_log) live first. The bridge fixture holds both.
+- Release line: AI relay is still left out.
+- Tests: 468 pass on the release line.
+
 ## Cue 1.27.64: Cue Admin rounds 2 to 4, Jobs › Chasers templates and what each item is about (not deployed)
 
 Cut by the deploys thread on 1.27.63 (Cue Admin page, not yet live) from Cue PR #203 (main 9e449bd) and round 4 (9673976). Kiko asked on 29 Oct 2026
