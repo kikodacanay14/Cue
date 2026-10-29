@@ -24,6 +24,10 @@ Monday status report (spec of 22 Oct), which never went live.
 
 Tests: 494/494 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
 
+Cloud check: `test/checks/1.27.71-friday-status.check.mjs` starts "status of" the check project, opens the card, taps Preview
+and Skip, and never taps Send (the check project's contacts are real people). Check mode now lets the read `client_status`
+through (added to its read list in `CueCheck.gs`); it writes nothing in Canvas. Added by the deploys thread, 29 Oct 2026.
+
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
