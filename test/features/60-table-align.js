@@ -18,3 +18,9 @@ test('TA2 the number test centres amounts, counts and percents, and leaves IDs, 
   ['PR-0042', 'P9', '29 Oct', 'S-25506500TR', 'Chairs', '0976 494 2398'].forEach(s => assert.ok(!NUM.test(s), s));
   assert.ok(/classList\.contains\('facts'\)/.test(js), 'key/value facts tables are skipped');
 });
+test('TA3 short columns (every filled cell 12 characters or fewer) are centred whole (Kiko 14:51Z "middle align tables for short columns and the headers")', () => {
+  const js = TA_SRC('IndexCards.html');
+  assert.ok(/SHORT = 12;/.test(js), 'short limit is 12 characters');
+  assert.ok(/colShort\[c\] && colFill\[c\]/.test(js), 'a filled short column is tagged whole');
+  assert.ok(/button/.test(js.slice(js.indexOf('colShort[c] = false') - 200, js.indexOf('colShort[c] = false'))), 'button columns are not short');
+});

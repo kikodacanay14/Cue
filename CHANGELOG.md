@@ -1,16 +1,18 @@
 # Changelog
 
-## Cue 1.27.73: table headers and numbers centred (not deployed)
+## Cue 1.27.73: table headers, numbers and short columns centred (not deployed)
 
 Kiko set a standing UI rule on 29 Oct 2026 at 14:32Z: "UI rule - for tables where the table values are numbers - align center.
 Headers are always aligned center".
 
 - Every table header in Cue (chat cards, Finance and pipeline cards, CE and requirement lines, Settings and Cue Admin tables, AI usage)
   is centred.
+- Kiko added at 14:51Z: "middle align tables for short columns and the headers". A column whose filled cells are all 12 characters
+  or fewer (status, P-stage, date, yes/no, code) is centred whole. Columns with buttons or text boxes are left as they are.
 - A cell whose value is a number (amount, count, percent) is centred, and so is a number box in a table. A column whose filled cells
-  are all numbers is centred whole, so its dashes line up. Text cells are unchanged. Key/value "facts" tables are left as they are.
+  are all numbers is centred whole, so its dashes line up. Long text is unchanged. Key/value "facts" tables are left as they are.
 - The same rule ships in Canvas (main V349, Client C215), with the same number test. CLAUDE.md and the scope-then-design Brand lock
-  now carry the rule, so mockups follow it too. Version number is provisional; the deploys thread names the release. Tests: 454.
+  now carry the rule, so mockups follow it too. Version number is provisional; the deploys thread names the release. Tests: 455.
 
 ## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (not deployed)
 
