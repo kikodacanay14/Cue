@@ -377,7 +377,7 @@
       + (drafting ? '<button class="btn" data-act="send-pipe" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-pipe" data-id="' + esc(r.id) + '">Drafts only</button>' : '')
       + (again ? '<button class="btn" data-act="approve-pipe" data-id="' + esc(r.id) + '">' + (r.pipe.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
       + (waiting ? '<button class="btn ghost" data-act="pipe-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
-      + (waiting && !dr.length ? '<div class="small muted" style="margin-top:6px">Read only: HubSpot and Canvas are not changed. Tick deals with an email thread, then Draft follow-ups. Nothing is sent until you approve.</div>' : '')
+      + (waiting && !dr.length ? '<div class="small muted" style="margin-top:6px">Read only: Canvas is not changed. Tick deals with an email thread, then Draft follow-ups. Nothing is sent until you approve.</div>' : '')
       + metricLine(r) + '</div>';
     return h;
   }

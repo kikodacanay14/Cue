@@ -1,19 +1,18 @@
 // Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: pipeline-review.
-test('P1 pipeline review (C11): chat routes it, HubSpot + Gmail read in code, rules flag, one Claude call, card waits for Kiko; nothing written', () => {
+test('P1 pipeline review (C11, CRM-13): chat routes it, Canvas + Gmail read in code, rules flag, one Claude call, card waits for Kiko; nothing written', () => {
   const t = pipeToCard(), v = t.v;
   assert.strictEqual(v.status, 'Needs you', v.error); assert.strictEqual(v.kind, 'pipeline'); assert.strictEqual(v.metrics.ai_calls, 1, 'one Claude call in the run');
-  assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0, 'Canvas untouched'); deq(t.log.search || [], [], 'the chat lookup, also a read');
-  assert.ok(t.log.hs.every(c => c.method === 'get' || /\/search$|\/batch\/read$/.test(c.path)), 'HubSpot reads only');
-  assert.ok(t.log.hs.every(c => c.auth === 'Bearer pat-test-not-real'));
-  deq(t.log.hs.find(c => c.path === '/crm/v3/objects/deals/search').body.filterGroups[0].filters[0], { propertyName: 'dealstage', operator: 'NOT_IN', values: ['s3', 's4'] });
+  assert.strictEqual(t.log.claude.length, 1); assert.strictEqual(t.log.gpt.length, 1, 'only the chat call'); deq(t.log.bridge.map(b => b.action), ['crm_funnel'], 'Canvas read once, nothing written'); deq(t.log.search || [], [], 'the chat lookup, also a read');
+  deq(t.log.funnelArgs, [{}]); assert.ok(!(t.log.hs || []).length, 'HubSpot is not read (frozen since Canvas V328)');
   const P = v.pipe, by = {}; P.deals.forEach(d => { by[d.name.split(' — ')[0]] = d; });
-  assert.strictEqual(P.open, 5, 'closed deal dropped even if HubSpot returns it'); assert.ok(!by['Old Co']);
+  assert.strictEqual(P.open, 5, 'a Delivered row is not an open deal'); assert.ok(!by['Old Co']);
   deq(P.deals.map(d => [d.k, d.group]), [['D2', 'act'], ['D3', 'chase'], ['D4', 'chase'], ['D1', 'data'], ['D5', 'ok']], 'sorted by urgency, then event date');
   deq(by.Telus.flags, ['They wrote last, 2 working day(s) ago', 'Event in 4 day(s), not won yet']);
   deq(by.PCAARRD.flags, ['Quiet for 11 day(s)']); deq(by['AMI Group'].flags, ['No email found in 120 days', 'Missing contact']);
   deq(by['Embassy of Belgium'].flags, ['Event date passed, deal still open', 'Missing amount']);
   assert.strictEqual(by.Telus.next, 'Reply to Ana with the revised CE.'); assert.strictEqual(P.summary, PIPE_REVIEW.summary);
-  assert.ok(by.Telus.url.indexOf('https://app.hubspot.com/contacts/247723523/record/0-3/101') === 0 && by.Telus.mail.url.indexOf('#all/aa0100000000000a') > 0);
+  assert.ok(/page=canvas&project=S-255PR/.test(by.Telus.url) && by.Telus.mail.url.indexOf('#all/aa0100000000000a') > 0, 'the deal opens in Canvas');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === t.id && /open deals from Canvas/.test(x[2])));
   assert.strictEqual(by.Telus.mail.dir, 'in'); assert.strictEqual(by.PCAARRD.mail.to, 'joy@pcaarrd.test', 'own-domain address skipped');
   deq([by.Telus.can_draft, by.PCAARRD.can_draft, by['AMI Group'].can_draft, by['Asian Development Bank'].can_draft], [true, true, false, false]);
   const sent = JSON.parse(t.log.claude[0].messages[0].content); deq(sent.deals.map(d => d.k), ['D2', 'D3', 'D4', 'D1'], 'only flagged deals go to Claude');
@@ -38,9 +37,9 @@ test('P2 follow-ups: one GPT call for ticked deals with a thread; Approve and se
   assert.strictEqual(d.status, 'Done'); assert.strictEqual(t.log.replies.length, 1); deq(t.log.sent, ['reply-1']);
   const pl = t.log.replies[0].payload; assert.ok(pl.indexOf('{"message":{"threadId":"aa0100000000000a"}}') > 0 && /To: ana@telus\.test/.test(pl) && /In-Reply-To: <pm1@mail>/.test(pl));
   assert.ok(Buffer.from(pl.split('base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString().indexOf('edited by Kiko') >= 0);
-  assert.ok(t.tabs.Chat.rows.some(x => /^Sent 1 follow-up from your Gmail.*HubSpot and Canvas were not changed/.test(x[2])));
+  assert.ok(t.tabs.Chat.rows.some(x => /^Sent 1 follow-up from your Gmail.*Canvas was not changed/.test(x[2])));
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + t.id && /^Summary for Pipeline review: 5 open deals checked.*sent 1 follow-up/.test(x[2])));
-  assert.strictEqual(t.log.bridge.filter(b => b.action !== 'search_projects').length, 0); deq(t.log.search || [], [], 'the chat lookup, also a read');
+  deq(t.log.bridge.map(b => b.action), ['crm_funnel'], 'Canvas read once, nothing written'); deq(t.log.search || [], [], 'the chat lookup, also a read');
   const u = pipeToCard(); u.ctx.cuePipeFollowUps(u.id, ['D3']); assert.strictEqual(u.ctx.cueApprove(u.id, {}).status, 'Done'); assert.ok(!u.log.sent, 'drafts only sends nothing');
   const w = pipeToCard(); const x = w.ctx.cuePipeDone(w.id); assert.strictEqual(x.status, 'Done'); assert.ok(!w.log.replies);
 });
@@ -217,12 +216,12 @@ test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older wai
   assert.ok(/'Fix contact in Canvas'/.test(html), 'a contact finding opens Canvas to fix it, no delete');
 });
 
-test('P3 pipeline edge cases: one client only; no token, bad token; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
+test('P3 pipeline edge cases: one client only; no HubSpot token needed, Canvas down fails plainly; Claude down still gives the rule flags; a chat answer never joins a pipeline thread', () => {
   const t = pipeToCard({ client: 'Telus', ask: 'where are we with telus' });
   deq(t.v.pipe.deals.map(d => d.name), ['Telus — Trick or Treat - Manila']); assert.strictEqual(t.v.pipe.title, 'Pipeline: Telus');
   const n = sandbox({ pipeMail: true, talk: pipeTalk() }), id = n.ctx.cueSend('hows the pipeline').request_id, v = n.ctx.cueRun(id);
-  assert.strictEqual(v.status, 'Failed'); assert.ok(/CUE_HUBSPOT_TOKEN is not set/.test(v.error), v.error);
-  const b = pipeToCard({ hsCode: 401 }); assert.strictEqual(b.v.status, 'Failed'); assert.ok(/did not accept CUE_HUBSPOT_TOKEN/.test(b.v.error));
+  assert.notStrictEqual(v.status, 'Failed', v.error);
+  const b = pipeToCard({ funnelFail: true }); assert.strictEqual(b.v.status, 'Failed'); assert.ok(/crm_funnel/.test(b.v.error) && /Canvas busy/.test(b.v.error), b.v.error);
   const c = pipeToCard({ fail: { cost: () => resp(500, {}) } });
   assert.strictEqual(c.v.status, 'Needs you'); assert.ok(c.v.notes.some(x => /Claude could not review/.test(x))); assert.strictEqual(c.v.pipe.deals[0].group, 'act');
   assert.ok(/1 deal\(s\) to act on today, 2 to chase, 1 to fix/.test(c.v.pipe.summary));

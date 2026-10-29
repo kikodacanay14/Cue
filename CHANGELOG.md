@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (not deployed)
+
+Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
+ok with the suggestions"). Canvas stopped syncing HubSpot on 29 Oct (Canvas V328), so the pipeline review ("which deals went
+quiet?", "where are we with Telus") was flagging HubSpot deals that no longer change.
+
+- **Open deals now come from Canvas.** The review reads Canvas's Sales funnel through the bridge (`crm_funnel`, a read): the
+  Inquiry and CE sent rows, projects and inquiries alike. Delivered and Paid rows are not open deals. Until Canvas returns every
+  open row, Cue reviews the rows Canvas already flags as past their step's day limit, and the card says so.
+- **No HubSpot key needed.** The review no longer reads HubSpot, so a missing or refused HubSpot key does not stop it. Canvas not
+  answering fails the run with Canvas's own reason and Try again.
+- **Each deal opens in Canvas** (the project, or the client in Client Desk for an inquiry). The sent line now ends "Canvas was not
+  changed." Gmail reading, the flags, the one Claude call and the follow-up drafts are unchanged.
+- Canvas sends no amounts, so "Missing amount" shows only when Canvas says a row has none.
+- The Sales funnel card's HubSpot tasks row is unchanged: HubSpot tasks are still live and its funnel numbers already come from
+  Canvas.
+
+Tests: 486/486 (pipeline tests P1 to P3 now use Canvas's open list).
+
 ## Cue 1.27.69: bid card in three parts, with Decline, Decide later and the clarification email (live as Version 156, 29 Oct 11:41Z, rollback 149)
 
 Asked by Kiko on 29 Oct 2026 at 10:47Z: "For Opportunities - i would like to see New Opportunities - Scoped Projects ... New

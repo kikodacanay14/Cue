@@ -609,9 +609,17 @@ const PIPE_REVIEW = { summary: 'Telus needs an answer today; PCAARRD has gone qu
   { k: 'D3', status: 'Quotation sent 11 days ago, no reply.', next_step: 'Nudge Joy for a decision.' }, { k: 'D99', status: 'made up', next_step: 'x' }] };
 const PIPE_FOLLOWUPS = { drafts: [{ k: 'D2', body: 'Hi Ana, thanks, we are on it.\nBlank Space Events' }, { k: 'D3', body: 'Hi Joy, any update on the stage design?\nBlank Space Events' },
   { k: 'D4', body: 'not ticked, no thread' }, { k: 'D2', body: 'dup' }], note: '' };
+// CRM-13-2026-10-29: the pipeline reads Canvas's crm_funnel open list (same deals as HS above, no amounts).
+const PIPE_OPEN = [
+  { kind: 'project', id: 'S-255PR', name: 'Telus — Trick or Treat - Manila', client: 'Telus', step: 'CE sent', status: 'Awaiting award', date: '2026-10-25', days: 2, quiet: 2, email: 'ana@telus.test', contact: 'Ana' },
+  { kind: 'project', id: 'S-132ST', name: 'PCAARRD — Stage Design', client: 'PCAARRD', step: 'Inquiry', status: 'Quoting', date: '2026-11-13', days: 11, quiet: 11, email: 'joy@pcaarrd.test', contact: 'Joy' },
+  { kind: 'inquiry', id: 'INQ-103', name: 'AMI Group — Selecta Merchandising', client: 'AMI Group', step: 'Inquiry', status: 'Quoting', date: '2026-12-15', days: 3, quiet: null, email: '', contact: '' },
+  { kind: 'inquiry', id: 'INQ-104', name: 'Embassy of Belgium — Tents', client: 'Embassy of Belgium', step: 'Inquiry', status: 'Quoting', date: '2026-10-01', days: 1, quiet: 1, email: 'pollie@belgium.test', contact: 'Pollie', has_amount: false },
+  { kind: 'inquiry', id: 'INQ-105', name: 'Asian Development Bank — Printing', client: 'Asian Development Bank', step: 'Inquiry', status: 'Quoting', date: '2027-01-01', days: 1, quiet: 1, email: 'bids@adb.test', contact: '' },
+  { kind: 'project', id: 'S-OLD', name: 'Old Co — Won Already', client: 'Old Co', step: 'Delivered', status: 'Won', date: '2026-10-22', days: 0, quiet: 0, email: 'x@old.test', contact: '' }];
 const pipeTalk = client => ({ reply: 'Checking your pipeline now.', looks_like_inquiry: false, start_intake: '', task: '', command: 'pipeline', command_client: client || '' });
 function pipeToCard(o = {}) {
-  const t = sandbox(Object.assign({ pipeMail: true, talk: pipeTalk(o.client), cost: PIPE_REVIEW, props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }, o));
+  const t = sandbox(Object.assign({ pipeMail: true, talk: pipeTalk(o.client), cost: PIPE_REVIEW, funnel: { today: '2026-10-21', limits: {}, steps: [], stuck: [], due: [], open: PIPE_OPEN }, props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }, o));
   const id = t.ctx.cueSend(o.ask || 'which deals went quiet?').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v });
 }
 
