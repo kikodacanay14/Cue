@@ -23,7 +23,7 @@ Monday status report (spec of 22 Oct), which never went live.
   email already sent sends nothing. Done skips the emails not sent.
 - No AI call. The Today card shows "N client updates to send".
 
-Tests: 495/495 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
+Tests: 495/495 (feature file `63-friday-status.js`, 9 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
 
 Cloud check: `test/checks/1.27.71-friday-status.check.mjs` starts "status of" the check project, opens the card, taps Preview
 and Skip, and never taps Send (the check project's contacts are real people). Check mode now lets the read `client_status`
