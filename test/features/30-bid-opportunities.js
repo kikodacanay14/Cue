@@ -6,7 +6,7 @@ const BID = (o) => Object.assign({ source: 'CITEM', agency: 'CITEM', reference: 
   amendments: 'none seen', limitations: '', next_action: 'Check booth drawings', relevant: true }, o);
 const SRC = names => names.map(n => ({ source: n, status: n === 'New PhilGEPS' ? 'Blocked' : 'Checked', checked: 'list page', gap: n === 'New PhilGEPS' ? 'needs sign-in' : '' }));
 const BIDS_A = { sources: SRC(['New PhilGEPS', 'Other PhilGEPS', 'CITEM', 'TPB']), items: [BID(),
-  BID({ reference: '2026-0412', project: 'General Assembly catering', abc: 120000 }),                        // below the ₱150k minimum
+  BID({ reference: '2026-0412', project: 'General Assembly catering', abc: 40000 }),                         // below the ₱50k minimum
   BID({ reference: 'PG-1', agency: 'Pilar', project: 'Town fiesta stage', location: 'Pilar, Bataan', abc: 300000 }),   // Bataan
   BID({ reference: 'PG-2', agency: 'QC', project: 'Year-end party sound', location: 'Quezon City', abc: 650000, deadline: '2026-10-20T13:00+08:00' }),   // closed
   BID({ reference: 'PG-3', agency: 'DOT', project: 'Tourism forum production', location: '', abc: 0, budget_note: 'not stated', documents: [{ name: 'TOR', url: 'https://dot.gov.ph/tor.pdf' }] }),   // For verification; its TOR needs sign-in

@@ -2,7 +2,7 @@
  * Kiko's 8-step bid workflow, run by ChatGPT through the API and checked by code:
  *   1-2, 4, 6 ChatGPT (3 calls in parallel, web search on): searches the 11 agreed sources, keeps event-related notices, reads
  *     specs, eligibility, amendments and documents, and reports what each source let it see (Checked / Partial / Blocked). (AI calls)
- *   3, 5 Code: the screen (ABC ₱150,000 to ₱700,000; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Quezon; never Bataan; deadline still
+ *   3, 5 Code: the screen (ABC ₱50,000 to ₱700,000 (floor lowered from ₱150,000 by Kiko 29 Oct); NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Quezon; never Bataan; deadline still
  *     open; unclear budget or place = "For verification"), and the dedupe against Kiko's bid sheet.
  *   7 Code: new rows go to the "Web bid findings" tab and one row per source to "Web source scan log" of Kiko's bid sheet
  *     (CUE_BIDS_SHEET_ID). The card shows ONLY new opportunities (Kiko 19:07Z), changed earlier ones as "Updated", and the
@@ -19,7 +19,7 @@
 
 const CUE_BIDS_SHEET_ = '1-ivct4PTYRsCuO2njhYgQbf7-TE3-qhuBkUG75OuR_o';   // "BSE Inbox RFP & Bid History 2022-2026"
 const CUE_BIDS_TABS_ = { findings: 'Web bid findings', log: 'Web source scan log' };
-const CUE_BIDS_RULES_ = { min: 150000, max: 700000, hour: 7 };
+const CUE_BIDS_RULES_ = { min: 50000, max: 700000, hour: 7 };   // Kiko 29 Oct 10:52Z: "you can lower it to 50k" (was ₱150,000)
 // Kiko 19:06Z "NCR cities, Batangas"; 19:08Z "yes" to the nearby provinces. Bataan excluded (Kiko 20 Oct).
 const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
 const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
@@ -615,7 +615,7 @@ function cueBidsFinish_(s) {
   B.checks = [
     { id: 1, label: 'All ' + CUE_BIDS_SOURCES_.length + ' sources reported', ok: okSrc.length === CUE_BIDS_SOURCES_.length, detail: okSrc.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => okSrc.indexOf(x) < 0).map(x => x.source).join(', ') },
     { id: 2, label: 'Only single notices with organization, reference, title and their own link', ok: true, detail: D.pages ? D.pages + ' listing, sign-in, award or incomplete items left out' + ((T.left || []).length ? ': ' + T.left.join('; ') : '') : '' },
-    { id: 3, label: 'Budget ₱150,000 to ₱700,000 or For verification', ok: true, detail: D.budget ? D.budget + ' outside the range left out' : '' },
+    { id: 3, label: 'Budget ₱' + CUE_BIDS_RULES_.min.toLocaleString('en-US') + ' to ₱' + CUE_BIDS_RULES_.max.toLocaleString('en-US') + ' or For verification', ok: true, detail: D.budget ? D.budget + ' outside the range left out' : '' },
     { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: D.area ? D.area + ' outside the area left out' : '' },
     { id: 5, label: 'Deadline still open', ok: true, detail: D.closed ? D.closed + ' closed notices left out' : '' },
     { id: 6, label: 'No duplicates (same reference number = same notice)', ok: true, detail: T.dup ? T.dup + ' duplicates merged' : '' },

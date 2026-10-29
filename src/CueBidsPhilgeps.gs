@@ -6,7 +6,7 @@
  *     Printing Services 29). A list is a plain GET; its next pages are ASP.NET postbacks of the same form (nextLB), 20 rows a page.
  *   - Each notice's abstract page, once: the ABC, Area of Delivery, agency, title and closing time sit in spans with fixed ids.
  *     What was read is kept in the Cue sheet's hidden "PhilGEPS notices" tab, so a later day reads only notices new since then.
- *   - The notices go into the same screen as ChatGPT's (Kiko's ₱150,000 to ₱700,000, area list, never Bataan, still open) and the same
+ *   - The notices go into the same screen as ChatGPT's (Kiko's ₱50,000 to ₱700,000, area list, never Bataan, still open) and the same
  *     dedupe against his bid sheet. Nothing new is decided here: this only opens what the source already lists.
  * The site needs no sign-in. Reads are paced (a pause between batches of abstracts) and capped at about two minutes per run; what is
  * left carries on at the next 5-minute resume. A check version reads page 1 only (a postback is a POST). No AI call. */

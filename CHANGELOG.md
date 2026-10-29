@@ -26,6 +26,8 @@ Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko
   NCCA is out of the list. UNGM is searched with Country = Philippines and published in the last 3 days, and ADB opens his filtered
   link (Country Philippines, Status Active). 10:40Z: "you can add this in your list https://manila.gov.ph/invitation-to-bid/", so
   the City of Manila is in. Still 11 sources.
+- **Bid budget floor lowered to ₱50,000.** Kiko, 29 Oct 10:52Z: "you can lower it to 50k". The screen now keeps notices with an ABC from
+  ₱50,000 to ₱700,000 (was ₱150,000 to ₱700,000).
 - No new rule: the fixes use bridge actions, limits and a bid screen Kiko already approved. Needs Canvas V329 or later (live is V342).
 - Tests: 481 (3 new in `test/features/60-crm-fixes.js`, 3 in `test/features/61-bids-philgeps.js`; FN1, FN3 and FN4 now expect
   Canvas's numbers).
