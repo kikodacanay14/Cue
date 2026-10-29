@@ -42,19 +42,16 @@ test('AD4 the page groups the sections as in the approved mockup and has the two
 /* CUE-ADMIN-2-2026-10-29 (Kiko 29 Oct 03:17Z-03:21Z): descriptions on Chaser rules, Scheduled tasks and AI relay, the Auto-send list,
  * "Processes and business rules", and Jobs › Chasers (chaser > lined-up chases with time and sender > draft). */
 
-test('AD5 Jobs › Chasers: each chaser kind with today\'s lines (when, sender, draft) and the ones lined up in the Chase log, read only', () => {
-  const t = sweepBox({}, { kind: 'rfq' }); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
-  const log = t.tabs['Chase log'];
-  log.appendRow(['rfq:later1', 'rfq', 'Gala', 'Light Co', '2026-10-20', 1, '2026-10-24', false, 'draft']);
-  log.appendRow(['rfq:done1', 'rfq', 'Gala', 'Max Co', '2026-10-20', 2, '2026-10-24', false, 'draft']);
-  log.appendRow(['rfq:muted', 'rfq', 'Gala', 'Mute Co', '2026-10-20', 1, '2026-10-24', true, '']);
+test('AD5 Jobs › Chasers: each chaser kind with its sender, who it goes to and its email template, placeholders in angle brackets; read only', () => {
+  const t = sandbox({ rfq: true, award: true });
   const J = JSON.parse(JSON.stringify(t.ctx.cueAdminChasers()));
   deq(J.kinds.map(k => k.kind), ['rfq', 'award', 'payment', 'accreditation', 'signature']);
+  assert.ok(J.kinds.every(k => k.about && k.from && k.to && k.body), 'every chaser has a template');
   const r = J.kinds[0];
-  deq([r.label, r.from, r.lines.length > 0], ['RFQ chasers', 'your Gmail, as a reply in the RFQ thread', true]);
-  assert.ok(r.lines.every(x => x.when === 'Today, 09:00 once you Approve' && typeof x.body === 'string'), 'today: the send time and the draft');
-  deq(r.next.map(x => [x.who, x.when]), [['Light Co', '24 Oct, in the 07:00 batch']], 'max reached (2 of 2) and muted lines are left out');
-  deq([J.batch.status, J.send, J.build], ['Needs you', '09:00', '07:00']);
+  deq([r.label, r.subject, r.ai], ['RFQ chasers', 'Re: RFQ: <RFQ title>', true]);
+  assert.ok(/^Hi <Supplier name>,/.test(r.body) && r.body.includes('our RFQ for <Event>, sent on <RFQ date>'));
+  assert.ok(J.kinds[4].body.includes('<FSA or AR> for <Event> (<Role>)') && J.kinds[4].ai === false, 'signature: fixed wording');
+  deq([J.build, J.send], ['07:00', '09:00']);
   deq(t.log.sent || [], [], 'nothing is sent');
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8').includes("'cueAdminChasers'"), 'never run by a cloud check');
 });
@@ -75,6 +72,6 @@ test('AD7 the page shows the Auto-send rules with each message, the channel icon
   // release line: AI relay is not live yet, so its ? help and Pass on words are not on this page
   const page = cuePage();
   ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
-    'Payment received: ₱12,000', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
-    'data-jc-open', 'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
+    'Payment received: &lt;Amount&gt;', 'class="adesc"', 'type="checkbox" disabled checked', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
+    'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
 });

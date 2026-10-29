@@ -1,8 +1,8 @@
 # Changelog
 
-## Cue 1.27.64: Cue Admin rounds 2 and 3, Jobs › Chasers and what each item is about (not deployed)
+## Cue 1.27.64: Cue Admin rounds 2 to 4, Jobs › Chasers templates and what each item is about (not deployed)
 
-Cut by the deploys thread on 1.27.63 (Cue Admin page, not yet live) from Cue PR #203 (main 9e449bd). Kiko asked on 29 Oct 2026
+Cut by the deploys thread on 1.27.63 (Cue Admin page, not yet live) from Cue PR #203 (main 9e449bd) and round 4 (9673976). Kiko asked on 29 Oct 2026
 between 03:17Z and 03:27Z, and at 03:17Z said "Yes agree on Job Chasers", which moves Cue's chasers out of Canvas Admin into Cue
 Admin. Epic Cue #193, stories #201 and #202.
 
@@ -17,6 +17,9 @@ Admin. Epic Cue #193, stories #201 and #202.
 - Release line changes: AI relay is not live, so its section, description and ? help are left out (tests AD4 and AD7 note it).
   The live line's daily "Sales funnel and HubSpot tasks" task gets its own description.
 - Nothing Cue does changes; the words describe the code as it is. `cueAdminChasers` is never run by a cloud check.
+- Round 4 (Kiko 03:35Z, Cue PR #204): Jobs › Chasers shows one generic email template per chaser kind with From and To lines,
+  instead of the lined-up chases. Chaser rules say where each chaser is sent. Auto-send templates highlight their variables and show
+  read-only channel ticks. Descriptions are smaller (12px) and lighter.
 - Tests: 461 pass on the release line.
 
 ## Cue 1.27.63: Cue Admin, Cue's settings and admin as their own page (not deployed)
