@@ -1,6 +1,6 @@
 ---
 name: ask-kiko
-description: Use every time Claude needs an answer, choice or approval from Kiko — writes a clear question card (numbered headline, plain meaning, why it matters, options with pros and cons, recommendation) at the end of the reply and adds it to his pinned Questions for Kiko page so it never gets buried.
+description: Use every time Claude needs an answer, choice or approval from Kiko — writes a clear question card (numbered headline, plain meaning, why it matters, options with pros and cons, recommendation) as the last part of the reply so it never gets buried.
 ---
 
 # Ask Kiko
@@ -18,26 +18,11 @@ do. Every question to him follows this card. No exceptions, including one-line y
 5. **Recommendation**: the letter and one sentence why.
 6. **How to reply**: "Reply with the letter, or type your own answer."
 
-## Where the card goes (Kiko's choice, 29 Oct 2026: both places)
+## Where the card goes
 
-1. **In the chat**, in full, as the last part of the reply, under a bold headline, so he sees it where he is reading.
-2. **On the Questions for Kiko page** (https://claude.ai/artifact/2Pjcu3jwH4WcKudyWTjQw6, pinned in his Claude sidebar),
-   so nothing is lost when the chat scrolls on. Write one document per question with the `ArtifactData` tool:
-   `action: "set"`, `collection: "questions"`, `doc_id`: `<chat-or-project>-<qid>` in lower case (for example
-   `cue-q3`), and `data`:
-   `{qid, source, title, meaning, why, options: [{letter, label, pros, cons}], recommend, recommendWhy,
-   status: "Open", askedAt: <ISO time>}`. `source` is the chat or project in words Kiko knows ("Cue", "Canvas
-   Integration", "Scoping process chat").
-
-## Reading his answers
-
-- At the start of each turn in a chat that has open questions on the page, read that chat's documents
-  (`action: "query"`, `collection: "questions"`). A document with `status: "Answered"` holds his answer in `answer`.
-  Act on it, and say in one line which answer you are acting on.
-- When he answers in the chat instead, update the document: `action: "update"` with `status: "Answered"`, `answer`,
-  `answeredAt`, and the `if_version` from your read.
-- A question that no longer applies: update it to `status: "Answered"` with `answer: "No longer needed: <why>"`.
-  Never delete his questions.
+In the chat, in full, as the last part of the reply, under a bold headline, so he sees it where he is reading. Nothing
+else comes after it. (Kiko had the side panel and the pinned Questions page removed on 29 Oct 2026; neither worked for
+him.)
 
 ## Rules
 
