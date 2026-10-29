@@ -23,6 +23,7 @@
   $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
   $('tlist').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-cteam')) { try { CUE_HOST.canvas.postMessage({ canvasWs: 'cueTeam', k: b.getAttribute('data-cteam') }, '*'); } catch (x) {} return; }   // ASK-CUE-ROWS-2026-10-29
     if (b.hasAttribute('data-thread')) return goThread(b.getAttribute('data-thread'));
     if (b.hasAttribute('data-tgroup')) { var g = b.getAttribute('data-tgroup'); tshut[g] = !tshut[g]; return renderChat(); }
     if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
@@ -50,6 +51,11 @@
     var h = '', n = waiting;
     if (!showArchived) h += '<h2 class="welcome">Welcome back, Kiko.</h2><p>' + (n ? n + ' thread' + (n === 1 ? ' is' : 's are') + ' waiting on you.' : 'Nothing is waiting on you.') + '</p>';
     else h += '<h2 class="welcome">Archived</h2><p>Closed threads you archived. The filter button brings back the rest.</p>';
+    if (!showArchived && !tq && CUE_HOST.canvas && canvasRows.length) h += '<div class="tgroup cvs"><span>From Canvas</span></div>' + canvasRows.map(function (r) {   // ASK-CUE-ROWS-2026-10-29
+      return '<button class="trow" data-cteam="' + esc(r.k) + '"><i class="dot" style="background:' + (r.k === 'crm' ? '#F06A25' : '#2810DC') + '"></i>'
+        + '<span class="tx"><b>' + esc(r.name) + '</b><span>' + esc(r.sub || (r.k === 'crm' ? 'Nothing to follow up' : 'Nothing to do right now')) + '</span></span>'
+        + (r.n ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + r.n + ' waiting">' + r.n + '</i>' : '') + '</button>';
+    }).join('');
     [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
       var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
       h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';

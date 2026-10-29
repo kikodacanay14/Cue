@@ -99,11 +99,22 @@
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
       if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); teamCueBtn(); return; }
       if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
+      if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows)) { canvasRowsSet(d.rows); renderChat(); }
     });
     var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello' }, '*'); } catch (e) {} }
   }
   /* TEAM-CUE-BACK-2026-10-29 (Kiko 15:59Z "can there be a button in Ask Cue that switches me back the other chat"): inside Canvas,
      a header button asks Canvas to close Ask Cue and open the Team Cue panel ({canvasWs:'cueBack'}). Standalone Cue never shows it. */
+  /* ASK-CUE-ROWS-2026-10-29 (Kiko 15:56Z "actually CRMs, chasers and other CRM related can be in Ask Cue"; 15:58Z "the remaining
+     To Do other (other than project items) can be with Ask Cue"; his card pick 16:01Z "Inside Ask Cue's list"): inside Canvas,
+     Canvas sends its CRM and To do rows ({canvasWs:'cueRows'}); they list at the top of Threads, and a tap asks Canvas to show that
+     thread ({canvasWs:'cueTeam'}), with all its buttons. */
+  var canvasRows = [];
+  function canvasRowsSet(rows) {
+    canvasRows = rows.filter(function (r) { return r && (r.k === 'crm' || r.k === 'todo'); }).slice(0, 2).map(function (r) {
+      return { k: r.k, name: String(r.name || (r.k === 'crm' ? 'CRM' : 'To do')).slice(0, 60), sub: String(r.sub || '').slice(0, 200), n: Math.max(0, Math.min(999, +r.n || 0)) };
+    });
+  }
   function teamCueBtn() {
     var b = document.getElementById('team-cue'); if (!b || !CUE_HOST.canvas) return;
     b.hidden = false;

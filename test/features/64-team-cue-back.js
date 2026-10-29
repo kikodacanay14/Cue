@@ -14,3 +14,15 @@ test('TCB1 Back to Team Cue: hidden on its own, shown inside Canvas, and asks Ca
   btn.onclick(); deq(sent, [[{ canvasWs: 'cueBack' }, '*']]);
   assert.ok(page.indexOf("cueCover(''); teamCueBtn(); return; }") > 0, 'shown once Canvas answers cueHost');
 });
+/* ASK-CUE-ROWS (Kiko 15:56Z, 15:58Z, card pick 16:01Z "Inside Ask Cue's list"): Canvas's CRM and To do rows list in Ask Cue. */
+test('TCB2 From Canvas rows: only CRM and To do, cleaned, listed on top, and a tap asks Canvas for that thread', () => {
+  const page = cuePage();
+  const src = page.slice(page.indexOf('  var canvasRows = [];'), page.indexOf('  function teamCueBtn() {'));
+  const ctx = vm.createContext({ String, Math });
+  vm.runInContext(src + '\nthis.set = canvasRowsSet; this.get = function () { return canvasRows; };', ctx);
+  ctx.set([{ k: 'crm', name: 'CRM', sub: 'Call back Unilever', n: '5' }, { k: 'mail', name: 'x' }, null, { k: 'todo', sub: 'Release payment', n: -2 }]);
+  deq(JSON.parse(JSON.stringify(ctx.get())), [{ k: 'crm', name: 'CRM', sub: 'Call back Unilever', n: 5 }, { k: 'todo', name: 'To do', sub: 'Release payment', n: 0 }]);
+  assert.ok(page.indexOf("if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows))") > 0, 'only from Canvas');
+  assert.ok(page.indexOf("if (!showArchived && !tq && CUE_HOST.canvas && canvasRows.length) h += '<div class=\"tgroup cvs\"><span>From Canvas</span></div>'") > 0, 'listed on top');
+  assert.ok(page.indexOf("CUE_HOST.canvas.postMessage({ canvasWs: 'cueTeam', k: b.getAttribute('data-cteam') }, '*')") > 0, 'tap asks Canvas');
+});
