@@ -11,7 +11,8 @@ Monday status report (spec of 22 Oct), which never went live.
   <event>". The old Monday row moves to Friday and is turned on.
 - **A fresh readiness scan first.** Canvas lists the active events (For Production Start or later, event no more than 7 days ago),
   then reruns each event's pre-event readiness checklist (`get_readiness`, at most 1 minute old), five at a time. A long list goes
-  on at the next 5-minute run. If a scan fails, the card says so and that email shows the last score Canvas has.
+  on at the next 5-minute run. If a scan fails, the card says so and that email shows the last score Canvas has. A scan so slow that
+  Cue's run ends during it (one cloud check took 301 s for one event) is not tried again: the next run reports it the same way.
 - **One email per event, built by Canvas** (new bridge read `client_status`, CanvasWorkspace PR #311), from what the client site
   already shows: the progress of each requirement (Planning, In production, For delivery, Done), progress on the timeline (done,
   catching up, coming up), the Readiness score, open risks and issues with the plan, the task update, and a Go to Canvas button
@@ -22,7 +23,7 @@ Monday status report (spec of 22 Oct), which never went live.
   email already sent sends nothing. Done skips the emails not sent.
 - No AI call. The Today card shows "N client updates to send".
 
-Tests: 494/494 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
+Tests: 495/495 (feature file `63-friday-status.js`, 8 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
 
 Cloud check: `test/checks/1.27.71-friday-status.check.mjs` starts "status of" the check project, opens the card, taps Preview
 and Skip, and never taps Send (the check project's contacts are real people). Check mode now lets the read `client_status`

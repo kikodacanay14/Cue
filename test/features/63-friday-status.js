@@ -118,3 +118,17 @@ test('ST8 Done skips what is not sent; the card shows Preview, Send and Skip per
   assert.ok(/data-stsel=/.test(page) && /Someone else…/.test(page), 'To is a dropdown of the event contacts');
   assert.ok(/ask\('Send the Friday update for ' \+/.test(page) && /'Sent emails cannot be called back\.'/.test(page) && /<iframe sandbox title="Preview of /.test(page));
 });
+
+test('ST9 a run that dies in the middle of a slow readiness scan does not scan those events again: the next run says so and the emails still come', () => {
+  const many = JSON.parse(JSON.stringify(ST_CS));
+  for (let i = 3; i <= 8; i++) many.projects.push(Object.assign(JSON.parse(JSON.stringify(ST_CS.projects[1])), { id: 'S-' + i + '000000' + i + 'CC', name: 'Event ' + i }));
+  const t = stRun({ cs: many, batchStep: 250000 });
+  assert.strictEqual(t.log.readyArgs.length, 5);
+  const L = t.ctx.cueLoad_(t.id);
+  assert.ok(L.s.st.events.slice(0, 5).every(e => e.tried && e.scanned), 'each event is marked tried before its fetch');
+  L.s.st.events.slice(5).forEach(e => { e.tried = true; });   // as if the run died during the last batch's fetch
+  t.ctx.cueSave_(L.sh, L.row, L.s);
+  const v = t.ctx.cueRun(t.id);
+  assert.strictEqual(t.log.readyArgs.length, 5, 'never fetched again'); assert.strictEqual(v.status, 'Needs you'); assert.strictEqual(v.st.mails.length, 8);
+  assert.ok(v.notes.some(n => /readiness scan did not run for Event 6, Event 7, Event 8 \(Canvas took longer than a Cue run allows\)\. Their emails show the last score Canvas has\./.test(n)), v.notes.join(' | '));
+});
