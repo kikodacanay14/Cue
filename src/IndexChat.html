@@ -97,10 +97,17 @@
     setTimeout(function () { if (!CUE_HOST.canvas) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Canvas did not answer)'); }, 15000);
     window.addEventListener('message', function (e) {
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
-      if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); return; }
+      if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); teamCueBtn(); return; }
       if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
     });
     var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello' }, '*'); } catch (e) {} }
+  }
+  /* TEAM-CUE-BACK-2026-10-29 (Kiko 15:59Z "can there be a button in Ask Cue that switches me back the other chat"): inside Canvas,
+     a header button asks Canvas to close Ask Cue and open the Team Cue panel ({canvasWs:'cueBack'}). Standalone Cue never shows it. */
+  function teamCueBtn() {
+    var b = document.getElementById('team-cue'); if (!b || !CUE_HOST.canvas) return;
+    b.hidden = false;
+    b.onclick = function () { try { CUE_HOST.canvas.postMessage({ canvasWs: 'cueBack' }, '*'); } catch (e) {} };
   }
   // 1.27.23 (PC check 24 Oct 14:29Z): a thread id may carry "#<spot>", such as the funnel card's top or its tasks, so a Canvas Home
   // button opens the thread at that spot instead of the bottom. The spot waits for the next render when the thread isn't drawn yet.
