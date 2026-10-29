@@ -215,8 +215,10 @@
   th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:top; }
   th { color:var(--muted); font-weight:600; }
   .facts td:first-child { color:var(--muted); width:42%; }
-  .tag { display:inline-block; padding:0 8px; border-radius:9999px; font-size:11px; font-weight:700; margin:1px 2px 1px 0; }
-  .tag.new { background:#FCF9C4; color:var(--warn); } .tag.pref { background:#E3F4EA; color:var(--ok); } .tag.flag { background:#FDE3F4; color:#C2008A; }
+  /* STANDARD-LABEL-2026-10-29 (Kiko 14:48-14:49Z: "make your label same - and make it a global UI", "make it a standard UI.... dont
+     just make up"): Cue's tags are the Canvas Brand.html pill (.bs-pill) with its colours. new = warn, pref = good, flag = crit, plain = accent. */
+  .tag { display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; line-height:1.5; white-space:nowrap; margin:1px 2px 1px 0; background:#ECEAFD; color:#2810DC; border:1px solid transparent; }
+  .tag.new { background:#FBF0D9; color:#8A5300; } .tag.pref { background:#E5F3EA; color:#1E7A46; } .tag.flag { background:#FBE9E7; color:#B3261E; }
   .warn { background:#FDE3F4; border:1px solid var(--need); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
   .err { background:#FCE8DF; border:1px solid var(--bad); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:13px; }
   .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
