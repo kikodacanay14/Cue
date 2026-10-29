@@ -9,14 +9,16 @@ is a separate production step).
 - `?view=admin` opens **Cue Admin**: the Settings sections as one full page in Canvas's look (cream ground, white cards, magenta accent,
   the BSE stripe). The page has "Open Cue chat" at the top right.
 - The section list is grouped: How Cue thinks (Memory, rules and personality; Processes; Tutor mode), Rules (Chaser rules; Triage
-  rules; Auto-send), Jobs (Scheduled tasks; Release notes) and System (Connections; AI relay; AI usage and cost). The Settings overlay
+  rules; Auto-send), Jobs (Scheduled tasks; Release notes) and System (Connections; AI usage and cost; AI relay is left out because it is not on the live line). The Settings overlay
   in the chat uses the same grouping.
 - New section **Triage rules** (`CueAdmin.gs`): the rows of the Triage rules tab, newest first, with Remove for one row. The rules
   work as before.
 - New section **Release notes**: the newest 30 rows of the Release Notes tab, read only, with a pointer to Scheduled tasks.
 - The chat's Settings button (the avatar) opens Cue Admin in a new tab. Without the app address it opens the sections in place, as before.
 - `cueState` now returns `app_url`. The three new page calls are owner-only and never run by a cloud check.
-- Tests: 435 (4 new in `test/features/57-cue-admin.js`).
+- On the cream page, the white headline numbers in AI usage and cost now show in the page's text colour (found when every section
+  was rendered, Cue PR #200).
+- Tests: 458 on the live line (4 new in `test/features/57-cue-admin.js`).
 
 ## Cue sales funnel, part 2: Inquiry chasers, win-back drafts and the Monday funnel review (not deployed; ships after the Canvas CRM funnel rest release, CanvasWorkspace PR for branch `claude/project-thread-oq52vc`)
 
