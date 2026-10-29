@@ -51,3 +51,9 @@ test('IR5 RFQ drafts get TBC for blank event details, never an empty line or 0 p
   const call = t.log.gpt.filter(b => b.text.format.name === 'rfqs').pop(), ev = call && JSON.parse(String(call.input).slice(String(call.input).indexOf('{'))).event;
   assert.ok(ev, 'the RFQ call carries the event'); deq([ev.venue, ev.city, ev.pax, ev.date], ['TBC', 'TBC', 'TBC', 'TBC']);
 });
+test('IR6 intake-real check on one named project: only inquiries with those words; none sorted falls back to a Gmail search', () => {
+  const t = irBox();
+  deq(t.call('cueIcPick_', 30, 6, 'launch acme').result.map(p => p.thread_id), ['a1a1a1a1a1a1a1a1']);
+  const fb = t.call('cueIcPick_', 30, 6, 'launch nobody').result; assert.strictEqual(fb.length, 1, JSON.stringify(fb)); assert.ok(fb[0].text && !fb[0].error, JSON.stringify(fb[0]));
+  assert.ok(/launch nobody newer_than:30d/.test(t.log.inboxQ), t.log.inboxQ);
+});
