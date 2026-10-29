@@ -32,7 +32,7 @@ already approved, and start at the first one he has not. Never re-ask an answere
 
 ## Always, in every phase
 
-- Every question to Kiko goes through `ask-kiko` (question card, Questions panel). Never bury a question in a long reply.
+- Every question to Kiko goes through `ask-kiko` (question card at the end of the reply). Never bury a question in a long reply.
 - After each phase, run `stage-gate`. A **Stopped** gate means the next phase does not start.
 - Every output is written to the Feature Board, `work-board.md`, the spec file or `docs/`, never only to chat.
 
