@@ -629,7 +629,7 @@ const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0 && cueCheckMine_(x)); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   // PC check 25 Oct 01:51Z: a number (a year like 2026, a date, an amount) never ties a message to a task.

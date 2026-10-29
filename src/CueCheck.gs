@@ -22,7 +22,8 @@ const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove
   'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusPreview', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_',
-  'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck'];   // cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
+  'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck', 'cueIcPick_', 'cueIcStart_', 'cueIcDeep_'];   // cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
+// cueIc*_ (CueIntakeCheck.gs): the intake-real check picks real inquiries, starts intake on them, and runs phases 2 to 4 with nothing written.
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueFunnelTaskDone', 'cueBidsStartIntake', 'cueBidsDecide', 'cueBidsClarifySend', 'cueBidsClarifyCancel', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
@@ -32,11 +33,13 @@ const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'c
 const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
 const CUE_CHECK_READS_ = ['inbox_new', 'search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
-  'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel', 'crm_report',
+  'list_unsigned_docs', 'help_qa', 'client_check', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel', 'crm_report',
   'bi_list', 'allow_list', 'read_rows', 'rfp_outbox', 'client_status'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); client_status: the Friday status emails, read only (CueStatus.gs); write_rows and allow_list_set name no project, so a check stops them
 
 const cueCheckTag_ = () => String(CUE_CHECK_FP_).slice(0, 12);
 const cueCheckOn_ = () => !!globalThis.CUE_CHECK_ON_;
+/** In a check, only the check's own tasks (a check's message never joins or reopens one of Kiko's threads). Always true outside a check. */
+const cueCheckMine_ = x => !cueCheckOn_() || !!(x && x.check === cueCheckTag_());
 
 /** The door (doPost on the check version). q = { action, key, fn?, args? }. */
 function cueCheckDoor_(q) {
