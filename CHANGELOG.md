@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.68: two CRM bug fixes (not deployed)
+## Cue 1.27.68: three bug fixes: CRM funnel, CRM timer, PhilGEPS bids (not deployed)
 
 Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko asked for at 09:28Z: "Fix the two bugs now".
 
@@ -14,8 +14,17 @@ Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko
   the CRM work. A new "CRM work" job in the 5-minute tick (`CueCrmTick.gs`) now calls `crm_tick` every 15 minutes from Kiko's
   account. Canvas then retires info@'s trigger, and falls back to it if Cue stops calling for 40 minutes. A failure is a Failed
   row in Job Runs and is tried again 15 minutes later. No AI call, no email, no new trigger, and a cloud check never calls it.
-- No new rule: both fixes use bridge actions and limits Kiko already approved. Needs Canvas V329 or later (live is V342).
-- Tests: 478 (3 new in `test/features/60-crm-fixes.js`; FN1, FN3 and FN4 now expect Canvas's numbers).
+- **The daily bid check never opened a PhilGEPS notice** (issue #221). Kiko, 29 Oct 09:44Z: "i havent received notif for any new
+  bid opportunities for how many days now". The check asked ChatGPT to look at the public PhilGEPS notices site, but ChatGPT only
+  saw its category index and still logged the source as Checked every day. A read in Kiko's Chrome that morning found 50 open
+  notices there that pass his screen. Cue's own code now reads the open lists of four event categories (Events Management, Audio
+  and Visual Equipment, Catering Services, Printing Services) and each notice's page once, for the ABC, area and closing time
+  (`CueBidsPhilgeps.gs`, hidden "PhilGEPS notices" tab). The notices then go through the same screen and dedupe as before. No AI
+  call; reads are paced and capped at two minutes per run, and the rest carries on at the next resume. The signed-in Bulletin Board
+  still needs a login and stays Blocked.
+- No new rule: the fixes use bridge actions, limits and a bid screen Kiko already approved. Needs Canvas V329 or later (live is V342).
+- Tests: 481 (3 new in `test/features/60-crm-fixes.js`, 3 in `test/features/61-bids-philgeps.js`; FN1, FN3 and FN4 now expect
+  Canvas's numbers).
 
 ## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (live as Version 149, 29 Oct 09:30Z, rollback 147)
 

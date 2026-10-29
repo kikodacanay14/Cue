@@ -137,6 +137,12 @@ function sandbox(o = {}) {
   const route = req => {
     const u = req.url, body = typeof req.payload === 'string' && /^[{\[]/.test(req.payload) ? JSON.parse(req.payload) : null;
     if (o.web) { const w = o.web(req); if (w) return w; }   // agency sites (bid documents, CueBids.gs 1.27.10)
+    if (u.indexOf('https://notices.philgeps.gov.ph/') === 0) {   // the public PhilGEPS lists Cue reads itself (CueBidsPhilgeps.gs); empty unless a test sets o.philgeps
+      (log.philgeps = log.philgeps || []).push({ url: u, method: req.method || 'get', target: req.payload && req.payload.__EVENTTARGET || '' });
+      const t = o.philgeps ? o.philgeps(req) : '<html><form><input type="hidden" name="__VIEWSTATE" value="vs"></form><table id="dgSearchResult"></table></html>';
+      const code = typeof t === 'number' ? t : 200, txt = typeof t === 'number' ? '' : t;
+      return { getResponseCode: () => code, getContent: () => Array.from(Buffer.from(txt)), getContentText: () => txt };
+    }
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();

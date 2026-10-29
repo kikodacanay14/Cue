@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 63 server files, 1232 top-level names, 32 task kinds, 30 word checks before the
+Counts: 64 server files, 1246 top-level names, 32 task kinds, 30 word checks before the
 chat call, 11 background jobs in the 5-minute trigger, 78 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -122,13 +122,14 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 55 | 41 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 56 | 41 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 10 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send` |  | 0 | 0 | 2 | 5 |
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 32 | 3 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 6 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
-| `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 6 | 6 |
+| `CueBids.gs` |  | Bid documents, Requests | 3 | 0 | 7 | 7 |
+| `CueBidsPhilgeps.gs` |  |  | 0 | 0 | 1 | 3 |
 | `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 36 | 3 |
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 12 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
@@ -176,7 +177,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepSignature.gs` | `list_unsigned_docs`, `send_doc_reminder` |  | 0 | 0 | 0 | 4 |
 | `CueTeach.gs` |  | Memory, Requests, Workflows | 0 | 3 | 6 | 8 |
-| `CueText.gs` |  |  | 0 | 0 | 48 | 0 |
+| `CueText.gs` |  |  | 0 | 0 | 49 | 0 |
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueToday.gs` |  | Requests | 0 | 0 | 1 | 3 |
 | `CueTri.gs` | `add_tri_items` | Requests | 0 | 0 | 2 | 4 |
@@ -192,14 +193,14 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueNow_` | `Cue.gs` | 48 |
-| `cueStr_` | `CueText.gs` | 47 |
+| `cueNow_` | `Cue.gs` | 49 |
+| `cueStr_` | `CueText.gs` | 48 |
 | `cueChat_` | `Cue.gs` | 38 |
 | `cueBridge_` | `CueBridge.gs` | 32 |
 | `cueLocked_` | `Cue.gs` | 32 |
 | `cueSheet_` | `Cue.gs` | 31 |
+| `cueProp_` | `Cue.gs` | 30 |
 | `cueLoad_` | `Cue.gs` | 29 |
-| `cueProp_` | `Cue.gs` | 29 |
 | `cueSave_` | `Cue.gs` | 28 |
 | `cueAiAll_` | `CueAi.gs` | 27 |
 | `cueOwner_` | `Cue.gs` | 26 |

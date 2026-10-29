@@ -125,13 +125,15 @@ function cueBidsTidyAll_() {
   return days.length;
 }
 
-/** Advances a bid check from wherever it stopped. Searching, Checking, Reading (Cue opens the documents), Writing. Each stage saves,
+/** Advances a bid check from wherever it stopped. Searching, Reading PhilGEPS, Checking, Reading (Cue opens the documents), Writing. Each stage saves,
  * so a run cut off by Apps Script's 6-minute limit carries on at the next 5-minute resume. */
 function cueBidsRun_(s, save) {
   const t0 = cueNow_();
   // The 3 web searches can take minutes: hold the lease past Apps Script's 6-minute limit so the 5-minute resume never starts a second run (PC test 19:23Z).
   if (s.stage === 'Searching') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); }
   if (s.stage === 'Searching') { cueBidsSearch_(s); save(); }
+  // CUE-BIDS-PHILGEPS-2026-10-29: Cue's own read of the public PhilGEPS lists (CueBidsPhilgeps.gs); it carries on at the next resume when time runs out.
+  if (s.stage === 'Reading PhilGEPS') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); cueBidsPg_(s, save); save(); }
   if (s.stage === 'Checking') { cueBidsCheck_(s); save(); }
   if (s.stage === 'Reading') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); cueBidsRead_(s, save, t0); save(); }
   if (s.stage === 'Writing') { cueBidsFinish_(s); save(); }
@@ -193,7 +195,7 @@ function cueBidsSearch_(s) {
     (r.data.items || []).slice(0, 40).forEach(x => B.raw.push(x));
   });
   if (res.every(r => !r.ok)) throw new Error('ChatGPT could not run the search: ' + res[0].error);
-  s.stage = 'Checking';
+  s.stage = 'Reading PhilGEPS';
 }
 
 /** Earlier notices still open (spec bid-card-v2 rule 3): in the sheet, Intake?? blank, a real notice, not cancelled, and the deadline later
