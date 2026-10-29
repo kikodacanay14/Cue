@@ -636,8 +636,8 @@
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
-      else if (r.kind === 'newmail' && r.nm) h += nmCardHtml(r);
-      else if (r.kind === 'accred' && r.acc) h += acCardHtml(r);   // CueAccred.gs: one card per company, in every state   // New mail (CueNewMail.gs): one card per day, in every state
+      else if (r.kind === 'newmail' && r.nm) h += nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
+      else if (r.kind === 'accred' && r.acc) h += acCardHtml(r);   // CueAccred.gs: one card per company, in every state
       else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
