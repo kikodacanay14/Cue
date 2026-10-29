@@ -104,6 +104,8 @@
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
     if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
+    if (sec === 'triage') loadTriage();
+    if (sec === 'rn') loadRn();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -159,7 +161,7 @@
   $('w-sched').addEventListener('click', function (e) {
     var b = e.target.closest('[data-sc-act]'); if (!b) return;
     var act = b.getAttribute('data-sc-act'), id = b.getAttribute('data-id'), x = (schedList || []).filter(function (y) { return y.id === id; })[0] || {};
-    if (act === 'open') { $('settings').hidden = true; return goThread(rootOf(id, byId())); }
+    if (act === 'open') { $('settings').hidden = true; document.body.classList.add('admin-chat'); return goThread(rootOf(id, byId())); }   // on Cue Admin the chat shows under it; Settings brings the page back
     if (act === 'run') return ask('Run "' + x.name + '" now?', 'It starts the same task as at its time. Nothing sends without your Approve.', null, 'Run now',
       function () { b.disabled = true; call('cueSchedRunNow', [id], function (r) { schedDone(r); refresh(); }, schedFail); });
     if (act === 'edit') return ask('New time for "' + x.name + '"', 'Now: ' + x.when + ' (Manila). Say the days and time.', 'e.g. weekdays 8am, every Tue 9am, 15th of the month 4pm', 'Save',
@@ -167,10 +169,51 @@
     if (act === 'del') return ask('Delete "' + x.name + '"?', 'It stops running. Tasks it already started stay.', null, 'Delete',
       function () { b.disabled = true; call('cueSchedDelete', [id], schedDone, schedFail); });
   });
-  $('avatar').onclick = function () { settingsOpen(); };
-  $('settings-x').onclick = function () { $('settings').hidden = true; $('avatar').focus(); };
+  // ---- Cue Admin (CUE-ADMIN-2026-10-29, Kiko 29 Oct 02:13Z-02:42Z, Epic Cue #193): ?view=admin shows these sections as one full page
+  // in Canvas's look. The chat's Settings button opens it in a new tab (story #197); without the page address it opens the sections here. ----
+  var adminView = false;
+  function appUrl() { var u = (state && state.app_url) || ''; return /^https:\/\//.test(u) ? u : ''; }
+  var triageList = null, triageErr = '', rnList = null, rnErr = '';
+  var TRIAGE_WORD = { mute: 'Mute', keep: 'Keep', no_inquiry: 'No inquiry' };
+  function loadTriage() { call('cueAdminTriage', [], function (r) { triageList = r; triageErr = ''; renderTriage(); }, function (e) { triageErr = (e && e.message) || String(e); renderTriage(); }); }
+  function renderTriage() {
+    var L = triageList || [];
+    setHtml($('w-triage'), '<div class="small muted" style="margin-bottom:10px">Senders Cue mutes, always keeps, or treats as not an inquiry in New mail. Set from the inbox lines; Remove takes one off.</div>'
+      + (triageErr ? '<div class="err">' + esc(triageErr) + '</div>' : '') + (triageList ? '' : '<div class="small muted">Loading…</div>')
+      + (triageList && !L.length ? '<div class="card small muted">No triage rules yet.</div>' : '')
+      + L.map(function (x) {
+        return '<div class="card arow"><div style="flex:1;min-width:0"><b>' + esc(x.sender) + '</b><div class="small muted">' + esc(TRIAGE_WORD[x.rule] || x.rule) + (x.set ? ' · ' + esc(x.set) : '') + (x.why ? ' · "' + esc(x.why) + '"' : '') + '</div></div>'
+          + '<span class="apill">' + esc(TRIAGE_WORD[x.rule] || x.rule) + '</span><button class="btn ghost" data-tr-del="' + esc(x.key) + '" data-tr-who="' + esc(x.sender) + '">Remove</button></div>';
+      }).join(''));
+  }
+  $('w-triage').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tr-del]'); if (!b) return;
+    ask('Remove the rule for ' + b.getAttribute('data-tr-who') + '?', 'New mail treats this sender as it does any other from the next check.', null, 'Remove',
+      function () { b.disabled = true; call('cueAdminTriageDel', [b.getAttribute('data-tr-del')], function (r) { triageList = r; triageErr = ''; $('w-triage')._h = null; renderTriage(); },
+        function (er) { triageErr = (er && er.message) || String(er); $('w-triage')._h = null; renderTriage(); }); });
+  });
+  function loadRn() { call('cueAdminRelnotes', [], function (r) { rnList = r; rnErr = ''; renderRn(); }, function (e) { rnErr = (e && e.message) || String(e); renderRn(); }); }
+  function renderRn() {
+    var L = rnList || [];
+    setHtml($('w-rn'), '<div class="small muted" style="margin-bottom:10px">What the daily release notes posted to staff or skipped, newest first. The 7:45 PM run and its Run now are under <button class="link" data-rn-sched="1">Scheduled tasks</button>.</div>'
+      + (rnErr ? '<div class="err">' + esc(rnErr) + '</div>' : '') + (rnList ? '' : '<div class="small muted">Loading…</div>')
+      + (rnList && !L.length ? '<div class="card small muted">No release notes yet.</div>' : '')
+      + L.map(function (x) {
+        return '<div class="card arow"><div style="flex:1;min-width:0"><b>' + esc(x.release) + '</b><div class="small muted">' + esc(x.app) + (x.day ? ' · ' + esc(x.day) : '') + (x.ann ? ' · ' + esc(x.ann) : '') + '</div></div>'
+          + (x.outcome ? '<span class="apill">' + esc(x.outcome) + '</span>' : '') + '</div>';
+      }).join(''));
+  }
+  $('w-rn').addEventListener('click', function (e) { if (e.target.closest('[data-rn-sched]')) settingsTab('sched'); });
+  function closeSettings() { if (adminView) return; $('settings').hidden = true; $('avatar').focus(); }
+  $('avatar').onclick = function () { if (appUrl() && !adminView) window.open(appUrl() + '?view=admin', '_blank', 'noopener'); else { document.body.classList.remove('admin-chat'); settingsOpen(); } };
+  $('settings-x').onclick = closeSettings;
   $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) { $('settings').hidden = true; $('avatar').focus(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
+  function adminOpen() {
+    adminView = true; document.body.classList.add('admin-page'); $('settings-t').textContent = 'Cue Admin'; $('settings-x').hidden = true; settingsOpen();
+    (function link() { if (appUrl()) { $('admin-chat').href = appUrl(); $('admin-chat').hidden = false; } else setTimeout(link, 1000); })();
+  }
+  try { google.script.url.getLocation(function (l) { if (l && l.parameter && l.parameter.view === 'admin') adminOpen(); }); } catch (e) {}
 
   // ---- AI usage and cost (Kiko 19:25Z, spec usage-cost.md): read from the AI Runs log, priced from an editable table. No AI call. ----
   var usage = null, usageMonth = '';

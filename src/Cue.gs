@@ -32,7 +32,9 @@ function doGet(e) {
   cueOwner_();
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
-  const out = HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Cue')   // joined from its parts (cueInclude_)
+  const page = HtmlService.createTemplateFromFile('Index');
+  page.view = q.view === 'admin' ? 'admin' : '';   // CUE-ADMIN-2026-10-29 (Epic Cue #193): ?view=admin is Cue Admin, the Settings sections as one page
+  const out = page.evaluate().setTitle(page.view ? 'Cue Admin' : 'Cue')   // joined from its parts (cueInclude_)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
   try { const u = cueIconUrl_(); if (u) out.setFaviconUrl(u); } catch (e) { console.warn('Cue icon: ' + e); }   // the icon never blocks Cue
   return out;
@@ -892,7 +894,7 @@ function cueState() {
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
-  return { version: CUE_VERSION_, requests: list, chat, batches, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, chat, batches, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 
