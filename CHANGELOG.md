@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.76: Back to Team Cue button inside Canvas (not deployed)
+
+Asked by Kiko on 29 Oct 2026 at 15:59Z: "can there be a button in Ask Cue that switches me back the other chat". At 15:56Z he
+also said Ask Cue keeps its own threads ("Ask Cue can still have its own threads like Job reports, Project Intake, actually CRMs,
+chasers and other CRM related can be in Ask Cue"), so the dropped builds 1.27.74 (no daily tasks-waiting list) and 1.27.75 (Ask
+Cue's list moved into the Canvas panel) are not in this release. Built on 1.27.72.
+
+- **Back to Team Cue.** When Ask Cue is open inside Canvas, its header shows a "Back to Team Cue" button. It asks Canvas
+  (`{canvasWs:'cueBack'}`) to close Ask Cue and open the Team Cue panel; Canvas needs its matching release (CanvasWorkspace PR
+  #338). Cue opened on its own never shows the button.
+- Tests: 502, all passing (`test/features/64-team-cue-back.js`, TCB1).
+
 ## Cue 1.27.72: RFQ drafts say TBC for blank event details (not deployed)
 
 Backlog card intake-real-check (High, 29 Oct 2026): intake was built but had never run on real inquiries. The coordinator asked
