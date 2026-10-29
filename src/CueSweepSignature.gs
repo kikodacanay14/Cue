@@ -8,7 +8,7 @@
  * - Drafts only puts the reminder in Kiko's own Gmail Drafts (freelancers@ lives in info@, which Cue can't draft in).
  * - The file name sorts after CueSweep.gs on purpose: Apps Script runs files in order, and cueKind_ must exist first. */
 
-const CUE_SIGN_ = { closed: /cancel|not awarded|dropped|void|lost/i, from: 'Blank Space Events – Freelancers' };
+const CUE_SIGN_ = { closed: /cancel|not awarded|dropped|void|lost/i, from: 'Blank Space Events · Freelancers' }; // VOICE-2026-10-29: the guide's sign-off
 
 /** find(ctx): one item per freelancer whose unsigned FSAs or ARs are due today. */
 function cueSignFind_(ctx) {
@@ -61,8 +61,8 @@ function cueSignTemplate_(it) {
     (again ? 'Following up on our earlier reminder: your ' : 'Thank you for working with us. Your ') + cueSignList_(docs)
       + (docs.length > 1 ? ' are' : ' is') + ' still waiting for your signature.', '',
     'You can sign ' + (docs.length > 1 ? 'them' : 'it') + ' in Canvas' + (it.sign_url ? ': ' + it.sign_url : '') + ' (sign in with your mobile number or email).',
-    again ? 'Please sign as soon as you can so we can close the project.' : '', '',
-    'Thank you!', CUE_SIGN_.from].filter((x, i, a) => x || a[i - 1] !== '').join('\n');
+    again ? 'Please sign as soon as you can so we can close our records for ' + it.project + '.' : '', '', // VOICE-2026-10-29: "event" language, no "!"
+    'Thank you,', CUE_SIGN_.from].filter((x, i, a) => x || a[i - 1] !== '').join('\n');
   return { subject: (again ? 'Reminder: ' : '') + 'Please sign your ' + what + ' · ' + it.project, body };
 }
 

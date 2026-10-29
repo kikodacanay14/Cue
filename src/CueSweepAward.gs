@@ -101,7 +101,7 @@ function cueAwardItem_(p, th, L, today, own, rule) {
 function cueAwardTemplate_(it) {
   const f = it.facts || {}, first = String(it.who || '').split(/[\s@]/)[0] || 'there', n = Number(f.chaser_number) || 1;
   const ask = n === 1 ? 'I\'m following up on the cost estimate we sent for ' + it.project + '. Have you had a chance to review it? If anything needs to change, we\'re happy to revise it.'
-    : 'Just checking in again on the cost estimate for ' + it.project + '. Could you let us know where the decision stands, or whether anything in the CE should change?';
+    : 'Checking in again on the cost estimate for ' + it.project + '. Could you let us know where your decision stands, or whether anything in it should change?'; // VOICE-2026-10-29
   return { subject: 'Following up: cost estimate for ' + it.project, body: 'Hi ' + first + ',\n\n' + ask + (f.event_date ? ' The event is on ' + f.event_date + '.' : '') + '\n\nThank you,\nKiko\nBlank Space Events' };
 }
 

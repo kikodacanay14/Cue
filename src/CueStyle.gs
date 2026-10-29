@@ -53,19 +53,31 @@ function cueStyleRows_() {
   } catch (e) { console.warn('Style guide: ' + e); return []; }
 }
 
-/** Text added to a drafting call's instructions. aud 'supplier', 'client' or 'team'; 'any' takes every audience, labelled.
- * Empty when there is no guide, so the call is exactly what it was before. */
+/* VOICE-2026-10-29 (Kiko 29 Oct 08:24Z, "BSE guide first, then my style"): every drafting call gets the Blank Space Events brand
+ * voice first (guide approved 29 Oct 08:05Z, project files .claude/brand-voice-guidelines.md). The Style tab then sets only the
+ * greeting and the sign-off, never Taglish or emoji. */
+const CUE_VOICE_ = '\n\nWrite in the Blank Space Events brand voice: fun yet formal, warm and clear, in English only (no Taglish and no Filipino words). '
+  + 'Open with "Hi" and the first name, and put the point or the ask in the first two lines. One main ask, short paragraphs, "we" and "you". '
+  + 'Call the event by its name; to clients and crew say "event", never "project". Thank suppliers and crew for their work. '
+  + 'At most one exclamation mark per email, and none in payment, legal or complaint emails. No emoji. '
+  + 'Write money as ₱12,500.00, dates as 14 Nov 2026 or Friday, 14 Nov, and times as 6:00 AM. Use contractions in client and crew emails, '
+  + 'but spell words out in payment, contract and accreditation emails. Never write "kindly", "please be advised", "revert" or "do the needful". '
+  + 'Close with "Thank you," and then the sign-off.';
+const CUE_STYLE_VOICE_KINDS_ = ['greeting', 'sign-off'];
+
+/** Text added to a drafting call's instructions: the brand voice, then the Style tab's greeting and sign-off lines.
+ * aud 'supplier', 'client' or 'team'; 'any' takes every audience, labelled. */
 function cueStyleFor_(aud) {
-  const rows = cueStyleRows_().filter(r => aud === 'any' || r.audience === 'all' || r.audience === aud);
-  if (!rows.length) return '';
+  const rows = cueStyleRows_().filter(r => CUE_STYLE_VOICE_KINDS_.indexOf(r.kind) >= 0 && (aud === 'any' || r.audience === 'all' || r.audience === aud));
+  if (!rows.length) return CUE_VOICE_;
   let out = '', i = 0;
   for (; i < rows.length; i++) {
     const r = rows[i], line = '\n- ' + (r.kind === 'example' ? 'Example' : r.kind) + (aud === 'any' && r.audience !== 'all' ? ' (for ' + r.audience + 's)' : '') + ': ' + r.text;
     if (out.length + line.length > CUE_STYLE_MAX_.prompt) break;
     out += line;
   }
-  return '\n\nWrite in Kiko\'s own style. Kiko wrote and approved this guide; follow it for tone, wording, greeting and sign-off. '
-    + 'The rules above still win on facts, what to include and what to leave out, and examples show the voice only, never content to copy:' + out;
+  return CUE_VOICE_ + '\n\nTake the greeting and sign-off from Kiko\'s own style lines below, in English and without emoji. '
+    + 'The rules above still win on facts, what to include and what to leave out:' + out;
 }
 
 /** The sign-off for an audience: its own sign-off line, else the guide's general one, else CUE_SIGNOFF as before. */
