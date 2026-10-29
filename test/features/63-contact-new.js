@@ -100,7 +100,7 @@ test('CN2 Skip page adds nobody; a Canvas refusal puts the people back for the n
   deq(cnRows(t).map(r => r[1]).slice(0, 5), ['New', 'New', 'Known', 'Known', 'New']);
   t.ctx.cueCnTick_(); assert.strictEqual(t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length, 2, 'the same people on a new card');
   t = cnBox({ listFail: true });
-  assert.throws(() => t.ctx.cueCnTick_(), /Gmail did not list messages/);
+  assert.throws(() => t.ctx.cueCnTick_(), /Gmail did not list messages \(HTTP 500/);
   const st = JSON.parse(t.props.CUE_CN_STATE); assert.strictEqual(st.done, false); assert.strictEqual(st.kind, 'rewind'); assert.ok(!cnCard(t));
 });
 test('CN3 after the rewind, a weekly window: mail since the last window, a week later; nothing in between', () => {
