@@ -29,7 +29,7 @@ test('FP1 P stages counted as the dashboard does: companies per P0 to P9, contac
   assert.strictEqual(ctx.cueFunnelP_([], '2026-10-29').total, 0);
 });
 
-test('FP2 the funnel run reads the P0 tab once through Canvas\'s read_rows: card, line and Today row lead with the P stages; nothing is written', () => {
+test('FP2 the funnel run reads the P0 tab once through Canvas\'s read_rows: the update lines, its Today row and its chat post; nothing is written', () => {
   const { t, id, v } = fnRun({ allow: FP_ALLOW });
   assert.strictEqual(v.status, 'Needs you', v.error); deq(v.notes || [], []);
   deq(t.log.readRows.filter(a => a.tab === 'P0').length, 1, 'one P0 read: ' + JSON.stringify(t.log.readRows)); assert.strictEqual(t.log.funnel, 1);
@@ -38,8 +38,13 @@ test('FP2 the funnel run reads the P0 tab once through Canvas\'s read_rows: card
   deq([v.fn.p.due, v.fn.p.outreach, v.fn.p.p4, v.fn.p.risk], [1, 14, 1, 1]);
   assert.strictEqual(v.fn.line, 'P0 2 · P1 2 · P2 2 · P3 1 · P4 1 · P6 1 · P7 1 · P9 1 · deals: 4 Inquiry (1 stuck) · 1 CE sent · 1 Won · 2 Paid');
   assert.strictEqual(v.fn.title, 'Sales funnel');
+  // CRM-UPDATES-2026-10-29: the first run has nothing to compare, so it gives the due and award lines.
+  deq(v.fn.lines, ['1 follow-up email due (P1 and P2, 3 business days with no reply).', '1 deal waiting for award.', '1 project at risk or escalated: Account F (P9).']);
   const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
-  deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].thread], ['Sales funnel · from Canvas', '1 follow-up email due · 1 deal waiting for award', id + '#fn-' + id]);
+  deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].detail, T.rows[0].button, T.rows[0].thread], ['Sales update · from Canvas Accounts', '1 follow-up email due (P1 and P2, 3 business days with no reply)',
+    '1 deal waiting for award. 1 project at risk or escalated: Account F (P9).', 'Open update', id + '#fn-' + id]);
+  assert.ok(/\/exec\?page=clientdesk$/.test(v.fn.accounts_url), v.fn.accounts_url);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Sales update: 1 follow-up email due \(P1 and P2, 3 business days with no reply\)\. 2 more below\.$/.test(x[2])), 'the update is posted in its thread');
   assert.strictEqual(T.rows[1].eyebrow, 'HubSpot tasks · yours', 'HubSpot tasks are kept');
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /P0 to P9 accounts/.test(x[2])));
 });
@@ -54,11 +59,11 @@ test('FP3 an unreadable P0 tab is a note; the deal track and HubSpot tasks still
   assert.ok(t.log.readRows.some(a => a.tab === 'P0'));
 });
 
-test('FP4 the page draws the dashboard cards, the P0 to P9 bars with the standard label, then the deals under P6 and P7', () => {
+test('FP4 the page draws an update: plain lines and Open Accounts in Canvas, never the dashboard', () => {
   const html = cuePage(), card = html.slice(html.indexOf('function funnelCardHtml(r, only)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
-  ['In outreach', 'Follow-up emails due', 'Accreditations open', 'Projects at risk', 'Follow-ups due', 'Accounts by P stage', 'Deals · P6 and P7'].forEach(w => assert.ok(card.indexOf(w) >= 0, w));
-  assert.ok(/<span class="tag" style="flex:0 0 40px;justify-content:center;box-sizing:border-box">' \+ esc\(x\.p\)/.test(card), 'the stage code is the standard .tag label');
-  assert.ok(/text-align:center"><b style="font-size:18px;font-variant-numeric:tabular-nums">/.test(card), 'numbers centred, tabular');
+  // CRM-UPDATES-2026-10-29 (Kiko 16:13Z): updates, not a dashboard: plain lines and a link to Accounts, no cards, bars or tables.
+  ['Sales update · from Canvas Accounts', 'Open Accounts in Canvas', 'F.lines'].forEach(w => assert.ok(card.indexOf(w) >= 0, w));
+  ['In outreach', 'Accounts by P stage', 'Deals · P6 and P7', '<table'].forEach(w => assert.ok(card.indexOf(w) < 0, w));
 });
 
 test('FP5 the Monday review gives ChatGPT the P stages and the dashboard counts, never a client email', () => {
@@ -70,4 +75,20 @@ test('FP5 the Monday review gives ChatGPT the P stages and the dashboard counts,
   deq(data.p_stages.map(x => [x.stage, x.companies]).slice(0, 3), [['P0', 2], ['P1', 2], ['P2', 2]]);
   deq(data.dashboard, { contacts_in_outreach: 14, follow_up_emails_due: 1, accreditations_open: 1, projects_at_risk: 1 });
   assert.ok(/P0 to P9 stage/.test(t.log.gpt[0].instructions || JSON.stringify(t.log.gpt[0])));
+});
+
+test('FP6 the next run says what moved since the last one, and new companies on the list', () => {
+  const { t, v } = fnRun({ allow: FP_ALLOW });
+  const rows = FP_ROWS.map(r => Object.assign({}, r));
+  rows.find(r => r.Company === 'VXI').Priority = 'P4'; rows.find(r => r.Company === 'QBE').Priority = 'P3';
+  rows.push({ _row: 18, Priority: 'P0', Company: 'Grab', 'Contact Count': '0', 'Last Outreach Date': '', 'Reply Status': '' });
+  FP_ALLOW[0].rows = rows;
+  try {
+    t.ctx.__wait(864e5); const id2 = t.ctx.cueSend('show the funnel').request_id, v2 = t.ctx.cueRun(id2);
+    deq(v2.fn.lines.slice(0, 2), ['2 companies moved: VXI P1 to P4, QBE P2 to P3.', '1 new company on the list: Grab (P0).']);
+    assert.ok(v.fn.lines.every(x => !/moved/.test(x)), 'the first run has nothing to compare');
+  } finally { FP_ALLOW[0].rows = FP_ROWS; }
+  const { ctx } = sandbox();
+  deq(ctx.cueFunnelUpdate_({ moves: [], wait: {} }), ['No P stage changes since the last update.']);
+  deq(ctx.cueFunnelUpdate_({ wait: {} }), ['Nothing new in Accounts today.']);
 });

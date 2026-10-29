@@ -1,22 +1,23 @@
 # Changelog
 
-## Cue 1.27.x: the Sales funnel matches Canvas's CRM dashboard (not deployed; the deploys thread sets the number)
+## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
 
-Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". The latest CRM
-work is the P0 to P9 stages, the Accounts dashboard Kiko approved on 29 Oct at 11:39Z, the funnel clean-up and the automatic P
-moves. Ask Cue's Sales funnel still showed only Canvas's deal steps (Inquiry to Paid) and HubSpot tasks.
+Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put
+Canvas's Accounts dashboard into the card; Kiko then said at 16:13Z "it has to be able to give updates not a dashboard. you cant
+fit a dashboard in a chat window", and "yes." at 16:14Z to: what moved since yesterday, what is due today, and a link to Accounts.
 
-- **The 7:00 Sales funnel card leads with the dashboard.** Cue reads the P0 tab (through Canvas's `read_rows` when it is
-  allow-listed, else directly) and counts it the way Canvas's Accounts dashboard does: companies per P0 to P9 stage, contacts
-  for P1 to P3, contacts in outreach (P1 and P2), follow-up emails due (P1 and P2, 3 business days since the last email and no
-  reply, Kiko's rule), accreditations open (P4), projects at risk (P8 and P9) and Canvas follow-ups due by tomorrow.
-- **The deal track stays, under P6 and P7.** Inquiry, CE sent, Won, Delivered and Paid keep their bars and stuck counts.
-- **The Today row** now reads "N follow-up emails due · N deals waiting for award" (or the contacts in outreach when none are due).
-- **The Monday sales funnel review** gives ChatGPT the P stage counts and the dashboard numbers too, so its lines cover where
-  accounts stall between P stages as well as where deals leak.
-- **HubSpot tasks are kept** as they were (Kiko moved "updating of my tasks" into Ask Cue on 29 Oct at 15:58Z).
+- **The 7:00 Sales funnel run is now a sales update.** Cue reads the P0 tab (through Canvas's `read_rows` when it is
+  allow-listed, else directly) and keeps each company's P stage. It compares them with the last run and writes a few plain lines:
+  which companies moved (for example "VXI P1 to P4") and which are new on the list, follow-up emails due (P1 and P2, 3 business
+  days since the last email and no reply, the rule Canvas's dashboard uses), Canvas follow-ups due by tomorrow, deals waiting for
+  award and deals gone quiet, and projects at risk or escalated (P8 and P9).
+- **No dashboard in the chat.** The thread shows the lines and an **Open Accounts in Canvas** button. The bars, cards and counts
+  stay on Canvas's Accounts dashboard. The thread's message carries only the first line, so nothing shows twice.
+- **The Today row** is the update: its first line as the title and the next two as the detail, with Open update.
+- **The Monday sales funnel review** gives ChatGPT the P stage counts as well.
+- **HubSpot tasks are kept** as they were.
 - Names: the Scheduled tasks row is "Sales funnel"; Cue Admin's description says what it reads now.
-- Nothing is written to Canvas or HubSpot by the read. No AI call on the card. Tests: 491 (5 new, FP1 to FP5).
+- Nothing is written to Canvas or HubSpot. No AI call on the update. Tests: 492 (6 new, FP1 to FP6).
 
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (not deployed)
 

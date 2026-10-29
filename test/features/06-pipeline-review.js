@@ -120,7 +120,8 @@ test('FN2 funnel counts: no stage is listed by name; empty open stages stay at 0
 test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) pointing at its thread; a newer run closes the older one', () => {
   const { t, id, v } = fnRun();
   const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
-  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from Canvas', '1 deal waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', 'hst:' + id]]);
+  // CRM-UPDATES-2026-10-29: the funnel row is now the sales update (its first line as the title).
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales update · from Canvas Accounts', '1 deal waiting for award', 'Open update', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', 'hst:' + id]]);
   assert.ok(T.rows.every(r => r.thread.length <= 120), 'Canvas cuts a thread id at 120 characters');
   assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
