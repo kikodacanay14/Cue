@@ -18,6 +18,11 @@ Kiko asked on 29 Oct 2026 at 03:17Z, 03:19Z and 03:21Z. Epic Cue #193, stories #
   app-notice icons on Auto-send, Chaser rules and Jobs › Chasers; a Scheduled task card opens to show what each Follows item means,
   who asked for it, and how to change its time (Change time); AI relay's description moved to a ? hover, and each switch says what it
   does ("Notes wait for my Pass on": a note waits in Cue until you tap Pass on or Drop).
+- Round 4 (Kiko 03:35Z and 03:38Z): Jobs › Chasers drops the list of chases (they come to Kiko in the morning batch) and shows
+  each chaser's email template with the variables highlighted; Chaser rules says who each chaser goes to and opens by default on
+  Cue Admin; Auto-send rows show templates with highlighted variables and ticks for where each one goes today (read only);
+  descriptions are 3 sizes smaller and 50% lighter; each scheduled task's Follows item says where to change it, and names its
+  spec; the AI relay ? box is smaller.
 - Nothing Cue does changes: the words describe the code as it is. `cueAdminChasers` is never run by a cloud check.
 - Tests: AD5 to AD7 added; 438 pass.
 
