@@ -446,7 +446,10 @@ function cueUnschedFind_() {
 function cueUnschedMuted_() { try { return JSON.parse(cueProp_('CUE_UNSCHED_MUTE', '[]')); } catch (e) { return []; } }
 /** Posts the card when something is found (or, from Run now, says all is scheduled). Returns how many items it listed. */
 function cueUnschedCheck_(manual) {
-  const mute = cueUnschedMuted_(), items = cueUnschedFind_().filter(x => mute.indexOf(x.key) < 0);
+  // 1.27.74 (Kiko 29 Oct 15:34Z "for Ask Cue. can you disable the updates that are already sent in the regular Cue?"): the card no
+  // longer lists waiting tasks. Each one is already its own Needs you thread (and Canvas shows it), so the list only repeated them.
+  // Scheduled tasks that will not run still show: nothing else says so.
+  const mute = cueUnschedMuted_(), items = cueUnschedFind_().filter(x => !x.task && mute.indexOf(x.key) < 0);
   if (!items.length) { if (manual) cueChat_('Cue', 'Unscheduled check: everything is scheduled.', ''); return 0; }
   const jobs = items.filter(x => !x.task), tasks = items.filter(x => x.task);
   const q = '⚠️ Unscheduled check: ' + items.length + ' to look at.'

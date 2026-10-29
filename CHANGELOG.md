@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.74: Ask Cue stops repeating waiting tasks in the main chat (not deployed)
+
+Asked by Kiko on 29 Oct 2026 at 15:34Z: "for Ask Cue. can you disable the updates that are already sent in the regular Cue?"
+Built on 1.27.72 (stacked on live 1.27.71). 1.27.73 is used by two other threads, so this is 1.27.74.
+
+- The daily Unscheduled check card no longer lists "Tasks waiting on you with no due date or reminder". Every one of those is
+  already its own Needs you thread (and shows in Canvas), so the list only repeated them in the main chat.
+- The card still lists scheduled tasks that will not run (switched off, missed, failed): nothing else says that.
+- The other repeats (New mail, sales reviews, Prospect follow-ups, FSAs and ARs) are not switched off here: Ask Cue is still the
+  only place they can be acted on. They move into the Canvas Cue panel with the "one Cue" merge (next release).
+- Tests: 501, all passing (SC8 updated).
+
 ## Cue 1.27.72: RFQ drafts say TBC for blank event details (not deployed)
 
 Backlog card intake-real-check (High, 29 Oct 2026): intake was built but had never run on real inquiries. The coordinator asked
