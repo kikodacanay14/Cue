@@ -165,7 +165,7 @@ function cueNmSortOpen_(now) { const h = cuePh_(now).hour; return h >= CUE_NM_.s
 
 /* RFQ-RFP-INTAKE (Kiko 29 Oct 2026 15:13Z, on an Emails waiting card for Moldex's "Request Quotation" email: "i dont think it sensed
  * that its for intake - keywords - Request for Quotation, Request for Proposal and variations of it"). A subject with one of these words
- * is a new inquiry, whatever the sort said, and Canvas's Emails waiting card for it offers Start intake (CueMailAlerts.gs writes rfq). */
+ * is a new inquiry, whatever the sort said (unless a known supplier sent it: Kiko 15:20Z "No, skip supplier replies"), and Canvas's Emails waiting card for it offers Start intake (CueMailAlerts.gs writes rfq). */
 const CUE_RFQ_RE_ = /\b(rf[qp]s?|request(?:ing|s)?\s+(?:for\s+)?(?:an?\s+)?(?:quotations?|quotes?|proposals?)|(?:quotations?|quotes?|proposals?)\s+requests?)\b/i;
 function cueRfqSubject_(subject) { return CUE_RFQ_RE_.test(String(subject || '')); }
 
@@ -188,15 +188,18 @@ function cueNmSort_(run) {
     L.s.nm.items.forEach(x => {
       const l = by[x.key]; if (!l || x.group !== 'new') return;
       x.group = l.group; x.summary = l.summary; x.urgent = !!l.urgent; x.why = l.why || ''; x.sorted = true;
-      if (x.group !== 'inquiry' && cueRfqSubject_(x.subject)) { x.group = 'inquiry'; x.why = 'the subject asks for a quotation or proposal'; }
-      if (x.group === 'skip') { x.removed = 'skip'; }
+      if (l.group === 'skip') { x.removed = 'skip'; }
     });
     cueNmKnown_(known, L.s.nm.items);
+    // RFQ-RFP-INTAKE: a sorted line whose subject asks for a quotation or proposal is a new inquiry, unless a known supplier sent it (Kiko's
+    // card answer 29 Oct 15:20Z: "No, skip supplier replies", since suppliers answering his RFQs keep the subject).
+    L.s.nm.items.forEach(x => { if (by[x.key] && x.sorted && x.group !== 'inquiry' && cueRfqSubject_(x.subject) && !(x.known && x.known.who === 'Supplier')) {
+      x.group = 'inquiry'; x.why = 'the subject asks for a quotation or proposal'; if (x.removed === 'skip') delete x.removed; } });
     (run.notes || []).forEach(n => { if (L.s.notes.indexOf(n) < 0) L.s.notes.push(n); });
     const m = L.s.metrics || (L.s.metrics = { ai_calls: 0, calls: [] }); m.ai_calls = (m.ai_calls || 0) + (run.metrics.ai_calls || 0);
     cueNmStatus_(L.s); cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  const c = {}; ask.forEach(l => { const g = l.group !== 'inquiry' && cueRfqSubject_(l.subject) ? 'inquiry' : l.group; c[g] = (c[g] || 0) + 1; });
+  const c = {}; s.nm.items.forEach(x => { if (by[x.key]) c[x.group] = (c[x.group] || 0) + 1; });
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
   if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);

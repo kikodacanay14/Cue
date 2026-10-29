@@ -28,3 +28,12 @@ test('RI4 Cue\'s page answers Canvas\'s Start intake: only from Canvas, only a G
   assert.ok(/d\.canvasWs === 'cueIntake' && e\.source === CUE_HOST\.canvas && \/\^\[0-9a-f\]\{6,32\}\$\/i\.test/.test(src), 'only Canvas, only a thread id');
   assert.ok(/function cueIntakeFrom\(tid\) \{\s*call\('cueTriageIntake', \[tid\]/.test(src) && /goThread\(r\.request_id\);\s*call\('cueRun', \[r\.request_id\]/.test(src));
 });
+test('RI5 a known supplier\'s reply to an RFQ stays as the sort put it (Kiko 15:20Z "No, skip supplier replies")', () => {
+  const box = NM_BOX.concat([{ id: '77aa000000000007', msgs: [{ id: 'n7', ms: MS('2026-10-21T02:58:40Z'), h: H('Oasis <oasis@sup.example>', 'Re: Request for Quotation - LED wall'),
+    body: 'Please see our quote attached.' }] }]);
+  const t = nmSandbox({ inbox: box, waiting: { on: true, stale: false, checked: 1, items: [{ id: '77aa000000000007', from: 'Oasis', email: 'oasis@sup.example',
+    subject: 'Re: Request for Quotation - LED wall', at: 1, unread: true, who: 'Supplier', name: 'Oasis', pid: '', project: '' }] } });
+  t.setAdded(['11aa000000000001', '77aa000000000007']);
+  const it = t.state(nmRun(t)).nm.items.find(x => x.sender === 'oasis@sup.example');
+  deq([it.group, it.known.who], ['fyi', 'Supplier']);
+});
