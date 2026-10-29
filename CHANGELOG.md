@@ -5,7 +5,7 @@
 Asked by Kiko on 29 Oct 2026 at 15:59Z: "can there be a button in Ask Cue that switches me back the other chat". At 15:56Z he
 also said Ask Cue keeps its own threads ("Ask Cue can still have its own threads like Job reports, Project Intake, actually CRMs,
 chasers and other CRM related can be in Ask Cue"), so the dropped builds 1.27.74 (no daily tasks-waiting list) and 1.27.75 (Ask
-Cue's list moved into the Canvas panel) are not in this release. Built on 1.27.72.
+Cue's list moved into the Canvas panel) are not in this release. Built on 1.27.72; cut by the deploys thread on live 1.27.72 (Version 170).
 
 - **Back to Team Cue.** When Ask Cue is open inside Canvas, its header shows a "Back to Team Cue" button. It asks Canvas
   (`{canvasWs:'cueBack'}`) to close Ask Cue and open the Team Cue panel; Canvas needs its matching release (CanvasWorkspace PR
@@ -14,7 +14,7 @@ Cue's list moved into the Canvas panel) are not in this release. Built on 1.27.7
   Canvas sends its CRM and To do rows (`{canvasWs:'cueRows'}`, name, latest line and count only); they show under "From Canvas"
   at the top of Threads. A tap asks Canvas (`{canvasWs:'cueTeam'}`) to show that thread with all its buttons (Log call, Done,
   Tomorrow, Open client), and its "‹" comes back to Ask Cue. Canvas's Team Cue list no longer shows those two rows for Kiko.
-- Tests: 503, all passing (`test/features/64-team-cue-back.js`, TCB1 and TCB2).
+- Tests: 505, all passing on top of live 1.27.72 (`test/features/64-team-cue-back.js`, TCB1 and TCB2).
 
 ## Cue 1.27.72: RFQ drafts say TBC for blank event details; typed intake reads the email it names (live as Version 170, 29 Oct 16:19Z, rollback 168)
 
