@@ -9,8 +9,12 @@ Kiko asked for this on 29 Oct 2026: an observer on every step of the process tha
 so problems are caught before building instead of causing rebuilds and bug fixes. Kiko chose: stop on big problems,
 note small ones.
 
-Where the session can spawn a subagent, run the check in a separate agent that did not write the work, so the work does
-not grade itself. Give it the phase output and this checklist only.
+How hard to check follows the size set in `scope-then-design` (Kiko, 29 Oct 2026, to keep usage down):
+
+- **Small**: one check at the end, by the same Claude, against the big-problem list only.
+- **Medium**: after each phase, by the same Claude, the full checklist.
+- **Large**: after each phase, in a separate agent that did not write the work, so the work does not grade itself.
+  Give it the phase output and this checklist only.
 
 ## Big problems: stop
 

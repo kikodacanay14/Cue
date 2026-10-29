@@ -30,10 +30,23 @@ Before Phase 1, look for this ask's existing spec, design or plan: the repo's `w
 project files, open branches (`git for-each-ref --sort=-committerdate refs/remotes`). Skip every phase whose output Kiko
 already approved, and start at the first one he has not. Never re-ask an answered question.
 
+## Size the work first (Kiko, 29 Oct 2026: scale the checking to the size of the job)
+
+Before Phase 1, name the size in one line and follow it:
+
+| Size | What counts | Phases | Stage gate |
+|---|---|---|---|
+| **Small** | One page or one function, a wording, layout or bug fix, no new rule, no change to money, data or sheets | Discovery (short) and Plan. A screen change gets one mockup image | Once, at the end, by the same Claude |
+| **Medium** | Several screens or one sheet, no money or new rule | Every phase | After each phase, by the same Claude |
+| **Large** | A new feature or flow, money, payments, new or changed rules, the bridge, several sheets, or anything for clients, crew or suppliers | Every phase | After each phase, in a separate agent |
+
+Anything that touches money, a rule, people's data or a send to someone outside BSE is never Small. When unsure,
+take the bigger size. Kiko can change the size at any time.
+
 ## Always, in every phase
 
 - Every question to Kiko goes through `ask-kiko` (question card at the end of the reply). Never bury a question in a long reply.
-- After each phase, run `stage-gate`. A **Stopped** gate means the next phase does not start.
+- Run `stage-gate` as the size says. A **Stopped** gate means the next phase does not start.
 - Every output is written to the Feature Board, `work-board.md`, the spec file or `docs/`, never only to chat.
 
 ## Brand lock for Canvas and Cue screens
