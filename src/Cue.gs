@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.70';   // live 1.27.69 (Version 156) + pipeline review reads open deals from Canvas, not the frozen HubSpot deals (1.27.70, CRM-13 bug fix). Before that: 1.27.68 + bid card v3: Scoped projects, For clarification, Opportunities closing, with the source on each notice (1.27.69). Before that: live 1.27.67 (Version 149) + three bug fixes: the 7:00 funnel card reads Canvas, Cue calls crm_tick every 15 minutes, and the bid check reads the public PhilGEPS lists itself (1.27.68). Before that: live 1.27.66 (Version 147) + chasers and AI drafts in the BSE brand voice (1.27.67). Before that: live 1.27.65 (Version 145) + client welcome from Kiko's Gmail, styled outbox items (1.27.66). Before that: live 1.27.62 (Version 138) + Cue Admin page (1.27.63) + Cue Admin rounds 2 to 4: Jobs › Chasers templates and descriptions (1.27.64) + Canvas chasers, Send a notice and Log moved into Cue Admin (1.27.65). Before that: live 1.27.61 (Version 136) + sales funnel part 2: Inquiry chasers, win-back drafts, Monday funnel review (1.27.62). Before that: live 1.27.60 (Version 134) + Sales: do these today in the morning batch (1.27.61). Before that: live 1.27.59 (Version 130) + structure phase 4, Cue email (New mail and client email log) and Client Desk on phase 1 Approve (1.27.60). Before that: 1.27.58 RFPs from Kiko's Gmail + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.77';   // 1.27.76 + Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update and standard tags (1.27.77, one release by the deploys thread). Before that: 1.27.72 + Back to Team Cue button and Canvas's CRM and To do rows in Ask Cue's list (1.27.76; 1.27.73 is the intake keyword build, 1.27.74 and 1.27.75 were dropped). Before that: live 1.27.71 (Version 168) + RFQ drafts say TBC for blank event details, and the intake-real cloud check (1.27.72). Before that: live 1.27.70 (Version 159) + Friday status updates to clients (1.27.71). Before that: live 1.27.69 (Version 156) + pipeline review reads open deals from Canvas, not the frozen HubSpot deals (1.27.70, CRM-13 bug fix). Before that: 1.27.68 + bid card v3: Scoped projects, For clarification, Opportunities closing, with the source on each notice (1.27.69). Before that: live 1.27.67 (Version 149) + three bug fixes: the 7:00 funnel card reads Canvas, Cue calls crm_tick every 15 minutes, and the bid check reads the public PhilGEPS lists itself (1.27.68). Before that: live 1.27.66 (Version 147) + chasers and AI drafts in the BSE brand voice (1.27.67). Before that: live 1.27.65 (Version 145) + client welcome from Kiko's Gmail, styled outbox items (1.27.66). Before that: live 1.27.62 (Version 138) + Cue Admin page (1.27.63) + Cue Admin rounds 2 to 4: Jobs › Chasers templates and descriptions (1.27.64) + Canvas chasers, Send a notice and Log moved into Cue Admin (1.27.65). Before that: live 1.27.61 (Version 136) + sales funnel part 2: Inquiry chasers, win-back drafts, Monday funnel review (1.27.62). Before that: live 1.27.60 (Version 134) + Sales: do these today in the morning batch (1.27.61). Before that: live 1.27.59 (Version 130) + structure phase 4, Cue email (New mail and client email log) and Client Desk on phase 1 Approve (1.27.60). Before that: 1.27.58 RFPs from Kiko's Gmail + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -18,6 +18,7 @@ const CUE_TABS_ = {
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
+  'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
@@ -600,6 +601,7 @@ function cueTaskName_(x) {
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
   if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
+  if (x.kind === 'status') return (x.st && x.st.title) || 'the status updates';
   if (x.kind === 'relnotes') return (x.rn && x.rn.title) || 'the release notes';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
   if (x.kind === 'gtask') return (x.gt && x.gt.title) || 'the ChatGPT task';
@@ -630,7 +632,7 @@ const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0 && cueCheckMine_(x)); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   // PC check 25 Oct 01:51Z: a number (a year like 2026, a date, an amount) never ties a message to a task.
@@ -669,6 +671,8 @@ function cueTaskLine_(id) {
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'bids') { const B = s.bids || {}; return (B.title || 'bid check') + ', status ' + s.status + '; ' + (B.summary || '') + ((B.items || []).length ? ' New: ' + B.items.map(x => x.agency + ' ' + x.reference + ' ' + x.project).join('; ').slice(0, 600) : ''); }
   if (s.kind === 'gtask') { const G = s.gt || {}; return (G.title || 'ChatGPT task') + ', status ' + s.status + '; ' + (G.summary || '') + ((G.items || []).length ? ' Findings: ' + G.items.map(f => f.title).join('; ').slice(0, 600) : ''); }
+  if (s.kind === 'status') { const T = s.st || {}, M = T.mails || []; return (T.title || 'status updates') + ', status ' + s.status + '; ' + (T.events || []).length + ' event(s), '
+    + M.length + ' client email(s), ' + M.filter(m => m.sent_id).length + ' sent' + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : ''); }
   if (s.kind === 'hubspot') { const H = s.hs || {}; return (H.title || 'HubSpot clean-up') + ', status ' + s.status + '; ' + (H.items || []).length + ' finding(s), ' + (H.fixed || 0) + ' fixed'; }
   if (s.kind === 'vendor') return 'supplier search for ' + cueVendorAsk_(s.vendor || {}) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '')
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
@@ -839,6 +843,7 @@ function cueReject(id, why) {
   if (L && L.s.kind === 'style') return cueView_(cueStyleClose_(id));
   if (L && (L.s.kind === 'memory' || L.s.kind === 'process')) return cueView_(cueTeachClose_(id));
   if (L && L.s.kind === 'email') return cueView_(cueMailClose_(id));
+  if (L && L.s.kind === 'status') return cueView_(cueStClose_(id));   // Done: the emails not sent are skipped
   if (L && L.s.kind === 'tri') return cueView_(cueTriClose_(id));
   if (L && L.s.kind === 'relnotes') return cueView_(cueRnSkip_(id));   // Skip today: nothing is posted
   if (L && L.s.kind === 'vendor' && L.s.status === 'Needs you') return cueView_(cueVendorClose_(id));   // closing RFQs keeps the search
@@ -943,6 +948,7 @@ function cueSummary_(s) {
   try {
     if (s.kind === 'readiness') { cueChat_('Cue', cueReadySummaryLine_(s), '>' + s.id); return; }   // the thread already has the full line
     if (s.kind === 'relnotes') { const rl = cueRnSummaryLine_(s); cueChat_('Cue', rl, '>' + s.id); cueChat_('Cue', rl, s.id); return; }
+    if (s.kind === 'status') { const sl = cueStSummaryLine_(s); cueChat_('Cue', sl, '>' + s.id); cueChat_('Cue', sl, s.id); return; }
     if (s.kind === 'cecost') { const cl = cueCecSummaryLine_(s); cueChat_('Cue', cl, '>' + s.id); cueChat_('Cue', cl, s.id); return; }
     if (s.kind === 'vendor') { const v = cueVendorSummaryLine_(s); cueChat_('Cue', v, '>' + s.id); cueChat_('Cue', v, s.id); return; }
     if (s.kind === 'workflow') { const w = cueWorkflowSummaryLine_(s); cueChat_('Cue', w, '>' + s.id); cueChat_('Cue', w, s.id); return; }
@@ -1038,6 +1044,7 @@ function cueView_(s) {
     ready: s.kind === 'readiness' ? cueReadyView_(s) : null,
     help: s.kind === 'help' ? cueHelpView_(s) : null,   // HELP-QA-2026-10-27 (CueHelp.gs)
     rn: s.kind === 'relnotes' ? cueRnView_(s) : null,   // CUE-RELNOTES-2026-10-27
+    st: s.kind === 'status' ? cueStView_(s) : null,   // CUE-STATUS-FRIDAY-2026-10-29 (CueStatus.gs)
     nm: s.kind === 'newmail' ? cueNmView_(s) : null,
     ar: s.kind === 'ar' && s.ar ? cueArViewOf_(s) : null,   // CREW-DOCS-2026-10-26
     expense: s.kind === 'expense' ? cueExpView_(s) : null,

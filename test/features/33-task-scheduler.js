@@ -54,7 +54,7 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
 });
 test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-funnelreview', 'Mon 07:00', true], ['sys-relnotes', 'Daily 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-unsched', 'Daily 07:00', true]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', true], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-status', 'Fri 07:00', true], ['sys-funnelreview', 'Mon 07:00', true], ['sys-relnotes', 'Daily 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-unsched', 'Daily 07:00', true]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
   t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');
@@ -88,7 +88,7 @@ test('SC6 the ChatGPT lead-gen and review tasks register as rows (off until Kiko
   const v = t.ctx.cueSchedules().filter(x => /^sys-gt-/.test(x.id));
   deq(v.map(x => [x.name, x.when, x.on, x.runs]), [['Prospect follow-up check', 'Weekdays 08:00', false, 'ChatGPT'], ['Monthly engagement email', '15th monthly 16:00', false, 'ChatGPT'], ['Admin Tuesday', 'Tue 09:00', false, 'ChatGPT']]);
   t.ctx.__wait(24 * 3600000); t.ctx.cueResume(); assert.ok(!t.log.gt, 'off rows never run');
-  t.ctx.cueSchedSet('sys-gt-followups', { on: true }); t.ctx.__wait(phMs('2026-10-23', '08:01') - phMs('2026-10-22', '11:00')); t.ctx.cueResume(); t.ctx.__wait(5 * 60000); t.ctx.cueResume();   // 3 rows per tick
+  t.ctx.cueSchedSet('sys-gt-followups', { on: true }); t.ctx.__wait(phMs('2026-10-23', '08:01') - phMs('2026-10-22', '11:00')); t.ctx.cueResume(); t.ctx.__wait(5 * 60000); t.ctx.cueResume(); t.ctx.__wait(5 * 60000); t.ctx.cueResume();   // 3 rows per tick (Friday 07:00 also has the status row)
   deq(t.log.gt, ['followups']); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-gt-followups')[0].task, 'cue-gt-1');
   assert.strictEqual(t.ctx.cueSchedRunNow('sys-gt-followups').filter(x => x.id === 'sys-gt-followups')[0].result, 'Already ran today');
 });

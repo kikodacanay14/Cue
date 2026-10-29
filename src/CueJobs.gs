@@ -25,6 +25,7 @@ function cueJobs_() {
     { job: 'Release notes at 8 PM', fn: 'cueRnDue_' },              // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM
     { job: 'CRM email log', fn: 'cueCrmLogTick_' },                 // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
     { job: 'New mail', fn: 'cueNmTick_' },                          // CUE-NEW-MAIL-2026-10-27: new mail in Kiko's inbox and info@, Claude sorts every 30 min
+    { job: 'New contacts from Gmail', fn: 'cueCnTick_' },          // CUE-CONTACT-NEW-2026-10-29: 3-year rewind, then weekly; one Approve card at a time
     { job: 'CRM work', fn: 'cueCrmTickTick_' },                     // CUE-CRM-TICK-2026-10-29: Canvas's 15-minute CRM work, from Kiko's account (bridge crm_tick)
     { job: 'Client accreditation mail', fn: 'cueAcTick_' },         // CLIENT-ACCRED-THREADS-2026-10-29: replies into each company's Accreditation thread, every 30 min
     { job: 'Schedules', fn: 'cueSchedTick_', last: true }          // last, after the tasks: a task it starts runs on the next tick in its own 6 minutes

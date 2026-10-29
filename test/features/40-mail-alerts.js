@@ -45,7 +45,7 @@ test('MA1 Cue writes Emails waiting for Canvas every 10 minutes: waiting threads
 
 test('MA2 the email check rides cueResume and never runs for a non-BSE account; a Gmail failure never stops the tick', () => {
   const t = sandbox(); t.ctx.cueResume();
-  assert.ok(!(t.log.cache || {}).cue_ma_seen2, 'kiko@example.com: Canvas would not read it, so nothing is read');
+  assert.ok(!(t.log.cache || {}).cue_ma_seen3, 'kiko@example.com: Canvas would not read it, so nothing is read');
   const u = maBox([]); u.ctx.UrlFetchApp.fetch = () => { throw new Error('Gmail down'); };
   assert.doesNotThrow(() => u.ctx.cueResume());
   assert.ok(u.ctx.cueJobs_().some(j => j.fn === 'cueMaTick_'), 'a job in the cueResume list (CueJobs.gs)');

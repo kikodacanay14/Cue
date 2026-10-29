@@ -148,7 +148,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel|hub\s?spot\s+tasks)$/i.test(t)) return { run: 'funnel', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9, deals, HubSpot tasks)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Friday status updates', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9, deals, HubSpot tasks)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -158,6 +158,7 @@ function cueSchedSystem_() {
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-funnel', name: 'Sales funnel', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
+    { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '07:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
     { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: true },   // CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
     { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
@@ -175,11 +176,16 @@ function cueSchedSystem_() {
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v6:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review
+  const sig = 'v7:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
     const sh = cueSchedSheet_(), have = cueSchedRead_(sh).map(x => x.id), now = cueNow_();
+    // v7 (Kiko 29 Oct 12:57Z "sent every Friday"): the old Monday status row becomes the Friday status updates, on.
+    cueSchedRead_(sh).filter(x => x.id === 'sys-status' && (x.name === 'Monday status report' || String(x.days) === 'Mon')).forEach(x => {
+      const f = sys.filter(y => y.id === 'sys-status')[0];
+      Object.assign(x, { name: f.name, days: f.days, time: f.time, command: f.command, on: true }); x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x);
+    });
     sys.filter(x => have.indexOf(x.id) < 0).forEach(x => {
       const r = { row: sh.getLastRow() + 1, id: x.id, name: x.name, type: 'system', repeat: x.repeat, days: x.days || [], dom: x.dom || 0, date: '', time: x.time,
         command: x.command, run: x.run, on: x.on, next: 0, last: 0, result: '', task: '', created: now };
@@ -212,6 +218,11 @@ function cueSchedRun_(x, manual) {
       if (!manual && P.getProperty('CUE_HSC_WEEK') === today) return { result: 'Already ran today', task: '' };
       P.setProperty('CUE_HSC_WEEK', today);
       return { result: 'Started', task: id(cueHsStart_('Monday HubSpot check', 'weekly')) };
+    }
+    if (x.run === 'status') {
+      if (!manual && P.getProperty('CUE_ST_DAY') === today) return { result: 'Already ran today', task: '' };
+      if (!manual) P.setProperty('CUE_ST_DAY', today);
+      return { result: 'Started', task: id(cueStStart_(manual ? 'Run the status updates' : 'Friday status updates', manual ? 'chat' : 'weekly', '')) };
     }
     if (x.run === 'unsched') { const n = cueUnschedCheck_(manual); return { result: n ? n + ' to look at' : 'All scheduled', task: '' }; }
     if (x.run === 'rfps') {   // CUE-RFP-SEND-2026-10-28: only Run now reaches here; the minutes run from cueRfpKick

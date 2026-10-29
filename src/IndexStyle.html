@@ -18,6 +18,8 @@
   header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
   .card b { letter-spacing:-0.01em; }
   header .sub { color:var(--muted); font-size:13px; }
+  .tgroup.cvs { cursor:default; }   /* ASK-CUE-ROWS-2026-10-29: the From Canvas label above Canvas's CRM and To do rows */
+  header .tcue { min-height:30px; padding:0 12px; font-size:13px; white-space:nowrap; }   /* TEAM-CUE-BACK-2026-10-29 */
   header .dot { margin-left:auto; width:9px; height:9px; border-radius:50%; background:var(--ok); }
   /* Kiko 14:24Z: no pill button; the ☰ Threads tab sits at the right of the chat's top bar, level with the pane's tabs. */
   nav { display:flex; justify-content:flex-end; gap:4px; padding:8px 10px; min-height:53px; border-bottom:1px solid var(--line); background:var(--head); }
@@ -153,6 +155,7 @@
   .card.need { border-left:4px solid var(--need); }
   .msgs { display:flex; flex-direction:column; gap:10px; }
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg label.tick { display:inline-flex; gap:8px; align-items:flex-start; cursor:pointer; } .msg label.tick input { margin-top:3px; flex:none; accent-color:var(--act); }   /* CUE-CONTACT-NEW-2026-10-29: ticks on the new contacts card */
   .msg.me { align-self:flex-end; background:var(--soft); }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
   .msg.plan { border-left:4px solid var(--need); }
@@ -212,7 +215,11 @@
   .bar { height:6px; background:var(--input); border-radius:9999px; overflow:hidden; margin-top:10px; }
   .bar i { display:block; height:100%; background:var(--act); transition:width .4s; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:middle; }
+  /* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always
+     aligned center"; 14:51Z "middle align tables for short columns and the headers"): every header is centred; number cells and short columns (tagged bs-num by the TABLE-ALIGN script in IndexCards) are centred too. */
+  table th { text-align:center !important; }
+  table td.bs-num, table td.bs-num input, table input.bs-num { text-align:center !important; }
   th { color:var(--muted); font-weight:600; }
   .facts td:first-child { color:var(--muted); width:42%; }
   /* STANDARD-LABEL-2026-10-29 (Kiko 14:48-14:49Z: "make your label same - and make it a global UI", "make it a standard UI.... dont
@@ -288,8 +295,8 @@
   #settings .stabs button[disabled] { opacity:.5; cursor:default; }
   #settings .stabs .n { font-size:11px; opacity:.6; }
   #settings table.rnw { width:100%; border-collapse:collapse; font-size:13px; }
-  #settings table.rnw th { text-align:left; font-size:11px; font-weight:600; opacity:.6; padding:4px 6px; border-bottom:1px solid var(--line); }
-  #settings table.rnw td { padding:6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  #settings table.rnw th { text-align:center; font-size:11px; font-weight:600; opacity:.6; padding:4px 6px; border-bottom:1px solid var(--line); }
+  #settings table.rnw td { padding:6px; border-bottom:1px solid var(--line); vertical-align:middle; }
   #settings table.rnw .rnw-tick { width:24px; }
   #settings table.rnw .rnw-go { text-align:right; white-space:nowrap; }
   #settings .ok { color:#0A7D3E; } #settings .bad { color:#B00020; }

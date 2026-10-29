@@ -15,10 +15,79 @@ picked "P4 companies + accreditation words" on the card "Which emails go into a 
 - The company is the P0 Contacts company of the sender's address or domain, else the sender's email domain. Each message posts
   once: its id goes to the Cue sheet's new "Accreditation Mail" tab.
 - Read only. Nothing is sent, labelled or changed in Gmail or Canvas. No AI call. A cloud check never runs it.
-- New `src/CueAccred.gs`, the card in `src/IndexPages.html`, tests AC1 to AC4 (`test/features/64-client-accreditation.js`).
+- New `src/CueAccred.gs`, the card in `src/IndexPages.html`, tests AC1 to AC4 (`test/features/66-client-accreditation.js`).
   496 tests pass.
 
-## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
+## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (live as Version 173, 29 Oct 17:30Z, rollback 171)
+
+One release cut by the deploys thread on live 1.27.76 (Version 171), after Canvas V353 shipped the Canvas halves (bridge
+`contact_new_check` / `contact_add`, the Emails waiting Start intake button, table short columns). The builder threads numbered
+their parts 1.27.71, 1.27.73 and 1.27.x; they ship together here as 1.27.77. Bridge fixture refreshed from Canvas V353.
+Tests: 525, all passing.
+
+### New contacts and companies from Kiko's Gmail
+
+Card gmail-new-contacts. Kiko asked on 29 Oct 2026 in the backlog thread to "add contacts and accounts from gmail scan", and
+answered the questions at 13:14Z: "1. my email only 2. one time 3 year scan 3. senders and people copied 4. P0 unless there are
+contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". Spec `specs/gmail-new-contacts.md`.
+
+- **What it reads.** Kiko's own Gmail only, read only, in his account (the 5-minute job "New contacts from Gmail"). Each email is
+  read as headers only: From, Cc and Subject. No body and no attachment. The first window is the last 3 years, read a few
+  hundred emails at a time; after it is read, one window a week covers the mail since the last one. Every person found is one
+  row of the new Cue sheet tab "New contacts".
+- **Canvas checks each person** (bridge read `contact_new_check`): already in Canvas (P0 Contacts, PROJ Contacts or the Admin
+  Directory), or the company they would go to. One email domain is one company. A company already in P0 keeps its P stage; a
+  company not in P0 starts at P0.
+- **One Approve card at a time**, with at most 25 companies and 40 people, new companies first. Every person has a tick. Title,
+  company and phone come only from the signature lines of that person's own emails, with the old-email contact scan's reader
+  and one Claude Haiku call per 20 people. Approve sends the ticked people in one `contact_add` (a claimed plan's write); Canvas
+  adds the P0 and P0 Contacts rows and logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. Skip page adds
+  nobody. The next page comes on the next run. No email, no HubSpot write.
+- "scan my gmail for new contacts" runs the job at once and says how far it is.
+- Needs Canvas with `contact_new_check` and `contact_add` (CanvasWorkspace branch claude/project-thread-t7caj1); the bridge
+  fixture is refreshed from it. Until that Canvas ships, the job reads Gmail and stops at the Canvas check.
+- Automated senders are skipped and never kept: no-reply@, noreply@, do-not-reply@, notifications@, mailer-daemon@ and bounce@
+  addresses (Kiko 29 Oct 13:40Z, "Yes, skip them").
+- R1 (Kiko 29 Oct 14:02Z, "approve"): Canvas skips personal addresses (Gmail, Yahoo, Outlook, Hotmail, iCloud), known suppliers
+  (an email or a business domain in the Supplier Database, Main and Supplier Contact) and BSE staff (blankspaceevent.com). They
+  never reach the card; their row says why ("Skipped: personal email", "Skipped: supplier", "Skipped: BSE staff"). Canvas checks
+  again at Approve, so a supplier added in between is skipped then and counted in the reply.
+- Tests: 491 (CN1 to CN5 for this feature).
+
+### Emails asking for a quotation or proposal start intake
+
+Kiko, 29 Oct 2026 15:13Z, about Moldex's "Request Quotation" email on his Emails waiting card: "i dont think it sensed that its for
+intake - keywords - Request for Quotation, Request for Proposal and variations of it". This release needs Kiko's yes and Canvas's
+part (CanvasWorkspace PR #313).
+
+- **New mail:** an email whose subject says Request for Quotation, Request for Proposal, RFQ, RFP or a variation (Request Quotation,
+  Request for a quote, Quotation request, Proposal request) is a new inquiry, even when the sort calls it FYI or skip.
+  A known supplier's reply ("Re: Request for Quotation") is left as it was: Kiko's card answer 29 Oct 15:20Z, "No, skip supplier replies".
+- **Emails waiting:** Cue marks those emails in the file Canvas reads (`rfq: true`). Canvas's card then shows **Start intake**. Tapping it
+  opens Cue, which reads the email and its files in Kiko's Gmail and starts intake, the same as Start intake on the New mail card.
+- Tests: 497, all passing (`test/features/64-rfq-intake.js`, RI1 to RI5).
+
+### Table headers, numbers and short columns centred
+
+Kiko set a standing UI rule on 29 Oct 2026 at 14:32Z: "UI rule - for tables where the table values are numbers - align center.
+Headers are always aligned center".
+
+- Every table header in Cue (chat cards, Finance and pipeline cards, CE and requirement lines, Settings and Cue Admin tables, AI usage)
+  is centred.
+- Kiko added at 14:51Z: "middle align tables for short columns and the headers". A column whose filled cells are all 12 characters
+  or fewer (status, P-stage, date, yes/no, code) is centred whole. Columns with buttons or text boxes are left as they are. Every table cell now
+  sits in the middle of its row instead of at the top.
+- A cell whose value is a number (amount, count, percent) is centred, and so is a number box in a table. A column whose filled cells
+  are all numbers is centred whole, so its dashes line up. Long text is unchanged. Key/value "facts" tables are left as they are.
+- The same rule ships in Canvas (main V349, Client C215), with the same number test. CLAUDE.md and the scope-then-design Brand lock
+  now carry the rule, so mockups follow it too. Version number is provisional; the deploys thread names the release. Tests: 456.
+
+### Standard tags
+
+- Cue's tags use the standard Canvas label (`.bs-pill` look, Kiko 29 Oct 2026 14:48Z to 14:51Z: "make it a standard UI"), and
+  CLAUDE.md carries the label and table rules.
+
+### The Sales funnel becomes a daily sales update
 
 Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put
 Canvas's Accounts dashboard into the card; Kiko then said at 16:13Z "it has to be able to give updates not a dashboard. you cant
@@ -37,7 +106,75 @@ fit a dashboard in a chat window", and "yes." at 16:14Z to: what moved since yes
 - Names: the Scheduled tasks row is "Sales funnel"; Cue Admin's description says what it reads now.
 - Nothing is written to Canvas or HubSpot. No AI call on the update. Tests: 492 (6 new, FP1 to FP6).
 
-## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (not deployed)
+## Cue 1.27.76: Back to Team Cue button, and Canvas's CRM and To do in Ask Cue's list (live as Version 171, 29 Oct 16:26Z, rollback 170; Canvas V353)
+
+Asked by Kiko on 29 Oct 2026 at 15:59Z: "can there be a button in Ask Cue that switches me back the other chat". At 15:56Z he
+also said Ask Cue keeps its own threads ("Ask Cue can still have its own threads like Job reports, Project Intake, actually CRMs,
+chasers and other CRM related can be in Ask Cue"), so the dropped builds 1.27.74 (no daily tasks-waiting list) and 1.27.75 (Ask
+Cue's list moved into the Canvas panel) are not in this release. Built on 1.27.72; cut by the deploys thread on live 1.27.72 (Version 170).
+
+- **Back to Team Cue.** When Ask Cue is open inside Canvas, its header shows a "Back to Team Cue" button. It asks Canvas
+  (`{canvasWs:'cueBack'}`) to close Ask Cue and open the Team Cue panel; Canvas needs its matching release (CanvasWorkspace PR
+  #338). Cue opened on its own never shows the button.
+- **Canvas's CRM and To do rows in Ask Cue's list.** Kiko's card pick on 29 Oct 16:01Z: "Inside Ask Cue's list". Inside Canvas,
+  Canvas sends its CRM and To do rows (`{canvasWs:'cueRows'}`, name, latest line and count only); they show under "From Canvas"
+  at the top of Threads. A tap asks Canvas (`{canvasWs:'cueTeam'}`) to show that thread with all its buttons (Log call, Done,
+  Tomorrow, Open client), and its "‹" comes back to Ask Cue. Canvas's Team Cue list no longer shows those two rows for Kiko.
+- Tests: 505, all passing on top of live 1.27.72 (`test/features/64-team-cue-back.js`, TCB1 and TCB2).
+
+## Cue 1.27.72: RFQ drafts say TBC for blank event details; typed intake reads the email it names (live as Version 170, 29 Oct 16:19Z, rollback 168)
+
+Backlog card intake-real-check (High, 29 Oct 2026): intake was built but had never run on real inquiries. The coordinator asked
+this thread to prove it end to end (from Gmail Start intake, from a screenshot and from an uploaded file) and to fix what breaks.
+Built on the live line (1.27.70), then stacked on live 1.27.71 (Version 168) by the deploys thread.
+
+- **Bug fix: RFQ drafts no longer print blank event lines.** On real inquiries the drafts read "Venue:", "City:" and "Expected
+  pax: 0", and one made up an event date. Empty event details now go to GPT as TBC, and the RFQ prompt says never to invent a
+  date, venue, city or pax.
+- **Bug fix: an intake asked in words reads the email it names.** Kiko, 29 Oct 2026 16:08Z, after typing "find the latest email from
+  Ms Ruth Andres in Gmail and run a project intake from it": "does project intake in Cue can not read email subject, header and attached
+  files?". It could not: a typed intake read only his words. Now "intake … the email from <name or address>" finds that person's newest
+  email in Kiko's Gmail (last 6 months) and runs Start intake on it, with Kiko's words added as his note. Start intake now also passes
+  To, Cc and Date, not only From and Subject. Files: PDFs, images and text files are read, as before.
+- **Cloud check for intake on real inquiries** (`test/checks/intake-real.check.mjs`, door functions in `src/CueIntakeCheck.gs`).
+  It picks the newest inquiries Cue sorted (New mail's own sort, plus older Inbox triage lines), runs phase 1 for real, then
+  phases 2 to 4 on a copy, so nothing is written to Canvas and nothing is sent. `intake-real.only.txt` next to the script narrows
+  it to one named project. In a check, a new message never joins or reopens one of Kiko's own threads (`cueCheckMine_`).
+- Tests: 503, all passing on top of 1.27.71 (`test/features/63-intake-real-check.js`, IR1 to IR6; `test/features/65-mail-intake.js`, MI1 and MI2).
+
+## Cue 1.27.71: Friday status updates to clients (live as Version 168, 29 Oct 14:56Z, rollback 159)
+
+Asked by Kiko on 29 Oct 2026 at 12:57Z: "lets reopen status updates - sent every Friday / provide an update on the progress of
+each requirement / show progress based on timeline / Project Readiness score - run first Project Readiness scan before sending /
+Open Risks and Issues / Task Update / If they want to see more details. about the project > Go to Canvas". This replaces the old
+Monday status report (spec of 22 Oct), which never went live.
+
+- **Every Friday at 07:00** (Scheduled tasks row "Friday status updates", on), or when Kiko types "status updates" or "status of
+  <event>". The old Monday row moves to Friday and is turned on.
+- **A fresh readiness scan first.** Canvas lists the active events (For Production Start or later, event no more than 7 days ago),
+  then reruns each event's pre-event readiness checklist (`get_readiness`, at most 1 minute old), five at a time. A long list goes
+  on at the next 5-minute run. If a scan fails, the card says so and that email shows the last score Canvas has. A scan so slow that
+  Cue's run ends during it (one cloud check took 301 s for one event) is not tried again: the next run reports it the same way.
+- **One email per event, built by Canvas** (new bridge read `client_status`, CanvasWorkspace PR #311), from what the client site
+  already shows: the progress of each requirement (Planning, In production, For delivery, Done), progress on the timeline (done,
+  catching up, coming up), the Readiness score, open risks and issues with the plan, the task update, and a Go to Canvas button
+  that opens the event on the client site. Supplier names and peso amounts are cut, as on the client site. The email is in the
+  BSE look with the Canvas logo, and in the brand voice ("Hi <first name>,", "event", "Thank you," then Blank Space Events).
+- **Nothing goes out on its own.** The card lists each email with its numbers, To (a dropdown of the event's contacts in Canvas,
+  main contact first, plus "Someone else…" for a typed address; Kiko 29 Oct 13:42Z "it should be like a dropdown"), Preview (the email as the client sees it), Send (one confirm, from Kiko's Gmail) and Skip. A second Send tap on an
+  email already sent sends nothing. Done skips the emails not sent.
+- No AI call. The Today card shows "N client updates to send".
+
+Also in this release: the bid card buttons read Actionable, View Details, Decide Later and Decline, in that order (Kiko 29 Oct
+2026 14:32Z; Cue PR #218, commit 43b3982; test BV5 checks the order).
+
+Tests: 495/495 (feature file `63-friday-status.js`, 9 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
+
+Cloud check: `test/checks/1.27.71-friday-status.check.mjs` starts "status of" the check project, opens the card, taps Preview
+and Skip, and never taps Send (the check project's contacts are real people). Check mode now lets the read `client_status`
+through (added to its read list in `CueCheck.gs`); it writes nothing in Canvas. Added by the deploys thread, 29 Oct 2026.
+
+## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
 ok with the suggestions"). Canvas stopped syncing HubSpot on 29 Oct (Canvas V328), so the pipeline review ("which deals went

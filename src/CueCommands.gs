@@ -20,6 +20,7 @@ function cueCommands_() {
     funnel: { name: 'Sales funnel', cmd: '', run: cueFunnelRun_, approve: null, stopped: 'The sales funnel stopped: ' },
     ar: { name: 'ARs', cmd: 'ar', run: cueArRun_, approve: cueArApprove_, stopped: 'The receipts stopped: ' },
     hubspot: { name: 'HubSpot clean-up', cmd: '', run: cueHsRun_, approve: cueHsApprove_, stopped: 'The HubSpot clean-up stopped: ' },
+    status: { name: 'Friday status updates', cmd: '', run: cueStRun_, approve: cueStApprove_, stopped: 'The status updates stopped: ' },
     relnotes: { name: 'Release notes', cmd: '', run: cueRnRun_, approve: cueRnApprove_, stopped: 'The release notes stopped: ' },   // CUE-RELNOTES-2026-10-27 (CueRelnotes.gs)
     bids: { name: 'Bid check', cmd: '', run: cueBidsRun_, approve: null, stopped: 'The bid check stopped: ' },
     gtask: { name: 'ChatGPT task', cmd: '', run: cueGtRun_, approve: null, stopped: 'The ChatGPT task stopped: ' },
@@ -60,6 +61,8 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
  * tri: Kiko 06:47Z 24 Oct (specs/cue-add-tasks.md): "add task|issue|risk … to <project>" shows an Approve card; no AI call.
  * add-project: Same spec: "add project …" / "new project …" is a project intake in Kiko's own words, so no chat call routes it.
    It answers nothing itself: it turns the message into an intake (c.text, c.mode) for the checks after it and for cueSendWith_.
+ * mail-intake: Kiko 29 Oct 2026 16:08Z (CueTriage.gs MAIL-INTAKE): an intake asked in words that names "the email from <person>" reads her newest
+   email in Kiko's Gmail, with its headers and files, instead of only his words.
  * phased-reply: CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
  * style: Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
  * memory, process, memory-paste: Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
@@ -70,6 +73,7 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
  * workflow-reply, workflow-files: Kiko 08:07Z (specs/process-mapper.md), see cueWorkflowWaiting_ below.
  * hubspot: command C12, its own thread.
  * funnel: Kiko 24 Oct 13:50Z (CueFunnel.gs): "show the funnel", "my HubSpot tasks" read HubSpot in their own thread, no AI call.
+ * status: Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs), see cueStatusSaid_ below.
  * bids-intake, bids: Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
  *   PC check 22 Oct 04:45Z: "redo bid check" in a Bid check thread became a Project intake plan. A bid ask there (or "again", "redo",
  *   "re-run") runs a fresh bid check in its own thread, with no AI call. (Its thread check runs first, near the top.)
@@ -85,12 +89,14 @@ function cueRoutes_() {
     { key: 'invoice', name: 'Invoice line edit', said: c => words(c) ? cueInvSaid_(c.text, c.ref) : null },
     { key: 'allow', name: '"allow cue to read|edit …"', said: c => words(c) ? cueAllowSaid_(c.text, c.ref) : null },
     { key: 'contact-scan', name: 'Old-email contact scan', said: c => words(c) ? cueCsSaid_(c.text, c.ref) : null },
+    { key: 'contact-new', name: '"scan my gmail for new contacts"', said: c => words(c) ? cueCnSaid_(c.text, c.ref) : null },
     { key: 'bids-redo', name: '"redo" in a Bid check thread', said: c => cueBidsRedoSaid_(c) },
     { key: 'cecost-reply', name: 'Reply to a CE cost question', said: c => words(c) ? cueCecReply_(c.ref, c.text) : null },
     { key: 'cecost', name: '"update CE cost for …"', when: c => words(c) && cueCecAsked_(c.text), go: c => cueCecStart_(c.text, c.ref) },
     { key: 'tri', name: '"add task|issue|risk … to <project>"', said: c => words(c) ? cueTriSaid_(c.text, c.ref) : null },
     { key: 'canvas', name: 'Open in Canvas', said: c => words(c) ? cueCanvasSaid_(c.text, c.ref) : null },
     { key: 'add-project', name: '"add project …" becomes a project intake', said: c => cueAddProjectSaid_(c) },
+    { key: 'mail-intake', name: '"intake from the email from <person>" reads that email in Gmail', said: c => c.mode !== 'chat' ? cueMailIntakeSaid_(c) : null },
     { key: 'phased-reply', name: 'Reply while a phased intake card waits', said: c => c.inThread && c.mode !== 'chat' ? cuePhReply_(c.ref, c.text, c.files) : null },
     { key: 'style', name: '"learn my style"', when: c => words(c) && CUE_STYLE_RE_.test(String(c.text || '')), go: c => cueStyleStart_(c.text) },
     { key: 'memory', name: '"learn my memory"', when: c => words(c) && CUE_MEM_RE_.test(String(c.text || '')), go: c => cueTeachStart_('memory', c.text) },
@@ -104,6 +110,7 @@ function cueRoutes_() {
     { key: 'workflow-files', name: 'Files with a map word', when: c => c.has && c.mode !== 'intake' && cueWorkflowAsked_(c.text), go: c => cueWorkflowFiles_(c) },
     { key: 'hubspot', name: 'HubSpot clean-up', when: c => words(c) && !c.ref && cueHsAsked_(c.text), go: c => cueHsStart_(String(c.text || '').trim(), 'chat') },
     { key: 'funnel', name: '"show the funnel", "my HubSpot tasks"', when: c => words(c) && !c.ref && cueFunnelAsked_(c.text), go: c => cueFunnelStart_(String(c.text || '').trim(), 'chat') },
+    { key: 'status', name: '"status updates", "status of …"', said: c => cueStatusSaid_(c) },
     { key: 'bids-intake', name: '"do intake for <bid>"', when: c => c.mode !== 'chat' && words(c) && cueBidsFor_(c.text), go: c => cueBidsIntake_(String(c.text).trim(), c.ref) },
     { key: 'bids', name: 'Bid check', when: c => words(c) && !c.ref && cueBidsAsked_(c.text), go: c => cueBidsStart_(String(c.text || '').trim(), 'chat', '') },
     { key: 'recost', name: '"cost them", "re-cost" in a thread with a read', said: c => !c.has && c.mode !== 'chat' ? cueRecostStart_(String(c.text || '').trim(), c.ref) : null },
@@ -167,4 +174,10 @@ function cueAddProjectSaid_(c) {
     c.text = 'New project intake: ' + String(c.text).trim().replace(CUE_ADD_PROJECT_RE_, '').trim(); c.mode = 'intake';
   }
   return null;
+}
+// Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs): "status updates" or "status of <event>" starts them in their own thread, no chat call.
+function cueStatusSaid_(c) {
+  if (c.mode === 'intake' || c.has || c.ref) return null;
+  const sa = cueStAsked_(c.text);
+  return sa ? cueStStart_(String(c.text || '').trim(), 'chat', sa.project) : null;
 }

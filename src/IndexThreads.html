@@ -23,6 +23,7 @@
   $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
   $('tlist').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-cteam')) { try { CUE_HOST.canvas.postMessage({ canvasWs: 'cueTeam', k: b.getAttribute('data-cteam') }, '*'); } catch (x) {} return; }   // ASK-CUE-ROWS-2026-10-29
     if (b.hasAttribute('data-thread')) return goThread(b.getAttribute('data-thread'));
     if (b.hasAttribute('data-tgroup')) { var g = b.getAttribute('data-tgroup'); tshut[g] = !tshut[g]; return renderChat(); }
     if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
@@ -50,6 +51,11 @@
     var h = '', n = waiting;
     if (!showArchived) h += '<h2 class="welcome">Welcome back, Kiko.</h2><p>' + (n ? n + ' thread' + (n === 1 ? ' is' : 's are') + ' waiting on you.' : 'Nothing is waiting on you.') + '</p>';
     else h += '<h2 class="welcome">Archived</h2><p>Closed threads you archived. The filter button brings back the rest.</p>';
+    if (!showArchived && !tq && CUE_HOST.canvas && canvasRows.length) h += '<div class="tgroup cvs"><span>From Canvas</span></div>' + canvasRows.map(function (r) {   // ASK-CUE-ROWS-2026-10-29
+      return '<button class="trow" data-cteam="' + esc(r.k) + '"><i class="dot" style="background:' + (r.k === 'crm' ? '#F06A25' : '#2810DC') + '"></i>'
+        + '<span class="tx"><b>' + esc(r.name) + '</b><span>' + esc(r.sub || (r.k === 'crm' ? 'Nothing to follow up' : 'Nothing to do right now')) + '</span></span>'
+        + (r.n ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + r.n + ' waiting">' + r.n + '</i>' : '') + '</button>';
+    }).join('');
     [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
       var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
       h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';
@@ -435,6 +441,7 @@
       accred: { name: function (r) { return 'Accreditation · ' + ((r.acc && r.acc.company) || ''); }, family: 'info', steps: null, card: function (r) { return !!r.acc; } },   // CueAccred.gs
       ar: { name: function (r) { return r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts'; }, family: 'draft', steps: ARSTEPS, card: function (r) { return !!r.ar; } },
       hubspot: { name: 'HubSpot clean-up', family: 'approve', steps: HSTEPS, card: function (r) { return !!r.hs; } },
+      status: { name: 'Friday status updates', family: 'draft', steps: STSTEPS, card: function (r) { return !!r.st; } },   // CueStatus.gs
       bids: { name: 'Bid check', family: 'info', steps: null, card: function () { return true; } },
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
       vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
@@ -473,15 +480,25 @@
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
   }
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
+  }
+  // CUE-CONTACT-NEW-2026-10-29: the "☐<n> " lines of an open question are ticks, all ticked at first; Approve sends the unticked
+  // numbers ("skip:2,5"). Once answered they read as plain bullets.
+  function tickText(m) {
+    var t = String(m.text || ''), q = askOf(m);
+    if (!q || !/\n☐\d+ /.test(t)) return fileText(m);
+    var open = q.open && !state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; });
+    var ls = t.split('\n');
+    return ls.map(function (l, i) { var x = l.match(/^☐(\d+) (.*)$/); if (!x) return /^☐\d+ /.test(ls[i + 1] || '') ? '<b>' + richText(l) + '</b>' : richText(l);   // a company line
+      return open ? '<label class="tick"><input type="checkbox" checked data-tk="' + esc(q.id) + '" value="' + x[1] + '"><span>' + esc(x[2]) + '</span></label>' : '• ' + esc(x[2]); }).join('\n');
   }
   function askHtml(m) {
     var q = askOf(m); if (!q || !q.open) return '';
@@ -700,6 +717,9 @@
   var READY = [['Finding project', 'Canvas', 'Canvas finds the project'], ['Reading Canvas', 'Canvas', 'Canvas reads its readiness checklist and the project folder'],
     ['Looking for evidence', 'Gmail', 'Cue looks in your Gmail for proof Canvas has not recorded'], ['Claude reviewing', 'Claude', 'Claude summarises what is open and what closes it'],
     ['GPT drafting follow-ups', 'GPT', 'GPT drafts follow-ups for items waiting on others'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become replies in their threads']];
+  var STSTEPS = [['Finding project', 'Canvas', 'Canvas finds the event you named'], ['Listing events', 'Canvas', 'Canvas lists the active events'],
+    ['Readiness scan', 'Canvas', 'Canvas runs a fresh readiness scan for each event'], ['Building emails', 'Canvas', 'Canvas builds each client\'s Friday update'],
+    ['Needs you', 'Kiko', 'Each email waits for your Send']];
   var PIPE = [['Reading HubSpot', 'HubSpot', 'Cue reads your open deals from HubSpot'], ['Checking Gmail', 'Gmail', 'Cue finds the newest email for each deal'],
     ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
     ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],

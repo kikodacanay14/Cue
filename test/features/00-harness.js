@@ -2,7 +2,7 @@
 // Local tests for Cue (Cue.gs, CueAi.gs, CueBridge.gs, CueIntake.gs, CueChange.gs, CueTriage.gs). Apps Script services, GPT, Claude, the Canvas bridge
 // and Gmail are mocked; synthetic data only, no network. The submit_intake proposal is checked against the real bridge
 // schema in fixtures/ZapBridge.gs (copied from Canvas claude/project-thread-f9ie51: live V193 + canvas_link / handoff_put). Run: node test/cue.test.js
-const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert');
+const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto'), assert = require('assert'), zlib = require('zlib');
 const { cuePage } = require(path.join(__dirname, 'page.js'));   // the page joined from its parts, as doGet serves it
 const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');   // Apps Script's own load order
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
@@ -17,6 +17,7 @@ function sheetMock() {
       getValues: () => rows.slice(r - 1, r - 1 + nr).map(x => { const y = x.slice(c - 1, c - 1 + nc); while (y.length < nc) y.push(''); return y; }),
       setValues: v => v.forEach((vals, i) => { while (rows.length < r + i) rows.push([]); vals.forEach((x, j) => { rows[r - 1 + i][c - 1 + j] = x; }); }) }) };
 }
+const Utilities_blob_ = buf => ({ getBytes: () => Array.from(buf).map(b => (b > 127 ? b - 256 : b)), getContentType: () => '', getName: () => '', getDataAsString: () => Buffer.from(buf).toString('utf8') });
 const resp = (code, obj) => ({ getResponseCode: () => code, getContentText: () => (typeof obj === 'string' ? obj : JSON.stringify(obj)) });
 const gptOk = data => resp(200, { status: 'completed', model: 'gpt-5-mini', usage: { input_tokens: 900, output_tokens: 300 },
   output: [{ type: 'web_search_call' }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(data) }] }] });
@@ -127,7 +128,8 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_AC_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_AC_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_CN_STATE: JSON.stringify({ kind: 'rewind', from: 0, to: Date.parse('2026-10-21T03:00:00Z'), token: '', done: true }),   // the Gmail contacts job (CN tests) is idle unless a test clears this
+    CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
        // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
@@ -299,7 +301,15 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: body.args.stage === 'check' ? { ok: true, open: !(o.accrClosed || []).includes(body.args.supplier) } : { ok: true, logged: true } }); }
       if (body.action === 'get_project_board') { log.board = (log.board || 0) + 1; if (o.board404 && log.board <= o.board404) return resp(404, '<html>Not Found</html>'); return o.boardFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: { projects: o.projects || [{ id: 'S-1', name: 'Acme Party', status: 'For Client Awarding', eventDate: '2026-12-12' }] } }); }
-      if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
+      if (body.action === 'get_readiness') { if (o.noReadiness) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }); log.readyFor = body.project_id; (log.readyArgs = log.readyArgs || []).push({ pid: body.project_id, args: body.args });
+        if ((o.readyRefuse || []).indexOf(body.project_id) >= 0) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }); return resp(200, { ok: true, status: 'Completed', result: o.readiness || READINESS }); }
+      // Friday status updates (CueStatus.gs): the bridge's client_status shape (ids_only, then email: true).
+      if (body.action === 'client_status') { (log.csArgs = log.csArgs || []).push(body.args); if (o.noClientStatus) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
+        const cs = JSON.parse(JSON.stringify(o.cs || ST_CS)), ids = body.args.project_ids || [];
+        if (ids.length) cs.projects = cs.projects.filter(p => ids.indexOf(p.id) >= 0);
+        if (body.args.ids_only) { cs.projects = cs.projects.map(p => ({ id: p.id, name: p.name, date: p.date })); delete cs.logo; }
+        else if (!body.args.email) { delete cs.logo; cs.projects.forEach(p => { delete p.html; delete p.text; delete p.subject; }); }
+        return resp(200, { ok: true, status: 'Completed', result: cs }); }
       if (body.action === 'finance_snapshot') { log.snapArgs = body.args; return resp(200, { ok: true, status: 'Completed', result: o.snap || SNAP }); }
       if (body.action === 'hubspot_scan') return resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.hsScan || HS_SCAN)) });
       if (body.action === 'hubspot_fix') { (log.hsFix = log.hsFix || []).push(body.args.fixes);
@@ -571,6 +581,8 @@ function sandbox(o = {}) {
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
       newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
         return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name, getDataAsString: () => b.toString('utf8') }; },
+      gzip: b => { const z = zlib.gzipSync(Buffer.from(b.getBytes().map(x => x & 255))); return Utilities_blob_(z); },
+      ungzip: b => Utilities_blob_(zlib.gunzipSync(Buffer.from(b.getBytes().map(x => x & 255)))),
       base64Decode: t => Array.from(Buffer.from(String(t), 'base64')).map(b => (b > 127 ? b - 256 : b)),
       base64DecodeWebSafe: t => Array.from(Buffer.from(String(t), 'base64url')).map(b => (b > 127 ? b - 256 : b)),
       base64Encode: b => (typeof b === 'string' ? Buffer.from(b, 'utf8') : Buffer.from(b.map(x => x & 255))).toString('base64'), getUuid: () => '1234abcd-0000-4000-8000-00000000beef', base64EncodeWebSafe: b => Buffer.from(b).toString('base64url') },
@@ -688,7 +700,7 @@ const test = (n, f) => tests.push([n, f]);
 // The page's kindName with its kindOf table (STRUCTURE-PHASE-2 item 2.3), run outside the browser; the step lists are stubbed.
 function pageKindName(r) {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = {}; ['CHANGE', 'READY', 'PIPE', 'ARSTEPS', 'HSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS', 'FUNNEL'].forEach(k => { ctx[k] = []; });
+  const ctx = {}; ['CHANGE', 'READY', 'PIPE', 'ARSTEPS', 'HSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS', 'FUNNEL', 'STSTEPS'].forEach(k => { ctx[k] = []; });
   vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
   return ctx.kindName(r);
 }

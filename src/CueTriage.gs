@@ -219,7 +219,36 @@ function cueTriageSince_() {
 
 /* ---------- Start intake from an inquiry line ---------- */
 /** Kiko taps Start intake: the email (and its photos, PDFs and text files) becomes a normal intake, linked to its Gmail thread. */
-function cueTriageIntake(threadId) {
+/* MAIL-INTAKE (Kiko 29 Oct 2026 16:08Z, after typing "find the latest email from Ms Ruth Andres in Gmail and run a project intake from it":
+ * "does project intake in Cue can not read email subject, header and attached files?"). Asked in words, intake read only his words, so
+ * it never saw her email. Now a typed intake that names an email from someone finds that person's newest email in Kiko's Gmail and
+ * runs Start intake on it (subject, From, To, Cc, Date, text and files), with Kiko's words added as his note. */
+const CUE_MI_RE_ = /\be-?mail\s+(?:from|of)\s+([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,2})/;
+function cueMailIntakeAsked_(text) {
+  const t = String(text || '');
+  if (!/\bintake\b/i.test(t)) return '';
+  const m = t.replace(/(e-?mail\s+(?:from|of)\s+)(?:ms|mrs|mr|sir|ma'?am|maam|miss)\.?\s+/i, '$1').match(CUE_MI_RE_);
+  if (m) return m[1].trim();
+  // "Ruth Andres's email", "Ms Ruth Andres' latest email"
+  const p = t.replace(/\b(?:ms|mrs|mr|sir|ma'?am|maam|miss)\.?\s+(?=[A-Z])/gi, '').match(/([A-Z][\w-]+(?:\s+[A-Z][\w-]+){0,2})(?:'s|’s|'|’)\s+(?:(?:latest|newest|last|new)\s+)?e-?mail\b/);
+  return p ? p[1].trim() : '';
+}
+/** The route (CueCommands.gs mail-intake): null when the words don't name an email, so the other checks go on. */
+function cueMailIntakeSaid_(c) {
+  if (c.has) return null;
+  const who = cueMailIntakeAsked_(c.text);
+  if (!who) return null;
+  const q = 'from:(' + who.replace(/[()"]/g, '') + ') -in:sent -in:chats -in:drafts newer_than:180d';
+  const t = (cueGmail_('/threads?maxResults=1&q=' + encodeURIComponent(q)).threads || [])[0];
+  if (!t) {
+    cueChat_('Kiko', String(c.text).trim(), c.ref || '');
+    cueChat_('Cue', 'I found no email from ' + who + ' in your Gmail in the last 6 months. Forward it to me or tap Start intake on it in New mail.', c.ref || '');
+    return { chat: true, task: c.ref || '' };
+  }
+  return cueTriageIntake(t.id, String(c.text).trim());
+}
+
+function cueTriageIntake(threadId, note) {
   cueOwner_();
   if (!/^[0-9a-f]{6,32}$/i.test(String(threadId || ''))) throw new Error('That email is not in your inbox any more.');
   const t = cueGmail_('/threads/' + threadId + '?format=full');
@@ -238,7 +267,10 @@ function cueTriageIntake(threadId) {
       total += b.getBytes().length; files.push({ id: cueDriveSave_(b, 'Cue intake from Gmail').id });
     } (x.parts || []).forEach(walk); };
   walk(m.payload);
-  const text = ('New project intake from email.\nFrom: ' + from + '\nSubject: ' + cueStr_(h.subject, 300) + '\n\n' + body).slice(0, 11500)
+  // MAIL-INTAKE: every header Kiko asked about, so the read has the date and who else was copied.
+  const head = ['From: ' + from, h.to ? 'To: ' + cueStr_(h.to, 300) : '', h.cc ? 'Cc: ' + cueStr_(h.cc, 300) : '', h.date ? 'Date: ' + cueStr_(h.date, 80) : '',
+    'Subject: ' + cueStr_(h.subject, 300)].filter(Boolean).join('\n');
+  const text = ('New project intake from email.\n' + head + (note ? '\nKiko adds: ' + cueStr_(note, 1500) : '') + '\n\n' + body).slice(0, 11500)
     + (skipped.length ? '\n\n(Not attached, Cue cannot read them: ' + skipped.join(', ') + ')' : '');
   const out = cueSend(text, files, 'intake');
   const L = cueLoad_(out.request_id);
