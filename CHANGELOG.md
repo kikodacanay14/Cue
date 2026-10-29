@@ -16,7 +16,7 @@ picked "P4 companies + accreditation words" on the card "Which emails go into a 
   once: its id goes to the Cue sheet's new "Accreditation Mail" tab.
 - Read only. Nothing is sent, labelled or changed in Gmail or Canvas. No AI call. A cloud check never runs it.
 - New `src/CueAccred.gs`, the card in `src/IndexPages.html`, tests AC1 to AC4 (`test/features/66-client-accreditation.js`).
-  496 tests pass.
+  529 tests pass on top of live 1.27.77.
 
 ## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (live as Version 173, 29 Oct 17:30Z, rollback 171)
 
