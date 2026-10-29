@@ -1624,3 +1624,66 @@
   paneShow();
   refresh(); loadRules(); loadMyRules();
 })();
+/* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
+   or blank counts as empty) is tagged whole, so its dashes line up too; outside such a column a lone number cell is tagged by itself.
+   Number boxes (type=number, inputmode=decimal/numeric) are centred wherever they sit in a table. */
+(function () {
+  if (window.bsTAlign) return;
+  var NUM = /^[(\-+−]?\s*(?:₱|PHP|\$|USD)?\s*[\-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|×|k|K|M)?\)?$/;
+  var EMPTY = /^(?:|—|–|-|n\/a|N\/A)$/;
+  function txt(td) { return (td.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function numBox(td) { return td.querySelector('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]'); }
+  function isNum(td) {
+    if (numBox(td)) return true;
+    if (td.querySelector('input,select,textarea,button,table')) return false;
+    return NUM.test(txt(td));
+  }
+  function rowsOf(table) {
+    var out = [], g = [table.tBodies, table.tFoot ? [table.tFoot] : []];
+    for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) for (var r = 0; r < g[a][b].rows.length; r++) out.push(g[a][b].rows[r]);
+    return out;
+  }
+  function tag(table) {
+    if (!table || !table.rows || table.classList.contains('win-kv') || table.classList.contains('facts')) return;
+    var rows = rowsOf(table), n = 0, head = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
+    if (!head && rows.length && rows[0].cells.length && [].every.call(rows[0].cells, function (x) { return x.tagName === 'TH'; })) head = rows.shift();
+    if (head) { var simple = true; for (var i = 0; i < head.cells.length; i++) if (head.cells[i].colSpan > 1) simple = false; if (simple) n = head.cells.length; }
+    var colNum = {}, colAny = {};
+    if (n) for (var c = 0; c < n; c++) { colNum[c] = true; colAny[c] = false; }
+    rows.forEach(function (row) {
+      for (var c = 0; c < row.cells.length; c++) {
+        var td = row.cells[c];
+        td.classList.remove('bs-num');
+        if (!n || row.cells.length !== n) continue;
+        if (isNum(td)) colAny[c] = true; else if (!EMPTY.test(txt(td))) colNum[c] = false;
+      }
+    });
+    rows.forEach(function (row) {
+      var same = n && row.cells.length === n;
+      for (var c = 0; c < row.cells.length; c++) {
+        var td = row.cells[c];
+        if ((same && colNum[c] && colAny[c] && EMPTY.test(txt(td))) || isNum(td)) td.classList.add('bs-num');
+      }
+    });
+    table.querySelectorAll('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]').forEach(function (x) { x.classList.add('bs-num'); });
+  }
+  function all(root) { (root.querySelectorAll ? root.querySelectorAll('table') : []).forEach(tag); }
+  var pending = new Set(), queued = false;
+  function flush() { queued = false; var p = pending; pending = new Set(); p.forEach(tag); }
+  function want(t) { if (!t) return; pending.add(t); if (!queued) { queued = true; requestAnimationFrame(flush); } }
+  function watch() {
+    all(document);
+    new MutationObserver(function (list) {
+      list.forEach(function (m) {
+        var t = m.target && m.target.nodeType === 1 ? m.target : m.target && m.target.parentElement;
+        if (t && t.closest) want(t.closest('table'));
+        m.addedNodes.forEach(function (x) {
+          if (x.nodeType !== 1) return;
+          if (x.tagName === 'TABLE') want(x); else if (x.querySelectorAll) x.querySelectorAll('table').forEach(want);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  window.bsTAlign = { tag: tag, all: all, mark: 'TABLE-ALIGN-2026-10-29' };
+  if (document.body) watch(); else document.addEventListener('DOMContentLoaded', watch);
+})();

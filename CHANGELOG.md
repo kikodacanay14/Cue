@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.73: table headers and numbers centred (not deployed)
+
+Kiko set a standing UI rule on 29 Oct 2026 at 14:32Z: "UI rule - for tables where the table values are numbers - align center.
+Headers are always aligned center".
+
+- Every table header in Cue (chat cards, Finance and pipeline cards, CE and requirement lines, Settings and Cue Admin tables, AI usage)
+  is centred.
+- A cell whose value is a number (amount, count, percent) is centred, and so is a number box in a table. A column whose filled cells
+  are all numbers is centred whole, so its dashes line up. Text cells are unchanged. Key/value "facts" tables are left as they are.
+- The same rule ships in Canvas (main V349, Client C215), with the same number test. CLAUDE.md and the scope-then-design Brand lock
+  now carry the rule, so mockups follow it too. Version number is provisional; the deploys thread names the release. Tests: 454.
+
 ## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
 
 Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put
