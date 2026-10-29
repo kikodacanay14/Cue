@@ -23,6 +23,9 @@ Monday status report (spec of 22 Oct), which never went live.
   email already sent sends nothing. Done skips the emails not sent.
 - No AI call. The Today card shows "N client updates to send".
 
+Also in this release: the bid card buttons read Actionable, View Details, Decide Later and Decline, in that order (Kiko 29 Oct
+2026 14:32Z; Cue PR #218, commit 43b3982; test BV5 checks the order).
+
 Tests: 495/495 (feature file `63-friday-status.js`, 9 tests). Bridge fixture refreshed from CanvasWorkspace PR #311.
 
 Cloud check: `test/checks/1.27.71-friday-status.check.mjs` starts "status of" the check project, opens the card, taps Preview
