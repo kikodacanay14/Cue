@@ -6,19 +6,23 @@ const CN_MSGS = [
   { id: 'm1', threadId: '18c3aa0100000001', date: '2025-03-14T02:00:00Z', from: 'Ana Reyes <ana.reyes@northwind.test>', cc: '"Lim, Mark" <mark.lim@northwind.test>, Old Friend <old@acme.test>', subject: 'Year-end party quote' },
   { id: 'm2', threadId: '18c3aa0200000002', date: '2026-09-02T02:00:00Z', from: 'kiko@example.com', cc: 'Joy Santos <joy@acme.test>', subject: 'RFP: Family Day 2026' },
   { id: 'm4', threadId: '18c3aa0400000004', date: '2026-01-05T02:00:00Z', from: 'Google <no-reply@accounts.google.com>', cc: 'notifications@hubspot.test, MAILER-DAEMON@mx.test, bounce+x@list.test', subject: 'Security alert' },
-  { id: 'm3', threadId: '18c3aa0300000003', date: '2024-06-21T02:00:00Z', from: 'carlo.dizon@gmail.com', cc: '', subject: 'Team building inquiry' }];
+  { id: 'm3', threadId: '18c3aa0300000003', date: '2024-06-21T02:00:00Z', from: 'carlo.dizon@gmail.com', cc: '', subject: 'Team building inquiry' },
+  { id: 'm5', threadId: '18c3aa0500000005', date: '2026-05-11T02:00:00Z', from: 'Lights Inc <sales@lights.test>', cc: 'Mariana <mariana@blankspaceevent.com>', subject: 'Quote for stage lights' }];
 const CN_SIG = { 'ana.reyes@northwind.test': [{ id: 's1', body: 'Hi Kiko,\nPlease quote.\n\nThanks,\nAna Reyes\nHR Engagement Lead\nNorthwind Solutions\n+63 917 123 4567\n\nOn Mon wrote:\n> old' }] };
 const CN_AI = { people: [{ k: 'P1', title: 'HR Engagement Lead', title_line: 'HR Engagement Lead', company: 'Northwind Solutions', company_line: 'Northwind Solutions', phone: '0917 123 4567', phone_line: '+63 917 123 4567' }] };
-/** Canvas, simplified: kiko@ and old@ are known; acme.test is Acme Corp (P6); other domains are new; a personal address has no company. */
-const cnCanvas = people => {
-  const known = [], by = {}, order = [];
+/** Canvas, simplified: kiko@ and old@ are known; R1 skips personal mail, lights.test (a supplier) and blankspaceevent.com (staff);
+ *  acme.test is Acme Corp (P6); other domains are new. late = emails Canvas finds to be suppliers only by the time of contact_add. */
+const cnCanvas = (people, late) => {
+  const known = [], skipped = [], by = {}, order = [];
   people.forEach(p => { const e = p.email, d = e.split('@')[1];
     if (e === 'old@acme.test' || e === 'kiko@example.com') { known.push(e); return; }
+    const why = /^(gmail|yahoo|outlook|hotmail|icloud)\./.test(d) ? 'personal' : d === 'lights.test' || (late || []).indexOf(e) >= 0 ? 'supplier' : d === 'blankspaceevent.com' ? 'staff' : '';
+    if (why) { skipped.push({ email: e, why }); return; }
     const g = d === 'acme.test' ? { company: 'Acme Corp', domain: d, status: 'keep', p: 'P6' } : d === 'gmail.com' ? (p.company ? { company: p.company, domain: '', status: 'new', p: 'P0' } : { company: '', domain: '', status: 'none', p: '' })
       : { company: p.company || d.split('.')[0].replace(/^./, c => c.toUpperCase()), domain: d, status: 'new', p: 'P0' };
     const k = g.domain ? 'd|' + d : g.status + '|' + g.company; if (!by[k]) { by[k] = Object.assign(g, { emails: [] }); order.push(k); } else if (p.company) by[k].company = p.company;   // one domain, one company
     by[k].emails.push(e); });
-  return { known, groups: order.map(k => by[k]) };
+  return { known, skipped, groups: order.map(k => by[k]) };
 };
 function cnBox(o = {}) {
   let t = null;
@@ -43,9 +47,9 @@ function cnBox(o = {}) {
         if (!cmds) return resp(200, { ok: false, status: 'Rejected', error: 'no claimed plan for this task' });
         (log.cnAdd = log.cnAdd || []).push(body.args);
         if (o.addRefused) return resp(200, { ok: true, status: 'Completed', result: { refused: o.addRefused } });
-        const plan = cnCanvas(body.args.people);
+        const plan = cnCanvas(body.args.people, o.late);
         return resp(200, { ok: true, status: 'Completed', result: { saved: true, companies: plan.groups.filter(g => g.status === 'new').map(g => g.company),
-          contacts: [].concat(...plan.groups.map(g => g.emails.map(e => ({ email: e, company: g.company })))), known: plan.known } }); }
+          contacts: [].concat(...plan.groups.map(g => g.emails.map(e => ({ email: e, company: g.company })))), known: plan.known, skipped: plan.skipped } }); }
     }
     return null;
   };
@@ -63,36 +67,37 @@ test('CN1 the 3-year rewind reads only From, Cc and Subject; Canvas checks; one 
   assert.ok(Math.abs((before - after) / 86400 - 3 * 365.25) < 1, 'three years');
   assert.ok(t.log.cnGet.filter(g => /^m\d/.test(g)).every(g => /format=metadata&metadataHeaders=From&metadataHeaders=Cc&metadataHeaders=Subject$/.test(g)), 'scanned mail: headers only, never a body');
   deq(t.log.cnGet.filter(g => /format=full/.test(g)), ['s1?format=full'], 'a body is read only for the signature of a person on the card, from their own email');
-  deq(t.log.cnCheck.map(c => c.people.length), [6, 4], 'one check for all six people, one for the four on the card');
+  deq(t.log.cnCheck.map(c => c.people.length), [8, 3], 'one check for all eight people, one for the three on the card');
   t.log.cnCheck.forEach(c => assert.strictEqual(bridgeCheck('contact_new_check', c), ''));
   assert.strictEqual(t.log.claude.length, 1, 'one Haiku call for the signatures'); assert.strictEqual(t.log.claude[0].model, 'claude-haiku-5-5');
   const c = cnCard(t); assert.ok(c, 'a card'); assert.strictEqual(c.choices, 'approve,skippage');
-  assert.ok(/^Add new contacts to Canvas\? From the From and Cc of your Gmail \(the last 3 years\): 2 companies, 4 people\.\n/.test(c.text), c.text);
+  assert.ok(/^Add new contacts to Canvas\? From the From and Cc of your Gmail \(the last 3 years\): 2 companies, 3 people\.\n/.test(c.text), c.text);
   assert.ok(/\nNorthwind Solutions · northwind\.test · New company, P0\n☐1 Ana Reyes · HR Engagement Lead · ana\.reyes@northwind\.test · From · "Year-end party quote" · 2025-03-14\n☐2 Lim, Mark · title not in signature · mark\.lim@northwind\.test · Cc/.test(c.text), c.text);
-  assert.ok(/\nAcme Corp · acme\.test · In Canvas, P6, stage stays\n☐3 Joy Santos/.test(c.text) && /\nNo company \(personal email\) · contact only\n☐4 carlo\.dizon/.test(c.text), c.text);
+  assert.ok(/\nAcme Corp · acme\.test · In Canvas, P6, stage stays\n☐3 Joy Santos/.test(c.text), c.text);
   assert.ok(!/old@acme|kiko@example/.test(c.text), 'people already in Canvas are not on the card');
+  assert.ok(!/gmail\.com|lights\.test|blankspaceevent/.test(c.text), 'R1 (Kiko 14:02Z): personal mail, suppliers and BSE staff are not on the card');
   assert.ok(!t.tabs['New contacts'].rows.some(r => /no-reply|notifications@|mailer-daemon|bounce\+/i.test(r[0])), 'automated senders are never kept (Kiko 13:40Z)');
   assert.ok(!(t.log.cnAdd || []).length, 'nothing written before Approve');
   deq(cnRows(t), [['ana.reyes@northwind.test', 'On card', 'Northwind Solutions'], ['mark.lim@northwind.test', 'On card', 'Northwind Solutions'], ['old@acme.test', 'Known', ''],
-    ['kiko@example.com', 'Known', ''], ['joy@acme.test', 'On card', 'Acme Corp'], ['carlo.dizon@gmail.com', 'On card', '']]);
+    ['kiko@example.com', 'Known', ''], ['joy@acme.test', 'On card', 'Acme Corp'], ['carlo.dizon@gmail.com', 'Skipped: personal email', ''],
+    ['sales@lights.test', 'Skipped: supplier', ''], ['mariana@blankspaceevent.com', 'Skipped: BSE staff', '']]);
   t.ctx.cueCnTick_(); assert.strictEqual(t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length, 1, 'one card at a time');
   t.ctx.cueAskPick(c.id, 'approve', 'skip:2')
   assert.strictEqual(t.log.cnAdd.length, 1); assert.strictEqual(bridgeCheck('contact_add', t.log.cnAdd[0]), '');
   deq(t.log.cnAdd[0].people, [
     { email: 'ana.reyes@northwind.test', name: 'Ana Reyes', title: 'HR Engagement Lead', phone: '+63 917 123 4567', company: 'Northwind Solutions', via: 'From', subject: 'Year-end party quote', date: '2025-03-14', thread: '18c3aa0100000001' },
-    { email: 'joy@acme.test', name: 'Joy Santos', company: 'Acme Corp', via: 'Cc', subject: 'RFP: Family Day 2026', date: '2026-09-02', thread: '18c3aa0200000002' },
-    { email: 'carlo.dizon@gmail.com', via: 'From', subject: 'Team building inquiry', date: '2024-06-21', thread: '18c3aa0300000003' }], 'Mark was unticked');
+    { email: 'joy@acme.test', name: 'Joy Santos', company: 'Acme Corp', via: 'Cc', subject: 'RFP: Family Day 2026', date: '2026-09-02', thread: '18c3aa0200000002' }], 'Mark was unticked');
   const last = String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
-  assert.ok(/^Added 3 contacts and 1 new company at P0 to Canvas\. Undo any of it in Canvas › Accounts › Auto add\./.test(last), last);
-  deq(cnRows(t).map(r => r[1]), ['Added', 'Not added', 'Known', 'Known', 'Added', 'Added']);
+  assert.ok(/^Added 2 contacts and 1 new company at P0 to Canvas\. Undo any of it in Canvas › Accounts › Auto add\./.test(last), last);
+  deq(cnRows(t).map(r => r[1]), ['Added', 'Not added', 'Known', 'Known', 'Added', 'Skipped: personal email', 'Skipped: supplier', 'Skipped: BSE staff']);
   assert.strictEqual(t.log.gmail.length + (t.log.sent || []).length, 0, 'no email drafted or sent');
 });
 test('CN2 Skip page adds nobody; a Canvas refusal puts the people back for the next card; a Gmail failure keeps the page for next time', () => {
   let t = cnBox(); t.ctx.cueCnTick_(); t.ctx.cueAskPick(cnCard(t).id, 'skippage');
-  assert.ok(!(t.log.cnAdd || []).length); deq(cnRows(t).map(r => r[1]), ['Skipped', 'Skipped', 'Known', 'Known', 'Skipped', 'Skipped']);
+  assert.ok(!(t.log.cnAdd || []).length); deq(cnRows(t).map(r => r[1]).slice(0, 5), ['Skipped', 'Skipped', 'Known', 'Known', 'Skipped']);
   t = cnBox({ addRefused: 'P0 is busy. Nothing was saved.' }); t.ctx.cueCnTick_(); t.ctx.cueAskPick(cnCard(t).id, 'approve', 'skip:');
   assert.ok(/^Canvas refused: P0 is busy\. Nothing was saved\. Nobody was added\./.test(String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2])));
-  deq(cnRows(t).map(r => r[1]), ['New', 'New', 'Known', 'Known', 'New', 'New']);
+  deq(cnRows(t).map(r => r[1]).slice(0, 5), ['New', 'New', 'Known', 'Known', 'New']);
   t.ctx.cueCnTick_(); assert.strictEqual(t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length, 2, 'the same people on a new card');
   t = cnBox({ listFail: true });
   assert.throws(() => t.ctx.cueCnTick_(), /Gmail did not list messages/);
@@ -115,4 +120,10 @@ test('CN4 headers: names with commas and quotes, bare addresses; the page draws 
   assert.ok(/call\('cueAskPick', \[id, 'approve', 'skip:' \+ off\.join\(','\)\]/.test(html), 'Approve sends the unticked numbers');
   assert.ok(/skippage: 'Skip page'/.test(html));
   assert.ok(vm.runInContext('CUE_CN_RE_', t.ctx).test('scan my gmail for new contacts'));
+});
+test('CN5 a supplier Canvas learns of between the card and Approve is skipped at Approve and named in the reply', () => {
+  const t = cnBox({ late: ['joy@acme.test'] }); t.ctx.cueCnTick_(); t.ctx.cueAskPick(cnCard(t).id, 'approve', 'skip:');
+  const last = String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
+  assert.ok(/^Added 2 contacts and 1 new company at P0 to Canvas\. 1 skipped \(personal email, supplier or BSE staff\)\. Undo/.test(last), last);
+  deq(cnRows(t).map(r => r[1]).slice(0, 5), ['Added', 'Added', 'Known', 'Known', 'Skipped: supplier']);
 });

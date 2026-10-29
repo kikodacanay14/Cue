@@ -12,8 +12,7 @@ contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". 
   row of the new Cue sheet tab "New contacts".
 - **Canvas checks each person** (bridge read `contact_new_check`): already in Canvas (P0 Contacts, PROJ Contacts or the Admin
   Directory), or the company they would go to. One email domain is one company. A company already in P0 keeps its P stage; a
-  company not in P0 starts at P0. A personal address (Gmail, Yahoo and the like) with no company in its signature is added as
-  a contact with no company.
+  company not in P0 starts at P0.
 - **One Approve card at a time**, with at most 25 companies and 40 people, new companies first. Every person has a tick. Title,
   company and phone come only from the signature lines of that person's own emails, with the old-email contact scan's reader
   and one Claude Haiku call per 20 people. Approve sends the ticked people in one `contact_add` (a claimed plan's write); Canvas
@@ -24,6 +23,11 @@ contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". 
   fixture is refreshed from it. Until that Canvas ships, the job reads Gmail and stops at the Canvas check.
 - Automated senders are skipped and never kept: no-reply@, noreply@, do-not-reply@, notifications@, mailer-daemon@ and bounce@
   addresses (Kiko 29 Oct 13:40Z, "Yes, skip them").
+- R1 (Kiko 29 Oct 14:02Z, "approve"): Canvas skips personal addresses (Gmail, Yahoo, Outlook, Hotmail, iCloud), known suppliers
+  (an email or a business domain in the Supplier Database, Main and Supplier Contact) and BSE staff (blankspaceevent.com). They
+  never reach the card; their row says why ("Skipped: personal email", "Skipped: supplier", "Skipped: BSE staff"). Canvas checks
+  again at Approve, so a supplier added in between is skipped then and counted in the reply.
+- Tests: 491 (CN1 to CN5 for this feature).
 - Not in this build: filter R1 (skip personal domains, suppliers and BSE staff) waits for Kiko's yes/no.
 ## Cue 1.27.73: emails asking for a quotation or proposal start intake (not deployed)
 

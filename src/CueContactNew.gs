@@ -20,6 +20,9 @@ const CUE_CN_RE_ = /^\s*(?:please\s+)?(?:scan|check|read)\s+(?:my\s+)?(?:gmail|e
 // Kiko 29 Oct 2026 13:40Z, "Yes, skip them" on the card "Skip automated senders (no-reply, notifications, mailer-daemon) in the Gmail
 // contact scan?": addresses like no-reply@, noreply@, notifications@, mailer-daemon@ and bounce@ never reach the cards.
 const CUE_CN_AUTO_ = /^(no-?reply|do-?not-?reply|notifications?|mailer-daemon|bounces?)([+._-]|@)/i;
+// R1 (Kiko 29 Oct 14:02Z "approve"): Canvas skips personal mail, suppliers and BSE staff and says why; the row keeps the reason.
+const CUE_CN_WHY_ = { personal: 'Skipped: personal email', supplier: 'Skipped: supplier', staff: 'Skipped: BSE staff' };
+const cueCnWhy_ = w => CUE_CN_WHY_[w] || 'Skipped: ' + cueStr_(w, 40);
 const CUE_CN_COL_ = { email: 0, name: 1, via: 2, subject: 3, date: 4, thread: 5, status: 6, company: 7, title: 8, phone: 9, updated: 10, run: 11 };
 
 /** PURE. A From or Cc header -> [{ name, email }]: "Ana Reyes <ana@x.com>, \"Lim, Mark\" <mark@y.com>, joy@z.com". */
@@ -94,8 +97,9 @@ function cueCnCheck_(s, T) {
     const res = cueBridge_(s, 'contact_new_check', { people: idx.map(i => ({ email: String(T.rows[i][0]) })) }) || {}, now = new Date(cueNow_()), co = {};
     (res.groups || []).forEach(g => (g.emails || []).forEach(e => { co[e] = g; }));
     (res.known || []).forEach(e => { co[e] = { known: true }; });
+    (res.skipped || []).forEach(x => { co[x.email] = { skip: cueCnWhy_(x.why) }; });
     idx.forEach(i => { const r = T.rows[i], g = co[String(r[0])]; if (!g) return;
-      r[6] = g.known ? 'Known' : 'New'; r[7] = g.known ? '' : g.company || ''; r[10] = now; cueCnPut_(T, i); });
+      r[6] = g.skip || (g.known ? 'Known' : 'New'); r[7] = g.known || g.skip ? '' : g.company || ''; r[10] = now; cueCnPut_(T, i); });
   }
 }
 
@@ -130,9 +134,10 @@ function cueCnCard_(s, T, st) {
   cueCnSign_(s, people);
   const res = cueBridge_(s, 'contact_new_check', { people: people.map(x => Object.assign({ email: x.email }, x.company ? { company: x.company } : {})) }) || {};
   const now = new Date(cueNow_()), known = {}, rowOf = {};
-  (res.known || []).forEach(e => { known[e] = 1; });
+  (res.known || []).forEach(e => { known[e] = 'Known'; });
+  (res.skipped || []).forEach(x => { known[x.email] = cueCnWhy_(x.why); });
   people.forEach(x => { rowOf[x.email] = x; const r = T.rows[x.i];
-    if (known[x.email]) r[6] = 'Known'; else { r[6] = 'On card'; r[8] = x.title || ''; r[9] = x.phone || ''; r[11] = s.id; }
+    if (known[x.email]) r[6] = known[x.email]; else { r[6] = 'On card'; r[8] = x.title || ''; r[9] = x.phone || ''; r[11] = s.id; }
     r[10] = now; });
   const groups = (res.groups || []).filter(g => (g.emails || []).length).sort((a, b) => (a.status === 'new' ? 0 : a.status === 'keep' ? 1 : 2) - (b.status === 'new' ? 0 : b.status === 'keep' ? 1 : 2));
   const lines = [], emails = []; let n = 0;
@@ -188,10 +193,11 @@ function cueCnPick_(o, pick, done, note) {
   try { cueBridgePlan_(s, [cmd]); r = cueBridgeParse_('contact_add', UrlFetchApp.fetchAll([cueBridgeReq_(s, 'contact_add', args, '', cmd.command_id)])[0]) || {}; }
   catch (e) { mark(o.emails || [], 'New'); cueChat_('Cue', 'Canvas did not save it (' + cueStr_((e && e.message) || e, 300) + '). Nobody was added. The same people come back on the next card in a few minutes.', done); return { chat: true }; }
   if (r.refused) { mark(o.emails || [], 'New'); cueChat_('Cue', 'Canvas refused: ' + cueStr_(r.refused, 300) + ' Nobody was added.', done); return { chat: true }; }
-  const added = (r.contacts || []).map(x => x.email), kn = r.known || [];
-  mark(added, 'Added'); mark(kn, 'Known'); mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0), 'Not added');
+  const added = (r.contacts || []).map(x => x.email), kn = r.known || [], sk = (r.skipped || []).map(x => x.email);
+  mark(added, 'Added'); mark(kn, 'Known'); (r.skipped || []).forEach(x => mark([x.email], cueCnWhy_(x.why)));
+  mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0 && sk.indexOf(e) < 0), 'Not added');
   cueChat_('Cue', 'Added ' + added.length + ' contact' + (added.length === 1 ? '' : 's') + ((r.companies || []).length ? ' and ' + r.companies.length + ' new compan' + (r.companies.length === 1 ? 'y' : 'ies') + ' at P0' : '') + ' to Canvas.'
-    + (kn.length ? ' ' + kn.length + ' already in Canvas, left alone.' : '') + ' Undo any of it in Canvas › Accounts › Auto add. The next page comes in a few minutes.', done);
+    + (kn.length ? ' ' + kn.length + ' already in Canvas, left alone.' : '') + (sk.length ? ' ' + sk.length + ' skipped (personal email, supplier or BSE staff).' : '') + ' Undo any of it in Canvas › Accounts › Auto add. The next page comes in a few minutes.', done);
   return { chat: true };
 }
 
@@ -205,6 +211,6 @@ function cueCnSaid_(text, ref) {
   const st = cueCnState_() || {}, T = cueCnRead_(), c = k => T.rows.filter(r => r[6] === k).length;
   cueChat_('Cue', (err ? 'The scan stopped (' + err + '). It tries again in 5 minutes. ' : '')
     + (st.done ? 'Read ' + (st.kind === 'weekly' ? 'this week\'s' : 'all ' + CUE_CN_.years + ' years of') + ' mail. ' : 'Reading your Gmail (' + (st.kind === 'weekly' ? 'the last week' : 'the last ' + CUE_CN_.years + ' years') + '), ' + (st.read || 0) + ' emails so far. ')
-    + T.rows.length + ' people found: ' + c('Known') + ' already in Canvas, ' + c('Added') + ' added, ' + (c('New') + c('Waiting')) + ' to show you, ' + c('On card') + ' on the open card.', home);
+    + T.rows.length + ' people found: ' + c('Known') + ' already in Canvas, ' + T.rows.filter(r => /^Skipped: /.test(r[6])).length + ' skipped (personal email, supplier or BSE staff), ' + c('Added') + ' added, ' + (c('New') + c('Waiting')) + ' to show you, ' + c('On card') + ' on the open card.', home);
   return { chat: true, task: home };
 }
