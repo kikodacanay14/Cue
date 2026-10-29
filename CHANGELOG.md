@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (not deployed)
+## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (live as Version 149, 29 Oct 09:30Z, rollback 147)
 
 Kiko asked on 29 Oct 2026 at 08:14Z ("rewrite templates make sure that they follow" the approved brand voice guide). His picks at
 08:23Z to 08:24Z: everything that goes out, staff included; the BSE guide first, and the Style tab only for greeting and sign-off.
