@@ -67,6 +67,8 @@ const ZB_SUP_FIELDS_ = ['Supplier', 'Common / Display Name', 'Address', 'City', 
   .reduce((o, h) => { o[h] = { type: 'string', max: h === 'Address' ? 500 : 200 }; return o; }, {});
 ZB_SUP_FIELDS_['Supplier'] = { type: 'string', required: true, nonBlank: true, max: 200 };
 const ZB_SUP_DOCS_ = ['DTI permit', 'SEC certificate', 'Business Permit', 'Sample invoice', 'Government ID 1', 'Government ID 2'];
+// CUE-ADMIN-MOVE-2026-10-29: Send a notice's kinds (SendNotice.gs SN_KINDS_, written out: that file may load after this one).
+const ZB_SN_KINDS_ = ['final', 'paid', 'ar', 'invoice', 'accr', 'access', 'invite', 'welcome', 'announce', 'own'];
 const ZB_ACTIONS_ = {
   claim_plan: {
     // Review 05:36Z: an atomic claim of one task's plan, under the app's lock. The first plan for a task wins; a second,
@@ -561,6 +563,54 @@ const ZB_ACTIONS_ = {
       status: { type: 'string', required: true, oneOf: ['Sent', 'Failed'] }, thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ },
       message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
     run: (r) => rfpOutboxDone_(r.args)
+  },
+  run_now_list: {
+    // CUE-ADMIN-MOVE-2026-10-29 (Kiko 29 Oct 03:43Z "lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue
+    // Admin"): Cue Admin > Jobs > Chasers reads the same lists Canvas Admin > Run now showed (Code.gs runNowList). Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => runNowList()
+  },
+  run_now_send: {
+    // CUE-ADMIN-MOVE-2026-10-29: Kiko ticks lines in Cue Admin and presses Send; his press is the approval for those emails, as it
+    // was on Canvas's page. Each line goes through Send a notice (runNowSend: snPrepare / snSend), same senders, files and logs.
+    // No ledger: Cue sends each press once and never retries it. Returns { results, list }.
+    kind: 'queue', needsProject: false,
+    schema: { lines: { type: 'array', required: true, minItems: 1, maxItems: 50, items: {
+      kind: { type: 'string', required: true, oneOf: ['ar', 'invoice', 'paid', 'final'] },
+      pid: { type: 'string', required: true, nonBlank: true, max: 40 }, item: { type: 'string', max: 80 } } } },
+    run: (r) => runNowSend(r.args.lines)
+  },
+  sn_board: {
+    // CUE-ADMIN-MOVE-2026-10-29 (Kiko 03:44Z "agree lets put that in Cue Admin"): Send a notice moves to Cue Admin. The screen's
+    // lists (SendNotice.gs snBoard): what can be sent and the projects. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => snBoard()
+  },
+  sn_items: {
+    // CUE-ADMIN-MOVE-2026-10-29: the payments, receipts, suppliers or people of one notice and project to pick from (snItems).
+    kind: 'read', needsProject: false,
+    schema: { kind: { type: 'string', required: true, oneOf: ZB_SN_KINDS_ }, pid: { type: 'string', max: 40 } },
+    run: (r) => snItems(r.args.kind, r.args.pid || '')
+  },
+  sn_prepare: {
+    // CUE-ADMIN-MOVE-2026-10-29: what the send would be (snPrepare): people, subject, email words, text. Reads only.
+    kind: 'read', needsProject: false,
+    schema: { kind: { type: 'string', required: true, oneOf: ZB_SN_KINDS_ }, pid: { type: 'string', max: 40 }, item: { type: 'string', max: 200 } },
+    run: (r) => snPrepare(r.args.kind, r.args.pid || '', r.args.item || '')
+  },
+  sn_send: {
+    // CUE-ADMIN-MOVE-2026-10-29: Kiko's Send in Cue Admin > Send a notice (snSend, the words he typed). His press is the approval.
+    // "Send a test to me" is not here: Canvas would send it to the bridge account, so Cue sends the test from Kiko's own Gmail.
+    // No ledger: Cue sends each press once and never retries it.
+    kind: 'queue', needsProject: false,
+    schema: { kind: { type: 'string', required: true, oneOf: ZB_SN_KINDS_ }, pid: { type: 'string', max: 40 }, item: { type: 'string', max: 200 },
+      people: { type: 'array', required: true, minItems: 1, maxItems: 100, items: {
+        name: { type: 'string', required: true, max: 200 }, kind: { type: 'string', oneOf: ['supplier', 'crew', 'staff'] }, part: { type: 'string', max: 500 },
+        contact: { type: 'string', max: 200 }, email: { type: 'string', max: 200 }, mobile: { type: 'string', max: 40 }, key: { type: 'string', max: 300 },
+        on: { type: 'boolean' }, last: { type: 'string', max: 100 } } },
+      email: { type: 'boolean' }, text: { type: 'boolean' }, subject: { type: 'string', max: 250 }, body: { type: 'string', max: 20000 },
+      sms: { type: 'string', max: 1000 }, edited: { type: 'boolean' } },
+    run: (r) => snSend(Object.assign({}, r.args, { test: false }))
   },
   get_project_board: {
     // CUE-2026-10-21 CE award chasers (Kiko approved 08:11Z): projects in For Client Awarding also carry `awaiting`.
@@ -2005,6 +2055,14 @@ function zbCrmWinback_() {
   return crmWinbackList_().slice(0, 15).map(w => ({ client: w.company, last: w.last, what: String(w.what || '').slice(0, 200), email: (mail[key(w.company)] || {}).email || '', contact: (mail[key(w.company)] || {}).contact || '' }));
 }
 /* CRM-FUNNEL-REST-2026-10-28 (F8): the Reports numbers for Cue's Monday funnel review. Counts only, no amounts. */
+/* CRM-TIMER-KIKO-2026-10-29 (Kiko 29 Oct 02:11:02Z "Make all Cue and CRM related timers to my account"): Cue's timer calls this every 15
+ * minutes from Kiko's account. It runs the same CRM work as info@'s old crmTick trigger (crmTick0_ in Code.gs: Accounts cache,
+ * deal award stages, win-back, Auto add) and notes the time, so the old trigger removes itself. No arguments, no ledger row. */
+ZB_ACTIONS_.crm_tick = {
+  kind: 'queue', needsProject: false, schema: {},
+  run: () => { PropertiesService.getScriptProperties().setProperty('CRM_TICK_CUE_AT', String(Date.now()));
+    guestGate_('crmTick', []); return Object.assign({ ran: true }, crmTick0_() || {}); }
+};
 ZB_ACTIONS_.crm_report = {
   kind: 'read', needsProject: false,
   schema: { fresh: { type: 'boolean' } },
@@ -2652,4 +2710,11 @@ ZB_ACTIONS_.contact_fill = {
       phone: { type: 'string', max: 40, re: /^\+?[0-9 ()./-]{7,40}$/ }, company: { type: 'string', max: 120 }, date: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } } } },
   run: (r) => zbContactFill_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
+};
+ZB_ACTIONS_.sent_log = {
+  // SENT-LOG-2026-10-29 (N8 / N9; Kiko 03:43-03:46Z: reports in Cue Admin, "not split", a Log page "filtered by the different
+  // Jobs. and Status"): every email and text Canvas sent in the last 1 to 30 days, one row per send, newest first, with the
+  // failed count of the last 7 days and the Semaphore text credit, for the Cue Admin Reports page (SentLog.gs). Read only.
+  kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 1 }, failed_only: { type: 'boolean' } },
+  run: (r) => sentLogRead_(r.args)
 };

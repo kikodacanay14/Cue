@@ -110,9 +110,11 @@ function cueAdminChasers() {
 }
 
 /* CUE-ADMIN-LOG-2026-10-29 (Kiko 29 Oct 03:43Z "Reporting ... It has to be all not split"; 03:46Z "Maybe we can do a Historical or Log
- * page? filtered by the different Jobs. and Status"). Epic Cue #193. Cue Admin › Log: every background job run from the Job Runs tab
- * (30 days, CueJobs.gs), newest first, with the job names and statuses the page filters on. Canvas's sends join this list through a
- * read-only bridge action once Canvas ships it. Read only. */
+ * page? filtered by the different Jobs. and Status"). Epic Cue #193. Cue Admin › Log, one list for both systems, newest first:
+ *   - every background job Cue ran, from the Job Runs tab (30 days, CueJobs.gs): status OK or Failed;
+ *   - every email and text Canvas sent (bridge read sent_log, 30 days; Canvas SentLog.gs): status Sent, Failed or No address.
+ * With the job names and statuses the page filters on, Canvas's failed count for the last 7 days and the Semaphore text credit.
+ * If Canvas can't be read, the Cue rows still show and canvas_error says why. Read only. */
 const CUE_ADMIN_LOG_MAX_ = 1000;
 function cueAdminLog() {
   cueOwner_();
@@ -125,7 +127,22 @@ function cueAdminLog() {
       from: 'Cue', job: String(r[2]), status: String(r[3]) === 'Failed' ? 'Failed' : 'OK', error: String(r[4] || ''),
       count: r[5] === '' || r[5] == null ? '' : String(r[5]), secs: isNaN(secs) ? '' : secs });
   });
-  const jobs = cueJobs_().map(j => j.job);
-  rows.forEach(x => { if (jobs.indexOf(x.job) < 0) jobs.push(x.job); });
-  return { jobs, rows };
+  const out = { jobs: cueJobs_().map(j => j.job), rows, failed7: null, sms_credit: null, canvas_error: '' };
+  try {
+    const c = cueBridge_(cueAdminS_(), 'sent_log', { days: 30 }) || {};
+    out.failed7 = typeof c.failed7 === 'number' ? c.failed7 : null;
+    out.sms_credit = typeof c.sms_credit === 'number' ? c.sms_credit : null;
+    (c.rows || []).forEach(x => {
+      const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(String(x.at || ''));   // Manila time already
+      if (!m) return;
+      rows.push({ at: new Date(Date.parse(m[1] + 'T' + m[2] + ':00+08:00')).toISOString(), day: cueRnDay_(m[1]), time: m[2], from: 'Canvas',
+        job: String(x.job || 'Canvas notice'), status: String(x.status || ''), error: String(x.error || ''), count: '', secs: '',
+        channel: x.channel === 'text' ? 'text' : 'email', kind: String(x.kind || ''), name: String(x.name || x.to || ''), to: String(x.to || ''),
+        project: String(x.project || ''), subject: String(x.subject || '') });
+    });
+  } catch (e) { out.canvas_error = cueStr_((e && e.message) || e, 300); }
+  rows.sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+  rows.forEach(x => { if (out.jobs.indexOf(x.job) < 0) out.jobs.push(x.job); });
+  out.statuses = ['OK', 'Sent', 'Failed', 'No address'].filter(st => rows.some(x => x.status === st));
+  return out;
 }

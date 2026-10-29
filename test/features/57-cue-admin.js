@@ -34,7 +34,7 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sched', 'rn', 'log', 'conn', 'relay', 'usage']);
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'relay', 'usage']);
   ['triage', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });
@@ -88,6 +88,24 @@ test('AD8 Log lists the Job Runs tab newest first in Manila time, with every job
   deq([L.rows[1].error, L.rows[2].count, L.rows[2].secs], ['HubSpot said 401', '3', 4]);
   assert.ok(L.jobs.includes('Schedules') && L.jobs.includes('Old job'), 'every job in this build, and any job named in the tab');
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8').includes("'cueAdminLog'"), 'never run by a cloud check');
+  deq([L.canvas_error, L.failed7], ['', 0]);
   const page = cuePage();
   ['<section data-sec="log" hidden>', 'data-log="job"', 'data-log="status"', "call('cueAdminLog'"].forEach(w => assert.ok(page.includes(w), w));
+});
+
+test('AD9 Log adds every Canvas email and text (sent_log, 30 days) in time order, with Canvas\'s failed count and text credit; a Canvas miss keeps the Cue rows', () => {
+  const t = sandbox({ sentLog: { days: 30, failed7: 1, sms_credit: 1240, rows: [
+    { at: '2026-10-29 09:06', job: 'Payment sent', kind: 'Payment', channel: 'text', to: '639170000000', name: 'Crew B', project: 'Gala', project_id: 'P-1', subject: '', by: 'info@', status: 'Failed', error: 'number not reachable' },
+    { at: '2026-10-29 08:00', job: 'Final reminder', kind: 'Final', channel: 'email', to: 'd@example.com', name: 'Crew D', project: 'Launch', project_id: 'P-2', subject: 'Final reminder: Launch', by: 'info@', status: 'No address', error: '' }] } });
+  const sh = t.ctx.cueSheet_('Job Runs');
+  sh.appendRow(['2026-10-29T00:30:00.000Z', '2026-10-29T00:30:02.000Z', 'New mail', 'OK', '', 2]);
+  const L = JSON.parse(JSON.stringify(t.ctx.cueAdminLog()));
+  deq(t.log.sentLog, [{ days: 30 }]);
+  deq(L.rows.map(x => [x.time, x.from, x.job, x.status]), [['09:06', 'Canvas', 'Payment sent', 'Failed'], ['08:30', 'Cue', 'New mail', 'OK'], ['08:00', 'Canvas', 'Final reminder', 'No address']]);
+  deq([L.rows[0].channel, L.rows[0].name, L.rows[0].error, L.failed7, L.sms_credit], ['text', 'Crew B', 'number not reachable', 1, 1240]);
+  deq(L.statuses, ['OK', 'Failed', 'No address']);
+  assert.ok(L.jobs.includes('Payment sent') && L.jobs.includes('Final reminder'));
+  const t2 = sandbox({ sentLogFail: true }); t2.ctx.cueSheet_('Job Runs').appendRow(['2026-10-29T00:30:00.000Z', '2026-10-29T00:30:02.000Z', 'New mail', 'OK', '', 2]);
+  const L2 = JSON.parse(JSON.stringify(t2.ctx.cueAdminLog()));
+  deq(L2.rows.map(x => x.job), ['New mail']); assert.ok(/unknown action/.test(L2.canvas_error));
 });
