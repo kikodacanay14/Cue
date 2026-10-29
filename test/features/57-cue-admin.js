@@ -34,7 +34,7 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sched', 'rn', 'conn', 'relay', 'usage']);
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sched', 'rn', 'log', 'conn', 'relay', 'usage']);
   ['triage', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });
@@ -73,4 +73,21 @@ test('AD7 the page shows the Auto-send rules with each message, the channel icon
   ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
     'Payment received: &lt;Amount&gt;', 'class="adesc"', 'type="checkbox" disabled checked', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
     'class="qhelp"', 'A mailbox inside Cue where ChatGPT and Claude leave notes', 'waits in Cue until you tap Pass on', 'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
+});
+
+/* CUE-ADMIN-LOG-2026-10-29 (Kiko 29 Oct 03:43Z "It has to be all not split"; 03:46Z "a Historical or Log page? filtered by the different
+ * Jobs. and Status"): Cue Admin › Log. */
+
+test('AD8 Log lists the Job Runs tab newest first in Manila time, with every job name and status to filter on; read only', () => {
+  const t = sandbox(), sh = t.ctx.cueSheet_('Job Runs');
+  sh.appendRow(['2026-10-28T23:00:00.000Z', '2026-10-28T23:00:04.000Z', 'New mail', 'OK', '', 3]);
+  sh.appendRow(['2026-10-29T01:05:00.000Z', '2026-10-29T01:05:01.000Z', 'CRM email log', 'Failed', 'HubSpot said 401', '']);
+  sh.appendRow(['2026-10-29T01:10:00.000Z', '2026-10-29T01:10:00.000Z', 'Old job', 'OK', '', '']);
+  const L = JSON.parse(JSON.stringify(t.ctx.cueAdminLog()));
+  deq(L.rows.map(x => [x.job, x.status, x.time, x.from]), [['Old job', 'OK', '09:10', 'Cue'], ['CRM email log', 'Failed', '09:05', 'Cue'], ['New mail', 'OK', '07:00', 'Cue']]);
+  deq([L.rows[1].error, L.rows[2].count, L.rows[2].secs], ['HubSpot said 401', '3', 4]);
+  assert.ok(L.jobs.includes('Schedules') && L.jobs.includes('Old job'), 'every job in this build, and any job named in the tab');
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8').includes("'cueAdminLog'"), 'never run by a cloud check');
+  const page = cuePage();
+  ['<section data-sec="log" hidden>', 'data-log="job"', 'data-log="status"', "call('cueAdminLog'"].forEach(w => assert.ok(page.includes(w), w));
 });

@@ -107,6 +107,7 @@
     if (sec === 'triage') loadTriage();
     if (sec === 'rn') loadRn();
     if (sec === 'jobchasers') loadJc();
+    if (sec === 'log') loadLog();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -246,6 +247,29 @@
       }).join(''));
   }
   $('w-rn').addEventListener('click', function (e) { if (e.target.closest('[data-rn-sched]')) settingsTab('sched'); });
+  /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
+   * first, filtered by job, status and words. Read only. */
+  var logData = null, logErr = '', logF = { job: '', status: '', q: '' };
+  function loadLog() { call('cueAdminLog', [], function (r) { logData = r; logErr = ''; renderLog(); }, function (e) { logErr = (e && e.message) || String(e); renderLog(); }); }
+  function renderLog() {
+    var D = logData || { jobs: [], rows: [] }, q = logF.q.toLowerCase();
+    var L = D.rows.filter(function (x) { return (!logF.job || x.job === logF.job) && (!logF.status || x.status === logF.status) && (!q || (x.job + ' ' + x.error + ' ' + x.from).toLowerCase().indexOf(q) >= 0); });
+    var failed = D.rows.filter(function (x) { return x.status === 'Failed'; }).length;
+    var opt = function (v, t, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; };
+    setHtml($('w-log'), '<div class="adesc" style="margin-bottom:10px">Every background job Cue ran in the last 30 days, newest first. Read only.</div>'
+      + (logErr ? '<div class="err">' + esc(logErr) + '</div>' : '') + (logData ? '' : '<div class="small muted">Loading…</div>')
+      + (logData ? '<div class="logf"><select data-log="job" aria-label="Job">' + opt('', 'All jobs', logF.job) + D.jobs.map(function (j) { return opt(j, j, logF.job); }).join('') + '</select>'
+        + '<select data-log="status" aria-label="Status">' + opt('', 'All statuses', logF.status) + opt('OK', 'OK', logF.status) + opt('Failed', 'Failed (' + failed + ')', logF.status) + '</select>'
+        + '<input type="search" data-log="q" placeholder="Search a job or error" value="' + esc(logF.q) + '" aria-label="Search"><span class="adesc">' + L.length + ' of ' + D.rows.length + '</span></div>' : '')
+      + (logData && !L.length ? '<div class="card small muted">Nothing matches.</div>' : '')
+      + L.slice(0, 300).map(function (x) {
+        return '<div class="card arow logrow"><span class="adesc logt">' + esc(x.day) + ' ' + esc(x.time) + '</span><span class="apill">' + esc(x.from) + '</span>'
+          + '<div style="flex:1;min-width:0"><b>' + esc(x.job) + '</b>' + (x.error ? '<div class="adesc">' + esc(x.error) + '</div>' : x.count !== '' ? '<div class="adesc">' + esc(x.count) + ' done' + (x.secs !== '' ? ' · ' + esc(x.secs) + ' s' : '') + '</div>' : '') + '</div>'
+          + '<span class="apill' + (x.status === 'Failed' ? ' bad' : '') + '">' + esc(x.status) + '</span></div>';
+      }).join(''));
+  }
+  $('w-log').addEventListener('change', function (e) { var k = e.target.getAttribute('data-log'); if (k && k !== 'q') { logF[k] = e.target.value; renderLog(); } });
+  $('w-log').addEventListener('input', function (e) { if (e.target.getAttribute('data-log') === 'q') { logF.q = e.target.value; renderLog(); var i = $('w-log').querySelector('[data-log="q"]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
   function closeSettings() { if (adminView) return; $('settings').hidden = true; $('avatar').focus(); }
   $('avatar').onclick = function () { if (appUrl() && !adminView) window.open(appUrl() + '?view=admin', '_blank', 'noopener'); else { document.body.classList.remove('admin-chat'); settingsOpen(); } };
   $('settings-x').onclick = closeSettings;
