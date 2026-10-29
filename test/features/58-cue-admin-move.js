@@ -48,12 +48,17 @@ test('AM4 Send a test to me goes from Kiko\'s own Gmail to Kiko, never through C
   assert.ok(/^To: kiko@example\.com/m.test(t.log.gmail[0]) && t.log.sent.length === 1, 'one draft to Kiko, sent');
 });
 
-test('AM5 the calls are owner-only and never run by a cloud check; the page has both chaser tabs and Send a notice', () => {
+test('AM5 the calls are owner-only and never run by a cloud check; the page has one Chasers list for all chasers (Kiko 04:33Z) and Send a notice', () => {
   const t = sandbox({ viewer: 'someone@example.com' });
   assert.throws(() => t.ctx.cueAdminCanvasChaseSend([{ kind: 'ar', pid: 'P-1', item: 'A' }]), /private to its owner/);
   deq(t.log.rnwSent || [], []);
   const never = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8');
   ['cueAdminCanvasChasers', 'cueAdminCanvasChaseSend', 'cueAdminSnBoard', 'cueAdminSnItems', 'cueAdminSnPrepare', 'cueAdminSnSend'].forEach(f => assert.ok(never.includes("'" + f + "'"), f));
   const page = cuePage();
-  ['data-jct="canvas"', 'data-jct="cue"', 'id="w-rnw"', '<section data-sec="sendnotice" hidden>', 'Send ticked', 'Send a test to me', "call('cueAdminCanvasChaseSend'", "call('cueAdminSnSend'"].forEach(w => assert.ok(page.includes(w), w));
+  ['id="w-rnw"', "data-rnw-kind=\"cue:'", 'function jcHtml', '<section data-sec="sendnotice" hidden>', 'Send ticked', 'Send a test to me', "call('cueAdminCanvasChaseSend'", "call('cueAdminSnSend'"].forEach(w => assert.ok(page.includes(w), w));
+});
+
+test('AM6 Kiko 04:33Z "just put it all there": Chasers has no Canvas / Cue tabs', () => {
+  const page = cuePage();
+  assert.ok(!page.includes('data-jct=') && !page.includes('id="w-jobchasers"') && !/Canvas chasers|Cue chasers/.test(page));
 });

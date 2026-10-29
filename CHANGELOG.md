@@ -8,6 +8,9 @@ to be all not split") and at 03:46Z ("a Historical or Log page? filtered by the 
 - **Jobs › Chasers** has two tabs. **Canvas chasers** is Canvas Admin's Run now, moved here: AR chaser, Invoice chaser, Payment sent and
   Final reminder, with search, Not sent yet, tick and Send ticked, and Edit (opens Send a notice on that line). **Cue chasers** keeps the
   templates. Canvas still sends; Kiko's press is the approval; each press is sent once, never retried.
+- Kiko 04:33Z ("honestly i dont care if its a Canvas or Cue chaser just put it all there"): Chasers is one list with no Canvas / Cue
+  tabs. Every chaser is a chip: AR, Invoice, Payment sent and Final reminder open the tick-and-send list; RFQ, CE award, Payment,
+  Accreditation and FSA / AR signature open their email template (their chases still come in the morning batch).
 - **Jobs › Send a notice** is Canvas Admin's Send a notice, moved here: pick the notice, project and item, tick people, edit the email
   and text, Send. "Send a test to me" now comes from Kiko's own Gmail as plain text.
 - **Jobs › Log**: every email and text Canvas sent and every job Cue ran in the last 30 days, newest first, filtered by job, status and
