@@ -1,6 +1,6 @@
 ---
 name: scope-then-design
-description: Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work — runs discovery, stress-test, spec, design and plan in order, with Kiko's approval before any code.
+description: Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work, or when picking the next item from the Feature Board backlog — runs backlog pick, discovery, stress-test, stories and rules, mockups, spec and design, and plan in order, with a quality gate after each phase and Kiko's approval before any code.
 ---
 
 # Scope then design
@@ -8,6 +8,10 @@ description: Use at the start of any new task, feature, build or project for Can
 One entry point for turning an ask into an approved design before anything is built. It chains skills that already
 exist; it adds no new tooling. Kiko asked for it on 27 Oct 2026 ("a more structured way of defining requirements and
 understanding of the asks. Structurally design solutions before coding and implementing").
+
+Extended on 29 Oct 2026 at Kiko's request: epics and user stories on the Feature Board, business rules confirmed before
+building, polished brand-locked mockups he approves screen by screen, plain-language spec explanations, a quality gate
+after every phase, and clear question cards so he always knows what is being asked.
 
 Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/SKILL.md`. The copy in
 `kikodacanay14/Cue` and the one saved to Kiko's Claude account mirror it. Change the canonical copy first, then the others.
@@ -23,11 +27,24 @@ Before Phase 1, look for this ask's existing spec, design or plan: the repo's `w
 project files, open branches (`git for-each-ref --sort=-committerdate refs/remotes`). Skip every phase whose output Kiko
 already approved, and start at the first one he has not. Never re-ask an answered question.
 
+## Always, in every phase
+
+- Every question to Kiko goes through `ask-kiko` (question card, Questions panel). Never bury a question in a long reply.
+- After each phase, run `stage-gate`. A **Stopped** gate means the next phase does not start.
+- Every output is written to the Feature Board, `work-board.md`, the spec file or `docs/`, never only to chat.
+
 ## Phases
 
 Each phase names the skill to load. Load it by the name the session's skill listing shows (for example
 `superpowers:brainstorming` in Claude Code, a plugin-prefixed name in claude.ai). If a skill is not installed, do that
 phase by hand with the same output.
+
+### Phase 0: Backlog pick (only when Kiko asks what to work on next)
+
+Source: the Feature Board's Backlog column. Kiko is the product manager and picks by need. Claude never picks.
+Rank up to four candidates and present them as one `ask-kiko` card: for each, the business need it meets, what it
+unblocks, its size (small, medium, large), and anything it waits on. Recommend one. Move the chosen card to
+"For Scope Definition and Design" and start Phase 1.
 
 ### Phase 1: Discovery
 
@@ -46,27 +63,39 @@ Stop. Wait for Kiko's answers.
 Skill: grill-me. Run it on Kiko's answers to surface gaps and conflicts. Ask only what changes the design, batched in one
 message. Stop until answered.
 
-### Phase 3: Spec
+### Phase 3: Stories and rules
+
+Skill: stories-and-rules. Break the ask into Epics and User Stories on the Feature Board, and pull every business rule
+into the Rules register as Waiting for Kiko. Stop until every rule a story needs is Approved or Kiko has dropped it.
+
+### Phase 4: Mockups
+
+Skill: mockup-review (it loads frontend-design). Polished, brand-locked mockups of every screen the stories show:
+images for single screens, clickable HTML for processes. Kiko approves each screen. Skip only when no story shows
+anything to a person.
+
+### Phase 5: Spec
 
 Skill: write-spec (product-management). Write the requirements, scope and out-of-scope, and acceptance criteria tied to
-task IDs. Before writing, read `work-board.md` in CanvasWorkspace and follow its rules (overlap check, add the card).
+the story IDs and approved mockups. Before writing, read `work-board.md` in CanvasWorkspace and follow its rules (overlap check, add the card).
 Save the spec where the repo's CLAUDE.md says specs live (Cue: `canvas-integration/specs/` in the project files;
 handoffs between Cue and Canvas: `handoffs/` in CanvasWorkspace). If no location is named, ask Kiko once.
 
-Stop. Kiko approves the spec before any build.
+Present it to Kiko with explain-spec, then stop. Kiko approves the spec before any build.
 
-### Phase 4: Design
+### Phase 6: Design
 
 Skill: system-design (engineering), plus ui-consistency:design for anything the end user sees. Record the components,
 data flow, bridge calls, data each part reads and writes, and the decisions with their trade-offs. Put the design in the
 spec file or next to it, never only in chat.
 
-Stop. Kiko approves the design.
+Present it with explain-spec. Stop. Kiko approves the design.
 
-### Phase 5: Plan
+### Phase 7: Plan
 
 Skill: writing-plans (superpowers). Turn the approved design into ordered tasks with IDs and dependencies in the
-project's tracker. Then hand off to the build workflow already in the repo's CLAUDE.md.
+project's tracker. Move each ready story to "For Development". Then hand off to the build workflow already in
+the repo's CLAUDE.md.
 
 ## Rules this skill carries (all are Kiko's own)
 
@@ -74,6 +103,9 @@ project's tracker. Then hand off to the build workflow already in the repo's CLA
 - Discovery answer first, deliverable after his answers (Kiko's account preferences).
 - Never invent a new rule, guard or block; ask Kiko yes/no first (CanvasWorkspace CLAUDE.md, "Never").
 - Durable outputs go to shared files that Claude and ChatGPT/Codex both read, not chat.
+- Questions to Kiko are question cards: headline, plain meaning, why it matters, options with pros and cons,
+  recommendation (Kiko, 29 Oct 2026).
+- Stop on big problems, note small ones (Kiko's choice for the stage gate, 29 Oct 2026).
 
 ## For ChatGPT and Codex
 
