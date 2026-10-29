@@ -1,33 +1,42 @@
 /* INTAKE-REAL-CHECK (backlog card intake-real-check, High, 29 Oct 2026): intake was built but never run on real inquiries. The
  * cloud check test/checks/intake-real.check.mjs runs it on real ones through the check door (CueCheck.gs): Start intake on real
- * inquiry emails from the Triage log, then a screenshot and a PDF of real inquiries sent as attachments, the way Kiko pastes them.
+ * inquiry emails Cue sorted (New mail and the Triage log), then a screenshot and a PDF of real inquiries sent as attachments, the way Kiko pastes them.
  * Every function here ends in _, so the page cannot call it; only the check door does, in check mode, where the locks keep every
  * Canvas write off real projects and no mail goes out. */
 
-/** The newest real inquiries Cue has shown (Triage log, group "inquiry"), one per email thread, newest first. Read only.
- * Each comes with its text, so the check can make a screenshot or a PDF of it. */
+/** The newest real inquiries Cue has shown, one per email thread, newest first. Read only. New mail logs every line as "new" in the
+ * Triage log and keeps Claude's sort only in its own task, so the inquiries come from the New mail tasks of the window (group
+ * "inquiry"), plus Triage log lines the older Inbox triage marked "inquiry". Each comes with its text and its file count, so the check
+ * can start the richest one from Gmail and make a screenshot or a PDF of the others. */
 function cueIcPick_(days, max) {
-  const since = cueNow_() - (Number(days) || 30) * 864e5, seen = {}, out = [];
-  const rows = cueRows_(cueSheet_('Triage log')).filter(r => String(r[5]) === 'inquiry' && new Date(r[0]).getTime() >= since).reverse();
-  for (const r of rows) {
-    if (out.length >= (Number(max) || 6)) break;
-    const thread = String(r[2] || ''), key = String(r[1] || ''), info = /^info:/.test(key);
-    if (!/^[0-9a-f]{6,32}$/i.test(thread) || seen[thread]) continue;
-    seen[thread] = 1;
-    const x = { key: info ? key : 'inbox:' + key, inbox: info ? 'info' : 'mine', thread_id: thread, from: cueStr_(r[3], 200), subject: cueStr_(r[4], 300),
-      at: new Date(r[0]).toISOString(), run: String(r[7] || ''), text: '', files: 0, error: '' };
+  const since = cueNow_() - (Number(days) || 30) * 864e5, seen = {}, found = [];
+  const add = x => { if (!/^[0-9a-f]{6,32}$/i.test(x.thread_id) || seen[x.thread_id] || !(x.ms >= since)) return; seen[x.thread_id] = 1; found.push(x); };
+  const nm = [];
+  cueRows_(cueSheet_('Requests')).forEach(r => {
+    let t = null; try { t = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
+    if (t && t.kind === 'newmail' && t.nm && !t.check) (t.nm.items || []).forEach(it => { if (it.group === 'inquiry' && it.removed !== 'skip') nm.push([it, t.id]); });
+  });
+  nm.map(([it, run]) => ({ key: it.key, inbox: it.inbox === 'info' ? 'info' : 'mine', thread_id: String(it.thread_id || ''), from: cueStr_(it.sender, 200),
+    subject: cueStr_(it.subject, 300), ms: Number(it.ms) || Date.parse(it.date) || 0, run }))
+    .concat(cueRows_(cueSheet_('Triage log')).filter(r => String(r[5]) === 'inquiry').map(r => {
+      const key = String(r[1] || ''), info = /^info:/.test(key);
+      return { key: info ? key : 'inbox:' + key, inbox: info ? 'info' : 'mine', thread_id: String(r[2] || ''), from: cueStr_(r[3], 200), subject: cueStr_(r[4], 300),
+        ms: new Date(r[0]).getTime(), run: String(r[7] || '') };
+    }))
+    .sort((a, b) => b.ms - a.ms).forEach(add);
+  return found.slice(0, Number(max) || 6).map(f => {
+    const x = { key: f.key, inbox: f.inbox, thread_id: f.thread_id, from: f.from, subject: f.subject, at: new Date(f.ms).toISOString(), run: f.run, text: '', files: 0, error: '' };
     try {
-      if (info) { const it = cueIcInfoItem_(x); x.text = cueStr_((it && (it.text || it.summary)) || '', 6000); }
+      if (x.inbox === 'info') { const it = cueIcInfoItem_(x); x.text = cueStr_((it && (it.text || it.summary)) || '', 6000); }
       else {
-        const t = cueGmail_('/threads/' + thread + '?format=full');
+        const t = cueGmail_('/threads/' + x.thread_id + '?format=full');
         const m = (t.messages || []).filter(y => (y.labelIds || []).indexOf('SENT') < 0).sort((a, b) => Number(b.internalDate) - Number(a.internalDate))[0];
         const walk = p => (p ? (p.filename && p.body && p.body.attachmentId ? 1 : 0) + (p.parts || []).reduce((n, c) => n + walk(c), 0) : 0);
         if (m) { x.text = cueStr_(cueTriageText_(m.payload) || m.snippet, 6000); x.files = walk(m.payload); }
       }
     } catch (e) { x.error = cueStr_((e && e.message) || e, 300); }
-    out.push(x);
-  }
-  return out;
+    return x;
+  });
 }
 
 /** An info@ line as New mail keeps it (CueNewMail.gs), from the New mail task that showed it. Read only. */
