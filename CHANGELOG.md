@@ -1,5 +1,17 @@
 # Changelog
 
+## Client welcome from Kiko's Gmail (not deployed)
+
+Kiko asked on 29 Oct 2026 at 07:50Z ("the client welcome make the email come from my inbox").
+
+- When Kiko presses Send welcome in Canvas Settings > Clients, Canvas queues the welcome on its RFP Outbox instead of sending it from
+  info@ noreply. The "RFPs from your Gmail" job (every minute) now sends it from Kiko's own Gmail, so replies come to him.
+- The welcome keeps its look: an outbox item with a styled body goes as text and html, with the Canvas logo inline (cid:canvaslogo)
+  when the outbox sends the logo. RFPs and follow-ups stay plain text, as before.
+- Canvas then stamps the client's row with the sent time, or Not sent with the time when Gmail refuses.
+- Needs the Canvas release rel-v340-client-welcome-from-kiko-main (new outbox fields html and logo; no new bridge action, so the
+  bridge fixture is unchanged). Without it Cue behaves exactly as before. Tests: 448.
+
 ## Cue Admin: Canvas chasers, Send a notice and the Log page move in (not deployed)
 
 Kiko asked on 29 Oct 2026 at 03:43Z ("lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"; reporting "has
