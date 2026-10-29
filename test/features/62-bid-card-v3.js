@@ -58,7 +58,7 @@ test('BV5 page: three parts with their buttons, the source on each notice, the d
   const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
   assert.ok(/New: Scoped projects \(1\)[\s\S]*New: For clarification \(3\)[\s\S]*Opportunities closing \(1\)/.test(h));
   assert.ok(/>CITEM<\/span>/.test(h) && />NPDC<\/span>/.test(h) && />PhilGEPS Bulletin Board<\/span>/.test(h), 'source chips');
-  assert.ok(/data-act="bids-intake"[^>]*data-f="c:2026-0999">Accept \(start intake\)/.test(h) && /data-act="bids-later"/.test(h) && /data-act="bids-decline"/.test(h));
+  assert.ok(/data-act="bids-intake"[^>]*data-f="c:2026-0999">Accept</.test(h) && /data-act="bids-later"/.test(h) && /data-act="bids-decline"/.test(h));
   assert.ok(/data-act="bids-ask"[^>]*data-f="r:pg3">Send email clarification/.test(h), 'clarification button where no draft yet');
   assert.ok(/data-act="bids-send"[^>]*data-f="r:np77">Approve and send/.test(h) && /data-act="bids-edit"/.test(h) && /data-act="bids-cancel"/.test(h) && /May we ask the ABC/.test(h));
   assert.ok(/href="https:\/\/script\.google\.com[^"]*page=cedesk[^"]*"[^>]*>Create CE<\/a>/.test(h), 'Create CE on the accepted notice');
