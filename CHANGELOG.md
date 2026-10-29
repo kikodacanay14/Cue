@@ -10,7 +10,9 @@ caught no-reply at the start of the address. Built on live 1.27.77 (Version 173)
   mailer-daemon@ and bounce@ match as before.
 - Rows already in the tab from earlier runs are marked "Skipped: automated sender" before Canvas checks them, so they never reach a
   card.
-- Tests: 526, all passing (CN6 new; CN1 adds chrome-noreply@ to its automated senders).
+- The 3-year read failed every other run on 29 Oct ("Gmail did not list messages", no reason shown). The list call now tries
+  once more after 2 seconds, and a failure names Gmail's HTTP status and message in Job Runs.
+- Tests: 526, all passing (CN6 new; CN1 adds chrome-noreply@ to its automated senders; CN2 checks the HTTP status in the error).
 
 ## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (live as Version 173, 29 Oct 17:30Z, rollback 171)
 

@@ -61,13 +61,25 @@ function cueCnRead_() {
 const cueCnRow_ = r => r.map((v, j) => [1, 3, 4, 5, 7, 8, 9].indexOf(j) >= 0 && String(v) !== '' ? "'" + v : v);
 function cueCnPut_(T, i) { T.sh.getRange(i + 2, 1, 1, 12).setValues([cueCnRow_(T.rows[i])]); }
 
+/** One page of the window's message list. Every other live run on 29 Oct failed here with no reason shown, so one retry after
+ *  2 seconds, and the error names Gmail's HTTP status and message. */
+function cueCnList_(q, token) {
+  const url = CUE_GMAIL_ + '/messages?maxResults=' + CUE_CN_.page + '&q=' + encodeURIComponent(q) + (token ? '&pageToken=' + encodeURIComponent(token) : '');
+  let r;
+  for (let n = 0; n < 2; n++) {
+    if (n) Utilities.sleep(2000);
+    r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+    if (r.getResponseCode() === 200) { try { return JSON.parse(r.getContentText()); } catch (e) { /* tried again below */ } }
+  }
+  let why = ''; try { why = (JSON.parse(r.getContentText()).error || {}).message || ''; } catch (e) { why = r.getContentText(); }
+  throw new Error('Gmail did not list messages (HTTP ' + r.getResponseCode() + (why ? ': ' + cueStr_(why, 160) : '') + ')');
+}
 /** Reads Gmail pages of the open window until the time or page budget ends. Returns how many new people it found. */
 function cueCnCollect_(st, T, until) {
   let added = 0, pages = 0;
   const q = 'after:' + Math.floor(st.from / 1000) + ' before:' + Math.floor(st.to / 1000) + ' -in:chats';
   while (!st.done && pages < CUE_CN_.pages && cueNow_() < until) {
-    const list = cueCsGmail_(['/messages?maxResults=' + CUE_CN_.page + '&q=' + encodeURIComponent(q) + (st.token ? '&pageToken=' + encodeURIComponent(st.token) : '')])[0];
-    if (!list) throw new Error('Gmail did not list messages');
+    const list = cueCnList_(q, st.token);
     const ids = (list.messages || []).map(x => x.id), got = [];
     let failed = 0;
     for (let i = 0; i < ids.length; i += CUE_CN_.batch) {
