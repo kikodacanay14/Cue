@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.x: client accreditation threads in Ask Cue (not deployed; the deploys thread sets the number)
+
+Kiko asked on 29 Oct 2026 at 16:14Z: "any reply for accreditation shows there as well" and "accreditation threads". At 17:24Z he
+picked "P4 companies + accreditation words" on the card "Which emails go into a company's accreditation thread?".
+
+- **One Ask Cue thread per company, "Accreditation · <company>".** Every 30 minutes the 5-minute job ("Client accreditation
+  mail") searches Kiko's Gmail for the last 3 days: any email from a company at P4 (its P0 Contacts domain, or the person's
+  address when it is a personal one such as gmail.com), plus any email whose subject says accreditation, accredited, vendor or
+  supplier registration, or vendor enrolment. Kiko's own emails and BSE staff are left out.
+- Each new reply is one short line in its company's thread: who, when, the subject, Gmail's preview and an **Open email** link.
+  The thread waits on Kiko until he taps **Done**; the next reply opens it again and is marked New. **Open Accounts in Canvas**
+  opens the company in Accounts.
+- The company is the P0 Contacts company of the sender's address or domain, else the sender's email domain. Each message posts
+  once: its id goes to the Cue sheet's new "Accreditation Mail" tab.
+- Read only. Nothing is sent, labelled or changed in Gmail or Canvas. No AI call. A cloud check never runs it.
+- New `src/CueAccred.gs`, the card in `src/IndexPages.html`, tests AC1 to AC4 (`test/features/64-client-accreditation.js`).
+  496 tests pass.
+
 ## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
 
 Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put

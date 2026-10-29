@@ -127,7 +127,7 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_AC_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
        // the one-card intake tests below run with the switch off; PH tests turn it on
     ...(o.props || {}) };   // the CE award kind is taken out below except in its own tests (A1 to A9), like the RFQ kind
   const tabs = { Requests: sheetMock(), Chat: sheetMock(), 'AI Runs': sheetMock(), 'Triage log': sheetMock(), 'Triage rules': sheetMock() }; Object.keys(tabs).forEach(k => tabs[k].appendRow(['header']));
