@@ -640,20 +640,22 @@
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
       if (g === 'clarify' && (x.ask || []).length) h += '<div class="small" style="margin-top:4px"><span class="muted">To ask the agency:</span> ' + esc(x.ask.join(', ')) + '</div>';
       if (g === 'clarify') h += draftHtml(x);
-      var b = [];
+      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decide later, Decline.
+      var b = [], end = [];
       if (x.key && !x.decision) {
-        if (g === 'scoped') b.push(btn('bids-intake', x, 'Accept'), btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true)); }
         else if (g === 'clarify') {
           if (!(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Send email clarification'));
           if (x.documents.length && !x.from_docs) b.push(btn('bids-more', x, 'Request more details', true));
-          b.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+          end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
         } else {
           b.push(x.added ? (x.ce_url ? '<a class="btn" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.ce_url) + '" target="_blank" rel="noopener">Create CE</a>' : '')
             : btn('bids-intake', x, 'Accept'));
-          b.push(btn('bids-decline', x, 'Decline', true));
+          end.push(btn('bids-decline', x, 'Decline', true));
         }
       }
       b.push('<button class="btn ghost" data-act="bids-view" data-id="' + esc(r.id) + '" data-bk="' + esc(r.id + '|' + x.key) + '">View details</button>');
+      b = b.concat(end);
       b = b.filter(Boolean);
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
     };
