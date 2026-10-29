@@ -41,8 +41,9 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
 - Tables (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are
-  always aligned center"): centre every table header and every number cell (amount, count, percent), on pages, Cue Admin,
-  emails, reports and mockups. Text cells keep their own alignment.
+  always aligned center"; 14:51Z: "middle align tables for short columns and the headers"): centre every table header, every
+  number cell (amount, count, percent) and every short column (each filled cell 12 characters or fewer: status, P-stage, date,
+  yes/no, code), on pages, Cue Admin, emails, reports and mockups. Long text keeps its own alignment.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
 - Labels (Kiko, 29 Oct 2026 14:48Z and 14:49Z: "make your label same - and make it a global UI", "make it a standard UI....

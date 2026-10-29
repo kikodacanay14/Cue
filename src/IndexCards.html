@@ -1624,13 +1624,14 @@
   paneShow();
   refresh(); loadRules(); loadMyRules();
 })();
-/* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
+/* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z and 14:51Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
    or blank counts as empty) is tagged whole, so its dashes line up too; outside such a column a lone number cell is tagged by itself.
+   A short column (every filled cell 12 characters or fewer, one line, no buttons or text boxes) is tagged whole too (Kiko 14:51Z).
    Number boxes (type=number, inputmode=decimal/numeric) are centred wherever they sit in a table. */
 (function () {
   if (window.bsTAlign) return;
   var NUM = /^[(\-+−]?\s*(?:₱|PHP|\$|USD)?\s*[\-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|×|k|K|M)?\)?$/;
-  var EMPTY = /^(?:|—|–|-|n\/a|N\/A)$/;
+  var EMPTY = /^(?:|—|–|-|n\/a|N\/A)$/, SHORT = 12;
   function txt(td) { return (td.textContent || '').replace(/\s+/g, ' ').trim(); }
   function numBox(td) { return td.querySelector('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]'); }
   function isNum(td) {
@@ -1648,21 +1649,23 @@
     var rows = rowsOf(table), n = 0, head = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
     if (!head && rows.length && rows[0].cells.length && [].every.call(rows[0].cells, function (x) { return x.tagName === 'TH'; })) head = rows.shift();
     if (head) { var simple = true; for (var i = 0; i < head.cells.length; i++) if (head.cells[i].colSpan > 1) simple = false; if (simple) n = head.cells.length; }
-    var colNum = {}, colAny = {};
-    if (n) for (var c = 0; c < n; c++) { colNum[c] = true; colAny[c] = false; }
+    var colNum = {}, colAny = {}, colShort = {}, colFill = {};
+    if (n) for (var c = 0; c < n; c++) { colNum[c] = true; colAny[c] = false; colShort[c] = true; colFill[c] = false; }
     rows.forEach(function (row) {
       for (var c = 0; c < row.cells.length; c++) {
         var td = row.cells[c];
         td.classList.remove('bs-num');
         if (!n || row.cells.length !== n) continue;
         if (isNum(td)) colAny[c] = true; else if (!EMPTY.test(txt(td))) colNum[c] = false;
+        if (!EMPTY.test(txt(td))) colFill[c] = true;
+        if (!isNum(td) && (txt(td).length > SHORT || td.querySelector('input,select,textarea,button,table,br,div,p,ul,ol'))) colShort[c] = false;
       }
     });
     rows.forEach(function (row) {
       var same = n && row.cells.length === n;
       for (var c = 0; c < row.cells.length; c++) {
         var td = row.cells[c];
-        if ((same && colNum[c] && colAny[c] && EMPTY.test(txt(td))) || isNum(td)) td.classList.add('bs-num');
+        if ((same && ((colNum[c] && colAny[c]) || (colShort[c] && colFill[c]))) || isNum(td)) td.classList.add('bs-num');
       }
     });
     table.querySelectorAll('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]').forEach(function (x) { x.classList.add('bs-num'); });
