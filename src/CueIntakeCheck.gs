@@ -7,10 +7,12 @@
 /** The newest real inquiries Cue has shown, one per email thread, newest first. Read only. New mail logs every line as "new" in the
  * Triage log and keeps Claude's sort only in its own task, so the inquiries come from the New mail tasks of the window (group
  * "inquiry"), plus Triage log lines the older Inbox triage marked "inquiry". Each comes with its text and its file count, so the check
- * can start the richest one from Gmail and make a screenshot or a PDF of the others. */
-function cueIcPick_(days, max) {
+ * can start the richest one from Gmail and make a screenshot or a PDF of the others. q (optional): only inquiries whose subject or
+ * sender has these words, for a check on one project Kiko names. */
+function cueIcPick_(days, max, q) {
   const since = cueNow_() - (Number(days) || 30) * 864e5, seen = {}, found = [];
-  const add = x => { if (!/^[0-9a-f]{6,32}$/i.test(x.thread_id) || seen[x.thread_id] || !(x.ms >= since)) return; seen[x.thread_id] = 1; found.push(x); };
+  const words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean), hit = x => words.every(w => (x.subject + ' ' + x.from).toLowerCase().indexOf(w) >= 0);
+  const add = x => { if (!/^[0-9a-f]{6,32}$/i.test(x.thread_id) || seen[x.thread_id] || !(x.ms >= since) || !hit(x)) return; seen[x.thread_id] = 1; found.push(x); };
   const nm = [];
   cueRows_(cueSheet_('Requests')).forEach(r => {
     let t = null; try { t = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
@@ -24,6 +26,9 @@ function cueIcPick_(days, max) {
         ms: new Date(r[0]).getTime(), run: String(r[7] || '') };
     }))
     .sort((a, b) => b.ms - a.ms).forEach(add);
+  // A project Kiko names that Cue never sorted (older, or read before New mail): the newest Gmail thread with those words.
+  if (words.length && !found.length) (cueGmail_('/threads?maxResults=1&q=' + encodeURIComponent(q + ' newer_than:' + (Number(days) || 30) + 'd')).threads || []).slice(0, 1)
+    .forEach(t => found.push({ key: 'inbox:' + t.id, inbox: 'mine', thread_id: String(t.id), from: '', subject: q, ms: cueNow_(), run: '' }));
   return found.slice(0, Number(max) || 6).map(f => {
     const x = { key: f.key, inbox: f.inbox, thread_id: f.thread_id, from: f.from, subject: f.subject, at: new Date(f.ms).toISOString(), run: f.run, text: '', files: 0, error: '' };
     try {

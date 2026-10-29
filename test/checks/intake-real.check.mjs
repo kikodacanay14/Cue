@@ -7,8 +7,13 @@
 // Each runs phase 1 for real (GPT read, Canvas duplicate check and Client Desk check, both reads). Phase 1 Approve would add a real project
 // to Canvas, so the check never taps it; phases 2 to 4 (Claude's rows, costing from Canvas's evidence with web research, RFQ drafts) run
 // on a copy with nothing saved, written or drafted. Mail: none. AI calls: about 5 per inquiry.
+import { existsSync, readFileSync } from 'node:fs';
 const runs = [];
 let picks = [];
+// One project Kiko names (29 Oct 15:09Z "how do we test the intake? i have a project"): words from its subject or sender, one line, in
+// intake-real.only.txt next to this file. The three runs then all use that inquiry, and a match in Canvas goes on as a new project.
+const ONLY_FILE = new URL('./intake-real.only.txt', import.meta.url);
+const ONLY = existsSync(ONLY_FILE) ? readFileSync(ONLY_FILE, 'utf8').trim() : '';
 
 const RFQ_LEAK = (r, client) => {
   const body = String(r.body || '');
@@ -28,6 +33,13 @@ async function runOne(h, label, start) {
   const v = run.result || {};
   r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '' };
   if (v.status === 'Failed' || v.error) throw new Error(label + ': phase 1 ended ' + v.status + ': ' + (v.error || v.stage));
+  if (v.stage === 'Same project?' && ONLY) {
+    r.same = (v.same || []).map(x => x.name);
+    const a = await h.door('check_call', { fn: 'cueSameAnswer', args: [r.id, 'new'] });
+    if (!a.ok) throw new Error(label + ': could not go on as a new project: ' + a.error);
+    Object.assign(v, a.result || {});
+    r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '', same_as: r.same };
+  }
   if (v.stage === 'Same project?') { r.ok = true; r.note = 'Canvas already has a project that looks the same, so Cue asked first (correct; no phases 2 to 4)'; return r; }
   if (v.status !== 'Needs you' || !(v.ph && v.ph.phase === 1)) throw new Error(label + ': expected the phase 1 card, got ' + v.status + ' / ' + v.stage);
   for (const n of [2, 3, 4]) {
@@ -61,9 +73,10 @@ export default {
   name: 'Project intake on real inquiries: Gmail Start intake, a screenshot, an uploaded PDF (nothing written, nothing sent)',
   steps: [
     { title: 'Real inquiries Cue showed in the last 30 days', run: async h => {
-      const r = await h.door('check_call', { fn: 'cueIcPick_', args: [30, 8] });
+      const r = await h.door('check_call', { fn: 'cueIcPick_', args: [ONLY ? 120 : 30, 8, ONLY] });
       if (!r.ok) throw new Error('cueIcPick_ failed: ' + r.error);
       picks = (r.result || []).filter(p => !p.error && String(p.text || '').trim().length >= 40);
+      if (!picks.length && ONLY) throw new Error('No inquiry matches "' + ONLY + '" in the last 120 days: ' + JSON.stringify((r.result || []).map(p => [p.subject, p.error])));
       if (!picks.length) throw new Error('No real inquiry with readable text in the last 30 days: ' + JSON.stringify((r.result || []).map(p => [p.subject, p.error])));
       // Gmail first: an email in Kiko's own inbox with files when there is one, else his inbox, else info@ (newest first within each).
       const rank = p => (p.inbox === 'mine' ? 0 : 2) + (p.files ? 0 : 1);

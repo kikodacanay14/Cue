@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.27.72: RFQ drafts say TBC for blank event details (not deployed)
+
+Backlog card intake-real-check (High, 29 Oct 2026): intake was built but had never run on real inquiries. The coordinator asked
+this thread to prove it end to end (from Gmail Start intake, from a screenshot and from an uploaded file) and to fix what breaks.
+Built on the live line (1.27.70); 1.27.71 is the separate Friday status release.
+
+- **Bug fix: RFQ drafts no longer print blank event lines.** On real inquiries the drafts read "Venue:", "City:" and "Expected
+  pax: 0", and one made up an event date. Empty event details now go to GPT as TBC, and the RFQ prompt says never to invent a
+  date, venue, city or pax.
+- **Cloud check for intake on real inquiries** (`test/checks/intake-real.check.mjs`, door functions in `src/CueIntakeCheck.gs`).
+  It picks the newest inquiries Cue sorted (New mail's own sort, plus older Inbox triage lines), runs phase 1 for real, then
+  phases 2 to 4 on a copy, so nothing is written to Canvas and nothing is sent. `intake-real.only.txt` next to the script narrows
+  it to one named project. In a check, a new message never joins or reopens one of Kiko's own threads (`cueCheckMine_`).
+- Tests: 492, all passing (`test/features/63-intake-real-check.js`, IR1 to IR6).
+
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (live as Version 159, 29 Oct 12:46Z, rollback 156)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im
