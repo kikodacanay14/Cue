@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.27.69: bid card in three parts, with Decline, Decide later and the clarification email (not deployed)
+
+Asked by Kiko on 29 Oct 2026 at 10:47Z: "For Opportunities - i would like to see New Opportunities - Scoped Projects ... New
+Opportunities - For Clarification ... Opportunities Closing", and at 10:48Z: "indicate the source in the message". His answers
+at 10:51Z to 10:52Z: Decline is one tap and writes No in the bid sheet, Create CE opens Canvas Cost Estimates, and a bid whose
+documents must be bought goes to "for clarification".
+
+- **New: Scoped projects.** Notices whose bid documents Cue downloaded and read, with nothing missing and inside the budget and
+  area screen. Buttons: Accept (start intake), Decide later, Decline.
+- **New: For clarification.** Notices with missing details or no readable documents. Send email clarification drafts the email
+  to the agency in the BSE voice and shows it on the card, also saved in Gmail Drafts. Kiko can Edit it, Cancel it (the draft is
+  deleted), or Approve and send. The email goes once, from Kiko's Gmail, and the bid sheet notes the day and the address.
+- **Opportunities closing.** Notices recorded earlier that are still open. One already accepted (Intake?? Yes) shows Create CE,
+  which opens Canvas Cost Estimates on that reference; one not yet accepted shows Accept. Both show Decline.
+- **Source on every notice**, such as "PhilGEPS Bulletin Board", "PhilGEPS (old site)", CITEM or NPDC.
+- **Decline** writes No in the bid sheet's Intake?? column, so the notice never comes back. **Decide later** writes nothing, so
+  tomorrow's 7:00 check shows it again. Accept writes Yes.
+- No new AI call (the clarification draft uses the same one call as before) and no email without Kiko's tap.
+- Tests: 486 (new `test/features/62-bid-card-v3.js`).
+
 ## Cue 1.27.68: three bug fixes: CRM funnel, CRM timer, PhilGEPS bids (not deployed)
 
 Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko asked for at 09:28Z: "Fix the two bugs now".

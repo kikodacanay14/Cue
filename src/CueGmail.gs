@@ -48,6 +48,23 @@ function cueGmailReply_(f, body, files) {
   return o.id;
 }
 
+/** Replaces the text of a draft Cue made (Kiko edited it on the card before Approve and send). */
+function cueGmailDraftPut_(id, to, subject, body) {
+  const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
+  const mime = (cueEmail_(to) ? 'To: ' + cueEmail_(to) + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(String(subject || '').replace(/[\r\n]+/g, ' ')) + '?=\r\n'
+    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(body || '');
+  const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts/' + encodeURIComponent(id), { method: 'put', contentType: 'application/json',
+    muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify({ id, message: { raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) } }) });
+  if (res.getResponseCode() !== 200) throw new Error('Gmail did not save your edits; nothing was sent (HTTP ' + res.getResponseCode() + ')' + cueGoogleWhy_(res));
+}
+/** Deletes a draft Cue made (Cancel on the card). */
+function cueGmailDraftDelete_(id) {
+  const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts/' + encodeURIComponent(id), { method: 'delete', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+  if ([200, 204, 404].indexOf(res.getResponseCode()) < 0) throw new Error('Gmail did not delete the draft (HTTP ' + res.getResponseCode() + ')');
+}
+
 // From CueIntake.gs
 /** Makes one Gmail draft through the Gmail API (gmail.compose scope only). To is left blank when the supplier has no email. */
 function cueGmailDraft_(to, subject, body) {

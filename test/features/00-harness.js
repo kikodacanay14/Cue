@@ -533,6 +533,11 @@ function sandbox(o = {}) {
       log.replies = log.replies || []; log.replies.push({ type: req.contentType, payload: req.payload });
       return (o.replyFail && log.replies.length === 1) ? resp(500, {}) : resp(200, { id: 'reply-' + log.replies.length });
     }
+    if (/gmail\/v1\/users\/me\/drafts\/[^/?]+$/.test(u) && /^(put|delete)$/i.test(req.method || '')) {   // CueGmail.gs cueGmailDraftPut_ / cueGmailDraftDelete_
+      const id = decodeURIComponent(u.split('/drafts/')[1]);
+      if (/^put$/i.test(req.method)) { (log.draftPut = log.draftPut || []).push({ id, mime: Buffer.from(JSON.parse(req.payload).message.raw, 'base64url').toString('utf8') }); return resp(200, { id }); }
+      (log.draftDel = log.draftDel || []).push(id); return resp(204, {});
+    }
     if (u.indexOf('/drafts/send') >= 0) {
       log.sent = log.sent || []; log.sent.push(JSON.parse(req.payload).id);
       return (o.sendFail && log.sent.length === 1) ? resp(500, {}) : resp(200, { id: 'sent' + log.sent.length + 'abcdef', threadId: 'thr' + log.sent.length + 'abcdef' });

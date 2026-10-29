@@ -75,8 +75,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
     ['https://citem.gov.ph/d.zip', 'Could not open: HTTP 403 (blocked or needs sign-in)'], ['https://dot.gov.ph/tor.pdf', 'Could not open: needs sign-in']], 'every document in the read-once record');
   assert.ok(docs[1][7] && JSON.parse(docs[1][8]).abc === 480000, 'read time and what was found are kept');
   deq(v.bids.sources.filter(x => x.source === 'PCC').map(x => x.status), ['Not reported']);
-  assert.strictEqual(v.bids.title, 'Bid opportunities · 2026-10-21 · 3 new, 1 still open');
-  assert.ok(/^3 new, 1 still open\. 11 sources checked, 2 partial or blocked\. 2 of 5 documents opened by Cue\. Process check: 8 of 10 passed\.$/.test(v.bids.summary), v.bids.summary);
+  assert.strictEqual(v.bids.title, 'Bid opportunities · 2026-10-21 · 1 scoped, 2 for clarification, 1 closing');
+  assert.ok(/^1 scoped, 2 for clarification, 1 closing\. 11 sources checked, 2 partial or blocked\. 2 of 5 documents opened by Cue\. Process check: 8 of 10 passed\.$/.test(v.bids.summary), v.bids.summary);
   assert.ok(t.tabs.Chat.rows.some(r => /Started a bid opportunity check/.test(r[2]) && r[3] === '>' + r[3].slice(1)));
   deq(t.log.bridge.map(b => b.action), ['claim_plan', 'crm_lead', 'crm_lead', 'crm_lead'], 'only the 3 new bids go to Canvas CRM (CUE-STRUCTURE-4.3)');
   assert.ok(!(t.log.gmail || []).length, 'no Gmail');
@@ -130,7 +130,7 @@ test('BD15 Request more details opens what Cue has not opened and ChatGPT reads 
   assert.strictEqual(reads(), r0 + 1, 'the read RFQ is not read again; the blocked drawings are retried only');
   const n = t.ctx.cueBidsMore(id, 'r:np77').bids.items.filter(x => x.reference === 'NP-77')[0];
   deq(n.more.missing, ['budget', 'bid start date']); assert.strictEqual(reads(), r0 + 1, 'no document, no call');
-  assert.ok(t.tabs.Chat.rows.some(r => /^More details for NP-77: no new document to open\. Still missing: budget, bid start date\. Tap Draft a question/.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => /^More details for NP-77: no new document to open\. Still missing: budget, bid start date\. Tap Send email clarification/.test(r[2])));
   const a = t.ctx.cueBidsAskAgency(id, 'r:np77');
   assert.strictEqual(t.log.gmail.length, 1); assert.ok(/Subject: =\?UTF-8\?B\?/.test(t.log.gmail[0]) && !/^To:/m.test(t.log.gmail[0]), 'a draft, To blank with no BAC email');
   assert.ok(!(t.log.sent || []).length, 'never sent'); assert.ok(a.bids.items.filter(x => x.reference === 'NP-77')[0].more.draft);
@@ -399,11 +399,11 @@ test('BD6 page: the bid card has the new title, New and Still open, the 7 fields
   v.bids.items[0].documents.push({ name: 'evil', url: 'javascript:alert(1)', state: 'saved', drive: 'javascript:x' });
   const box = { esc: x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]), metricLine: () => 'M', r: v };
   const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
-  assert.ok(/Bid opportunities · 2026-10-21 · 3 new, 1 still open/.test(h) && /11 sources checked, 2 partial or blocked/.test(h));
-  assert.ok(/New \(3\)[\s\S]*Still open \(1\)/.test(h) && /Trade fair booth fabrication/.test(h) && /Travel fair booth/.test(h) && /Deadline moved to/.test(h));
+  assert.ok(/Bid opportunities · 2026-10-21 · 1 scoped, 2 for clarification, 1 closing/.test(h) && /11 sources checked, 2 partial or blocked/.test(h));
+  assert.ok(/New: Scoped projects \(1\)[\s\S]*New: For clarification \(2\)[\s\S]*Opportunities closing \(1\)/.test(h) && /Trade fair booth fabrication/.test(h) && /Travel fair booth/.test(h) && /Deadline moved to/.test(h));
   ['Organization:', 'Bid start date:', 'Bid end date:', 'Budget:', 'Summary of requirements:', 'Bid documents available:'].forEach(k => assert.ok(h.indexOf(k) >= 0, k));
   assert.ok(/Opened · saved · read/.test(h) && /Cue&#39;s copy/.test(h) && /Could not open: HTTP 403/.test(h) && /Could not open: needs sign-in/.test(h));
-  assert.ok(/data-act="bids-more"[^>]*data-f="c:2026-0999"/.test(h) && /data-act="bids-intake"/.test(h) && /Official notice/.test(h));
+  assert.ok(/data-act="bids-ask"[^>]*data-f="r:np77"/.test(h) && /data-act="bids-intake"/.test(h) && /Official notice/.test(h));
   assert.ok(/process check 8 of 10 passed/.test(h) && /✗ All 11 sources reported/.test(h)); assert.ok(/data-act="bids-close"/.test(h) && !/Pursue/.test(h));
   assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱480,000/.test(h) && /For verification/.test(h));
   ['bids-more', 'bids-ask', 'bids-intake'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));

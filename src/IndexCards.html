@@ -608,8 +608,25 @@
         : '<span class="muted">' + (d.state === 'listed' ? '(listed, not opened by Cue)' : '(not opened yet)') + '</span>';
       return '<li>' + link(d.url || d.page, d.name) + ' ' + st + (d.page && d.url && d.url !== d.page ? ' <span class="muted">(found on ' + link(d.page, 'the agency page') + ')</span>' : '') + '</li>';
     };
+    // CUE-BID-CARD-V3 (Kiko 29 Oct 10:47Z-10:52Z): Scoped projects, For clarification and Closing, each notice with its source.
+    var btn = function (act, x, label, ghost) { return '<button class="btn' + (ghost ? ' ghost' : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">' + label + '</button>'; };
+    var draftHtml = function (x) {
+      var d = x.more && x.more.draft; if (!d) return '';
+      var f = function (k) { return ' data-bd="' + esc(r.id) + '" data-k="' + esc(x.key) + '" data-x="' + k + '"'; };
+      if (d.sent) return '<div class="small" style="margin-top:6px"><span class="tag pref">Clarification sent</span> to ' + esc(d.to) + ' · ' + esc(day(d.sent.slice(0, 10))) + '</div>';
+      return '<div style="margin-top:8px;padding:10px;border:1px dashed var(--line2);border-radius:8px;background:var(--bg)"><div class="small muted">Draft · from your Gmail · nothing is sent until you tap Approve and send</div>'
+        + '<label class="small muted" style="display:block;margin-top:6px">To <input type="email" readonly' + f('to') + ' value="' + esc(d.to) + '" placeholder="BAC email" style="width:100%"></label>'
+        + '<label class="small muted" style="display:block;margin-top:6px">Subject <input type="text" readonly' + f('subject') + ' value="' + esc(d.subject) + '" style="width:100%"></label>'
+        + '<textarea readonly rows="7"' + f('body') + ' style="width:100%;margin-top:6px;font:inherit">' + esc(d.body) + '</textarea>'
+        + '<div class="actions">' + btn('bids-send', x, 'Approve and send') + btn('bids-edit', x, 'Edit', true) + btn('bids-cancel', x, 'Cancel', true) + '</div></div>';
+    };
+    var DONE = { accepted: 'Accepted: intake started', declined: 'Declined', later: 'Back in tomorrow\'s search' };
     var item = function (x) {
-      var h = '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + esc(x.project || x.reference) + '</b>'
+      var g = x.group || 'clarify';
+      var h = '<div class="card" style="margin:8px 0 0;background:var(--input)' + (g === 'closing' ? ';border-left:4px solid var(--need)' : '') + '">'
+        + '<div>' + (x.source ? '<span class="tag" style="background:var(--act);color:#fff">' + esc(x.source) + '</span> ' : '')
+        + (x.added && g === 'closing' ? '<span class="tag pref">In Canvas</span> ' : '') + (x.decision ? '<span class="tag pref">' + esc(DONE[x.decision] || x.decision) + '</span>' : '') + '</div>'
+        + '<b>' + esc(x.project || x.reference) + '</b>'
         + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
         + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
         + (x.contacts && x.contacts.length ? row('Contact', x.contacts.map(function (c) { return [c.name, c.role, c.email, c.phone].filter(Boolean).join(', '); }).join('; '))
@@ -618,20 +635,32 @@
         + row('Summary of requirements', x.summary || '') + (x.pages ? '<div class="small muted">From the documents: ' + esc(x.pages) + '</div>' : '')
         + '<div class="small" style="margin-top:2px"><span class="muted">Bid documents available:</span>' + (x.documents.length ? '<ul class="small" style="margin:2px 0 0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : ' <span class="muted">None listed</span>') + '</div>'
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '');
-      if (x.more && x.more.missing.length) h += '<div class="small muted" style="margin-top:4px">Still missing: ' + esc(x.more.missing.join(', ')) + '</div>';
+      if (g === 'clarify' && (x.ask || []).length) h += '<div class="small" style="margin-top:4px"><span class="muted">To ask the agency:</span> ' + esc(x.ask.join(', ')) + '</div>';
+      if (g === 'clarify') h += draftHtml(x);
       var b = [];
-      if (x.key) {
-        b.push('<button class="btn ghost" data-act="bids-more" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Request more details</button>');
-        if (x.more && x.more.missing.length) b.push(x.more.draft ? '<span class="tag pref">Question in your Gmail Drafts</span>' : '<button class="btn ghost" data-act="bids-ask" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Draft a question to the agency</button>');
-        b.push('<button class="btn ghost" data-act="bids-intake" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">Start intake</button>');
+      if (x.key && !x.decision) {
+        if (g === 'scoped') b.push(btn('bids-intake', x, 'Accept (start intake)'), btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+        else if (g === 'clarify') {
+          if (!(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Send email clarification'));
+          if (x.documents.length && !x.from_docs) b.push(btn('bids-more', x, 'Request more details', true));
+          b.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+        } else {
+          b.push(x.added ? (x.ce_url ? '<a class="btn" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.ce_url) + '" target="_blank" rel="noopener">Create CE</a>' : '')
+            : btn('bids-intake', x, 'Accept (start intake)'));
+          b.push(btn('bids-decline', x, 'Decline', true));
+        }
       }
+      b = b.filter(Boolean);
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
     };
     var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b style="font-size:17px;color:var(--white)">' + esc(B.title) + '</b>'
       + '<div class="small muted">' + esc(B.sub || B.summary) + '</div>';
     (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
-    h += '<div class="label">New (' + B.items.length + ')</div>' + (B.items.length ? B.items.map(item).join('') : '<div class="small muted">No new notices in this run.</div>');
-    if (still.length) h += '<div class="label">Still open (' + still.length + ')</div>' + still.map(item).join('');
+    var part = function (name, hint, list, none) { return '<div class="label">' + name + ' (' + list.length + ')</div>' + (list.length ? '<div class="small muted">' + hint + '</div>' + list.map(item).join('') : (none ? '<div class="small muted">' + none + '</div>' : '')); };
+    var scoped = B.items.filter(function (x) { return x.group === 'scoped'; }), clarify = B.items.filter(function (x) { return x.group !== 'scoped'; });
+    h += part('New: Scoped projects', 'Cue downloaded the bid documents and the details are complete.', scoped, B.items.length ? '' : 'No new notices in this run.');
+    h += part('New: For clarification', 'Details are missing, so Cue drafts an email to the agency asking for them.', clarify);
+    if (still.length) h += part('Opportunities closing', 'Recorded before and not yet answered, soonest first.', still);
     if (updated.length) h += '<div class="label">Updated (' + updated.length + ')</div>' + updated.map(item).join('');
     h += '<details style="margin-top:10px"><summary class="small" style="display:inline">Sources checked (' + B.sources.length + ') · process check ' + passed + ' of ' + B.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
       + B.sources.map(function (x) { return '<li>' + link(x.url, x.source) + ' <span class="tag' + (x.status === 'Checked' ? ' pref' : ' flag') + '">' + esc(x.status) + '</span>' + (x.gap ? ' <span class="muted">' + esc(x.gap) + '</span>' : '') + (x.pages ? ' <span class="muted">' + esc(x.pages) + ' listing or sign-in page' + (x.pages === 1 ? '' : 's') + ' seen, no notice opened</span>' : '') + '</li>'; }).join('') + '</ul>'
@@ -1471,6 +1500,16 @@
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
         if (act === 'bids-intake') { b.disabled = true; return call('cueBidsStartIntake', [id, b.getAttribute('data-f')], started, fail); }
+        if (act === 'bids-later' || act === 'bids-decline') { b.disabled = true; return call('cueBidsDecide', [id, b.getAttribute('data-f'), act === 'bids-later' ? 'later' : 'declined'], done, fail); }
+        if (act === 'bids-edit' || act === 'bids-send' || act === 'bids-cancel') {
+          var bk = b.getAttribute('data-f'), bf = {};
+          scope.querySelectorAll('[data-bd="' + id + '"]').forEach(function (x) { if (x.getAttribute('data-k') === bk) { bf[x.getAttribute('data-x')] = x; } });
+          if (act === 'bids-edit') { Object.keys(bf).forEach(function (k) { bf[k].readOnly = false; }); if (bf.body) bf.body.focus(); return; }
+          b.disabled = true;
+          if (act === 'bids-cancel') return call('cueBidsClarifyCancel', [id, bk], done, fail);
+          b.textContent = 'Sending…'; running[id] = 1;
+          return call('cueBidsClarifySend', [id, bk, bf.to ? bf.to.value : '', bf.subject ? bf.subject.value : '', bf.body ? bf.body.value : ''], done, fail);
+        }
         if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
         if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
