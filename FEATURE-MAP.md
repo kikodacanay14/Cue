@@ -245,7 +245,7 @@ Names used by 5 or more other files, and the file that holds them.
 Server functions `Index.html` calls, by the file that holds them.
 
 - `Cue.gs`: `cueApprove`, `cueAsNew`, `cueCancelIntake`, `cueCloseTask`, `cueDrafts`, `cueFixAccess`, `cueFolders`, `cueReject`, `cueReopen`, `cueRescan`, `cueRetry`, `cueRfq`, `cueRfqPick`, `cueRun`, `cueSameAnswer`, `cueSend`, `cueState`, `cueSupplierCanvas`, `cueSupplierSaved`
-- `CueAdmin.gs`: `cueAdminChasers`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
+- `CueAdmin.gs`: `cueAdminChasers`, `cueAdminLog`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClose`, `cueBidsStartIntake`
 - `CueExpense.gs`: `cueExpense`

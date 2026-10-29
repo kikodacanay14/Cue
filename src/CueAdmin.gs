@@ -110,3 +110,24 @@ function cueAdminChasers() {
         ai: !!(k && k.draftBrief), subject: String(tpl.subject || ''), body: String(tpl.body || '') };
     }) };
 }
+
+/* CUE-ADMIN-LOG-2026-10-29 (Kiko 29 Oct 03:43Z "Reporting ... It has to be all not split"; 03:46Z "Maybe we can do a Historical or Log
+ * page? filtered by the different Jobs. and Status"). Epic Cue #193. Cue Admin › Log: every background job run from the Job Runs tab
+ * (30 days, CueJobs.gs), newest first, with the job names and statuses the page filters on. Canvas's sends join this list through a
+ * read-only bridge action once Canvas ships it. Read only. */
+const CUE_ADMIN_LOG_MAX_ = 1000;
+function cueAdminLog() {
+  cueOwner_();
+  const sh = cueSheet_('Job Runs'), n = sh.getLastRow() - 1, rows = [];
+  if (n > 0) sh.getRange(Math.max(2, n - CUE_ADMIN_LOG_MAX_ + 2), 1, Math.min(n, CUE_ADMIN_LOG_MAX_), 6).getValues().reverse().forEach(r => {
+    const t = r[0] instanceof Date ? r[0].getTime() : Date.parse(String(r[0] || ''));
+    if (!r[2] || isNaN(t)) return;
+    const p = cuePh_(t), secs = Math.round(((r[1] instanceof Date ? r[1].getTime() : Date.parse(String(r[1] || ''))) - t) / 1000);
+    rows.push({ at: new Date(t).toISOString(), day: cueRnDay_(p.day), time: String(p.hour).padStart(2, '0') + ':' + String(p.minute).padStart(2, '0'),
+      from: 'Cue', job: String(r[2]), status: String(r[3]) === 'Failed' ? 'Failed' : 'OK', error: String(r[4] || ''),
+      count: r[5] === '' || r[5] == null ? '' : String(r[5]), secs: isNaN(secs) ? '' : secs });
+  });
+  const jobs = cueJobs_().map(j => j.job);
+  rows.forEach(x => { if (jobs.indexOf(x.job) < 0) jobs.push(x.job); });
+  return { jobs, rows };
+}
