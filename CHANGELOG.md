@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.65: Canvas chasers, Send a notice and the Log move into Cue Admin (not deployed)
+## Cue 1.27.65: Canvas chasers, Send a notice and the Log move into Cue Admin (live as Version 145, 29 Oct 2026 04:43Z; rollback Version 138)
 
 Cut by the deploys thread on 1.27.64 (not yet live) from Cue PR #205 (commits ad162cf, 989ef5e and c743b05). Kiko asked on 29 Oct 2026
 at 03:43Z ("lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"; reporting "has to be all not split")
@@ -18,7 +18,7 @@ and at 03:46Z ("a Historical or Log page? filtered by the different Jobs. and St
 - Release line: AI relay is still left out.
 - Tests: 468 pass on the release line.
 
-## Cue 1.27.64: Cue Admin rounds 2 to 4, Jobs › Chasers templates and what each item is about (not deployed)
+## Cue 1.27.64: Cue Admin rounds 2 to 4, Jobs › Chasers templates and what each item is about (live as Version 145, 29 Oct 2026 04:43Z; rollback Version 138)
 
 Cut by the deploys thread on 1.27.63 (Cue Admin page, not yet live) from Cue PR #203 (main 9e449bd) and round 4 (9673976). Kiko asked on 29 Oct 2026
 between 03:17Z and 03:27Z, and at 03:17Z said "Yes agree on Job Chasers", which moves Cue's chasers out of Canvas Admin into Cue
@@ -40,7 +40,7 @@ Admin. Epic Cue #193, stories #201 and #202.
   read-only channel ticks. Descriptions are smaller (12px) and lighter.
 - Tests: 461 pass on the release line.
 
-## Cue 1.27.63: Cue Admin, Cue's settings and admin as their own page (not deployed)
+## Cue 1.27.63: Cue Admin, Cue's settings and admin as their own page (live as Version 145, 29 Oct 2026 04:43Z; rollback Version 138)
 
 Kiko asked on 29 Oct 2026 at 02:13Z, 02:16Z and 02:17Z ("On a separate page"), and said "yes" to the mockup
 `previews/admin-settings/cue-admin-page.png` at 02:42Z. Epic Cue #193, stories #194 to #197 (#198, the cue.blankspaceevent.com address,
