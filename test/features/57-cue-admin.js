@@ -34,7 +34,46 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'sched', 'rn', 'conn', 'relay', 'usage']);
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sched', 'rn', 'conn', 'relay', 'usage']);
   ['triage', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
+});
+
+/* CUE-ADMIN-2-2026-10-29 (Kiko 29 Oct 03:17Z-03:21Z): descriptions on Chaser rules, Scheduled tasks and AI relay, the Auto-send list,
+ * "Processes and business rules", and Jobs › Chasers (chaser > lined-up chases with time and sender > draft). */
+
+test('AD5 Jobs › Chasers: each chaser kind with today\'s lines (when, sender, draft) and the ones lined up in the Chase log, read only', () => {
+  const t = sweepBox({}, { kind: 'rfq' }); t.at('2026-10-21', 10, 0); t.ctx.cueSweep();
+  const log = t.tabs['Chase log'];
+  log.appendRow(['rfq:later1', 'rfq', 'Gala', 'Light Co', '2026-10-20', 1, '2026-10-24', false, 'draft']);
+  log.appendRow(['rfq:done1', 'rfq', 'Gala', 'Max Co', '2026-10-20', 2, '2026-10-24', false, 'draft']);
+  log.appendRow(['rfq:muted', 'rfq', 'Gala', 'Mute Co', '2026-10-20', 1, '2026-10-24', true, '']);
+  const J = JSON.parse(JSON.stringify(t.ctx.cueAdminChasers()));
+  deq(J.kinds.map(k => k.kind), ['rfq', 'award', 'payment', 'accreditation', 'signature']);
+  const r = J.kinds[0];
+  deq([r.label, r.from, r.lines.length > 0], ['RFQ chasers', 'your Gmail, as a reply in the RFQ thread', true]);
+  assert.ok(r.lines.every(x => x.when === 'Today, 09:00 once you Approve' && typeof x.body === 'string'), 'today: the send time and the draft');
+  deq(r.next.map(x => [x.who, x.when]), [['Light Co', '24 Oct, in the 07:00 batch']], 'max reached (2 of 2) and muted lines are left out');
+  deq([J.batch.status, J.send, J.build], ['Needs you', '09:00', '07:00']);
+  deq(t.log.sent || [], [], 'nothing is sent');
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8').includes("'cueAdminChasers'"), 'never run by a cloud check');
+});
+
+test('AD6 Chaser rules and Scheduled tasks carry what each one is about; a task made in chat says Kiko made it and when', () => {
+  const t = sandbox();
+  const R = t.ctx.cueRules();
+  deq(Object.keys(R.about), Object.keys(R.kinds), 'one line for every chaser on the card');
+  assert.ok(Object.values(R.about).every(a => a.about && a.from));
+  const S = t.ctx.cueSchedules(), sys = S.filter(x => x.system && !/^sys-gt-/.test(x.id));
+  assert.ok(sys.length >= 9 && sys.every(x => x.about.about && /^Asked by Kiko/.test(x.about.asked) && x.about.follows.length && x.about.follows.every(f => f[0] && f[1])), 'every Cue task has an about line, and each Follows item says what it means');
+  const sh = t.tabs.Schedule; sh.appendRow(['sch-1', 'Invoice reminder', 'user', 'once', '', '', '2026-10-30', '15:00', 'remind me to send the invoice', 'remind', true, '', '', '', '', new Date('2026-10-23T02:00:00Z')]);
+  const u = t.ctx.cueSchedules().filter(x => x.id === 'sch-1')[0];
+  deq([u.about.asked, u.about.follows[0][0]], ['Made by Kiko in chat, 23 Oct', 'Reminder']);
+});
+
+test('AD7 the page shows the Auto-send rules with each message, the channel icons, the AI relay ? and "Processes and business rules"', () => {
+  const page = cuePage();
+  ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
+    'Payment received: ₱12,000', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
+    'class="qhelp"', 'A mailbox inside Cue where ChatGPT and Claude leave notes', 'waits in Cue until you tap Pass on', 'data-jc-open', 'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
 });

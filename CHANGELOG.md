@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue Admin round 2: what each chaser, task and send is about, and Jobs › Chasers (not deployed)
+
+Kiko asked on 29 Oct 2026 at 03:17Z, 03:19Z and 03:21Z. Epic Cue #193, stories #201 and #202.
+
+- **Jobs › Chasers** (new): every chaser kind with a one-line description and its sender. Expand a kind to see the chases lined up
+  (today's, with the send time, and later ones from the Chase log, with their day) and where each goes from (your Gmail, info@ or
+  freelancers@ through Canvas). Expand a chase to read its draft. Read only; "Open the batch to approve" opens the morning batch.
+- **Chaser rules**: each chaser now says what it chases and who it comes from.
+- **Auto-send**: lists what Canvas sends by itself and the rule that sends it (new users, payments, AR, FSA, project notices, the 7am
+  digest). Read only.
+- **Processes** is renamed **Processes and business rules**.
+- **Scheduled tasks**: each task shows what it does, who asked for it and when, and the specs and rules it follows. A task made in
+  chat says "Made by Kiko in chat" and the day.
+- **AI relay**: a "What it is" and "What it never does" box at the top.
+- Round 3 (Kiko 03:27Z): an Auto-send row opens to show the message Canvas sends (its own wording, made-up names); email, text and
+  app-notice icons on Auto-send, Chaser rules and Jobs › Chasers; a Scheduled task card opens to show what each Follows item means,
+  who asked for it, and how to change its time (Change time); AI relay's description moved to a ? hover, and each switch says what it
+  does ("Notes wait for my Pass on": a note waits in Cue until you tap Pass on or Drop).
+- Nothing Cue does changes: the words describe the code as it is. `cueAdminChasers` is never run by a cloud check.
+- Tests: AD5 to AD7 added; 438 pass.
+
 ## Cue Admin: Cue's settings and admin as their own page (not deployed)
 
 Kiko asked on 29 Oct 2026 at 02:13Z, 02:16Z and 02:17Z ("On a separate page"), and said "yes" to the mockup

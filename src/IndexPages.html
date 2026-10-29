@@ -106,6 +106,7 @@
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
     if (sec === 'rn') loadRn();
+    if (sec === 'jobchasers') loadJc();
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -117,8 +118,11 @@
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
     var RL = S.relay || { keys: [] };
-    setHtml($('w-relay'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
+    setHtml($('w-relay'), ''
+      + '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
+      + '<div class="small muted" style="margin:2px 0 0 24px">On: a note from ChatGPT or Claude waits in Cue until you tap Pass on (or Drop). Off: notes pass on at once and you read them in the Relay thread.</div>'   // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z "what is Notes wait for my Pass on?")
       + '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-relay-writes="on"' + (RL.writes !== false ? ' checked' : '') + '> <b>I can confirm Canvas changes in ChatGPT</b></label>'
+      + '<div class="small muted" style="margin:2px 0 0 24px">On: when ChatGPT hands Cue a CE cost change, an expense or an intake, you can give the go in ChatGPT with a one-time code, and Cue writes to Canvas once. Off: you approve those in Cue only.</div>'
       + '<div class="small muted" style="margin-top:6px">ChatGPT and Claude leave notes for each other in Cue. Each key opens the relay for one of them; paste it into that app yourself and never into a chat. New key stops the old one at once.</div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay URL</b><input data-relay-url placeholder="From the deploy: https://script.google.com/macros/s/…/exec" value="' + esc(RL.url || '') + '" style="flex:1;min-width:180px"><button class="btn ghost" data-relay-save="1">Save</button></div>'
       + RL.keys.map(function (k) { return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">' + esc(k.who) + '</b>'
@@ -139,17 +143,24 @@
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
   var schedList = null, schedErr = '';
   function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }
+  var schedOpen = {};   // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z): a card opens below to show its Follows details and how to change the time
   function renderSched() {
     var L = schedList || [];
     setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
       + L.map(function (x) {
-        return '<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px">' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
+        var A = x.about || null, op = !!schedOpen[x.id];
+        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
           + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
-          + '<div class="small muted" style="margin-top:4px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
-          + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
-          + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
-          + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
-          + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>';
+          + (A && A.about ? '<div style="margin-top:4px">' + esc(A.about) + '</div>' : '')
+          + (A ? '<div class="atags">Follows: ' + (A.follows || []).map(function (f) { return '<span class="atag">' + esc(f[0]) + '</span>'; }).join('') + '</div>' : '')
+          + (op ? '<div class="schx">'
+            + (A ? '<div class="small muted">' + esc(A.asked) + '</div>' + (A.follows || []).map(function (f) { return '<div class="small" style="margin-top:6px"><b>' + esc(f[0]) + ':</b> ' + esc(f[1]) + '</div>'; }).join('') : '')
+            + '<div class="small muted" style="margin-top:8px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
+            + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
+            + '<div class="small" style="margin-top:6px">To change when it runs, press <b>Change time</b> and type the days and time, e.g. "weekdays 8am" or "every Tue 9am". The On box pauses it.</div>'
+            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
+            + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
+            + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>' : '') + '</div>';
       }).join('')
       + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
       + 'Add one in the chat, e.g. "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".</div>');
@@ -159,7 +170,9 @@
   $('w-sched').addEventListener('change', function (e) { var c = e.target.closest('[data-sc-on]'); if (!c) return; c.disabled = true;
     call('cueSchedSet', [c.getAttribute('data-sc-on'), { on: c.checked }], schedDone, schedFail); });
   $('w-sched').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-sc-act]'); if (!b) return;
+    var b = e.target.closest('[data-sc-act]');
+    if (!b) { var cx = e.target.closest('[data-sc-x]'); if (!cx || e.target.closest('label,input,button,a')) return;
+      var sid = cx.getAttribute('data-sc-x'); schedOpen[sid] = !schedOpen[sid]; $('w-sched')._h = null; return renderSched(); }
     var act = b.getAttribute('data-sc-act'), id = b.getAttribute('data-id'), x = (schedList || []).filter(function (y) { return y.id === id; })[0] || {};
     if (act === 'open') { $('settings').hidden = true; document.body.classList.add('admin-chat'); return goThread(rootOf(id, byId())); }   // on Cue Admin the chat shows under it; Settings brings the page back
     if (act === 'run') return ask('Run "' + x.name + '" now?', 'It starts the same task as at its time. Nothing sends without your Approve.', null, 'Run now',
@@ -169,6 +182,35 @@
     if (act === 'del') return ask('Delete "' + x.name + '"?', 'It stops running. Tasks it already started stay.', null, 'Delete',
       function () { b.disabled = true; call('cueSchedDelete', [id], schedDone, schedFail); });
   });
+  // ---- Jobs › Chasers (CUE-ADMIN-2-2026-10-29, Kiko 03:21Z "What Job Chaser it is > (expand) Jobs that are scheduled to run and on which
+  // platform > (expand) draft of email"): per chaser, today's lines and the ones lined up, each with its draft. Read only. ----
+  // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z "use icons for email, text, app notif"): the same three icons on every Cue Admin page
+  var IC = { mail: '<svg class="ic" viewBox="0 0 24 24" aria-label="Email" role="img"><path d="M3 6h18v12H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    sms: '<svg class="ic" viewBox="0 0 24 24" aria-label="Text" role="img"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+    app: '<svg class="ic" viewBox="0 0 24 24" aria-label="App notice" role="img"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
+  var jc = null, jcErr = '';
+  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; $('w-jobchasers')._h = null; renderJc(); }, function (e) { jcErr = (e && e.message) || String(e); $('w-jobchasers')._h = null; renderJc(); }); }
+  function renderJc() {
+    if (!jc && !jcErr) return;
+    var J = jc || { kinds: [] }, line = function (x, draft) {
+      return '<details class="jc2"><summary>' + IC.mail + '<b>' + esc(x.who || 'Someone') + '</b>' + (x.project ? ' <span class="muted">· ' + esc(x.project) + '</span>' : '')
+        + '<div class="small" style="margin-left:14px">' + esc(x.when) + ' · ' + esc(x.from) + (x.times ? ' · chased ' + x.times + (x.times === 1 ? ' time' : ' times') : ' · not chased yet') + '</div></summary>'
+        + (draft ? (x.to ? '<div class="small muted" style="margin-left:14px">To: ' + esc(x.to) + '</div>' : '') + (x.why ? '<div class="small muted" style="margin-left:14px">' + esc(x.why) + '</div>' : '')
+          + (x.subject || x.body ? '<div class="jdraft">' + (x.subject ? '<b>' + esc(x.subject) + '</b>\n\n' : '') + esc(x.body || '') + '</div>' : '<div class="small muted" style="margin-left:14px">The words are written when you open the batch.</div>')
+          : '<div class="small muted" style="margin-left:14px">The draft is written that morning, in the batch.</div>') + '</details>';
+    };
+    setHtml($('w-jobchasers'), (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '')
+      + '<div class="small muted" style="margin-bottom:8px">' + (J.batch ? 'Today\'s batch: ' + esc(String(J.batch.status || '').toLowerCase()) + '. ' : 'No batch yet today. ') + 'Cue builds it at ' + esc(J.build || '') + '; approved emails go at ' + esc(J.send || '') + '.'
+      + (J.batch ? ' <a href="#" data-jc-open="' + esc(J.batch.id) + '">Open the batch to approve</a>' : '') + '</div>'
+      + J.kinds.map(function (k) {
+        var n = k.lines.length, m = k.next.length;
+        return '<details class="card jc"><summary>' + IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>') + ' <span class="small muted">· ' + n + ' today · ' + m + ' lined up</span>'
+          + '<div class="small" style="margin-left:14px">' + esc(k.about) + ' From ' + esc(k.from) + '.</div></summary>'
+          + (n + m ? k.lines.map(function (x) { return line(x, true); }).join('') + k.next.map(function (x) { return line(x, false); }).join('') : '<div class="small muted" style="margin-left:14px">Nothing to chase.</div>') + '</details>';
+      }).join(''));
+  }
+  $('w-jobchasers').addEventListener('click', function (e) { var a = e.target.closest('[data-jc-open]'); if (!a) return; e.preventDefault();
+    $('settings').hidden = true; document.body.classList.add('admin-chat'); goThread(rootOf(a.getAttribute('data-jc-open'), byId())); });
   // ---- Cue Admin (CUE-ADMIN-2026-10-29, Kiko 29 Oct 02:13Z-02:42Z, Epic Cue #193): ?view=admin shows these sections as one full page
   // in Canvas's look. The chat's Settings button opens it in a new tab (story #197); without the page address it opens the sections here. ----
   var adminView = false;
@@ -348,7 +390,8 @@
       + '<div class="scroll"><table><tr><th>Chaser</th><th>On</th><th>First after</th><th>Then every</th><th>Stop after</th></tr>';
     Object.keys(K).forEach(function (k) {
       var x = K[k];
-      h += '<tr><td><b>' + esc(x.label) + '</b><div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
+      var ab = (rules.about || {})[k];   // CUE-ADMIN-2-2026-10-29 (Kiko 03:17Z "a small copy what that chaser is about")
+      h += '<tr><td>' + IC.mail + '<b>' + esc(x.label) + '</b>' + (ab ? '<div class="small">' + esc(ab.about) + '</div><div class="small muted">From ' + esc(ab.from) + '</div>' : '') + '<div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
         + '<td>' + n(k + '.first', x.first, 1, 60) + '</td><td>' + n(k + '.every', x.every, 1, 60) + '</td><td>' + n(k + '.max', x.max, 1, 10) + '</td></tr>';
       if (x.soon_first != null) h += '<tr><td class="small muted">↳ event within 7 days</td><td></td><td>' + n(k + '.soon_first', x.soon_first, 1, 60) + '</td><td>' + n(k + '.soon_every', x.soon_every, 1, 60) + '</td><td></td></tr>';
     });
