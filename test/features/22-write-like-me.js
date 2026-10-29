@@ -46,19 +46,21 @@ test('WL2 approve: ticked lines, as edited, become the Style tab; RFQs and requo
   const rq = t.ctx.cueRun(t.ctx.cueSend(INQ, [], 'intake').request_id); assert.strictEqual(rq.status, 'Needs you');
   const call = t.log.gpt.filter(b => b.text.format.name === 'rfqs')[0];
   assert.ok(/^You write requests for quotation/.test(call.instructions), 'the RFQ rules stay first');
-  assert.ok(/Kiko's own style/.test(call.instructions) && /Warm and brief\./.test(call.instructions) && /Example: Hi \[supplier\]/.test(call.instructions));
+  // VOICE-2026-10-29 (Kiko 08:24Z): the BSE voice comes first, and the Style tab adds only its greeting and sign-off lines.
+  assert.ok(/Blank Space Events brand voice/.test(call.instructions) && /Kiko's own style/.test(call.instructions) && /greeting: Hi \[supplier\]!/.test(call.instructions));
+  assert.ok(!/Warm and brief\./.test(call.instructions) && !/Example: Hi \[supplier\]/.test(call.instructions), 'tone and example lines no longer reach the prompt');
   assert.ok(!/Cheers/.test(call.instructions), 'client lines stay out of supplier emails');
   assert.strictEqual(JSON.parse(call.input).sign_off, 'Thanks po,\nKiko');
 });
-test('WL3 no guide: drafting prompts and sign-off are exactly as before; Off lines and an unreadable tab are ignored', () => {
+test('WL3 no guide: drafting prompts get only the BSE voice and the usual sign-off; Off lines and an unreadable tab are ignored', () => {
   const t = startToCard(), call = t.log.gpt.filter(b => b.text.format.name === 'rfqs')[0];
-  assert.ok(/^You write requests for quotation/.test(call.instructions) && !/own style/.test(call.instructions)); assert.strictEqual(JSON.parse(call.input).sign_off, 'Blank Space Events');
+  assert.ok(/^You write requests for quotation/.test(call.instructions) && /Blank Space Events brand voice/.test(call.instructions) && !/own style/.test(call.instructions)); assert.strictEqual(JSON.parse(call.input).sign_off, 'Blank Space Events');
   const u = sandbox(); u.tabs.Style = sheetMock(); u.tabs.Style.appendRow(['On', 'Audience', 'Kind', 'Text']);
-  u.tabs.Style.appendRow([false, 'supplier', 'sign-off', 'Off line']); u.tabs.Style.appendRow(['yes', 'Supplier', 'tone', 'On line']);
+  u.tabs.Style.appendRow([false, 'supplier', 'sign-off', 'Off line']); u.tabs.Style.appendRow(['yes', 'Supplier', 'greeting', 'On line']);
   assert.ok(/On line/.test(u.ctx.cueStyleFor_('supplier')) && !/Off line/.test(u.ctx.cueStyleFor_('supplier')));
   assert.strictEqual(u.ctx.cueStyleSignOff_('supplier'), 'Blank Space Events');
   u.tabs.Style.getRange = () => { throw new Error('sheet busy'); };
-  assert.strictEqual(u.ctx.cueStyleFor_('supplier'), ''); assert.strictEqual(u.ctx.cueStyleSignOff_('client'), 'Blank Space Events');
+  assert.ok(/brand voice/.test(u.ctx.cueStyleFor_('supplier')) && !/own style/.test(u.ctx.cueStyleFor_('supplier'))); assert.strictEqual(u.ctx.cueStyleSignOff_('client'), 'Blank Space Events');
 });
 test('WL4 pasted old notes reach Claude; too few emails without notes stops clearly; Close saves nothing; re-learning replaces the tab', () => {
   const p = styleRun({ say: 'Learn my style: always say "po" to suppliers' });
@@ -73,8 +75,8 @@ test('WL4 pasted old notes reach Claude; too few emails without notes stops clea
   assert.strictEqual(t.state(again.id).style.previous.length, 6, 'the replaced guide is kept in the request');
 });
 test('WL5 readiness follow-ups use every audience, labelled, and the general sign-off', () => {
-  const t = sandbox(); t.tabs.Style = sheetMock(); [['On', 'Audience', 'Kind', 'Text'], [true, 'all', 'sign-off', 'Best,\nKiko'], [true, 'client', 'tone', 'Formal with clients'], [true, 'supplier', 'sign-off', 'Thanks po,\nKiko']].forEach(r => t.tabs.Style.appendRow(r));
-  const any = t.ctx.cueStyleFor_('any'); assert.ok(/tone \(for clients\): Formal/.test(any) && /sign-off \(for suppliers\)/.test(any));
+  const t = sandbox(); t.tabs.Style = sheetMock(); [['On', 'Audience', 'Kind', 'Text'], [true, 'all', 'sign-off', 'Best,\nKiko'], [true, 'client', 'greeting', 'Formal with clients'], [true, 'supplier', 'sign-off', 'Thanks po,\nKiko']].forEach(r => t.tabs.Style.appendRow(r));
+  const any = t.ctx.cueStyleFor_('any'); assert.ok(/greeting \(for clients\): Formal/.test(any) && /sign-off \(for suppliers\)/.test(any));
   assert.strictEqual(t.ctx.cueStyleSignOff_('all'), 'Best,\nKiko'); assert.strictEqual(t.ctx.cueStyleSignOff_('supplier'), 'Thanks po,\nKiko');
   assert.strictEqual(t.ctx.cueStyleSignOff_('team'), 'Best,\nKiko');
 });
