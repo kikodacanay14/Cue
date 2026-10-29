@@ -177,22 +177,18 @@
     sms: '<svg class="ic" viewBox="0 0 24 24" aria-label="Text" role="img"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
     app: '<svg class="ic" viewBox="0 0 24 24" aria-label="App notice" role="img"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
   var jc = null, jcErr = '';
-  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; $('w-jobchasers')._h = null; renderJc(); }, function (e) { jcErr = (e && e.message) || String(e); $('w-jobchasers')._h = null; renderJc(); }); }
+  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; rnwDraw(); }, function (e) { jcErr = (e && e.message) || String(e); rnwDraw(); }); }
   // CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "the specific resource we're chasing are gonna be prompted to me in Cue ... Have here the generic templates
   // for each chaser"): each chaser opens to its email template; the chases themselves wait in the morning batch.
   function tvar(h) { return h.replace(/&lt;([^&]{1,60}?)&gt;/g, '<span class="tvar">&lt;$1&gt;</span>'); }   // Kiko 03:38Z: highlight the variables
-  function renderJc() {
-    if (!jc && !jcErr) return;
-    var J = jc || { kinds: [] };
-    setHtml($('w-jobchasers'), (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '')
-      + '<div class="adesc" style="margin-bottom:8px">Today\'s chases come to you in Cue\'s morning batch (built at ' + esc(J.build || '') + '; approved emails go at ' + esc(J.send || '') + '). Here is the template each chaser starts from; words in &lt;angle brackets&gt; are filled in for each person.</div>'
-      + J.kinds.map(function (k) {
-        return '<details class="card jc"><summary>' + IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>')
-          + '<div class="adesc" style="margin-left:14px">' + esc(k.about) + '</div></summary>'
-          + '<div class="adesc" style="margin:6px 0 0 14px">From ' + esc(k.from) + ' · To ' + esc(k.to) + '</div>'
-          + '<div class="adesc" style="margin:2px 0 0 14px">' + (k.ai ? 'ChatGPT writes each email from this template\'s brief; this exact wording is used when ChatGPT can\'t.' : 'Sent in this exact wording.') + ' You can edit every one on the batch card before you approve.</div>'
-          + '<div class="jdraft">' + (k.subject ? '<b>' + tvar(esc(k.subject)) + '</b>\n\n' : '') + tvar(esc(k.body)) + '</div></details>';
-      }).join(''));
+  // CUE-ADMIN-ONE-LIST-2026-10-29 (Kiko 04:33Z "honestly i dont care if its a Canvas or Cue chaser just put it all there"): one Chasers list.
+  // A chaser Cue runs opens to its email template; its chases still come in the morning batch.
+  function jcHtml(k) {
+    var J = jc || {};
+    return '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1">' + IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>') + '<div class="adesc">' + esc(k.about) + '</div></div></div>'
+      + '<div class="adesc">From ' + esc(k.from) + ' · To ' + esc(k.to) + '</div>'
+      + '<div class="adesc">These come to you in the morning batch (made at ' + esc(J.build || '') + '; the emails you approve go at ' + esc(J.send || '') + '). ' + (k.ai ? 'ChatGPT writes each email from this template\'s brief; this exact wording is used when ChatGPT can\'t.' : 'Sent in this exact wording.') + ' You can edit every one on the batch card before you approve.</div>'
+      + '<div class="jdraft">' + (k.subject ? '<b>' + tvar(esc(k.subject)) + '</b>\n\n' : '') + tvar(esc(k.body)) + '</div></div>';
   }
   // ---- Cue Admin (CUE-ADMIN-2026-10-29, Kiko 29 Oct 02:13Z-02:42Z, Epic Cue #193): ?view=admin shows these sections as one full page
   // in Canvas's look. The chat's Settings button opens it in a new tab (story #197); without the page address it opens the sections here. ----
@@ -246,7 +242,11 @@
   }
   function rnwDraw() {
     var d = RNW.d, box = $('w-rnw');
-    if (!d) { setHtml(box, RNW.err ? '<div class="err">' + esc(RNW.err) + '</div>' : '<div class="small muted">Finding what to send…</div>'); return; }
+    var J = (jc && jc.kinds) || [], ck = /^cue:/.test(RNW.kind) ? J.filter(function (x) { return 'cue:' + x.kind === RNW.kind; })[0] : null;
+    var chips = '<span class="stabs" role="tablist" aria-label="Chasers">' + RNW_KINDS.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="' + x[0] + '" aria-pressed="' + (x[0] === RNW.kind) + '">' + esc(x[1]) + (d ? ' <span class="n">' + (d[x[0]] || []).length + '</span>' : '') + '</button>'; }).join('')
+      + J.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="cue:' + esc(x.kind) + '" aria-pressed="' + ('cue:' + x.kind === RNW.kind) + '">' + esc(x.label.replace(/s$/, '')) + (x.on ? '' : ' <span class="n">Off</span>') + '</button>'; }).join('') + '</span>';
+    if (ck || /^cue:/.test(RNW.kind)) { setHtml(box, '<div class="logf">' + chips + '</div>' + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '') + (ck ? jcHtml(ck) : '<div class="small muted">Loading…</div>')); return; }
+    if (!d) { setHtml(box, (J.length ? '<div class="logf">' + chips + '</div>' : '') + (RNW.err ? '<div class="err">' + esc(RNW.err) + '</div>' : '<div class="small muted">Finding what to send…</div>')); return; }
     var k = RNW_KINDS.filter(function (x) { return x[0] === RNW.kind; })[0], all = d[RNW.kind] || [], L = rnwShown(), fin = RNW.kind === 'final';
     var on = L.filter(rnwTicked).length;
     var row = function (x) { var r = RNW.res[rnwKey(x)];
@@ -257,7 +257,7 @@
         + '<td class="rnw-go">' + (r ? (r.ok ? '<span class="ok">✓ Sent to ' + esc(r.to || '') + '</span>' : '<span class="bad">✕ ' + esc(r.error || 'Not sent') + '</span> ') : '')
         + (r && r.ok ? '' : '<button type="button" class="btn ghost" data-rnw-edit="' + esc(RNW.kind) + '" data-rnw-item="' + esc(x.item || '') + '" data-rnw-pid="' + esc(x.pid) + '">Edit</button>') + '</td></tr>'; };
     setHtml(box, '<div class="adesc" style="margin-bottom:8px">Send now instead of waiting. Tick what to send and press Send ticked: Canvas sends each one as in Send a notice, by email, and by text where there is a mobile. Edit opens it in Send a notice so you can type over the words first.</div>'
-      + '<div class="logf"><span class="stabs" role="tablist" aria-label="What to send">' + RNW_KINDS.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="' + x[0] + '" aria-pressed="' + (x[0] === RNW.kind) + '">' + esc(x[1]) + ' <span class="n">' + (d[x[0]] || []).length + '</span></button>'; }).join('') + '</span>'
+      + '<div class="logf">' + chips + '</div><div class="logf">'
       + '<input type="search" data-rnw-q="1" placeholder="Search supplier, project or ID" aria-label="Search supplier, project or ID" value="' + esc(RNW.q) + '">'
       + '<label class="adesc" style="opacity:1"><input type="checkbox" data-rnw-unsent="1"' + (RNW.unsent ? ' checked' : '') + '> Not sent yet</label>'
       + '<button type="button" class="btn ghost" data-rnw-refresh="1">Refresh</button></div>'
@@ -289,14 +289,10 @@
         function (err) { RNW.busy = false; RNW.msg = 'Nothing was sent: ' + ((err && err.message) || err); rnwDraw(); });
     });
   });
-  var jcTab = 'canvas';
-  document.querySelector('#settings [data-sec="jobchasers"] .stabs').addEventListener('click', function (e) { var b = e.target.closest('[data-jct]'); if (!b) return;
-    jcTab = b.getAttribute('data-jct'); this.querySelectorAll('[data-jct]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-    $('w-rnw').hidden = jcTab !== 'canvas'; $('w-jobchasers').hidden = jcTab !== 'cue'; });
 
   var SNW = { b: null, kind: '', pid: '', item: '', d: null, busy: false, q: '', err: '', items: null, out: '' };
   function snBoardLoad() { call('cueAdminSnBoard', [], function (b) { SNW.b = b; snDraw(); }, function (e) { SNW.err = "Couldn't load: " + ((e && e.message) || e); snDraw(); }); }
-  function snOpen(kind, pid, item) {   // Canvas chasers' Edit opens Send a notice on that line
+  function snOpen(kind, pid, item) {   // a Canvas chaser's Edit opens Send a notice on that line
     SNW.kind = kind || ''; SNW.pid = pid || ''; SNW.item = item || ''; SNW.d = null; SNW.items = null; SNW.out = '';
     settingsTab('sendnotice'); if (SNW.b) snDraw();
   }
