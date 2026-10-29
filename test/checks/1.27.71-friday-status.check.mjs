@@ -28,7 +28,7 @@ export default {
       h.stK = ms[0].k;
     } },
     { title: 'The thread opens on the card: the event, its facts, To, Preview, Send and Skip', run: async h => {
-      await h.tap('Status update for ' + h.config.project_id, { timeout: 120000 });   // a thread's name opens it
+      await h.tap('Friday status updates', { timeout: 120000 });   // a thread's name opens it (an unnamed status thread is named by its kind)
       await h.see('Friday status updates');
       await h.see(h.config.project_name);
       await h.see(/Readiness \d+%|No readiness score/);
