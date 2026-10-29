@@ -1,6 +1,13 @@
 # Changelog
 
-## Cue 1.27.71: new contacts and companies from Kiko's Gmail (not deployed)
+## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (not deployed)
+
+One release cut by the deploys thread on live 1.27.76 (Version 171), after Canvas V353 shipped the Canvas halves (bridge
+`contact_new_check` / `contact_add`, the Emails waiting Start intake button, table short columns). The builder threads numbered
+their parts 1.27.71, 1.27.73 and 1.27.x; they ship together here as 1.27.77. Bridge fixture refreshed from Canvas V353.
+Tests: 525, all passing.
+
+### New contacts and companies from Kiko's Gmail
 
 Card gmail-new-contacts. Kiko asked on 29 Oct 2026 in the backlog thread to "add contacts and accounts from gmail scan", and
 answered the questions at 13:14Z: "1. my email only 2. one time 3 year scan 3. senders and people copied 4. P0 unless there are
@@ -28,8 +35,8 @@ contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". 
   never reach the card; their row says why ("Skipped: personal email", "Skipped: supplier", "Skipped: BSE staff"). Canvas checks
   again at Approve, so a supplier added in between is skipped then and counted in the reply.
 - Tests: 491 (CN1 to CN5 for this feature).
-- Not in this build: filter R1 (skip personal domains, suppliers and BSE staff) waits for Kiko's yes/no.
-## Cue 1.27.73: emails asking for a quotation or proposal start intake (not deployed)
+
+### Emails asking for a quotation or proposal start intake
 
 Kiko, 29 Oct 2026 15:13Z, about Moldex's "Request Quotation" email on his Emails waiting card: "i dont think it sensed that its for
 intake - keywords - Request for Quotation, Request for Proposal and variations of it". This release needs Kiko's yes and Canvas's
@@ -42,7 +49,7 @@ part (CanvasWorkspace PR #313).
   opens Cue, which reads the email and its files in Kiko's Gmail and starts intake, the same as Start intake on the New mail card.
 - Tests: 497, all passing (`test/features/64-rfq-intake.js`, RI1 to RI5).
 
-## Cue 1.27.73: table headers, numbers and short columns centred (not deployed)
+### Table headers, numbers and short columns centred
 
 Kiko set a standing UI rule on 29 Oct 2026 at 14:32Z: "UI rule - for tables where the table values are numbers - align center.
 Headers are always aligned center".
@@ -57,7 +64,12 @@ Headers are always aligned center".
 - The same rule ships in Canvas (main V349, Client C215), with the same number test. CLAUDE.md and the scope-then-design Brand lock
   now carry the rule, so mockups follow it too. Version number is provisional; the deploys thread names the release. Tests: 456.
 
-## Cue 1.27.x: the Sales funnel becomes a daily sales update (not deployed; the deploys thread sets the number)
+### Standard tags
+
+- Cue's tags use the standard Canvas label (`.bs-pill` look, Kiko 29 Oct 2026 14:48Z to 14:51Z: "make it a standard UI"), and
+  CLAUDE.md carries the label and table rules.
+
+### The Sales funnel becomes a daily sales update
 
 Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". A first build put
 Canvas's Accounts dashboard into the card; Kiko then said at 16:13Z "it has to be able to give updates not a dashboard. you cant
