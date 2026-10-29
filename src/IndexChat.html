@@ -97,7 +97,11 @@
     setTimeout(function () { if (!CUE_HOST.canvas) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Canvas did not answer)'); }, 15000);
     window.addEventListener('message', function (e) {
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
-      if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); return; }
+      if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover('');
+        // ONE-CUE-2026-10-29 (Kiko 15:39Z "clean up the notifications and threads so that they only appear once"): Canvas's Cue panel
+        // lists Cue's threads, so Ask Cue inside Canvas shows the chat and the thread Kiko opens, without its own list or job pointers.
+        if (d.panel) { CUE_HOST.panel = true; document.body.classList.add('in-panel'); panelSent = ''; if (pactive === 'list') paneOpen(false); renderChat(); }
+        return; }
       if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
     });
     var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello' }, '*'); } catch (e) {} }
@@ -143,6 +147,7 @@
     if (!it && !FIXED[pactive]) pactive = 'list';
     openThread = it && it.type === 'thread' ? it.id : '';
     $('page-threads').hidden = pactive !== 'list'; $('page-thread').hidden = !openThread;
+    if (CUE_HOST.panel && pactive === 'list') paneOpen(false);   // ONE-CUE-2026-10-29: inside Canvas the list is Canvas's
     $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tcomposer').hidden = !openThread;
     if (!openThread && fileHost === 'tfiles') hostFiles('files');
     try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}

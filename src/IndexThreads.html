@@ -63,6 +63,42 @@
       + (showArchived ? '<button class="tmore" data-act="show-archived" data-id="">Back to recent</button>' : ''));
     bind();
   }
+  /* ONE-CUE-2026-10-29 (Kiko 15:27Z "for my access can it not be merged? i just dont see the benefit of me having 2"): inside Canvas's
+     Cue panel (cueHost with panel: 1) Cue sends its threads up, so Canvas lists each one in its single home: crm (sales reviews and
+     lead jobs), mail (New mail), personal (personal spending and expenses), project (a task about one Canvas project) or todo (the
+     rest). fam groups runs of the same job, so Canvas folds older runs under the newest. Sent only when the list changed. */
+  var CUE_CRM_K = { pipeline: 1, funnel: 1, bids: 1, hubspot: 1, winback: 1 }, CUE_MAIL_K = { newmail: 1, inbox: 1 }, CUE_PERS_K = { personal: 1 };
+  var CUE_GT_HOME = { followups: 'crm', account_research: 'crm', monthly_email: 'crm', prospecting: 'crm', contact_research: 'crm', admin_funnel: 'crm', personal_spending: 'personal' };
+  var CUE_FAM_K = { newmail: 1, pipeline: 1, funnel: 1, bids: 1, hubspot: 1, sweep: 1, status: 1, relnotes: 1 }, panelSent = '';
+  function cueProjOf(r) {
+    var p = (r.ar && (r.ar.project_id || r.ar.project) && { id: r.ar.project_id, name: r.ar.project }) || (r.ready && r.ready.project) || (r.cec && r.cec.project)
+      || (r.expense && r.expense.project) || (r.change && r.change.project && { name: r.change.project }) || (r.tri && (r.tri.project_id || r.tri.project) && { id: r.tri.project_id, name: r.tri.project })
+      || (r.canvas && r.canvas.project_id && { id: r.canvas.project_id, name: r.canvas.project_name || '' });
+    return p && typeof p === 'object' && (p.id || p.project_id || p.name) ? { id: String(p.id || p.project_id || ''), name: String(p.name || '') } : null;
+  }
+  function cueHomeOf(t) {
+    var rs = t.reqs.filter(function (r) { return r.kind !== 'sweep'; }), r = rs[0] || t.reqs[0], gt = r.gt && r.gt.key;
+    if (t.hst || CUE_CRM_K[r.kind] || (gt && CUE_GT_HOME[gt] === 'crm')) return { home: 'crm' };
+    if (CUE_MAIL_K[r.kind]) return { home: 'mail' };
+    if (CUE_PERS_K[r.kind] || (gt && CUE_GT_HOME[gt] === 'personal')) return { home: 'personal' };
+    for (var i = rs.length - 1; i >= 0; i--) { var p = cueProjOf(rs[i]); if (p) return { home: 'project', pid: p.id, project: p.name }; }
+    return { home: 'todo' };
+  }
+  function panelFeed(th) {
+    if (!CUE_HOST.canvas || !CUE_HOST.panel) return;
+    var by = byId(), list = [];
+    Object.keys(th).forEach(function (k) {
+      var t = th[k]; if (!t.reqs.length || (by[k] || t.reqs[0]).archived) return;
+      var st = threadState(t), last = t.reqs[t.reqs.length - 1], line = t.lines[t.lines.length - 1], cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
+      var h = cueHomeOf(t), r0 = t.reqs.filter(function (r) { return r.kind !== 'sweep'; })[0] || t.reqs[0];
+      list.push({ id: k, name: threadTitle(t), need: !!st.need, work: st.text === 'Working', status: st.need || st.text === 'Working' ? '' : String(last.status || ''),
+        line: noTok(String((last.status === 'Failed' && last.error) || (cue && cue.text) || '').split('\n')[0]).slice(0, 200),
+        when: Date.parse((line && line.time) || last.created || '') || 0, home: h.home, pid: h.pid || '', project: h.project || '',
+        fam: (r0.gt && r0.gt.key && 'gt:' + r0.gt.key) || (CUE_FAM_K[r0.kind] && 'k:' + r0.kind) || '' });
+    });
+    var j = JSON.stringify(list); if (j === panelSent) return; panelSent = j;
+    try { CUE_HOST.canvas.postMessage({ canvasWs: 'cueThreads', list: list }, '*'); } catch (e) {}
+  }
   $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.
@@ -533,7 +569,7 @@
       lastThread = tn; renderThread(t);
       if (!toSpot() && !t.hst && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
     }
-    renderPaneTabs(th); renderThreadList(th);
+    renderPaneTabs(th); renderThreadList(th); panelFeed(th);   // ONE-CUE-2026-10-29
   }
   // CUE-TODAY: the scheduled jobs' runs (bid check, morning batch, HubSpot check, status report, pipeline review, ChatGPT tasks).
   var TODAY_K = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, gtask: 1 };
@@ -572,6 +608,7 @@
         // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
         var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
         // CUE-TODAY (Kiko 23 Oct 07:37Z): a scheduled job's pointer lines fold into one Today line per day (CueToday.gs).
+        if (CUE_HOST.panel && !answers) return;   // ONE-CUE-2026-10-29: inside Canvas, the Cue panel lists these threads (once)
         var jd = jobDay(pt); if (jd && !answers) { if (!dayShown[jd]) { dayShown[jd] = 1; h += todayHtml(jd, th); } return; }
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }

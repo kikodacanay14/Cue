@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.75: one Cue, every thread listed once (not deployed)
+
+Asked by Kiko on 29 Oct 2026: 15:26Z "why is it that Ask Cue has its threads and the chat has its threads as well?", 15:27Z "for my
+access can it not be merged? i just dont see the benefit of me having 2", 15:39Z "im okay with keeping the quick actions at the
+bottom same as others - having Ask Cue (AI) separately - but please clean up the notifications and threads so that they only appear
+once". Picture: https://claude.ai/artifact/KHhXhgYN4rWdkwC3X11wZY. Goes with the Canvas release that lists the threads (CanvasWorkspace,
+"one Cue"); either can ship first, nothing changes until both are live.
+
+- Inside Canvas, when Canvas's Cue panel sends `cueHost` with `panel: 1`, Ask Cue hides its own Threads button and list, and its
+  main chat no longer shows job pointer lines or the Today line. A pointer that answers Kiko's own message still shows.
+- Ask Cue sends its threads up to Canvas (`cueThreads`), each with one home: crm (pipeline, funnel, bids, HubSpot, win-back and the
+  lead ChatGPT jobs, plus the Thursday funnel review), mail (New mail), personal (personal spending, personal expenses), project
+  (a task about one Canvas project, with its id or name) or todo (everything else). Runs of the same job share a family, so Canvas
+  folds older runs under the newest. Sent only when the list changes.
+- Ask Cue opened on its own (its link or the Chrome bubble) is unchanged and keeps its full list.
+- Tests: 503, all passing (`test/features/64-one-cue.js`, OC1 and OC2).
+
 ## Cue 1.27.74: Ask Cue stops repeating waiting tasks in the main chat (not deployed)
 
 Asked by Kiko on 29 Oct 2026 at 15:34Z: "for Ask Cue. can you disable the updates that are already sent in the regular Cue?"
