@@ -183,7 +183,7 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueNow_` | `Cue.gs` | 46 |
+| `cueNow_` | `Cue.gs` | 45 |
 | `cueStr_` | `CueText.gs` | 45 |
 | `cueChat_` | `Cue.gs` | 38 |
 | `cueLocked_` | `Cue.gs` | 32 |
@@ -215,12 +215,12 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueAskOpen_` | `CueRoute.gs` | 8 |
 | `cueKind_` | `CueSweep.gs` | 8 |
 | `cueOwnDomain_` | `CueGmail.gs` | 8 |
-| `cueRecent_` | `Cue.gs` | 8 |
 | `cueStyleFor_` | `CueStyle.gs` | 8 |
 | `cueWords_` | `Cue.gs` | 8 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
 | `cueDrive_` | `CueFiles.gs` | 7 |
 | `cueGmailDraft_` | `CueGmail.gs` | 7 |
+| `cueRecent_` | `Cue.gs` | 7 |
 | `cueStyleSignOff_` | `CueStyle.gs` | 7 |
 | `cueTerm_` | `CueText.gs` | 7 |
 | `CUE_DATE_RE_` | `CueText.gs` | 6 |
