@@ -15,7 +15,7 @@ export default {
       await page.addInitScript(() => { try { window.google.script.url.getLocation = cb => cb({ hash: '', parameter: { view: 'admin' }, parameters: { view: ['admin'] } }); } catch (e) {} });
       await page.reload();
       await h.see('Cue Admin');
-      for (const t of ['How Cue thinks', 'Rules', 'Jobs', 'System', 'Triage rules', 'Release notes', 'Open Cue chat']) await h.see(t, 20000);
+      for (const t of ['How Cue thinks', 'Rules', 'Jobs', 'System', 'Triage rules', 'Release notes', 'Open Cue chat', 'Chasers', 'Processes and business rules']) await h.see(t, 20000);
     } },
     { title: 'Nothing was written', run: async h => {
       const bad = h.calls().filter(f => /Del$|Save$|Set$|Delete$/.test(f));
