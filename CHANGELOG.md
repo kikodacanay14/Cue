@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.72: RFQ drafts say TBC for blank event details (not deployed)
+## Cue 1.27.72: RFQ drafts say TBC for blank event details; typed intake reads the email it names (live as Version 170, 29 Oct 16:19Z, rollback 168)
 
 Backlog card intake-real-check (High, 29 Oct 2026): intake was built but had never run on real inquiries. The coordinator asked
 this thread to prove it end to end (from Gmail Start intake, from a screenshot and from an uploaded file) and to fix what breaks.
