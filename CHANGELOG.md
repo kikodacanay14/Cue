@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.66: client welcome from Kiko's Gmail (not deployed)
+## Cue 1.27.66: client welcome from Kiko's Gmail (live as Version 147, 29 Oct 08:35Z, rollback 145)
 
 Cut by the deploys thread on live 1.27.65 (Version 145) from Cue PR #207 (commit d079c44). Kiko asked on 29 Oct 2026 at 07:50Z
 ("the client welcome make the email come from my inbox") and at 08:24Z ("for client it should come from me, for others it can come
