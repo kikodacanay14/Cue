@@ -60,6 +60,8 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
  * tri: Kiko 06:47Z 24 Oct (specs/cue-add-tasks.md): "add task|issue|risk … to <project>" shows an Approve card; no AI call.
  * add-project: Same spec: "add project …" / "new project …" is a project intake in Kiko's own words, so no chat call routes it.
    It answers nothing itself: it turns the message into an intake (c.text, c.mode) for the checks after it and for cueSendWith_.
+ * mail-intake: Kiko 29 Oct 2026 16:08Z (CueTriage.gs MAIL-INTAKE): an intake asked in words that names "the email from <person>" reads her newest
+   email in Kiko's Gmail, with its headers and files, instead of only his words.
  * phased-reply: CUE-PHASED (Kiko 14:53Z): a reply while a phased intake's card waits changes that task in place, never a new run or card.
  * style: Kiko 08:21Z (specs/write-like-me.md): "learn my style" starts the style guide in its own thread. Plain words, so no AI call routes it.
  * memory, process, memory-paste: Teach Cue (Kiko 16:26Z, specs/teach-cue.md): "learn my memory" / "learn my process" + pasted text, each in its own thread, no chat call.
@@ -91,6 +93,7 @@ function cueRoutes_() {
     { key: 'tri', name: '"add task|issue|risk … to <project>"', said: c => words(c) ? cueTriSaid_(c.text, c.ref) : null },
     { key: 'canvas', name: 'Open in Canvas', said: c => words(c) ? cueCanvasSaid_(c.text, c.ref) : null },
     { key: 'add-project', name: '"add project …" becomes a project intake', said: c => cueAddProjectSaid_(c) },
+    { key: 'mail-intake', name: '"intake from the email from <person>" reads that email in Gmail', said: c => c.mode !== 'chat' ? cueMailIntakeSaid_(c) : null },
     { key: 'phased-reply', name: 'Reply while a phased intake card waits', said: c => c.inThread && c.mode !== 'chat' ? cuePhReply_(c.ref, c.text, c.files) : null },
     { key: 'style', name: '"learn my style"', when: c => words(c) && CUE_STYLE_RE_.test(String(c.text || '')), go: c => cueStyleStart_(c.text) },
     { key: 'memory', name: '"learn my memory"', when: c => words(c) && CUE_MEM_RE_.test(String(c.text || '')), go: c => cueTeachStart_('memory', c.text) },

@@ -22,6 +22,11 @@ Built on the live line (1.27.70); 1.27.71 is the separate Friday status release.
 - **Bug fix: RFQ drafts no longer print blank event lines.** On real inquiries the drafts read "Venue:", "City:" and "Expected
   pax: 0", and one made up an event date. Empty event details now go to GPT as TBC, and the RFQ prompt says never to invent a
   date, venue, city or pax.
+- **Bug fix: an intake asked in words reads the email it names.** Kiko, 29 Oct 2026 16:08Z, after typing "find the latest email from
+  Ms Ruth Andres in Gmail and run a project intake from it": "does project intake in Cue can not read email subject, header and attached
+  files?". It could not: a typed intake read only his words. Now "intake … the email from <name or address>" finds that person's newest
+  email in Kiko's Gmail (last 6 months) and runs Start intake on it, with Kiko's words added as his note. Start intake now also passes
+  To, Cc and Date, not only From and Subject. Files: PDFs, images and text files are read, as before.
 - **Cloud check for intake on real inquiries** (`test/checks/intake-real.check.mjs`, door functions in `src/CueIntakeCheck.gs`).
   It picks the newest inquiries Cue sorted (New mail's own sort, plus older Inbox triage lines), runs phase 1 for real, then
   phases 2 to 4 on a copy, so nothing is written to Canvas and nothing is sent. `intake-real.only.txt` next to the script narrows
