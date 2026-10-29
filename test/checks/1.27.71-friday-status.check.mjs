@@ -10,12 +10,17 @@ export default {
       if (!r.ok) throw new Error('cueSend failed: ' + r.error);
       h.stId = r.result && r.result.request_id;
       if (!h.stId) throw new Error('No status update started: ' + JSON.stringify(r.result));
-      let v;
-      for (let i = 0; i < 8; i++) {   // the readiness scan can stop part way; each run goes on from there
-        v = await h.door('check_call', { fn: 'cueRun', args: [h.stId] });
+      // A fresh readiness scan can take about 5 minutes for one event (29 Oct: get_readiness 301 s), longer than the robot's
+      // fetch waits. Cue goes on without the robot and the run is leased, so a dropped call is followed by more cueRun calls.
+      let v = null;
+      for (let i = 0; i < 16; i++) {
+        try { v = await h.door('check_call', { fn: 'cueRun', args: [h.stId] }); }
+        catch (e) { v = null; await h.wait(30000); continue; }
         if (!v.ok) throw new Error('cueRun failed: ' + v.error);
         if (v.result.status !== 'Working') break;
+        await h.wait(15000);
       }
+      if (!v) throw new Error('Cue never answered cueRun');
       if (v.result.status !== 'Needs you') throw new Error('Expected the card to wait for Kiko, got ' + v.result.status + ' ' + (v.result.error || (v.result.st && v.result.st.empty) || ''));
       const ms = (v.result.st && v.result.st.mails) || [];
       if (ms.length !== 1) throw new Error('Expected one email, got ' + ms.length);
