@@ -28,7 +28,7 @@ test('RC2 Send ticked: those lines go from Kiko\'s Gmail now, are logged as chas
   deq(last.done, [{ press: 'cp-abc123', ok: true, result: 'Sent 1 of 1' }]);
   deq(last.lines.map(x => x.key), ['rfq:bbbbbbbbbbbbbbbb'], 'the new list goes with the result');
   assert.ok(t.tabs['Job Runs'].rows.some(r => r[2] === 'Run now: Cue chasers' && r[3] === 'OK'));
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /Sent 1 chaser from Canvas Run now. The rest of the batch still waits for you./.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /Sent 1 chaser from Canvas Chasers. The rest of the batch still waits for you./.test(r[2])));
   t.ctx.cueApprove(id, { send: true });
   assert.strictEqual(t.log.sent.length, 2, 'Approve later sends the rest, never the Run now line again');
 });

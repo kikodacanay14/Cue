@@ -2020,6 +2020,14 @@ function zbCrmWinback_() {
   return crmWinbackList_().slice(0, 15).map(w => ({ client: w.company, last: w.last, what: String(w.what || '').slice(0, 200), email: (mail[key(w.company)] || {}).email || '', contact: (mail[key(w.company)] || {}).contact || '' }));
 }
 /* CRM-FUNNEL-REST-2026-10-28 (F8): the Reports numbers for Cue's Monday funnel review. Counts only, no amounts. */
+/* CRM-TIMER-KIKO-2026-10-29 (Kiko 29 Oct 02:11:02Z "Make all Cue and CRM related timers to my account"): Cue's timer calls this every 15
+ * minutes from Kiko's account. It runs the same CRM work as info@'s old crmTick trigger (crmTick0_ in Code.gs: Accounts cache,
+ * deal award stages, win-back, Auto add) and notes the time, so the old trigger removes itself. No arguments, no ledger row. */
+ZB_ACTIONS_.crm_tick = {
+  kind: 'queue', needsProject: false, schema: {},
+  run: () => { PropertiesService.getScriptProperties().setProperty('CRM_TICK_CUE_AT', String(Date.now()));
+    guestGate_('crmTick', []); return Object.assign({ ran: true }, crmTick0_() || {}); }
+};
 ZB_ACTIONS_.crm_report = {
   kind: 'read', needsProject: false,
   schema: { fresh: { type: 'boolean' } },

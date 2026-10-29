@@ -1,6 +1,6 @@
 /**
  * CUE-RUN-NOW-2026-10-28 (Kiko 28 Oct 2026 11:46Z "i was asking for a screen where we can manually trigger"; 12:01Z "i am allowing
- * all notifications except for client sends. also allowed are the chasers"): Canvas > Admin > Run now > Cue chasers.
+ * all notifications except for client sends. also allowed are the chasers"): Canvas > Admin > Chasers (was Run now; Kiko 29 Oct 03:01Z) > Cue chasers.
  *
  * Cue's own chasers (RFQ, accreditation, FSA / AR signatures; never the client chasers: CE awards, payments, sales) wait in today's
  * Morning batch for Kiko. Canvas can't send them (they go from Kiko's Gmail), so every minute, from the RFP sender's trigger
@@ -98,6 +98,6 @@ function cueSweepSendNow_(id, keys) {
     s.status = b.items.concat(b.stopped || []).some(x => !x.removed) ? 'Needs you' : 'Done';
     cueSave_(L.sh, L.row, s);
   }
-  if (out.sent) cueChat_('Cue', 'Sent ' + out.sent + ' chaser' + (out.sent === 1 ? '' : 's') + ' from Canvas Run now.' + (s.status === 'Needs you' ? ' The rest of the batch still waits for you.' : ''), s.id);
+  if (out.sent) cueChat_('Cue', 'Sent ' + out.sent + ' chaser' + (out.sent === 1 ? '' : 's') + ' from Canvas Chasers.' + (s.status === 'Needs you' ? ' The rest of the batch still waits for you.' : ''), s.id);
   return out;
 }

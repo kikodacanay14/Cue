@@ -1,4 +1,4 @@
-Copied from CanvasWorkspace releases/rel-run-now-cue-main/files/ZapBridge.gs = live Canvas V322 once that release ships after V320
-(Send a notice) and V321 (Run now): new queue action cue_chasers (Admin > Run now > Cue chasers). Before it ships, live Canvas V319.
-md5 2b9bcb34192fdced597a535419ecdeb8
+Copied from CanvasWorkspace releases/rel-run-now-cue-main/files/ZapBridge.gs = live Canvas V330 once that release ships on live
+V329: new queue action cue_chasers (Admin > Chasers > Cue chasers). Before it ships, live Canvas V329.
+md5 be63bada09f35a332ae0ad118912a711
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
