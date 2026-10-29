@@ -20,9 +20,14 @@ do. Every question to him follows this card. No exceptions, including one-line y
 
 ## Where the card goes
 
-In the chat, in full, as the last part of the reply, under a bold headline, so he sees it where he is reading. Nothing
-else comes after it. (Kiko had the side panel and the pinned Questions page removed on 29 Oct 2026; neither worked for
-him.)
+1. In the chat, in full, as the last part of the reply, under a bold headline, so he sees it where he is reading.
+   Nothing else comes after it.
+2. When the question belongs to a Feature Board card, also put it on that card, so it shows up in his
+   "Questions for Kiko" chat (skill `questions-for-kiko`): add `{q, a: "", s: "Open"}` to the card's `qa` list and set
+   `doer` to `"Kiko"` (`work-board.md`, "Feature Board fields").
+
+(Kiko had the side panel and the pinned Questions page removed on 29 Oct 2026; neither worked for him. He chose a
+regular Questions chat that reads the Feature Board instead.)
 
 ## Rules
 
