@@ -89,6 +89,7 @@ function cueRoutes_() {
     { key: 'invoice', name: 'Invoice line edit', said: c => words(c) ? cueInvSaid_(c.text, c.ref) : null },
     { key: 'allow', name: '"allow cue to read|edit …"', said: c => words(c) ? cueAllowSaid_(c.text, c.ref) : null },
     { key: 'contact-scan', name: 'Old-email contact scan', said: c => words(c) ? cueCsSaid_(c.text, c.ref) : null },
+    { key: 'contact-new', name: '"scan my gmail for new contacts"', said: c => words(c) ? cueCnSaid_(c.text, c.ref) : null },
     { key: 'bids-redo', name: '"redo" in a Bid check thread', said: c => cueBidsRedoSaid_(c) },
     { key: 'cecost-reply', name: 'Reply to a CE cost question', said: c => words(c) ? cueCecReply_(c.ref, c.text) : null },
     { key: 'cecost', name: '"update CE cost for …"', when: c => words(c) && cueCecAsked_(c.text), go: c => cueCecStart_(c.text, c.ref) },

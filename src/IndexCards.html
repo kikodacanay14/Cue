@@ -1485,6 +1485,9 @@
         if (act === 'ask-pick' && b.getAttribute('data-pick') === 'change')   // tutor mode: Change asks what to do instead, then Claude re-plans
           return ask('What should I do instead?', 'Cue plans again with your words. Nothing has started.', 'e.g. find LED wall suppliers instead', 'Re-plan',
             function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], started, fail); });
+        if (act === 'ask-pick' && b.getAttribute('data-pick') === 'approve' && scope.querySelector('[data-tk="' + id + '"]')) {   // a card with ticks: send the unticked rows
+          var off = Array.prototype.filter.call(scope.querySelectorAll('[data-tk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
+          b.disabled = true; return call('cueAskPick', [id, 'approve', 'skip:' + off.join(',')], started, fail); }
         if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], started, fail); }
         if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
           return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }

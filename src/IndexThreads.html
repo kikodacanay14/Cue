@@ -479,15 +479,25 @@
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + fileText(m) + askHtml(m) + '</div>';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
   }
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
+  }
+  // CUE-CONTACT-NEW-2026-10-29: the "☐<n> " lines of an open question are ticks, all ticked at first; Approve sends the unticked
+  // numbers ("skip:2,5"). Once answered they read as plain bullets.
+  function tickText(m) {
+    var t = String(m.text || ''), q = askOf(m);
+    if (!q || !/\n☐\d+ /.test(t)) return fileText(m);
+    var open = q.open && !state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; });
+    var ls = t.split('\n');
+    return ls.map(function (l, i) { var x = l.match(/^☐(\d+) (.*)$/); if (!x) return /^☐\d+ /.test(ls[i + 1] || '') ? '<b>' + richText(l) + '</b>' : richText(l);   // a company line
+      return open ? '<label class="tick"><input type="checkbox" checked data-tk="' + esc(q.id) + '" value="' + x[1] + '"><span>' + esc(x[2]) + '</span></label>' : '• ' + esc(x[2]); }).join('\n');
   }
   function askHtml(m) {
     var q = askOf(m); if (!q || !q.open) return '';

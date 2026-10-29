@@ -1,3 +1,3 @@
-CanvasWorkspace main src/ZapBridge.gs (live Canvas V344) plus client_status and the get_readiness score from CanvasWorkspace
-PR #311 (branch claude/project-thread-g5nrxj, not yet live), 29 Oct 2026. md5 185f49c5cadf1502a1f55d5400153df0
+CanvasWorkspace main src/ZapBridge.gs = live Canvas V353 (29 Oct 2026 16:24Z): includes client_status, get_readiness score,
+contact_new_check and contact_add, and the client door. md5 23517c001c39ee2e305eca5adc736733
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

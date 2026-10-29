@@ -113,7 +113,7 @@ function cueAskPick(id, pick, note) {
   });
   if (!raw) throw new Error('That question was already answered, or is over 30 days old.');
   const o = JSON.parse(raw), done = '!' + id + (o.where ? '@' + o.where : '');
-  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'invline' || o.type === 'canvasedit' || o.type === 'allowset' || o.type === 'contactfill' ? ['approve', 'not'].indexOf(pick) < 0 : o.type === 'unsched' ? ['ok', 'mute'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' ? pick !== 'again' : o.type === 'route' && (o.choices || []).indexOf(pick) < 0;
+  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'invline' || o.type === 'canvasedit' || o.type === 'allowset' || o.type === 'contactfill' ? ['approve', 'not'].indexOf(pick) < 0 : o.type === 'contactnew' ? ['approve', 'skippage'].indexOf(pick) < 0 : o.type === 'unsched' ? ['ok', 'mute'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' ? pick !== 'again' : o.type === 'route' && (o.choices || []).indexOf(pick) < 0;
   if (bad) { P.setProperty('CUE_ASK_' + id, raw); throw new Error(pick === 'change' ? 'Say what I should do instead.' : 'That is not one of the choices.'); }   // the question stays open
   if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);
   if (o.type === 'schedule') return cueSchedPick_(o, pick, done);
@@ -121,6 +121,7 @@ function cueAskPick(id, pick, note) {
   if (o.type === 'canvasedit') return cueEditPick_(o, pick, done);   // generic Canvas edit (CueEdit.gs)
   if (o.type === 'allowset') return cueAllowPick_(o, pick, done);   // one allow-list row (CueEdit.gs)
   if (o.type === 'contactfill') return cueCsPick_(o, pick, done);   // old-email contact fill (CueContactScan.gs)
+  if (o.type === 'contactnew') return cueCnPick_(o, pick, done, note);   // new contacts from Kiko's Gmail (CueContactNew.gs)
   if (o.type === 'unsched') return cueUnschedPick_(o, pick, done);   // the unscheduled alarm (CueSchedule.gs)   // task scheduler (CueSchedule.gs)   // tutor mode (CueTutor.gs)
   if (o.type === 'learned') {
     if (pick === 'undo') cueLocked_(() => { const sh = cueTeachTab_(); if (o.row >= 2 && cueName_(sh.getRange(o.row, 3).getValues()[0][0]) === cueName_(o.text)) sh.getRange(o.row, 1).setValues([[false]]); });

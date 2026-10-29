@@ -1,5 +1,28 @@
 # Changelog
 
+## Cue 1.27.71: new contacts and companies from Kiko's Gmail (not deployed)
+
+Card gmail-new-contacts. Kiko asked on 29 Oct 2026 in the backlog thread to "add contacts and accounts from gmail scan", and
+answered the questions at 13:14Z: "1. my email only 2. one time 3 year scan 3. senders and people copied 4. P0 unless there are
+contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails". Spec `specs/gmail-new-contacts.md`.
+
+- **What it reads.** Kiko's own Gmail only, read only, in his account (the 5-minute job "New contacts from Gmail"). Each email is
+  read as headers only: From, Cc and Subject. No body and no attachment. The first window is the last 3 years, read a few
+  hundred emails at a time; after it is read, one window a week covers the mail since the last one. Every person found is one
+  row of the new Cue sheet tab "New contacts".
+- **Canvas checks each person** (bridge read `contact_new_check`): already in Canvas (P0 Contacts, PROJ Contacts or the Admin
+  Directory), or the company they would go to. One email domain is one company. A company already in P0 keeps its P stage; a
+  company not in P0 starts at P0. A personal address (Gmail, Yahoo and the like) with no company in its signature is added as
+  a contact with no company.
+- **One Approve card at a time**, with at most 25 companies and 40 people, new companies first. Every person has a tick. Title,
+  company and phone come only from the signature lines of that person's own emails, with the old-email contact scan's reader
+  and one Claude Haiku call per 20 people. Approve sends the ticked people in one `contact_add` (a claimed plan's write); Canvas
+  adds the P0 and P0 Contacts rows and logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. Skip page adds
+  nobody. The next page comes on the next run. No email, no HubSpot write.
+- "scan my gmail for new contacts" runs the job at once and says how far it is.
+- Needs Canvas with `contact_new_check` and `contact_add` (CanvasWorkspace branch claude/project-thread-t7caj1); the bridge
+  fixture is refreshed from it. Until that Canvas ships, the job reads Gmail and stops at the Canvas check.
+- Not in this build: filter R1 (skip personal domains, suppliers and BSE staff) waits for Kiko's yes/no.
 ## Cue 1.27.73: emails asking for a quotation or proposal start intake (not deployed)
 
 Kiko, 29 Oct 2026 15:13Z, about Moldex's "Request Quotation" email on his Emails waiting card: "i dont think it sensed that its for

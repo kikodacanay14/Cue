@@ -18,6 +18,7 @@ const CUE_TABS_ = {
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
+  'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows

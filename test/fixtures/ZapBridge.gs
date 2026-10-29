@@ -740,7 +740,7 @@ const ZB_ACTIONS_ = {
 // Unlike other public functions, guestGate_ runs only after the signature is checked (in zbHandle_), so an unsigned
 // caller reaches no Canvas code at all: not even the save stopwatch or the open-cache bump guestGate_ does.
 function zapBridge(raw, sig) {
-  if (String(Session.getActiveUser().getEmail() || '')) throw new Error('This is only for the Zapier adapter.');
+  if (String(activeEmail_() || '')) throw new Error('This is only for the Zapier adapter.');
   const s = String(sig || '');   // GPT-DOOR-2026-10-23: no signature = a ChatGPT call, checked by its key instead
   return JSON.stringify(s ? zbHandle_(String(raw || ''), s, Date.now(), false) : zbGptDoor_(String(raw || ''), Date.now()));
 }
@@ -1594,15 +1594,34 @@ function zbReadiness_(pid, want) {
 
 /* GPT-READINESS-CACHE-2026-10-23. A full readiness run takes minutes and ChatGPT stops waiting after about one, but the call
  * still finishes here. Each finished result is kept 6 hours (script cache, per project and gate); a result under 15 minutes
- * old (or under max_age_minutes) is returned at once with as_of. Read only: no trigger, schedule or sheet write. */
+ * old (or under max_age_minutes) is returned at once with as_of. Read only: no trigger, schedule or sheet write (READINESS-SPEED-2026-10-29:
+ * apart from its one Save Timings row). */
 const ZB_RD_FRESH_MIN_ = 15, ZB_RD_TTL_ = 21600;
 const zbRdKey_ = (pid, gate) => 'gptrd:' + pid + ':' + gate;
+/* READINESS-SPEED-2026-10-29 (Friday status check 29 Oct: one get_readiness took 301 s). The checklist's parts each read
+ * some of the same whole tabs (project, scopes, automatic checks, rules); inside tmemo_ each of these is read once per call.
+ * Every fresh run also writes one Save Timings row ("Open: Bridge get_readiness ...") with the slowest sources, so the next
+ * fix aims at what is measured. */
+const ZB_RD_TABS_ = () => [[SRC.ADMIN, 'Directory'], [SRC.SCOPES, 'Scope Categories'], [SRC.SCOPES, 'Payment Request'], [SRC.SCOPES, 'Transfers'],
+  [SRC.SCOPES, 'Supplier Entries'], [SRC.SCOPES, 'Requirements'], [SRC.TRI, 'TRI']];
+function zbRdTime_(pid, gate, ms) {
+  try {
+    const sh = ocQuiet_(logSheet_).getParent().getSheetByName(SW_TAB_); if (!sh) return;
+    const top = Object.keys(CKC_SW_.t).map(k => [k, CKC_SW_.t[k]]).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(x => x[0] + ' ' + (x[1] / 1000).toFixed(1)).join(' · ');
+    const what = 'Open: Bridge get_readiness ' + pid + ' ' + gate + ' (open ' + (PM_.open / 1000).toFixed(1) + ' · read ' + (PM_.read / 1000).toFixed(1)
+      + ' in ' + PM_.n + ' · ' + top + ')';
+    sh.appendRow([new Date(), 'Cue bridge', what.slice(0, 900), '', '', '', '', '', Math.round(ms / 100) / 10]);
+  } catch (e) { console.error('Readiness timings: ' + e); }
+}
 function zbRdCached_(pid, gate, maxAge) {
   const lim = (maxAge || ZB_RD_FRESH_MIN_) * 60000;
   let c = null; try { const s = CacheService.getScriptCache().get(zbRdKey_(pid, gate)); c = s ? JSON.parse(s) : null; } catch (e) { c = null; }
   if (c && Date.now() - Date.parse(c.as_of) < lim)
     return Object.assign(c, { cached: true, stale: Date.now() - Date.parse(c.as_of) >= ZB_RD_FRESH_MIN_ * 60000 });
-  const out = Object.assign(zbReadiness_(pid, gate), { as_of: new Date().toISOString(), cached: false });
+  const t0 = Date.now(); CKC_SW_.t = {};
+  const out = Object.assign(tmemo_(ZB_RD_TABS_(), () => zbReadiness_(pid, gate)), { as_of: new Date().toISOString(), cached: false });
+  zbRdTime_(pid, out.gate || gate, Date.now() - t0); // READINESS-SPEED-2026-10-29
   try {
     let s = JSON.stringify(out);
     if (s.length > 95000) { const k = Object.assign({}, out, { items: (out.items || []).slice(0, 40), items_cut: true }); s = JSON.stringify(k); }
@@ -3007,4 +3026,153 @@ ZB_ACTIONS_.sent_log = {
   // failed count of the last 7 days and the Semaphore text credit, for the Cue Admin Reports page (SentLog.gs). Read only.
   kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 1 }, failed_only: { type: 'boolean' } },
   run: (r) => sentLogRead_(r.args)
+};
+
+
+/* ---------- CLIENT-DOOR-2026-10-29: Canvas Client's calls without the library ----------
+ * Canvas Client (the crew, client and supplier sites) used to load this whole project as the library CanvasMain, which cost every
+ * Client call 4-5 s before its own code ran (Save Timings "Client open:" rows, 29 Oct). Now the Client sends its ten calls here as a
+ * web request. Kiko's rule for this door (yes asked 29 Oct 13:34Z): it answers only the Client's own Google account
+ * (CLIENT_DOOR_USER_) and only these ten functions. While one runs, activeEmail_() is '' as it was for library calls from the
+ * anonymous Client, so every existing check behaves the same. */
+const CLIENT_DOOR_USER_ = 'info@blankspaceevent.com';
+const CLIENT_DOOR_FNS_ = {
+  zapBridge: a => zapBridge(a[0], a[1]), smsSendCode: a => smsSendCode(a[0], a[1]), signLinkCheck: a => signLinkCheck(a[0]),
+  acctBridge: a => acctBridge(a[0], a[1], a[2]), regPendingNotify: a => regPendingNotify(a[0]), autoDocsAfterRegister: a => autoDocsAfterRegister(a[0]),
+  sitePersonalFile: a => sitePersonalFile(a[0], a[1], a[2], a[3], a[4], a[5]), siteScopeFile: a => siteScopeFile(a[0], a[1], a[2], a[3], a[4], a[5], a[6]),
+  clientAutoWelcome: a => clientAutoWelcome(a[0], a[1]), bseMailKit: a => bseMailKit(a[0], a[1], a[2]),
+  crmSiteInquiry: a => crmSiteInquiry(a[0]) // CRM-SITE-INQUIRY-2026-10-29: the client-site inquiry form (Kiko 29 Oct 14:03Z, mockups approved 14:38Z)
+};
+var CLIENT_DOOR_ = false; // var, not let: activeEmail_ may run before this line while the files load
+function activeEmail_() { return CLIENT_DOOR_ ? '' : String(Session.getActiveUser().getEmail() || ''); }
+function doPost(e) {
+  let out;
+  try {
+    if (String(Session.getActiveUser().getEmail() || '').trim().toLowerCase() !== CLIENT_DOOR_USER_) throw new Error('This is only for Canvas Client.');
+    let q = null; try { q = JSON.parse(String((e && e.postData && e.postData.contents) || '')); } catch (err) { q = null; }
+    const fn = q && typeof q.fn === 'string' && Object.prototype.hasOwnProperty.call(CLIENT_DOOR_FNS_, q.fn) ? CLIENT_DOOR_FNS_[q.fn] : null;
+    if (!fn) throw new Error('This is only for Canvas Client.');
+    CLIENT_DOOR_ = true;
+    const v = fn(Array.isArray(q.args) ? q.args : []);
+    out = { door: 1, ok: true, v: v === undefined ? null : v };
+  } catch (err) { out = { door: 1, ok: false, error: String((err && err.message) || err) }; }
+  finally { CLIENT_DOOR_ = false; }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+/* CUE-CONTACT-NEW-2026-10-29 (Kiko 29 Oct 13:14Z, backlog thread: "1. my email only 2. one time 3 year scan 3. senders and people
+ * copied 4. P0 unless there are contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails"; Cue spec
+ * specs/gmail-new-contacts.md, card gmail-new-contacts). Cue reads the From and Cc of Kiko's own Gmail and lists the people Canvas does
+ * not have on one Approve card. Two actions, neither on the GPT door:
+ *   contact_new_check (read)  per person: already in Canvas (the email is in P0 Contacts, PROJ Contacts or the Admin Directory), or
+ *                             the company the person would go to. A company already in P0 keeps its P stage ("keep"); a company not
+ *                             in P0 is new and starts at P0 ("new"); a personal-mail address with no company in its signature has no
+ *                             company ("none"). One email domain is one company. Skipped, never on the card (R1, Kiko 29 Oct
+ *                             14:02Z "approve"): a personal address (Gmail, Yahoo, Outlook, Hotmail, iCloud), a known supplier (an
+ *                             email or a business domain in the Supplier Database: Main and Supplier Contact) and BSE staff (BSE's
+ *                             own domain). They come back as skipped: [{ email, why: 'personal'|'supplier'|'staff' }].
+ *   contact_add (write)       under the lock, the same check again on the list Kiko approved, then new P0 rows (Priority P0) and new
+ *                             P0 Contacts rows. Each row is logged in CRM Auto Added (Kind "Company" or "Contact", Source "Kiko Gmail
+ *                             (From / Cc)", Run = the request id), so Accounts › Auto add's Undo takes it back. Email is the key: a
+ *                             repeat adds nobody twice. No P stage of a company already in P0 changes, and nothing goes to HubSpot. */
+const ZB_NEW_SRC_ = 'Kiko Gmail (From / Cc)';
+const ZB_NEW_GENERIC_ = /^(com|net|org|gov|edu|mil|int|co|ph|biz|info|io|asia|mail|email|www)$/;
+/** PURE (unit-tested). A company name from an email domain: "events.northwind.com.ph" -> "Northwind". */
+function zbDomName_(d) {
+  const parts = String(d || '').toLowerCase().split('.').filter(Boolean);
+  while (parts.length > 1 && (ZB_NEW_GENERIC_.test(parts[parts.length - 1]) || parts[parts.length - 1].length <= 2)) parts.pop();
+  const w = parts.length ? parts[parts.length - 1] : '';
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
+}
+// R1 (Kiko 29 Oct 14:02Z "approve"): personal mail, suppliers and BSE staff are skipped.
+const ZB_NEW_PERSONAL_ = /^(gmail|yahoo|outlook|hotmail|icloud)\./;
+const ZB_NEW_OWN_ = ['blankspaceevent.com'];
+/** PURE (node tools/test/contact-new.test.js). people = [{email, company, ...}]; have = crmHave_() of P0 and P0 Contacts; known =
+ *  {email: 1} from PROJ Contacts and the Admin Directory; skip = zbNewSkip_(): { emails: {email: why}, doms: {domain: why} }.
+ *  Returns { known: [email], skipped: [{ email, why }], groups: [{ company, domain, status: 'keep'|'new'|'none', p, people }] }. */
+function zbNewPlan_(people, have, known, skip) {
+  const out = { known: [], skipped: [], groups: [] }, by = {}, order = [], seen = {}, sk = skip || { emails: {}, doms: {} };
+  const coOf = n => { const k = crmNk_(n); return k.length >= 2 ? have.keys[k] || '' : ''; };
+  const pOf = co => ((have.cos || []).filter(c => c.name === co)[0] || {}).p || '';
+  (people || []).forEach(x => {
+    const e = crmMail_(x.email); if (!e || seen[e]) return; seen[e] = 1;
+    if (have.emails[e] || known[e]) { out.known.push(e); return; }
+    const d = crmDom_(e), why = ZB_NEW_PERSONAL_.test(d) ? 'personal' : sk.emails[e] || sk.doms[d] || '';
+    if (why) { out.skipped.push({ email: e, why }); return; }
+    const free = CMC_FREE_.test(d), sig = String(x.company || '').replace(/\s+/g, ' ').trim();
+    const co = (!free && have.dom[d]) || coOf(sig) || (!free ? coOf(zbDomName_(d)) : '');
+    const key = co ? 'k|' + crmNk_(co) : !free ? 'd|' + d : sig ? 'n|' + crmNk_(sig) : 'x|';
+    let g = by[key];
+    if (!g) { g = by[key] = { company: co, domain: free ? '' : d, status: co ? 'keep' : (free && !sig ? 'none' : 'new'), p: co ? pOf(co) : (free && !sig ? '' : 'P0'), names: {}, people: [] }; order.push(key); }
+    if (!co && sig) g.names[sig] = (g.names[sig] || 0) + 1;
+    g.people.push(Object.assign({}, x, { email: e }));
+  });
+  order.forEach(k => { const g = by[k];
+    if (g.status === 'new') g.company = Object.keys(g.names).sort((a, b) => g.names[b] - g.names[a])[0] || zbDomName_(g.domain);
+    delete g.names; out.groups.push(g); });
+  return out;
+}
+/** Every email address in PROJ Contacts and the Admin Directory (any column whose header says email). */
+function zbNewKnown_() {
+  const out = {};
+  ['PROJ Contacts', 'Directory'].forEach(tab => {
+    const t = table_(SRC.ADMIN, tab); if (t.missing) throw new Error('Admin tab "' + tab + '" is missing');
+    const js = t.head.map((h, j) => /e-?mail/.test(h) ? j : -1).filter(j => j >= 0);
+    t.rows.forEach(r => js.forEach(j => crmMails_(r[j]).forEach(e => { out[e] = 1; })));
+  });
+  return out;
+}
+/** R1: { emails: {email: 'supplier'}, doms: {domain: 'supplier'|'staff'} }. Supplier emails come from every email column of
+ *  Supplier Database › Main and Supplier Contact; a supplier's domain counts only when it is not a free-mail domain. BSE's own
+ *  domains (blankspaceevent.com and the deploying account's) are staff. */
+function zbNewSkip_() {
+  const out = { emails: {}, doms: {} }, add = e => { out.emails[e] = 'supplier'; const d = crmDom_(e); if (d && !CMC_FREE_.test(d)) out.doms[d] = 'supplier'; };
+  const T = aiSupTable_();
+  T.head.forEach((h, j) => { if (/e-?mail/i.test(h)) T.rows.forEach(r => aiSupMail_(r[j]).forEach(add)); });
+  const ct = contactsSheet_(), ce = ct.col('Email Address');
+  if (ce >= 0 && ct.sheet.getLastRow() > 1) ct.sheet.getRange(2, ce + 1, ct.sheet.getLastRow() - 1, 1).getDisplayValues().forEach(r => aiSupMail_(r[0]).forEach(add));
+  ZB_NEW_OWN_.concat([domain_()]).forEach(d => { out.doms[String(d).toLowerCase()] = 'staff'; });
+  return out;
+}
+const zbNewOut_ = p => ({ known: p.known, skipped: p.skipped, groups: p.groups.map(g => ({ company: g.company, domain: g.domain, status: g.status, p: g.p, emails: g.people.map(x => x.email) })) });
+function zbContactNewCheck_(a) {
+  const B = crmBooks_();
+  return zbNewOut_(zbNewPlan_(a.people, crmHave_(B.P, B.K), zbNewKnown_(), zbNewSkip_()));
+}
+function zbContactAdd_(a, task) {
+  const res = withLock_(function () {
+    const B = crmBooks_(), plan = zbNewPlan_(a.people, crmHave_(B.P, B.K), zbNewKnown_(), zbNewSkip_());
+    const today = crmToday_(), now = new Date(), log = [], cos = plan.groups.filter(g => g.status === 'new');
+    const k = []; plan.groups.forEach(g => g.people.forEach(x => k.push(Object.assign({}, x, { co: g.company }))));
+    if (!cos.length && !k.length) return { saved: true, companies: [], contacts: [], known: plan.known, skipped: plan.skipped };
+    auditPage_('Client Desk');
+    const pRows = crmAddRows_(B.P, crmLastIdx_(B.P, ['Company']), {
+      Priority: cos.map(() => 'P0'), Company: cos.map(g => g.company), 'Source Match': cos.map(() => 'Cue Gmail scan'), 'Date Added': cos.map(() => today),
+      'Prospecting Notes / Source': cos.map(g => 'Added by Cue from ' + ZB_NEW_SRC_ + (g.domain ? ' (' + g.domain + ')' : '') + ' on ' + today), 'Source Tabs': cos.map(() => 'Cue Gmail scan') }, cos.length);
+    cos.forEach((g, i) => log.push({ ID: crmId_('AA'), When: now, Kind: 'Company', Company: g.company, Name: '', Email: '', Phone: '', Source: ZB_NEW_SRC_, Ref: g.domain + ' ' + task,
+      Tab: CD.companiesTab, Row: pRows[i].row, Cells: pRows[i].cells, Status: 'Added', 'Undone by': '', Run: a.request_id }));
+    const kRows = crmAddRows_(B.K, crmLastIdx_(B.K, ['Company', 'Contact Name', 'Email Address']), {
+      Company: k.map(x => x.co), 'Contact Name': k.map(x => x.name || ''), 'Email Address': k.map(x => x.email), 'Position / Title': k.map(x => x.title || ''), Phone: k.map(x => x.phone || ''),
+      'Source / Evidence': k.map(x => 'Cue Gmail scan: ' + (x.via || 'From') + (x.date ? ' ' + x.date : '')), 'Last Relevant Subject': k.map(x => x.subject || ''),
+      'Last Contact Date': k.map(x => x.date && x.date <= today ? x.date : '') }, k.length);
+    k.forEach((x, i) => log.push({ ID: crmId_('AA'), When: now, Kind: 'Contact', Company: x.co, Name: x.name || '', Email: x.email, Phone: x.phone || '', Source: ZB_NEW_SRC_,
+      Ref: (x.thread ? 'mail:' + x.thread : '') + ' ' + task, Tab: CD.contactsTab, Row: kRows[i].row, Cells: kRows[i].cells, Status: 'Added', 'Undone by': '', Run: a.request_id }));
+    crmAppend_('auto', log);
+    return { saved: true, companies: cos.map(g => g.company), contacts: k.map(x => ({ email: x.email, company: x.co })), known: plan.known, skipped: plan.skipped };
+  });
+  try { if (res.contacts.length) logEvent('Cue added contacts from Gmail', 'clientdesk', res.companies.length + ' companies, ' + res.contacts.length + ' contacts (' + a.request_id + ')'); } catch (e) { /* logging never blocks */ }
+  return res;
+}
+const ZB_NEW_PERSON_ = { email: { type: 'string', required: true, nonBlank: true, max: 200 }, name: { type: 'string', max: 120 }, title: { type: 'string', max: 120 },
+  phone: { type: 'string', max: 40, re: /^\+?[0-9 ()./-]{7,40}$/ }, company: { type: 'string', max: 120 }, via: { type: 'string', oneOf: ['From', 'Cc'] },
+  subject: { type: 'string', max: 200 }, date: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, thread: { type: 'string', max: 40, re: /^[0-9a-f]{6,40}$/ } };
+ZB_ACTIONS_.contact_new_check = {
+  kind: 'read', needsProject: false,
+  schema: { people: { type: 'array', required: true, minItems: 1, maxItems: 200, items: { email: ZB_NEW_PERSON_.email, company: ZB_NEW_PERSON_.company } } },
+  run: (r) => zbContactNewCheck_(r.args)
+};
+ZB_ACTIONS_.contact_add = {
+  kind: 'write', needsProject: false, retrySafe: true,   // email is the key: a repeat finds its own rows and adds nobody twice
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, people: { type: 'array', required: true, minItems: 1, maxItems: 60, items: ZB_NEW_PERSON_ } },
+  run: (r) => zbContactAdd_(r.args, r.task_id),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
