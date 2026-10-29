@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.68: two CRM bug fixes (not deployed)
+
+Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko asked for at 09:28Z: "Fix the two bugs now".
+
+- **The 7:00 "Sales funnel and HubSpot tasks" card read frozen numbers.** HubSpot sync has been off since Canvas V328 (Kiko,
+  29 Oct 02:00Z "Turn off hubspot"), but the card still counted deals from HubSpot. It now reads Canvas's Sales funnel through
+  the bridge (`crm_funnel`, a read): Inquiry, CE sent, Won, Delivered and Paid, with how many are stuck. It shows counts only;
+  amounts and the deal lists stay in Canvas (Accounts › Deals). Kiko's open HubSpot tasks and Mark done are unchanged, and a
+  task still links its HubSpot deal. The card says "from Canvas".
+- **The CRM timer still ran from info@.** Kiko asked on 29 Oct at 02:11:02Z: "Make all Cue and CRM related timers to my account."
+  Canvas V329 added the bridge action `crm_tick` for that, but no Cue release called it, so info@'s 15-minute trigger kept doing
+  the CRM work. A new "CRM work" job in the 5-minute tick (`CueCrmTick.gs`) now calls `crm_tick` every 15 minutes from Kiko's
+  account. Canvas then retires info@'s trigger, and falls back to it if Cue stops calling for 40 minutes. A failure is a Failed
+  row in Job Runs and is tried again 15 minutes later. No AI call, no email, no new trigger, and a cloud check never calls it.
+- No new rule: both fixes use bridge actions and limits Kiko already approved. Needs Canvas V329 or later (live is V342).
+- Tests: 478 (3 new in `test/features/60-crm-fixes.js`; FN1, FN3 and FN4 now expect Canvas's numbers).
+
 ## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (live as Version 149, 29 Oct 09:30Z, rollback 147)
 
 Kiko asked on 29 Oct 2026 at 08:14Z ("rewrite templates make sure that they follow" the approved brand voice guide). His picks at

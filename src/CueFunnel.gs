@@ -4,7 +4,12 @@
  *   - Code reads Kiko's open HubSpot tasks and the deal each one is on: the HubSpot action items, overdue first.
  *   - Mark done: one tap closes one task in HubSpot (hs_task_status COMPLETED), then Cue reads it back. Nothing closes in bulk.
  * Deal stage and amount are never changed here: Canvas owns them and its hourly sync writes them. Tasks are HubSpot's own records,
- * so the sync never overwrites a task Kiko marked done. Runs daily at 7:00 (Schedule row sys-funnel) and on "show the funnel". */
+ * so the sync never overwrites a task Kiko marked done. Runs daily at 7:00 (Schedule row sys-funnel) and on "show the funnel".
+ * CRM-FUNNEL-CANVAS-2026-10-29 (bug): Canvas stopped syncing HubSpot on 29 Oct (V328, Kiko 02:00:59Z "Turn off hubspot"), so the
+ * HubSpot deal stages and amounts froze and this card kept showing them as today's funnel. The counts now come from Canvas's own
+ * Sales funnel (bridge read crm_funnel: Inquiry, CE sent, Won, Delivered, Paid, with stuck counts; no amounts, which stay Kiko's in
+ * Canvas). "Waiting for award" is the CE sent step. HubSpot deals are still read, but only for the name of the deal each HubSpot
+ * task is on; their stage and amount are not used. */
 
 const CUE_FUNNEL_MAX_ = { pages: 5, tasks: 100 };   // 500 deals, 100 open tasks: BSE has 73 deals and 22 tasks (24 Oct)
 const CUE_FUNNEL_ASK_RE_ = /\b(?:sales\s+)?funnel\b(?![\s\S]{0,20}\breview\b)|\bhub\s?spot\s+(?:tasks?|action\s+items?|to-?dos?)\b|\b(?:tasks?|action\s+items?|to-?dos?)\s+(?:in|from)\s+hub\s?spot\b/i;
@@ -20,7 +25,7 @@ function cueFunnelStart_(text, how) {
     status: 'Working', stage: CUE_FUNNEL_STEPS_, ref: '', fn: { title: 'Sales funnel and HubSpot tasks' }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'daily') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading your deals and HubSpot tasks in its own thread. Nothing is changed by the read.', '>' + id);
+  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s sales funnel and your HubSpot tasks in its own thread. Nothing is changed by the read.', '>' + id);
   return { request_id: id, task: '' };
 }
 
@@ -31,22 +36,26 @@ function cueFunnelRun_(s, save) {
 
 /* ---------- HubSpot reads (code only) ---------- */
 function cueFunnelRead_(s) {
-  const F = s.fn, stages = [], byId = {};
-  (cueHs_('get', '/crm/v3/pipelines/deals').results || []).forEach(p => (p.stages || []).slice().sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)).forEach(st => {
-    const md = st.metadata || {}, prob = parseFloat(md.probability), closed = String(md.isClosed) === 'true';
-    const x = { id: String(st.id), label: cueStr_(st.label, 80), kind: !closed ? 'open' : prob >= 1 || /won|award(ed)?\b/i.test(st.label) && !/not award|lost/i.test(st.label) ? 'won' : 'lost' };
-    stages.push(x); byId[x.id] = x;
-  }));
+  const F = s.fn;
+  // CRM-FUNNEL-CANVAS-2026-10-29: the steps and counts are Canvas's Sales funnel, not HubSpot's frozen stages.
+  const cf = cueBridge_(s, 'crm_funnel', {}) || {};
+  F.src = 'canvas';
+  F.stages = (cf.steps || []).map(x => ({ id: cueStr_(x.step, 80), label: cueStr_(x.step, 80), kind: /^(inquiry|ce sent)$/i.test(String(x.step)) ? 'open' : 'won',
+    n: Number(x.count) || 0, amount: 0, no_amount: 0, stuck: Number(x.stuck) || 0 }));
+  const w = F.stages.filter(x => x.id === 'CE sent')[0];
+  F.wait = w ? { id: w.id, label: w.label, n: w.n, amount: 0 } : { id: '', label: '', n: 0, amount: 0 };
+  F.none = [];
+  // HubSpot deals: only to name the deal a HubSpot task is on (a name does not go stale). Stage and amount are left out.
   let deals = [], after = '';
-  for (let page = 0; page < CUE_FUNNEL_MAX_.pages; page++) {
-    const o = cueHs_('post', '/crm/v3/objects/deals/search', { limit: 100, after: after || undefined, properties: ['dealname', 'dealstage', 'amount'], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }] });
-    deals = deals.concat(o.results || []);
-    after = o.paging && o.paging.next && o.paging.next.after;
-    if (!after) break;
-  }
-  if (after) s.notes.push('HubSpot has more than ' + deals.length + ' deals; the funnel counts the newest ' + deals.length + '.');
-  F.deals = deals.map(d => { const p = d.properties || {}; return { id: String(d.id), name: cueStr_(p.dealname, 300), stage: byId[String(p.dealstage || '')] ? String(p.dealstage) : '', amount: Number(p.amount) > 0 ? cueR2_(p.amount) : 0 }; });
-  Object.assign(F, cueFunnelCount_(stages, F.deals));
+  try {
+    for (let page = 0; page < CUE_FUNNEL_MAX_.pages; page++) {
+      const o = cueHs_('post', '/crm/v3/objects/deals/search', { limit: 100, after: after || undefined, properties: ['dealname'], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }] });
+      deals = deals.concat(o.results || []);
+      after = o.paging && o.paging.next && o.paging.next.after;
+      if (!after) break;
+    }
+  } catch (e) { s.notes.push('Could not read the HubSpot deal names for the tasks (' + cueStr_(e.message, 120) + ').'); }
+  F.deals = deals.map(d => ({ id: String(d.id), name: cueStr_((d.properties || {}).dealname, 300), stage: '', amount: 0 }));
   F.portal = cuePortal_();
   cueFunnelTasks_(s);
   F.read_at = new Date(cueNow_()).toISOString();
@@ -151,6 +160,8 @@ function cueFunnelPeso_(v) {
 }
 /** One line per stage that has deals: "2 Inquiry / RFP received · 20 Awaiting award / PO ₱10.2M · 20 won ₱4.2M · 28 lost". */
 function cueFunnelLine_(F) {
+  // CRM-FUNNEL-CANVAS-2026-10-29: Canvas's steps keep their own names ("2 Inquiry (1 stuck) · 12 CE sent · 5 Won").
+  if (F.src === 'canvas') return (F.stages || []).filter(x => x.n).map(x => x.n + ' ' + x.label + (x.stuck ? ' (' + x.stuck + ' stuck)' : '')).join(' · ') || 'no deals in Canvas\'s sales funnel';
   const parts = (F.stages || []).filter(x => x.n).map(x => x.n + ' ' + (x.kind === 'won' ? 'won' : x.kind === 'lost' ? 'lost' : x.label) + (x.amount && x.kind !== 'lost' ? ' ' + cueFunnelPeso_(x.amount) : ''));
   if ((F.none || []).length) parts.push(F.none.length + ' with no stage');
   return parts.join(' · ') || 'no deals in HubSpot';
@@ -161,8 +172,8 @@ function cueFunnelView_(s) {
   const F = s.fn || {}, P = F.portal || '';
   const link = id => P ? 'https://app.hubspot.com/contacts/' + P + '/record/0-3/' + id : '';
   const today = cueMnlDay_(cueNow_());
-  return { title: F.title || 'Sales funnel and HubSpot tasks', read: F.read_at ? new Date(Date.parse(F.read_at) + CUE_MNL_).toISOString().slice(11, 16) : '', line: F.stages ? cueFunnelLine_(F) : '', wait: F.wait || null,
-    stages: (F.stages || []).map(x => ({ id: x.id, label: x.label, kind: x.kind, n: x.n, amount: x.amount, no_amount: x.no_amount })),
+  return { src: F.src || 'hubspot', title: F.title || 'Sales funnel and HubSpot tasks', read: F.read_at ? new Date(Date.parse(F.read_at) + CUE_MNL_).toISOString().slice(11, 16) : '', line: F.stages ? cueFunnelLine_(F) : '', wait: F.wait || null,
+    stages: (F.stages || []).map(x => ({ id: x.id, label: x.label, kind: x.kind, n: x.n, amount: x.amount, no_amount: x.no_amount, stuck: x.stuck || 0 })),
     none: (F.none || []).map(d => ({ name: d.name, amount: d.amount, url: link(d.id) })),
     deals: (F.deals || []).filter(d => d.stage).slice().sort((a, b) => b.amount - a.amount).map(d => ({ id: d.id, name: d.name, stage: d.stage, amount: d.amount, url: link(d.id),
       tasks: (F.tasks || []).filter(t => t.deal_id === d.id && !t.done).map(t => t.id) })),
@@ -179,7 +190,7 @@ function cueFunnelToday_(r, row) {
   // PC check 24 Oct 14:29Z: "#fn-" opens the thread at this run's funnel card. PC recheck 15:00Z: the tasks open in their own pane
   // tab, "hst:<run>" (Index.html thOf), instead of a jump inside the funnel thread.
   const at = spot => (r.root || r.id) + '#' + spot + '-' + r.id, tasksTab = 'hst:' + r.id;
-  const out = [row({ eyebrow: 'Sales funnel · from HubSpot', title: w.amount ? cueFunnelPeso_(w.amount) + ' waiting for award' : (w.n || 0) + ' deal' + (w.n === 1 ? '' : 's') + ' waiting for award',
+  const out = [row({ eyebrow: 'Sales funnel · from ' + (F.src === 'canvas' ? 'Canvas' : 'HubSpot'), title: w.amount ? cueFunnelPeso_(w.amount) + ' waiting for award' : (w.n || 0) + ' deal' + (w.n === 1 ? '' : 's') + ' waiting for award',
     detail: F.line || '', button: 'Open funnel', thread: at('fn') })];
   if (F.task_error) out.push(row({ eyebrow: 'HubSpot tasks', title: 'HubSpot tasks need a key change', detail: F.task_error, button: 'Open', thread: tasksTab }));
   else if (open.length) out.push(row({ eyebrow: 'HubSpot tasks · yours', title: late.length ? late.length + ' task' + (late.length === 1 ? '' : 's') + ' overdue' : open.length + ' open task' + (open.length === 1 ? '' : 's'),

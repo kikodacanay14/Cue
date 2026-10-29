@@ -396,20 +396,23 @@
     if (only === 'tasks') h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">HubSpot tasks · yours</div>'
       + '<div class="small muted">From HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. The deals and stages are in the Sales funnel thread.</div>';
     else {
-    h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">Sales funnel · from HubSpot</div>'
+    // CRM-FUNNEL-CANVAS-2026-10-29: a run that read Canvas's Sales funnel says so; its steps have no deal list or amounts here.
+    var canvas = F.src === 'canvas';
+    h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">Sales funnel · from ' + (canvas ? 'Canvas' : 'HubSpot') + '</div>'
       + '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
-      + '<div class="small muted">Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.</div>';
+      + '<div class="small muted">' + (canvas ? 'Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.'
+        : 'Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.') + '</div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
     // Empty open stages fold into one grey line instead of empty bars.
     var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
     h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
       return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span style="flex:0 0 38%">' + esc(x.label) + '</span>'
         + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:16px;border-radius:4px;background:' + (x.id === w.id ? 'var(--need)' : COL[x.kind]) + ';width:' + Math.max(3, Math.round(55 * x.n / max)) + '%"></span>'
-        + '<span>' + esc(x.n) + (x.amount && x.kind !== 'lost' ? ' · ' + pesoK(x.amount) : '') + '</span></span></div>';
+        + '<span>' + esc(x.n) + (x.amount && x.kind !== 'lost' ? ' · ' + pesoK(x.amount) : '') + (x.stuck ? ' · ' + esc(x.stuck) + ' stuck' : '') + '</span></span></div>';
     }).join('') + (empty.length ? '<div class="small muted">None right now: ' + esc(empty.map(function (x) { return x.label; }).join(', ')) + '</div>' : '') + '</div>';
     if (F.none.length) h += '<div class="warn">' + esc(F.none.length) + ' deal' + (F.none.length === 1 ? ' has' : 's have') + ' no stage, so the funnel leaves ' + (F.none.length === 1 ? 'it' : 'them') + ' out: '
       + F.none.map(function (d) { return link(d.url, d.name); }).join(' · ') + '. Check its project status in Canvas.</div>';
-    F.stages.filter(function (x) { return x.n; }).forEach(function (x) {
+    if (!canvas) F.stages.filter(function (x) { return x.n; }).forEach(function (x) {
       var l = F.deals.filter(function (d) { return d.stage === x.id; });
       // PC check 24 Oct 14:13Z: a summary styled display:inline loses its marker, so a closed stage looked empty. The .sec marker shows it opens.
       h += '<details class="sec"' + (x.id === w.id || l.length <= 5 ? ' open' : '') + '><summary>' + esc(x.label) + ' (' + l.length + ')</summary>'

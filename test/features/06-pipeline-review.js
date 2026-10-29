@@ -90,16 +90,20 @@ const FN_TASKS = () => [{ id: 't1', subject: 'Follow up on pending decision — 
   { id: 't2', subject: 'Resolve MAEC company category', status: 'NOT_STARTED', due: '2026-10-19T02:00:00Z' },
   { id: 't3', subject: 'Call Joy', status: 'NOT_STARTED', due: '2026-10-25T02:00:00Z' },
   { id: 't4', subject: 'Old one', status: 'COMPLETED', due: '2026-10-01T02:00:00Z' }];
-const fnRun = (o = {}) => { const t = sandbox(Object.assign({ hsTasks: FN_TASKS(), props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }, o)); const id = t.ctx.cueSend(o.say || 'show the sales funnel').request_id; return { t, id, v: t.ctx.cueRun(id) }; };
+// CRM-FUNNEL-CANVAS-2026-10-29: the steps and counts are Canvas's Sales funnel (crm_funnel); HubSpot gives only the tasks and deal names.
+const FN_CANVAS = { today: '2026-10-21', limits: {}, steps: [{ step: 'Inquiry', count: 4, stuck: 1, limit: 3 }, { step: 'CE sent', count: 1, stuck: 0, limit: 10 },
+  { step: 'Won', count: 1, stuck: 0 }, { step: 'Delivered', count: 0, stuck: 0, limit: 30 }, { step: 'Paid', count: 2, stuck: 0 }], stuck: [], due: [] };
+const fnRun = (o = {}) => { const t = sandbox(Object.assign({ funnel: FN_CANVAS, hsTasks: FN_TASKS(), props: { CUE_HUBSPOT_TOKEN: 'pat-test-not-real' } }, o)); const id = t.ctx.cueSend(o.say || 'show the sales funnel').request_id; return { t, id, v: t.ctx.cueRun(id) }; };
 test('FN1 funnel: chat words start it with no AI call; every deal counted per stage, the award stage named; open tasks with their deal, overdue first', () => {
   const { t, id, v } = fnRun();
   assert.strictEqual(v.kind, 'funnel'); assert.strictEqual(v.status, 'Needs you', v.error);
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call'); assert.strictEqual(v.metrics.ai_calls, 0);
-  deq(v.fn.stages.map(x => [x.label, x.kind, x.n, x.amount]), [['Quoting', 'open', 4, 862682.61], ['Awaiting award', 'open', 1, 996352], ['Closed won', 'won', 1, 1], ['Closed lost', 'lost', 0, 0]]);
-  deq([v.fn.wait.label, v.fn.wait.n, v.fn.wait.amount], ['Awaiting award', 1, 996352]);
-  assert.strictEqual(v.fn.line, '4 Quoting ₱863k · 1 Awaiting award ₱996k · 1 won ₱1');
+  deq(v.fn.stages.map(x => [x.label, x.kind, x.n, x.amount, x.stuck]), [['Inquiry', 'open', 4, 0, 1], ['CE sent', 'open', 1, 0, 0], ['Won', 'won', 1, 0, 0], ['Delivered', 'won', 0, 0, 0], ['Paid', 'won', 2, 0, 0]]);
+  deq([v.fn.src, v.fn.wait.label, v.fn.wait.n, v.fn.wait.amount], ['canvas', 'CE sent', 1, 0]);
+  assert.strictEqual(v.fn.line, '4 Inquiry (1 stuck) · 1 CE sent · 1 Won · 2 Paid');
+  assert.strictEqual(t.log.funnel, 1, 'one crm_funnel read');
   deq(v.fn.tasks.map(x => [x.id, x.group, x.deal, x.late, x.done]), [['t1', 'deal', 'Telus — Trick or Treat - Manila', 2, false], ['t2', 'category', '', 2, false], ['t3', 'other', '', 0, false]]);
-  assert.ok(/record\/0-3\/101$/.test(v.fn.deals.find(d => d.id === '101').url)); deq(v.fn.deals.find(d => d.id === '101').tasks, ['t1']);
+  assert.ok(/record\/0-3\/101$/.test(v.fn.tasks[0].deal_url), 'a task still links its HubSpot deal'); deq(v.fn.deals, [], 'deal lists stay in Canvas');
   assert.ok(t.log.hs.every(x => x.method !== 'patch'), 'the read changes nothing in HubSpot');
   assert.strictEqual(t.log.taskQ.filterGroups[0].filters[0].value, 'COMPLETED', 'only tasks not completed');
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /own thread/.test(x[2])), 'pointer in the main chat');
@@ -117,7 +121,7 @@ test('FN2 funnel counts: no stage is listed by name; empty open stages stay at 0
 test('FN3 Today card: one funnel run gives two rows (funnel, overdue tasks) pointing at its thread; a newer run closes the older one', () => {
   const { t, id, v } = fnRun();
   const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
-  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from HubSpot', '₱996k waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', 'hst:' + id]]);
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales funnel · from Canvas', '1 deal waiting for award', 'Open funnel', id + '#fn-' + id], ['HubSpot tasks · yours', '2 tasks overdue', 'Review tasks', 'hst:' + id]]);
   assert.ok(T.rows.every(r => r.thread.length <= 120), 'Canvas cuts a thread id at 120 characters');
   assert.ok(/^Follow up: Telus — Trick or Treat - Manila · Resolve MAEC company category and 1 more$/.test(T.rows[1].detail), T.rows[1].detail);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
@@ -139,7 +143,7 @@ test('FN4 Mark done closes one HubSpot task and reads it back; a key without tas
   assert.ok(/cannot change tasks/.test(v2.fn.tasks[0].error)); assert.strictEqual(v2.fn.tasks[0].done, false);
   const r = fnRun({ hsTaskCode: 403 });
   assert.strictEqual(r.v.status, 'Needs you'); assert.ok(/cannot read tasks yet/.test(r.v.fn.task_error)); deq(r.v.fn.tasks, []);
-  deq(r.t.ctx.cueTodayFrom_([r.v], '2026-10-21').rows.map(x => x.title), ['₱996k waiting for award', 'HubSpot tasks need a key change']);
+  deq(r.t.ctx.cueTodayFrom_([r.v], '2026-10-21').rows.map(x => x.title), ['1 deal waiting for award', 'HubSpot tasks need a key change']);
   const d = fnRun({ hsTasks: [] }); assert.strictEqual(d.v.status, 'Needs you', 'deals still wait for award');
   assert.strictEqual(d.t.ctx.cueFunnelDone(d.id).status, 'Done');
 });
