@@ -23,20 +23,36 @@
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
       <!-- CUE-ADMIN-2026-10-29 (Epic Cue #193): grouped as in Kiko's approved mockup -->
-      <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes</button><button data-s="tutor">Tutor mode</button>
+      <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes and business rules</button><button data-s="tutor">Tutor mode</button>
       <div class="sgrp">Rules</div><button data-s="chasers">Chaser rules</button><button data-s="triage">Triage rules</button><button data-s="auto">Auto-send</button>
-      <div class="sgrp">Jobs</div><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button>
+      <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button>
       <div class="sgrp">System</div><button data-s="conn">Connections</button><button data-s="relay">AI relay</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
-      <section data-sec="procs" hidden><div class="label" style="margin-top:0">Processes</div><div id="w-procs"></div></section>
+      <section data-sec="procs" hidden><div class="label" style="margin-top:0">Processes and business rules</div><div id="w-procs"></div></section>
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="relay" hidden><div class="label" style="margin-top:0">AI relay</div><div id="w-relay"></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
-      <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div></section>
+      <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div>
+        <!-- CUE-ADMIN-2-2026-10-29 (Kiko 03:17Z "just indicate the process or business rule that auto triggers it"): Canvas's automatic sends, read only -->
+        <div class="label">Canvas sends these by itself</div><div class="small muted" style="margin:-2px 0 8px">What goes out with no tap, and the rule that sends it. Read only: changing one is a Canvas change.</div>
+        <div class="asgrp">New users</div>
+        <div class="card ascard"><b>Your Canvas access (email and text)</b><div class="small"><b>When:</b> staff approve a sign-up in Support Desk › Freelancers › Waiting for approval. Approve also starts their FSA.</div></div>
+        <div class="asgrp">Payments</div>
+        <div class="card ascard"><b>Payment received (email and text, from Accounts Payable)</b><div class="small"><b>When:</b> a payment to a payee is recorded (Record transfer).</div></div>
+        <div class="card ascard"><b>Payment sent (text only)</b><div class="small"><b>When:</b> the same, for a payee with a mobile number but no email.</div></div>
+        <div class="card ascard"><b>Action needed: pay the supplier</b><div class="small"><b>When:</b> a payment is recorded to someone who pays a supplier for BSE.</div></div>
+        <div class="card ascard"><b>Payment request · Approval needed: unplanned cost · Payment uploaded</b><div class="small"><b>When:</b> a payment request is submitted, an unplanned cost is asked for or recorded, or proof is attached. These go to staff.</div></div>
+        <div class="asgrp">AR and FSA</div>
+        <div class="card ascard"><b>Please sign your FSA</b><div class="small"><b>When:</b> 3 days before the crew member's first working day. Booked later: on the next save. A paid payee with no FSA gets one first.</div></div>
+        <div class="card ascard"><b>Please sign your AR</b><div class="small"><b>When:</b> made 2 days before Payment Date Required (7 AM run), held until paid, sent once marked Paid.</div></div>
+        <div class="asgrp">Projects and daily</div>
+        <div class="card ascard"><b>Role assigned · Assigned to you · Status changed · Supplier awarded</b><div class="small"><b>When:</b> a name is added on Resources or in Assigned To, a status moves, or a quote is awarded.</div></div>
+        <div class="card ascard"><b>Your day (7am digest)</b><div class="small"><b>When:</b> 07:00 Manila every day, to staff who turned it on in My profile.</div></div></section>
+      <section data-sec="jobchasers" hidden><div class="label" style="margin-top:0">Chasers</div><div id="w-jobchasers"><div class="small muted">Loading…</div></div></section>
       <section data-sec="triage" hidden><div class="label" style="margin-top:0">Triage rules</div><div id="w-triage"><div class="small muted">Loading…</div></div></section>
       <section data-sec="rn" hidden><div class="label" style="margin-top:0">Release notes</div><div id="w-rn"><div class="small muted">Loading…</div></div></section>
       <section data-sec="usage" hidden><div class="label" style="margin-top:0">AI usage and cost</div><div id="w-usage"><div class="small muted">Loading…</div></div></section>
