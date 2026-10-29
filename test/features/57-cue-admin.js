@@ -65,14 +65,15 @@ test('AD6 Chaser rules and Scheduled tasks carry what each one is about; a task 
   deq(Object.keys(R.about), Object.keys(R.kinds), 'one line for every chaser on the card');
   assert.ok(Object.values(R.about).every(a => a.about && a.from));
   const S = t.ctx.cueSchedules(), sys = S.filter(x => x.system && !/^sys-gt-/.test(x.id));
-  assert.ok(sys.length >= 9 && sys.every(x => x.about.about && /^Asked by Kiko/.test(x.about.asked) && x.about.follows.length), 'every Cue task has an about line');
+  assert.ok(sys.length >= 9 && sys.every(x => x.about.about && /^Asked by Kiko/.test(x.about.asked) && x.about.follows.length && x.about.follows.every(f => f[0] && f[1])), 'every Cue task has an about line, and each Follows item says what it means');
   const sh = t.tabs.Schedule; sh.appendRow(['sch-1', 'Invoice reminder', 'user', 'once', '', '', '2026-10-30', '15:00', 'remind me to send the invoice', 'remind', true, '', '', '', '', new Date('2026-10-23T02:00:00Z')]);
   const u = t.ctx.cueSchedules().filter(x => x.id === 'sch-1')[0];
-  deq([u.about.asked, u.about.follows[0]], ['Made by Kiko in chat, 23 Oct', 'Reminder']);
+  deq([u.about.asked, u.about.follows[0][0]], ['Made by Kiko in chat, 23 Oct', 'Reminder']);
 });
 
-test('AD7 the page shows the Auto-send rules, the AI relay description and "Processes and business rules"', () => {
+test('AD7 the page shows the Auto-send rules with each message, the channel icons, the AI relay ? and "Processes and business rules"', () => {
   const page = cuePage();
   ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
-    'A mailbox inside Cue where ChatGPT and Claude leave notes', 'data-jc-open'].forEach(w => assert.ok(page.includes(w), w));
+    'Payment received: ₱12,000', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
+    'class="qhelp"', 'A mailbox inside Cue where ChatGPT and Claude leave notes', 'waits in Cue until you tap Pass on', 'data-jc-open', 'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
 });

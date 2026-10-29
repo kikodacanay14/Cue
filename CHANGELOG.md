@@ -14,6 +14,10 @@ Kiko asked on 29 Oct 2026 at 03:17Z, 03:19Z and 03:21Z. Epic Cue #193, stories #
 - **Scheduled tasks**: each task shows what it does, who asked for it and when, and the specs and rules it follows. A task made in
   chat says "Made by Kiko in chat" and the day.
 - **AI relay**: a "What it is" and "What it never does" box at the top.
+- Round 3 (Kiko 03:27Z): an Auto-send row opens to show the message Canvas sends (its own wording, made-up names); email, text and
+  app-notice icons on Auto-send, Chaser rules and Jobs › Chasers; a Scheduled task card opens to show what each Follows item means,
+  who asked for it, and how to change its time (Change time); AI relay's description moved to a ? hover, and each switch says what it
+  does ("Notes wait for my Pass on": a note waits in Cue until you tap Pass on or Drop).
 - Nothing Cue does changes: the words describe the code as it is. `cueAdminChasers` is never run by a cloud check.
 - Tests: AD5 to AD7 added; 438 pass.
 
