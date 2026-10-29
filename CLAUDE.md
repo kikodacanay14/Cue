@@ -44,6 +44,9 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
   marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
+- Tables (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are
+  always aligned center"): centre every table header and every number cell (amount, count, percent), on pages, Cue Admin,
+  emails, reports and mockups. Text cells keep their own alignment.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
 

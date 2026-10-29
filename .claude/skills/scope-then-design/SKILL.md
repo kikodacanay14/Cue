@@ -62,7 +62,7 @@ use its judgement for layout, hierarchy and restraint, never to pick new colours
 |---|---|---|---|
 | Display | Steagal (W01 Regular) | Screen titles, page heroes, one big number on a dashboard | 24px or larger. One display line per screen. Never on buttons, labels, tables, forms or body text: it has one light weight. |
 | UI and body | Quicksand | Everything else: navigation, buttons, labels, forms, tables, cards, messages | Body 14 to 16px at weight 500; labels and buttons 600; section headings 700. Nothing smaller than 12px. |
-| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | Right-align money columns. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
+| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Text cells keep their alignment. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
 | Not used in apps | Steagal Rough | Marketing, party themes and social posts only | Never in Canvas, Cue or the Feature Board. |
 
 Fallback stacks: display `Steagal, Quicksand, "Trebuchet MS", sans-serif`; UI `Quicksand, Nunito, "Trebuchet MS", sans-serif`.

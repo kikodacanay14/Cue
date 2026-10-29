@@ -211,6 +211,10 @@
   .bar i { display:block; height:100%; background:var(--act); transition:width .4s; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:6px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  /* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always
+     aligned center"): every header is centred; number cells (tagged bs-num by the TABLE-ALIGN script in IndexCards) are centred too. */
+  table th { text-align:center !important; }
+  table td.bs-num, table td.bs-num input, table input.bs-num { text-align:center !important; }
   th { color:var(--muted); font-weight:600; }
   .facts td:first-child { color:var(--muted); width:42%; }
   .tag { display:inline-block; padding:0 8px; border-radius:9999px; font-size:11px; font-weight:700; margin:1px 2px 1px 0; }
@@ -284,7 +288,7 @@
   #settings .stabs button[disabled] { opacity:.5; cursor:default; }
   #settings .stabs .n { font-size:11px; opacity:.6; }
   #settings table.rnw { width:100%; border-collapse:collapse; font-size:13px; }
-  #settings table.rnw th { text-align:left; font-size:11px; font-weight:600; opacity:.6; padding:4px 6px; border-bottom:1px solid var(--line); }
+  #settings table.rnw th { text-align:center; font-size:11px; font-weight:600; opacity:.6; padding:4px 6px; border-bottom:1px solid var(--line); }
   #settings table.rnw td { padding:6px; border-bottom:1px solid var(--line); vertical-align:top; }
   #settings table.rnw .rnw-tick { width:24px; }
   #settings table.rnw .rnw-go { text-align:right; white-space:nowrap; }
