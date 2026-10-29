@@ -9,11 +9,20 @@
  * HubSpot deal stages and amounts froze and this card kept showing them as today's funnel. The counts now come from Canvas's own
  * Sales funnel (bridge read crm_funnel: Inquiry, CE sent, Won, Delivered, Paid, with stuck counts; no amounts, which stay Kiko's in
  * Canvas). "Waiting for award" is the CE sent step. HubSpot deals are still read, but only for the name of the deal each HubSpot
- * task is on; their stage and amount are not used. */
+ * task is on; their stage and amount are not used.
+ * CRM-P-STAGES-2026-10-29 (Kiko 29 Oct 15:59Z "can you align the Sales Funnel in Ask Cue with the latest that we did"): the card now
+ * leads with Canvas's Accounts dashboard (design Kiko approved 29 Oct 11:39Z): the companies per P0 to P9 stage from the P0 tab (contacts
+ * for P1 to P3, as the dashboard counts them), and its cards: contacts in outreach (P1 and P2), follow-up emails due (P1 and P2, 3 business
+ * days since the last email and no reply, Kiko's CRM rule), accreditations open (P4), projects at risk (P8 and P9) and Canvas follow-ups due
+ * by tomorrow. The deal track (Inquiry to Paid) stays under P6 and P7, as on the dashboard. HubSpot tasks are kept as they were. */
 
 const CUE_FUNNEL_MAX_ = { pages: 5, tasks: 100 };   // 500 deals, 100 open tasks: BSE has 73 deals and 22 tasks (24 Oct)
 const CUE_FUNNEL_ASK_RE_ = /\b(?:sales\s+)?funnel\b(?![\s\S]{0,20}\breview\b)|\bhub\s?spot\s+(?:tasks?|action\s+items?|to-?dos?)\b|\b(?:tasks?|action\s+items?|to-?dos?)\s+(?:in|from)\s+hub\s?spot\b/i;
-const CUE_FUNNEL_STEPS_ = 'Reading HubSpot';
+const CUE_FUNNEL_STEPS_ = 'Reading HubSpot';   // the stage name older runs saved; the page shows it as reading Canvas
+// CRM-P-STAGES-2026-10-29: the P stages and their meanings, as Canvas's Accounts dashboard names them (ClientDesk.html STAGES).
+const CUE_FUNNEL_P_ = [['P0', 'Prospecting / validation'], ['P1', 'Intro email sent'], ['P2', 'Following up every 3 business days'], ['P3', 'Parking lot'],
+  ['P4', 'Accreditation in progress'], ['P5', 'Accredited, waiting for RFPs'], ['P6', 'RFPs received'], ['P7', 'Active project won'], ['P8', 'Project at risk'],
+  ['P9', 'Escalated or has issues']];
 
 function cueFunnelAsked_(t) { t = String(t || ''); return CUE_FUNNEL_ASK_RE_.test(t) && !/\breview\s+(?:the\s+|my\s+)?(?:sales\s+)?funnel\b/i.test(t); }   // "review the funnel" is the Thursday ChatGPT task
 
@@ -22,10 +31,10 @@ function cueFunnelStart_(text, how) {
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const s = { id, version: CUE_VERSION_, kind: 'funnel', how: how || 'chat', created: d.toISOString(), started: now, text: cueStr_(text || 'Sales funnel', 2000), files: [],
-    status: 'Working', stage: CUE_FUNNEL_STEPS_, ref: '', fn: { title: 'Sales funnel and HubSpot tasks' }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
+    status: 'Working', stage: CUE_FUNNEL_STEPS_, ref: '', fn: { title: 'Sales funnel' }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'daily') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s sales funnel and your HubSpot tasks in its own thread. Nothing is changed by the read.', '>' + id);
+  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s P0 to P9 accounts, its deals and your HubSpot tasks in its own thread. Nothing is changed by the read.', '>' + id);
   return { request_id: id, task: '' };
 }
 
@@ -42,6 +51,11 @@ function cueFunnelRead_(s) {
   F.src = 'canvas';
   F.stages = (cf.steps || []).map(x => ({ id: cueStr_(x.step, 80), label: cueStr_(x.step, 80), kind: /^(inquiry|ce sent)$/i.test(String(x.step)) ? 'open' : 'won',
     n: Number(x.count) || 0, amount: 0, no_amount: 0, stuck: Number(x.stuck) || 0 }));
+  F.fu_due = (cf.due || []).length;   // Canvas follow-ups due by tomorrow (the morning batch lists them one by one)
+  // CRM-P-STAGES-2026-10-29: the P0 tab (through Canvas's read_rows when it is allow-listed, else direct), counted as the dashboard does.
+  let p0 = null;
+  try { p0 = cueGtTab_('p0', s); } catch (e) { s.notes.push('Could not read the P0 to P9 accounts (' + cueStr_(e.message, 120) + ').'); }
+  F.p = p0 ? cueFunnelP_(p0.rows, cueMnlDay_(cueNow_())) : null;
   const w = F.stages.filter(x => x.id === 'CE sent')[0];
   F.wait = w ? { id: w.id, label: w.label, n: w.n, amount: 0 } : { id: '', label: '', n: 0, amount: 0 };
   F.none = [];
@@ -60,12 +74,34 @@ function cueFunnelRead_(s) {
   cueFunnelTasks_(s);
   F.read_at = new Date(cueNow_()).toISOString();
   const open = (F.tasks || []).filter(t => !t.done).length;
-  s.status = F.wait.n || open ? 'Needs you' : 'Done'; s.stage = s.status; s.card_at = cueNow_();
+  s.status = F.wait.n || open || (F.p && F.p.due) || F.fu_due ? 'Needs you' : 'Done'; s.stage = s.status; s.card_at = cueNow_();
   if (s.status === 'Done') s.ready_at = cueNow_();
   cueMetrics_(s);
   // Each run is a full snapshot, so an older one still waiting is closed (nothing in it was written).
   cueCloseSuperseded_(x => x.kind === 'funnel' && x.id !== s.id, 'Replaced by a newer funnel. Nothing was changed.');
   cueChat_('Cue', 'Funnel ready: ' + cueFunnelLine_(F) + '.' + (F.task_error ? ' ' + F.task_error : ' ' + open + ' open HubSpot task' + (open === 1 ? '' : 's') + '.'), s.id);
+}
+
+/** CRM-P-STAGES-2026-10-29: companies per P stage from the P0 tab's rows ({ Priority, Company, 'Contact Count', 'Last Outreach Date',
+ * 'Reply Status' }), the way Canvas's Accounts dashboard counts them (Code.gs buildFunnel_, ClientDesk.html drawFunnel). Pure: the tests
+ * call it directly. A row with no company or no P0 to P9 stage is left out. */
+function cueFunnelP_(rows, today) {
+  const by = {}; CUE_FUNNEL_P_.forEach(x => { by[x[0]] = { p: x[0], label: x[1], n: 0, contacts: 0 }; });
+  const get = (o, k) => { const v = o[k]; return v == null ? '' : v; };
+  let due = 0;
+  (rows || []).forEach(o => {
+    const co = String(get(o, 'Company')).trim(), p = String(get(o, 'Priority')).trim().toUpperCase(), x = by[p];
+    if (!co || !x) return;
+    x.n++;
+    const k = Number(String(get(o, 'Contact Count')).replace(/[^0-9.]/g, '')); if (k > 0) x.contacts += Math.round(k);
+    // Kiko's P1 and P2 rule: a follow-up email 3 business days after the last one when there is no reply.
+    const lo = cueGtDay_(get(o, 'Last Outreach Date')), rs = String(get(o, 'Reply Status'));
+    const replied = /repl|respon/i.test(rs) && !/no repl|no respon|not repl/i.test(rs);
+    if ((p === 'P1' || p === 'P2') && lo && lo <= today && !replied && cuePipeWorkDays_(Date.parse(lo + 'T04:00:00Z'), Date.parse(today + 'T04:00:00Z')) >= 3) due++;
+  });
+  const stages = CUE_FUNNEL_P_.map(x => by[x[0]]);
+  return { stages, outreach: by.P1.contacts + by.P2.contacts, due, p4: by.P4.n, risk: by.P8.n + by.P9.n, p6: by.P6.n, p7: by.P7.n,
+    total: stages.reduce((t, x) => t + x.n, 0) };
 }
 
 /** Counts and totals per stage, in pipeline order. Pure: the tests call it directly. Empty open stages stay in the list (n 0) so the
@@ -161,7 +197,11 @@ function cueFunnelPeso_(v) {
 /** One line per stage that has deals: "2 Inquiry / RFP received · 20 Awaiting award / PO ₱10.2M · 20 won ₱4.2M · 28 lost". */
 function cueFunnelLine_(F) {
   // CRM-FUNNEL-CANVAS-2026-10-29: Canvas's steps keep their own names ("2 Inquiry (1 stuck) · 12 CE sent · 5 Won").
-  if (F.src === 'canvas') return (F.stages || []).filter(x => x.n).map(x => x.n + ' ' + x.label + (x.stuck ? ' (' + x.stuck + ' stuck)' : '')).join(' · ') || 'no deals in Canvas\'s sales funnel';
+  if (F.src === 'canvas') {
+    const deals = (F.stages || []).filter(x => x.n).map(x => x.n + ' ' + x.label + (x.stuck ? ' (' + x.stuck + ' stuck)' : '')).join(' · ') || 'no open deals';
+    // CRM-P-STAGES-2026-10-29: the P stages first, then the deal track ("P0 212 · P1 96 ... · deals: 4 Inquiry · 1 CE sent").
+    return F.p ? F.p.stages.filter(x => x.n).map(x => x.p + ' ' + x.n).join(' · ') + ' · deals: ' + deals : deals;
+  }
   const parts = (F.stages || []).filter(x => x.n).map(x => x.n + ' ' + (x.kind === 'won' ? 'won' : x.kind === 'lost' ? 'lost' : x.label) + (x.amount && x.kind !== 'lost' ? ' ' + cueFunnelPeso_(x.amount) : ''));
   if ((F.none || []).length) parts.push(F.none.length + ' with no stage');
   return parts.join(' · ') || 'no deals in HubSpot';
@@ -172,7 +212,7 @@ function cueFunnelView_(s) {
   const F = s.fn || {}, P = F.portal || '';
   const link = id => P ? 'https://app.hubspot.com/contacts/' + P + '/record/0-3/' + id : '';
   const today = cueMnlDay_(cueNow_());
-  return { src: F.src || 'hubspot', title: F.title || 'Sales funnel and HubSpot tasks', read: F.read_at ? new Date(Date.parse(F.read_at) + CUE_MNL_).toISOString().slice(11, 16) : '', line: F.stages ? cueFunnelLine_(F) : '', wait: F.wait || null,
+  return { src: F.src || 'hubspot', title: F.title || 'Sales funnel and HubSpot tasks', p: F.p || null, fu_due: F.fu_due || 0, read: F.read_at ? new Date(Date.parse(F.read_at) + CUE_MNL_).toISOString().slice(11, 16) : '', line: F.stages ? cueFunnelLine_(F) : '', wait: F.wait || null,
     stages: (F.stages || []).map(x => ({ id: x.id, label: x.label, kind: x.kind, n: x.n, amount: x.amount, no_amount: x.no_amount, stuck: x.stuck || 0 })),
     none: (F.none || []).map(d => ({ name: d.name, amount: d.amount, url: link(d.id) })),
     deals: (F.deals || []).filter(d => d.stage).slice().sort((a, b) => b.amount - a.amount).map(d => ({ id: d.id, name: d.name, stage: d.stage, amount: d.amount, url: link(d.id),
@@ -190,7 +230,10 @@ function cueFunnelToday_(r, row) {
   // PC check 24 Oct 14:29Z: "#fn-" opens the thread at this run's funnel card. PC recheck 15:00Z: the tasks open in their own pane
   // tab, "hst:<run>" (Index.html thOf), instead of a jump inside the funnel thread.
   const at = spot => (r.root || r.id) + '#' + spot + '-' + r.id, tasksTab = 'hst:' + r.id;
-  const out = [row({ eyebrow: 'Sales funnel · from ' + (F.src === 'canvas' ? 'Canvas' : 'HubSpot'), title: w.amount ? cueFunnelPeso_(w.amount) + ' waiting for award' : (w.n || 0) + ' deal' + (w.n === 1 ? '' : 's') + ' waiting for award',
+  // CRM-P-STAGES-2026-10-29: with the P stages read, the row leads with the dashboard's first job: follow-up emails due, else contacts in outreach.
+  const P = F.p, pl = (n, w1) => n + ' ' + w1 + (n === 1 ? '' : 's');
+  const top = P ? (P.due ? pl(P.due, 'follow-up email') + ' due' : pl(P.outreach, 'contact') + ' in outreach') + ' · ' + pl(w.n || 0, 'deal') + ' waiting for award' : '';
+  const out = [row({ eyebrow: 'Sales funnel · from ' + (F.src === 'canvas' ? 'Canvas' : 'HubSpot'), title: top || (w.amount ? cueFunnelPeso_(w.amount) + ' waiting for award' : (w.n || 0) + ' deal' + (w.n === 1 ? '' : 's') + ' waiting for award'),
     detail: F.line || '', button: 'Open funnel', thread: at('fn') })];
   if (F.task_error) out.push(row({ eyebrow: 'HubSpot tasks', title: 'HubSpot tasks need a key change', detail: F.task_error, button: 'Open', thread: tasksTab }));
   else if (open.length) out.push(row({ eyebrow: 'HubSpot tasks · yours', title: late.length ? late.length + ' task' + (late.length === 1 ? '' : 's') + ' overdue' : open.length + ' open task' + (open.length === 1 ? '' : 's'),

@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.x: the Sales funnel matches Canvas's CRM dashboard (not deployed; the deploys thread sets the number)
+
+Kiko asked on 29 Oct 2026 at 15:59Z: "can you align the Sales Funnel in Ask Cue with the latest that we did". The latest CRM
+work is the P0 to P9 stages, the Accounts dashboard Kiko approved on 29 Oct at 11:39Z, the funnel clean-up and the automatic P
+moves. Ask Cue's Sales funnel still showed only Canvas's deal steps (Inquiry to Paid) and HubSpot tasks.
+
+- **The 7:00 Sales funnel card leads with the dashboard.** Cue reads the P0 tab (through Canvas's `read_rows` when it is
+  allow-listed, else directly) and counts it the way Canvas's Accounts dashboard does: companies per P0 to P9 stage, contacts
+  for P1 to P3, contacts in outreach (P1 and P2), follow-up emails due (P1 and P2, 3 business days since the last email and no
+  reply, Kiko's rule), accreditations open (P4), projects at risk (P8 and P9) and Canvas follow-ups due by tomorrow.
+- **The deal track stays, under P6 and P7.** Inquiry, CE sent, Won, Delivered and Paid keep their bars and stuck counts.
+- **The Today row** now reads "N follow-up emails due · N deals waiting for award" (or the contacts in outreach when none are due).
+- **The Monday sales funnel review** gives ChatGPT the P stage counts and the dashboard numbers too, so its lines cover where
+  accounts stall between P stages as well as where deals leak.
+- **HubSpot tasks are kept** as they were (Kiko moved "updating of my tasks" into Ask Cue on 29 Oct at 15:58Z).
+- Names: the Scheduled tasks row is "Sales funnel"; Cue Admin's description says what it reads now.
+- Nothing is written to Canvas or HubSpot by the read. No AI call on the card. Tests: 491 (5 new, FP1 to FP5).
+
 ## Cue 1.27.70: pipeline review reads Canvas, not HubSpot (not deployed)
 
 Bug fix CRM-13 (Cue #235, under the CRM epic #222). Kiko approved the HubSpot gap suggestions on 29 Oct 2026 at 11:48Z ("im

@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 64 server files, 1259 top-level names, 32 task kinds, 30 word checks before the
+Counts: 64 server files, 1261 top-level names, 32 task kinds, 30 word checks before the
 chat call, 11 background jobs in the 5-minute trigger, 81 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -146,9 +146,9 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 3 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
-| `CueFunnel.gs` |  | Requests | 0 | 0 | 5 | 4 |
+| `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 5 |
 | `CueGmail.gs` |  |  | 0 | 0 | 22 | 3 |
-| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 6 | 8 |
+| `CueGptTasks.gs` | `get_project_board`, `get_readiness` | ChatGPT findings, Requests | 1 | 0 | 8 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueHubspot.gs` | `hubspot_fix`, `hubspot_scan` | HubSpot Cleanup, Requests | 1 | 1 | 4 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `submit_intake` |  | 3 | 1 | 3 | 9 |
@@ -171,7 +171,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweep.gs` | `get_project_board` | Chase log, Requests, Rules | 1 | 0 | 16 | 13 |
 | `CueSweepAccr.gs` | `accreditation_gaps`, `log_accreditation_reminder` |  | 0 | 0 | 0 | 6 |
 | `CueSweepAward.gs` |  |  | 0 | 0 | 0 | 4 |
-| `CueSweepFunnel.gs` |  |  | 1 | 0 | 2 | 6 |
+| `CueSweepFunnel.gs` |  |  | 1 | 0 | 2 | 8 |
 | `CueSweepHubspot.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueSweepPay.gs` | `overdue_billings`, `send_payment_chasers` |  | 0 | 0 | 0 | 3 |
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |

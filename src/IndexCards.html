@@ -398,11 +398,30 @@
     else {
     // CRM-FUNNEL-CANVAS-2026-10-29: a run that read Canvas's Sales funnel says so; its steps have no deal list or amounts here.
     var canvas = F.src === 'canvas';
+    // CRM-P-STAGES-2026-10-29 (Kiko 29 Oct 15:59Z): with the P stages read, the card follows Canvas's Accounts dashboard: its cards,
+    // the companies per P0 to P9 stage, then the deal track under P6 and P7.
+    var P = F.p, pl = function (n, w1) { return n + ' ' + w1 + (n === 1 ? '' : 's'); };
+    var top = P ? (P.due ? pl(P.due, 'follow-up email') + ' due' : pl(P.outreach, 'contact') + ' in outreach') : (w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award');
     h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">Sales funnel · from ' + (canvas ? 'Canvas' : 'HubSpot') + '</div>'
-      + '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
-      + '<div class="small muted">' + (canvas ? 'Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.'
+      + '<b style="font-size:20px;color:var(--white)">' + esc(top) + '</b>'
+      + '<div class="small muted">' + (canvas ? (P ? 'Canvas\'s Accounts dashboard and Sales funnel' : 'Canvas\'s Sales funnel (Accounts › Deals)') + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.'
         : 'Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.') + '</div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
+    if (P) {
+      h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px">' + [[P.outreach, 'In outreach', 'contacts at P1 and P2'],
+        [P.due, 'Follow-up emails due', 'P1 and P2, 3 business days, no reply'], [P.p4, 'Accreditations open', 'P4, waiting on the client'], [P.risk, 'Projects at risk', 'P8 and P9'],
+        [F.fu_due || 0, 'Follow-ups due', 'by tomorrow, in Accounts › Deals']].map(function (k) {
+        return '<div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center"><b style="font-size:18px;font-variant-numeric:tabular-nums">' + esc(k[0]) + '</b>'
+          + '<div class="small">' + esc(k[1]) + '</div><div class="small muted">' + esc(k[2]) + '</div></div>';
+      }).join('') + '</div>';
+      var pmax = 1; P.stages.forEach(function (x) { if (x.n > pmax) pmax = x.n; });
+      h += '<div class="label">Accounts by P stage</div><div class="small muted">P1 to P3 also count contacts, because a contact is parked, not the company.</div>'
+        + P.stages.map(function (x) {
+          return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span class="tag" style="flex:0 0 40px;justify-content:center;box-sizing:border-box">' + esc(x.p) + '</span><span style="flex:0 0 34%">' + esc(x.label) + '</span>'
+            + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:14px;border-radius:4px;background:var(--act);width:' + Math.max(2, Math.round(55 * x.n / pmax)) + '%"></span>'
+            + '<span style="font-variant-numeric:tabular-nums">' + esc(x.n) + (/^P[123]$/.test(x.p) ? ' · ' + esc(x.contacts) + ' contacts' : '') + '</span></span></div>';
+        }).join('') + '<div class="label">Deals · P6 and P7</div>';
+    }
     // Empty open stages fold into one grey line instead of empty bars.
     var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
     h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {

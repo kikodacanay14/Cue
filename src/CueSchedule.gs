@@ -148,7 +148,7 @@ function cueSchedResolve_(cmd) {
   if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel|hub\s?spot\s+tasks)$/i.test(t)) return { run: 'funnel', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel and HubSpot tasks', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9, deals, HubSpot tasks)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
@@ -157,7 +157,7 @@ function cueSchedSystem_() {
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: String(CUE_BIDS_RULES_.hour).padStart(2, '0') + ':00', run: 'bids', command: 'Bid opportunity check', on: true },
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
-    { id: 'sys-funnel', name: 'Sales funnel and HubSpot tasks', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
+    { id: 'sys-funnel', name: 'Sales funnel', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
     { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: true },   // CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
     { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
