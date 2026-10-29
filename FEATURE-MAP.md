@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 65 server files, 1264 top-level names, 32 task kinds, 30 word checks before the
-chat call, 11 background jobs in the 5-minute trigger, 81 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
+Counts: 65 server files, 1266 top-level names, 32 task kinds, 30 word checks before the
+chat call, 11 background jobs in the 5-minute trigger, 82 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -134,7 +134,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 13 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 31 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 32 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
 | `CueCheckPost.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueCommands.gs` |  |  | 0 | 0 | 2 | 32 |
@@ -157,8 +157,8 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueJobs.gs` |  | Job Runs | 0 | 0 | 4 | 11 |
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 5 |
-| `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 5 |
-| `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log | 0 | 0 | 4 | 6 |
+| `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 6 |
+| `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log | 0 | 0 | 5 | 6 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 5 | 5 |
 | `CuePipeline.gs` |  | Pipeline, Requests | 1 | 1 | 8 | 8 |
 | `CueProjectLog.gs` |  |  | 0 | 0 | 4 | 5 |
@@ -182,7 +182,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueToday.gs` |  | Requests | 0 | 0 | 1 | 3 |
 | `CueTri.gs` | `add_tri_items` | Requests | 0 | 0 | 2 | 4 |
-| `CueTriage.gs` |  | Triage log, Triage rules | 1 | 1 | 7 | 6 |
+| `CueTriage.gs` |  | Triage log, Triage rules | 1 | 1 | 8 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
 | `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 2 | 4 |
 | `CueVendor.gs` | `supplier_lookup` | Requests | 2 | 1 | 3 | 7 |
@@ -271,6 +271,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueSchedule.gs`: `cueSchedDelete`, `cueSchedRunNow`, `cueSchedSet`, `cueSchedules`
 - `CueSweep.gs`: `cueArchive`, `cueCloseOlder`, `cueCloseThread`, `cueRules`, `cueRulesSave`, `cueSweepAct`, `cueSweepCancel`, `cueSweepItem`
 - `CueTeach.gs`: `cueLearnChats`, `cueMyRuleSave`, `cueMyRules`, `cueSettings`
+- `CueTriage.gs`: `cueTriageIntake`
 - `CueTutor.gs`: `cueMyPatternDemote`, `cueTutorSet`
 - `CueUsage.gs`: `cueUsage`, `cueUsagePrices`
 - `CueVendor.gs`: `cueVendorRfqs`

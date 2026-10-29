@@ -38,7 +38,7 @@ function cueMaRun_() {
 function cueMaWaiting_(me, now) {
   const list = cueGmail_('/threads?labelIds=INBOX&maxResults=' + CUE_MA_.max).threads || [];
   const cache = CacheService.getScriptCache(), old = {};
-  try { (JSON.parse(cache.get('cue_ma_seen2') || '[]') || []).forEach(x => { old[x.id] = x; }); } catch (e) { /* read all again */ } // COMPACT-CARDS-2026-10-28: new key, so every thread is read once for its gist
+  try { (JSON.parse(cache.get('cue_ma_seen3') || '[]') || []).forEach(x => { old[x.id] = x; }); } catch (e) { /* read all again */ } // COMPACT-CARDS-2026-10-28: new key, so every thread is read once for its gist; RFQ-RFP-INTAKE: seen3, once more for rfq
   // CUE-PROJECT-LOG-2026-10-27: the first run after the project log ships reads every thread once, so the log starts with them.
   const first = !cueProp_('CUE_PLOG_MAIL', ''), fresh = first ? list : list.filter(t => !(old[t.id] && old[t.id].h === String(t.historyId)));
   const got = {};
@@ -54,7 +54,7 @@ function cueMaWaiting_(me, now) {
     seen.push({ id: t.id, h: String(t.historyId), r: row });
     if (row && now - row.at <= CUE_MA_.days * 864e5) out.push(row);
   });
-  try { cache.put('cue_ma_seen2', JSON.stringify(seen), 6 * 3600); } catch (e) { /* too big: read all next run */ }
+  try { cache.put('cue_ma_seen3', JSON.stringify(seen), 6 * 3600); } catch (e) { /* too big: read all next run */ }
   return out.sort((a, b) => b.at - a.at);
 }
 
@@ -72,7 +72,8 @@ function cueMaPick_(threads, me, now) {
     if (/^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?)@/i.test(from.email)) return;
     const ours = msgs.some(m => dom(cueMaAddr_(head(m, 'from')).email) === own);
     out.push({ id: String(t.id), from: from.name || from.email, email: from.email, subject: String(head(last, 'subject') || '(no subject)').slice(0, 200),
-      at, unread: (last.labelIds || []).indexOf('UNREAD') >= 0, count: msgs.length, repliedBefore: ours, gist: cueMaGist_(last.snippet) });
+      at, unread: (last.labelIds || []).indexOf('UNREAD') >= 0, count: msgs.length, repliedBefore: ours, gist: cueMaGist_(last.snippet),
+      rfq: cueRfqSubject_(head(last, 'subject')) });   // RFQ-RFP-INTAKE: Canvas's card offers Start intake
   });
   return out.sort((a, b) => b.at - a.at);
 }
