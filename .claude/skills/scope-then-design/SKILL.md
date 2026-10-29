@@ -1,6 +1,6 @@
 ---
-name: scope-then-design
-description: Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work, or when picking the next item from the Feature Board backlog — runs backlog pick, discovery, stress-test, stories and rules, mockups, spec and design, and plan in order, with a quality gate after each phase and Kiko's approval before any code.
+name: "scope-then-design"
+description: "Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work, or when picking the next item from the Feature Board backlog — runs backlog pick, discovery, stress-test, stories and rules, mockups, spec and design, and plan in order, with a quality gate after each phase and Kiko's approval before any code."
 ---
 
 # Scope then design
@@ -12,6 +12,9 @@ understanding of the asks. Structurally design solutions before coding and imple
 Extended on 29 Oct 2026 at Kiko's request: epics and user stories on the Feature Board, business rules confirmed before
 building, polished brand-locked mockups he approves screen by screen, plain-language spec explanations, a quality gate
 after every phase, and clear question cards so he always knows what is being asked.
+
+Extended again on 29 Oct 2026 at Kiko's request: the `frontend-design` skill is loaded directly for every screen
+(Phases 4 and 6), and the fonts for Canvas and Cue are fixed in "Brand lock" below.
 
 Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/SKILL.md`. The copy in
 `kikodacanay14/Cue` and the one saved to Kiko's Claude account mirror it. Change the canonical copy first, then the others.
@@ -33,11 +36,41 @@ already approved, and start at the first one he has not. Never re-ask an answere
 - After each phase, run `stage-gate`. A **Stopped** gate means the next phase does not start.
 - Every output is written to the Feature Board, `work-board.md`, the spec file or `docs/`, never only to chat.
 
+## Brand lock for Canvas and Cue screens
+
+Every screen, mockup and component in Canvas, Cue and the Feature Board uses the Blank Space Events design system
+(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8): its colour tokens, spacing, radii and the fonts below. Canvas's
+current Brand.html styling is not the reference. When `frontend-design` pushes for a distinctive look, the brand wins:
+use its judgement for layout, hierarchy and restraint, never to pick new colours or new fonts.
+
+### Fonts
+
+| Role | Font | Where | Rules |
+|---|---|---|---|
+| Display | Steagal (W01 Regular) | Screen titles, page heroes, one big number on a dashboard | 24px or larger. One display line per screen. Never on buttons, labels, tables, forms or body text: it has one light weight. |
+| UI and body | Quicksand | Everything else: navigation, buttons, labels, forms, tables, cards, messages | Body 14 to 16px at weight 500; labels and buttons 600; section headings 700. Nothing smaller than 12px. |
+| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | Right-align money columns. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
+| Not used in apps | Steagal Rough | Marketing, party themes and social posts only | Never in Canvas, Cue or the Feature Board. |
+
+Fallback stacks: display `Steagal, Quicksand, "Trebuchet MS", sans-serif`; UI `Quicksand, Nunito, "Trebuchet MS", sans-serif`.
+
+Loading:
+
+- Quicksand: Google Fonts link in the page head (Canvas is an Apps Script HtmlService app; Google Fonts loads there).
+- Steagal: embed the font file from the design system's `fonts/` folder as a base64 `@font-face` in the shared stylesheet
+  include. Never hotlink onlinewebfonts.com.
+- Credit: Steagal is CC BY 4.0 from OnlineWebFonts.com and needs credit. Put "Fonts by OnlineWebFonts.com (CC BY 4.0)" in
+  the app's footer or About panel.
+- Cue: any screen Cue renders itself (web view, approval page, email) follows the same table. Text Cue sends into
+  ChatGPT or Claude cannot carry fonts; there only the wording and structure apply.
+
+Adding or replacing a font is Kiko's decision. Ask with `ask-kiko`.
+
 ## Phases
 
 Each phase names the skill to load. Load it by the name the session's skill listing shows (for example
-`superpowers:brainstorming` in Claude Code, a plugin-prefixed name in claude.ai). If a skill is not installed, do that
-phase by hand with the same output.
+`superpowers:brainstorming` in Claude Code, a plugin-prefixed name such as `frontend-design:frontend-design` in
+claude.ai). If a skill is not installed, do that phase by hand with the same output.
 
 ### Phase 0: Backlog pick (only when Kiko asks what to work on next)
 
@@ -70,9 +103,12 @@ into the Rules register as Waiting for Kiko. Stop until every rule a story needs
 
 ### Phase 4: Mockups
 
-Skill: mockup-review (it loads frontend-design). Polished, brand-locked mockups of every screen the stories show:
-images for single screens, clickable HTML for processes. Kiko approves each screen. Skip only when no story shows
-anything to a person.
+Skills: frontend-design (load it directly, every time), then mockup-review if it is installed. Follow frontend-design's
+two passes: write a short design plan (colour from the brand tokens, type from the Brand lock table, layout, principles),
+check it against the brief, then build. Polished, brand-locked mockups of every screen the stories show: images for
+single screens, clickable HTML for processes. Use real Blank Space content (real project names, ID formats, peso amounts)
+rather than filler. Take a screenshot and critique each screen before showing it. Kiko approves each screen. Skip only
+when no story shows anything to a person.
 
 ### Phase 5: Spec
 
@@ -85,9 +121,10 @@ Present it to Kiko with explain-spec, then stop. Kiko approves the spec before a
 
 ### Phase 6: Design
 
-Skill: system-design (engineering), plus ui-consistency:design for anything the end user sees. Record the components,
-data flow, bridge calls, data each part reads and writes, and the decisions with their trade-offs. Put the design in the
-spec file or next to it, never only in chat.
+Skill: system-design (engineering), plus frontend-design and ui-consistency:design for anything the end user sees.
+Record the components, data flow, bridge calls, data each part reads and writes, and the decisions with their
+trade-offs. For screens, record the type scale and font loading from the Brand lock. Put the design in the spec file or
+next to it, never only in chat.
 
 Present it with explain-spec. Stop. Kiko approves the design.
 
@@ -106,7 +143,10 @@ the repo's CLAUDE.md.
 - Questions to Kiko are question cards: headline, plain meaning, why it matters, options with pros and cons,
   recommendation (Kiko, 29 Oct 2026).
 - Stop on big problems, note small ones (Kiko's choice for the stage gate, 29 Oct 2026).
+- All UI uses the Blank Space design system and the Brand lock fonts; frontend-design is loaded for every screen
+  (Kiko, 29 Oct 2026).
 
 ## For ChatGPT and Codex
 
-They cannot load Claude skills. `AGENTS.md` at the repo root points them to this file; they follow the phases by hand.
+They cannot load Claude skills. `AGENTS.md` at the repo root points them to this file; they follow the phases by hand,
+including the Brand lock table.
