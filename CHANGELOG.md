@@ -13,7 +13,7 @@ Built on the live line (1.27.70), then stacked on live 1.27.71 (Version 168) by 
   It picks the newest inquiries Cue sorted (New mail's own sort, plus older Inbox triage lines), runs phase 1 for real, then
   phases 2 to 4 on a copy, so nothing is written to Canvas and nothing is sent. `intake-real.only.txt` next to the script narrows
   it to one named project. In a check, a new message never joins or reopens one of Kiko's own threads (`cueCheckMine_`).
-- Tests: 492, all passing (`test/features/63-intake-real-check.js`, IR1 to IR6).
+- Tests: 501, all passing on top of 1.27.71 (`test/features/63-intake-real-check.js`, IR1 to IR6).
 
 ## Cue 1.27.71: Friday status updates to clients (live as Version 168, 29 Oct 14:56Z, rollback 159)
 
