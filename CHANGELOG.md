@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.64: Cue Admin rounds 2 and 3, Jobs › Chasers and what each item is about (not deployed)
+
+Cut by the deploys thread on 1.27.63 (Cue Admin page, not yet live) from Cue PR #203 (main 9e449bd). Kiko asked on 29 Oct 2026
+between 03:17Z and 03:27Z, and at 03:17Z said "Yes agree on Job Chasers", which moves Cue's chasers out of Canvas Admin into Cue
+Admin. Epic Cue #193, stories #201 and #202.
+
+- **Jobs › Chasers** (new): every chaser kind with a one-line description and its sender. Expand a kind to see today's chases with
+  the send time and later ones from the Chase log, and where each goes from. Expand a chase to read its draft. It is read only;
+  "Open the batch to approve" opens the morning batch.
+- **Chaser rules** and **Scheduled tasks**: each item says what it does, who asked for it and when, and what it follows. A task
+  made in chat says "Made by Kiko in chat" and the day. Scheduled task cards open.
+- **Auto-send**: lists what Canvas sends by itself, the rule that sends it and the message, with email, text and app-notice icons.
+  It is read only.
+- **Processes** is renamed **Processes and business rules**.
+- Release line changes: AI relay is not live, so its section, description and ? help are left out (tests AD4 and AD7 note it).
+  The live line's daily "Sales funnel and HubSpot tasks" task gets its own description.
+- Nothing Cue does changes; the words describe the code as it is. `cueAdminChasers` is never run by a cloud check.
+- Tests: 461 pass on the release line.
+
 ## Cue 1.27.63: Cue Admin, Cue's settings and admin as their own page (not deployed)
 
 Kiko asked on 29 Oct 2026 at 02:13Z, 02:16Z and 02:17Z ("On a separate page"), and said "yes" to the mockup
