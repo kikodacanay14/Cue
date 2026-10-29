@@ -18,8 +18,9 @@ const CUE_CN_TAB_ = 'New contacts';
 const CUE_CN_MODEL_ = 'claude-haiku-5-5';
 const CUE_CN_RE_ = /^\s*(?:please\s+)?(?:scan|check|read)\s+(?:my\s+)?(?:gmail|e-?mails?)\s+for\s+new\s+contacts\s*[.!?]?\s*$/i;
 // Kiko 29 Oct 2026 13:40Z, "Yes, skip them" on the card "Skip automated senders (no-reply, notifications, mailer-daemon) in the Gmail
-// contact scan?": addresses like no-reply@, noreply@, notifications@, mailer-daemon@ and bounce@ never reach the cards.
-const CUE_CN_AUTO_ = /^(no-?reply|do-?not-?reply|notifications?|mailer-daemon|bounces?)([+._-]|@)/i;
+// contact scan?": addresses like no-reply@, noreply@, chrome-noreply@, notifications@, mailer-daemon@ and bounce@ never reach the
+// cards. no-reply counts anywhere in the name part ("chrome-noreply@google.com" reached the first live run, 29 Oct 17:34Z).
+const CUE_CN_AUTO_ = /^(?:[^@]*[._+-])?(?:no-?reply|do-?not-?reply)(?:[+._-][^@]*)?@|^(?:notifications?|mailer-daemon|bounces?)([+._-]|@)/i;
 // R1 (Kiko 29 Oct 14:02Z "approve"): Canvas skips personal mail, suppliers and BSE staff and says why; the row keeps the reason.
 const CUE_CN_WHY_ = { personal: 'Skipped: personal email', supplier: 'Skipped: supplier', staff: 'Skipped: BSE staff' };
 const cueCnWhy_ = w => CUE_CN_WHY_[w] || 'Skipped: ' + cueStr_(w, 40);
@@ -92,7 +93,9 @@ function cueCnCollect_(st, T, until) {
 /** Canvas's check for the Waiting rows: Known, or New with the company they would go to. At most 5 calls a run. */
 function cueCnCheck_(s, T) {
   for (let n = 0; n < CUE_CN_.checks; n++) {
-    const idx = []; T.rows.forEach((r, i) => { if (r[6] === 'Waiting' && idx.length < CUE_CN_.check) idx.push(i); });
+    const idx = []; T.rows.forEach((r, i) => { if (r[6] !== 'Waiting') return;
+      if (CUE_CN_AUTO_.test(String(r[0]))) { r[6] = 'Skipped: automated sender'; r[10] = new Date(cueNow_()); cueCnPut_(T, i); return; }   // kept before the wider match
+      if (idx.length < CUE_CN_.check) idx.push(i); });
     if (!idx.length) return;
     const res = cueBridge_(s, 'contact_new_check', { people: idx.map(i => ({ email: String(T.rows[i][0]) })) }) || {}, now = new Date(cueNow_()), co = {};
     (res.groups || []).forEach(g => (g.emails || []).forEach(e => { co[e] = g; }));
@@ -211,6 +214,6 @@ function cueCnSaid_(text, ref) {
   const st = cueCnState_() || {}, T = cueCnRead_(), c = k => T.rows.filter(r => r[6] === k).length;
   cueChat_('Cue', (err ? 'The scan stopped (' + err + '). It tries again in 5 minutes. ' : '')
     + (st.done ? 'Read ' + (st.kind === 'weekly' ? 'this week\'s' : 'all ' + CUE_CN_.years + ' years of') + ' mail. ' : 'Reading your Gmail (' + (st.kind === 'weekly' ? 'the last week' : 'the last ' + CUE_CN_.years + ' years') + '), ' + (st.read || 0) + ' emails so far. ')
-    + T.rows.length + ' people found: ' + c('Known') + ' already in Canvas, ' + T.rows.filter(r => /^Skipped: /.test(r[6])).length + ' skipped (personal email, supplier or BSE staff), ' + c('Added') + ' added, ' + (c('New') + c('Waiting')) + ' to show you, ' + c('On card') + ' on the open card.', home);
+    + T.rows.length + ' people found: ' + c('Known') + ' already in Canvas, ' + T.rows.filter(r => /^Skipped: /.test(r[6])).length + ' skipped (personal email, supplier, BSE staff or automated sender), ' + c('Added') + ' added, ' + (c('New') + c('Waiting')) + ' to show you, ' + c('On card') + ' on the open card.', home);
   return { chat: true, task: home };
 }

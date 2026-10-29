@@ -5,7 +5,7 @@
 const CN_MSGS = [
   { id: 'm1', threadId: '18c3aa0100000001', date: '2025-03-14T02:00:00Z', from: 'Ana Reyes <ana.reyes@northwind.test>', cc: '"Lim, Mark" <mark.lim@northwind.test>, Old Friend <old@acme.test>', subject: 'Year-end party quote' },
   { id: 'm2', threadId: '18c3aa0200000002', date: '2026-09-02T02:00:00Z', from: 'kiko@example.com', cc: 'Joy Santos <joy@acme.test>', subject: 'RFP: Family Day 2026' },
-  { id: 'm4', threadId: '18c3aa0400000004', date: '2026-01-05T02:00:00Z', from: 'Google <no-reply@accounts.google.com>', cc: 'notifications@hubspot.test, MAILER-DAEMON@mx.test, bounce+x@list.test', subject: 'Security alert' },
+  { id: 'm4', threadId: '18c3aa0400000004', date: '2026-01-05T02:00:00Z', from: 'Google <no-reply@accounts.google.com>', cc: 'notifications@hubspot.test, MAILER-DAEMON@mx.test, bounce+x@list.test, The Google team <chrome-noreply@google.com>', subject: 'Security alert' },
   { id: 'm3', threadId: '18c3aa0300000003', date: '2024-06-21T02:00:00Z', from: 'carlo.dizon@gmail.com', cc: '', subject: 'Team building inquiry' },
   { id: 'm5', threadId: '18c3aa0500000005', date: '2026-05-11T02:00:00Z', from: 'Lights Inc <sales@lights.test>', cc: 'Mariana <mariana@blankspaceevent.com>', subject: 'Quote for stage lights' }];
 const CN_SIG = { 'ana.reyes@northwind.test': [{ id: 's1', body: 'Hi Kiko,\nPlease quote.\n\nThanks,\nAna Reyes\nHR Engagement Lead\nNorthwind Solutions\n+63 917 123 4567\n\nOn Mon wrote:\n> old' }] };
@@ -76,7 +76,7 @@ test('CN1 the 3-year rewind reads only From, Cc and Subject; Canvas checks; one 
   assert.ok(/\nAcme Corp · acme\.test · In Canvas, P6, stage stays\n☐3 Joy Santos/.test(c.text), c.text);
   assert.ok(!/old@acme|kiko@example/.test(c.text), 'people already in Canvas are not on the card');
   assert.ok(!/gmail\.com|lights\.test|blankspaceevent/.test(c.text), 'R1 (Kiko 14:02Z): personal mail, suppliers and BSE staff are not on the card');
-  assert.ok(!t.tabs['New contacts'].rows.some(r => /no-reply|notifications@|mailer-daemon|bounce\+/i.test(r[0])), 'automated senders are never kept (Kiko 13:40Z)');
+  assert.ok(!t.tabs['New contacts'].rows.some(r => /no-?reply|notifications@|mailer-daemon|bounce\+/i.test(r[0])), 'automated senders are never kept (Kiko 13:40Z)');
   assert.ok(!(t.log.cnAdd || []).length, 'nothing written before Approve');
   deq(cnRows(t), [['ana.reyes@northwind.test', 'On card', 'Northwind Solutions'], ['mark.lim@northwind.test', 'On card', 'Northwind Solutions'], ['old@acme.test', 'Known', ''],
     ['kiko@example.com', 'Known', ''], ['joy@acme.test', 'On card', 'Acme Corp'], ['carlo.dizon@gmail.com', 'Skipped: personal email', ''],
@@ -126,4 +126,11 @@ test('CN5 a supplier Canvas learns of between the card and Approve is skipped at
   const last = String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
   assert.ok(/^Added 2 contacts and 1 new company at P0 to Canvas\. 1 skipped \(personal email, supplier or BSE staff\)\. Undo/.test(last), last);
   deq(cnRows(t).map(r => r[1]).slice(0, 5), ['Added', 'Added', 'Known', 'Known', 'Skipped: supplier']);
+});
+test('CN6 an automated sender already in the tab from an earlier run is skipped before Canvas sees it', () => {
+  const t = cnBox(); t.ctx.cueCnTick_();
+  const sh = t.tabs['New contacts']; sh.rows.push(['chrome-noreply@google.com', 'The Google team', 'From', 'Modernize', '2026-10-30', '1a18874421ff6eda', 'Waiting', '', '', '', '', '']);
+  t.log.cnCheck = []; t.ctx.cueCnTick_();
+  assert.ok(!t.log.cnCheck.some(c => c.people.some(p => /noreply/.test(p.email))), 'never sent to Canvas');
+  assert.strictEqual(sh.rows[sh.rows.length - 1][6], 'Skipped: automated sender');
 });

@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.79: the Gmail contact scan skips no-reply senders like chrome-noreply@ (not deployed)
+
+Bug fix, found by the Gmail new contacts thread while watching the first live run of 1.27.77 (29 Oct 2026, 17:34Z): the tab "New
+contacts" kept chrome-noreply@google.com. Kiko's yes on 29 Oct 13:40Z ("Yes, skip them") covers no-reply senders, but the match only
+caught no-reply at the start of the address. Built on live 1.27.77 (Version 173).
+
+- No-reply now counts anywhere in the name part before the @ (chrome-noreply@, info.noreply@, noreply+x@). notifications@,
+  mailer-daemon@ and bounce@ match as before.
+- Rows already in the tab from earlier runs are marked "Skipped: automated sender" before Canvas checks them, so they never reach a
+  card.
+- Tests: 526, all passing (CN6 new; CN1 adds chrome-noreply@ to its automated senders).
+
 ## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (live as Version 173, 29 Oct 17:30Z, rollback 171)
 
 One release cut by the deploys thread on live 1.27.76 (Version 171), after Canvas V353 shipped the Canvas halves (bridge
