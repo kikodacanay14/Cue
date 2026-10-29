@@ -42,6 +42,23 @@
       + N.skipped.map(function (x) { return '<li><b>' + esc(x.who) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + (x.inbox === 'info' ? ' · info@' : '') + '</span></li>'; }).join('') + '</ul></details>';
     return h + '</div>';
   }
+  // ---- Client accreditation (Kiko 29 Oct 16:14Z "accreditation threads", 17:24Z "P4 companies + accreditation words"; CueAccred.gs) ----
+  // One thread per company: each new reply is one short line with a link to the email, then Open Accounts in Canvas and Done.
+  function acCardHtml(r) {
+    var A = r.acc, waiting = r.status === 'Needs you', items = A.items || [], fresh = items.filter(function (x) { return x.fresh; }).length;
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Accreditation · replies from Gmail</div>'
+      + '<b style="font-size:16px;color:var(--white)">' + esc(A.company) + '</b>' + (A.p ? ' <span class="tag">' + esc(A.p) + '</span>' : '')
+      + '<div class="small muted">' + (fresh ? fresh + ' new repl' + (fresh === 1 ? 'y' : 'ies') + ' since you last looked.' : 'No new replies since you last looked.') + ' Read only: nothing is sent or changed.</div>'
+      + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    h += '<ul class="small" style="margin:8px 0 0;padding-left:18px">' + items.slice(0, 8).map(function (x) {
+      return '<li style="margin-bottom:6px"' + (x.fresh ? '' : ' class="muted"') + '>' + (x.fresh ? '<span class="tag">New</span> ' : '') + '<b>' + esc(x.who) + '</b> · ' + esc(x.day) + ': ' + esc(x.subject)
+        + (x.gist ? '<div class="muted">' + esc(x.gist) + '</div>' : '')
+        + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Open email</a>' : '') + '</li>';
+    }).join('') + '</ul>' + (items.length > 8 ? '<div class="small muted">' + (items.length - 8) + ' older repl' + (items.length - 8 === 1 ? 'y' : 'ies') + ' in Gmail.</div>' : '');
+    h += '<div class="actions">' + (A.accounts_url ? '<a class="btn' + (waiting ? ' ghost' : '') + '" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(A.accounts_url) + '" target="_blank" rel="noopener">Open Accounts in Canvas</a>' : '')
+      + (waiting ? '<button class="btn" data-act="ac-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>';
+    return h + '</div>';
+  }
   function sweepCardHtml(r) {
     var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
     b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });

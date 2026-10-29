@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.79';   // 1.27.77 + Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79 bug fix; 1.27.78 is another build). Before that: 1.27.76 + Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update and standard tags (1.27.77, one release by the deploys thread). Before that: 1.27.72 + Back to Team Cue button and Canvas's CRM and To do rows in Ask Cue's list (1.27.76; 1.27.73 is the intake keyword build, 1.27.74 and 1.27.75 were dropped). Before that: live 1.27.71 (Version 168) + RFQ drafts say TBC for blank event details, and the intake-real cloud check (1.27.72). Before that: live 1.27.70 (Version 159) + Friday status updates to clients (1.27.71). Before that: live 1.27.69 (Version 156) + pipeline review reads open deals from Canvas, not the frozen HubSpot deals (1.27.70, CRM-13 bug fix). Before that: 1.27.68 + bid card v3: Scoped projects, For clarification, Opportunities closing, with the source on each notice (1.27.69). Before that: live 1.27.67 (Version 149) + three bug fixes: the 7:00 funnel card reads Canvas, Cue calls crm_tick every 15 minutes, and the bid check reads the public PhilGEPS lists itself (1.27.68). Before that: live 1.27.66 (Version 147) + chasers and AI drafts in the BSE brand voice (1.27.67). Before that: live 1.27.65 (Version 145) + client welcome from Kiko's Gmail, styled outbox items (1.27.66). Before that: live 1.27.62 (Version 138) + Cue Admin page (1.27.63) + Cue Admin rounds 2 to 4: Jobs › Chasers templates and descriptions (1.27.64) + Canvas chasers, Send a notice and Log moved into Cue Admin (1.27.65). Before that: live 1.27.61 (Version 136) + sales funnel part 2: Inquiry chasers, win-back drafts, Monday funnel review (1.27.62). Before that: live 1.27.60 (Version 134) + Sales: do these today in the morning batch (1.27.61). Before that: live 1.27.59 (Version 130) + structure phase 4, Cue email (New mail and client email log) and Client Desk on phase 1 Approve (1.27.60). Before that: 1.27.58 RFPs from Kiko's Gmail + Cue's button chat bubble (1.27.59, built as 1.27.55). Before that: live 1.27.57 (Version 128) + RFPs from Kiko's Gmail on a 1-minute trigger (1.27.58). Before that: live 1.27.56 + daily release notes at 8 PM (1.27.57; 1.27.55 is held for Cue's button). Before that: live 1.27.54 + the page opens again: parts read raw (1.27.54.1 fix) + Help answers (1.27.56). Before that: live 1.27.27 (bid contacts) + Generate FSAs and ARs, then send (1.27.33) + transfer lookup and invoice line edit (1.27.38) + chaser bug fixes (1.27.40) + Cue runs the email check for Emails waiting (1.27.42) + project log (1.27.44) + Canvas edits through the generic bridge (1.27.45, built as 1.27.41) + no bank or TIN details to ChatGPT (1.27.46) + sheet reads through the bridge and contact scan (1.27.47) + no chasers for projects in the wrong status (1.27.50 fix) + contact scan respects history (1.27.51) + structure review phases 1 and 2, no visible change (1.27.52) + first line of each waiting email for Canvas's compact cards (1.27.53) + job runs list and one project finder (1.27.54)
+const CUE_VERSION_ = 'Cue 1.27.79';   // 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -22,7 +22,8 @@ const CUE_TABS_ = {
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
-  'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count']                          // one row per background job run (CueJobs.gs); Canvas Admin reads it
+  'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count'],                         // one row per background job run (CueJobs.gs); Canvas Admin reads it
+  'Accreditation Mail': ['Time', 'Message ID', 'Company', 'From', 'Subject', 'Thread']            // CueAccred.gs: client accreditation replies already posted
 };
 const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
@@ -595,6 +596,7 @@ function cueTaskName_(x) {
   if (x.kind === 'email') return 'the email to ' + ((x.mail && (x.mail.to || x.mail.to_addr)) || 'someone');
   if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
   if (x.kind === 'funnel') return 'the sales funnel';
+  if (x.kind === 'accred') return 'accreditation with ' + ((x.acc && x.acc.company) || 'a client');
   if (x.kind === 'ar') return (x.ar && x.ar.doc === 'fsa' ? 'FSAs' : 'ARs') + ' for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
@@ -624,7 +626,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['newmail', 'pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri'];
+const CUE_RELATED_SKIP_ = ['newmail', 'pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri', 'accred'];
 const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project\b(?!\s+intake)\s*[:,-]?/i;
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
@@ -954,7 +956,7 @@ function cueSummary_(s) {
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
-    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'funnel' ? 'Sales funnel' : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'funnel' ? 'Sales funnel' : s.kind === 'accred' ? 'Accreditation · ' + ((s.acc && s.acc.company) || '') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.kind === 'personal') {
@@ -1026,7 +1028,7 @@ function cueView_(s) {
   // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
   const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
   return { id: s.id, kind: s.kind || 'intake', ref, created: s.created, status: s.status, stage: s.stage,
-    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',

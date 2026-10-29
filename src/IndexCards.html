@@ -1584,6 +1584,7 @@
         if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
         if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
         if (act === 'fn-done') { b.disabled = true; return call('cueFunnelDone', [id], done, fail); }
+        if (act === 'ac-done') { b.disabled = true; return call('cueAcDone', [id], done, fail); }   // CueAccred.gs
         if (act === 'fn-task') { b.disabled = true; return call('cueFunnelTaskDone', [id, b.getAttribute('data-t')], done, fail); }
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;

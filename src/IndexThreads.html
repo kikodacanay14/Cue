@@ -416,7 +416,7 @@
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
     if (th.hst) return 'HubSpot tasks';
-    var nm = function (r) { return (r.kind === 'help' && r.help && 'Help · ' + r.help.ask) || (r.kind === 'newmail' && r.nm && 'New mail · ' + r.nm.day) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'help' && r.help && 'Help · ' + r.help.ask) || (r.kind === 'newmail' && r.nm && 'New mail · ' + r.nm.day) || (r.kind === 'accred' && r.acc && 'Accreditation · ' + r.acc.company) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
@@ -438,6 +438,7 @@
       readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
       pipeline: { name: 'Pipeline review', family: 'draft', steps: PIPE, card: null },
       funnel: { name: 'Sales funnel', family: 'info', steps: FUNNEL, card: null },
+      accred: { name: function (r) { return 'Accreditation · ' + ((r.acc && r.acc.company) || ''); }, family: 'info', steps: null, card: function (r) { return !!r.acc; } },   // CueAccred.gs
       ar: { name: function (r) { return r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts'; }, family: 'draft', steps: ARSTEPS, card: function (r) { return !!r.ar; } },
       hubspot: { name: 'HubSpot clean-up', family: 'approve', steps: HSTEPS, card: function (r) { return !!r.hs; } },
       status: { name: 'Friday status updates', family: 'draft', steps: STSTEPS, card: function (r) { return !!r.st; } },   // CueStatus.gs
@@ -636,6 +637,7 @@
       if (r.kind === 'finance') h += finHtml(r);
       else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
       else if (r.kind === 'newmail' && r.nm) h += nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
+      else if (r.kind === 'accred' && r.acc) h += acCardHtml(r);   // CueAccred.gs: one card per company, in every state
       else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
