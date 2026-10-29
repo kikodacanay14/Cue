@@ -14,7 +14,7 @@
 
 const CUE_PAY_ = { minLate: 7, every: 7, max: 3 };
 const CUE_PAY_BRIEF_ = 'A payment follow-up to a client about billing invoices (BIs) that are past due. It is sent from info@ '
-  + '(Blank Space Events) with Kiko copied. Name every BI in facts.bis with its project, its balance exactly as written in balance_text '
+  + '(Blank Space Events) with Kiko copied. Name every BI in facts.bis with its event, its balance exactly as written in balance_text '
   + 'and its due date. If something was already received, thank them and ask only for the balance. Ask when payment can be expected, '
   + 'or whether anything is needed to process it. A second or third follow-up is firmer and asks for a payment date. Never mention '
   + 'interest, penalties or legal action, and never change or round an amount.';
@@ -72,12 +72,13 @@ function cuePayTemplate_(it) {
   const f = it.facts || {}, bis = f.bis || [], n = it.times || 0;
   const lines = bis.map(b => '- BI ' + b.no + ', ' + b.project + ': ' + b.balance_text + ' balance, due ' + b.due
     + (b.received_text ? ' (we received ' + b.received_text + ', thank you)' : ''));
-  const open = n === 0 ? 'This is a friendly follow-up on the following billing invoice' + (bis.length > 1 ? 's' : '') + ' from Blank Space Events:'
+  // VOICE-2026-10-29 (brand voice guide): "Hi <name>," to open, and no "!" in payment mail, so "Dear" and "Good day!" are gone.
+  const open = n === 0 ? 'This is a reminder about the following billing invoice' + (bis.length > 1 ? 's' : '') + ' from Blank Space Events:'
     : 'We are following up again on the billing invoice' + (bis.length > 1 ? 's' : '') + ' below, which ' + (bis.length > 1 ? 'are' : 'is') + ' now past due:';
   const ask = n === 0 ? 'May we know when we can expect the payment, or whether anything else is needed to process it?'
     : 'Could you please confirm the payment date' + (n >= 2 ? ' this week' : '') + ', or let us know if anything is holding it up?';
   return { subject: 'Payment follow-up: ' + bis.map(b => 'BI ' + b.no).join(', ') + (it.project ? ' (' + it.project + ')' : ''),
-    body: 'Dear ' + (f.contact || 'Accounts Payable team') + ',\n\nGood day! ' + open + '\n\n' + lines.join('\n')
+    body: 'Hi ' + (f.contact || 'Accounts Payable team') + ',\n\n' + open + '\n\n' + lines.join('\n')
       + (bis.length > 1 ? '\n\nTotal balance: ' + f.total_balance_text : '') + '\n\n' + ask + '\n\nThank you,\nKiko\nBlank Space Events' };
 }
 

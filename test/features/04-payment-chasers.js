@@ -105,6 +105,6 @@ test('Q3 Canvas down: a note, status and event dates unchecked, normal 3-day rul
 test('Q4 template when ChatGPT fails: names the supplier, project, RFQ date and a reply-by two working days out', () => {
   const t = rfqBox({ fail: { chasers: () => resp(500, {}) } }); t.ctx.cueSweep(); const it = rfqBatch(t).batch.items.find(i => i.key === 'rfq:aaaa0000000000a1');
   assert.strictEqual(it.drafted_by, 'template'); assert.ok(/^Hi Sonic Pro,/.test(it.body));
-  assert.ok(/our RFQ for LED wall 4x3, sent on 2026-10-16\. Could you send your quotation by Friday 23 October\?/.test(it.body), it.body);
+  assert.ok(/our request for quotation for LED wall 4x3, sent on 2026-10-16\. Could you send your quotation by Friday 23 October\?/.test(it.body), it.body);
   deq([t.ctx.cueWorkDays_('2026-10-16', '2026-10-21'), t.ctx.cueWorkDays_('2026-10-23', '2026-10-26'), t.ctx.cueRfqDay_('2026-10-24T16:00:00.000Z'), t.ctx.cueRfqDay_('12/5/2026')], [3, 1, '2026-10-25', '2026-12-05']);
 });

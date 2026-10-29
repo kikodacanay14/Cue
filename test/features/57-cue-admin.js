@@ -49,7 +49,7 @@ test('AD5 Jobs › Chasers: each chaser kind with its sender, who it goes to and
   assert.ok(J.kinds.every(k => k.about && k.from && k.to && k.body), 'every chaser has a template');
   const r = J.kinds[0];
   deq([r.label, r.subject, r.ai], ['RFQ chasers', 'Re: RFQ: <RFQ title>', true]);
-  assert.ok(/^Hi <Supplier name>,/.test(r.body) && r.body.includes('our RFQ for <Event>, sent on <RFQ date>'));
+  assert.ok(/^Hi <Supplier name>,/.test(r.body) && r.body.includes('our request for quotation for <Event>, sent on <RFQ date>'));
   assert.ok(J.kinds[4].body.includes('<FSA or AR> for <Event> (<Role>)') && J.kinds[4].ai === false, 'signature: fixed wording');
   deq([J.build, J.send], ['07:00', '09:00']);
   deq(t.log.sent || [], [], 'nothing is sent');

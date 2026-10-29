@@ -131,7 +131,7 @@ cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, unit: 'working',
     + 'a friendly nudge that names the item or project from rfq_subject, asks for the quotation by reply_by, and offers to clarify '
     + 'anything. No attachments, no prices, no other suppliers. If the event is soon, say the date is close.',
   template: it => ({ subject: 'Re: ' + (it.thread_subject || 'RFQ'),
-    body: 'Hi ' + (it.who && it.who !== it.to ? it.who : 'there') + ',\n\nJust following up on our RFQ for ' + it.project
+    body: 'Hi ' + (it.who && it.who !== it.to ? it.who : 'there') + ',\n\nA quick follow-up on our request for quotation for ' + it.project
       + (it.facts && it.facts.rfq_sent ? ', sent on ' + it.facts.rfq_sent : '') + '. Could you send your quotation by '
-      + ((it.facts && it.facts.reply_by) || 'the end of the week') + '? Happy to clarify anything.\n\nThank you,\nKiko\nBlank Space Events' }),
+      + ((it.facts && it.facts.reply_by) || 'the end of the week') + '? We\'re happy to clarify anything.\n\nThank you,\nKiko\nBlank Space Events' }), // VOICE-2026-10-29: brand voice guide
   find: cueRfqFind_ });
