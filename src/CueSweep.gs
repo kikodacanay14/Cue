@@ -58,7 +58,8 @@ function cueRuleFor_(rules, k) {
   return r ? Object.assign({}, r) : { label: k.label, on: true, every: k.every, max: k.max, unit: k.unit || 'days' };
 }
 /** What the Chaser rules card shows. */
-function cueRules() { cueOwner_(); const r = cueRules_(); return { kinds: r.kinds, general: r.general, defaults: { kinds: CUE_RULE_KINDS_, general: CUE_RULE_GENERAL_ }, notes: r.notes }; }
+function cueRules() { cueOwner_(); const r = cueRules_(); return { kinds: r.kinds, general: r.general, defaults: { kinds: CUE_RULE_KINDS_, general: CUE_RULE_GENERAL_ }, notes: r.notes,
+  about: CUE_ADMIN_CHASE_ }; }   // CUE-ADMIN-2-2026-10-29: one line per chaser (CueAdmin.gs)
 /** Kiko saves the card: changes = { 'payment.every': 5, 'rfq.on': false, 'general.send': 10, ... }. Checked, saved, noted in the chat. */
 function cueRulesSave(changes) {
   cueOwner_();

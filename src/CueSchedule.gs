@@ -344,7 +344,8 @@ function cueSchedListText_() {
 function cueSchedView_() {
   return cueSchedRead_(cueSchedSheet_()).map(x => ({ id: x.id, name: x.name, system: x.type === 'system', when: cueSchedWhen_(x), on: x.on, command: x.command,
     runs: /^gtask:/.test(x.run) ? 'ChatGPT' : x.run === 'remind' ? 'Reminder' : x.run === 'say' ? 'As typed' : CUE_SCHED_RUNS_[x.run] || x.run,
-    next: x.on ? cueSchedShow_(x.next) : '', last: cueSchedShow_(x.last), result: x.result, task: x.task }));
+    next: x.on ? cueSchedShow_(x.next) : '', last: cueSchedShow_(x.last), result: x.result, task: x.task,
+    about: cueAdminSchedAbout_(x) }));   // CUE-ADMIN-2-2026-10-29: what it does, who asked and when, what it follows
 }
 function cueSchedules() { cueOwner_(); cueSchedSeed_(); return cueSchedView_(); }
 /** o = { on: true|false } and/or { when: 'weekdays 8am' }. The when is read by the same code as the chat command. */
