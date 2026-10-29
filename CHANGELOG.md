@@ -17,8 +17,8 @@ Monday status report (spec of 22 Oct), which never went live.
   catching up, coming up), the Readiness score, open risks and issues with the plan, the task update, and a Go to Canvas button
   that opens the event on the client site. Supplier names and peso amounts are cut, as on the client site. The email is in the
   BSE look with the Canvas logo, and in the brand voice ("Hi <first name>,", "event", "Thank you," then Blank Space Events).
-- **Nothing goes out on its own.** The card lists each email with its numbers, To (editable; empty when Canvas has no main
-  contact), Preview (the email as the client sees it), Send (one confirm, from Kiko's Gmail) and Skip. A second Send tap on an
+- **Nothing goes out on its own.** The card lists each email with its numbers, To (a dropdown of the event's contacts in Canvas,
+  main contact first, plus "Someone else…" for a typed address; Kiko 29 Oct 13:42Z "it should be like a dropdown"), Preview (the email as the client sees it), Send (one confirm, from Kiko's Gmail) and Skip. A second Send tap on an
   email already sent sends nothing. Done skips the emails not sent.
 - No AI call. The Today card shows "N client updates to send".
 

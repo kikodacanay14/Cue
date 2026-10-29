@@ -324,6 +324,16 @@
 
   // Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs): one client email per event, built by Canvas after a fresh readiness
   // scan. Each email has its To, a Preview (the email as the client sees it) and its own Send (one confirm) or Skip.
+  // To (Kiko 29 Oct 13:42Z "it should be like a dropdown"): the event's contacts from Canvas, main contact first, then "Someone
+  // else" for a typed address. With no contact in Canvas it is the typed box alone.
+  function stToHtml(id, m) {
+    var ppl = m.people || [], other = !ppl.some(function (p) { return p.email === m.to; });
+    if (!ppl.length) return '<input data-stto="' + esc(id) + '" data-k="' + esc(m.k) + '" value="' + esc(m.to) + '" placeholder="Client email (none in Canvas)" aria-label="To" style="width:100%;margin-top:6px">';
+    return '<label class="small muted" style="display:block;margin-top:6px">To</label><select data-stsel="' + esc(id) + '" data-k="' + esc(m.k) + '" aria-label="To" style="width:100%">'
+      + ppl.map(function (p) { return '<option value="' + esc(p.email) + '"' + (!other && p.email === m.to ? ' selected' : '') + '>' + esc((p.name ? p.name + ' · ' : '') + p.email + (p.role ? ' (' + p.role + ')' : '')) + '</option>'; }).join('')
+      + '<option value=""' + (other ? ' selected' : '') + '>Someone else…</option></select>'
+      + '<input data-stto="' + esc(id) + '" data-k="' + esc(m.k) + '" value="' + esc(other ? m.to : '') + '" placeholder="Type their email" aria-label="Other email"' + (other ? '' : ' hidden') + ' style="width:100%;margin-top:6px">';
+  }
   function stCardHtml(r) {
     var T = r.st, waiting = r.status === 'Needs you', ms = T.mails || [];
     var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Friday status updates</div><b style="font-size:17px">' + esc(T.title) + '</b>';
@@ -340,7 +350,7 @@
       h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><b>' + esc(m.name) + '</b>'
         + (m.sent ? ' <span class="tag pref">sent</span>' : m.skipped ? ' <span class="tag new">skipped</span>' : '')
         + '<div class="small muted">' + facts.map(esc).join(' · ') + '</div>'
-        + (ed ? '<input data-stto="' + esc(r.id) + '" data-k="' + esc(m.k) + '" value="' + esc(m.to) + '" placeholder="Client email (none in Canvas)" aria-label="To" style="width:100%;margin-top:6px">'
+        + (ed ? stToHtml(r.id, m)
           : '<div class="small" style="margin-top:4px">To: ' + esc(m.to || 'nobody') + '</div>')
         + '<div class="small muted" style="margin-top:4px">' + esc(m.subject) + '</div>'
         + '<div data-stpv="' + esc(r.id) + '" data-k="' + esc(m.k) + '"></div>'
@@ -1133,6 +1143,11 @@
   document.addEventListener('change', function (e) { var x = e.target; if (!x || !x.closest) return;
     ['data-amk', 'data-asd'].forEach(function (a) { if (x.hasAttribute(a)) arRecount(x.closest('.card'), a); }); });
   document.addEventListener('change', pickRecount); document.addEventListener('input', pickRecount);
+  document.addEventListener('change', function (e) {   // Friday status updates: "Someone else…" shows the typed To box
+    var x = e.target; if (!x || !x.hasAttribute || !x.hasAttribute('data-stsel')) return;
+    var tx = x.parentNode.querySelector('[data-stto="' + x.getAttribute('data-stsel') + '"][data-k="' + x.getAttribute('data-k') + '"]');
+    if (tx) { tx.hidden = !!x.value; if (!x.value) tx.focus(); }
+  });
   function collectPh(id, scope) {
     var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, rows: {}, add: [], lines: {}, suppliers: {} };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
@@ -1438,7 +1453,8 @@
         }
         if (act === 'st-skip') { b.disabled = true; return call('cueApprove', [id, { skip: b.getAttribute('data-k') }], done, fail); }
         if (act === 'st-send') {
-          var sk = b.getAttribute('data-k'), tx = scope.querySelector('[data-stto="' + id + '"][data-k="' + sk + '"]'), sto = tx ? tx.value.trim() : '';
+          var sk = b.getAttribute('data-k'), sel = scope.querySelector('[data-stsel="' + id + '"][data-k="' + sk + '"]'), tx = scope.querySelector('[data-stto="' + id + '"][data-k="' + sk + '"]');
+          var sto = sel && sel.value ? sel.value : tx ? tx.value.trim() : '';
           var sq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, sm = (((sq.st || {}).mails) || []).filter(function (m) { return m.k === sk; })[0] || {};
           if (!sto) return addLocal('Cue', 'Type the client\'s email in To first.');
           return ask('Send the Friday update for ' + (sm.name || 'this event') + '?', 'From your Gmail to: ' + sto + '. Sent emails cannot be called back.', null, 'Send', function () {

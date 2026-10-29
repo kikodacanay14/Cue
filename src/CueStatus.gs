@@ -9,7 +9,8 @@
  *   3 Canvas builds each email (client_status email: true) from what the client site shows: each requirement's stage, the
  *     Project timeline, the readiness score the scan just made, open risks and issues, open tasks, and a Go to Canvas button.
  *     Supplier names and peso amounts are cut the way the client site cuts them.
- *   - The card shows each email; Kiko can change To, Preview, then Send (one confirm) or Skip. Nothing goes out before that tap.
+ *   - The card shows each email; Kiko picks To from the event's contacts (or types another), Preview, then Send (one confirm) or Skip.
+ *     Nothing goes out before that tap.
  * No AI call. Canvas text is data. */
 
 const CUE_ST_MAX_ = { projects: 25, scan_batch: 5, scan_ms: 200000 };
@@ -127,7 +128,9 @@ function cueStBuild_(s) {
   const scan = {}; T.events.forEach(e => { scan[e.id] = e; });
   T.mails = (r.projects || []).filter(p => p && scan[p.id] && p.html && p.subject).slice(0, CUE_ST_MAX_.projects).map((p, i) => {
     const c = p.contact && cueEmail_(p.contact.email) ? p.contact : null, R = p.readiness, G = p.progress || {}, L = p.timeline;
-    return { k: 'M' + (i + 1), id: p.id, name: cueStr_(p.name, 200), date: cueStr_(p.date, 10), to: c ? cueEmail_(c.email) : '', to_name: c ? cueStr_(c.name, 120) : '',
+    const seen = {}, key = x => cueEmail_(x && x.email).toLowerCase(), people = (c ? [c] : []).concat(p.contacts || []).filter(x => key(x) && !seen[key(x)] && (seen[key(x)] = 1)).slice(0, 12)
+      .map(x => ({ name: cueStr_(x.name, 120), email: cueEmail_(x.email), role: cueStr_(x.role, 120) }));   // Kiko 13:42Z: To is a dropdown of the event's contacts
+    return { k: 'M' + (i + 1), id: p.id, name: cueStr_(p.name, 200), date: cueStr_(p.date, 10), to: c ? cueEmail_(c.email) : '', to_name: c ? cueStr_(c.name, 120) : '', people,
       subject: cueStr_(p.subject, 200).replace(/[\r\n]+/g, ' '), link: cueStr_(p.link, 300),
       readiness: R && R.total ? { ready: Number(R.ready) || 0, total: Number(R.total) || 0, pct: Number(R.pct) || 0 } : null, scanned: !scan[p.id].scan_error,
       reqs: { done: Number(G.done) || 0, total: Number(G.total) || 0 }, timeline: L ? { done: Number(L.done) || 0, total: Number(L.total) || 0, late: (L.late || []).length } : null,
@@ -228,7 +231,7 @@ function cueStView_(s) {
   const T = s.st || {};
   return { title: T.title || 'Status updates', ask: T.ask || '', today: T.today || '', empty: T.empty || '', more: T.more || 0,
     stage: s.stage, scanned: (T.events || []).filter(e => e.scanned).length, events: (T.events || []).length,
-    mails: (T.mails || []).map(m => ({ k: m.k, id: m.id, name: m.name, date: m.date, to: m.to, to_name: m.to_name, subject: m.subject, link: m.link,
+    mails: (T.mails || []).map(m => ({ k: m.k, id: m.id, name: m.name, date: m.date, to: m.to, to_name: m.to_name, people: m.people || [], subject: m.subject, link: m.link,
       readiness: m.readiness, scanned: !!m.scanned, reqs: m.reqs, timeline: m.timeline, risks: m.risks, issues: m.issues, tasks: m.tasks,
       sent: !!m.sent_id, sent_at: m.sent_at || '', skipped: !!m.skipped, sending: !!m.sending, error: m.error || '' })) };
 }

@@ -1212,7 +1212,7 @@ function zbStatusDigest_(ids, past) {
 
 /** Sets p.contact on each project: a project contact (main or primary first), else the account's Client Desk contact; null when
  * neither has a client email. Throws when the contact tabs can't be read. STATUS-FRIDAY-2026-10-29: shared by both status reads. */
-function zbStContacts_(keep) {
+function zbStContacts_(keep, all) {   // all: also p.contacts, every usable contact of the event (client_status's To list)
   const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
   const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
   const ok = e => ZB_PAY_EMAIL_RE_.test(e) && !ZB_PAY_OWN_RE_.test(e);
@@ -1225,6 +1225,11 @@ function zbStContacts_(keep) {
     const pc = best(proj.filter(c => c.pid === p.id)), cc = pc ? null : best(co.filter(c => c.company && c.company === norm_(p.account)));
     const c = pc || cc;
     p.contact = c ? { name: c.name.slice(0, 120), email: c.email, role: c.role.slice(0, 120), source: pc ? 'project contacts' : 'Client Desk' } : null;
+    if (!all) return;
+    const seen = {}, mine = proj.filter(x => x.pid === p.id).map(x => Object.assign({ source: 'project contacts' }, x))
+      .concat(co.filter(x => x.company && x.company === norm_(p.account)).map(x => Object.assign({ source: 'Client Desk' }, x)));
+    p.contacts = (c ? [Object.assign({ source: p.contact.source }, c)] : []).concat(mine).filter(x => !seen[x.email] && (seen[x.email] = 1)).slice(0, 12)
+      .map(x => ({ name: String(x.name || '').slice(0, 120), email: x.email, role: String(x.role || '').trim().slice(0, 120), source: x.source }));
   });
 }
 
@@ -1358,7 +1363,7 @@ function zbClientStatus_(ids, past, email, idsOnly) {
   // ids_only: the cheap list Cue scans readiness for first (no sheets read beyond the project list).
   if (idsOnly) return { today, from: pk.from, projects: keep.map(p => ({ id: p.id, name: p.name, date: p.date })), more: pk.list.length - keep.length, missing };
   if (!keep.length) return { today, from: pk.from, projects: [], more: 0, missing };
-  keep.forEach(p => { by[p.id] = Object.assign(p, { contact: null, link: CLIENT_ONE_LINK_ + '?v=project&p=' + encodeURIComponent(p.id),
+  keep.forEach(p => { by[p.id] = Object.assign(p, { contact: null, contacts: [], link: CLIENT_ONE_LINK_ + '?v=project&p=' + encodeURIComponent(p.id),
     requirements: [], progress: { done: 0, total: 0 }, timeline: null, readiness: null, risks: [], issues: [], tasks: [], tasks_done: 0 }); });
   const clean = zbThCleaner_(), txt = (p, v, n) => String(clean(zbPayTxt_(v), true, p.account) || '').slice(0, n || 300);
   // Requirements: Scope Categories, as the site's Deliverables tab lists them.
@@ -1413,7 +1418,7 @@ function zbClientStatus_(ids, past, email, idsOnly) {
     });
     keep.forEach(p => ['risks', 'issues', 'tasks'].forEach(k => p[k].sort((a, b) => (b.late - a.late) || (a.deadline || '9999').localeCompare(b.deadline || '9999'))));
   } catch (e) { missing.push('TRI Tracker: ' + zbErr_(e)); }
-  try { zbStContacts_(keep); } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
+  try { zbStContacts_(keep, true); } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
   if (email) keep.forEach(p => Object.assign(p, zbCsMail_(p, today)));
   return Object.assign({ today, from: pk.from, projects: keep, more: pk.list.length - keep.length, missing: missing.slice(0, 10) }, email ? { logo: NTF_LOGO_PNG_ } : {});
 }

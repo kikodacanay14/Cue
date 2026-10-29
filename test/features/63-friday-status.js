@@ -3,7 +3,8 @@
 const ST_HTML = '<div><img src="cid:canvaslogo" alt="Canvas"><p>Hi Ana,</p><p>Here\'s your Friday update on Acme Gala.</p><a href="https://canvas.blankspaceevent.com/client?v=project&amp;p=S-10000001AA">Go to Canvas</a></div>';
 const ST_CS = { today: '2026-10-23', from: '2026-10-16', more: 0, missing: [], logo: 'iVBORw0KGgoAAAANSUhEUg==', projects: [
   { id: 'S-10000001AA', name: 'Acme Gala', account: 'Acme Corp', status: 'For Production Start', date: '2026-10-30',
-    contact: { name: 'Ana Reyes', email: 'ana@acme.example', source: 'project contacts' }, link: 'https://canvas.blankspaceevent.com/client?v=project&p=S-10000001AA',
+    contact: { name: 'Ana Reyes', email: 'ana@acme.example', source: 'project contacts' },
+    contacts: [{ name: 'Ana Reyes', email: 'ana@acme.example', role: 'Main contact' }, { name: 'Carl Lim', email: 'carl@acme.example', role: 'Finance' }, { name: 'Ana Reyes', email: 'ANA@acme.example' }], link: 'https://canvas.blankspaceevent.com/client?v=project&p=S-10000001AA',
     requirements: [{ name: 'LED wall', detail: '', stage: 'In production' }], progress: { done: 3, total: 5 },
     timeline: { total: 4, done: 1, due: 2, late: [{ task: 'Design sign-off', end: '2026-10-20' }], next: [], pct: 25 }, readiness: { ready: 18, total: 25, pct: 72 },
     risks: [{ item: 'Rain on the open-air stage', plan: 'Tent on standby' }], issues: [], tasks: [{ item: 'Send the guest list' }], tasks_done: 2,
@@ -27,6 +28,7 @@ test('ST1 "status updates": its own thread, Canvas lists the events, a fresh rea
   const A = S.mails[0]; deq(A.readiness, { ready: 18, total: 25, pct: 72 }); deq(A.reqs, { done: 3, total: 5 }); deq(A.timeline, { done: 1, total: 4, late: 1 });
   assert.strictEqual(A.risks, 1); assert.strictEqual(A.tasks, 1); assert.strictEqual(A.subject, 'Acme Gala · Friday update, 23 Oct'); assert.ok(A.scanned);
   assert.ok(!('z' in A) && !('html' in A), 'the card gets no email bodies');
+  deq(A.people.map(p => p.email), ['ana@acme.example', 'carl@acme.example'], 'To dropdown: the event contacts, main first, no duplicates'); deq(S.mails[1].people, []);
   assert.ok(!t.log.sent && !t.log.gmail.length, 'nothing sent or drafted');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + t.id && /Started the client status updates in its own thread\. Nothing is sent until you tap Send/.test(r[2])));
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === t.id && /2 client emails ready\. Readiness scanned for 2 of 2 events\. 1 has no main client contact/.test(r[2])));
@@ -113,5 +115,6 @@ test('ST8 Done skips what is not sent; the card shows Preview, Send and Skip per
   assert.throws(() => t.ctx.cueApprove(t.id, { send: 'M1', to: 'ana@acme.example' }), /not waiting for you/);
   const page = cuePage();
   assert.ok(/data-act="st-preview"/.test(page) && /data-act="st-send"/.test(page) && /data-act="st-skip"/.test(page));
+  assert.ok(/data-stsel=/.test(page) && /Someone else…/.test(page), 'To is a dropdown of the event contacts');
   assert.ok(/ask\('Send the Friday update for ' \+/.test(page) && /'Sent emails cannot be called back\.'/.test(page) && /<iframe sandbox title="Preview of /.test(page));
 });
