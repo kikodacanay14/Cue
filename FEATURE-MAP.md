@@ -15,7 +15,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 
 | Kind | What it is | Wrong command? | Card family | Runs in | Approve in | Page checks |
 |---|---|---|---|---|---|---|
-| `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 4 |
+| `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 5 |
 | `avoid` | Page only (not in the command list) |  |  | none | none | 1 |
 | `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 1 |
 | `cecost` | CE cost update |  | Approve | `CueCeCost.gs` | `CueCeCost.gs` | 3 |
@@ -23,6 +23,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `email` | Email | Email | Draft and send | `CueMail.gs` | `CueMail.gs` | 3 |
 | `example` | Page only (not in the command list) |  |  | none | none | 2 |
 | `expense` | Project expense |  | Approve | `CueIntake.gs` (default) | `CueExpense.gs` | 2 |
+| `final` | Page only (not in the command list) |  |  | none | none | 1 |
 | `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 3 |
 | `funnel` | Sales funnel |  | Info | `CueFunnel.gs` | intake (default) | 2 |
 | `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 1 |
@@ -39,7 +40,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `readiness` | Readiness check | Readiness check | Draft and send | `CueReady.gs` | `CueReady.gs` | 1 |
 | `relnotes` | Page only (not in the command list) |  | Approve | none | none | 1 |
 | `style` | Learning your style |  | Approve | `CueStyle.gs` | `CueStyle.gs` | 3 |
-| `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 3 |
+| `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 4 |
 | `sweep` | Morning sweep |  | Draft and send | `CueSweep.gs` | `CueSweep.gs` | 1 |
 | `tri` | Task, issue or risk |  | Approve | `CueIntake.gs` (default) | `CueTri.gs` | 1 |
 | `vendor` | Supplier search | Supplier search | Draft and send | `CueVendor.gs` | `CueVendor.gs` | 1 |
@@ -206,6 +207,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cuePh_` | `CueDates.gs` | 14 |
 | `CUE_GMAIL_` | `CueGmail.gs` | 13 |
 | `cueView_` | `Cue.gs` | 13 |
+| `cueGmailSend_` | `CueGmail.gs` | 12 |
 | `cueResume` | `Cue.gs` | 12 |
 | `cueGmail_` | `CueGmail.gs` | 11 |
 | `cueGmailSend_` | `CueGmail.gs` | 10 |
@@ -216,6 +218,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRunLeased_` | `Cue.gs` | 9 |
 | `cueAddDays_` | `CueDates.gs` | 8 |
 | `cueAskOpen_` | `CueRoute.gs` | 8 |
+| `cueGmailDraft_` | `CueGmail.gs` | 8 |
 | `cueKind_` | `CueSweep.gs` | 8 |
 | `cueWords_` | `Cue.gs` | 8 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
@@ -246,6 +249,7 @@ Server functions `Index.html` calls, by the file that holds them.
 
 - `Cue.gs`: `cueApprove`, `cueAsNew`, `cueCancelIntake`, `cueCloseTask`, `cueDrafts`, `cueFixAccess`, `cueFolders`, `cueReject`, `cueReopen`, `cueRescan`, `cueRetry`, `cueRfq`, `cueRfqPick`, `cueRun`, `cueSameAnswer`, `cueSend`, `cueState`, `cueSupplierCanvas`, `cueSupplierSaved`
 - `CueAdmin.gs`: `cueAdminChasers`, `cueAdminLog`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
+- `CueAdminCanvas.gs`: `cueAdminCanvasChaseSend`, `cueAdminCanvasChasers`, `cueAdminSnBoard`, `cueAdminSnItems`, `cueAdminSnPrepare`, `cueAdminSnSend`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClose`, `cueBidsStartIntake`
 - `CueExpense.gs`: `cueExpense`

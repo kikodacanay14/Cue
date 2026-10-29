@@ -106,7 +106,8 @@
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
     if (sec === 'rn') loadRn();
-    if (sec === 'jobchasers') loadJc();
+    if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
+    if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
   }
   function renderSettings() {
@@ -228,25 +229,195 @@
       }).join(''));
   }
   $('w-rn').addEventListener('click', function (e) { if (e.target.closest('[data-rn-sched]')) settingsTab('sched'); });
+  /* CUE-ADMIN-MOVE-2026-10-29 (Kiko 29 Oct 03:43Z "lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"):
+   * Canvas Admin's Run now (Chasers) and Send a notice, moved here as they were (Canvas Workspace.html openRunNow / openSendNotice).
+   * Canvas still sends; Kiko's press is the approval for those emails. Each press is sent once (no retry: Canvas keeps no ledger). */
+  var RNW = { d: null, res: {}, tick: {}, kind: 'ar', q: '', unsent: false, busy: false, err: '', msg: '' };
+  var RNW_KINDS = [['ar', 'AR chaser', 'Paid suppliers whose AR is made but not signed yet'], ['invoice', 'Invoice chaser', 'Paid suppliers who owe us their invoice'],
+    ['paid', 'Payment sent', 'Paid requests whose supplier has no payment notice yet'], ['final', 'Final reminder', 'Events today or later, to their suppliers and crew']];
+  function rnwLoad() { RNW.err = ''; RNW.msg = ''; call('cueAdminCanvasChasers', [], function (d) { RNW.d = d; rnwDraw(); }, function (e) { RNW.err = "Couldn't load the lists: " + ((e && e.message) || e); rnwDraw(); }); }
+  function rnwPeso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function rnwKey(x) { return x.kind + '|' + x.pid + '|' + (x.item || ''); }
+  function rnwTicked(x) { var k = rnwKey(x), r = RNW.res[k]; return k in RNW.tick ? RNW.tick[k] : r ? !r.ok : !!x.on; }
+  function rnwShown() {
+    var q = RNW.q.trim().toLowerCase();
+    return ((RNW.d && RNW.d[RNW.kind]) || []).filter(function (x) { return (!RNW.unsent || !x.last)
+      && (!q || [x.supplier, x.project, x.pid, x.item].concat(x.reqs || []).join(' ').toLowerCase().indexOf(q) >= 0); });
+  }
+  function rnwDraw() {
+    var d = RNW.d, box = $('w-rnw');
+    if (!d) { setHtml(box, RNW.err ? '<div class="err">' + esc(RNW.err) + '</div>' : '<div class="small muted">Finding what to send…</div>'); return; }
+    var k = RNW_KINDS.filter(function (x) { return x[0] === RNW.kind; })[0], all = d[RNW.kind] || [], L = rnwShown(), fin = RNW.kind === 'final';
+    var on = L.filter(rnwTicked).length;
+    var row = function (x) { var r = RNW.res[rnwKey(x)];
+      return '<tr><td class="rnw-tick"><input type="checkbox" data-rnw-key="' + esc(rnwKey(x)) + '"' + (rnwTicked(x) ? ' checked' : '') + ' aria-label="Send to ' + esc(fin ? x.project : x.supplier) + '"></td>'
+        + (fin ? '<td><b>' + esc(x.project) + '</b><div class="adesc">' + esc(x.pid) + '</div></td><td>' + esc(x.supplier) + '</td>'
+          : '<td><b>' + esc(x.supplier || 'No supplier name') + '</b><div class="adesc">' + esc(x.project) + ' · ' + esc((x.reqs || []).join(', ')) + (RNW.kind === 'ar' ? ' · ' + esc(x.item) : '') + '</div></td><td>' + rnwPeso(x.amount) + '</td>')
+        + '<td class="adesc">' + (x.last ? 'Last sent ' + esc(String(x.last).slice(0, 16)) : 'Not sent yet') + '</td>'
+        + '<td class="rnw-go">' + (r ? (r.ok ? '<span class="ok">✓ Sent to ' + esc(r.to || '') + '</span>' : '<span class="bad">✕ ' + esc(r.error || 'Not sent') + '</span> ') : '')
+        + (r && r.ok ? '' : '<button type="button" class="btn ghost" data-rnw-edit="' + esc(RNW.kind) + '" data-rnw-item="' + esc(x.item || '') + '" data-rnw-pid="' + esc(x.pid) + '">Edit</button>') + '</td></tr>'; };
+    setHtml(box, '<div class="adesc" style="margin-bottom:8px">Send now instead of waiting. Tick what to send and press Send ticked: Canvas sends each one as in Send a notice, by email, and by text where there is a mobile. Edit opens it in Send a notice so you can type over the words first.</div>'
+      + '<div class="logf"><span class="stabs" role="tablist" aria-label="What to send">' + RNW_KINDS.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="' + x[0] + '" aria-pressed="' + (x[0] === RNW.kind) + '">' + esc(x[1]) + ' <span class="n">' + (d[x[0]] || []).length + '</span></button>'; }).join('') + '</span>'
+      + '<input type="search" data-rnw-q="1" placeholder="Search supplier, project or ID" aria-label="Search supplier, project or ID" value="' + esc(RNW.q) + '">'
+      + '<label class="adesc" style="opacity:1"><input type="checkbox" data-rnw-unsent="1"' + (RNW.unsent ? ' checked' : '') + '> Not sent yet</label>'
+      + '<button type="button" class="btn ghost" data-rnw-refresh="1">Refresh</button></div>'
+      + '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1"><b>' + esc(k[1]) + '</b><div class="adesc">' + esc(k[2]) + '</div></div>'
+      + '<span class="adesc">' + (L.length === all.length ? L.length + ' lines' : L.length + ' of ' + all.length + ' shown') + ' · ' + on + ' ticked</span>'
+      + (L.length ? '<button type="button" class="btn" data-rnw-send="1"' + (RNW.busy ? ' disabled' : '') + '>' + (RNW.busy ? 'Sending…' : 'Send ticked') + '</button>' : '') + '</div>'
+      + (RNW.msg ? '<div class="adesc" style="opacity:1;margin-bottom:6px">' + esc(RNW.msg) + '</div>' : '')
+      + (L.length ? '<table class="rnw"><thead><tr><th class="rnw-tick"><input type="checkbox" data-rnw-all="1" aria-label="Tick all shown"' + (on === L.length ? ' checked' : '') + '></th><th>' + (fin ? 'Project' : 'Supplier') + '</th><th>' + (fin ? 'Event day' : 'Paid') + '</th><th>Sent</th><th></th></tr></thead><tbody>' + L.map(row).join('') + '</tbody></table>'
+        : '<div class="small muted">' + (all.length ? 'Nothing matches the filter.' : 'Nothing to send.') + '</div>') + '</div>');
+  }
+  $('w-rnw').addEventListener('change', function (e) { var c = e.target;
+    if (c.getAttribute('data-rnw-unsent')) { RNW.unsent = c.checked; rnwDraw(); }
+    else if (c.getAttribute('data-rnw-all')) { rnwShown().forEach(function (x) { RNW.tick[rnwKey(x)] = c.checked; }); rnwDraw(); }
+    else if (c.getAttribute('data-rnw-key')) { RNW.tick[c.getAttribute('data-rnw-key')] = c.checked; rnwDraw(); } });
+  $('w-rnw').addEventListener('input', function (e) { if (!e.target.getAttribute('data-rnw-q')) return; RNW.q = e.target.value; rnwDraw(); var i = $('w-rnw').querySelector('[data-rnw-q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
+  $('w-rnw').addEventListener('click', function (e) {
+    if (e.target.closest('[data-rnw-refresh]')) { RNW.res = {}; RNW.tick = {}; RNW.d = null; rnwDraw(); rnwLoad(); return; }
+    var kb = e.target.closest('[data-rnw-kind]'); if (kb) { RNW.kind = kb.getAttribute('data-rnw-kind'); RNW.msg = ''; rnwDraw(); return; }
+    var ed = e.target.closest('[data-rnw-edit]'); if (ed) { snOpen(ed.getAttribute('data-rnw-edit'), ed.getAttribute('data-rnw-pid'), ed.getAttribute('data-rnw-item')); return; }
+    if (!e.target.closest('[data-rnw-send]') || RNW.busy) return;
+    var kind = RNW.kind, label = RNW_KINDS.filter(function (x) { return x[0] === kind; })[0][1];
+    var lines = rnwShown().filter(rnwTicked).map(function (x) { return { kind: kind, pid: x.pid, item: x.item || '' }; });   // only the ticked lines the filter shows
+    if (!lines.length) { RNW.msg = 'Tick at least one line.'; rnwDraw(); return; }
+    ask('Send ' + lines.length + ' ' + label + (lines.length > 1 ? 's' : '') + ' now?', 'Canvas sends each one now as in Send a notice, by email, and by text where there is a mobile.', null, 'Send', function () {
+      RNW.busy = true; RNW.msg = ''; rnwDraw();
+      call('cueAdminCanvasChaseSend', [lines], function (r) { RNW.busy = false;
+        (r.results || []).forEach(function (x) { RNW.res[rnwKey(x)] = x; delete RNW.tick[rnwKey(x)]; }); if (r.list) RNW.d = r.list;
+        RNW.msg = (r.results || []).filter(function (x) { return x.ok; }).length + ' of ' + lines.length + ' sent.'; rnwDraw(); },
+        function (err) { RNW.busy = false; RNW.msg = 'Nothing was sent: ' + ((err && err.message) || err); rnwDraw(); });
+    });
+  });
+  var jcTab = 'canvas';
+  document.querySelector('#settings [data-sec="jobchasers"] .stabs').addEventListener('click', function (e) { var b = e.target.closest('[data-jct]'); if (!b) return;
+    jcTab = b.getAttribute('data-jct'); this.querySelectorAll('[data-jct]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    $('w-rnw').hidden = jcTab !== 'canvas'; $('w-jobchasers').hidden = jcTab !== 'cue'; });
+
+  var SNW = { b: null, kind: '', pid: '', item: '', d: null, busy: false, q: '', err: '', items: null, out: '' };
+  function snBoardLoad() { call('cueAdminSnBoard', [], function (b) { SNW.b = b; snDraw(); }, function (e) { SNW.err = "Couldn't load: " + ((e && e.message) || e); snDraw(); }); }
+  function snOpen(kind, pid, item) {   // Canvas chasers' Edit opens Send a notice on that line
+    SNW.kind = kind || ''; SNW.pid = pid || ''; SNW.item = item || ''; SNW.d = null; SNW.items = null; SNW.out = '';
+    settingsTab('sendnotice'); if (SNW.b) snDraw();
+  }
+  function snKind() { return ((SNW.b && SNW.b.kinds) || []).filter(function (k) { return k.k === SNW.kind; })[0] || null; }
+  function snKindOpts() {
+    var q = SNW.q.trim().toLowerCase(), all = SNW.b.kinds || [];
+    var list = all.filter(function (x) { return !q || (x.label + ' ' + (x.who || '')).toLowerCase().indexOf(q) >= 0 || x.k === SNW.kind; });
+    return '<option value="">' + (list.length ? 'Choose a notice (' + list.length + ' of ' + all.length + ')' : 'No notice matches') + '</option>'
+      + list.map(function (x) { return '<option value="' + esc(x.k) + '"' + (x.k === SNW.kind ? ' selected' : '') + '>' + esc(x.label + (x.who ? ' · ' + x.who : '')) + '</option>'; }).join('');
+  }
+  function snDraw() {
+    var box = $('w-sn');
+    if (!SNW.b) { setHtml(box, SNW.err ? '<div class="err">' + esc(SNW.err) + '</div>' : '<div class="small muted">Loading…</div>'); return; }
+    var b = SNW.b, k = snKind(), needPid = k && !(k.noProject || k.page);
+    setHtml(box, '<div class="sngrid">'
+      + '<div class="card"><b>1 · What to send</b><label class="snl">Find a notice<input type="search" data-sn="find" placeholder="Type to filter: chaser, payment, crew…" value="' + esc(SNW.q) + '"></label>'
+      + '<label class="snl">Notice<select data-sn="kind">' + snKindOpts() + '</select></label>'
+      + (k && k.page ? '<div class="adesc">' + esc(k.label.replace(/ \(.*\)$/, '')) + 's have their own page in Canvas, with the groups to send to.' + (b.canvas ? ' <a href="' + esc(b.canvas) + '?page=' + esc(k.page) + '" target="_blank" rel="noopener">Open it in Canvas</a>' : '') + '</div>' : '')
+      + (needPid ? '<label class="snl">Project<select data-sn="pid"><option value="">Choose a project</option>' + b.projects.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === SNW.pid ? ' selected' : '') + '>' + esc(p.id + ' · ' + p.name + (p.date ? ' · ' + p.date : '')) + '</option>'; }).join('') + '</select></label>' : '')
+      + (k && k.item ? '<label class="snl">' + esc(k.item) + '<select data-sn="item">' + snItemOpts(needPid) + '</select></label>' : '') + '</div>'
+      + '<div class="card"><b>2 · Who gets it</b><div id="snPeople"><div class="adesc">Pick what to send and the project.</div></div></div>'
+      + '<div class="card"><b>3 · Check and edit the message</b><div id="snMsg"><div class="adesc">The email and the text show here.</div></div></div></div>');
+    if (k && k.item && (k.noProject || SNW.pid) && !SNW.items) call('cueAdminSnItems', [SNW.kind, k.noProject ? '' : SNW.pid], function (list) { SNW.items = list; snDraw(); }, function (e) { SNW.items = []; SNW.err = (e && e.message) || String(e); snDraw(); });
+    if (SNW.d) { snPeople(); snMsg(); }
+  }
+  function snItemOpts(needPid) {
+    if (needPid && !SNW.pid) return '<option value="">Choose a project first</option>';
+    if (!SNW.items) return '<option value="">Loading…</option>';
+    return '<option value="">' + (SNW.items.length ? 'Choose one' : 'None on this project yet') + '</option>' + SNW.items.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === SNW.item ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join('');
+  }
+  function snLoad() {
+    var k = snKind(), want = [SNW.kind, SNW.pid, SNW.item].join('|'); SNW.d = null; SNW.out = ''; snDraw();
+    $('snPeople').textContent = 'Loading…'; $('snMsg').textContent = 'Loading…';
+    call('cueAdminSnPrepare', [SNW.kind, k && k.noProject ? '' : SNW.pid, SNW.item], function (d) {
+      if (want !== [SNW.kind, SNW.pid, SNW.item].join('|')) return;
+      d.orig = d.text; d.email = true; d.textOn = SNW.kind !== 'own' && !!d.sms; SNW.d = d; snDraw();
+    }, function (e) { $('snPeople').innerHTML = '<span class="bad">' + esc((e && e.message) || String(e)) + '</span>'; $('snMsg').textContent = ''; });
+  }
+  function snReady() { var k = snKind(); return k && !k.page && (k.noProject || SNW.pid) && (!k.item || SNW.item); }
+  function snPhone(m) { return m ? '0' + String(m).slice(2) : ''; }
+  function snPeople() {
+    var d = SNW.d, P = $('snPeople'), own = SNW.kind === 'own';
+    var on = d.people.filter(function (p) { return p.on; }).length, noMob = d.people.filter(function (p) { return p.on && !p.mobile; }).length;
+    P.innerHTML = '<div class="logf" style="margin:6px 0"><span class="stabs"><button type="button" data-sn-em="1" aria-pressed="' + d.email + '"' + (own ? '' : ' disabled') + '>' + IC.mail + ' Email</button><button type="button" data-sn-tx="1" aria-pressed="' + d.textOn + '">' + IC.sms + ' Text</button></span>'
+      + '<span class="adesc">' + on + ' of ' + d.people.length + ' ticked' + (d.textOn && noMob ? ' · ' + noMob + ' with no mobile' : '') + '</span></div>'
+      + (d.people.length ? '<table class="rnw"><thead><tr><th></th><th>Name</th><th>Part</th><th>Email</th><th>Mobile</th><th>Last sent</th></tr></thead><tbody>'
+        + d.people.map(function (p, i) { return '<tr><td><input type="checkbox" data-sn-i="' + i + '"' + (p.on ? ' checked' : '') + ' aria-label="' + esc(p.name) + '"></td><td>' + esc(p.name) + (p.contact ? '<div class="adesc">' + esc(p.contact) + '</div>' : '')
+          + '</td><td class="adesc">' + esc((p.kind === 'supplier' ? 'Supplier' : p.kind === 'staff' ? 'Staff' : 'Crew') + (p.part ? ' · ' + p.part : '')) + '</td><td>'
+          + (d.typeIn ? '<input type="text" data-sn-em-i="' + i + '" value="' + esc(p.email || '') + '" placeholder="their email" aria-label="Email of ' + esc(p.name) + '">' : p.email ? esc(p.email) : '<span class="adesc">no email</span>')
+          + '</td><td>' + (d.typeIn ? '<input type="text" data-sn-mo-i="' + i + '" value="' + esc(snPhone(p.mobile)) + '" placeholder="0917 123 4567" aria-label="Mobile of ' + esc(p.name) + '">' : p.mobile ? esc(snPhone(p.mobile)) : '<span class="adesc">no mobile</span>')
+          + '</td><td class="adesc">' + esc(p.last || 'never') + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<div class="adesc">No one to send this to on this project.</div>');
+  }
+  function snSmsLen(s) { return String(s || '').replace(/₱/g, 'P').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '').length; }
+  function snLenTxt() { var c = snSmsLen(SNW.d.sms); return c > 160 ? c + ' characters: Semaphore sends it as ' + Math.ceil(c / 153) + ' texts' : c + ' of 160 characters (before names fill in)'; }
+  function snMsg() {
+    var d = SNW.d, M = $('snMsg'), n = d.people.filter(function (p) { return p.on; }).length;
+    M.innerHTML = '<div class="adesc">Filled in from the project. Type over anything; it is for this send only. ' + esc(d.note || '') + '</div>'
+      + (d.from ? '<div class="adesc">From: ' + esc(d.from) + '</div>' : '')
+      + (d.email ? '<label class="snl">Subject<input type="text" data-sn-f="subject" maxlength="250" value="' + esc(d.subject) + '"></label><label class="snl">Email message<textarea data-sn-f="text" rows="9">' + esc(d.text) + '</textarea></label>' : '')
+      + (d.textOn ? '<label class="snl">Text (one SMS)<textarea data-sn-f="sms" maxlength="300" rows="3">' + esc(d.sms) + '</textarea></label><div class="adesc" id="snLen">' + esc(snLenTxt()) + '</div>' : '')
+      + '<div class="arow" style="gap:8px;margin-top:8px"><button type="button" class="btn ghost" data-sn-go="test"' + (SNW.busy ? ' disabled' : '') + '>Send a test to me</button><span style="flex:1"></span><button type="button" class="btn" data-sn-go="send"' + (!n || SNW.busy ? ' disabled' : '') + '>Send to ' + n + (n === 1 ? ' person' : ' people') + '</button></div>'
+      + '<div class="adesc" style="opacity:1" aria-live="polite">' + SNW.out + '</div>'
+      + '<div class="adesc">The test comes to you from your Gmail as plain text, with the text message under it.</div>';
+  }
+  function snGo(test) {
+    var d = SNW.d, k = snKind(), people = d.people.filter(function (p) { return p.on; });
+    if (!people.length && !test) { SNW.out = '<span class="bad">Tick at least one person.</span>'; snMsg(); return; }
+    SNW.busy = true; SNW.out = test ? 'Sending a test to you…' : 'Sending…'; snMsg();
+    call('cueAdminSnSend', [{ kind: SNW.kind, pid: k && k.noProject ? '' : SNW.pid, item: SNW.item, people: people, email: d.email, text: d.textOn, subject: d.subject, body: d.text, sms: d.sms, edited: d.text !== d.orig, test: test }], function (r) {
+      SNW.busy = false;
+      SNW.out = r.test ? '<span class="ok">Test sent to ' + esc(r.sent[0]) + '.</span>'
+        : ((r.sent || []).length ? '<span class="ok">Sent to ' + esc(r.sent.join(', ')) + '.</span>' + (r.texted ? ' ' + r.texted + (r.texted === 1 ? ' text' : ' texts') + ' sent.' : '') : '')
+          + ((r.failed || []).length ? ' <span class="bad">Not sent: ' + esc(r.failed.map(function (f) { return f.name + ' (' + f.error + ')'; }).join('; ')) + '</span>' : '');
+      snMsg();
+      if (!r.test) call('cueAdminSnPrepare', [SNW.kind, k && k.noProject ? '' : SNW.pid, SNW.item], function (nw) { var ticks = {}; d.people.forEach(function (p) { ticks[p.key] = p.on; });
+        nw.people.forEach(function (p) { if (p.key in ticks) p.on = ticks[p.key]; }); d.people = nw.people; snPeople(); }, function () {});
+    }, function (e) { SNW.busy = false; SNW.out = '<span class="bad">' + esc((e && e.message) || String(e)) + '</span>'; snMsg(); });
+  }
+  $('w-sn').addEventListener('input', function (e) { var t = e.target, f = t.getAttribute('data-sn-f');
+    if (t.getAttribute('data-sn') === 'find') { SNW.q = t.value; $('w-sn').querySelector('[data-sn="kind"]').innerHTML = snKindOpts(); return; }
+    if (f && SNW.d) { SNW.d[f] = t.value; if (f === 'sms' && $('snLen')) $('snLen').textContent = snLenTxt(); return; }
+    if (t.getAttribute('data-sn-em-i')) SNW.d.people[+t.getAttribute('data-sn-em-i')].email = t.value.trim();
+    if (t.getAttribute('data-sn-mo-i')) SNW.d.people[+t.getAttribute('data-sn-mo-i')].mobile = t.value.trim(); });
+  $('w-sn').addEventListener('change', function (e) { var t = e.target, w = t.getAttribute('data-sn');
+    if (w === 'kind') { SNW.kind = t.value; SNW.item = ''; SNW.items = null; SNW.d = null; snDraw(); if (snReady()) snLoad(); }
+    else if (w === 'pid') { SNW.pid = t.value; SNW.item = ''; SNW.items = null; SNW.d = null; snDraw(); if (snReady()) snLoad(); }
+    else if (w === 'item') { SNW.item = t.value; if (snReady()) snLoad(); }
+    else if (t.getAttribute('data-sn-i')) { SNW.d.people[+t.getAttribute('data-sn-i')].on = t.checked; snPeople(); snMsg(); } });
+  $('w-sn').addEventListener('click', function (e) {
+    if (e.target.closest('[data-sn-em]') && SNW.kind === 'own') { SNW.d.email = !SNW.d.email; snPeople(); snMsg(); return; }
+    if (e.target.closest('[data-sn-tx]')) { SNW.d.textOn = !SNW.d.textOn; snPeople(); snMsg(); return; }
+    var g = e.target.closest('[data-sn-go]'); if (g && !SNW.busy) snGo(g.getAttribute('data-sn-go') === 'test'); });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */
   var logData = null, logErr = '', logF = { job: '', status: '', q: '' };
   function loadLog() { call('cueAdminLog', [], function (r) { logData = r; logErr = ''; renderLog(); }, function (e) { logErr = (e && e.message) || String(e); renderLog(); }); }
   function renderLog() {
-    var D = logData || { jobs: [], rows: [] }, q = logF.q.toLowerCase();
-    var L = D.rows.filter(function (x) { return (!logF.job || x.job === logF.job) && (!logF.status || x.status === logF.status) && (!q || (x.job + ' ' + x.error + ' ' + x.from).toLowerCase().indexOf(q) >= 0); });
-    var failed = D.rows.filter(function (x) { return x.status === 'Failed'; }).length;
+    var D = logData || { jobs: [], rows: [], statuses: [] }, q = logF.q.toLowerCase();
+    var L = D.rows.filter(function (x) { return (!logF.job || x.job === logF.job) && (!logF.status || x.status === logF.status)
+      && (!q || [x.job, x.error, x.from, x.name, x.to, x.subject, x.project, x.kind].join(' ').toLowerCase().indexOf(q) >= 0); });
+    var wk = new Date(Date.now() - 7 * 864e5).toISOString(), cueFail = D.rows.filter(function (x) { return x.from === 'Cue' && x.status === 'Failed' && x.at >= wk; }).length;
     var opt = function (v, t, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; };
-    setHtml($('w-log'), '<div class="adesc" style="margin-bottom:10px">Every background job Cue ran in the last 30 days, newest first. Read only.</div>'
+    var tile = function (t, n, sub, bad) { return '<div class="card logtile' + (bad ? ' bad' : '') + '"><div class="adesc">' + esc(t) + '</div><b>' + esc(n) + '</b>' + (sub ? '<div class="adesc">' + esc(sub) + '</div>' : '') + '</div>'; };
+    var cf = typeof D.failed7 === 'number' ? D.failed7 : null;
+    setHtml($('w-log'), '<div class="adesc" style="margin-bottom:10px">Everything Canvas sent and every job Cue ran in the last 30 days, newest first. Read only.</div>'
       + (logErr ? '<div class="err">' + esc(logErr) + '</div>' : '') + (logData ? '' : '<div class="small muted">Loading…</div>')
+      + (D.canvas_error ? '<div class="err">Canvas\'s sends could not be read: ' + esc(D.canvas_error) + '</div>' : '')
+      + (logData ? '<div class="logtiles">' + tile('Failed, last 7 days', String(cueFail + (cf || 0)), 'Canvas ' + (cf === null ? '?' : cf) + ' · Cue ' + cueFail, cueFail + (cf || 0) > 0)
+        + tile('Text credit (Semaphore)', D.sms_credit === null || D.sms_credit === undefined ? '?' : Number(D.sms_credit).toLocaleString('en-PH'), '', false) + '</div>' : '')
       + (logData ? '<div class="logf"><select data-log="job" aria-label="Job">' + opt('', 'All jobs', logF.job) + D.jobs.map(function (j) { return opt(j, j, logF.job); }).join('') + '</select>'
-        + '<select data-log="status" aria-label="Status">' + opt('', 'All statuses', logF.status) + opt('OK', 'OK', logF.status) + opt('Failed', 'Failed (' + failed + ')', logF.status) + '</select>'
-        + '<input type="search" data-log="q" placeholder="Search a job or error" value="' + esc(logF.q) + '" aria-label="Search"><span class="adesc">' + L.length + ' of ' + D.rows.length + '</span></div>' : '')
+        + '<select data-log="status" aria-label="Status">' + opt('', 'All statuses', logF.status) + (D.statuses || []).map(function (st) { return opt(st, st + ' (' + D.rows.filter(function (x) { return x.status === st; }).length + ')', logF.status); }).join('') + '</select>'
+        + '<input type="search" data-log="q" placeholder="Search a name, project, subject or error" value="' + esc(logF.q) + '" aria-label="Search"><span class="adesc">' + L.length + ' of ' + D.rows.length + '</span></div>' : '')
       + (logData && !L.length ? '<div class="card small muted">Nothing matches.</div>' : '')
       + L.slice(0, 300).map(function (x) {
-        return '<div class="card arow logrow"><span class="adesc logt">' + esc(x.day) + ' ' + esc(x.time) + '</span><span class="apill">' + esc(x.from) + '</span>'
-          + '<div style="flex:1;min-width:0"><b>' + esc(x.job) + '</b>' + (x.error ? '<div class="adesc">' + esc(x.error) + '</div>' : x.count !== '' ? '<div class="adesc">' + esc(x.count) + ' done' + (x.secs !== '' ? ' · ' + esc(x.secs) + ' s' : '') + '</div>' : '') + '</div>'
-          + '<span class="apill' + (x.status === 'Failed' ? ' bad' : '') + '">' + esc(x.status) + '</span></div>';
+        var icon = x.from === 'Canvas' ? (x.channel === 'text' ? IC.sms : IC.mail) : '<span class="ic">⚙</span>';
+        var sub = x.from === 'Canvas' ? [x.subject, x.project].filter(Boolean).join(' · ') + (x.error ? (x.subject || x.project ? ' · ' : '') + x.error : '')
+          : x.error ? x.error : x.count !== '' ? x.count + ' done' + (x.secs !== '' ? ' · ' + x.secs + ' s' : '') : '';
+        return '<div class="card arow logrow"><span class="adesc logt">' + esc(x.day) + ' ' + esc(x.time) + '</span><span class="apill">' + esc(x.from) + '</span>' + icon
+          + '<div style="flex:1;min-width:0"><b>' + esc(x.job) + '</b>' + (x.name ? ' · ' + esc(x.name) : '') + (sub ? '<div class="adesc">' + esc(sub) + '</div>' : '') + '</div>'
+          + '<span class="apill' + (x.status === 'Failed' || x.status === 'No address' ? ' bad' : '') + '">' + esc(x.status) + '</span></div>';
       }).join(''));
   }
   $('w-log').addEventListener('change', function (e) { var k = e.target.getAttribute('data-log'); if (k && k !== 'q') { logF[k] = e.target.value; renderLog(); } });

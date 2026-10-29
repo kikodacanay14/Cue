@@ -1,3 +1,4 @@
-Copied from CanvasWorkspace releases/rel-v319-crm-rest-main/files/ZapBridge.gs (Canvas V319, 28 Oct 2026, deploys thread):
-V318 plus crm_funnel winback and the crm_report read.
-md5 243e5a25999d985fac4481fa98c985e5
+CanvasWorkspace main src/ZapBridge.gs = live Canvas V330, plus two Canvas releases not yet live (29 Oct 2026): rel-cue-admin-move-main (PR #278,
+run_now_list/run_now_send/sn_board/sn_items/sn_prepare/sn_send, md5 5af6d66277b539e562ce11a81cabfb0f) and rel-sent-log-main (sent_log, appended at the end).
+md5 35d73dbb1c67547c8d9d2860155ed48a
+Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
