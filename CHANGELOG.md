@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.69: bid card in three parts, with Decline, Decide later and the clarification email (not deployed)
+## Cue 1.27.69: bid card in three parts, with Decline, Decide later and the clarification email (live as Version 156, 29 Oct 11:41Z, rollback 149)
 
 Asked by Kiko on 29 Oct 2026 at 10:47Z: "For Opportunities - i would like to see New Opportunities - Scoped Projects ... New
 Opportunities - For Clarification ... Opportunities Closing", and at 10:48Z: "indicate the source in the message". His answers
@@ -23,7 +23,7 @@ documents must be bought goes to "for clarification".
 - No new AI call (the clarification draft uses the same one call as before) and no email without Kiko's tap.
 - Tests: 486 (new `test/features/62-bid-card-v3.js`).
 
-## Cue 1.27.68: three bug fixes: CRM funnel, CRM timer, PhilGEPS bids (not deployed)
+## Cue 1.27.68: three bug fixes: CRM funnel, CRM timer, PhilGEPS bids (live as Version 156 with 1.27.69, 29 Oct 11:41Z)
 
 Asked by the coordinator on 29 Oct 2026 at 09:38Z, from the CRM process map Kiko asked for at 09:28Z: "Fix the two bugs now".
 
