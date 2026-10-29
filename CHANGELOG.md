@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (not deployed)
+## Cue 1.27.77: Gmail new contacts, Start intake on RFQ/RFP emails, centred tables, daily sales update, standard tags (live as Version 173, 29 Oct 17:30Z, rollback 171)
 
 One release cut by the deploys thread on live 1.27.76 (Version 171), after Canvas V353 shipped the Canvas halves (bridge
 `contact_new_check` / `contact_add`, the Emails waiting Start intake button, table short columns). The builder threads numbered
