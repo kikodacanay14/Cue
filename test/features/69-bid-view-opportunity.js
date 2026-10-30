@@ -14,7 +14,53 @@ test('BO1 View opportunity links PhilGEPS notices by reference number (old site 
   const r = JSON.parse(JSON.stringify(t.ctx.cueView_(t.state(v.id))));
   const box = { esc: x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]), metricLine: () => '', r };
   const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
-  assert.ok(/<a class="btn ghost"[^>]*href="https:\/\/notices\.philgeps\.gov\.ph\/GEPSNONPILOT\/Tender\/SplashBidNoticeAbstractUI\.aspx\?refID=13318074" target="_blank" rel="noopener">View opportunity<\/a>/.test(h), 'button opens the bid in a new tab');
-  assert.ok(/data-act="bids-view"[^>]*>View details<\/button><a class="btn ghost"[^>]*>View opportunity</.test(h), 'right after View details');
+  assert.ok(/<a class="btn sm ghost"[^>]*href="https:\/\/notices\.philgeps\.gov\.ph\/GEPSNONPILOT\/Tender\/SplashBidNoticeAbstractUI\.aspx\?refID=13318074" target="_blank" rel="noopener">View opportunity<\/a>/.test(h), 'button opens the bid in a new tab');
+  assert.ok(/data-act="bids-view"[^>]*>View details<\/button><a class="btn sm ghost"[^>]*>View opportunity</.test(h), 'right after View details');
   assert.ok(/>Official notice</.test(h), 'Official notice stays');
+});
+test('BO2 bid card uses the small standard button and the standard label for the source (Kiko 30 Oct 05:52Z)', () => {
+  const page = cuePage(), fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  assert.ok(!/class="btn"|class="btn ghost"/.test(fn) && /class="btn sm/.test(fn), 'every bid card button is small');
+  assert.ok(!/class="tag" style="background:var\(--act\)/.test(fn), 'the source is a label, not a filled button look');
+  assert.ok(/\.btn\.sm \{ min-height:30px; padding:0 12px; font-size:12px; \}/.test(page), 'small button size from Brand.html');
+});
+
+/* ---------- Cue's copy of the notice and the fuller card (Kiko 30 Oct 05:52Z-05:53Z) ---------- */
+// The parts of the old PhilGEPS abstract page for ref 13318074, as read in Kiko's Chrome on 30 Oct (span ids and <BR> line breaks kept).
+const PG_ABS_FULL = '<html><span id="lblDisplayReferenceNo" class="DisplayText5">13318074</span><span id="lblDisplayProcuringEntity" class="DisplayText5">AMANG RODRIGUEZ MEMORIAL MEDICAL CENTER</span>'
+  + '<span id="lblDisplayTitle" class="DisplayText5">Procurement of Office Supplies</span><span id="lblDisplayAOD" class="DisplayText5">Metro Manila</span>'
+  + '<span id="lblDisplaySolNumber" class="DisplayText5">Goods 2026-150</span><span id="lblDisplayProcureMode" class="DisplayText5">Negotiated Procurement - Small Value Procurement (Sec. 34)</span>'
+  + '<span id="lblDisplayCategory" class="DisplayText5">Audio and Visual Equipment</span><span id="lblDisplayBudget" class="DisplayText5">251,100.00</span>'
+  + '<span id="lblDisplayPeriod" class="DisplayText5">30 Day/s</span><span id="lblDisplayContactPerson" class="DisplayText5">Efren Ribano III<BR>BAC Secretary<BR>Sumulong Highway,<BR>Marikina City<BR>Philippines 1800<BR>63-2-9415854 Ext.127<BR>63-2-9416841<BR>armmcquotations@gmail.com</span>'
+  + '<span id="lblDisplayDocReqList" class="DisplayText5">11</span><span id="lblDisplayDatePublish" class="DisplayText5">30/10/2026</span><span id="lblDisplayCloseDateTime" class="DisplayText5">04/11/2026 10:00 AM</span>'
+  + '<span id="lblAbstractText" class="DisplayText5">Good day!<Br><Br>Kindly refer to the attached RFQ Form for instructions and further details.<Br><Br>Deadline of Submission will be on November 4, 2026, at 10:00 a.m. at the Procurement Section Office</span></html>';
+test('BO3 the notice page gives the agency\'s description, contact, delivery period, solicitation number, category, mode and document requests', () => {
+  const t = sandbox(), f = JSON.parse(JSON.stringify(t.ctx.cueBidsPgDetails_(PG_ABS_FULL)));
+  assert.ok(/^Good day!\n\nKindly refer to the attached RFQ Form/.test(f.description), f.description);
+  deq(f.contact, { name: 'Efren Ribano III', role: 'BAC Secretary', email: 'armmcquotations@gmail.com', phone: '63-2-9415854 Ext.127, 63-2-9416841' });
+  deq([f.solicitation, f.delivery, f.category, f.mode, f.doc_requests], ['Goods 2026-150', '30 Day/s', 'Audio and Visual Equipment', 'Negotiated Procurement - Small Value Procurement (Sec. 34)', 11]);
+});
+test('BO4 Cue saves a PDF copy of each old PhilGEPS notice once, and the card shows the description, category, delivery period and the copy', () => {
+  const site = log => req => { const m = req.url.match(/refID=(\d+)/); if (m && m[1] === '13310846') { (log.abs = log.abs || []).push(req.url); return PG_ABS_FULL.replace(/13318074/g, '13310846').replace('251,100.00', '500,000.00'); } return PG_SITE(log)(req); };
+  const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS', 'Other PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS }, philgeps: req => site(t.log)(req) });
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  const x = v.bids.items.filter(i => i.reference === '13310846')[0];
+  assert.ok(x, 'the notice is on the card');
+  assert.ok(/^Good day! Kindly refer to the attached RFQ Form/.test(x.summary), 'the agency\'s description, not the category and mode: ' + x.summary);
+  deq(x.details, { category: 'Audio and Visual Equipment', mode: 'Negotiated Procurement - Small Value Procurement (Sec. 34)', delivery: '30 Day/s', solicitation: 'Goods 2026-150', doc_requests: 11 });
+  deq(x.contacts.map(c => c.email), ['armmcquotations@gmail.com']);
+  assert.ok(/^https:\/\/drive\.google\.com\/file\/d\/f\d+\/view$/.test(x.copy.drive), 'Cue\'s copy');
+  const id = x.copy.drive.match(/\/d\/(f\d+)\//)[1], pdf = t.drive.files[id].toString('utf8');
+  assert.ok(/^%PDF/.test(pdf) && /Procurement Section Office/.test(pdf) && /Efren Ribano III/.test(pdf) && /Delivery period/.test(pdf), 'the PDF holds the notice');
+  assert.ok(t.tabs['Bid documents'].rows.some(r => /^copy:https:\/\/notices\.philgeps\.gov\.ph\/.*refID=13310846/.test(r[0]) && r[3] === 'Opened · saved (pdf)'), 'recorded once');
+  const page = cuePage(), fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const r = JSON.parse(JSON.stringify(v)), box = { esc: s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]), metricLine: () => '', r };
+  const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
+  assert.ok(/Category:<\/span> Audio and Visual Equipment · Negotiated Procurement/.test(h) && /Delivery period:<\/span> 30 Day\/s/.test(h), 'details on the card');
+  assert.ok(/Notice:<\/span> <a href="https:\/\/drive\.google\.com\/file\/d\/f\d+\/view" target="_blank" rel="noopener">Cue&#39;s copy \(PDF\)<\/a>/.test(h), 'the copy is linked on the card, outside View details');
+  assert.ok(/Document requests so far:<\/span> 11/.test(h) && /Solicitation number:<\/span> Goods 2026-150/.test(h), 'the rest under View details');
+  // The next day the notice is Still open: its page is not fetched again and the card keeps the copy and the details.
+  const n = (t.log.abs || []).length; t.ctx.__wait(864e5); t.log.gptN = {};
+  const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), s = w.bids.still.filter(i => i.reference === '13310846')[0];
+  assert.strictEqual((t.log.abs || []).length, n, 'no second fetch'); assert.ok(s.copy.drive && s.details.delivery === '30 Day/s');
 });

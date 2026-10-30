@@ -59,6 +59,21 @@ function cueBidsPgAbstract_(html, ref, cat) {
   return [String(ref), cat, sp('lblDisplayProcuringEntity'), title, abc, sp('lblDisplayAOD'), cueBidsPgWhen_(sp('lblDisplayCloseDateTime')), cueBidsPgWhen_(sp('lblDisplayDatePublish')),
     sp('lblDisplayProcureMode'), new Date(cueNow_()).toISOString()];
 }
+/** CUE-BIDS-NOTICE-COPY (Kiko 30 Oct 2026 05:52Z: "Summary of requirements: What about audio and visual? what actions are requested
+ * from us? add more details - if theres a document attach it to the card"; 05:53Z "yes in saving a copy of the notice").
+ * The rest of an abstract page: the agency's own description, the contact person, delivery period, solicitation number, the site's
+ * category and mode, and how many suppliers have asked for the documents. Read in Kiko's Chrome on 30 Oct (ref 13318074 and two more):
+ * the documents themselves sit behind the paid Order step, so they are never fetched; the page has no free file link. */
+function cueBidsPgDetails_(html) {
+  const raw = id => { const m = String(html || '').match(new RegExp('id="' + id + '"[^>]*>([\\s\\S]*?)</span>', 'i')); return m ? m[1] : ''; };
+  const lines = id => cueBidsPgUnesc_(raw(id).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ' ')).split('\n').map(x => x.replace(/\s+/g, ' ').trim());
+  const sp = id => cueBidsPgText_(raw(id));
+  const desc = lines('lblAbstractText').join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const c = lines('lblDisplayContactPerson').filter(Boolean), email = c.filter(x => /@/.test(x))[0] || '', phones = c.filter(x => /^\+?[\d\s()\-]{6,}(?:\s*Ext\.?\s*\d+)?$/i.test(x));
+  return { description: desc.slice(0, 2000), contact: c.length ? { name: c[0], role: c[1] || '', email, phone: phones.join(', ') } : null,
+    solicitation: sp('lblDisplaySolNumber'), delivery: sp('lblDisplayPeriod'), category: sp('lblDisplayCategory'), mode: sp('lblDisplayProcureMode'),
+    doc_requests: /^\d+$/.test(sp('lblDisplayDocReqList')) ? Number(sp('lblDisplayDocReqList')) : '' };
+}
 function cueBidsPgSheet_() {
   const ss = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', ''));
   let sh = ss.getSheetByName(CUE_PG_.tab);
