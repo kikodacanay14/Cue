@@ -52,7 +52,7 @@ function cueGmailReply_(f, body, files) {
 /** Makes one Gmail draft through the Gmail API (gmail.compose scope only). To is left blank when the supplier has no email. */
 function cueGmailDraft_(to, subject, body) {
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
-  const mime = (cueEmail_(to) ? 'To: ' + cueEmail_(to) + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(String(subject || '').replace(/[\r\n]+/g, ' ')) + '?=\r\n'
+  const mime = (cueEmailList_(to) ? 'To: ' + cueEmailList_(to) + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(String(subject || '').replace(/[\r\n]+/g, ' ')) + '?=\r\n'
     + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(body || '');
   const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', { method: 'post', contentType: 'application/json',
     muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },

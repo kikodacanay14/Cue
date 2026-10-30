@@ -461,6 +461,18 @@ function sandbox(o = {}) {
       return resp(200, { id: m.id, threadId: m.thread, internalDate: String(Date.parse(m.date)), snippet: m.body.slice(0, 80), payload: { mimeType: 'multipart/mixed', headers, body: {},
         parts: [{ mimeType: 'text/plain', body: { data: enc(m.body) } }].concat(m.pdf ? [{ mimeType: 'application/pdf', filename: 'Quotation.pdf', body: { attachmentId: 'att1', size: 40000 } }] : []) } });
     }
+    if (o.ctMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {   // contact find (CueContacts.gs): Kiko's mail that names a person
+      const enc = t => Buffer.from(t, 'utf8').toString('base64url'), hs = m => Object.keys(m.h).map(k => ({ name: k, value: m.h[k] }));
+      if (u.indexOf('/messages?') >= 0) { const q = decodeURIComponent(u.split('q=')[1]); (log.ctQ = log.ctQ || []).push(q);
+        if (o.ctGmailFail) return resp(500, {});
+        const w = ((q.match(/"([^"]+)"/) || [])[1] || '').toLowerCase(), addr = (q.match(/from:(\S+@[^\s)]+)/) || [])[1];
+        const hit = o.ctMail.filter(m => addr ? JSON.stringify(m.h).toLowerCase().indexOf(addr.toLowerCase()) >= 0 : w && (JSON.stringify(m.h) + ' ' + (m.body || '')).toLowerCase().indexOf(w) >= 0);
+        return resp(200, { messages: hit.map(m => ({ id: m.id, threadId: m.thread || m.id })) }); }
+      const m = o.ctMail.find(x => u.indexOf('/messages/' + x.id + '?') >= 0); if (!m) return resp(404, {});
+      (log.ctGet = log.ctGet || []).push(m.id + (u.indexOf('format=full') >= 0 ? ':full' : ':meta'));
+      const base = { id: m.id, threadId: m.thread || m.id, internalDate: String(Date.parse(m.date || '2026-09-04T02:00:00Z')), snippet: 'snip' };
+      return resp(200, Object.assign(base, { payload: u.indexOf('format=full') >= 0 ? { mimeType: 'multipart/alternative', headers: hs(m), parts: [{ mimeType: 'text/plain', body: { data: enc(m.body || '') } }] } : { headers: hs(m) } }));
+    }
     if (o.csMail && u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages') >= 0) {   // old-email contact scan: mail from each contact
       const enc = t => Buffer.from(t, 'utf8').toString('base64url'), all = [].concat(...Object.values(o.csMail));
       if (u.indexOf('/messages?') >= 0) { const q = decodeURIComponent(u.split('q=')[1]); (log.csQ = log.csQ || []).push(q);
