@@ -91,12 +91,15 @@ function cueNmLine_(inbox, threadId, m) {
 function cueNmFilter_(run, found) {
   const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [];
   let ids = null;
-  const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
+  let names = null;
+  const board = () => { if (!ids) { const bd = cueBridge_(run, 'get_project_board', {}); ids = cueTriageProjectIds_(bd); names = cueNmProjectNames_(bd); } return ids; };
+  const projectIds = () => board();
   let pt = null; const projThreads = () => pt || (pt = cueMailProjectThreads_(run));
   found.forEach(l => {
     const m = l._m;
     if (claimed[l.thread_id] || claimed['m:' + m.id] || claimed['m:' + l.key.replace(/^inbox:/, '')]) return;
-    try { if (projectIds().some(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))) return; }   // a project's email: status reports and chasers
+    try { if (projectIds().some(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))) return;   // a project's email: status reports and chasers
+      if (names.some(n => cueTriageHas_(m.subject, n))) return; }   // NM-PROJECT-NAME-2026-10-30: the subject names a Canvas project
     catch (e) { console.warn('New mail: Canvas board: ' + e); }
     if (l.inbox !== 'info' && projThreads()[String(l.thread_id)]) return;   // ASK-CUE-ONCE-2026-10-30: Canvas files it under a project (Team Cue)
     const rule = cueTriageRule_(rules, m.from), junk = rule === 'keep' ? '' : cueTriageJunk_(m);
@@ -218,14 +221,22 @@ function cueNmWaiting_(run) {
   const by = {}; (w.items || []).forEach(i => { if (i && i.id) by[String(i.id)] = i; });
   return by;
 }
+/* NM-PROJECT-NAME-2026-10-30 (Kiko 30 Oct 2026 10:12Z "the New email thread is still not filtering project emails"): project names
+ * from the Canvas board, for the subject check in cueNmFilter_. A name shorter than 8 letters is left out, so a short name never
+ * matches an everyday word. */
+function cueNmProjectNames_(board) {
+  return ((board && board.projects) || []).map(p => String(p.name || '').trim()).filter(n => n.replace(/[^A-Za-z]/g, '').length >= 8);
+}
+/** NM-PROJECT-NAME-2026-10-30: Canvas's Emails waiting puts this email under a project, so it is a project email (Team Cue). */
+const cueNmProjKnown_ = x => !!(x && x.known && (x.known.pid || x.known.project));
 function cueNmKnown_(by, items) {
-  if (!by) return;
   items.forEach(x => {
-    const i = x.inbox === 'mine' && !x.known && by[String(x.thread_id)];
+    const i = by && x.inbox === 'mine' && !x.known && by[String(x.thread_id)];
     if (i) x.known = { who: cueStr_(i.who, 20), name: cueStr_(i.name, 120), project: cueStr_(i.project, 160), pid: cueStr_(i.pid, 40) };
     // ASK-CUE-ONCE-2026-10-30 (Kiko 30 Oct 2026 05:50Z "project emails stay in Team Cue others are in Ask Cue"): an email Canvas files
     // under a project shows in that project's thread in Team Cue, so it leaves today's New mail list (kept, marked, never deleted).
-    if (i && i.pid && !x.removed && !x.task_id) x.removed = 'project';
+    // NM-PROJECT-NAME-2026-10-30: also a line whose Canvas match was saved before this rule, or that names the project without its id.
+    if (cueNmProjKnown_(x) && !x.removed && !x.task_id) x.removed = 'project';
   });
 }
 
