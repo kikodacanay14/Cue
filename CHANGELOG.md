@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.27.84: View opportunity on bid cards (not deployed)
+
+Kiko, 30 Oct 2026 05:37Z, on a PhilGEPS bid card ("Procurement of Office Supplies", Amang Rodriguez Memorial Medical Center,
+13318074): "this should have a view opportunity which opens the bid itself from the main website". At 05:38Z: "all links when clicked
+lead to a The page isnt working".
+
+- Every bid card (Scoped, For clarification, Closing) gets a **View opportunity** button right after View details. It opens the
+  bid's own page in a new tab. Old PhilGEPS site notices open by reference number
+  (`SplashBidNoticeAbstractUI.aspx?refID=<ref>`, a public page). Bulletin Board notices open `philgeps.gov.ph/tenders/viewBidNotice/<ref>`,
+  which needs Kiko's PhilGEPS sign-in. Other sources open the notice link the scan found.
+- Official notice under View details stays as it was.
+- Why links showed "This page isn't working": a read-only check in Kiko's Chrome on KKD (30 Oct) found the notice link itself works
+  when opened fresh, and the same link loads fine without cookies. After a few visits the old PhilGEPS site's session cookie goes bad
+  and the site loops redirects (ERR_TOO_MANY_REDIRECTS), so every link to it fails in that browser until the cookie clears.
+- Tests: 551 (new test/features/69-bid-view-opportunity.js).
+
 ## Cue 1.27.83: a tidier Ask Cue list (not deployed; built as 1.27.78, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 03:24Z, on the Ask Cue thread list: "i felt overwhelmed by this. coz there's so many... then i realized that

@@ -707,6 +707,8 @@
         }
       }
       b.push('<button class="btn ghost" data-act="bids-view" data-id="' + esc(r.id) + '" data-bk="' + esc(r.id + '|' + x.key) + '">View details</button>');
+      // View opportunity (Kiko 30 Oct 05:37Z): opens the bid's own page on the source website in a new tab. Official notice stays under View details.
+      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
       b = b.concat(end);
       b = b.filter(Boolean);
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
