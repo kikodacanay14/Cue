@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.83: a tidier Ask Cue list (not deployed; built as 1.27.78, renumbered by the deploys thread)
+## Cue 1.27.83: a tidier Ask Cue list (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.78, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 03:24Z, on the Ask Cue thread list: "i felt overwhelmed by this. coz there's so many... then i realized that
 some of these are duplicates as well. can we remove the duplicates? and can you a schedule on when the jobs would run". The
@@ -22,7 +22,7 @@ card "Clean up Ask Cue as shown in the After picture?" at 03:55Z.
 
 Tests: 529, all passing (new SJ1 to SJ4 in `test/features/66-ask-cue-subjects.js`; FEATURE-MAP.md regenerated).
 
-## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (not deployed; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
+## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 
 Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...
 so Cue seems dumb", then "cant i just chat with Claude as Cue?" and at 03:50Z "if Cue is dumb as a rock and i cant put Claude there
@@ -44,7 +44,7 @@ so i can chat with someone smart - then there's no use for Cue". At 03:53Z he pi
 - Cue's rules, voice and tool list are sent as a cached prefix, so repeat rounds and chats read them at the cache price.
 - Tests: 546 on the deploys line (6 new in test/features/68-claude-brain.js, including "find Ruth at Moldex's email" and the AMI Group ask).
 
-## Cue 1.27.81: Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (not deployed)
+## Cue 1.27.81: Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173)
 
 Cut on live 1.27.77 (Version 173). Builds 1.27.78 to 1.27.80 belong to other threads; the deploys thread stacks them. No Canvas
 release is needed: Open in Canvas uses the project link Canvas already reads. Tests: 540, all passing on the deploys line (1.27.80 + this).
@@ -72,7 +72,7 @@ also make cards foldable and expandable?". He saw the mockups and picked "Yes, b
   (`src/IndexPages.html`), its button (`src/IndexCards.html`) and fold styles (`src/IndexStyle.html`). Tests A6, A6b, A6c, A6d
   in `test/features/17-award-chasers.js` (A6 replaces the old "urgent with no draft" test).
 
-## Cue 1.27.80: Cue finds contacts' email addresses (not deployed)
+## Cue 1.27.80: Cue finds contacts' email addresses (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173)
 
 Kiko asked on 30 Oct 2026 at 03:33Z: "can you please teach Cue now how to find contacts! what the format of an email address is!!
 how to find it where to find it!!!". At 11:26 to 11:34 Manila that day he asked for Rommel Siena and Archie's addresses on the AMI
@@ -94,7 +94,7 @@ Group account follow-up. Cue searched Canvas projects for the names, then said "
 - Not in this release: HubSpot contacts (needs a Canvas bridge read), RFQ attachments, and web or LinkedIn searches.
 - Tests: 459 (7 new in test/features/67-contact-find.js).
 
-## Cue 1.27.79: accreditation threads in Ask Cue; the Gmail contact scan skips no-reply senders like chrome-noreply@ (not deployed)
+## Cue 1.27.79: accreditation threads in Ask Cue; the Gmail contact scan skips no-reply senders like chrome-noreply@ (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173)
 
 One release on live 1.27.77: the bug fix below plus the accreditation feature built as 1.27.78. Tests: 530, all passing.
 
