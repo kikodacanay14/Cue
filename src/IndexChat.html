@@ -99,7 +99,7 @@
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
       if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); teamCueBtn(); return; }
       if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
-      if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows)) { canvasRowsSet(d.rows); renderChat(); }
+      if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows)) { canvasRowsSet(d.rows); canvasTodaySet(d.today); renderChat(); }
       // RFQ-RFP-INTAKE (Kiko 29 Oct 15:13Z): Start intake on Canvas's Emails waiting card. Cue reads that email in Kiko's Gmail, opens the task and runs it.
       if (d.canvasWs === 'cueIntake' && e.source === CUE_HOST.canvas && /^[0-9a-f]{6,32}$/i.test(String(d.thread_id || ''))) cueIntakeFrom(String(d.thread_id));
     });
@@ -115,6 +115,15 @@
   function canvasRowsSet(rows) {
     canvasRows = rows.filter(function (r) { return r && (r.k === 'crm' || r.k === 'todo'); }).slice(0, 2).map(function (r) {
       return { k: r.k, name: String(r.name || (r.k === 'crm' ? 'CRM' : 'To do')).slice(0, 60), sub: String(r.sub || '').slice(0, 200), n: Math.max(0, Math.min(999, +r.n || 0)) };
+    });
+  }
+  /* CARD-OVERHAUL-2026-10-30 (card review, Kiko approved 30 Oct 2026 07:59Z): Canvas also sends Kiko's task counts by place
+     ({canvasWs:'cueRows', today:[{k, name, overdue, today, assigned}]}) for the Today's tasks card in the Morning thread. */
+  var canvasToday = [];
+  function canvasTodaySet(rows) {
+    var n = function (v) { return Math.max(0, Math.min(999, +v || 0)); };
+    canvasToday = (Array.isArray(rows) ? rows : []).filter(function (r) { return r && /^(crm|todo|[ap]:.{1,120})$/.test(String(r.k || '')); }).slice(0, 30).map(function (r) {
+      return { k: String(r.k), name: String(r.name || r.k).slice(0, 80), overdue: n(r.overdue), today: n(r.today), assigned: n(r.assigned) };
     });
   }
   function teamCueBtn() {

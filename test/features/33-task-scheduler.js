@@ -54,7 +54,7 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
 });
 test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', false], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-status', 'Fri 07:00', true], ['sys-funnelreview', 'Mon 07:00', false], ['sys-relnotes', 'Daily 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-unsched', 'Daily 07:00', true]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', false], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-status', 'Fri 07:00', true], ['sys-funnelreview', 'Mon 07:00', false], ['sys-relnotes', 'Daily 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-unsched', 'Daily 07:00', false]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
   t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');

@@ -70,7 +70,8 @@
   function swFold(k, dflt) { var v = swOpen[k]; return (v === undefined ? dflt : v) ? ' open' : ''; }
   function sweepCardHtml(r) {
     var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
-    b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
+    // CARD-OVERHAUL-2026-10-30: "Your tasks due" lines show as counts in Today's tasks (the Morning thread), not here.
+    b.items.forEach(function (it) { if (it.kind === 'tasks') return; if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
     var mail = b.items.filter(function (it) { return !it.no_email && !it.removed && !it.tap; }).length;
     // Send follow-up (it.tap) works until the batch is closed, also after Approve and send.
     var tapLive = waiting || again || r.status === 'Scheduled' || r.status === 'Done';

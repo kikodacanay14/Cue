@@ -391,4 +391,8 @@
   table th :is(a, button, span) { color:#fff !important; }
   .card .actions { flex-wrap:wrap; justify-content:flex-end; } .card .actions > .btn:not(.ghost):not(.bad) { order:-1; }
   .card .actions .btn, .card > .btn { min-height:30px; padding:0 12px; font-size:12px; }
+  /* Today's tasks (Morning thread): places left, counts centred, every cell middle. */
+  table.ttoday { width:100%; border-collapse:collapse; font-size:13px; } table.ttoday :is(th, td) { padding:6px 8px; text-align:center; vertical-align:middle; border-bottom:1px solid var(--line); }
+  table.ttoday th { font-size:14px; font-weight:700; } table.ttoday td { color:var(--muted); font-weight:500; } table.ttoday td:first-child { text-align:left; }
+  .tlink { background:none; border:0; padding:0; font:inherit; color:#2810DC; cursor:pointer; text-align:left; }
 </style>

@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 71 server files, 1378 top-level names, 34 task kinds, 33 word checks before the
+Counts: 71 server files, 1378 top-level names, 35 task kinds, 33 word checks before the
 chat call, 13 background jobs in the 5-minute trigger, 86 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -45,7 +45,8 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `status` | Friday status updates |  | Draft and send | `CueStatus.gs` | `CueStatus.gs` | 1 |
 | `style` | Learning your style |  | Approve | `CueStyle.gs` | `CueStyle.gs` | 3 |
 | `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 4 |
-| `sweep` | Morning sweep |  | Draft and send | `CueSweep.gs` | `CueSweep.gs` | 1 |
+| `sweep` | Morning sweep |  | Draft and send | `CueSweep.gs` | `CueSweep.gs` | 2 |
+| `tasks` | Page only (not in the command list) |  |  | none | none | 2 |
 | `tri` | Task, issue or risk |  | Approve | `CueIntake.gs` (default) | `CueTri.gs` | 1 |
 | `vendor` | Supplier search | Supplier search | Draft and send | `CueVendor.gs` | `CueVendor.gs` | 1 |
 | `workflow` | Workflow map | Workflow map | Approve | `CueWorkflow.gs` | `CueWorkflow.gs` | 1 |
