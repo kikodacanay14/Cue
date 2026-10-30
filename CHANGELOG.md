@@ -1,16 +1,5 @@
 # Changelog
 
-## Cue (number set by the deploys thread): darker field names and section headers (not deployed)
-
-Kiko, 30 Oct 2026 06:06Z: "why is the Header always lighter than the text? Make headers darker. and text not in bold. or make headers a
-size bigger that the text".
-
-- On cards, the name in each "Name: value" line (Organization, Bid end date, Budget, Summary of requirements and the rest) is now dark
-  and bold (`.fk`), where it was light grey. The value is regular weight (`.card .small` 400, was 500).
-- Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
-- Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
-- Tests: 556 (BO5 in test/features/69-bid-view-opportunity.js).
-
 ## Cue 1.27.86: project emails stay in Team Cue (not deployed; built as 1.27.85, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 05:50Z, in the thread "Cut Ask Cue thread overload": "emails is retained depending if its a project email or not -
@@ -45,6 +34,17 @@ requested from us? add more details - if theres a document attach it to the card
 - What the old site does not give: the bid documents themselves (the RFQ form, TOR) sit behind PhilGEPS's paid Order step, so Cue does not
   fetch them. Read in Kiko's Chrome on 30 Oct: none of three notice pages had a free file link.
 - Tests: 554 (test/features/69-bid-view-opportunity.js: BO2 to BO4). The test harness's blob gains `getAs` for the PDF.
+
+Added the same day, before it shipped (darker field names and section headers):
+
+Kiko, 30 Oct 2026 06:06Z: "why is the Header always lighter than the text? Make headers darker. and text not in bold. or make headers a
+size bigger that the text".
+
+- On cards, the name in each "Name: value" line (Organization, Bid end date, Budget, Summary of requirements and the rest) is now dark
+  and bold (`.fk`), where it was light grey. The value is regular weight (`.card .small` 400, was 500).
+- Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
+- Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
+- Tests: 555 with this on 1.27.85 (BO5 in test/features/69-bid-view-opportunity.js).
 
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
