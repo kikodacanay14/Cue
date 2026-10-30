@@ -1,6 +1,16 @@
 # Changelog
 
-## Cue 1.27.87: Kiko's UI rules on every card and table (not deployed)
+## Cue 1.27.88: card overhaul phase 1, the look (live as Version 183, 30 Oct 2026 08:33Z, rollback Version 180)
+
+Kiko approved the card review page (v40) on 30 Oct 2026 at 07:59Z by tapping "Yes, build it" in the thread "Redesign all Cue cards to
+brand and UI rules". Phase 1 changes the look only: brand fonts (Quicksand for the interface, Steagal for display text), purple main
+buttons and table headers, matching Canvas PR #354. Routing (phase 2) and card flows (phase 3) come later as separate builds.
+
+- `src/Index.html` loads Quicksand in place of DM Sans and Archivo Black. `src/IndexStyle.html` sets the brand fonts and colours.
+- Built as Cue PR #264 (branch claude/project-thread-xwyfm7), stacked on 1.27.87. Numbered by the deploys thread.
+- Tests: 561, all passing.
+
+## Cue 1.27.87: Kiko's UI rules on every card and table (live as Version 183, 30 Oct 2026 08:33Z, rollback Version 180)
 
 Kiko, 30 Oct 2026 06:12Z: "add to UI rules. Tables: Headers are always aligned Center. Columns with Financial values are alignes
 Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size bigger than the values. Overall:
@@ -22,7 +32,7 @@ Builds on the dark field names in the bid card release (1.27.85).
 
 Tests: 561, all passing. UR1 to UR5 are new (`test/features/70-ui-rules.js`).
 
-## Cue 1.27.86: project emails stay in Team Cue (not deployed; built as 1.27.85, renumbered by the deploys thread)
+## Cue 1.27.86: project emails stay in Team Cue (live as Version 183, 30 Oct 2026 08:33Z, rollback Version 180; built as 1.27.85, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 05:50Z, in the thread "Cut Ask Cue thread overload": "emails is retained depending if its a project email or not -
 project emails stay in Team Cue others are in Ask Cue". Before this, New mail and the Morning batch dropped a project's email only
@@ -40,7 +50,7 @@ as well as in the project's thread in Team Cue.
 - The Canvas half, which hides the no-project Emails waiting row from Kiko's Team Cue, ships separately.
 
 Tests: 552, all passing. NM5 is updated, and SJ5 is new.
-## Cue 1.27.85: tidier bid cards with Cue's copy of each notice (not deployed)
+## Cue 1.27.85: tidier bid cards with Cue's copy of each notice (live as Version 183, 30 Oct 2026 08:33Z, rollback Version 180)
 
 Kiko, 30 Oct 2026 05:52Z, on the bid card: "make the buttons smaller. its almost half of the card already. make labels not look like
 buttons. dont we have a standard look for labels and buttons? Summary of requirements: What about audio and visual? what actions are
