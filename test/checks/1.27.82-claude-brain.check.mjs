@@ -25,7 +25,23 @@ export default {
     { title: '"email Rommel Siena and Archie about the AMI projects" fills To with both addresses; nothing is sent', run: async h => {
       const { res, secs } = await say(h, 'email Rommel Siena and Archie about the AMI projects');
       console.log('AMI (' + secs + ' s): ' + JSON.stringify(res).slice(0, 800));
-      const all = JSON.stringify(res);
+      let all = JSON.stringify(res);
+      if (res.ask) {   // a plan card first ("Here's what I'll do"): the robot taps Go, the same tap Kiko makes; the email itself stays a draft
+        const g = await h.door('check_call', { fn: 'cueAskPick', args: [res.ask, 'go'] });
+        if (!g.ok) throw new Error('Go on the plan card failed: ' + g.error);
+        const gr = g.result || {};
+        console.log('Go: ' + JSON.stringify(gr).slice(0, 400));
+        all += JSON.stringify(gr);
+        if (gr.request_id) {
+          let v = null;
+          for (let i = 0; i < 3 && !(v && v.ok); i++) { try { v = await h.door('check_call', { fn: 'cueRun', args: [gr.request_id] }); } catch (e) { console.log('cueRun dropped: ' + e.message); } }
+          if (!v || !v.ok) throw new Error('cueRun failed: ' + (v && v.error));
+          const run = v.result || {};
+          console.log('Run (' + run.status + '): ' + JSON.stringify(run).slice(0, 800));
+          if (run.status === 'Failed' || run.error) throw new Error('The draft run ended ' + run.status + ': ' + (run.error || run.stage));
+          all += JSON.stringify(run);
+        }
+      }
       const found = all.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
       const uniq = [...new Set(found.map(x => x.toLowerCase()))].filter(x => !/blankspaceevent\.com$/.test(x));
       if (uniq.length < 2) throw new Error('Expected two addresses for Rommel Siena and Archie, got ' + JSON.stringify(uniq));
