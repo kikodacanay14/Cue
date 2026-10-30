@@ -718,7 +718,8 @@
       }
       b.push('<button class="btn sm ghost" data-act="bids-view" data-id="' + esc(r.id) + '" data-bk="' + esc(r.id + '|' + x.key) + '">View details</button>');
       // View opportunity (Kiko 30 Oct 05:37Z): opens the bid's own page on the source website in a new tab. Official notice stays under View details.
-      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
+      // Kiko 06:21Z: "on load View Details > expands View Details becomes View Opportunity": hidden until View details opens, then it takes that button's place.
+      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn sm ghost" data-vo="' + esc(r.id + '|' + x.key) + '" style="display:none;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
       b = b.concat(end);
       b = b.filter(Boolean);
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
@@ -1606,7 +1607,9 @@
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
         if (act === 'bids-intake') { b.disabled = true; return call('cueBidsStartIntake', [id, b.getAttribute('data-f')], started, fail); }
-        if (act === 'bids-view') { var vk = b.getAttribute('data-bk');
+        if (act === 'bids-view') { var vk = b.getAttribute('data-bk'), vo = null;
+          scope.querySelectorAll('[data-vo]').forEach(function (x) { if (x.getAttribute('data-vo') === vk) vo = x; });
+          if (vo) { scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) x.style.display = ''; }); b.style.display = 'none'; vo.style.display = 'inline-flex'; return; }
           scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) { var open = x.style.display === 'none'; x.style.display = open ? '' : 'none'; b.textContent = open ? 'Hide details' : 'View details'; } }); return; }
         if (act === 'bids-later' || act === 'bids-decline') { b.disabled = true; return call('cueBidsDecide', [id, b.getAttribute('data-f'), act === 'bids-later' ? 'later' : 'declined'], done, fail); }
         if (act === 'bids-edit' || act === 'bids-send' || act === 'bids-cancel') {

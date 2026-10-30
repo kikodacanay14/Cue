@@ -31,6 +31,8 @@ size bigger that the text".
 - Kiko, 06:15Z, with a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value". Each field line on a bid
   card is now two columns: the name in the accent colour (600 weight, no colon) and the value, regular, beside it (`.kv` in IndexStyle.html).
 - Kiko, 06:17Z: "use spacing in between lines. they are too tight". Field lines get line-height 1.6 and 10px between rows.
+- Kiko, 06:21Z: "on load View Details > exepands View Details becomes View Opportunity". On load a bid card shows View details only. Tapping
+  it opens the details, and the button turns into View opportunity in the same place. A notice without its own page keeps View details / Hide details.
 
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
