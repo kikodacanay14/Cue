@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.86: project emails stay in Team Cue (not deployed; built as 1.27.85, renumbered by the deploys thread)
+
+Kiko, 30 Oct 2026 05:50Z, in the thread "Cut Ask Cue thread overload": "emails is retained depending if its a project email or not -
+project emails stay in Team Cue others are in Ask Cue". Before this, New mail and the Morning batch dropped a project's email only
+when its subject or first line named the project's ID. An email Canvas files under a project by its sender still showed in Ask Cue
+as well as in the project's thread in Team Cue.
+
+- New mail and the Morning batch's inbox lines now also leave out any of Kiko's inbox threads that Canvas's Emails waiting list (bridge
+  read `mail_waiting`) files under a project. Canvas is read once per run, and only when there is new mail. When Canvas cannot be
+  read, nothing more is dropped.
+- A New mail line that the sort later finds under a project is marked done with the words "A project email: it is in the project's
+  thread in Team Cue." It is never deleted.
+- info@ mail is unchanged.
+- `cueMailProjectThreads_` in `src/CueTriage.gs`, used by `cueTriageFind_` and `cueNmFilter_`. There is no new bridge action, no AI
+  call and no email.
+- The Canvas half, which hides the no-project Emails waiting row from Kiko's Team Cue, ships separately.
+
+Tests: 552, all passing. NM5 is updated, and SJ5 is new.
 ## Cue 1.27.85: tidier bid cards with Cue's copy of each notice (not deployed)
 
 Kiko, 30 Oct 2026 05:52Z, on the bid card: "make the buttons smaller. its almost half of the card already. make labels not look like

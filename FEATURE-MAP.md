@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 71 server files, 1376 top-level names, 34 task kinds, 33 word checks before the
+Counts: 71 server files, 1377 top-level names, 34 task kinds, 33 word checks before the
 chat call, 13 background jobs in the 5-minute trigger, 86 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -139,7 +139,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
 | `CueBids.gs` | `phone`, `subject` | Bid documents, Requests | 3 | 0 | 7 | 8 |
 | `CueBidsPhilgeps.gs` |  |  | 0 | 0 | 1 | 3 |
-| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 41 | 3 |
+| `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 42 | 3 |
 | `CueCanvas.gs` | `find_similar_projects`, `phone`, `search_projects` |  | 0 | 0 | 17 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
@@ -195,7 +195,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueToday.gs` |  | Requests | 0 | 0 | 1 | 3 |
 | `CueTri.gs` | `add_tri_items` | Requests | 0 | 0 | 2 | 4 |
-| `CueTriage.gs` |  | Triage log, Triage rules | 1 | 1 | 10 | 6 |
+| `CueTriage.gs` | `mail_waiting` | Triage log, Triage rules | 1 | 1 | 10 | 7 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
 | `CueUsage.gs` |  | AI Runs, Requests | 0 | 0 | 2 | 4 |
 | `CueVendor.gs` | `subject`, `supplier_lookup` | Requests | 2 | 1 | 3 | 7 |
@@ -210,7 +210,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueNow_` | `Cue.gs` | 55 |
 | `cueStr_` | `CueText.gs` | 54 |
 | `cueChat_` | `Cue.gs` | 41 |
-| `cueBridge_` | `CueBridge.gs` | 36 |
+| `cueBridge_` | `CueBridge.gs` | 37 |
 | `cueSheet_` | `Cue.gs` | 36 |
 | `cueLocked_` | `Cue.gs` | 35 |
 | `cueLoad_` | `Cue.gs` | 33 |

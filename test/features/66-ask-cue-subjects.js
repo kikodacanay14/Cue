@@ -53,3 +53,14 @@ test('SJ4 the page names a subject thread by its subject', () => {
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
   assert.ok(/r\.subject && r\.subject\.title[^\n]*return subj\.subject\.title/.test(html));
 });
+
+test('SJ5 Morning batch inbox lines leave out an email Canvas files under a project (Kiko 30 Oct 05:50Z "project emails stay in Team Cue"); Canvas down drops nothing more', () => {
+  const W = { on: true, stale: false, checked: 1, items: [{ id: 'b2b2b2b2b2b2b2b2', who: 'Client', name: 'Marco Cruz', pid: 'AC-1', project: 'Acme Year-End' }, { id: '0909090909090909', who: 'Supplier', name: 'X', pid: '', project: '' }] };
+  const t = sandbox({ inbox: INBOX, triage: TRIAGE, waiting: W });
+  const lines = t.ctx.cueTriageFind_({ s: triRun(), board: BOARD });
+  assert.ok(!lines.some(l => l.thread_id === 'b2b2b2b2b2b2b2b2'), 'the project email is not in the batch');
+  assert.ok(lines.some(l => l.thread_id === '0909090909090909'), 'an email Canvas knows with no project stays');
+  assert.strictEqual(t.log.mailWaiting, 1, 'Canvas read once');
+  const d = sandbox({ inbox: INBOX, triage: TRIAGE, waitingFail: true });
+  assert.ok(d.ctx.cueTriageFind_({ s: triRun(), board: BOARD }).some(l => l.thread_id === 'b2b2b2b2b2b2b2b2'), 'without Canvas nothing more is dropped');
+});
