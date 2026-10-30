@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.89: card overhaul phase 2, where cards go (not deployed)
+## Cue 1.27.89: card overhaul phase 2, where cards go (LIVE as Version 184, 30 Oct 2026 09:06Z; rollback Version 183)
 
 Kiko approved the card review page (https://claude.ai/artifact/TswYWLj6nLSsq3vLfhXrf1) on 30 Oct 2026 at 07:59Z. At 08:50Z: "usage is
 running low make sure that we deploy the new cards". Built as Cue PR #264 (branch claude/project-thread-xwyfm7 @ b08ab46), numbered by
