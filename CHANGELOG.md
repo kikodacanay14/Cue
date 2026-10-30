@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.27.89: card overhaul phase 2, where cards go (not deployed)
+
+Kiko approved the card review page (https://claude.ai/artifact/TswYWLj6nLSsq3vLfhXrf1) on 30 Oct 2026 at 07:59Z. At 08:50Z: "usage is
+running low make sure that we deploy the new cards". Built as Cue PR #264 (branch claude/project-thread-xwyfm7 @ b08ab46), numbered by
+the deploys thread.
+
+- Four scheduled jobs are turned off once each, through schedule seed v10 and the CUE_SCHED_OFF_ONCE property. They stay in Settings
+  and can be turned back on: the Monday HubSpot check (Kiko 07:45Z "dont include"), the Thursday funnel records review and the Monday
+  sales funnel review (duplicates of the Sales funnel card), and the Unscheduled check (the Today's tasks card replaces it).
+- A Today's tasks counts card sits at the top of the Morning thread, and the task lines leave the Morning batch card. The counts come
+  from Canvas's cueRows today field (Canvas V358 card overhaul). Until Canvas ships, the card shows only the Personal row.
+- New mail buttons match the review, and a drafted reply shows "Reply ready" with Send reply.
+- Tests: 564, all passing.
+
 ## Cue 1.27.88: card overhaul phase 1, the look (live as Version 183, 30 Oct 2026 08:33Z, rollback Version 180)
 
 Kiko approved the card review page (v40) on 30 Oct 2026 at 07:59Z by tapping "Yes, build it" in the thread "Redesign all Cue cards to
