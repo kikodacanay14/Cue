@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue (number set by the deploys thread): darker field names and section headers (not deployed)
+
+Kiko, 30 Oct 2026 06:06Z: "why is the Header always lighter than the text? Make headers darker. and text not in bold. or make headers a
+size bigger that the text".
+
+- On cards, the name in each "Name: value" line (Organization, Bid end date, Budget, Summary of requirements and the rest) is now dark
+  and bold (`.fk`), where it was light grey. The value is regular weight (`.card .small` 400, was 500).
+- Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
+- Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
+- Tests: 556 (BO5 in test/features/69-bid-view-opportunity.js).
+
 ## Cue 1.27.86: project emails stay in Team Cue (not deployed; built as 1.27.85, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 05:50Z, in the thread "Cut Ask Cue thread overload": "emails is retained depending if its a project email or not -
