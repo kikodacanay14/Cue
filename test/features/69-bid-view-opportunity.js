@@ -70,8 +70,3 @@ test('BO5 field names are dark and bold, values regular, section headers dark (K
   assert.ok(/\.label \{[^}]*color:var\(--text\)/.test(page), 'section headers in the text colour');
   assert.ok(!/<span class="muted">[^<']*:<\/span>/.test(page) && !/class="muted">' \+ esc\(k\) \+ ':/.test(page), 'no field name left in the light grey');
 });
-test('BO6 Summary of requirements is justified; other lines keep their alignment (Kiko 30 Oct 06:15Z)', () => {
-  const fn = cuePage().match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
-  assert.ok(/row\('Summary of requirements', x\.summary \|\| '', false, true\)/.test(fn) && /\(just \? ';text-align:justify' : ''\)/.test(fn));
-  assert.ok(/row\('Budget', peso\(x\.abc\), true\)/.test(fn), 'Budget is not justified');
-});
