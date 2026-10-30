@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.91: Re-plan takes typed words again (BUG FIX, not deployed)
+
+Kiko, 30 Oct 2026 09:56Z: "when i click change and typed in the replan doesnt do anything". Built on branch
+claude/project-thread-hmigp5 @ 642546c, numbered by the deploys thread.
+
+- Pressing Enter in Cue's question box (Re-plan, Change and other typed answers) used the form's first button, Cancel, so the
+  typed words were dropped. Cancel is now a plain button that closes the box, and Enter means OK. The box itself has been
+  unchanged since 1.27.6.
+- Tests: 566 pass.
+
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)
 
 Kiko, 30 Oct 2026 09:36Z: "Ask Cue is not working"; 09:38Z: "nothing. it doesnt do anything". Built as Cue PR #265 (branch
