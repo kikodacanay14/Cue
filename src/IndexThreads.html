@@ -629,7 +629,7 @@
   /* CARD-OVERHAUL-2026-10-30 (card review, Kiko approved 30 Oct 2026 07:59Z; page note: "A breakdown of every task by place, with
      counts only. No task is repeated here: each row opens its thread"). Places come from Canvas (projects, CRM, To do) and from the
      Morning batch's "Your tasks due" lines (Personal), which leave the batch card. Done for now hides the card until tomorrow. */
-  function todayHtml(t) {
+  function todayTasksHtml(t) {
     var day = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10), done = '';
     try { done = localStorage.getItem('cue.todayDone') || ''; } catch (e) {}
     if (done === day) return '';
@@ -674,7 +674,7 @@
       else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h += cardHtml(r);
       else h += doneHtml(r);
     });
-    if (threadTitle(t) === 'Morning') h = h.slice(0, cardsAt) + todayHtml(t) + h.slice(cardsAt);   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
+    if (threadTitle(t) === 'Morning') h = h.slice(0, cardsAt) + todayTasksHtml(t) + h.slice(cardsAt);   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
