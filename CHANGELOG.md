@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.85: tidier bid cards with Cue's copy of each notice (not deployed)
+
+Kiko, 30 Oct 2026 05:52Z, on the bid card: "make the buttons smaller. its almost half of the card already. make labels not look like
+buttons. dont we have a standard look for labels and buttons? Summary of requirements: What about audio and visual? what actions are
+requested from us? add more details - if theres a document attach it to the card". At 05:53Z: "yes in saving a copy of the notice".
+
+- Every button on a bid card is the small standard button (Brand.html `.btn.sm`: 30px high, 12px text). Cue's style sheet gains `.btn.sm`.
+- The source on each notice ("PhilGEPS (old site)") is the standard label (`.tag`), no longer a filled purple chip that looked like a button.
+- Cue saves a copy of each old PhilGEPS notice page as a PDF in the notice's Drive folder, once, and links it on the card as
+  "Notice: Cue's copy (PDF)". It opens even when PhilGEPS fails in Chrome. A site error is tried again at the next run.
+- The same page fills the card: Summary of requirements is now the agency's own description, in place of the category and procurement
+  mode. Category (the site's category and mode) and Delivery period show on the card. Solicitation number, document requests so far and
+  the contact person show under View details.
+- What the old site does not give: the bid documents themselves (the RFQ form, TOR) sit behind PhilGEPS's paid Order step, so Cue does not
+  fetch them. Read in Kiko's Chrome on 30 Oct: none of three notice pages had a free file link.
+- Tests: 554 (test/features/69-bid-view-opportunity.js: BO2 to BO4). The test harness's blob gains `getAs` for the PDF.
+
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
 Kiko, 30 Oct 2026 05:37Z, on a PhilGEPS bid card ("Procurement of Office Supplies", Amang Rodriguez Memorial Medical Center,

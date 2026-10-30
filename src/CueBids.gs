@@ -543,6 +543,61 @@ function cueBidsReadAll_(s, jobs, store) {
   jobs.forEach(j => j.pdfs.forEach(p => { p.rec.tried = at; cueBidsDocPut_(store, p.rec); }));
   return jobs.length;
 }
+/** Cue's copy of the notice (Kiko 30 Oct 2026 05:53Z "yes in saving a copy of the notice"): the notice's own page, fetched once and saved as
+ * a PDF in the notice's Drive folder, so Kiko can read it when the site fails (the old PhilGEPS site loops redirects once its cookie goes
+ * bad in Chrome). Only the old PhilGEPS site's notice pages: they are public single-notice pages, while other sources' links are often
+ * listing pages or files (files are opened by the document step) and Bulletin Board pages need Kiko's sign-in. The page also fills the
+ * card: the agency's description, contact, delivery period and category. Recorded in the Bid documents tab under "copy:<link>", so it is
+ * never fetched again. Returns true when it fetched. */
+function cueBidsCopy_(it, store) {
+  const url = String(it.url || '').split('#')[0];
+  if (!/^https:\/\/notices\.philgeps\.gov\.ph\/\S*SplashBidNoticeAbstractUI\.aspx\?\S*refID=\d+/i.test(url)) return false;
+  const key = 'copy:' + url;
+  if (store.by[key]) { cueBidsCopyFrom_(it, store.by[key]); return false; }
+  const rec = { url: key, key: it.key, name: 'Notice page', opened: new Date(cueNow_()).toISOString() };
+  try {
+    const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (BSE Cue bid check)' } });
+    rec.code = r.getResponseCode();
+    const html = rec.code === 200 ? r.getContentText() : '';
+    if (rec.code !== 200) rec.result = 'Could not open: HTTP ' + rec.code;
+    else if (/type\s*=\s*["']?password/i.test(html)) rec.result = 'Could not open: needs sign-in';
+    else {
+      const f = cueBidsPgDetails_(html), title = cueStr_(it.project || it.reference, 200);
+      if (!f.description && !f.mode && !cueBidsPgText_((html.match(/id="lblDisplayTitle"[^>]*>([\s\S]*?)<\/span>/i) || [])[1])) throw new Error('the page did not show the notice');
+      const body = cueBidsCopyPage_(it, f);
+      const pdf = Utilities.newBlob(body, 'text/html', 'notice.html').getAs('application/pdf');
+      rec.drive = cueBidsKeep_(it, { name: 'Notice ' + (it.reference || title), url }, { kind: 'pdf', bytes: pdf.getBytes() });
+      rec.result = 'Opened · saved (pdf)'; rec.facts = f;
+    }
+  } catch (e) { rec.result = 'Could not open: ' + cueStr_((e && e.message) || e, 120); }
+  // Only a saved copy or a sign-in page is recorded; a site error is tried again at the next run.
+  if (rec.drive || /sign-in/.test(rec.result)) cueBidsDocPut_(store, rec);
+  cueBidsCopyFrom_(it, rec);
+  return true;
+}
+/** A plain page for the PDF: what the old PhilGEPS notice says, in the order the site shows it. */
+function cueBidsCopyPage_(it, f) {
+  const e = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const row = (k, v) => v === '' || v == null ? '' : '<tr><td style="color:#5C5866;padding:3px 12px 3px 0;vertical-align:top">' + e(k) + '</td><td style="padding:3px 0">' + e(v) + '</td></tr>';
+  const c = f.contact || {};
+  return '<html><body style="font-family:Arial,sans-serif;font-size:12px;color:#1A1726"><h2 style="margin:0 0 4px">' + e(it.project) + '</h2>'
+    + '<div style="color:#5C5866;margin-bottom:10px">PhilGEPS notice ' + e(it.reference) + ' · copy saved by Cue on ' + e(cueBidsDay_()) + ' from ' + e(it.url) + '</div><table>'
+    + row('Procuring entity', it.agency) + row('Area of delivery', it.location) + row('Solicitation number', f.solicitation) + row('Procurement mode', f.mode)
+    + row('Category', f.category) + row('Approved budget (ABC)', it.abc ? 'PHP ' + Number(it.abc).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '')
+    + row('Delivery period', f.delivery) + row('Closing date / time', it.deadline) + row('Date published', it.posted) + row('Document requests so far', f.doc_requests)
+    + row('Contact person', [c.name, c.role, c.phone, c.email].filter(Boolean).join(', ')) + '</table>'
+    + '<h3 style="margin:14px 0 4px">Description</h3><div style="white-space:pre-wrap">' + e(f.description || 'None given') + '</div></body></html>';
+}
+/** Puts what the copy gave on the card: the link to Cue's copy, and for the old PhilGEPS site the agency's description (in place of the
+ * category and mode the list gave), the details and the contact when the documents gave none. */
+function cueBidsCopyFrom_(it, rec) {
+  if (!rec) return;
+  it.copy = rec.drive ? { drive: 'https://drive.google.com/file/d/' + rec.drive + '/view' } : { why: String(rec.result || '').replace(/^Could not open:\s*/, '') };
+  const f = rec.facts; if (!f) return;
+  if (f.description && !it.from_docs) it.summary = cueStr_(f.description.replace(/\s*\n+\s*/g, ' '), 600);
+  it.details = { category: f.category || '', mode: f.mode || '', delivery: f.delivery || '', solicitation: f.solicitation || '', doc_requests: f.doc_requests === '' || f.doc_requests == null ? '' : f.doc_requests };
+  if (f.contact && !(it.contacts || []).length) it.contacts = [f.contact];
+}
 /** Reading stage: every document of every new and Still open notice is attempted once (PC recheck 24 Oct 08:26Z: a 10-notice and
  * 3-document cap left most of them "not opened yet"). One notice at a time: its documents are first recorded as "no answer in time", so
  * a site that hangs past Apps Script's 6-minute limit still ends with a status and is never fetched again; then they are fetched, saved
@@ -565,6 +620,11 @@ function cueBidsRead_(s, save, t0) {
   const count = () => { const all = [].concat.apply([], list.map(it => it.documents.filter(d => d.url))); B.reading = { done: all.filter(d => store.by[d.url]).length, total: all.length }; };
   let jobs = [];
   const readJobs = () => { if (!jobs.length) return; cueBidsReadAll_(s, jobs, store); jobs.forEach(j => { j.pdfs = null; if (j.it.row) j.it.touched = true; }); jobs = []; count(); s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); };
+  // Cue's copy of each notice page first, once (Kiko 30 Oct 05:53Z).
+  for (const it of list) {
+    if (cueNow_() - t0 > CUE_BIDS_READ_.budget_ms) { count(); return; }   // carries on at the next resume
+    if (cueBidsCopy_(it, store)) { if (it.row) it.touched = true; SpreadsheetApp.flush(); save(); }
+  }
   for (const it of list) {
     if (!loose(it) && !fresh(it).length && (it.read_tried || !unread(it).length)) continue;
     if (cueNow_() - t0 > CUE_BIDS_READ_.budget_ms) { readJobs(); count(); return; }   // carries on at the next resume
@@ -1006,7 +1066,7 @@ function cueBidsView_(s) {
     pages: it.pages || '', contacts: (it.contacts || []).map(c => ({ name: c.name || '', role: c.role || '', email: c.email || '', phone: c.phone || '' })),
     more: it.more ? { missing: it.more.missing || [], draft: it.more.draft ? { to: it.more.draft.to || '', subject: it.more.draft.subject || '', body: it.more.draft.body || '',
       sent: it.more.draft.sent_at || '' } : null } : null,
-    source: cueBidsSourceOf_(it), opp: cueBidsOppUrl_(it), ask: cueBidsAskFor_(it), decision: it.decision || '', added: !!it.added, ce_url: it.added ? ce(it) : '' });
+    source: cueBidsSourceOf_(it), opp: cueBidsOppUrl_(it), copy: it.copy || null, details: it.details || null, ask: cueBidsAskFor_(it), decision: it.decision || '', added: !!it.added, ce_url: it.added ? ce(it) : '' });
   const ce = it => { try { return cueCanvasLink_({ what: 'cedesk', q: it.reference || it.project }).url; } catch (e) { return ''; } };
   const tag = list => it => Object.assign(pub(it), { group: cueBidsGroup_(it, list) });
   return { title: B.title || 'Bid check', sub: B.sub || '', summary: B.summary || '', items: (B.items || []).map(tag('items')), still: (B.still || []).map(tag('still')), updated: B.still ? [] : (B.updated || []).map(pub),

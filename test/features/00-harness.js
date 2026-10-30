@@ -598,7 +598,8 @@ function sandbox(o = {}) {
       DigestAlgorithm: { SHA_256: 'sha256' },
       computeHmacSha256Signature: (v, k) => Array.from(crypto.createHmac('sha256', k).update(v).digest()).map(b => (b > 127 ? b - 256 : b)),
       newBlob: (s, type, name) => { const b = Array.isArray(s) ? Buffer.from(s.map(x => x & 255)) : Buffer.from(String(s), 'utf8');
-        return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name, getDataAsString: () => b.toString('utf8') }; },
+        return { getBytes: () => Array.from(b), getContentType: () => type, getName: () => name, getDataAsString: () => b.toString('utf8'),
+          getAs: t => Utilities_blob_(Buffer.from('%PDF-1.4 from ' + type + '\n' + b.toString('utf8'))) }; },
       gzip: b => { const z = zlib.gzipSync(Buffer.from(b.getBytes().map(x => x & 255))); return Utilities_blob_(z); },
       ungzip: b => Utilities_blob_(zlib.gunzipSync(Buffer.from(b.getBytes().map(x => x & 255)))),
       base64Decode: t => Array.from(Buffer.from(String(t), 'base64')).map(b => (b > 127 ? b - 256 : b)),
