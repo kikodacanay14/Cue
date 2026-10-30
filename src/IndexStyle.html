@@ -207,6 +207,9 @@
   /* Field names dark and bold, values regular (Kiko 30 Oct 06:06Z "why is the Header always lighter than the text? Make headers darker. and
      text not in bold"). .fk is the name in a "Name: value" line on a card; small card text is regular weight. */
   .fk { color:var(--text); font-weight:700; } .card .small { font-weight:400; }
+  /* Field lines on bid cards (Kiko 30 Oct 2026 06:15Z, Canvas's "Account  Manulife Philippines"): accent name in its own column, no colon. */
+  /* Kiko 06:17Z "use spacing in between lines. they are too tight": roomier lines and rows. */
+  .kv { display:grid; grid-template-columns:minmax(96px,32%) 1fr; column-gap:12px; margin-top:10px; align-items:start; line-height:1.6; } .kv .fk { color:var(--act); font-weight:600; }
   .worker { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:700; background:var(--soft); color:var(--act); }
   .work-head { all:unset; box-sizing:border-box; width:100%; display:flex; justify-content:space-between; gap:8px; align-items:center; cursor:pointer; }
   .work-head:focus-visible { outline:2px solid var(--act); outline-offset:4px; border-radius:8px; }
