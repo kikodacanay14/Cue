@@ -35,6 +35,7 @@ Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Goog
 | 4 | ChatGPT | Drafts every nudge in one call (two if big); templates if it fails | 0 to 2 |
 | 5 | Kiko | Ticks, edits, skips or stops lines; Approve and send, or Drafts only | no |
 | 6 | Code, Kiko's Gmail | Drafts now; sends at 09:00 PH time (at once after 09:00); a kind's own send hook (payments via Canvas from info@) is used instead of Kiko's Gmail | no |
+| 7 | Kiko, Kiko's Gmail | An urgent CE award line (event within 7 days) has no tick: its Send follow-up sends that one email at once in the CE thread. A past event's line opens the project in Canvas instead. Each kind and each line folds; tap to open | no |
 
 ## Files
 

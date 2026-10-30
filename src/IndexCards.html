@@ -1411,6 +1411,10 @@
         }
         if (act === 'archive') { b.disabled = true; return call('cueArchive', [id, b.getAttribute('data-on') === '1'], done, fail); }
         if (act === 'sweep-skip' || act === 'sweep-mute') { b.disabled = true; return call('cueSweepItem', [id, b.getAttribute('data-key'), act === 'sweep-skip' ? 'skip' : 'mute'], done, fail); }
+        if (act === 'sweep-one') {   // AWARD-TAP-2026-10-30: Send follow-up sends this one line now, with the words in its box
+          var ta = scope.querySelector('[data-sb="' + id + '"][data-k="' + b.getAttribute('data-key') + '"]');
+          b.disabled = true; return call('cueSweepSendOne', [id, b.getAttribute('data-key'), ta ? ta.value : ''], done, fail);
+        }
         if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
         // New mail (CueNewMail.gs): Start intake and Draft reply start a task and run it now; the draft card shows in this same thread.
         if (/^nm-/.test(act)) { b.disabled = true; var nmw = { 'nm-done': 'done', 'nm-mute': 'mute', 'nm-noinq': 'no_inquiry', 'nm-intake': 'intake', 'nm-reply': 'reply' }[act];

@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 67 server files, 1321 top-level names, 33 task kinds, 33 word checks before the
-chat call, 12 background jobs in the 5-minute trigger, 84 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
+Counts: 67 server files, 1322 top-level names, 33 task kinds, 33 word checks before the
+chat call, 12 background jobs in the 5-minute trigger, 85 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -136,7 +136,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueBids.gs` | `phone`, `subject` | Bid documents, Requests | 3 | 0 | 7 | 8 |
 | `CueBidsPhilgeps.gs` |  |  | 0 | 0 | 1 | 3 |
 | `CueBridge.gs` | `claim_plan` |  | 0 | 0 | 39 | 3 |
-| `CueCanvas.gs` | `find_similar_projects`, `phone`, `search_projects` |  | 0 | 0 | 15 | 5 |
+| `CueCanvas.gs` | `find_similar_projects`, `phone`, `search_projects` |  | 0 | 0 | 16 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
 | `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `client_status`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 33 |
@@ -178,7 +178,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSupplier.gs` | `handoff_put`, `register_supplier`, `save_supplier_file`, `subject`, `supplier_check` |  | 2 | 1 | 3 | 7 |
 | `CueSweep.gs` | `get_project_board`, `subject` | Chase log, Requests, Rules | 1 | 0 | 16 | 13 |
 | `CueSweepAccr.gs` | `accreditation_gaps`, `log_accreditation_reminder` |  | 0 | 0 | 0 | 6 |
-| `CueSweepAward.gs` |  |  | 0 | 0 | 0 | 4 |
+| `CueSweepAward.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepFunnel.gs` |  |  | 1 | 0 | 2 | 8 |
 | `CueSweepHubspot.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueSweepPay.gs` | `overdue_billings`, `send_payment_chasers` |  | 0 | 0 | 0 | 3 |
@@ -249,6 +249,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueStyleSignOff_` | `CueStyle.gs` | 6 |
 | `cueTerm_` | `CueText.gs` | 6 |
 | `cueBridgeAll_` | `CueBridge.gs` | 5 |
+| `cueCanvasLink_` | `CueCanvas.gs` | 5 |
 | `cueCloseSuperseded_` | `Cue.gs` | 5 |
 | `cueFilesParts_` | `CueFiles.gs` | 5 |
 | `cueGmailReply_` | `CueGmail.gs` | 5 |
@@ -278,7 +279,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueRoute.gs`: `cueAskPick`, `cueWrongCommand`
 - `CueSchedule.gs`: `cueSchedDelete`, `cueSchedRunNow`, `cueSchedSet`, `cueSchedules`
 - `CueStatus.gs`: `cueStatusDone`, `cueStatusPreview`
-- `CueSweep.gs`: `cueArchive`, `cueCloseOlder`, `cueCloseThread`, `cueRules`, `cueRulesSave`, `cueSweepAct`, `cueSweepCancel`, `cueSweepItem`
+- `CueSweep.gs`: `cueArchive`, `cueCloseOlder`, `cueCloseThread`, `cueRules`, `cueRulesSave`, `cueSweepAct`, `cueSweepCancel`, `cueSweepItem`, `cueSweepSendOne`
 - `CueTeach.gs`: `cueLearnChats`, `cueMyRuleSave`, `cueMyRules`, `cueSettings`
 - `CueTriage.gs`: `cueTriageIntake`
 - `CueTutor.gs`: `cueMyPatternDemote`, `cueTutorSet`
