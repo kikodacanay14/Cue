@@ -196,8 +196,14 @@ function cueSchedSeed_() {
   });
 }
 
-/** Runs one row now. Returns { result, task }. Never approves or sends anything. */
+/** Runs one row now. Returns { result, task }. Never approves or sends anything. A task it starts then closes the job's older
+ * waiting runs and joins its subject's thread for today (cueSchedTidy_ in CueSubjects.gs, Kiko 30 Oct 2026 03:55Z). */
 function cueSchedRun_(x, manual) {
+  const out = cueSchedRunOne_(x, manual);
+  if (out && out.task && typeof cueSchedTidy_ === 'function') cueSchedTidy_(out.task);
+  return out;
+}
+function cueSchedRunOne_(x, manual) {
   const P = PropertiesService.getScriptProperties(), today = cuePh_(cueNow_()).day, id = o => (o && (o.request_id || o.id)) || '';
   globalThis.CUE_SCHED_RUNNING_ = true;   // cueOwner_ lets Cue's own scheduled run through (a trigger has no page user)
   try {
@@ -452,7 +458,7 @@ function cueUnschedCheck_(manual) {
   const q = '⚠️ Unscheduled check: ' + items.length + ' to look at.'
     + (jobs.length ? '\nScheduled tasks that will not run:\n' + jobs.map(x => '- ' + x.line).join('\n') + '\nFix them in Settings > Scheduled tasks.' : '')
     + (tasks.length ? '\nTasks waiting on you with no due date or reminder:\n' + tasks.map(x => '- ' + x.line).join('\n') + '\nReply in a task\'s thread with a date, e.g. "remind me Friday 3pm".' : '');
-  cueAskOpen_({ type: 'unsched', keys: items.map(x => x.key) }, q, ['ok', 'mute'], '');
+  cueAskOpen_({ type: 'unsched', keys: items.map(x => x.key) }, q, ['ok', 'mute'], typeof cueSubjRoot_ === 'function' ? cueSubjRoot_('morning') : '');   // CUE-SUBJECTS-2026-10-30: in the Morning thread when it is there
   return items.length;
 }
 /** Got it, or Mute these: the listed items stay out of later cards (a new failure or missed run has a new key, so it still shows). */
