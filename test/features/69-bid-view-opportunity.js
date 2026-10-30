@@ -64,3 +64,9 @@ test('BO4 Cue saves a PDF copy of each old PhilGEPS notice once, and the card sh
   const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), s = w.bids.still.filter(i => i.reference === '13310846')[0];
   assert.strictEqual((t.log.abs || []).length, n, 'no second fetch'); assert.ok(s.copy.drive && s.details.delivery === '30 Day/s');
 });
+test('BO5 field names are dark and bold, values regular, section headers dark (Kiko 30 Oct 06:06Z)', () => {
+  const page = cuePage();
+  assert.ok(/\.fk \{ color:var\(--text\); font-weight:700; \} \.card \.small \{ font-weight:400; \}/.test(page), 'field name and value styles');
+  assert.ok(/\.label \{[^}]*color:var\(--text\)/.test(page), 'section headers in the text colour');
+  assert.ok(!/<span class="muted">[^<']*:<\/span>/.test(page) && !/class="muted">' \+ esc\(k\) \+ ':/.test(page), 'no field name left in the light grey');
+});

@@ -653,7 +653,7 @@
       var D = new Date(Date.UTC(+y, +mo - 1, +d)); if (isNaN(D)) return m;
       var t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ' ' + (+d) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+mo - 1] + ' ' + y;
       return hh == null ? t : t + ', ' + ((+hh % 12) || 12) + ':' + mm + ' ' + (+hh < 12 ? 'AM' : 'PM'); }); };
-    var row = function (k, v, flag) { return '<div class="small" style="margin-top:2px"><span class="muted">' + esc(k) + ':</span> ' + (v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : '')) + '</div>'; };
+    var row = function (k, v, flag) { return '<div class="small" style="margin-top:2px"><span class="fk">' + esc(k) + ':</span> ' + (v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : '')) + '</div>'; };
     var doc = function (d) {
       var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
         : d.state === 'failed' ? '<span class="tag flag">Could not open: ' + esc(d.why) + '</span>'
@@ -686,18 +686,18 @@
         // From the notice page (Kiko 30 Oct 05:52Z "add more details"): the site's category and mode, the delivery period, and Cue's copy of the notice.
         + (x.details && (x.details.category || x.details.mode) ? row('Category', [x.details.category, x.details.mode].filter(Boolean).join(' · ')) : '')
         + (x.details && x.details.delivery ? row('Delivery period', x.details.delivery) : '')
-        + (x.copy ? '<div class="small" style="margin-top:2px"><span class="muted">Notice:</span> ' + (x.copy.drive ? link(x.copy.drive, 'Cue\'s copy (PDF)') : '<span class="muted">No copy: ' + esc(x.copy.why) + '</span>') + '</div>' : '')
+        + (x.copy ? '<div class="small" style="margin-top:2px"><span class="fk">Notice:</span> ' + (x.copy.drive ? link(x.copy.drive, 'Cue\'s copy (PDF)') : '<span class="muted">No copy: ' + esc(x.copy.why) + '</span>') + '</div>' : '')
         // View details (Kiko 29 Oct 11:24Z): the rest of the notice opens under the summary, in the page only.
         + '<div data-bv="' + esc(r.id + '|' + x.key) + '" style="display:none">'
         + (x.contacts && x.contacts.length ? row('Contact', x.contacts.map(function (c) { return [c.name, c.role, c.email, c.phone].filter(Boolean).join(', '); }).join('; '))
-          : x.from_docs ? '<div class="small" style="margin-top:2px"><span class="muted">Contact:</span> <span class="muted">No contact in the documents</span></div>' : '')
+          : x.from_docs ? '<div class="small" style="margin-top:2px"><span class="fk">Contact:</span> <span class="muted">No contact in the documents</span></div>' : '')
         + row('Bid start date', day(x.posted))
         + (x.details && x.details.solicitation ? row('Solicitation number', x.details.solicitation) : '')
         + (x.details && x.details.doc_requests !== '' && x.details.doc_requests != null ? row('Document requests so far', String(x.details.doc_requests)) : '')
         + (x.pages ? '<div class="small muted">From the documents: ' + esc(x.pages) + '</div>' : '')
-        + '<div class="small" style="margin-top:2px"><span class="muted">Bid documents available:</span>' + (x.documents.length ? '<ul class="small" style="margin:2px 0 0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : ' <span class="muted">None listed</span>') + '</div>'
+        + '<div class="small" style="margin-top:2px"><span class="fk">Bid documents available:</span>' + (x.documents.length ? '<ul class="small" style="margin:2px 0 0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : ' <span class="muted">None listed</span>') + '</div>'
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
-      if (g === 'clarify' && (x.ask || []).length) h += '<div class="small" style="margin-top:4px"><span class="muted">To ask the agency:</span> ' + esc(x.ask.join(', ')) + '</div>';
+      if (g === 'clarify' && (x.ask || []).length) h += '<div class="small" style="margin-top:4px"><span class="fk">To ask the agency:</span> ' + esc(x.ask.join(', ')) + '</div>';
       if (g === 'clarify') h += draftHtml(x);
       // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decide later, Decline.
       var b = [], end = [];
@@ -801,9 +801,9 @@
           + ((h2.latest || []).length ? '<span class="muted"> · latest: ' + h2.latest.map(function (x) { return esc(x.project) + ' ' + peso(x.amount); }).join(', ') + '</span>' : '') + '</div>' : '')
         + (c.about ? '<div class="small">' + esc(c.about) + '</div>' : '') + (c.source !== 'db' && (c.why || [])[0] && !c.about ? '<div class="small muted">' + esc(c.why[0]) + '</div>' : '')
         + ((c.links || []).length ? '<div class="small">' + c.links.map(function (u, i) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">source ' + (i + 1) + '</a>'; }).join(' · ') + '</div>' : '')
-        + (c.strengths ? '<div class="small"><span class="muted">Claude, strengths:</span> ' + esc(c.strengths) + '</div>' : '') + (c.risks ? '<div class="small"><span class="muted">Risks:</span> ' + esc(c.risks) + '</div>' : '')
-        + (c.k === pick.k && pick.why ? '<div class="small"><span class="muted">Why Claude picks it:</span> ' + esc(pick.why) + '</div>' : '')
-        + (c.k === pick.k && pick.reason ? '<div class="small"><span class="muted">Not a Preferred supplier because:</span> ' + esc(pick.reason) + '</div>' : '')
+        + (c.strengths ? '<div class="small"><span class="fk">Claude, strengths:</span> ' + esc(c.strengths) + '</div>' : '') + (c.risks ? '<div class="small"><span class="fk">Risks:</span> ' + esc(c.risks) + '</div>' : '')
+        + (c.k === pick.k && pick.why ? '<div class="small"><span class="fk">Why Claude picks it:</span> ' + esc(pick.why) + '</div>' : '')
+        + (c.k === pick.k && pick.reason ? '<div class="small"><span class="fk">Not a Preferred supplier because:</span> ' + esc(pick.reason) + '</div>' : '')
         + (c.k === pick.k && pick.switched ? '<div class="small muted">Claude picked ' + esc(pick.switched) + ' without saying why it skipped the Preferred suppliers, so Cue picked this Preferred one.</div>' : '') + '</div>';
     });
     if (!(V.cands || []).length) h += '<div class="small muted" style="margin-top:6px">No supplier fits yet.</div>';

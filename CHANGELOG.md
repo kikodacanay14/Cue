@@ -17,6 +17,17 @@ requested from us? add more details - if theres a document attach it to the card
   fetch them. Read in Kiko's Chrome on 30 Oct: none of three notice pages had a free file link.
 - Tests: 554 (test/features/69-bid-view-opportunity.js: BO2 to BO4). The test harness's blob gains `getAs` for the PDF.
 
+Added the same day, before it shipped (darker field names and section headers):
+
+Kiko, 30 Oct 2026 06:06Z: "why is the Header always lighter than the text? Make headers darker. and text not in bold. or make headers a
+size bigger that the text".
+
+- On cards, the name in each "Name: value" line (Organization, Bid end date, Budget, Summary of requirements and the rest) is now dark
+  and bold (`.fk`), where it was light grey. The value is regular weight (`.card .small` 400, was 500).
+- Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
+- Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
+- Tests: 555 with this on 1.27.85 (BO5 in test/features/69-bid-view-opportunity.js).
+
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
 Kiko, 30 Oct 2026 05:37Z, on a PhilGEPS bid card ("Procurement of Office Supplies", Amang Rodriguez Memorial Medical Center,
