@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.90: Ask Cue works again (BUG FIX, not deployed)
+## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)
 
 Kiko, 30 Oct 2026 09:36Z: "Ask Cue is not working"; 09:38Z: "nothing. it doesnt do anything". Built as Cue PR #265 (branch
 claude/project-thread-hmigp5 @ fa8fc34), numbered by the deploys thread.
