@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.81: Claude answers Ask Cue chat and looks things up first (not deployed)
+## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 
 Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...
 so Cue seems dumb", then "cant i just chat with Claude as Cue?" and at 03:50Z "if Cue is dumb as a rock and i cant put Claude there
