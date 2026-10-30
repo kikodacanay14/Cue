@@ -91,17 +91,25 @@ test('NM3 new mail buttons: Done, Mute sender, Not an inquiry; Draft reply makes
   assert.throws(() => q.ctx.cueNmItem(qid, q.state(qid).nm.items[0].key, 'send'), /Unknown action/);
 });
 
-test('NM5 new mail: an email also on Canvas\'s Emails waiting says so, with the sender and project Canvas knows; Canvas down changes nothing', () => {
+test('NM5 new mail: an email also on Canvas\'s Emails waiting says so, with the sender Canvas knows; one Canvas files under a project stays in Team Cue; Canvas down changes nothing', () => {
   const t = nmSandbox({ waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example',
-    subject: 'Year-end party', at: 1, unread: true, who: 'Client', name: 'Maria Santos', pid: 'AC-1', project: 'Acme Year-End' }] } });
+    subject: 'Year-end party', at: 1, unread: true, who: 'Client', name: 'Maria Santos', pid: '', project: '' }] } });
   const id = nmRun(t), s = t.state(id);
-  deq(s.nm.items[0].known, { who: 'Client', name: 'Maria Santos', project: 'Acme Year-End', pid: 'AC-1' });
+  deq(s.nm.items[0].known, { who: 'Client', name: 'Maria Santos', project: '', pid: '' });
   assert.strictEqual(s.nm.items[1].known, undefined, 'info@ mail is never matched to Kiko\'s own list');
-  assert.strictEqual(t.log.mailWaiting, 1, 'one read per sort');
-  const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.nm.items[0].known.project, 'Acme Year-End');
+  assert.strictEqual(t.log.mailWaiting, 2, 'one read when the mail comes in, one per sort');
+  const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.nm.items[0].known.name, 'Maria Santos');
   assert.ok(/also in Canvas Emails waiting/.test(cuePage()));
+  // ASK-CUE-ONCE-2026-10-30 (Kiko 05:50Z "project emails stay in Team Cue others are in Ask Cue")
+  const p = nmSandbox({ waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example',
+    subject: 'Year-end party', at: 1, unread: true, who: 'Client', name: 'Maria Santos', pid: 'AC-1', project: 'Acme Year-End' }] } });
+  const pid = nmRun(p), ps = p.state(pid);
+  assert.ok(!ps.nm.items.some(x => x.thread_id === '11aa000000000001'), 'the project email is not in New mail');
+  assert.ok(ps.nm.items.some(x => x.inbox === 'info'), 'info@ mail still shows');
+  assert.ok(/A project email: it is in the project\\'s thread in Team Cue/.test(cuePage()), 'a line found later under a project says where it went');
   const d = nmSandbox({ waitingFail: true }), did = nmRun(d);
   assert.ok(d.state(did).nm.items.every(x => !x.known) && d.state(did).nm.sorted_at, 'without Canvas the sort still lands');
+  assert.ok(d.state(did).nm.items.some(x => x.thread_id === '11aa000000000001'), 'without Canvas nothing more is dropped');
 });
 
 test('NM4 new mail: old Gmail history starts again from now; one inbox failing never stops the other; cueResume runs it; the page and the bridge copy have it', () => {
