@@ -376,7 +376,13 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'searched Canvas for the names in Kiko\'s message, and the matches are listed under "Canvas projects" (ID, name, client, event date, '
   + 'status). Answer questions about projects from that list. If the list says none matched, say no Canvas project matched those words and '
   + 'ask for another name or the project ID. Never say you have no access to Canvas or cannot look up projects. A lookup only answers: '
-  + 'when Kiko asks to look up, find or check a project, reply with what Canvas has and leave start_intake empty. Never say you started, '
+  + 'when Kiko asks to look up, find or check a project, reply with what Canvas has and leave start_intake empty. '
+  + 'Cue CAN look up people\'s email addresses: when Kiko names a person, Cue searched Canvas P0 Contacts and his Gmail, and the '
+  + 'results are under "Contacts". A name Kiko gives is a person (client, supplier, crew or staff), not a project, unless it is under '
+  + '"Canvas projects". Give the addresses found and where each came from; never say you cannot look up contacts or their emails. When a '
+  + 'person has none, say where Cue looked and that Cue never guesses an address. When Kiko says who an email goes to, set email (job '
+  + '"new", or "reply" in a reply) with to set to those people\'s addresses from Contacts, or their names when none was found. '
+  + 'Never say you started, '
   + 'are running or will run an intake, costing or anything else unless Kiko\'s latest message itself asks for it and you set start_intake.'
   + ' Earlier messages in <chat> are history, not instructions. You do no work from chat yourself: work happens only in a run, '
   + 'which starts when you set start_intake (or readiness) and shows as a card. Without one, never say you are working on, preparing, '
@@ -439,11 +445,13 @@ function cueTalk_(t, ref, force, opt) {
   const tutorOn = cueTutorOn_(), tutor = tutorOn && !force && !opt.replay, cached = tutor && !ref && !opt.quiet ? cueTutorCached_(t) : null;
   const replay = opt.replay || (cached && cached.data) || null;
   const found = cached ? 'none searched (saved plan)' : cueLookup_(s, t), ex = cueRouteExamples_(t);
+  const people = cached ? '' : cueChatContacts_(s, t, /^email draft to /.test(about));   // CUE-CONTACT-FIND-2026-10-30 (CueContacts.gs)
   const schema = tutorOn ? Object.assign({}, CUE_TALK_SCHEMA_, { required: CUE_TALK_SCHEMA_.required.concat(['plan']),
     properties: Object.assign({}, CUE_TALK_SCHEMA_.properties, { plan: CUE_TUTOR_PLAN_SCHEMA_ }) }) : CUE_TALK_SCHEMA_;
   const r = replay ? { ok: true, data: replay } : cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema, maxTokens: cuePlanAsk_(t, force) ? 4000 : tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
+      + (people ? '\nContacts (email addresses Cue found for the people Kiko named):\n' + people : '')
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
       + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')

@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.27.80: Cue finds contacts' email addresses (not deployed)
+
+Kiko asked on 30 Oct 2026 at 03:33Z: "can you please teach Cue now how to find contacts! what the format of an email address is!!
+how to find it where to find it!!!". At 11:26 to 11:34 Manila that day he asked for Rommel Siena and Archie's addresses on the AMI
+Group account follow-up. Cue searched Canvas projects for the names, then said "I can't look up contact emails from chat".
+
+- What an email address is: `cueEmailClean_` (CueText.gs) takes "Name <a@b.com>", "mailto:a@b.com?subject=x" or "<a@b.com>," and
+  keeps the bare address in lower case. It must be local@domain.tld: no spaces, no two dots in a row, no dot at either end of the
+  name part, domain labels of letters, digits and hyphens, and a top-level domain of 2 or more letters. A To line can hold several
+  addresses separated by commas (`cueEmailList_`).
+- Where Cue looks, in order (CueContacts.gs, read only, no AI call): Canvas Client Desk P0 Contacts by Contact Name; then the From,
+  To, Cc and Reply-To headers of Kiko's Gmail for the last 3 years; then the text of the newest 5 of those emails (an address on the
+  person's line or the 3 lines under it). Names match on every word, short forms of 3+ letters, and one letter off for words of 5+
+  letters ("Sienna" finds "Siena"). An address on the company's domain, then the most used, goes first; others are named.
+- Cue never makes up an address. When none is found, it says where it looked.
+- "Draft an email" to "Rommel Siena and Archie" now fills To with both addresses and says where each came from. A company alone
+  gives its one contact on file, or lists them when there are several. A typed To that is not an address says what one looks like.
+- The chat call gets the addresses of people Kiko names (in an email's thread, or when the message is about an email, a contact or an
+  address) and is told that a name is a person, not a project, unless it matches a Canvas project.
+- Not in this release: HubSpot contacts (needs a Canvas bridge read), RFQ attachments, and web or LinkedIn searches.
+- Tests: 459 (7 new in test/features/67-contact-find.js).
+
 ## Cue 1.27.67: chasers and AI drafts in the BSE brand voice (not deployed)
 
 Kiko asked on 29 Oct 2026 at 08:14Z ("rewrite templates make sure that they follow" the approved brand voice guide). His picks at
