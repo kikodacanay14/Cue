@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.90: Ask Cue works again (BUG FIX, not deployed)
+
+Kiko, 30 Oct 2026 09:36Z: "Ask Cue is not working"; 09:38Z: "nothing. it doesnt do anything". Built as Cue PR #265 (branch
+claude/project-thread-hmigp5 @ fa8fc34), numbered by the deploys thread.
+
+- 1.27.89 added a second page function named todayHtml (the Today's tasks card) in IndexThreads.html. It replaced the chat's own
+  todayHtml(day, th), so the Ask Cue chat threw an error while drawing and did nothing. The card function is now todayTasksHtml.
+- New test AK1 fails if two page functions share a name.
+- Tests: 565 pass.
+
 ## Cue 1.27.89: card overhaul phase 2, where cards go (LIVE as Version 184, 30 Oct 2026 09:06Z; rollback Version 183)
 
 Kiko approved the card review page (https://claude.ai/artifact/TswYWLj6nLSsq3vLfhXrf1) on 30 Oct 2026 at 07:59Z. At 08:50Z: "usage is
