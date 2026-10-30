@@ -38,9 +38,25 @@ function cueMailRun_(s, save) {
 
 /** Stage "Finding the thread": code only. The newest email to or from the person, matched on the address or the name in From/To. */
 function cueMailFind_(s) {
-  const M = s.mail, addr = cueEmail_(M.to), name = cueTerm_(M.to).toLowerCase(), me = cueMe_().toLowerCase(), own = cueOwnDomain_();
+  const M = s.mail, me = cueMe_().toLowerCase(), own = cueOwnDomain_();
   const outside = a => a && a.toLowerCase() !== me;
   M.thread = null;
+  // CUE-CONTACT-FIND-2026-10-30 (Kiko 30 Oct 03:33Z): a person Kiko names is looked up (Canvas P0 Contacts, then his Gmail) before
+  // the thread search, so "email Rommel Siena and Archie" fills To with both addresses. A company alone gives its one contact on
+  // file; with several, they are listed for Kiko to pick. Nothing is guessed (CueContacts.gs).
+  let list = cueEmailList_(M.to);
+  if (!list) {
+    const names = cueContactNames_(M.to);
+    let r = cueContactFind_(s, names, '');
+    if (!r.found.length && names.length === 1) { const c = cueContactFind_(s, [], names[0]); c.tried = r.tried; c.missing = r.missing;
+      if (c.company.length === 1) { r = { found: [{ name: names[0], email: c.company[0].email, source: 'Canvas P0 Contacts, the only ' + names[0] + ' contact on file (' + (c.company[0].name || 'no name') + ')', also: [] }], missing: [], company: [], tried: r.tried }; }
+      else r = c; }
+    M.contacts = r;
+    if (r.found.length) { list = r.found.map(f => f.email).join(', '); s.notes.push('To: ' + cueContactLines_(r).join('; ') + '.'); }
+    else if (r.company.length) s.notes.push('Which ' + names[0] + ' contact? ' + cueContactLines_(r).join('; ') + '. Type the one you want in To.');
+    else if (r.missing.length) s.notes.push(cueContactLines_(r).join(' '));
+  }
+  const addr = list.split(', ')[0] || '', name = cueTerm_(M.to).toLowerCase();
   if (addr || name.length >= 3) {
     try {
       const q = (addr ? '(from:' + addr + ' OR to:' + addr + ')' : '"' + name + '"') + ' newer_than:365d -in:chats -in:drafts';
@@ -69,7 +85,7 @@ function cueMailFind_(s) {
       }
     } catch (e) { s.notes.push('Gmail search did not work, so no earlier thread was used (' + String((e && e.message) || e).slice(0, 200) + ').'); }
   }
-  if (!M.to_addr) M.to_addr = addr || '';
+  if (!M.to_addr || list.indexOf(', ') > 0) M.to_addr = list || M.to_addr || '';   // every named person goes in To, not only the thread's
   if (own && M.to_addr && M.to_addr.toLowerCase().split('@')[1] === own) M.audience = 'team';
   if (M.job === 'reply' && !M.thread) { M.job = 'new'; s.notes.push('I found no email thread with ' + (M.to || 'them') + ', so this is a new email.'); }
   if (M.job === 'new') M.thread = null;   // Kiko asked for a new email: the thread only gave the address
@@ -110,9 +126,10 @@ function cueMailApprove_(id, edits) {
       if (edits.body != null) D.body = cueStr_(String(edits.body), 6000).trim();
     }
     if (!D.body) throw new Error('The email is empty.');
-    if (D.to && !cueEmail_(D.to)) throw new Error('"' + D.to + '" is not an email address.');
+    if (D.to && !cueEmailList_(D.to)) throw new Error('"' + D.to + '" is not an email address. An address looks like name@company.com, with no spaces; separate two with a comma.');
+    if (D.to) D.to = cueEmailList_(D.to);
     s.send = !!edits.send;
-    if (s.send && !cueEmail_(D.to)) throw new Error('Type their email address in To first, or save it to Drafts.');
+    if (s.send && !cueEmailList_(D.to)) throw new Error('Type their email address in To first, or save it to Drafts.');
     s.status = 'Making drafts'; s.stage = s.send ? 'Sending' : 'Making Gmail drafts'; M.error = ''; s.approved_at = s.approved_at || new Date(cueNow_()).toISOString();
     cueSave_(L.sh, L.row, s);
     return L;

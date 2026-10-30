@@ -7,15 +7,15 @@ function mailRun(o) { const t = sandbox(Object.assign({ talk: mailAsk((o && o.e)
 test('M1 "email Mats Co ...": the chat call picks it, Cue finds the thread, 1 GPT draft call in Kiko\'s style; Approve and send replies in the thread', () => {
   const t = mailRun();
   assert.strictEqual(t.v.kind, 'email'); assert.strictEqual(t.v.status, 'Needs you', t.v.error); assert.strictEqual(t.v.metrics.ai_calls, 1);
-  assert.ok(/"mats co"/.test(t.log.gmailQ), t.log.gmailQ);
-  const M = t.v.mail; assert.strictEqual(M.thread.subject, 'RFQ: JBL launch floor mats'); deq(M.draft.to, 'sales@matsco.example'); assert.strictEqual(M.draft.subject, 'Re: RFQ: JBL launch floor mats');
+  assert.ok(/"mats co"|sales@matsco\.example/.test(t.log.gmailQ), t.log.gmailQ);
+  const M = t.v.mail; assert.strictEqual(M.thread.subject, 'Re: RFQ: JBL launch floor mats', 'the address Cue found finds the newest email in the thread'); deq(M.draft.to, 'sales@matsco.example'); assert.strictEqual(M.draft.subject, 'Re: RFQ: JBL launch floor mats');
   const call = t.log.gpt.filter(b => b.text.format.name === 'email_draft')[0], ask = JSON.parse(call.input);
-  assert.strictEqual(ask.thread.subject, 'RFQ: JBL launch floor mats'); assert.strictEqual(ask.sign_off, 'Blank Space Events'); assert.ok(!/own style/.test(call.instructions), 'no guide yet');
+  assert.strictEqual(ask.thread.subject, 'Re: RFQ: JBL launch floor mats'); assert.strictEqual(ask.sign_off, 'Blank Space Events'); assert.ok(!/own style/.test(call.instructions), 'no guide yet');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + t.id), 'main chat points to the thread');
   assert.ok(!t.log.replies, 'nothing made before approval');
   const d = t.ctx.cueApprove(t.id, { to: 'sales@matsco.example', body: 'Hi Mats Co, edited by Kiko', send: true });
   assert.strictEqual(d.status, 'Done'); deq(t.log.sent, ['reply-1']);
-  const mime = t.log.replies[0].payload; assert.ok(/"threadId":"th1"/.test(mime) && /In-Reply-To: <m1@mail>/.test(mime), 'reply in the original thread');
+  const mime = t.log.replies[0].payload; assert.ok(/"threadId":"th1"/.test(mime) && /In-Reply-To: <m2@mail>/.test(mime), 'reply in the original thread');
   assert.ok(Buffer.from(mime.split('base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString().indexOf('edited by Kiko') >= 0);
   assert.throws(() => t.ctx.cueApprove(t.id, { send: true }), /not waiting/);
 });
