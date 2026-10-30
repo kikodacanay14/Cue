@@ -92,11 +92,13 @@ function cueNmFilter_(run, found) {
   const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [];
   let ids = null;
   const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
+  let pt = null; const projThreads = () => pt || (pt = cueMailProjectThreads_(run));
   found.forEach(l => {
     const m = l._m;
     if (claimed[l.thread_id] || claimed['m:' + m.id] || claimed['m:' + l.key.replace(/^inbox:/, '')]) return;
     try { if (projectIds().some(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))) return; }   // a project's email: status reports and chasers
     catch (e) { console.warn('New mail: Canvas board: ' + e); }
+    if (l.inbox !== 'info' && projThreads()[String(l.thread_id)]) return;   // ASK-CUE-ONCE-2026-10-30: Canvas files it under a project (Team Cue)
     const rule = cueTriageRule_(rules, m.from), junk = rule === 'keep' ? '' : cueTriageJunk_(m);
     if (rule === 'mute' || junk) { skip.push(Object.assign(l, { group: 'skip', why: rule === 'mute' ? 'muted sender' : junk })); return; }
     l.rule = rule || '';
@@ -221,6 +223,9 @@ function cueNmKnown_(by, items) {
   items.forEach(x => {
     const i = x.inbox === 'mine' && !x.known && by[String(x.thread_id)];
     if (i) x.known = { who: cueStr_(i.who, 20), name: cueStr_(i.name, 120), project: cueStr_(i.project, 160), pid: cueStr_(i.pid, 40) };
+    // ASK-CUE-ONCE-2026-10-30 (Kiko 30 Oct 2026 05:50Z "project emails stay in Team Cue others are in Ask Cue"): an email Canvas files
+    // under a project shows in that project's thread in Team Cue, so it leaves today's New mail list (kept, marked, never deleted).
+    if (i && i.pid && !x.removed && !x.task_id) x.removed = 'project';
   });
 }
 
