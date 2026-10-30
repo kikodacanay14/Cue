@@ -308,7 +308,7 @@ function cueSweepRun_(s, save) {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     it.label = k.label; it.no_email = !!(k.noEmail || it.no_email || it.needs_draft === false);
     it.send_ok = !k.noEmail && k.sendAllowed !== false && (!!cueEmail_(it.to) || typeof k.send === 'function');
-    it.selected = !it.no_email;
+    it.selected = !it.no_email && !it.tap;   // a tap line (it.tap) is not in the 9:00 send: it goes only when Kiko taps its Send follow-up
   });
   stopped.forEach(it => { const k = cueKinds_().filter(x => x.kind === it.kind)[0]; it.label = k.label; });
   s.batch = { items, stopped, over, built: new Date(cueNow_()).toISOString() };
@@ -391,7 +391,7 @@ function cueSweepApprove_(id, edits) {
   if (first) {
     b.send = !!(edits && edits.send); b.approved_at = new Date(cueNow_()).toISOString();
     b.items.forEach(it => {
-      if (it.no_email || it.removed) { it.selected = false; return; }
+      if (it.no_email || it.removed || it.tap) { it.selected = false; return; }
       it.selected = skip.indexOf(it.key) < 0;
       if (it.selected && typeof bodies[it.key] === 'string' && bodies[it.key].trim()) it.body = cueStr_(bodies[it.key], 6000);
     });
@@ -486,6 +486,33 @@ function cueSweepItem(id, key, what) {
     if (!b.items.concat(b.stopped).some(x => !x.removed)) L.s.status = 'Done';
     cueSave_(L.sh, L.row, L.s); return L.s;
   });
+  return cueView_(s);
+}
+
+/** Send follow-up (AWARD-TAP-2026-10-30, Kiko 30 Oct 2026 03:54Z, card "Yes, build all"): one tap line (it.tap) goes now, from Kiko's
+ * Gmail, as a reply in its thread, with the words Kiko sees in the box. The tap is Kiko's approval of that one email. A second tap
+ * on a line already sent sends nothing. */
+function cueSweepSendOne(id, key, body) {
+  cueOwner_();
+  const s = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L || L.s.kind !== 'sweep') throw new Error('No such batch.');
+    const it = (L.s.batch.items || []).filter(x => x.key === key)[0];
+    if (!it || !it.tap) throw new Error('That line has no Send follow-up.');
+    if (it.sent_id) return L.s;
+    if (!cueEmail_(it.to)) throw new Error('This line has no client email address. Send it from Gmail instead.');
+    if (typeof body === 'string' && body.trim()) it.body = cueStr_(body, 6000);
+    const k = cueKinds_().filter(x => x.kind === it.kind)[0], today = cuePh_(cueNow_()).day;
+    try {
+      if (!it.draft_id) it.draft_id = it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
+        : cueGmailDraft_(it.to, it.subject, it.body);
+      it.sent_id = cueGmailSend_(it.draft_id); it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
+      try { cuePlogChaser_(it, L.s); } catch (e) { console.error('Project log (chaser): ' + e); }
+      cueChaseWrite_(cueChaseLog_(), it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(cueRules_(), k), today, it), note: 'sent' });
+    } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
+    cueSave_(L.sh, L.row, L.s); return L.s;
+  });
+  if (!s.batch.items.filter(x => x.key === key)[0].error) cueChat_('Cue', 'Sent the follow-up for ' + (s.batch.items.filter(x => x.key === key)[0].project || 'that line') + ' from your Gmail.', s.id);
   return cueView_(s);
 }
 

@@ -59,41 +59,60 @@
       + (waiting ? '<button class="btn" data-act="ac-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>';
     return h + '</div>';
   }
+  // AWARD-TAP-2026-10-30 (Kiko 30 Oct 2026 03:26Z "can you also make cards foldable and expandable?", card "Yes, build all" 03:54Z):
+  // each kind folds (the first starts open, as on the Project intake card) and each line folds to one row. What Kiko opens or
+  // closes stays that way when the page redraws (swOpen, by batch id and key).
+  var swOpen = {};
+  document.addEventListener('toggle', function (e) {
+    var d = e.target, k = d && d.getAttribute && d.getAttribute('data-swfold'); if (!k) return;
+    swOpen[k] = d.open;
+  }, true);
+  function swFold(k, dflt) { var v = swOpen[k]; return (v === undefined ? dflt : v) ? ' open' : ''; }
   function sweepCardHtml(r) {
     var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
     b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
-    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed; }).length;
+    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed && !it.tap; }).length;
+    // Send follow-up (it.tap) works until the batch is closed, also after Approve and send.
+    var tapLive = waiting || again || r.status === 'Scheduled' || r.status === 'Done';
     var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
       + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
     if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
-    kinds.forEach(function (k) {
-      h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
+    kinds.forEach(function (k, ki) {
+      h += '<details class="sec" data-swfold="' + esc(r.id + '|' + k) + '"' + swFold(r.id + '|' + k, ki === 0) + '><summary>' + esc(k) + ' (' + by[k].length + ')</summary>';
       by[k].forEach(function (it) {
-        var dim = it.removed ? ' style="opacity:.5"' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
-        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"' + dim + '><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (waiting && !it.no_email && !it.removed ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + '>' : '<span>' + (it.removed ? '–' : it.no_email ? '•' : '✓') + '</span>')
-          + '<span><b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.who && it.project ? ' <span class="small muted">' + esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') + '</span>' : '')
-          + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + ' ' + state
+        var dim = it.removed ? ';opacity:.5' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
+        var fk = r.id + '|' + it.key, tick = waiting && !it.no_email && !it.removed && !it.tap;
+        // Folded: the line's name, its tags and a short note (the who for chasers without one). The tick stays on the row.
+        h += '<details class="card swl" style="margin:8px 0 0;background:var(--input)' + dim + '" data-swfold="' + esc(fk) + '"' + swFold(fk, false) + '><summary>'
+          + (tick ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + ' aria-label="Include ' + esc(it.project || it.who || 'this line') + ' in the send">' : it.removed ? '<span>–</span>' : it.sent || it.made ? '<span>✓</span>' : '')
+          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
+          + '<span class="small muted swn">' + esc(it.short || (it.project ? it.who : '') || '') + '</span></summary>'
+          + '<div style="display:flex;gap:8px;align-items:flex-start"><span><span class="small muted">' + (it.who && it.project ? esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') : '') + '</span>'
           + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
           + (it.kind === 'inbox' && it.summary && it.who ? '<br><span class="small">' + esc(it.summary) + '</span>' : '')
           + (SWEEP_GROUP[it.group] && it.who ? '<br><span class="small muted">' + SWEEP_GROUP[it.group][1] + '</span>' : '')
           + '<br><span class="small muted">' + (esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? (it.send_ok === false ? ' · draft only: you send it from Gmail' : '') : ' · no email: stays a draft')
-          + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></label>';
+          + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></div>';
         if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
           + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
         if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
-        else if (!it.no_email) h += waiting && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+        else if (!it.no_email) h += (it.tap ? tapLive && !it.sent : waiting) && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+            + (it.tap ? '<div class="small muted" style="margin-top:4px">Sends from your Gmail, in the CE thread, only when you tap Send follow-up.</div>' : '')
           : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';
+        var first = it.tap && tapLive && !it.sent && !it.removed ? '<button class="btn" data-act="sweep-one" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Send follow-up</button>'
+          : it.canvas_url && !it.removed && (waiting || tapLive) ? '<a class="btn" data-canvas="1" data-name="' + esc(it.project) + '" href="' + esc(it.canvas_url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas</a>' : '';
         if (it.action && it.action !== 'none' && !it.acted && waiting) h += '<div class="actions"><button class="btn ghost" data-act="sweep-act" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + esc(it.action === 'start_intake' ? 'Start intake' : it.action) + '</button></div>';
         // Inbox lines are not chasers: Done hides the email, Mute this sender stops Cue showing that sender again.
         if (waiting && !it.removed && !it.task_id && it.kind === 'inbox') h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + (it.group === 'fyi' || !it.who ? 'Got it' : 'Done') + '</button>'
           + (it.sender ? '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Mute this sender</button>' : '') + '</div>';
-        else if (waiting && !it.removed && !it.task_id) h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
+        else if (waiting && !it.removed && !it.task_id) h += '<div class="actions">' + first + '<button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
           + '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Stop chasing</button></div>';
+        else if (first) h += '<div class="actions">' + first + '</div>';
         if (it.error) h += '<div class="err">' + esc(it.error) + '</div>';
-        h += '</div>';
+        h += '</details>';
       });
+      h += '</details>';
     });
     var st = (b.stopped || []).filter(function (x) { return !x.removed; });
     if (st.length) {

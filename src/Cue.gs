@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.80';   // 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
+const CUE_VERSION_ = 'Cue 1.27.81';   // 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -1042,7 +1042,8 @@ function cueView_(s) {
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',
         priority: it.priority || 'normal', times: it.times || 0, subject: it.subject || '', body: it.body || '', task_id: it.task_id || '', no_email: !!it.no_email,
         send_ok: !!it.send_ok, selected: !!it.selected, removed: it.removed || '', group: it.group || '', action: it.action || '', acted: !!it.acted, sender: it.sender || '', summary: it.summary || '',
-        skipped: (it.skipped || []).slice(0, 50).map(x => ({ key: x.key || '', who: x.who || '', sender: x.sender || '', subject: x.subject || '', why: x.why || '' })), made: !!it.draft_id, sent: !!it.sent_id, error: it.error || '', in_thread: !!it.thread_id, drafted_by: it.drafted_by || '' })),
+        skipped: (it.skipped || []).slice(0, 50).map(x => ({ key: x.key || '', who: x.who || '', sender: x.sender || '', subject: x.subject || '', why: x.why || '' })), made: !!it.draft_id, sent: !!it.sent_id, error: it.error || '', in_thread: !!it.thread_id, drafted_by: it.drafted_by || '',
+        tap: !!it.tap, short: it.short || '', canvas_url: it.canvas_url || '' })),   // AWARD-TAP-2026-10-30: Send follow-up, Open in Canvas, folded summary
       stopped: (b.stopped || []).map(it => ({ key: it.key, label: it.label || it.kind, project: it.project || '', who: it.who || '', why: it.why || '', times: it.times || 0, removed: it.removed || '' })) },
     change: !(ch && s.kind === 'change') ? null : { project: (ch.match && ch.match.name) || ch.project, what_changed: ch.what_changed, note: ch.note || '', found: (ch.found || []).length,
       match: ch.match || null, others: ch.others || [], attach: (ch.attach || []).map(f => ({ id: f.id, name: f.name, size: f.size, from: f.from, selected: !!f.selected })), folder_url: ch.folder_url || '', project_files: ch.project_files || [], files_more: !!ch.files_more,

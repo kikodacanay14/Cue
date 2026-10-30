@@ -1,5 +1,33 @@
 # Changelog
 
+## Cue 1.27.81: Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (not deployed)
+
+Cut on live 1.27.77 (Version 173). Builds 1.27.78 to 1.27.80 belong to other threads; the deploys thread stacks them. No Canvas
+release is needed: Open in Canvas uses the project link Canvas already reads. Tests: 540, all passing on the deploys line (1.27.80 + this).
+
+Kiko asked on 30 Oct 2026 at 03:21Z, with a screenshot of the CE award chasers in the Morning batch: "how come there is no send
+follow up button?". It was not a bug. The CE award chaser spec approved on 21 Oct made a project whose event is within 7 days,
+or already past, an "urgent" flag with no draft, so those lines had only Skip today and Stop chasing. At 03:26Z he added "can you
+also make cards foldable and expandable?". He saw the mockups and picked "Yes, build all" on the decision card at 03:54Z.
+
+- **Send follow-up.** When the event is within 7 days and Kiko's CE thread is waiting on the client, the line now carries an
+  urgent draft, written in the batch's one ChatGPT call (template when ChatGPT is down). The draft asks kindly for a decision
+  today and never quotes the CE total. The line has no tick and is not part of the 9:00 send. Kiko edits the box and taps Send
+  follow-up: that one email goes at once from his Gmail, as a reply in the CE thread. The tap is his approval of that email only.
+  The button works until the batch is closed, also after Approve and send. A second tap sends nothing. The send is counted in
+  the Chase log and the project log, like a batch send. When there is no CE thread, no client address, or the client replied,
+  the line stays a flag ("Call the client today") as before.
+- **Open in Canvas.** When the event date has passed, the line gets Open in Canvas, which opens the project's Main tab (viewer
+  pane on a PC, new tab on a phone) so Kiko can set the award status.
+- **Folding.** Each kind in the Morning batch (for example "CE award chasers (15)") folds like the Project intake card's sections;
+  only the first starts open. Each line folds to one row: its name, its tags and a short note (the event date for award lines, the
+  person for other chasers). The tick stays on the row, so Approve and send works on folded lines. What Kiko opens or closes stays
+  that way when the page redraws.
+- Code: `cueAwardItem_` and the award template and brief (`src/CueSweepAward.gs`), `cueSweepSendOne` and the tap line kept out of
+  the batch send (`src/CueSweep.gs`), the view fields `tap`, `short`, `canvas_url` (`src/Cue.gs`), the card
+  (`src/IndexPages.html`), its button (`src/IndexCards.html`) and fold styles (`src/IndexStyle.html`). Tests A6, A6b, A6c, A6d
+  in `test/features/17-award-chasers.js` (A6 replaces the old "urgent with no draft" test).
+
 ## Cue 1.27.80: Cue finds contacts' email addresses (not deployed)
 
 Kiko asked on 30 Oct 2026 at 03:33Z: "can you please teach Cue now how to find contacts! what the format of an email address is!!

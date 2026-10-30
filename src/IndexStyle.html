@@ -238,6 +238,14 @@
   details.sec[open] > summary::before { transform:rotate(90deg); }
   details.sec > summary:hover { color:var(--text); } details.sec > summary:focus-visible { outline:2px solid var(--act); border-radius:4px; }
   details.sec > :not(summary) { margin-top:8px; }
+  /* AWARD-TAP-2026-10-30 (Kiko 30 Oct 03:26Z): a Morning batch line folds to one row: name, tags, short note; tap to open. */
+  details.swl > summary { list-style:none; display:flex; gap:8px; align-items:center; flex-wrap:wrap; color:var(--text); font-weight:500; }
+  details.swl > summary::-webkit-details-marker { display:none; }
+  details.swl > summary::before { content:'›'; display:inline-block; width:10px; font-size:16px; color:var(--muted); transition:transform .15s; }
+  details.swl[open] > summary::before { transform:rotate(90deg); }
+  details.swl > summary:focus-visible { outline:2px solid var(--act); border-radius:4px; }
+  details.swl > :not(summary) { margin-top:8px; }
+  details.swl .swn { margin-left:auto; }
   pre { white-space:pre-wrap; font:500 13px/1.5 var(--font); background:var(--input); padding:10px; border-radius:6px; }
   .scroll { overflow-x:auto; }
   .edit input { width:90px; } .edit input.wide { width:100%; }
