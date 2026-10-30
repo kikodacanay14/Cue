@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.27.83: a tidier Ask Cue list (not deployed; built as 1.27.78, renumbered by the deploys thread)
+
+Kiko, 30 Oct 2026 03:24Z, on the Ask Cue thread list: "i felt overwhelmed by this. coz there's so many... then i realized that
+some of these are duplicates as well. can we remove the duplicates? and can you a schedule on when the jobs would run". The
+schedule page (https://claude.ai/artifact/VZ3edagU6YpS8V4fsR9WdM) showed that no job runs twice. The list grows for two
+reasons: older runs of the same job stay open, and several jobs cover one subject. Kiko picked "Yes, both changes" on the
+card "Clean up Ask Cue as shown in the After picture?" at 03:55Z.
+
+- Older runs close. When a scheduled job starts today's run, its own runs from earlier Manila days that still wait (Needs you or
+  Failed) close, with one line in their thread: "Closed: today's run of this job replaced it. Nothing was sent or changed." This
+  covers the ChatGPT tasks, the bid check, the Monday HubSpot check, the pipeline review, the Friday status updates and the
+  release notes. The morning batch and the sales funnel already did this. An approved run or a phased intake never closes. This
+  replaces the 24 Oct choice that these jobs wait for the "Close older runs" tap; the button stays.
+- One thread per subject per day. The thread is named "Morning · Fri 30 Oct", "Sales · Fri 30 Oct" or "Friday events · Fri 30 Oct".
+  Morning holds the morning batch, Plan today's tasks and the unscheduled check's question. Sales holds the sales funnel, Prospect
+  follow-ups, the pipeline review and the Thursday funnel records review. Friday events holds the Friday status updates and Friday
+  production readiness. The first job to run starts the thread, and the others join it, so every card still shows. A run Kiko
+  starts by typing keeps its own thread. The Monday sales funnel review posts lines in the chat, not a thread, so it is unchanged.
+- New file `src/CueSubjects.gs`; `cueSchedRun_` calls it after a scheduled task starts. No AI call, no Canvas call, no email.
+
+Tests: 529, all passing (new SJ1 to SJ4 in `test/features/66-ask-cue-subjects.js`; FEATURE-MAP.md regenerated).
+
 ## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (not deployed; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 
 Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...

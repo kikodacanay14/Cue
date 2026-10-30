@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.82';   // 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
+const CUE_VERSION_ = 'Cue 1.27.83';   // 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -1043,7 +1043,7 @@ function cueView_(s) {
   // PC recheck 25 Oct 02:15Z: a bid-notice intake that an earlier build filed into another project's thread by a name guess (TPB 291 in
   // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
   const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
-  return { id: s.id, kind: s.kind || 'intake', ref, created: s.created, status: s.status, stage: s.stage,
+  return { id: s.id, kind: s.kind || 'intake', ref, created: s.created, status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
     same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
