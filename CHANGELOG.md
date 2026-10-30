@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.27.88: card overhaul phase 1, the look (not deployed)
+
+Kiko approved the card review page (v40) on 30 Oct 2026 at 07:59Z by tapping "Yes, build it" in the thread "Redesign all Cue cards to
+brand and UI rules". Phase 1 changes the look only: brand fonts (Quicksand for the interface, Steagal for display text), purple main
+buttons and table headers, matching Canvas PR #354. Routing (phase 2) and card flows (phase 3) come later as separate builds.
+
+- `src/Index.html` loads Quicksand in place of DM Sans and Archivo Black. `src/IndexStyle.html` sets the brand fonts and colours.
+- Built as Cue PR #264 (branch claude/project-thread-xwyfm7), stacked on 1.27.87. Numbered by the deploys thread.
+- Tests: 561, all passing.
+
 ## Cue 1.27.87: Kiko's UI rules on every card and table (not deployed)
 
 Kiko, 30 Oct 2026 06:12Z: "add to UI rules. Tables: Headers are always aligned Center. Columns with Financial values are alignes
