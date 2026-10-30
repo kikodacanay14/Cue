@@ -159,7 +159,7 @@ function cueSchedSystem_() {
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-funnel', name: 'Sales funnel', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
     { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '07:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
-    { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: true },   // CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
+    { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: false },   // off: duplicate of the Sales funnel card (card review 30 Oct). CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
     { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
     { id: 'sys-unsched', name: 'Unscheduled check', repeat: 'daily', time: '07:00', run: 'unsched', command: 'Alarm me about anything unscheduled', on: true }];
@@ -172,11 +172,13 @@ function cueSchedSystem_() {
   }
   return rows;
 }
+/** Rows the card review turned off (see cueSchedSeed_). */
+const CUE_SCHED_OFF_ONCE_ = ['sys-hubspot', 'sys-gt-admin_funnel', 'sys-funnelreview'];
 /** Adds any system row the tab does not have yet. Cheap: skipped while the list of system rows is unchanged. */
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v8:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off
+  const sig = 'v9:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -186,9 +188,15 @@ function cueSchedSeed_() {
       const f = sys.filter(y => y.id === 'sys-status')[0];
       Object.assign(x, { name: f.name, days: f.days, time: f.time, command: f.command, on: true }); x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x);
     });
-    // v8 (Kiko 30 Oct 2026 07:45Z, card review: "dont include" on the HubSpot clean-up card): the Monday HubSpot check stops. It stays in
-    // the list, off, so it can be turned on again; the chat command still works.
-    cueSchedRead_(sh).filter(x => x.id === 'sys-hubspot' && x.on).forEach(x => { x.on = false; x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x); });
+    // v8 (card review, approved by Kiko 30 Oct 2026 07:59Z): rows whose cards were removed or merged are turned off once each. They stay
+    // in the list, off, so they can be turned on again by hand. Monday HubSpot check: "dont include" (07:45Z). Thursday funnel records
+    // review and Monday sales funnel review: duplicates of the Sales funnel card (Kiko 06:57Z, "A8 is a duplicate").
+    const done = cueProp_('CUE_SCHED_OFF_ONCE', '').split(',').filter(Boolean);
+    cueSchedRead_(sh).filter(x => CUE_SCHED_OFF_ONCE_.indexOf(x.id) >= 0 && done.indexOf(x.id) < 0).forEach(x => {
+      if (x.on) { x.on = false; x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x); }
+      done.push(x.id);
+    });
+    PropertiesService.getScriptProperties().setProperty('CUE_SCHED_OFF_ONCE', done.join(','));
     sys.filter(x => have.indexOf(x.id) < 0).forEach(x => {
       const r = { row: sh.getLastRow() + 1, id: x.id, name: x.name, type: 'system', repeat: x.repeat, days: x.days || [], dom: x.dom || 0, date: '', time: x.time,
         command: x.command, run: x.run, on: x.on, next: 0, last: 0, result: '', task: '', created: now };
