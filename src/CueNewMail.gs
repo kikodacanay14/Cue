@@ -322,7 +322,7 @@ function cueNmCheck() {
     (r.items || []).forEach(x => { if (x && x.id && x.thread_id) found.push(cueNmLine_('info', x.thread_id, { id: String(x.id), from: String(cueEmail_(x.from) || '').toLowerCase(),
       name: cueStr_(x.name, 120), subject: cueStr_(x.subject, 300), snippet: cueStr_(x.snippet, 300), h: x.h || {}, labels: ['INBOX'] })); });
   } catch (e) { info = String((e && e.message) || e).slice(0, 300); }
-  const f = cueNmFilter_(run, found), out = l => ({ inbox: l.inbox, who: cueStr_(l.who, 120), subject: cueStr_(l.subject, 160), why: l.why || '' });
+  const f = cueNmFilter_(run, found), out = l => ({ inbox: l.inbox, thread_id: String(l.thread_id || ''), who: cueStr_(l.who, 120), subject: cueStr_(l.subject, 160), why: l.why || '' });
   return { history, info_error: info, threads: list.length, keep: f.keep.map(out), skip: f.skip.map(out) };
 }
 
