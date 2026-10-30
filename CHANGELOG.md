@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.84: View opportunity on bid cards (not deployed)
+## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
 Kiko, 30 Oct 2026 05:37Z, on a PhilGEPS bid card ("Procurement of Office Supplies", Amang Rodriguez Memorial Medical Center,
 13318074): "this should have a view opportunity which opens the bid itself from the main website". At 05:38Z: "all links when clicked
