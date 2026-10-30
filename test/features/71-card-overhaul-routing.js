@@ -35,3 +35,21 @@ test('CO2 Today\'s tasks in the Morning thread: counts by place from Canvas plus
   assert.ok(/b\.items\.forEach\(function \(it\) \{ if \(it\.kind === 'tasks'\) return;/.test(pages), 'the batch card leaves out its task lines');
   assert.ok(/threadTitle\(t\) === 'Morning'\) h = h\.slice\(0, cardsAt\) \+ todayHtml\(t\)/.test(page), 'the card leads the Morning thread');
 });
+test('CO3 New mail buttons follow the review (no Mute sender, no Not an inquiry) and a New mail reply is "Reply ready" with Send reply', () => {
+  const vm = require('vm'), fs = require('fs'), path = require('path'), src = n => fs.readFileSync(path.join(__dirname, '..', 'src', n), 'utf8');
+  const pages = src('IndexPages.html'), cards = src('IndexCards.html');
+  const fn = pages.match(/  var NM_GROUP = [\s\S]*?\n  function nmCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const box = { esc: s => String(s), ago: () => 'now' };
+  const it = (key, group, extra) => Object.assign({ key, group, who: 'Ana', subject: 'S ' + key, url: 'https://mail.google.com/x' }, extra || {});
+  box.it = it;
+  vm.runInNewContext(fn + 'out = nmCardHtml({ id: "n1", status: "Needs you", nm: { day: "Fri 30 Oct", items: [it("a", "inquiry"), it("b", "reply"), it("c", "fyi"), it("d", "reply", { acted: "reply", task_id: "cue-9" })] } });', box);
+  const h = box.out;
+  assert.ok(!/nm-mute|Mute sender|nm-noinq|Not an inquiry/.test(h), 'mute and not-an-inquiry gone');
+  assert.ok(/data-act="nm-intake">Start intake/.test(h) && />Mark read</.test(h) && />Got it</.test(h), 'inquiry and FYI buttons');
+  assert.strictEqual((h.match(/Open in Gmail/g) || []).length, 1, 'Open in Gmail on FYI only');
+  assert.ok(/data-open-task="cue-9">Open reply/.test(h) && /Reply ready/.test(h), 'a drafted reply points to its card');
+  const mc = cards.match(/  function mailCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const b2 = { esc: s => String(s), NEED: { 'Needs you': 1 }, metricLine: () => '' };
+  vm.runInNewContext(mc + 'out = mailCardHtml({ id: "e1", status: "Needs you", mail: { job: "reply", to: "Ana", draft: { to: "a@x", subject: "Re: S", body: "Hi" } } });', b2);
+  assert.ok(/>Reply ready</.test(b2.out) && /data-act="mail-send"[^>]*>Send reply</.test(b2.out) && /<textarea class="mail"/.test(b2.out), 'Reply ready, editable, Send reply');
+});

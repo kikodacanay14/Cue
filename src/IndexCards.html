@@ -990,7 +990,8 @@
   // Draft an email (write-like-me step 2): one email in Kiko's style. Edit To, subject and text; send or keep it in Drafts.
   function mailCardHtml(r) {
     var M = r.mail || {}, D = M.draft, T = M.thread, waiting = r.status === 'Needs you' && D && !D.made;
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Email</div><b style="font-size:17px;color:var(--white)">Email to ' + esc(M.to || (D && D.to) || 'someone') + '</b>';
+    var rp = M.job === 'reply';   // CARD-OVERHAUL-2026-10-30: a Draft reply from New mail is "Reply ready" with Send reply
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">' + (rp && waiting ? 'Reply ready' : 'Email') + '</div><b style="font-size:17px;color:var(--white)">Email to ' + esc(M.to || (D && D.to) || 'someone') + '</b>';
     if (r.status === 'Failed' || !D) return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
     h += '<div class="small muted">' + (T ? 'Reply in your thread "' + esc(T.subject) + '" (' + esc(T.date) + ')' + (T.url ? ' · <a href="' + esc(T.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '') : 'New email')
@@ -1001,7 +1002,7 @@
       + '<div class="small" style="margin-top:6px">Subject <input data-mail-subject="' + esc(r.id) + '" value="' + esc(D.subject) + '" aria-label="Subject" style="width:100%"' + (T ? ' disabled' : '') + '></div>'
       + '<textarea class="mail" data-mail-body="' + esc(r.id) + '" aria-label="Email text">' + esc(D.body) + '</textarea>';
     else h += '<div class="small" style="margin-top:8px"><b>To</b> ' + esc(D.to || '(blank)') + ' · <b>Subject</b> ' + esc(D.subject) + '</div><pre style="margin-top:8px">' + esc(D.body) + '</pre>';
-    if (r.status === 'Needs you') h += '<div class="actions"><button class="btn" data-act="mail-send" data-id="' + esc(r.id) + '">' + (D.made ? 'Send it now' : 'Approve and send') + '</button>'
+    if (r.status === 'Needs you') h += '<div class="actions"><button class="btn" data-act="mail-send" data-id="' + esc(r.id) + '">' + (D.made ? 'Send it now' : rp ? 'Send reply' : 'Approve and send') + '</button>'
       + (D.made ? '' : '<button class="btn ghost" data-act="mail-draft" data-id="' + esc(r.id) + '">Save to Gmail drafts</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }

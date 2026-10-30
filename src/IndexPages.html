@@ -4,7 +4,7 @@
     fyi: ['FYI', 'For your information. Nothing to do: tap Got it.'] };
   // ---- New mail (Kiko 27 Oct 08:27-09:32Z, spec new-mail-check.md, CueNewMail.gs): new emails in Kiko's inbox and info@ within 5 minutes ----
   var NM_GROUP = { new: ['Not sorted yet', 'Claude sorts new mail every 30 minutes, 7 AM to 9 PM.'], inquiry: ['New inquiry', 'Someone wants a quote or event. Start intake to begin it.'],
-    reply: ['Needs your reply', 'Draft reply writes it here. Edit it, then Approve and send.'], fyi: ['FYI', 'Worth knowing. No reply needed.'], skip: ['Skipped', ''] };
+    reply: ['Needs your reply', 'Draft reply writes it. Edit it, then Send reply.'], fyi: ['FYI', 'Worth knowing. No reply needed.'], skip: ['Skipped', ''] };
   function nmOpenCount(r) { return ((r.nm || {}).items || []).filter(function (it) { return !it.removed && !it.task_id; }).length; }
   function nmCardHtml(r) {
     var N = r.nm, live = r.status !== 'Closed', rank = { inquiry: 0, reply: 1, new: 2, fyi: 3, skip: 4 };
@@ -24,17 +24,18 @@
         + '<div style="margin-top:4px"><b>' + esc(it.subject || '(no subject)') + '</b></div>'
         + (it.summary && it.summary !== it.subject ? '<div class="small">' + esc(it.summary) + '</div>' : '')
         + (it.why ? '<div class="small muted">' + esc(it.why) + '</div>' : '')
-        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.removed === 'project' ? 'A project email: it is in the project\'s thread in Team Cue.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply drafted below.' : 'Done.') + '</div>' : '');
+        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.removed === 'project' ? 'A project email: it is in the project\'s thread in Team Cue.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply ready: edit it and tap Send reply in its card.' : 'Done.') + '</div>' : '');
       if (it.task_id && it.acted === 'intake') h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open intake</button></div>';
+      if (it.task_id && it.acted === 'reply') h += '<div class="actions"><button class="btn" data-open-task="' + esc(it.task_id) + '">Open reply</button></div>';   // CARD-OVERHAUL-2026-10-30: the reply card has Send reply
       if (!done && live) {
         var k = ' data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '"';
+        // CARD-OVERHAUL-2026-10-30 (card review, Kiko approved 30 Oct 2026 07:59Z): inquiry = Start intake, Draft reply, Mark read;
+        // needs reply = Draft reply, Done; FYI = Got it, Open in Gmail. Mute sender and Not an inquiry are gone from the card.
         h += '<div class="actions">'
           + (it.group === 'inquiry' ? '<button class="btn"' + k + ' data-act="nm-intake">Start intake</button>' : '')
           + (it.group !== 'fyi' ? '<button class="btn' + (it.group === 'inquiry' ? ' ghost' : '') + '"' + k + ' data-act="nm-reply">Draft reply</button>' : '')
-          + (it.url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(it.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '')
-          + '<button class="btn ghost"' + k + ' data-act="nm-done">' + (it.group === 'fyi' ? 'Got it' : 'Done') + '</button>'
-          + (it.group === 'inquiry' ? '<button class="btn ghost"' + k + ' data-act="nm-noinq">Not an inquiry</button>' : '')
-          + '<button class="btn bad"' + k + ' data-act="nm-mute">Mute sender</button></div>';
+          + (it.url && it.group === 'fyi' ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(it.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '')
+          + '<button class="btn ghost"' + k + ' data-act="nm-done">' + (it.group === 'fyi' ? 'Got it' : it.group === 'inquiry' ? 'Mark read' : 'Done') + '</button></div>';
       }
       h += '</div>';
     });
