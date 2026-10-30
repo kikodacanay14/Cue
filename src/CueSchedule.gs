@@ -155,7 +155,7 @@ function cueSchedSystem_() {
   const rows = [
     { id: 'sys-sweep', name: 'Morning sweep', repeat: 'daily', time: String(cueRules_().general.build).padStart(2, '0') + ':00', run: 'sweep', command: 'Morning sweep and chasers', on: true },
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: String(CUE_BIDS_RULES_.hour).padStart(2, '0') + ':00', run: 'bids', command: 'Bid opportunity check', on: true },
-    { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: true },
+    { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: false },   // off: Kiko 30 Oct 07:45Z "dont include" (card review)
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-funnel', name: 'Sales funnel', repeat: 'daily', time: '07:00', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
     { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '07:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
@@ -176,7 +176,7 @@ function cueSchedSystem_() {
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v7:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday
+  const sig = 'v8:' + gt;   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -186,6 +186,9 @@ function cueSchedSeed_() {
       const f = sys.filter(y => y.id === 'sys-status')[0];
       Object.assign(x, { name: f.name, days: f.days, time: f.time, command: f.command, on: true }); x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x);
     });
+    // v8 (Kiko 30 Oct 2026 07:45Z, card review: "dont include" on the HubSpot clean-up card): the Monday HubSpot check stops. It stays in
+    // the list, off, so it can be turned on again; the chat command still works.
+    cueSchedRead_(sh).filter(x => x.id === 'sys-hubspot' && x.on).forEach(x => { x.on = false; x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x); });
     sys.filter(x => have.indexOf(x.id) < 0).forEach(x => {
       const r = { row: sh.getLastRow() + 1, id: x.id, name: x.name, type: 'system', repeat: x.repeat, days: x.days || [], dom: x.dom || 0, date: '', time: x.time,
         command: x.command, run: x.run, on: x.on, next: 0, last: 0, result: '', task: '', created: now };
