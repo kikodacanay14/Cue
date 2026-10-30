@@ -224,7 +224,7 @@ test('C21 small talk: one GPT call, no intake, both lines in the chat; an inquir
   assert.strictEqual(t.tabs.Requests.rows.length, 1, 'no request made');
   deq(t.tabs.Chat.rows.slice(1).map(x => x[1]), ['Kiko', 'Cue']);
   assert.ok(/how are you/.test(t.log.gpt[0].input) && /never pretend/.test(t.log.gpt[0].instructions));
-  const AI = t.tabs['AI Runs'].rows.slice(1); assert.strictEqual(AI.length, 1); assert.strictEqual(AI[0][2], 'chat');
+  const AI = t.tabs['AI Runs'].rows.slice(1); deq(AI.map(x => [x[2], x[3], x[9]]), [['chat', 'Claude', 'Failed'], ['chat', 'GPT', 'OK']], 'Claude first; unreachable, the GPT form call answers');
   const u = sandbox({ talk: { reply: 'That looks like an inquiry.', looks_like_inquiry: true } });
   assert.strictEqual(u.ctx.cueSend(INQ).suggest_intake, true);
   assert.ok(u.ctx.cueSend('New project intake. ' + INQ).request_id, 'opener starts an intake');

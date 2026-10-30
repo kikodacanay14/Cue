@@ -145,6 +145,12 @@ function sandbox(o = {}) {
       const code = typeof t === 'number' ? t : 200, txt = typeof t === 'number' ? '' : t;
       return { getResponseCode: () => code, getContent: () => Array.from(Buffer.from(txt)), getContentText: () => txt };
     }
+    // CUE-CLAUDE-BRAIN-2026-10-30: the chat agent (CueAgent.gs). o.agent(body, n) answers round n; without it the agent is not
+    // reachable, so the chat falls back to the one form call these older tests check (GPT, or Claude in tutor mode).
+    if (u.indexOf('api.anthropic.com') >= 0 && body && (body.tools || []).some(x => x.name === 'answer')) {
+      (log.agent = log.agent || []).push(body);
+      return o.agent ? o.agent(body, log.agent.length) : resp(400, { type: 'error', error: { type: 'invalid_request_error', message: 'agent not mocked in this test' } });
+    }
     if (u.indexOf('api.openai.com') >= 0) {
       const n = body.text.format.name; log.gpt.push(body);
       if ((o.fail || {})[n]) return o.fail[n]();

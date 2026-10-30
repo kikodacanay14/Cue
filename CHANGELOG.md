@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (not deployed; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
+
+Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...
+so Cue seems dumb", then "cant i just chat with Claude as Cue?" and at 03:50Z "if Cue is dumb as a rock and i cant put Claude there
+so i can chat with someone smart - then there's no use for Cue". At 03:53Z he picked "Claude inside Ask Cue" on the decision card
+(comparison page https://claude.ai/artifact/EMcGXUqKNTjP9oe7ckm98i).
+
+- Why Cue felt dumb: every chat message was one GPT call that had to fill a long form (which of about 15 jobs, and its fields) with
+  no way to look anything up first. Wrong guesses were patched with word rules after each PC test.
+- Now Claude (Sonnet 5.5, low effort) answers every Ask Cue chat message (`CueAgent.gs`, called from `cueTalk_` in `Cue.gs`). Before
+  it answers it may look things up with read-only tools, the Cue basics: `find_contact` (Canvas P0 Contacts, then Kiko's Gmail, never
+  guesses), `search_gmail` and `read_email` (sender, recipients, date, thread, body, attachment names), `find_project`, `canvas_tabs`
+  and `canvas_read` (only the tabs on Canvas's allow-list), and `add_work_days` (Monday to Friday; Philippine holidays are not known
+  yet, and the tool says so).
+- Claude ends by calling an `answer` tool whose fields are the same chat form as before, so every job, card and approval works as it
+  did: nothing is sent or written from chat, and an email still goes only when Kiko taps Approve and send.
+- At most 6 rounds and about 150 seconds per message. When Claude cannot be reached, refuses, runs out of room or never answers, the
+  old one-call form answers instead, so Kiko always gets a reply. Every round is logged in AI Runs, so Settings > AI usage and cost
+  shows the real cost per chat. The estimate is about P2 to P4 per chat against about P0.25 before.
+- Cue's rules, voice and tool list are sent as a cached prefix, so repeat rounds and chats read them at the cache price.
+- Tests: 546 on the deploys line (6 new in test/features/68-claude-brain.js, including "find Ruth at Moldex's email" and the AMI Group ask).
+
 ## Cue 1.27.81: Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (not deployed)
 
 Cut on live 1.27.77 (Version 173). Builds 1.27.78 to 1.27.80 belong to other threads; the deploys thread stacks them. No Canvas
