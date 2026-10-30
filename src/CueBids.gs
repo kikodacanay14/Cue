@@ -898,6 +898,17 @@ function cueBidsSourceOf_(it) {
     n = hit ? hit.name : h; }
   return CUE_BIDS_SRC_LABEL_[n] || n;
 }
+/** View opportunity (Kiko 30 Oct 2026 05:37Z: "this should have a view opportunity which opens the bid itself from the main website"): the
+ * notice's own page on PhilGEPS by its reference number, else the notice link the scan found. The old site's page is public; checked in
+ * Kiko's Chrome on 30 Oct, refID=<ref> alone opens the notice. Bulletin Board pages open after Kiko signs in. */
+function cueBidsOppUrl_(it) {
+  const src = cueBidsSourceOf_(it), ref = String(it.reference || '').trim();
+  if (/^\d{5,10}$/.test(ref)) {
+    if (src === CUE_BIDS_SRC_LABEL_['Other PhilGEPS']) return 'https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashBidNoticeAbstractUI.aspx?refID=' + ref;
+    if (src === CUE_BIDS_SRC_LABEL_['New PhilGEPS']) return 'https://philgeps.gov.ph/tenders/viewBidNotice/' + ref;
+  }
+  return /^https:\/\//.test(it.url || '') ? it.url : '';
+}
 /** What Kiko would have to ask the agency: the missing facts, and the documents when Cue could not read any. */
 const cueBidsAskFor_ = it => cueBidsMissing_(it).concat(it.from_docs ? [] : ['bid documents (terms of reference and specifications)']);
 /** scoped | clarify | closing. Scoped = Cue read the documents and nothing Kiko's screen needs is missing. */
@@ -995,7 +1006,7 @@ function cueBidsView_(s) {
     pages: it.pages || '', contacts: (it.contacts || []).map(c => ({ name: c.name || '', role: c.role || '', email: c.email || '', phone: c.phone || '' })),
     more: it.more ? { missing: it.more.missing || [], draft: it.more.draft ? { to: it.more.draft.to || '', subject: it.more.draft.subject || '', body: it.more.draft.body || '',
       sent: it.more.draft.sent_at || '' } : null } : null,
-    source: cueBidsSourceOf_(it), ask: cueBidsAskFor_(it), decision: it.decision || '', added: !!it.added, ce_url: it.added ? ce(it) : '' });
+    source: cueBidsSourceOf_(it), opp: cueBidsOppUrl_(it), ask: cueBidsAskFor_(it), decision: it.decision || '', added: !!it.added, ce_url: it.added ? ce(it) : '' });
   const ce = it => { try { return cueCanvasLink_({ what: 'cedesk', q: it.reference || it.project }).url; } catch (e) { return ''; } };
   const tag = list => it => Object.assign(pub(it), { group: cueBidsGroup_(it, list) });
   return { title: B.title || 'Bid check', sub: B.sub || '', summary: B.summary || '', items: (B.items || []).map(tag('items')), still: (B.still || []).map(tag('still')), updated: B.still ? [] : (B.updated || []).map(pub),
