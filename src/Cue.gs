@@ -422,6 +422,14 @@ function cueTalkCands_(d, t, force) {
     vendor: d.vendor && d.vendor.job ? d.vendor : null, workflow: d.workflow && d.workflow.job === 'map' && !cuePlanAsk_(t, force) ? d.workflow : null,
     email: d.email && d.email.job && String(d.email.to || '').trim() ? d.email : null };
 }
+/** CUE-CLAUDE-BRAIN-2026-10-30 (CueAgent.gs): Claude answers the chat message and may look things up first. When Claude cannot answer,
+ *  the one form call from before answers instead (GPT, or Claude in tutor mode), so Kiko always gets a reply. */
+function cueTalkCall_(s, tutorOn, o) {
+  const a = cueAgent_(s, o);
+  if (a.ok) return a;
+  console.warn('Chat agent: ' + a.error);
+  return cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)(o)])[0];
+}
 /** opt (tutor mode, CueTutor.gs): replay = a plan Kiko approved with Go, used instead of a new AI call; quiet = Kiko's original message
  * when t carries a correction to the plan (Kiko's line is already in the chat). */
 function cueTalk_(t, ref, force, opt) {
@@ -448,14 +456,14 @@ function cueTalk_(t, ref, force, opt) {
   const people = cached ? '' : cueChatContacts_(s, t, /^email draft to /.test(about));   // CUE-CONTACT-FIND-2026-10-30 (CueContacts.gs)
   const schema = tutorOn ? Object.assign({}, CUE_TALK_SCHEMA_, { required: CUE_TALK_SCHEMA_.required.concat(['plan']),
     properties: Object.assign({}, CUE_TALK_SCHEMA_.properties, { plan: CUE_TUTOR_PLAN_SCHEMA_ }) }) : CUE_TALK_SCHEMA_;
-  const r = replay ? { ok: true, data: replay } : cueAiAll_(s, [(tutorOn ? cueClaude_ : cueGpt_)({ step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema, maxTokens: cuePlanAsk_(t, force) ? 4000 : tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
+  const r = replay ? { ok: true, data: replay } : cueTalkCall_(s, tutorOn, { step: 'chat', name: 'chat', system: CUE_TALK_SYSTEM_ + cueVoice_(), schema, maxTokens: cuePlanAsk_(t, force) ? 4000 : tutorOn ? 2500 : 1500, effort: cueProp_('CUE_TUTOR_EFFORT', 'low'),
     user: 'Today is ' + wd + ' ' + today.day + ', ' + String(today.hour).padStart(2, '0') + ':' + String(today.minute).padStart(2, '0') + ' Philippine time.\nWaiting on Kiko: ' + (waiting.join('; ') || 'nothing') + (about ? '\nKiko is replying about this task: ' + about : '')
       + '\nCanvas projects: ' + found
       + (people ? '\nContacts (email addresses Cue found for the people Kiko named):\n' + people : '')
       + (tasks.length ? '\nTasks:\n' + tasks.map(x => x.id + ': ' + x.line).join('\n') : '')
       + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
       + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')
-      + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t })])[0];
+      + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t });
   let pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   // PC retest 17:58Z: "write a plan for a year-end campaign" joined the Morning batch thread. A plan, brainstorm or analysis ask
   // joins a task's thread only when it names that task's project or topic; otherwise it is answered in the main chat.
