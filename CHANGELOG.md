@@ -27,6 +27,7 @@ size bigger that the text".
 - Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
 - Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
 - Tests: 555 with this on 1.27.85 (BO5 in test/features/69-bid-view-opportunity.js).
+- Kiko, 06:15Z: "Summary of requirements value - aligned Justify". The Summary of requirements value on bid cards is justified.
 
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 
