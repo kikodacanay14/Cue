@@ -359,4 +359,19 @@
   body.in-canvas .card { padding:10px 12px; margin-bottom:8px; } body.in-canvas .msg { padding:7px 10px; max-width:92%; }
   body.in-canvas .composer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
   body.in-canvas .btn { min-height:34px; padding:0 14px; font-size:13px; }
+  /* UI-RULES-2026-10-30 (Kiko 30 Oct 2026 06:12Z, his words: "Tables: Headers are always aligned Center. Columns with Financial
+     values are alignes Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size bigger than
+     the values. Overall: Headers are either in bold, darker colors or a size bigger than the value. Value should be lighter, never in
+     bold, a size smaller than the header. Buttons - aligned bottom right. Labels - should never look like buttons. Icons with Labels -
+     always aligned middle"). Same rules as Canvas Brand.html style#bs-uirules. Centring and middle rows are TABLE-ALIGN above. */
+  table th { color:var(--white) !important; font-weight:700 !important; font-size:14px; }
+  table td { font-weight:400; font-size:13px; } table td :is(b, strong) { font-weight:400; }
+  .facts td:first-child { color:var(--white); font-weight:700; font-size:14px; }   /* the field-name column of a facts table is a header */
+  .label, details.sec > summary { font-size:14px; text-transform:none; letter-spacing:normal; color:var(--white); font-weight:700; }   /* section headers a size above the 13px card text */
+  .fk { font-size:14px; }   /* a field name is a size bigger than its 13px value; the value stays regular */
+  .card .actions, dialog .actions { justify-content:flex-end; }   /* buttons sit at the bottom right of their card */
+  .tag { border-radius:4px; font-weight:600; cursor:default; }   /* a label is a flat tag with square corners; buttons stay round pills */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; vertical-align:middle; }
+  .btn svg, .tag svg, .fk svg, .label svg, summary svg { vertical-align:middle; flex:none; }
+  #settings .ic { vertical-align:middle; }
 </style>

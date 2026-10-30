@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue (unnumbered): Kiko's UI rules on every card and table (not deployed; the deploys thread assigns the number)
+
+Kiko, 30 Oct 2026 06:12Z: "add to UI rules. Tables: Headers are always aligned Center. Columns with Financial values are alignes
+Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size bigger than the values. Overall:
+Headers are either in bold, darker colors or a size bigger than the value. Value should be lighter, never in bold, a size smaller than
+the header. Buttons - aligned bottom right. Labels - should never look like buttons. Icons with Labels - always aligned middle".
+Builds on the dark field names in the bid card release (1.27.85).
+
+- Table headers are dark, bold and 14px; table values are regular weight and 13px, and bold inside a value cell is turned off.
+- The field-name column of a facts table is dark, bold and 14px, like a header.
+- Section headers (Needs you, Today and the like) and folding section titles are dark, bold, 14px and in sentence case, a size above
+  the 13px card text. Field names on cards (`.fk`) are 14px over their 13px regular values.
+- Card buttons sit at the bottom right of the card, and dialog buttons too.
+- Tags (New, Preferred, For verification) have square corners, a 600 weight and an arrow cursor, so they no longer look like the round
+  pill buttons.
+- Buttons lay out their icon and words on one centred line, and icons beside tags, field names, section headers and Settings items
+  sit in the middle of the line.
+- Style only: the UI-RULES block at the end of `src/IndexStyle.html`. No data, server, bridge or email change.
+
+Tests: 561, all passing. UR1 to UR5 are new (`test/features/70-ui-rules.js`).
+
 ## Cue 1.27.86: project emails stay in Team Cue (not deployed; built as 1.27.85, renumbered by the deploys thread)
 
 Kiko, 30 Oct 2026 05:50Z, in the thread "Cut Ask Cue thread overload": "emails is retained depending if its a project email or not -

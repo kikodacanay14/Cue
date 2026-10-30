@@ -47,6 +47,13 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
   the middle of its row.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
+- UI rules for every card and table (Kiko, 30 Oct 2026 06:12Z: "Tables: Headers are always aligned Center. Columns with
+  Financial values are alignes Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size
+  bigger than the values. Overall: Headers are either in bold, darker colors or a size bigger than the value. Value should be
+  lighter, never in bold, a size smaller than the header. Buttons - aligned bottom right. Labels - should never look like buttons.
+  Icons with Labels - always aligned middle"). Headers and field names dark, bold, 14px; values regular, 13px; card buttons at the
+  bottom right; tags flat with square corners; icons middle. They live in the UI-RULES block of `src/IndexStyle.html` (tests in
+  `test/features/70-ui-rules.js`) and match Canvas Brand.html `style#bs-uirules`.
 - Labels (Kiko, 29 Oct 2026 14:48Z and 14:49Z: "make your label same - and make it a global UI", "make it a standard UI....
   dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
   same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
