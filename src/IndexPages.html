@@ -24,7 +24,7 @@
         + '<div style="margin-top:4px"><b>' + esc(it.subject || '(no subject)') + '</b></div>'
         + (it.summary && it.summary !== it.subject ? '<div class="small">' + esc(it.summary) + '</div>' : '')
         + (it.why ? '<div class="small muted">' + esc(it.why) + '</div>' : '')
-        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply drafted below.' : 'Done.') + '</div>' : '');
+        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.removed === 'project' ? 'A project email: it is in the project\'s thread in Team Cue.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply drafted below.' : 'Done.') + '</div>' : '');
       if (it.task_id && it.acted === 'intake') h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open intake</button></div>';
       if (!done && live) {
         var k = ' data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '"';
