@@ -11,7 +11,8 @@ Builds on the dark field names in the bid card release (1.27.85).
 - Table headers are dark, bold and 14px; table values are regular weight and 13px, and bold inside a value cell is turned off.
 - The field-name column of a facts table is dark, bold and 14px, like a header.
 - Section headers (Needs you, Today and the like) and folding section titles are dark, bold, 14px and in sentence case, a size above
-  the 13px card text. Field names on cards (`.fk`) are 14px over their 13px regular values.
+  the 13px card text. Field names on cards (`.fk`) are 14px over their 13px regular values. Bid card field lines keep the style Kiko picked at
+  06:15Z (accent name in its own column, 600, same size as the value).
 - Card buttons sit at the bottom right of the card, and dialog buttons too.
 - Tags (New, Preferred, For verification) have square corners, a 600 weight and an arrow cursor, so they no longer look like the round
   pill buttons.
@@ -65,7 +66,13 @@ size bigger that the text".
   and bold (`.fk`), where it was light grey. The value is regular weight (`.card .small` 400, was 500).
 - Section headers (`.label`, such as "NEW: FOR CLARIFICATION") use the text colour, where they were light grey.
 - Same size as before: Kiko gave darker headers first and a bigger size as the other choice.
-- Tests: 555 with this on 1.27.85 (BO5 in test/features/69-bid-view-opportunity.js).
+- Tests: 555 with this on 1.27.85 (BD6 and BO4 now check the two-column markup) (BO5 in test/features/69-bid-view-opportunity.js).
+- Kiko, 06:15Z: "Summary of requirements value - aligned Justify". The Summary of requirements value on bid cards is justified.
+- Kiko, 06:15Z, with a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value". Each field line on a bid
+  card is now two columns: the name in the accent colour (600 weight, no colon) and the value, regular, beside it (`.kv` in IndexStyle.html).
+- Kiko, 06:17Z: "use spacing in between lines. they are too tight". Field lines get line-height 1.6 and 10px between rows.
+- Kiko, 06:21Z: "on load View Details > exepands View Details becomes View Opportunity". On load a bid card shows View details only. Tapping
+  it opens the details, and the button turns into View opportunity in the same place. A notice without its own page keeps View details / Hide details.
 
 ## Cue 1.27.84: View opportunity on bid cards (live as Version 180, 30 Oct 2026 05:49Z, rollback Version 179)
 

@@ -653,7 +653,10 @@
       var D = new Date(Date.UTC(+y, +mo - 1, +d)); if (isNaN(D)) return m;
       var t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ' ' + (+d) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+mo - 1] + ' ' + y;
       return hh == null ? t : t + ', ' + ((+hh % 12) || 12) + ':' + mm + ' ' + (+hh < 12 ? 'AM' : 'PM'); }); };
-    var row = function (k, v, flag) { return '<div class="small" style="margin-top:2px"><span class="fk">' + esc(k) + ':</span> ' + (v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : '')) + '</div>'; };
+    // Field lines (Kiko 30 Oct 2026 06:15Z, a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value"):
+    // the name in the accent colour in its own column, no colon, the value regular beside it. just = justify the value (06:15Z).
+    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
+    var row = function (k, v, flag, just) { return kv(k, v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : ''), just); };
     var doc = function (d) {
       var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
         : d.state === 'failed' ? '<span class="tag flag">Could not open: ' + esc(d.why) + '</span>'
@@ -682,22 +685,22 @@
         + '<b>' + esc(x.project || x.reference) + '</b>'
         + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
         + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
-        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '')
+        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, true)
         // From the notice page (Kiko 30 Oct 05:52Z "add more details"): the site's category and mode, the delivery period, and Cue's copy of the notice.
         + (x.details && (x.details.category || x.details.mode) ? row('Category', [x.details.category, x.details.mode].filter(Boolean).join(' · ')) : '')
         + (x.details && x.details.delivery ? row('Delivery period', x.details.delivery) : '')
-        + (x.copy ? '<div class="small" style="margin-top:2px"><span class="fk">Notice:</span> ' + (x.copy.drive ? link(x.copy.drive, 'Cue\'s copy (PDF)') : '<span class="muted">No copy: ' + esc(x.copy.why) + '</span>') + '</div>' : '')
+        + (x.copy ? kv('Notice', x.copy.drive ? link(x.copy.drive, 'Cue\'s copy (PDF)') : '<span class="muted">No copy: ' + esc(x.copy.why) + '</span>') : '')
         // View details (Kiko 29 Oct 11:24Z): the rest of the notice opens under the summary, in the page only.
         + '<div data-bv="' + esc(r.id + '|' + x.key) + '" style="display:none">'
         + (x.contacts && x.contacts.length ? row('Contact', x.contacts.map(function (c) { return [c.name, c.role, c.email, c.phone].filter(Boolean).join(', '); }).join('; '))
-          : x.from_docs ? '<div class="small" style="margin-top:2px"><span class="fk">Contact:</span> <span class="muted">No contact in the documents</span></div>' : '')
+          : x.from_docs ? kv('Contact', '<span class="muted">No contact in the documents</span>') : '')
         + row('Bid start date', day(x.posted))
         + (x.details && x.details.solicitation ? row('Solicitation number', x.details.solicitation) : '')
         + (x.details && x.details.doc_requests !== '' && x.details.doc_requests != null ? row('Document requests so far', String(x.details.doc_requests)) : '')
         + (x.pages ? '<div class="small muted">From the documents: ' + esc(x.pages) + '</div>' : '')
-        + '<div class="small" style="margin-top:2px"><span class="fk">Bid documents available:</span>' + (x.documents.length ? '<ul class="small" style="margin:2px 0 0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : ' <span class="muted">None listed</span>') + '</div>'
+        + kv('Bid documents available', x.documents.length ? '<ul class="small" style="margin:0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : '<span class="muted">None listed</span>')
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
-      if (g === 'clarify' && (x.ask || []).length) h += '<div class="small" style="margin-top:4px"><span class="fk">To ask the agency:</span> ' + esc(x.ask.join(', ')) + '</div>';
+      if (g === 'clarify' && (x.ask || []).length) h += kv('To ask the agency', esc(x.ask.join(', ')));
       if (g === 'clarify') h += draftHtml(x);
       // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decide later, Decline.
       var b = [], end = [];
@@ -715,7 +718,8 @@
       }
       b.push('<button class="btn sm ghost" data-act="bids-view" data-id="' + esc(r.id) + '" data-bk="' + esc(r.id + '|' + x.key) + '">View details</button>');
       // View opportunity (Kiko 30 Oct 05:37Z): opens the bid's own page on the source website in a new tab. Official notice stays under View details.
-      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
+      // Kiko 06:21Z: "on load View Details > expands View Details becomes View Opportunity": hidden until View details opens, then it takes that button's place.
+      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn sm ghost" data-vo="' + esc(r.id + '|' + x.key) + '" style="display:none;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
       b = b.concat(end);
       b = b.filter(Boolean);
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
@@ -1603,7 +1607,9 @@
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
         if (act === 'bids-intake') { b.disabled = true; return call('cueBidsStartIntake', [id, b.getAttribute('data-f')], started, fail); }
-        if (act === 'bids-view') { var vk = b.getAttribute('data-bk');
+        if (act === 'bids-view') { var vk = b.getAttribute('data-bk'), vo = null;
+          scope.querySelectorAll('[data-vo]').forEach(function (x) { if (x.getAttribute('data-vo') === vk) vo = x; });
+          if (vo) { scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) x.style.display = ''; }); b.style.display = 'none'; vo.style.display = 'inline-flex'; return; }
           scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) { var open = x.style.display === 'none'; x.style.display = open ? '' : 'none'; b.textContent = open ? 'Hide details' : 'View details'; } }); return; }
         if (act === 'bids-later' || act === 'bids-decline') { b.disabled = true; return call('cueBidsDecide', [id, b.getAttribute('data-f'), act === 'bids-later' ? 'later' : 'declined'], done, fail); }
         if (act === 'bids-edit' || act === 'bids-send' || act === 'bids-cancel') {

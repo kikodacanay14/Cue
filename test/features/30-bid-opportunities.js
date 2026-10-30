@@ -401,16 +401,16 @@ test('BD6 page: the bid card has the new title, New and Still open, the 7 fields
   const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
   assert.ok(/Bid opportunities · 2026-10-21 · 1 scoped, 2 for clarification, 1 closing/.test(h) && /11 sources checked, 2 partial or blocked/.test(h));
   assert.ok(/New: Scoped projects \(1\)[\s\S]*New: For clarification \(2\)[\s\S]*Opportunities closing \(1\)/.test(h) && /Trade fair booth fabrication/.test(h) && /Travel fair booth/.test(h) && /Deadline moved to/.test(h));
-  ['Organization:', 'Bid start date:', 'Bid end date:', 'Budget:', 'Summary of requirements:', 'Bid documents available:'].forEach(k => assert.ok(h.indexOf(k) >= 0, k));
+  ['Organization', 'Bid start date', 'Bid end date', 'Budget', 'Summary of requirements', 'Bid documents available'].forEach(k => assert.ok(h.indexOf('<span class="fk">' + k + '</span>') >= 0, k));
   assert.ok(/Opened · saved · read/.test(h) && /Cue&#39;s copy/.test(h) && /Could not open: HTTP 403/.test(h) && /Could not open: needs sign-in/.test(h));
   assert.ok(/data-act="bids-ask"[^>]*data-f="r:np77"/.test(h) && /data-act="bids-intake"/.test(h) && /Official notice/.test(h));
   assert.ok(/process check 8 of 10 passed/.test(h) && /✗ All 11 sources reported/.test(h)); assert.ok(/data-act="bids-close"/.test(h) && !/Pursue/.test(h));
   assert.ok(!/href="javascript/.test(h), 'only https links'); assert.ok(/₱480,000/.test(h) && /For verification/.test(h));
   ['bids-more', 'bids-ask', 'bids-intake'].forEach(a => assert.ok(page.indexOf("act === '" + a + "'") >= 0, a + ' is wired'));
-  assert.ok(/Contact:<\/span> <span class="muted">No contact in the documents/.test(h), 'read, no contact named');
+  assert.ok(/Contact<\/span><span><span class="muted">No contact in the documents/.test(h), 'read, no contact named');
   v.bids.items[1].contacts = [{ name: '<b>x</b>', role: 'BAC', email: 'bac@x.gov.ph', phone: '' }];
   const h2 = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
-  assert.ok(/Contact:<\/span> &lt;b&gt;x&lt;\/b&gt;, BAC, bac@x\.gov\.ph/.test(h2));
+  assert.ok(/Contact<\/span><span>&lt;b&gt;x&lt;\/b&gt;, BAC, bac@x\.gov\.ph/.test(h2));
 });
 
 test('TC18 Kiko 19:20Z: the first named task names a thread; a later expense filed into it does not rename it', () => {

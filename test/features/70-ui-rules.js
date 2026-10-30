@@ -15,6 +15,8 @@ test('UR2 section headers and field names are a size bigger than the 13px card t
   const b = UR_BLOCK(), css = UR_CSS();
   assert.ok(/\.label, details\.sec > summary \{ font-size:14px;[^}]*font-weight:700;/.test(b), 'section headers 14px bold');
   assert.ok(/\.fk \{ font-size:14px; \}/.test(b) && /\.fk \{ color:var\(--text\); font-weight:700; \}/.test(css), 'field names 14px, dark, bold');
+  assert.ok(/\.kv \.fk \{ font-size:inherit; \}/.test(b) && /\.kv \.fk \{ color:var\(--act\); font-weight:600; \}/.test(css), 'bid card field lines keep Kiko\'s accent style');
+  assert.ok(/\.kv \.fk \{ font-size:inherit; \}/.test(b) && /\.kv \.fk \{ color:var\(--act\); font-weight:600; \}/.test(css), 'bid card field lines keep the style Kiko picked');
   assert.ok(/\.card \.small \{ font-weight:400; \}/.test(css) && /\.small \{ font-size:13px; \}/.test(css), 'values 13px regular');
 });
 test('UR3 buttons sit at the bottom right of their card', () => {

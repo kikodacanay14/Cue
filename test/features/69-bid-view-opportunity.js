@@ -56,9 +56,9 @@ test('BO4 Cue saves a PDF copy of each old PhilGEPS notice once, and the card sh
   const page = cuePage(), fn = page.match(/function bidsCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   const r = JSON.parse(JSON.stringify(v)), box = { esc: s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]), metricLine: () => '', r };
   const h = vm.runInNewContext(fn + 'bidsCardHtml(r)', box);
-  assert.ok(/Category:<\/span> Audio and Visual Equipment · Negotiated Procurement/.test(h) && /Delivery period:<\/span> 30 Day\/s/.test(h), 'details on the card');
-  assert.ok(/Notice:<\/span> <a href="https:\/\/drive\.google\.com\/file\/d\/f\d+\/view" target="_blank" rel="noopener">Cue&#39;s copy \(PDF\)<\/a>/.test(h), 'the copy is linked on the card, outside View details');
-  assert.ok(/Document requests so far:<\/span> 11/.test(h) && /Solicitation number:<\/span> Goods 2026-150/.test(h), 'the rest under View details');
+  assert.ok(/Category<\/span><span>Audio and Visual Equipment · Negotiated Procurement/.test(h) && /Delivery period<\/span><span>30 Day\/s/.test(h), 'details on the card');
+  assert.ok(/Notice<\/span><span><a href="https:\/\/drive\.google\.com\/file\/d\/f\d+\/view" target="_blank" rel="noopener">Cue&#39;s copy \(PDF\)<\/a>/.test(h), 'the copy is linked on the card, outside View details');
+  assert.ok(/Document requests so far<\/span><span>11/.test(h) && /Solicitation number<\/span><span>Goods 2026-150/.test(h), 'the rest under View details');
   // The next day the notice is Still open: its page is not fetched again and the card keeps the copy and the details.
   const n = (t.log.abs || []).length; t.ctx.__wait(864e5); t.log.gptN = {};
   const w = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), s = w.bids.still.filter(i => i.reference === '13310846')[0];
