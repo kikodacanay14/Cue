@@ -25,6 +25,9 @@
     d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
     d.returnValue = ''; d.showModal(); if (placeholder !== null) $('ask-in').focus(); else $('ask-ok').focus();
   }
+  // Kiko 30 Oct 2026 09:56Z ("when i click change and typed in the replan doesnt do anything"): Enter in the box used the form's
+  // first button, Cancel, so the typed words were dropped. Cancel is a plain button now, and Enter means OK.
+  $('ask-no').addEventListener('click', function () { $('ask').close('cancel'); });
   // Kiko 15:43Z: an error about a task goes to that task's thread, never the main chat.
   function alertErr(e, ref) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m, ref); }
   // Google access (Kiko 05:32Z): one button that checks Cue's access and, if some is missing, resets it so Google asks again.
