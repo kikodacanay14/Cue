@@ -15,6 +15,9 @@ Built on the live release (1.27.90, branch claude/project-thread-y5l4x9-rel12790
 - Logo bigger: 30px to 40px standalone, 22px to 32px inside Canvas. "Threads ›" before an open thread's name is gone.
 - Reply line (Kiko 31 Oct: "If you have any questions or clarifications, feel free to hit reply."): the accreditation chaser's
   fallback uses it. test/fixtures/ZapBridge.gs is refreshed from Canvas V364 (PR #377: email wording only, no bridge call changes).
+- "Close older runs" (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines): one main-chat line,
+  "Closed N older runs. Nothing was written or sent.", instead of one line in every closed thread (each surfaced in the main chat
+  with an "Earlier task" row). The old copies already in the chat are hidden. Test C40 updated.
 - Tests: 565 of 565 pass.
 
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)

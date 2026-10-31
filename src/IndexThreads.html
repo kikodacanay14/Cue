@@ -620,6 +620,7 @@
     var prev = null;
     allLines().forEach(function (m) { one(m); prev = m; });
     function one(m) {
+      if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread

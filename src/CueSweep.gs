@@ -612,8 +612,10 @@ function cueCloseOlder() {
   cueRows_(cueSheet_('Requests')).slice(-120).forEach(r => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join(''));
     if (x.kind === 'pipeline') { const c = (x.pipe || {}).client || ''; if (!newest[c] || String(x.created) > String(newest[c].created)) newest[c] = x; } } catch (e) { /* skip */ } });
   const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || (x.kind === 'pipeline' && newest[(x.pipe || {}).client || ''] && newest[(x.pipe || {}).client || ''].id !== x.id);
-  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && old(x) && !(x.kind === 'pipeline' && cuePipeHeld_(x)),
-    'Closed with "Close older runs". Nothing was written or sent.', true);
+  // CLOSE-OLDER-ONE-LINE-2026-10-31 (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines, each with an
+  // "Earlier task" row): no line in each closed thread, since each one surfaced in the main chat; one main-chat line says how many.
+  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && old(x) && !(x.kind === 'pipeline' && cuePipeHeld_(x)), '', true);
+  if (ids.length) cueChat_('Cue', 'Closed ' + ids.length + ' older run' + (ids.length === 1 ? '' : 's') + '. Nothing was written or sent.', '');
   return { closed: ids.length };
 }
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */

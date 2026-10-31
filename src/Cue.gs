@@ -922,7 +922,7 @@ function cueCloseSuperseded_(keep, line, failed) {
   } catch (e) { console.error('Close superseded: ' + e); }
   // PC recheck 24 Oct: one line per thread, however many of its runs closed.
   const said = {};
-  closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', line, k); } });
+  if (line) closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', line, k); } });   // CLOSE-OLDER-ONE-LINE-2026-10-31: '' = no per-thread line
   return closed;
 }
 /** The root of ref's thread is a Bid check (or the thread holds one): Kiko's bid words there are about bids, whatever card is waiting. */
