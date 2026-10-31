@@ -103,7 +103,7 @@ function cueAccrDraft_(it) {
   const subj = it.thread_id && !/^re:/i.test(subj0) ? 'Re: ' + subj0 : subj0;
   const mime = 'To: ' + it.to + '\r\n' + (cueEmail_(cc) ? 'Cc: ' + cc + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(subj.replace(/[\r\n]+/g, ' ')) + '?=\r\n'
     + (it.thread_id && it.message_id ? 'In-Reply-To: ' + it.message_id + '\r\nReferences: ' + it.message_id + '\r\n' : '')
-    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(cueAccrBody_(it));
+    + 'MIME-Version: 1.0\r\n' + (it.html ? cueRfpRich_(cueAccrBody_(it), it.html, '') : 'Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(cueAccrBody_(it)));   // CUE-TEMPLATES-2026-10-31: the designed email
   const msg = { raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) };
   if (it.thread_id) msg.threadId = it.thread_id;
   const res = UrlFetchApp.fetch(CUE_GMAIL_ + '/drafts', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -125,8 +125,7 @@ function cueAccrSend_(it, s) {
   return sent;
 }
 
-cueKind_({ kind: 'accreditation', label: 'Accreditation chasers', every: 3, max: 3, sendAllowed: true,
-  draftBrief: 'A supplier still has not completed BSE\'s supplier accreditation. If facts.first_email is true, invite them to fill in the '
-    + 'Vendor Accreditation Form and list what to have ready (facts.asks); otherwise remind them, naming exactly the items in facts.missing. '
-    + 'Always include facts.form_url exactly as given. Say "bank details" only, never ask for account numbers in the email. Short and friendly.',
-  template: cueAccrTemplate_, check: it => !cueAccrAsksAccount_(it.body), find: cueAccrFind_, draft: it => cueAccrDraft_(it), send: cueAccrSend_ });
+cueKind_({ kind: 'accreditation', label: 'S1 Accreditation chasers', every: 3, max: 3, sendAllowed: true,
+  // CUE-TEMPLATES-2026-10-31: Kiko's S1 Accreditation follow-up wording and look, no AI call. The first request keeps Cue's own wording
+  // until Canvas sends S1 from info@ (part 3).
+  template: it => ((it.facts || {}).first_email ? cueAccrTemplate_(it) : cueTplS1_(it)), check: it => !cueAccrAsksAccount_(it.body), find: cueAccrFind_, draft: it => cueAccrDraft_(it), send: cueAccrSend_ });

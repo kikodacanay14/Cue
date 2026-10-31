@@ -30,7 +30,9 @@ function cueMaRun_() {
   const me = cueMe_().toLowerCase(), now = cueNow_();
   if (!/@blankspaceevent\.com$/.test(me)) return null;   // Canvas reads the file only for a BSE account
   const threads = cueMaWaiting_(me, now);
-  cueMaWrite_({ email: me, on: true, checked: now, by: 'cue', threads });
+  // CUE-TEMPLATES-2026-10-31 (spec: J11 Emails waiting is dropped): Canvas's card stays off (Canvas shows nothing for on:false). The
+  // check still runs because it feeds the project logs (CUE-PROJECT-LOG); replies waiting on Kiko reach him as C3 in the 8 AM update.
+  cueMaWrite_({ email: me, on: false, checked: now, by: 'cue', threads: [] });
   return threads.length;
 }
 

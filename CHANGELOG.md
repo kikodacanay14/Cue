@@ -1,5 +1,35 @@
 # Changelog
 
+## Cue 1.27.92: chasers in Kiko's templates and the designed email, C2 and C3, holidays, Emails waiting off (not deployed)
+
+Asked by Kiko on 31 Oct 2026 ("yes sorry start part 2"). Part 2 of the spec cue-message-redesign-spec.md. Kiko's answers the same
+day: C2 stops after 2 follow-ups "as the templates say"; payment chasers "can be from AccountsPayables"; "Full design, in the same
+thread". Built on 1.27.91 (PR #270).
+
+- Kiko's revised templates (Google Doc "BSE Message Templates") replace the AI drafts for C6 CE award (follow-up and urgent),
+  S2 RFQ and RFP, S1 accreditation follow-up, C7 payment and C2. Cue fills only the blanks, so these chasers make no AI call. New
+  file `CueTemplates.gs`.
+- Designed email: each one goes as text plus HTML with the audience banner (cyan for clients, orange for suppliers), "Thanks!" and
+  the sign-off, as a reply in the original thread. An email Kiko edits goes as plain text, exactly as he typed it. The banner is a solid
+  colour band with the wordmark. The designed banner image (diamond and orbit pattern) comes with the Canvas release (part 3).
+- C2 They went quiet (was "Inquiry chasers"): first follow-up, then the final follow-up, 3 business days apart, at most 2, from
+  Kiko's Gmail once he names it in the 8 AM update (before, drafts only). Win-back drafts are removed.
+- C3 Replies waiting on you (was "Inbox"): ChatGPT writes only the middle (the direct answer and the next step). The greeting,
+  "Great to hear from you!", the closing line and the sign-off are fixed. The "Thanks for your email. I'll get back to you" holding
+  reply is gone; if ChatGPT can't draft, the line stays in the 8 AM update with no draft.
+- One S2 chaser: Canvas's Send RFP emails ("Quotation request | …", "RFP") are found by the same RFQ search.
+- Business days skip Philippine holidays (the fixed national ones for the rest of 2026 and 2027; Script Property CUE_HOLIDAYS adds
+  the proclaimed ones, such as Holy Week and National Heroes Day).
+- Emails waiting (J11) is dropped: Canvas's card gets `on:false` and no threads. The 10-minute inbox read stays, because it feeds the
+  project logs.
+- Chaser labels carry their message-map IDs (C2, C6, C7, S1, S2, R5/R6). Rules › Chaser rules lists C2; Jobs › Chasers shows C2 and
+  C3 with their templates.
+- Moved to part 3 (each needs a Canvas change): parking a contact after C2 (no stage-move bridge action), C4 accreditation status
+  (Cue has no per-company P4 data), C7 from AccountsPayables@, S1 from info@, turning off Canvas's own Team Cue RFP chaser, the crew
+  chasers, and the banner image. C3's 2-business-day wait and client-only filter come with the Trackers (part 4).
+- Tests: 575 (5 new in test/features/74-chaser-templates.js; payment, RFQ, award, accreditation, funnel, admin, brand voice and
+  mail alert tests updated to the new wording). FEATURE-MAP.md regenerated.
+
 ## Cue 1.27.91: the 8 AM update, quiet jobs, new morning times, background switches (not deployed)
 
 Asked by Kiko on 31 Oct 2026 in the cloud chat ("right now i wanna fix the messages being sent by Cue to me. i get overwhelmed").
