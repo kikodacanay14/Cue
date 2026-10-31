@@ -9,7 +9,8 @@
     } else {
       var t = th[it.id], name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      // CRUMB-NO-THREADS-2026-10-31 (Kiko 31 Oct: "remove the 2nd Threads >"): the thread's name only; the ☰ Threads tab opens the list.
+      h = '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       h += (last && !busy && !CLOSED[last.status] ? ib('data-act="close-task" data-id="' + esc(last.id) + '"', 'check', 'Close this task') : '')
         + (t && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
