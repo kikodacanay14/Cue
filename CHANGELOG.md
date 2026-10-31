@@ -13,6 +13,8 @@ Built on the live release (1.27.90, branch claude/project-thread-y5l4x9-rel12790
 - Thread colours: a thread's header band and its row's side stripe are cyan (#559FEF) for project updates, orange (#CD5023) for
   CRM and funnel, and violet (#23006F) for the rest. CRM wins when a thread is both. HubSpot is not counted as CRM (being removed).
 - Logo bigger: 30px to 40px standalone, 22px to 32px inside Canvas. "Threads ›" before an open thread's name is gone.
+- Reply line (Kiko 31 Oct: "If you have any questions or clarifications, feel free to hit reply."): the accreditation chaser's
+  fallback uses it. test/fixtures/ZapBridge.gs is refreshed from Canvas V364 (PR #377: email wording only, no bridge call changes).
 - Tests: 565 of 565 pass.
 
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)

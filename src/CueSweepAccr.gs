@@ -84,7 +84,7 @@ function cueAccrTemplate_(it) {
     const asks = (f.asks || []).map(([h, items]) => h + ':\n' + items.map(n => '- ' + n).join('\n')).join('\n\n');
     return { subject: CUE_ACCR_.subject + (f.project ? ' · ' + f.project : ''),
       body: hi + 'Thank you for working with us' + on + '. To set you up in our supplier records and process your payments, please complete our Vendor Accreditation Form:\n'
-        + f.form_url + '\n\n' + asks + '\n\nIf you have questions, just reply to this email.' + sign };
+        + f.form_url + '\n\n' + asks + '\n\nIf you have any questions or clarifications, feel free to hit reply.' + sign };
   }
   return { subject: CUE_ACCR_.subject + (f.project ? ' · ' + f.project : ''),
     body: hi + 'A quick reminder about our Vendor Accreditation Form' + (f.project ? ' for ' + f.project : '') + '. We still need: '
