@@ -12,6 +12,9 @@ on:
         description: check, preview or deploy
         required: true
         default: check
+  # Security note: workflow_run is safe here because it's restricted to the main branch only.
+  # This prevents privilege escalation attacks from untrusted pull requests, as only commits
+  # that have already been merged to main (and passed review) can trigger this workflow.
   workflow_run:
     workflows: [Test Cue]
     types: [completed]
