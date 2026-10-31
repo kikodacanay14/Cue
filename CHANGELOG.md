@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue: Canvas look without magenta, lists, sent times, thread colours, bigger logo (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat "Test". Mockups C2 and D2 approved ("perfect"), and the thread colours approved ("A").
+Built on the live release (1.27.90, branch claude/project-thread-y5l4x9-rel12790), not on main, which is behind live.
+
+- No magenta: the "needs you" colour is now Canvas violet #23006F (Threads count, needs-you marks). The logo keeps its gradient.
+- Sent time: every message in the chat and in threads shows its time under its box, outside it, on the left for Cue and on the
+  right for Kiko ("1:39 PM" today, "Oct 30, 4:12 PM" before).
+- Lists: lines starting with "1." / "1)" / "-" show as real numbered or bulleted lists, with indented sub-points; a reply that
+  runs "1) … 2) …" in one paragraph is split into a list. The chat prompt now asks Claude to put each option on its own line.
+- Thread colours: a thread's header band and its row's side stripe are cyan (#559FEF) for project updates, orange (#CD5023) for
+  CRM and funnel, and violet (#23006F) for the rest. CRM wins when a thread is both. HubSpot is not counted as CRM (being removed).
+- Logo bigger: 30px to 40px standalone, 22px to 32px inside Canvas. "Threads ›" before an open thread's name is gone.
+- Tests: 565 of 565 pass.
+
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)
 
 Kiko, 30 Oct 2026 09:36Z: "Ask Cue is not working"; 09:38Z: "nothing. it doesnt do anything". Built as Cue PR #265 (branch

@@ -3,7 +3,7 @@
      Workspace tokens. Cream ground, white cards, ink text, deep purple = action, magenta = needs you, yellow = highlight.
      --white is the strongest text colour (ink here); the name stays so the cards' inline styles keep working. */
   :root { --font:'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Steagal', 'Quicksand', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
-    --text:#16151B; --white:#16151B; --need:#F000AA; --act:#23006F; --ok:#1E8E57; --warn:#8A6D00; --bad:#C2410C; --sun:#F4F12C; --side:#FBF8F1; --soft:#EFEAFB; }
+    --text:#16151B; --white:#16151B; --need:#23006F; --act:#23006F; --ok:#1E8E57; --warn:#8A6D00; --bad:#C2410C; --sun:#F4F12C; --side:#FBF8F1; --soft:#EFEAFB; }
   * { box-sizing:border-box; }
   /* The page never scrolls: header, tabs and composer stay put, and only the middle (chat or widgets) scrolls. */
   html, body { height:100%; }
@@ -12,8 +12,8 @@
   #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
   header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
   /* Kiko 28 Oct 04:29Z chose the chat bubble: the old colour wheel read as a loading spinner. */
-  .logo { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%); flex:none; display:grid; place-items:center; }
-  .logo svg { width:19px; height:19px; }
+  .logo { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%); flex:none; display:grid; place-items:center; }
+  .logo svg { width:25px; height:25px; }
   /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only (Quicksand and Steagal from 30 Oct 2026). */
   header h1 { margin:0; font:700 20px/1.1 var(--font); letter-spacing:.01em; color:var(--white); }
   .card b { letter-spacing:-0.01em; }
@@ -350,7 +350,7 @@
      "Cue", so the header keeps only the logo, name, dot and K; bars, rows, cards and buttons are smaller. Cue in its own tab is unchanged. */
   body.in-canvas { font-size:14px; line-height:1.45; }
   body.in-canvas header { padding:5px 10px; gap:8px; } body.in-canvas header .sub { display:none; }
-  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:22px; height:22px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
+  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:32px; height:32px; } body.in-canvas .logo svg { width:20px; height:20px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
   body.in-canvas nav, body.in-canvas .phead, body.in-canvas .vhead { min-height:40px; padding:4px 8px; }
   body.in-canvas .phead .pico { width:28px; height:28px; } body.in-canvas .phead .pname { font-size:15px; } body.in-canvas .ibtn { width:30px; height:30px; }
   body.in-canvas main { padding:10px 12px; } body.in-canvas #pscroll { padding:8px 10px; }
@@ -395,4 +395,14 @@
   table.ttoday { width:100%; border-collapse:collapse; font-size:13px; } table.ttoday :is(th, td) { padding:6px 8px; text-align:center; vertical-align:middle; border-bottom:1px solid var(--line); }
   table.ttoday th { font-size:14px; font-weight:700; } table.ttoday td { color:var(--muted); font-weight:500; } table.ttoday td:first-child { text-align:left; }
   .tlink { background:none; border:0; padding:0; font:inherit; color:#2810DC; cursor:pointer; text-align:left; }
+  /* CUE-CANVAS-LOOK-2026-10-31 (Kiko 31 Oct, mockups C2/D2 approved "perfect", then "A"): no magenta; a message's sent time sits
+     under its box, outside it (left for Cue, right for Kiko), in chat and threads; Cue's lists are real lists; a thread's header
+     band is cyan for project updates, orange for CRM and funnel, violet for the rest. */
+  .msg[data-t] { position:relative; margin-bottom:16px; }
+  .msg[data-t]::after { content:attr(data-t); position:absolute; top:100%; left:4px; margin-top:3px; font-size:11px; line-height:1; color:var(--muted); white-space:nowrap; font-weight:500; }
+  .msg.me[data-t]::after { left:auto; right:4px; }
+  .msg .ml { white-space:normal; margin:4px 0 6px; padding-left:22px; } .msg .ml li { margin:2px 0; } .msg .ml .ml { margin:2px 0; }
+  #ptabs.cat-proj { background:#559FEF; color:#16151B; } #ptabs.cat-crm { background:#CD5023; color:#fff; } #ptabs.cat-gen { background:#23006F; color:#fff; }
+  #ptabs.cat-crm button, #ptabs.cat-gen button, #ptabs.cat-crm .t, #ptabs.cat-gen .t { color:#fff; }
+  .trow.cat-proj { box-shadow:inset 3px 0 0 #559FEF; } .trow.cat-crm { box-shadow:inset 3px 0 0 #CD5023; } .trow.cat-gen { box-shadow:inset 3px 0 0 #23006F; }
 </style>

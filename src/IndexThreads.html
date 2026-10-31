@@ -9,14 +9,15 @@
     } else {
       var t = thOf(th, it.id), name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      // CRUMB-NO-THREADS-2026-10-31 (Kiko 31 Oct: "remove the 2nd Threads >"): the thread's name only; the ☰ Threads tab opens the list.
+      h = '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
       var open = t && !t.hst && t.reqs.some(function (r) { return !CLOSED[r.status]; });
       h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
         + (t && !t.hst && t.reqs[0] && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
     }
-    setHtml($('ptabs'), h);
+    setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
   var tq = '', tshut = {}, tmore = false;
@@ -43,7 +44,7 @@
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
     // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
-    var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
+    var row = function (x) { return '<button class="trow cat-' + threadCat(th[x.k]) + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
       + (x.nm ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + x.nm + ' email' + (x.nm === 1 ? '' : 's') + ' waiting">' + x.nm + '</i>' : '')   // New mail: emails still waiting
       + (x.n ? '<span class="chip" title="' + x.n + ' message' + (x.n === 1 ? '' : 's') + '">' + icon('reply') + x.n + '</span>' : '')
@@ -481,7 +482,7 @@
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
   }
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
@@ -530,7 +531,46 @@
     }).join(', ');
   }
   // A chat line's text: the connect ticktick link, and CUE-CANVAS tokens drawn as "Open in Canvas" buttons.
+  /* CUE-CANVAS-LOOK-2026-10-31 (Kiko 31 Oct "For Project related updates we can do Cyan. For CRM and Funnel updates - we can do Orange,
+     for the rest we can do the violet"; sorting approved "A"; HubSpot is being removed, so it is not CRM here). CRM wins over project. */
+  var CAT_CRM = { pipeline: 1, bids: 1, crm: 1, funnel: 1, contacts: 1, winback: 1, inquiry: 1 };
+  var CAT_PROJ = { intake: 1, project: 1, readiness: 1, status: 1, change: 1, cecost: 1, expense: 1, supplier: 1, vendor: 1 };
+  function threadCat(t) {
+    var rs = (t && t.reqs) || [];
+    if (rs.some(function (r) { return CAT_CRM[r.kind] || /funnel|win-?back|inquiry/i.test(String(r.sweep || r.sub || '')); })) return 'crm';
+    if (rs.some(function (r) { return CAT_PROJ[r.kind] || /^SCP\d/i.test(String(r.project || '')); })) return 'proj';
+    return 'gen';
+  }
+  // A message's sent time: "1:39 PM" today, "Oct 30, 4:12 PM" before.
+  function msgWhen(v) {
+    var d = new Date(v); if (!v || isNaN(d)) return '';
+    var t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + t;
+  }
+  // Lines that start with "1." / "1)" / "-" / "•" become real lists (indent = nesting); a paragraph written "… 1) a 2) b" is split first.
+  function listify(t) {
+    t = String(t || '').replace(/(^|[^\n])\s+(1[.)])\s+(?=\S[^\n]*\s2[.)]\s)/g, '$1\n$2 ');
+    if (/(^|\n)1[.)] /.test(t)) t = t.replace(/([^\n])\s+(\d{1,2}[.)])\s+(?=[A-Z])/g, '$1\n$2 ');
+    var lines = t.split('\n'), out = [], stack = [];
+    var close = function (lvl) { while (stack.length > lvl) out.push('</li></' + stack.pop() + '>'); };
+    lines.forEach(function (ln) {
+      var m = ln.match(/^(\s*)(\d{1,2}[.)]|[-•*])\s+(.*)$/);
+      if (!m) { close(0); out.push({ p: ln }); return; }
+      var lvl = Math.min(3, Math.floor(m[1].replace(/\t/g, '    ').length / 2) + 1), tag = /\d/.test(m[2]) ? 'ol' : 'ul';
+      if (stack.length > lvl) close(lvl);
+      if (stack.length === lvl) out.push('</li><li>');
+      while (stack.length < lvl) { stack.push(tag); out.push('<' + tag + ' class="ml"><li>'); }
+      out.push({ p: m[3], li: 1 });
+    });
+    close(0);
+    return out;
+  }
   function richText(t) {
+    if (/(^|\n)\s*(\d{1,2}[.)]|[-•*])\s/.test(t) || /\s1\)\s.*\s2\)\s/.test(t)) return listify(t).map(function (x) {
+      return typeof x === 'string' ? x : richText1(x.p) + (x.li ? '' : '\n'); }).join('').replace(/\n(<(ol|ul) class="ml">)/g, '$1').replace(/\n$/, '');
+    return richText1(t);
+  }
+  function richText1(t) {
     var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
     var out = '', last = 0, m; CV_TOK.lastIndex = 0;
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
