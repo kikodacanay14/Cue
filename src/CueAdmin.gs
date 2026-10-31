@@ -65,17 +65,29 @@ const CUE_ADMIN_CHASE_ = {
 
 /** Cue's own scheduled tasks: what each does, who asked for it and when, and what it follows ([name, what it means]). */
 const CUE_ADMIN_SCHED_ = {
-  'sys-sweep': { spec: 'sweep-engine.md', about: 'Builds the morning batch: every chaser due today, plus inbox and sales lines. Nothing sends until you Approve; approved ones go at the send time.',
+  // CUE-K0-2026-10-31 (spec cue-message-redesign-spec.md, approved by Kiko 31 Oct 2026). silent: with the 8 AM update on, the job posts
+  // nothing to the main chat (rule R2); what it finds shows in the 8 AM update, and a failure still says so.
+  'sys-k0': { spec: 'cue-message-redesign-spec.md', about: 'One message at 8:00 in your format: Critical today, Yesterday\'s summary, Today\'s work, and a numbered For your OK list. Reply "send 1, 3", "add 4" or "no 2" and Cue does it. While it is on, the jobs marked Silent post nothing to the chat.',
+    asked: 'Asked by Kiko 31 Oct, spec and mockup approved 31 Oct', follows: [['Your 8 AM format', 'Critical today; Yesterday\'s summary (projects, opportunities, company); Today\'s work (assigned, review, follow up, blocked). Empty parts are left out.'], ['Approve = send', 'Chasers, contacts, bids and Friday updates go only for the numbers you name.']] },
+  'sys-newmail': { silent: true, spec: 'cue-message-redesign-spec.md', about: 'Reads new mail in your Gmail and info@ every 5 minutes; Claude sorts it every 30 minutes into the New mail thread.',
+    asked: 'Asked by Kiko 27 Oct; made silent 31 Oct', follows: [['Silent', 'No chat line for new mail; it stays in the New mail thread.']] },
+  'sys-contacts': { silent: true, spec: 'gmail-new-contacts.md', about: 'Finds people you email who are not in Canvas yet. They come to you as "Add contact" lines in the 8 AM update.',
+    asked: 'Asked by Kiko 29 Oct; into the 8 AM update 31 Oct', follows: [['Approve = add', 'Nobody is added to Canvas until you name them in your reply.']] },
+  'sys-accred': { silent: true, spec: 'client-accreditation.md', about: 'Files clients\' accreditation replies under each company\'s Accreditation thread every 30 minutes.',
+    asked: 'Asked by Kiko 29 Oct', follows: [['Silent', 'No chat line; the company\'s thread is marked Needs you.']] },
+  'sys-crm': { silent: true, spec: 'canvas-crm-funnel.md', about: 'Runs Canvas\'s 15-minute CRM work from your account (stage moves Canvas already does, follow-up dates).',
+    asked: 'Asked by Kiko 29 Oct', follows: [['Silent', 'Nothing in the chat.']] },
+  'sys-sweep': { silent: true, spec: 'sweep-engine.md', about: 'At 7:00 builds the morning batch: every chaser due today, plus inbox and sales lines. The chasers come to you in the 8 AM update; nothing sends until you name them.',
     asked: 'Asked by Kiko, approved 21 Oct', follows: [['Chaser rules', 'When each chaser starts, how often it repeats and when it stops.', 'chasers'], ['Approve = send', 'Nothing goes out until you tap Approve on the batch card; Approve sends.'], ['Sweep engine spec', 'Code finds the lines, ChatGPT writes the words in one call, a template covers a failed call.']] },
-  'sys-bids': { spec: 'bid-opportunities.md', about: 'ChatGPT checks the 11 agreed bid sources; the card shows only new bids that pass the screen.',
+  'sys-bids': { silent: true, spec: 'bid-opportunities.md', about: 'At 6:30 ChatGPT checks the 11 agreed bid sources; new bids that pass the screen come to you in the 8 AM update.',
     asked: 'Asked by Kiko 21 Oct (route B)', follows: [['Kiko\'s 8-step bid workflow', 'ChatGPT searches the sources and reads each notice; code screens and dedupes against your bid sheet.'], ['₱50k to ₱700k', 'Only bids with an approved budget in this range pass.'], ['NCR + 6 provinces, never Bataan', 'NCR, Batangas, Laguna, Cavite, Rizal, Bulacan and Quezon.'], ['No bid submitted', 'It never registers, pays a fee or submits a bid.']] },
   'sys-hubspot': { spec: 'hubspot-cleanup.md', about: 'Finds duplicates, missing links and missing info in HubSpot. Fixes only the ones you tick.',
     asked: 'Asked by Kiko, approved 21 Oct', follows: [['HubSpot clean-up spec', 'Finds duplicates, missing links and missing info; Claude checks the unsure ones.'], ['No permanent delete', 'An archive goes to HubSpot\'s recycle bin for 90 days.'], ['Canvas fields fixed in Canvas', 'Fields that come from Canvas are fixed in Client Desk; the hourly sync carries them.']] },
-  'sys-status': { spec: 'status-reports.md', about: 'Every Friday, one client email per active event: each requirement\'s progress, the timeline, the readiness score, open risks and issues, tasks, and Go to Canvas.',
+  'sys-status': { silent: true, spec: 'status-reports.md', about: 'Every Friday at 6:45, ready for the 8 AM update, one client email per active event: each requirement\'s progress, the timeline, the readiness score, open risks and issues, tasks, and Go to Canvas.',
     asked: 'Asked by Kiko 29 Oct 12:57Z', follows: [['Fresh readiness scan first', 'Canvas reruns each event\'s readiness checklist before the email is built.'], ['What the client site shows', 'Requirements, timeline, risks, issues and tasks come from what the client already sees on Canvas; supplier names and peso amounts are cut.'], ['Sent only on your tap', 'Each email goes from your Gmail only when you tap its Send.']] },
   'sys-funnelreview': { spec: 'canvas-crm-funnel.md', about: 'Follow-ups due, inquiries and delivered projects gone quiet, and clients to win back.',
     asked: 'Asked by Kiko, approved 26 Oct', follows: [['CRM funnel spec F6', 'Reads Canvas\'s Sales funnel once per run.'], ['Canvas\'s quiet limits', 'How long an inquiry or delivered project can go quiet is set in Canvas.'], ['Drafts only', 'Inquiry and win-back emails go to your Gmail Drafts; you send each one.']] },
-  'sys-funnel': { spec: 'sales-funnel-tasks.md', about: 'Canvas\'s Accounts dashboard on the Today card: companies per P0 to P9 stage, follow-up emails due, accreditations, projects at risk and the deals waiting for award, plus your open HubSpot tasks.',
+  'sys-funnel': { silent: true, spec: 'sales-funnel-tasks.md', about: 'At 6:45, for the 8 AM update: Canvas\'s Accounts dashboard on the Today card: companies per P0 to P9 stage, follow-up emails due, accreditations, projects at risk and the deals waiting for award, plus your open HubSpot tasks.',
     asked: 'Asked by Kiko 24 Oct ("Yes, build both")', follows: [['Canvas CRM dashboard', 'Reads the P0 tab and Canvas\'s Sales funnel, and your open HubSpot tasks, in one run.'], ['Code only, no AI', 'No AI call and no cost.'], ['One task at a time', 'Mark done closes one HubSpot task; deal stage and amount are never changed here.']] },   // release line: the live line has the HubSpot funnel row
   'sys-relnotes': { spec: 'daily-release-notes.md', about: 'Turns today\'s Canvas and Cue releases into New and Fixed lines. You tap Post; staff see it at 8 PM.',
     asked: 'Asked by Kiko 27 Oct', follows: [['Daily release notes spec', 'Reads the Release Log tab: what went live since 7:45 PM yesterday.'], ['Staff only', 'Posted as a Canvas announcement to staff, not emailed.'], ['Posts only on your tap', 'Nothing is posted until you tap Post; Skip today drops it.']] },
@@ -89,7 +101,7 @@ const CUE_ADMIN_SCHED_ = {
 /** The about line for one row of the Schedule tab (x from cueSchedRead_). */
 function cueAdminSchedAbout_(x) {
   const A = CUE_ADMIN_SCHED_[x.id];
-  if (A) return { about: A.about, asked: A.asked + ' · built by Claude', spec: A.spec || '', follows: A.follows.map(f => f.slice()) };
+  if (A) return { about: A.about, asked: A.asked + ' · built by Claude', spec: A.spec || '', follows: A.follows.map(f => f.slice()), silent: !!A.silent && typeof cueK0On_ === 'function' && cueK0On_() };
   if (/^gtask:/.test(x.run)) return { about: 'Runs "' + (x.command || x.name) + '" from your handbook with ChatGPT; you decide on each finding.',
     asked: 'Asked by Kiko 21 Oct, "Go" 22 Oct · built by Claude', spec: 'lead-gen-tasks.md', follows: [['Your handbook skill: ' + x.name, 'ChatGPT follows that skill\'s numbered steps.'], ['Code checks every step', 'A step not reported or a record not read marks the card Incomplete.'], ['Drafts only, nothing sent', 'You decide each finding: draft, HubSpot or open in Canvas.']] };
   return { about: x.command ? 'Runs "' + x.command + '" as if you typed it.' : '', asked: 'Made by Kiko in chat' + (x.created ? ', ' + cueAdminDay_(new Date(x.created)) : ''),

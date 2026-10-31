@@ -159,7 +159,7 @@ test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will n
   const rows = t.tabs.Schedule.rows, i = rows.findIndex(r => r[0] === 'sys-status'); rows[i][11] = new Date(Date.parse('2026-10-21T01:00:00Z'));
   const m = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched'); c = card();
   assert.ok(t.tabs.Chat.rows.slice(m).indexOf(c) >= 0, 'a new card');
-  assert.ok(/Friday status updates \(Fri 07:00\): missed its/.test(c[2]) && /Pipeline: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
+  assert.ok(/Friday status updates \(Fri 06:45\): missed its/.test(c[2]) && /Pipeline: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
   assert.ok(!/cue-b|cue-c/.test(c[2]) && !/HubSpot sales review/.test(c[2]), 'reminder set, still working, muted: left out');
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
   // The daily row runs from the tick at 07:00 and finds nothing when all is fine: no card.

@@ -171,7 +171,7 @@
     setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
       + L.map(function (x) {
         var A = x.about || null, op = !!schedOpen[x.id];
-        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
+        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b>' + (A && A.silent ? '<span class="tag" title="Posts nothing to the chat; what it finds is in the 8 AM update">Silent</span>' : '') + '<span>' + esc(x.when) + '</span>'
           + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
           + (A && A.about ? '<div class="adesc" style="margin-top:4px">' + esc(A.about) + '</div>' : '')
           + (A ? '<div class="atags">Follows: ' + (A.follows || []).map(function (f) { return '<span class="atag">' + esc(f[0]) + '</span>'; }).join('') + '</div>' : '')
@@ -183,7 +183,7 @@
             + '<div class="small muted" style="margin-top:8px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
             + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
             + '<div class="adesc" style="margin-top:6px">To change when it runs, press <b>Change time</b> and type the days and time, e.g. "weekdays 8am" or "every Tue 9am". The On box pauses it.</div>'
-            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
+            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button>' + (x.when === 'In the background' || x.when === 'Every minute' ? '' : '<button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>')
             + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
             + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>' : '') + '</div>';
       }).join('')

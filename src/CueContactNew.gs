@@ -138,7 +138,7 @@ function cueCnSign_(s, people) {
 
 /** One card: the next New rows, at most 25 companies and 40 people, new companies first. Returns the card's id, '' when everyone
  *  turned out to be in Canvas (the next run makes the next card), or null when nobody is left to show. */
-function cueCnCard_(s, T, st) {
+function cueCnCard_(s, T, st, where) {
   const by = {}, order = [];
   T.rows.forEach((r, i) => { if (r[6] !== 'New') return; const g = String(r[7]) ? 'c|' + String(r[7]).toLowerCase() : 'd|' + String(r[0]).split('@')[1];
     if (!by[g]) { by[g] = []; order.push(g); } by[g].push(i); });
@@ -167,7 +167,7 @@ function cueCnCard_(s, T, st) {
   return cueAskOpen_({ type: 'contactnew', run: s.id, emails },
     'Add new contacts to Canvas? From the From and Cc of your Gmail (' + (st.kind === 'weekly' ? 'the last week' : 'the last ' + CUE_CN_.years + ' years') + '): '
     + cos + ' compan' + (cos === 1 ? 'y' : 'ies') + ', ' + emails.length + ' ' + (emails.length === 1 ? 'person' : 'people') + (left ? ', ' + left + ' more after this card' : '') + '.\n'
-    + lines.join('\n') + '\nUntick anyone you don\'t want. Nothing is added until you tap Approve. Undo any of it in Canvas › Accounts › Auto add.', ['approve', 'skippage'], '');
+    + lines.join('\n') + '\nUntick anyone you don\'t want. Nothing is added until you tap Approve. Undo any of it in Canvas › Accounts › Auto add.', ['approve', 'skippage'], where || '');
   return true;
 }
 
@@ -186,6 +186,7 @@ function cueCnTick_() {
   const open = P.getProperty('CUE_CN_CARD');
   if (open && P.getProperty('CUE_ASK_' + open)) return added;   // one card at a time
   if (T.rows.some(r => r[6] === 'Waiting')) return added;       // Canvas checks the rest first
+  if (cueK0On_()) return added;                                  // CUE-K0-2026-10-31: the 8 AM update lists them (its own card, in its thread)
   const id = cueCnCard_(s, T, st);
   if (id) P.setProperty('CUE_CN_CARD', id); else P.deleteProperty('CUE_CN_CARD');
   return added;

@@ -316,7 +316,7 @@ function cueSweepRun_(s, save) {
   if (!items.length && !stopped.length) {
     s.status = 'Done'; s.stage = 'Done'; s.quiet = true;
     if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
-    cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), '');
+    cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), cueK0On_() ? s.id : '');   // CUE-K0-2026-10-31: the 8 AM update says it
     return;
   }
   s.status = 'Needs you'; s.stage = 'Needs you';
@@ -324,7 +324,8 @@ function cueSweepRun_(s, save) {
   const counts = {}; items.forEach(it => { counts[it.label] = (counts[it.label] || 0) + 1; });
   const what = Object.keys(counts).map(l => counts[l] + ' ' + l).concat(stopped.length ? [stopped.length + ' to decide on (chased the max times)'] : []).join(', ');
   const line = 'Morning batch is ready: ' + what + (over ? '. ' + over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.';
-  cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+  if (!cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): with the 8 AM update on, the batch is listed there
+  cueChat_('Cue', line, s.id);
 }
 
 const CUE_SW_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['drafts'], properties: { drafts: { type: 'array', items: {
@@ -392,7 +393,7 @@ function cueSweepApprove_(id, edits) {
     b.send = !!(edits && edits.send); b.approved_at = new Date(cueNow_()).toISOString();
     b.items.forEach(it => {
       if (it.no_email || it.removed || it.tap) { it.selected = false; return; }
-      it.selected = skip.indexOf(it.key) < 0;
+      it.selected = skip.indexOf(it.key) < 0 && (!(edits && edits.only) || edits.only.indexOf(it.key) >= 0);   // only: the 8 AM update's reply names exactly these
       if (it.selected && typeof bodies[it.key] === 'string' && bodies[it.key].trim()) it.body = cueStr_(bodies[it.key], 6000);
     });
   }
@@ -410,7 +411,7 @@ function cueSweepApprove_(id, edits) {
   const toSend = b.items.filter(it => it.selected && b.send && it.send_ok && !it.sent_id);
   const ph = cuePh_(cueNow_());
   const sendHour = rules.general.send;   // Kiko 07:28Z: 09:00 PH unless changed on the Chaser rules card
-  if (toSend.length && ph.hour < sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, sendHour);
+  if (toSend.length && ph.hour < sendHour && !b.send_at && !(edits && edits.now)) b.send_at = cuePhAt_(ph.day, sendHour);   // now: a reply to the 8 AM update sends at once (spec J2)
   if (toSend.length && b.send_at && cueNow_() < b.send_at) {
     s.status = 'Scheduled';
     cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at ' + String(sendHour).padStart(2, '0') + ':00. Nothing has gone out yet; tap Cancel on the batch to stop it.', s.id);
@@ -447,7 +448,8 @@ function cueSweepDoneLine_(s) {
   if (drafts.filter(hooked).length) out.push(drafts.filter(hooked).length + ' in info@\'s Drafts');
   if (bad.length) out.push(bad.length + ' did not go through (tap Retry)');
   const line = 'Morning batch: ' + (out.join(', ') || 'nothing sent') + '.';
-  cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+  if (bad.length || !cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): only a failure reaches the main chat
+  cueChat_('Cue', line, s.id);
 }
 
 /** Before 09:00: Kiko changes plans. The emails stay in Gmail Drafts; nothing is sent. */

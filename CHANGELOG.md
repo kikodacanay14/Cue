@@ -1,5 +1,34 @@
 # Changelog
 
+## Cue 1.27.91: the 8 AM update, quiet jobs, new morning times, background switches (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat ("right now i wanna fix the messages being sent by Cue to me. i get overwhelmed").
+Spec cue-message-redesign-spec.md approved ("yes", with rules R1 to R4); mockup approved ("ok", after "if we can break it down
+further with the levels i gave earlier"). This is part 1 of 4. Built on top of PR #269 (Canvas look), on the live line.
+
+- 8 AM update (new Schedule row "8 AM update", daily 08:00, `CueMorning.gs`): one message in the main chat in Kiko's levels:
+  Critical today (task and scheduled reminders with a time), Yesterday's summary (project threads worked on, chasers sent, bids
+  found, contacts added, releases), Today's work (assigned to you, needs your review or approval, time to follow up, blocked), and a
+  numbered For your OK list (the morning batch's chasers, new contacts, new bids, Friday client updates). No AI call. Empty levels
+  are left out (R1). If the 07:00 batch is still drafting at 8:00 it waits and goes out as soon as the batch is ready (by 10:00).
+- Kiko replies in words: "send all", "send 1, 3", "add 4", "start 6", "no 2" (in the main chat or the update's thread). Chasers
+  he names go out at once from the batch (no 9:00 wait); the ones he does not name are skipped today and come back on their next
+  day. "add" adds the named contacts to Canvas, "start" starts a bid's intake, "send"/"no" sends or skips a Friday update. Cue
+  answers in one line ("Done: 3 chasers sent, 1 contact sent to Canvas.").
+- Quiet jobs (R2): while the 8 AM update is on, the morning batch, bid check, sales funnel, Friday status, New mail and the
+  approved-send line post nothing to the main chat (their threads keep their lines). A failure still says so. The new contacts card
+  is made once a day inside the update's thread instead of in the main chat. Turning the 8 AM update off in Cue Admin brings the
+  old posts back.
+- New morning times (applied once to the existing rows): bid check 06:30, sales funnel 06:45, Friday status Fri 06:45, so all are
+  ready for 08:00. The ChatGPT daily plan row is turned off once (the 8 AM update replaces it, decision D4).
+- Cue Admin › Jobs › Scheduled tasks: new rows with On switches for the background jobs that had none (New mail, New contacts from
+  Gmail, Client accreditation mail, CRM work); a Silent label on the jobs that keep out of the chat; their descriptions say the
+  results are in the 8 AM update; no Change time button on background rows.
+- Not in this part (spec parts 2 to 4): chaser rules and templates, sender changes, the Canvas release for supplier and crew
+  emails, the Shared Task Tracker and TRI Tracker (personal tasks), proposed stage moves, and the one-ping urgent email (K2).
+- Tests: 570 (5 new in test/features/73-morning-update.js; BD5, BD9, SC2, SC4, SC8, ST7 updated for the new times and quiet
+  posts). FEATURE-MAP.md regenerated.
+
 ## Cue: Canvas look without magenta, lists, sent times, thread colours, bigger logo (not deployed)
 
 Asked by Kiko on 31 Oct 2026 in the cloud chat "Test". Mockups C2 and D2 approved ("perfect"), and the thread colours approved ("A").
