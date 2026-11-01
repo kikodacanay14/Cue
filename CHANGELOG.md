@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue: bigger logo, thread header without "Threads ›" (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat "Test", from a screenshot of Cue inside Canvas.
+
+- "make the Cue logo bigger": the round Cue logo in the header grows from 30px to 40px, and its chat-bubble mark from 19px to
+  25px (`src/IndexStyle.html`).
+- "remove the 2nd Threads >": an open thread's header shows only the thread's name. The "Threads ›" link before it is gone; the
+  ☰ Threads tab at the top of the chat still opens the thread list (`src/IndexThreads.html`).
+- Tests: 465 of 465 pass.
+
 ## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 
 Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...
