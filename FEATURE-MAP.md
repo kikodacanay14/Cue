@@ -131,7 +131,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 66 | 45 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 66 | 46 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 2 | 5 |
@@ -171,7 +171,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` | `subject` | Requests | 1 | 0 | 2 | 6 |
 | `CueMailAlerts.gs` | `subject` |  | 0 | 0 | 2 | 6 |
-| `CueMorning.gs` |  | Requests | 0 | 0 | 9 | 9 |
+| `CueMorning.gs` |  | Requests | 0 | 0 | 10 | 9 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log | 0 | 0 | 6 | 7 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 5 | 5 |
 | `CuePipeline.gs` |  | Pipeline, Requests | 1 | 1 | 12 | 8 |

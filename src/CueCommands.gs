@@ -82,7 +82,7 @@ function cueRoutes_() {
   const words = c => !c.has && c.mode !== 'intake';   // typed words, not an intake form
   return [
     { key: 'learn', name: '"remember: …" saves a rule', said: c => words(c) ? cueLearnSaid_(c.text, c.ref) : null },
-    { key: 'k0-reply', name: 'Reply to the 8 AM update ("send 1, 3", "add 4", "no 5")', said: c => words(c) ? cueK0Said_(c.text, c.ref) : null },   // CUE-K0-2026-10-31
+    { key: 'k0-reply', name: 'Reply to the 8 AM update ("send 1, 3", "add 4", "no 5")', said: c => words(c) ? cueK0Said_(c.text, c.ref, c.reply) : null },   // CUE-K0-2026-10-31
     { key: 'help', name: '"help: <question>" answers from the Help Q&A list', said: c => words(c) ? cueHelpSaid_(c.text, c.ref) : null },
     { key: 'ticktick', name: '"connect ticktick"', said: c => words(c) ? cueTtConnectSaid_(c.text, c.ref) : null },
     { key: 'schedule', name: '"schedule …" and "show my schedules"', said: c => words(c) ? cueSchedSaid_(c.text, c.ref) : null },

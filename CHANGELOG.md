@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.94: Reply on chat bubbles; New opportunities card under the 8 AM update (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "i want to keep it very much like a chat conversation but each chat has a bubble right? so i'm
+thinking a reply in the chat bubble function"; "New Opportunities / Bids need to be a card. Coz they need to show more details,
+links inside it and buttons the rest can be message format"; "we can remove Decide Later. If we just scroll pass through it that
+means we dont want to decide yet"; the card subtitle "dont add this anymore"; "okay to build" on mockup cue-8am-bids-card.png.
+
+- Reply: a Cue bubble in the main chat that names a task shows ↩ on hover (a long press on a phone). Tapping it puts a "Replying
+  to <message>" strip above the chat box (× or Esc cancels). Kiko's sent line shows the quoted message above his words.
+- A reply to an 8 AM or 2 PM update answers that update, even on a later day ("1, 3" drafts those chasers). A reply to any other
+  task's bubble goes into that task's thread, and the quoted line stays in the main chat.
+- The 8 AM update's New opportunities section now reads "N new bids, in the card below". Right under it, the New opportunities
+  card lists each new bid: title, source and status labels (Scoped or For clarification), Agency, Budget (ABC), Closes,
+  Reference, What it needs (or Missing), document links, then View opportunity, Ask the agency (to clarify), Decline and Start
+  intake. Bids are no longer numbered for a typed reply.
+- Decide later is gone from every bid card. A bid Kiko scrolls past stays undecided until it closes.
+- Tests: test/features/75-reply-bids-card.js (RB1 to RB4); BV5 updated. 581 of 581 pass.
+
 ## Cue 1.27.93: 8 AM and 2 PM weekday updates; chasers drafted for your OK, tailored, sent one by one (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel, Chasers / 5PM

@@ -82,15 +82,17 @@ function cueK0Build_(day, contacts, mode) {
     const rn = latest('relnotes', yday);
     if (rn && rn.rn && (rn.rn.lines || rn.rn.items || []).length) ydone.company.push('Canvas and Cue: ' + (rn.rn.lines || rn.rn.items).slice(0, 4).map(l => typeof l === 'string' ? l : l.text || l.title || '').filter(Boolean).join('; '));
     // New opportunities (bids to start an intake) and new clients (contacts to add), numbered for Kiko's reply.
-    const opps = bids && bids.bids && bids.status === 'Needs you' ? (bids.bids.items || []).map(it => add({ t: 'bid', k: it.key },
-      [it.project || it.reference, it.agency].filter(Boolean).join(', ') + (it.deadline ? ', closes ' + it.deadline : '') + ' (bid)')) : [];
+    // CUE-K0-BIDS-CARD-2026-11-01 (Kiko 1 Nov: "New Opportunities / Bids need to be a card. Coz they need to show more details, links
+    // inside it and buttons"): today's new bids show as one card right under this message (cueK0Run_ posts it), not as numbered lines.
+    const nb = bids && bids.bids && bids.status === 'Needs you' ? (bids.bids.items || []).filter(it => it.key && !it.decision).length : 0;
+    const opps = nb ? ['- ' + nb + ' new bid' + (nb === 1 ? '' : 's') + ', in the card below'] : [];
     const people = (contacts && contacts.people || []).map((p, i) => add({ t: 'contact', e: p.email, i: i + 1 }, [p.name || p.email.split('@')[0], p.title, p.company].filter(Boolean).join(', ') + ' (' + p.email + ')'));
     sec('Yesterday\'s summary', [].concat(lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
     sec('Today\'s focus', [].concat(lvl('Critical today', crit.map(c => c[1])), lvl('Assigned to you', focus.assigned), lvl('Needs your review or approval', focus.review), lvl('Overdue', focus.follow)));
-    sec('New opportunities (reply "start 1" to begin an intake)', opps);
+    sec('New opportunities', opps);
     sec('New clients (reply "add 2" to add them to Canvas)', people);
     if (!out.length) out.push('', 'Nothing needs you this morning.');
-    return { title, text: title + '\n' + out.join('\n'), items, mode, bids: bids ? bids.id : '' };
+    return { title, text: title + '\n' + out.join('\n'), items, mode, bids: bids ? bids.id : '', bids_new: nb };
   }
 
   // 2 PM: the funnel's follow-ups, then every chaser due, numbered. A pick drafts; nothing sends until Kiko presses Send on a card.
@@ -154,6 +156,8 @@ function cueK0Run_(manual, mode) {
   s.k0 = { title: K.title, day, mode, items: K.items, sweep: K.sweep || '', bids: K.bids || '', ask: contacts.ask || '', done: {} };
   cueLocked_(() => { const L = cueLoad_(id); L.s.k0 = s.k0; L.s.notes = s.notes; cueSave_(L.sh, L.row, L.s); });
   cueChat_('Cue', K.text, '>' + id);
+  // The bids card under the 8 AM message: a main-chat line "%<bid run id>" that the page draws as the New opportunities card.
+  if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'New opportunities: ' + K.bids_new + ' new bid' + (K.bids_new === 1 ? '' : 's') + '.', '%' + K.bids);
   return { request_id: id, items: K.items.length };
 }
 /** From cueResume: the 2 PM update that waited for the chaser batch goes out as soon as the batch is ready. */
@@ -190,10 +194,14 @@ function cueK0Parse_(text) {
   return out.length ? out : null;
 }
 
-/** Route (CueCommands.gs cueRoutes_): Kiko's reply to today's update, in the main chat or the update's thread. */
-function cueK0Said_(text, ref) {
+/** Route (CueCommands.gs cueRoutes_): Kiko's reply to today's update, in the main chat or the update's thread. reply: the update
+ * Kiko quoted with Reply on its bubble (CUE-REPLY-BUBBLE-2026-11-01); that update is answered, whatever its day. */
+function cueK0Said_(text, ref, reply) {
   const P = cueK0Parse_(text); if (!P) return null;
-  const K = cueK0Today_(); if (!K || (ref && ref !== K.id)) return null;
+  let K = null;
+  if (reply) { const L = cueLoad_(reply); K = L && L.s.kind === 'k0' && L.s.k0 ? L.s : null; if (!K) return null; }
+  else K = cueK0Today_();
+  if (!K || (ref && ref !== K.id)) return null;
   const k0 = K.k0, items = k0.items || [], home = ref || '';
   const pick = {};   // item index (0-based) -> 'do' | 'no'
   P.forEach(p => {
@@ -201,7 +209,7 @@ function cueK0Said_(text, ref) {
     idx.forEach(i => { pick[i] = p.verb; });
   });
   if (!Object.keys(pick).length) return null;
-  cueChat_('Kiko', String(text).trim(), home);
+  cueChat_('Kiko', String(text).trim(), reply && !home ? '↩' + K.id : home);   // a quoted reply shows its quote in the main chat
   const said = [], bad = [];
   const want = (t, verb) => Object.keys(pick).map(Number).filter(i => items[i].t === t && pick[i] === verb && !k0.done[i]);
   // Chasers (2 PM): a pick drafts them; nothing is sent. Cue tailors each picked draft to the client's latest email (one AI call) and

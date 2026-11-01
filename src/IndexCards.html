@@ -702,14 +702,15 @@
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
       if (g === 'clarify' && (x.ask || []).length) h += kv('To ask the agency', esc(x.ask.join(', ')));
       if (g === 'clarify') h += draftHtml(x);
-      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decide later, Decline.
+      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decline. No Decide later (Kiko 1 Nov: "we can remove
+      // Decide Later. If we just scroll pass through it that means we dont want to decide yet"): an untouched bid stays until it closes.
       var b = [], end = [];
       if (x.key && !x.decision) {
-        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true)); }
+        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-decline', x, 'Decline', true)); }
         else if (g === 'clarify') {
           if (!(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Send email clarification'));
           if (x.documents.length && !x.from_docs) b.push(btn('bids-more', x, 'Request more details', true));
-          end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+          end.push(btn('bids-decline', x, 'Decline', true));
         } else {
           b.push(x.added ? (x.ce_url ? '<a class="btn sm" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.ce_url) + '" target="_blank" rel="noopener">Create CE</a>' : '')
             : btn('bids-intake', x, 'Accept'));
@@ -740,6 +741,40 @@
     h += '<div class="actions"><a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(B.sheet_url) + '" target="_blank" rel="noopener">Open the bid sheet</a>'
       + (waiting ? '<button class="btn sm ghost" data-act="bids-close" data-id="' + esc(r.id) + '">Done for now</button>' : '') + '</div>';
     return h + metricLine(r) + '</div>';
+  }
+  // CUE-K0-BIDS-CARD-2026-11-01 (Kiko 1 Nov: "New Opportunities / Bids need to be a card. Coz they need to show more details, links
+  // inside it and buttons"; mockup cue-8am-bids-card.png): today's new bids as one card right under the 8 AM message. Header "New
+  // opportunities", no subtitle. Each bid: title, source and status labels, Agency, Budget (ABC), Closes, Reference, What it needs (or
+  // Missing), the documents, then View opportunity, Ask the agency (to clarify), Decline, Start intake. Same server calls as the bid card.
+  function k0BidsHtml(r) {
+    var B = r.bids || {}, list = (B.items || []).filter(function (x) { return x.key; });
+    if (!list.length) return '';
+    var peso = function (n) { return n ? '\u20b1' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''; };
+    var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
+    var day = function (v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return String(v || '');
+      var D = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ', ' + (+m[3]) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1];
+      return m[4] == null ? t : t + ' \u00b7 ' + ((+m[4] % 12) || 12) + ':' + m[5] + ' ' + (+m[4] < 12 ? 'AM' : 'PM'); };
+    var kv = function (k, v) { return v ? '<div class="small kv"><span class="fk">' + esc(k) + '</span><span>' + esc(v) + '</span></div>' : ''; };
+    var btn = function (act, x, label, ghost) { return '<button class="btn sm' + (ghost ? ' ghost' : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">' + label + '</button>'; };
+    var DONE = { accepted: 'Intake started', declined: 'Declined' };
+    var one = function (x) {
+      var clar = (x.group || 'clarify') !== 'scoped', docs = (x.documents || []).filter(function (d) { return /^https:\/\//.test(d.url || d.page || ''); });
+      var h = '<div class="k0b"><div><b>' + esc(x.project || x.reference) + '</b> ' + (x.source ? '<span class="tag">' + esc(x.source) + '</span> ' : '')
+        + '<span class="tag ' + (clar ? 'new' : 'pref') + '">' + (clar ? 'For clarification' : 'Scoped') + '</span>'
+        + (x.decision ? ' <span class="tag pref">' + esc(DONE[x.decision] || x.decision) + '</span>' : '') + '</div>'
+        + kv('Agency', x.agency) + kv('Budget (ABC)', peso(x.abc)) + kv('Closes', day(x.deadline)) + kv('Reference', x.reference)
+        + (clar && (x.ask || []).length ? kv('Missing', x.ask.join(', ')) : kv('What it needs', x.summary));
+      if (docs.length) h += '<div class="small" style="margin-top:6px"><b>Documents:</b> ' + docs.map(function (d) { return link(d.url || d.page, d.name); }).join(' \u00b7 ') + '</div>';
+      if (x.more && x.more.draft && !x.more.draft.sent) h += '<div class="small muted" style="margin-top:4px">Your email to the agency is drafted in the Bid check thread.</div>';
+      var b = [];
+      if (/^https:\/\//.test(x.opp || x.url || '')) b.push('<a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp || x.url) + '" target="_blank" rel="noopener">View opportunity</a>');
+      if (!x.decision) {
+        if (clar && !(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Ask the agency', true));
+        b.push(btn('bids-decline', x, 'Decline', true), btn('bids-intake', x, 'Start intake'));
+      }
+      return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
+    };
+    return '<div class="card k0bids" data-k0bids="' + esc(r.id) + '"><div class="k0bh">New opportunities</div>' + list.map(one).join('') + '</div>';
   }
   // ChatGPT scheduled tasks (CueGptTasks.gs, specs/lead-gen-tasks.md + cleanup-review-tasks.md). Only new findings; every tap is Kiko's.
   function gtCardHtml(r) {
