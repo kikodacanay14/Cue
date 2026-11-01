@@ -4,7 +4,7 @@ Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1).
 the script again. `test/cue.test.js` fails when this file is out of date.
 
 Counts: 70 server files, 1375 top-level names, 33 task kinds, 32 word checks before the
-chat call, 14 background jobs in the 5-minute trigger, 82 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
+chat call, 14 background jobs in the 5-minute trigger, 82 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
