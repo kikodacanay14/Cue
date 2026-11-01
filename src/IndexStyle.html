@@ -314,6 +314,9 @@
   #settings .schd { cursor:pointer; }
   #settings .schv { display:inline-block; transition:transform .15s; color:var(--muted); }
   #settings .schd.open .schv { transform:rotate(90deg); }
+  /* CUE-SCHED-GROUPS-2026-11-01: Scheduled tasks as Reports and Tasks tables by time of day */
+  #settings .schtbl { padding:0; overflow:hidden; } #settings .schtbl td, #settings .schtbl th { padding:8px 10px; }
+  #settings .schg { margin-top:22px !important; } #settings .schp { margin:12px 0 6px; } #settings tr.schxr td { background:var(--bg); border-top:0; }
   #settings .schx { cursor:default; margin-top:8px; border-top:1px solid var(--line, rgba(127,127,127,.25)); padding-top:8px; }
   /* CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "Make all descriptions 3 font sizes smaller and font is lighter by 50%") */
   #settings .adesc { font-size:12px; line-height:1.45; opacity:.5; }

@@ -103,6 +103,31 @@ const CUE_ADMIN_SCHED_ = {
   'sys-unsched': { spec: 'task-scheduler.md', about: 'Tells you about any task waiting on you that has no due date or reminder.',
     asked: 'Asked by Kiko 22 Oct (task scheduler)', follows: [['Task scheduler spec', 'Looks for tasks waiting on you (Needs you, Failed, Reopened) with no due date or reminder.'], ['Code only, no AI', 'No AI call and no cost.']] } };
 
+/* CUE-SCHED-GROUPS-2026-11-01 (Kiko 1 Nov 2026: "arrange this and fix the formatting? Arrange them if they are in the Morning, Afternoon
+ * or Evening ... so we can know what the sequence and if we have all the tasks in our new structure"; then "separate it first Sched
+ * Reports and Task"; mockup v2 shown, "You build it"). Where each row sits on Admin › Scheduled tasks: Reports (what Cue brings Kiko
+ * to read or decide on) or Tasks (work Cue does on its own, most of it feeding a report), then by time of day, earliest first. The
+ * rows the card review turned off as replaced go last, under "Off in the new structure", with the reason. Display only. */
+const CUE_ADMIN_SCHED_REPORTS_ = ['sys-k0', 'sys-k0pm', 'sys-relnotes', 'sys-status', 'sys-gt-admin_suppliers', 'sys-gt-admin_payments',
+  'sys-gt-admin_projects', 'sys-gt-production_readiness', 'sys-gt-personal_spending'];
+const CUE_ADMIN_SCHED_REPLACED_ = { 'sys-gt-daily_plan': 'Replaced by the 8 AM update.', 'sys-funnelreview': 'Duplicate of the Sales funnel.',
+  'sys-gt-admin_funnel': 'Turned off in the card review (30 Oct).', 'sys-unsched': 'Folded into Today\'s tasks (30 Oct).' };
+const CUE_ADMIN_SCHED_EVERY_ = { 'sys-rfps': 'Every 1 min', 'sys-newmail': 'Every 5 min', 'sys-contacts': 'Every 5 min', 'sys-crm': 'Every 15 min', 'sys-accred': 'Every 30 min' };
+const CUE_ADMIN_SCHED_PERIODS_ = ['Morning', 'Afternoon', 'Evening', 'All day'];
+/** { group: 'Reports'|'Tasks'|'Off', period, sort, time, days, why } for one row of the Schedule tab (x from cueSchedRead_). */
+function cueAdminSchedPlace_(x) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(x.time || '')), bg = x.repeat === 'minute' || !m;
+  const h = m ? Number(m[1]) : 0, mins = m ? h * 60 + Number(m[2]) : 0;
+  const time = bg ? (CUE_ADMIN_SCHED_EVERY_[x.id] || 'Background') : ((h % 12) || 12) + ':' + m[2] + (h < 12 ? ' AM' : ' PM');
+  const days = x.repeat === 'weekdays' ? 'Weekdays' : x.repeat === 'daily' ? 'Daily' : x.repeat === 'weekly' ? (x.days || []).join(', ')
+    : x.repeat === 'monthly' ? cueSchedOrd_(x.dom) + ' monthly' : x.repeat === 'once' ? 'Once ' + (x.date || '') : bg ? 'All day' : '';
+  const period = bg ? 'All day' : h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
+  const why = !x.on && CUE_ADMIN_SCHED_REPLACED_[x.id] || '';
+  const group = why ? 'Off' : CUE_ADMIN_SCHED_REPORTS_.indexOf(x.id) >= 0 ? 'Reports' : 'Tasks';
+  const every = bg ? Number((/(\d+)/.exec(CUE_ADMIN_SCHED_EVERY_[x.id] || '') || [0, 999])[1]) : 0;
+  return { group, period, sort: CUE_ADMIN_SCHED_PERIODS_.indexOf(period) * 10000 + (bg ? every : mins), time, days, why };
+}
+
 /** The about line for one row of the Schedule tab (x from cueSchedRead_). */
 function cueAdminSchedAbout_(x) {
   const A = CUE_ADMIN_SCHED_[x.id];

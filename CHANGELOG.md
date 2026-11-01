@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.28.3: Scheduled tasks as Reports and Tasks, by time of day (not deployed)
+
+Asked by Kiko on 1 Nov 2026 on Cue Admin › Scheduled tasks: "can you please arrange this and fix the formatting? Arrange them if they
+are in the Morning, Afternoon or Evening. or something else. so we can know what the sequence and if we have all the tasks in our new
+structure", then "or maybe separate it first Sched Reports and Task". He saw mockup v2 and said "You build it". Built on 1.28.2.
+
+- The page now has three parts. **Reports** is what Cue brings Kiko to read or decide on: the 8 AM and 2 PM updates, daily release
+  notes, Friday status updates, the four record reviews and daily personal spending. **Tasks** is the work Cue does on its own, most
+  of which feeds a report. **Off in the new structure** lists the rows the card review turned off as replaced (Plan today, the Monday
+  sales funnel review, the Thursday funnel records review and the Unscheduled check), each with the reason.
+- Reports and Tasks are each split into Morning (6 AM to 12 noon), Afternoon, Evening and All day (background jobs, with how often
+  they run), and each part is a table (Time, Task, Runs, On), earliest first.
+- A row opens below itself with the same details, Run now, Change time and Delete as the old cards. The On box works as before. A
+  replaced row that Kiko ticks On goes back to its time slot.
+- Display only: no schedule, time or switch changes. The grouping is `cueAdminSchedPlace_` in `CueAdmin.gs`, returned as `place` by
+  `cueSchedules`.
+- Tests: 590 (4 new in test/features/80-sched-groups.js).
+
 ## Cue 1.28.2: a run too large to store stops instead of repeating (not deployed)
 
 Reported by Kiko on 1 Nov 2026 (screenshot on /dev): "The bid check stopped: This request is too large to store (310994

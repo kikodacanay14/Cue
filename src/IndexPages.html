@@ -166,26 +166,52 @@
   function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }
   var SCHED_CHG = { 'Chaser rules': ['chasers', 'Rules › Chaser rules'], 'Reminder': ['sched', 'Change time below'], 'Runs as if you typed it': ['sched', 'Change time below, or delete it'] };
   var schedOpen = {};   // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z): a card opens below to show its Follows details and how to change the time
+  // CUE-SCHED-GROUPS-2026-11-01 (Kiko 1 Nov 2026: "arrange this and fix the formatting? Arrange them if they are in the Morning,
+  // Afternoon or Evening"; "separate it first Sched Reports and Task"; mockup v2, "You build it"): Reports, then Tasks, each in time-of-day
+  // tables, earliest first; rows turned off as replaced go last with the reason. A row opens below itself, as the cards did.
+  var SCHED_GROUPS = [['Reports', 'What Cue brings you to read or decide on.'], ['Tasks', 'Work Cue does on its own: checks, chasers, mail and drafts. Most of it feeds a report.'],
+    ['Off', 'Off in the new structure: replaced or removed. Tick On to bring one back.']];
+  var SCHED_PERIODS = { 'Morning': '6 AM to 12 noon', 'Afternoon': '12 noon to 6 PM', 'Evening': '6 PM to midnight', 'All day': 'runs in the background' };
+  function schedDetail(x) {
+    var A = x.about || null;
+    return '<div class="schx">'
+      + (A ? '<div class="adesc">' + esc(A.asked) + (A.spec ? ' · spec: ' + esc(A.spec) + ' in the project files (canvas-integration/specs)' : '') + '</div>'
+        + (A.follows || []).map(function (f) { var go = SCHED_CHG[f[0]];   // CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "how do we modify that?")
+          return '<div style="margin-top:8px"><b class="small">' + esc(f[0]) + '</b><div class="adesc">' + esc(f[1]) + '</div><div class="adesc">Change it: '
+            + (go ? '<a href="#" data-sc-go="' + go[0] + '">' + esc(go[1]) + '</a>' : 'it is written into Cue from the spec you approved; ask for the change in the project chat') + '</div></div>'; }).join('') : '')
+      + '<div class="small muted" style="margin-top:8px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + ' · ' + esc(x.when) + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
+      + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
+      + '<div class="adesc" style="margin-top:6px">To change when it runs, press <b>Change time</b> and type the days and time, e.g. "weekdays 8am" or "every Tue 9am". The On box pauses it.</div>'
+      + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button>' + (x.when === 'In the background' || x.when === 'Every minute' ? '' : '<button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>')
+      + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
+      + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>';
+  }
+  function schedRow(x) {
+    var A = x.about || null, P = x.place || {}, op = !!schedOpen[x.id];
+    return '<tr class="schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><td class="bs-num"><b>' + esc(P.time || '') + '</b></td>'
+      + '<td><b><span class="schv">›</span> ' + esc(x.name) + '</b>' + (A && A.silent ? ' <span class="tag" title="Posts nothing to the chat; what it finds is in the 8 AM update">Silent</span>' : '')
+      + (P.why ? '<div class="adesc">' + esc(P.why) + '</div>' : A && A.about ? '<div class="adesc">' + esc(A.about) + '</div>' : '')
+      + (A && !P.why && (A.follows || []).length ? '<div class="atags">Follows: ' + A.follows.map(function (f) { return '<span class="atag">' + esc(f[0]) + '</span>'; }).join('') + '</div>' : '') + '</td>'
+      + '<td class="bs-num">' + esc(P.days || '') + '</td>'
+      + '<td class="bs-num"><label class="small" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></td></tr>'
+      + (op ? '<tr class="schxr"><td colspan="4">' + schedDetail(x) + '</td></tr>' : '');
+  }
+  function schedTable(rows) {
+    return '<div class="card schtbl"><table><thead><tr><th style="width:88px">Time</th><th>Task</th><th style="width:120px">Runs</th><th style="width:70px">On</th></tr></thead><tbody>'
+      + rows.map(schedRow).join('') + '</tbody></table></div>';
+  }
   function renderSched() {
-    var L = schedList || [];
+    var L = (schedList || []).slice().sort(function (a, b) { return ((a.place || {}).sort || 0) - ((b.place || {}).sort || 0); });
     setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
-      + L.map(function (x) {
-        var A = x.about || null, op = !!schedOpen[x.id];
-        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b>' + (A && A.silent ? '<span class="tag" title="Posts nothing to the chat; what it finds is in the 8 AM update">Silent</span>' : '') + '<span>' + esc(x.when) + '</span>'
-          + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
-          + (A && A.about ? '<div class="adesc" style="margin-top:4px">' + esc(A.about) + '</div>' : '')
-          + (A ? '<div class="atags">Follows: ' + (A.follows || []).map(function (f) { return '<span class="atag">' + esc(f[0]) + '</span>'; }).join('') + '</div>' : '')
-          + (op ? '<div class="schx">'
-            + (A ? '<div class="adesc">' + esc(A.asked) + (A.spec ? ' · spec: ' + esc(A.spec) + ' in the project files (canvas-integration/specs)' : '') + '</div>'
-              + (A.follows || []).map(function (f) { var go = SCHED_CHG[f[0]];   // CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "how do we modify that?")
-                return '<div style="margin-top:8px"><b class="small">' + esc(f[0]) + '</b><div class="adesc">' + esc(f[1]) + '</div><div class="adesc">Change it: '
-                  + (go ? '<a href="#" data-sc-go="' + go[0] + '">' + esc(go[1]) + '</a>' : 'it is written into Cue from the spec you approved; ask for the change in the project chat') + '</div></div>'; }).join('') : '')
-            + '<div class="small muted" style="margin-top:8px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
-            + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
-            + '<div class="adesc" style="margin-top:6px">To change when it runs, press <b>Change time</b> and type the days and time, e.g. "weekdays 8am" or "every Tue 9am". The On box pauses it.</div>'
-            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button>' + (x.when === 'In the background' || x.when === 'Every minute' ? '' : '<button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>')
-            + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
-            + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>' : '') + '</div>';
+      + SCHED_GROUPS.map(function (g) {
+        var inG = L.filter(function (x) { return ((x.place || {}).group || 'Tasks') === g[0]; });
+        if (!inG.length) return '';
+        var h = '<div class="label schg">' + esc(g[0] === 'Off' ? 'Off in the new structure' : g[0]) + '</div><div class="adesc" style="margin:-4px 0 8px">' + esc(g[1]) + '</div>';
+        if (g[0] === 'Off') return h + schedTable(inG);
+        return h + Object.keys(SCHED_PERIODS).map(function (p) {
+          var rs = inG.filter(function (x) { return (x.place || {}).period === p; });
+          return rs.length ? '<div class="small schp"><b>' + esc(p) + '</b> <span class="muted">' + esc(SCHED_PERIODS[p]) + '</span></div>' + schedTable(rs) : '';
+        }).join('');
       }).join('')
       + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
       + 'Add one in the chat, e.g. "Schedule every Monday 9am sales funnel" or "Schedule Friday 3pm remind me to send the invoice".</div>');
