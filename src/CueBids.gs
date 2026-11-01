@@ -447,6 +447,16 @@ function cueBidsKeep_(it, d, got) {
 /** Opens the given documents of one notice: fetch, check, save to Drive, record. Returns the PDFs opened now, for reading. */
 function cueBidsOpen_(it, docs, store) {
   if (!docs.length) return [];
+  // CUE-COWORK-DOCS-2026-11-01 (Kiko 1 Nov: "did you tell it to download all the files downloadable from the bid"): Cowork saves the
+  // new PhilGEPS documents in Kiko's Drive and lists their Drive links. Cue cannot open files it did not make (drive.file), so a Drive
+  // link is recorded as saved by Cowork, not fetched.
+  const at0 = new Date(cueNow_()).toISOString();
+  docs = docs.filter(d => {
+    const m = String(d.url || '').match(/^https:\/\/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]{10,})/); if (!m) return true;
+    const was = store.by[d.url], rec = { row: was && was.row, url: d.url, key: it.key, name: d.name, code: '', opened: at0, drive: m[1], result: 'Opened · saved by Cowork' };
+    cueBidsDocPut_(store, rec); cueBidsDocFrom_(d, rec); return false;
+  });
+  if (!docs.length) return [];
   const got = cueBidsFetch_(docs.map(d => d.url)), pdfs = [], at = new Date(cueNow_()).toISOString();
   docs.forEach((d, i) => {
     const g = got[i], was = store.by[d.url], rec = { row: was && was.row, url: d.url, key: it.key, name: d.name, code: g.code, opened: at };
@@ -461,7 +471,7 @@ function cueBidsOpen_(it, docs, store) {
 }
 
 /** A link that is a file itself (PDF, Word, Excel, ZIP), not a web page. */
-function cueBidsIsFile_(u) { return /^https:\/\/\S+\.(pdf|docx?|xlsx?|zip)(?:[?#]|$)/i.test(String(u || '')); }
+function cueBidsIsFile_(u) { return /^https:\/\/\S+\.(pdf|docx?|xlsx?|zip)(?:[?#]|$)/i.test(String(u || '')) || /^https:\/\/drive\.google\.com\/(?:file\/d\/|open\?id=)[\w-]{10,}/.test(String(u || '')); }   // a Drive file Cowork saved (CUE-COWORK-DOCS-2026-11-01)
 /** The file links on a web page, made absolute, with their link text. */
 function cueBidsFileLinks_(html, base) {
   const out = [], seen = {}, origin = (String(base).match(/^https:\/\/[^/]+/) || [''])[0], dir = String(base).split(/[?#]/)[0].replace(/[^/]*$/, '');

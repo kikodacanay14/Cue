@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.27.99: Cowork downloads the new PhilGEPS bid documents (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "did you tell it to download all the files downloadable from the bid".
+
+- The Cowork task text (docs/cowork-philgeps-task.md) now downloads every free bid document of each kept notice into Google Drive,
+  folder "PhilGEPS bid documents", one subfolder per reference number, never paying for one; it reads them and adds the key
+  eligibility and any pre-bid conference date to Notes, and lists the Drive links in Documents.
+- Cue's bid check shows those Drive links on the New opportunities card as saved by Cowork. Cue does not fetch them: it can open
+  only files it made itself.
+- Tests: CW3 in test/features/78-cowork-philgeps.js. 583 of 583 pass.
+
 ## Cue 1.27.98: new PhilGEPS through Claude Cowork on KKD (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "cant you use Clause Cowork. I wil leave it on. so that its on when you run. if its not, let me know",

@@ -23,12 +23,15 @@ Steps
    medical, vehicle or janitorial work.
 4. Keep only notices whose place is in NCR, Batangas, Laguna, Cavite, Rizal, Bulacan or Quezon. Never Bataan.
 5. For each kept notice open its own page and read: agency, reference number, title, location, Approved Budget for the Contract
-   (ABC), date posted, closing date and time, a 1-line summary of what must be supplied, the notice's own link, and the links of its
-   bid documents.
-6. Open the Google Sheet "BSE Inbox RFP & Bid History 2022-2026", tab "Cowork PhilGEPS findings". If the tab does not exist, make
+   (ABC), date posted, closing date and time, a 1-line summary of what must be supplied, and the notice's own link.
+6. Download every bid document the notice offers for free (Invitation to Bid, Terms of Reference, bid forms, bulletins, annexes).
+   Never pay for or buy a document; if one costs money, write "Paid document not downloaded: <name>" in Notes. Upload the files to
+   Google Drive, folder "PhilGEPS bid documents", in a subfolder named after the reference number. Read them and add the key
+   eligibility requirements and any pre-bid conference date to Notes.
+7. Open the Google Sheet "BSE Inbox RFP & Bid History 2022-2026", tab "Cowork PhilGEPS findings". If the tab does not exist, make
    it with this header row: Date (PHT) | Agency | Reference | Title | Location | Budget (ABC) | Posted | Closes | Summary | Notice
    link | Documents | Notes
-7. Add one row per kept notice (Date = today, yyyy-MM-dd; Closes as yyyy-MM-ddTHH:MM+08:00; Documents = links separated by commas).
-   Skip a reference number already on the tab.
-8. Last, add one RUN row even when nothing was found: Date = today, Reference = RUN, Title = "Checked N notices, kept K", Notes =
+8. Add one row per kept notice (Date = today, yyyy-MM-dd; Closes as yyyy-MM-ddTHH:MM+08:00; Documents = the Google Drive links of
+   the files you saved, separated by commas). Skip a reference number already on the tab.
+9. Last, add one RUN row even when nothing was found: Date = today, Reference = RUN, Title = "Checked N notices, kept K", Notes =
    anything that stopped you (signed out, site down).
