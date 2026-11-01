@@ -1,5 +1,30 @@
 # Changelog
 
+## Cue 1.27.83: New PhilGEPS read by code, hourly, with no AI, and the ABC cap raised to ₱1,000,000 (not deployed)
+
+Kiko asked on 1 Nov 2026, in the cloud chat "Test chat continuation", for a very cheap and effective way to read the bids on the new
+PhilGEPS site without burning usage. He described the manual path (Bulletin Board, Open Opportunities, filter, the Bid Notice Number,
+Documents, View all activity), said "raise it to 1M" for the budget cap, and replied "approve" to the plan below.
+
+- Why New PhilGEPS was always Blocked: the bid check sent it to ChatGPT at `/BulletinBoard/current_oppourtunities`, which redirects to
+  the sign-in page. The Cowork browser run that read it instead used up Kiko's prepaid credit.
+- The same notices are public. New `src/CueBidsPg.gs` reads them with plain HTTP from Apps Script, with no AI call, no browser and no
+  sign-in: the bulletin board (`/Indexes/index`), each notice page (ABC, place, category, agency, pre-bid, closing date, supplements),
+  "View all activity" (the full schedule) and "Documents" (the notice files, linked and never opened). The last two need the site's
+  own session cookie and an AJAX header, which the reader takes from the notice page.
+- The bulletin board shows only the latest 100 notices, so a new "New PhilGEPS read" job (CueJobs.gs, run by the 5-minute cueResume)
+  reads it once an hour from 7 AM to 7 PM Manila and keeps the open notices whose titles fit BSE's work (the kinds listed in step 2
+  of the bid prompt). The 07:00 bid check reads the board once more, then the pages of each waiting notice, and passes them through
+  the same screen, dedupe, bid sheet rows and Canvas CRM leads as every other source. ChatGPT now checks the other 10 sources only.
+- A failed or empty read shows New PhilGEPS as Blocked on the card with the reason, and fails the job in Job Runs. Pages that open
+  only in part show it as Partial.
+- The ABC cap is now ₱150,000 to ₱1,000,000 for every source (it was ₱700,000). The process check label reads the rule's values.
+- Area (Kiko 1 Nov 2026, answers to three questions): Pampanga is now in the area ("1. Yes"); a place given only as CALABARZON or
+  Region IV-A counts as in the area ("2. Yes"); Quezon province is out and only Quezon City stays in ("3. No"). Before, "Quezon"
+  alone matched both. This applies to every source.
+- After the PC check, Kiko retires the "New PhilGEPS (Cowork)" row in Cue Admin › Scheduled tasks.
+- Tests: 470 (new `test/features/69-philgeps-code.js`, PGS1 to PGS5, built from the live page markup; BD1 updated).
+
 ## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 
 Kiko said on 30 Oct 2026 at 03:45Z: "it feels like Cue needs to be taught of the basics while its trying to learn complex processes...

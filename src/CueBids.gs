@@ -2,7 +2,7 @@
  * Kiko's 8-step bid workflow, run by ChatGPT through the API and checked by code:
  *   1-2, 4, 6 ChatGPT (3 calls in parallel, web search on): searches the 11 agreed sources, keeps event-related notices, reads
  *     specs, eligibility, amendments and documents, and reports what each source let it see (Checked / Partial / Blocked). (AI calls)
- *   3, 5 Code: the screen (ABC ₱150,000 to ₱700,000; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Quezon; never Bataan; deadline still
+ *   3, 5 Code: the screen (ABC ₱150,000 to ₱1,000,000, Kiko 1 Nov 2026 "raise it to 1M"; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Pampanga, CALABARZON; never Bataan or Quezon province; deadline still
  *     open; unclear budget or place = "For verification"), and the dedupe against Kiko's bid sheet.
  *   7 Code: new rows go to the "Web bid findings" tab and one row per source to "Web source scan log" of Kiko's bid sheet
  *     (CUE_BIDS_SHEET_ID). The card shows ONLY new opportunities (Kiko 19:07Z), changed earlier ones as "Updated", and the
@@ -10,17 +10,20 @@
  *   8 Kiko: no Pursue button (Kiko 19:08Z). "do intake for <reference>" starts the normal intake with that notice and sets Intake?? = Yes.
  * Starts: any chat message about bid opportunities (cueBidsAsked_, no AI call), and every day at 07:00 Manila (cueBidsDaily; Kiko 19:50Z moved it from 08:00).
  * Never: an email, a Canvas write, a registration, a fee or a bid submitted. Notice text is data, never instructions.
- * The API has no browser and no sign-in, so the new PhilGEPS portal's signed-in search and locked files show as Blocked, never as read. */
+ * The API has no browser and no sign-in, so a source's signed-in search and locked files show as Blocked, never as read. New PhilGEPS is
+ *   not sent to ChatGPT: Cue's own code reads its public bulletin board and notice pages (CueBidsPg.gs, Kiko 1 Nov 2026). */
 
 const CUE_BIDS_SHEET_ = '1-ivct4PTYRsCuO2njhYgQbf7-TE3-qhuBkUG75OuR_o';   // "BSE Inbox RFP & Bid History 2022-2026"
 const CUE_BIDS_TABS_ = { findings: 'Web bid findings', log: 'Web source scan log' };
-const CUE_BIDS_RULES_ = { min: 150000, max: 700000, hour: 7 };
+const CUE_BIDS_RULES_ = { min: 150000, max: 1000000, hour: 7 };   // max was 700,000 until Kiko's "raise it to 1M" (1 Nov 2026)
 // Kiko 19:06Z "NCR cities, Batangas"; 19:08Z "yes" to the nearby provinces. Bataan excluded (Kiko 20 Oct).
-const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
-const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
+// Kiko 1 Nov 2026 ("Test chat continuation"): Pampanga added ("1. Yes"); CALABARZON and Region IV-A count as in the area ("2. Yes");
+// Quezon province does not, only Quezon City ("3. No"), so "quezon" alone no longer matches and Quezon province is out.
+const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon city|qc|calabarzon|region\s*(iv|4)\s*-?\s*a|pampanga|angeles|clark|mabalacat|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
+const CUE_BIDS_OUT_RE_ = /\bbataan\b|\bquezon\b(?!\s+(city|ave|avenue|blvd|boulevard|memorial|circle)\b)|\b(lucena|tayabas|sariaya|candelaria|tiaong|gumaca|infanta)\b/i;
 const CUE_BIDS_UNSURE_RE_ = /^\s*(|n\/?a|tbd|tba|not (stated|given|verified|disclosed)|unverified|unknown|philippines|nationwide|various|multiple|online)\s*\.?\s*$/i;
 const CUE_BIDS_SOURCES_ = [
-  ['New PhilGEPS', 'https://philgeps.gov.ph/BulletinBoard/current_oppourtunities', 'A'],
+  ['New PhilGEPS', 'https://philgeps.gov.ph/Indexes/index', 'A'],   // read by code, not ChatGPT (CueBidsPg.gs)
   ['Other PhilGEPS', 'https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashOpenOpportunitiesUI.aspx?ClickFrom=OpenOpp&menuIndex=3', 'A'],
   ['CITEM', 'https://citem.gov.ph/procurement/opportunities/last-updated', 'A'],
   ['TPB', 'https://tpb.gov.ph/invitation-to-bid/', 'A'],
@@ -33,6 +36,7 @@ const CUE_BIDS_SOURCES_ = [
   ['PCC', 'https://www.phcc.gov.ph/procurement', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2] }));
 const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\bbids?\s+check\b|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
+const CUE_BIDS_CODE_ = { 'New PhilGEPS': true };   // sources Cue reads with its own code instead of ChatGPT (CueBidsPg.gs, Kiko 1 Nov 2026)
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
 const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
@@ -158,7 +162,7 @@ function cueBidsPrompt_() {
 function cueBidsSearch_(s) {
   const B = s.bids, open = cueBidsOpenRows_(s);
   B.open = open.map(r => ({ key: r.key, ref: r.ref, agency: r.agency, project: r.project, deadline: r.deadline }));
-  const groups = ['A', 'B', 'C'].map(g => CUE_BIDS_SOURCES_.filter(x => x.group === g));
+  const groups = ['A', 'B', 'C'].map(g => CUE_BIDS_SOURCES_.filter(x => x.group === g && !CUE_BIDS_CODE_[x.name]));
   const calls = groups.map((list, i) => {
     const rc = open.filter(r => list.some(x => r.url.indexOf(x.url.split('/')[2].replace(/^www\./, '')) >= 0)).slice(0, 10);
     return cueGpt_({ step: 'Bid search ' + (i + 1) + ' of 3', name: 'bids', web: true, maxTokens: 16000, memory: false, system: cueBidsPrompt_(), schema: CUE_BIDS_SCHEMA_,
@@ -167,6 +171,7 @@ function cueBidsSearch_(s) {
   });
   const res = cueAiAll_(s, calls);
   B.sources = []; B.raw = [];
+  if (typeof cueBidsPgItems_ === 'function') cueBidsPgItems_(B);   // New PhilGEPS: public pages read by code, no AI (CueBidsPg.gs)
   res.forEach((r, i) => {
     const list = groups[i];
     if (!r.ok) { list.forEach(x => B.sources.push({ source: x.name, url: x.url, status: 'Not run', checked: '', gap: 'ChatGPT did not finish: ' + cueStr_(r.error, 200) })); return; }
@@ -232,8 +237,8 @@ function cueBidsCheck_(s) {
   B.checks = [
     { id: 1, label: 'All 11 sources reported', ok: srcOk.length === CUE_BIDS_SOURCES_.length, detail: srcOk.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => srcOk.indexOf(x) < 0).map(x => x.source).join(', ') },
     { id: 2, label: 'Every new notice has agency, reference, project, link and next action', ok: !miss.length, detail: miss.length ? 'Incomplete: ' + miss.slice(0, 6).join(', ') : '' },
-    { id: 3, label: 'Budget ₱150,000 to ₱700,000 or For verification', ok: true, detail: out.dropped.budget ? out.dropped.budget + ' outside the range left out' : '' },
-    { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: out.dropped.area ? out.dropped.area + ' outside the area left out' : '' },
+    { id: 3, label: 'Budget ₱' + CUE_BIDS_RULES_.min.toLocaleString('en-US') + ' to ₱' + CUE_BIDS_RULES_.max.toLocaleString('en-US') + ' or For verification', ok: true, detail: out.dropped.budget ? out.dropped.budget + ' outside the range left out' : '' },
+    { id: 4, label: 'NCR, CALABARZON, Bulacan or Pampanga, never Bataan or Quezon province, or For verification', ok: true, detail: out.dropped.area ? out.dropped.area + ' outside the area left out' : '' },
     { id: 5, label: 'Deadline still open', ok: true, detail: out.dropped.closed ? out.dropped.closed + ' closed notices left out' : '' },
     { id: 6, label: 'No duplicates', ok: true, detail: out.dup ? out.dup + ' duplicates merged' : '' },
     { id: 7, label: 'Earlier open notices rechecked', ok: !notRe.length, detail: notRe.length ? 'Not rechecked: ' + notRe.slice(0, 6).map(r => r.ref || r.project).filter(Boolean).join(', ') : '' },
@@ -282,7 +287,7 @@ function cueBidsWrite_(s) {
     if (!f || !lg) throw new Error('the tabs "' + CUE_BIDS_TABS_.findings + '" and "' + CUE_BIDS_TABS_.log + '" are not in it');
     B.items.forEach(it => f.appendRow([day, it.agency, it.reference, it.project, it.status, it.location, it.abc || '', it.budget_note || 'PHP', it.deadline, it.event_date, it.scope,
       it.eligibility, it.url, it.documents.map(d => d.name + ' (' + d.status + ')' + (d.url ? ' ' + d.url : '')).join('; ') || 'No documents listed',
-      [it.amendments && 'Amendments: ' + it.amendments, it.limitations].filter(Boolean).join('. ') + ' (Cue bid check, ChatGPT via API)', it.next_action, '']));
+      [it.amendments && 'Amendments: ' + it.amendments, it.limitations].filter(Boolean).join('. ') + (it.source === 'New PhilGEPS' ? ' (Cue bid check, read by Cue code)' : ' (Cue bid check, ChatGPT via API)'), it.next_action, '']));
     B.updated.forEach(it => { f.getRange(it.row, 1, 1, 1).setValues([[day]]); f.getRange(it.row, 9, 1, 1).setValues([[it.deadline]]);
       f.getRange(it.row, 15, 1, 1).setValues([['Updated ' + day + ': ' + [it.was !== it.deadline ? 'deadline was ' + it.was : '', it.amendments].filter(Boolean).join('; ')]]); });
     B.sources.forEach(x => lg.appendRow([day, x.source, x.url, x.status, x.checked, x.gap, 'Next daily check', '']));

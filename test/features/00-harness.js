@@ -564,6 +564,8 @@ function sandbox(o = {}) {
       if (/\/project\/inbox\/data$/.test(u)) return resp(200, { tasks: [{ title: 'Pay Sonic Pro', status: 0, dueDate: '2026-10-25T16:00:00.000+0000' }, { title: 'Done one', status: 2 }, { title: 'Call Ana', status: 0 }] });
       return resp(404, {});
     }
+    // CUE-BIDS-PG-2026-11-01: New PhilGEPS's public pages (CueBidsPg.gs). o.pg(url, req) answers; without it the site is down.
+    if (u.indexOf('https://philgeps.gov.ph/') === 0) { (log.pg = log.pg || []).push({ url: u, headers: req.headers || {} }); return o.pg ? o.pg(u, req) : resp(503, 'down'); }
     throw new Error('unexpected fetch ' + u);
   };
   const ctx = {

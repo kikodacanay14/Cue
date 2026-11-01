@@ -25,6 +25,7 @@ function cueJobs_() {
     { job: 'CRM email log', fn: 'cueCrmLogTick_' },
     { job: 'Release notes at 8 PM', fn: 'cueRnDue_' },              // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM                 // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
     { job: 'New mail', fn: 'cueNmTick_' },                          // CUE-NEW-MAIL-2026-10-27: new mail in Kiko's inbox and info@, Claude sorts every 30 min
+    { job: 'New PhilGEPS read', fn: 'cueBidsPgTick_' },             // CUE-BIDS-PG-2026-11-01: the public bulletin board, hourly 7 AM to 7 PM, no AI
     { job: 'Schedules', fn: 'cueSchedTick_', last: true }          // last, after the tasks: a task it starts runs on the next tick in its own 6 minutes
   ];
 }
