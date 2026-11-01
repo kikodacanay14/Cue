@@ -9,8 +9,8 @@
  * line. Rule R1 (approved): empty sections are left out. Rule R2 (approved): with the 8 AM update on, the scheduled jobs post nothing
  * to the main chat; a job that fails still says so.
  *
- * No AI call: everything comes from what the 07:00 runs and Cue's tasks already hold. The personal-task levels fill from the Shared
- * Task Tracker in part 4 of the spec; until then they are left out (R1). The 8 AM update is the Schedule row sys-k0: turning it off
+ * No AI call: everything comes from what the morning runs and Cue's tasks already hold, plus the Shared Task Tracker and the ongoing
+ * projects' timelines (CUE-K0-WORK-2026-11-01, below). The 8 AM update is the Schedule row sys-k0: turning it off
  * in Cue Admin brings back the old posts. */
 
 const CUE_K0_ = { look: 160, max_ok: 60, retry_until: 15 };   // retry until 15:00 for the 2 PM update   // requests read; numbered lines at most; retry while the batch drafts, until 10:00
@@ -37,7 +37,7 @@ function cueK0Rows_() {
 }
 
 /** Builds the update for one Manila day. Pure apart from reads: the tests call it directly. Returns { title, text, items, lines }. */
-function cueK0Build_(day, contacts, mode) {
+function cueK0Build_(day, contacts, mode, work) {
   // CUE-THREE-TOUCH-2026-11-01 (Kiko 1 Nov: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel,
   // Chasers"): mode 'am' is the 8:00 update, 'pm' the 2:00 update. Each numbers its own lines for Kiko's reply.
   mode = mode === 'pm' ? 'pm' : 'am';
@@ -79,6 +79,7 @@ function cueK0Build_(day, contacts, mode) {
     const ybids = latest('bids', yday);
     if (ybids && ybids.bids && (ybids.bids.items || []).length) ydone.opps.push('Bids found: ' + ybids.bids.items.slice(0, 4).map(it => it.project || it.reference).filter(Boolean).join(', ') + (ybids.bids.items.length > 4 ? ' and ' + (ybids.bids.items.length - 4) + ' more' : ''));
     if (contacts && contacts.added_yday) ydone.opps.push('Contacts added to Canvas: ' + contacts.added_yday);
+    const WL = work ? cueK0WorkLines_(work, day, yd, work.moved) : null;
     const rn = latest('relnotes', yday);
     if (rn && rn.rn && (rn.rn.lines || rn.rn.items || []).length) ydone.company.push('Canvas and Cue: ' + (rn.rn.lines || rn.rn.items).slice(0, 4).map(l => typeof l === 'string' ? l : l.text || l.title || '').filter(Boolean).join('; '));
     // New opportunities (bids to start an intake) and new clients (contacts to add), numbered for Kiko's reply.
@@ -87,8 +88,12 @@ function cueK0Build_(day, contacts, mode) {
     const nb = bids && bids.bids && bids.status === 'Needs you' ? (bids.bids.items || []).filter(it => it.key && !it.decision).length : 0;
     const opps = nb ? ['- ' + nb + ' new bid' + (nb === 1 ? '' : 's') + ', in the card below'] : [];
     const people = (contacts && contacts.people || []).map((p, i) => add({ t: 'contact', e: p.email, i: i + 1 }, [p.name || p.email.split('@')[0], p.title, p.company].filter(Boolean).join(', ') + ' (' + p.email + ')'));
-    sec('Yesterday\'s summary', [].concat(lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
-    sec('Today\'s focus', [].concat(lvl('Critical today', crit.map(c => c[1])), lvl('Assigned to you', focus.assigned), lvl('Needs your review or approval', focus.review), lvl('Overdue', focus.follow)));
+    const W = WL || { crit: [], over: [], mine: [], blocked: [], nudge: [], soon: [], personal: [], done: [], moved: [] };
+    sec('Yesterday\'s summary', [].concat(lvl('Completed', W.done), lvl('Moved', W.moved), lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
+    sec('Today\'s focus', [].concat(lvl('Critical today', crit.map(c => c[1]).concat(W.crit)), lvl('Overdue', focus.follow.concat(W.over)), lvl('Assigned to you', focus.assigned.concat(W.mine)),
+      lvl('Needs your review or approval', focus.review), lvl('Nudge your team', W.nudge), lvl('Blocked, waiting on someone', W.blocked), lvl('Key milestones in the next 3 days', W.soon),
+      lvl('Personal', W.personal)));
+    if (work && (work.missed || []).length) out.push('', 'Could not read ' + work.missed.join('; ') + '. Those lines are left out today.');
     sec('New opportunities', opps);
     sec('New clients (reply "add 2" to add them to Canvas)', people);
     if (!out.length) out.push('', 'Nothing needs you this morning.');
@@ -111,6 +116,82 @@ function cueK0Build_(day, contacts, mode) {
   sec('Chased the max times, no reply: your call', blocked.map(l => '- ' + l));
   if (!out.length) out.push('', 'No follow-ups or chasers due this afternoon.');
   return { title, text: title + '\n' + out.join('\n'), items, mode, sweep: sweep ? sweep.id : '' };
+}
+
+/* ---------- CUE-K0-WORK-2026-11-01: the Shared Task Tracker and the ongoing projects' timelines ----------
+ * Kiko 1 Nov 2026: "it should also reference the project timeline of any ongoing project", and on the proposal: "1. add. anything
+ * assigned to internal that i need to nudge / 2. They should [Personal in its own group] / 3. yes [key milestones in the next 3
+ * days] / 4. Yes [ongoing = the Friday status list] / 5. yes [Completed and Moved in Yesterday's summary]".
+ * Two reads, no AI call: the Shared Task Tracker's Tasks tab (Task ID, Task, Category, Priority, Status, Due Date, Notes, Updated At)
+ * and Canvas's client_status read (each ongoing project's Project timeline and its open TRI tasks with who they are assigned to).
+ * A read that fails leaves its lines out and the update says what it could not read. */
+const CUE_K0_WORK_ = { per: 8, soon: 3 };   // lines per group before "and N more"; key milestones within this many days
+/** A sheet or bridge date as yyyy-MM-dd (Manila), or ''. */
+function cueK0Iso_(v) {
+  if (v instanceof Date && !isNaN(v)) return cuePh_(v.getTime()).day;
+  const t = String(v == null ? '' : v).trim(); if (!t) return '';
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3] + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
+  return '';
+}
+/** "Mon 2 Nov" for a yyyy-MM-dd day. */
+function cueK0Short_(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return '';
+  const D = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ' ' + (+m[3]) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1];
+}
+/** Reads the Tracker and the ongoing projects for the 8 AM update: { tasks, projects, missed }. */
+function cueK0Work_(s) {
+  const out = { tasks: [], projects: [], missed: [] };
+  try {
+    const T = cueGtTab_('tasks', s), g = (o, k) => o[k] == null ? '' : o[k];
+    out.tasks = T.rows.map(o => ({ id: String(g(o, 'Task ID')).trim(), task: cueStr_(String(g(o, 'Task')).trim(), 160), cat: String(g(o, 'Category')).trim(),
+      status: String(g(o, 'Status')).trim(), due: cueK0Iso_(g(o, 'Due Date')), updated: cueK0Iso_(g(o, 'Updated At')) })).filter(t => t.task);
+  } catch (e) { out.missed.push('the Shared Task Tracker (' + cueStr_((e && e.message) || e, 120) + ')'); }
+  try {
+    const r = cueBridge_(s, 'client_status', {}) || {};
+    out.projects = r.projects || [];
+    (r.missing || []).filter(m => /timeline|TRI Tracker/.test(m)).slice(0, 3).forEach(m => out.missed.push(cueStr_(m, 160)));
+  } catch (e) { out.missed.push('the project timelines in Canvas (' + cueStr_((e && e.message) || e, 120) + ')'); }
+  return out;
+}
+/** Is this TRI "assigned to" Kiko? Names from Script Property CUE_ME_NAMES (default "Kiko"). */
+function cueK0Me_(who) {
+  const names = String(cueProp_('CUE_ME_NAMES', 'Kiko')).split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  const w = String(who || '').toLowerCase(); return !!w && names.some(n => w.indexOf(n) >= 0);
+}
+/** The Tracker's and the projects' lines for Today's focus and Yesterday's summary. moved: Task ID -> due date at the last 8 AM. */
+function cueK0WorkLines_(W, day, yd, moved) {
+  const L = { crit: [], over: [], mine: [], blocked: [], nudge: [], soon: [], personal: [], done: [], moved: [] };
+  const open = t => !/^(complete|completed|done|cancel)/i.test(t.status);
+  const lateBy = d => { const n = Math.round((Date.parse(day + 'T00:00:00Z') - Date.parse(d + 'T00:00:00Z')) / 864e5); return n === 1 ? '1 day late' : n + ' days late'; };
+  const soonTo = cueK0Day_(day, CUE_K0_WORK_.soon), tomorrow = cueK0Day_(day, 1);
+  (W.tasks || []).forEach(t => {
+    const name = t.task + (t.id ? ' (' + t.id + ')' : '');
+    if (!open(t)) { if (t.updated && t.updated >= yd && t.updated < day) L.done.push(name); return; }
+    if (moved && t.id && moved[t.id] !== undefined && moved[t.id] !== t.due) L.moved.push(name + ': ' + (moved[t.id] ? cueK0Short_(moved[t.id]) : 'no date') + ' to ' + (t.due ? cueK0Short_(t.due) : 'no date'));
+    const blocked = /^blocked/i.test(t.status), going = /progress/i.test(t.status);
+    const line = t.due && t.due < day ? name + ': ' + lateBy(t.due) : t.due === day ? name + ': due today' : blocked ? name + (t.due ? ' (due ' + cueK0Short_(t.due) + ')' : '') : going && !t.due ? name : '';
+    if (!line) return;
+    if (/^personal/i.test(t.cat)) { L.personal.push(line); return; }
+    if (t.due && t.due < day) L.over.push(line); else if (t.due === day) L.crit.push(line); else if (blocked) L.blocked.push(line); else L.mine.push(line);
+  });
+  (W.projects || []).forEach(p => {
+    const pn = String(p.name || p.id || 'Project'), tl = p.timeline;
+    if (tl) {
+      (tl.late || []).forEach(x => { const d = x.end || x.start || ''; if (d === day) L.crit.push(pn + ': ' + x.task + ' ends today (timeline)'); else L.over.push(pn + ': ' + x.task + (d ? ', ' + lateBy(d) : '') + ' (timeline)'); });
+      (tl.next || []).filter(x => x.milestone && (x.end || x.start) && (x.end || x.start) <= soonTo).forEach(x => L.soon.push(pn + ': ' + x.task + ', ' + cueK0Short_(x.end || x.start)));
+    }
+    (p.tasks || []).forEach(x => {
+      const d = x.deadline || '', when = d && d < day ? lateBy(d) : d === day ? 'due today' : d === tomorrow ? 'due tomorrow' : '';
+      if (!when) return;
+      if (cueK0Me_(x.assigned)) (d < day ? L.over : L.crit).push(pn + ': ' + x.item + ' (' + when + ')');
+      else L.nudge.push(pn + ': ' + x.item + ' (' + (x.assigned || 'no one assigned') + ', ' + when + ')');
+    });
+  });
+  const cap = a => a.length > CUE_K0_WORK_.per ? a.slice(0, CUE_K0_WORK_.per).concat(['and ' + (a.length - CUE_K0_WORK_.per) + ' more']) : a;
+  Object.keys(L).forEach(k => { L[k] = cap(L[k]); });
+  return L;
 }
 
 /** The new contacts waiting in the New contacts tab, as one card in the update's thread (one Canvas check, no AI). */
@@ -152,7 +233,14 @@ function cueK0Run_(manual, mode) {
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   let contacts = { people: [] };
   if (mode === 'am') try { contacts = cueK0Contacts_(s); } catch (e) { s.notes.push('New contacts: ' + cueStr_((e && e.message) || e, 200)); }
-  const K = cueK0Build_(day, contacts, mode);
+  // CUE-K0-WORK-2026-11-01: the Tracker and the ongoing projects' timelines. "Moved" compares with the due dates kept at the last 8 AM.
+  let work = null;
+  if (mode === 'am') {
+    work = cueK0Work_(s);
+    try { work.moved = JSON.parse(P.getProperty('CUE_K0_TT_DUE') || 'null'); } catch (e) { work.moved = null; }
+    if (work.tasks.length) { const keep = {}; work.tasks.forEach(t => { if (t.id) keep[t.id] = t.due; }); P.setProperty('CUE_K0_TT_DUE', JSON.stringify(keep)); }
+  }
+  const K = cueK0Build_(day, contacts, mode, work);
   s.k0 = { title: K.title, day, mode, items: K.items, sweep: K.sweep || '', bids: K.bids || '', ask: contacts.ask || '', done: {} };
   cueLocked_(() => { const L = cueLoad_(id); L.s.k0 = s.k0; L.s.notes = s.notes; cueSave_(L.sh, L.row, L.s); });
   cueChat_('Cue', K.text, '>' + id);
