@@ -215,6 +215,8 @@ function cueBidsPages_(list) {
   return out;
 }
 function cueBidsSearch_(s) {
+  // CUE-COWORK-1030-2026-11-01: the 10:30 run reads only Cowork's rows (no ChatGPT search, no other site).
+  if (s.how === 'cowork') { s.bids.sources = []; s.bids.raw = []; s.stage = 'Checking'; return; }
   const B = s.bids, open = cueBidsOpenRows_(s);
   B.open = open.map(r => ({ key: r.key, ref: r.ref, agency: r.agency, project: r.project, deadline: r.deadline }));
   const groups = ['A', 'B', 'C'].map(g => CUE_BIDS_SOURCES_.filter(x => x.group === g));
@@ -346,7 +348,7 @@ function cueBidsCowork_(s) {
 function cueBidsCheck_(s) {
   const B = s.bids, now = cueNow_(), seen = [], rows = cueBidsRows_(s), open = cueBidsOpenRows_(s, rows);
   // CUE-COWORK-PHILGEPS-2026-11-01: Cowork's notices join ChatGPT's; whether it ran today is kept for the 8 AM update.
-  try { const cw = cueBidsCowork_(s); if (cw) { B.cowork = { ran: cw.ran, n: cw.items.length }; B.raw = (B.raw || []).concat(cw.items); } }
+  try { const cw = s.how === 'cowork' ? cueBidsCowork_(s) : null; if (cw) { B.cowork = { ran: cw.ran, n: cw.items.length }; B.raw = (B.raw || []).concat(cw.items); } }
   catch (e) { B.cowork = { ran: false, n: 0, error: cueStr_((e && e.message) || e, 160) }; }
   const out = { fresh: [], updated: [], dropped: { budget: 0, area: 0, closed: 0, other: 0, pages: 0 }, dup: 0, rechecked: {} }, pages = {};
   const nodocs = [], left = [];
@@ -777,6 +779,12 @@ function cueBidsFinish_(s) {
   s.ready_at = cueNow_(); s.card_at = s.card_at || cueNow_();
   if (nNew || upd.length) { s.status = 'Needs you'; s.stage = 'Needs you'; cueChat_('Cue', B.summary + ' Tap Accept on one to start its intake.', s.id); }
   else { s.status = 'Done'; s.stage = 'Done'; cueChat_('Cue', B.summary, s.id); }
+  // CUE-COWORK-1030-2026-11-01: the 10:30 run speaks in the main chat only when there is something: new notices (as the New
+  // opportunities card) or Cowork did not run (Kiko: "if its not, let me know").
+  if (s.how === 'cowork') {
+    if (B.cowork && !B.cowork.ran) cueChat_('Cue', 'New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on, Claude open and PhilGEPS signed in?', '');
+    if (nNew) { cueChat_('Cue', 'New PhilGEPS: ' + nNew + ' new bid' + (nNew === 1 ? '' : 's') + ' from Cowork.', '>' + s.id); cueChat_('Cue', 'New opportunities: ' + nNew + ' new.', '%' + s.id); }
+  }
 }
 /** Still open (spec rule 3): the sheet's open rows, one per notice, with what this run's recheck changed. Built at Checking so the
  * Reading stage opens their documents too (PC check 24 Oct 07:28Z: none of the 19 still open notices had a document opened). A cancelled one leaves. */

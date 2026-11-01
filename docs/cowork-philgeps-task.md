@@ -1,8 +1,8 @@
 # Claude Cowork task: new PhilGEPS check (paste into Cowork on KKD)
 
-Set up once in Claude Cowork on KKD: Scheduled tasks → New → weekdays at 6:00 AM (Manila) → paste the text below. Keep KKD on,
-Chrome open with Claude in Chrome, and stay signed in to PhilGEPS (tick "remember me"). Cue's 6:30 bid check reads what this task
-writes; when it finds no RUN row for today, Cue's 8 AM update says "New PhilGEPS was not checked today".
+Set up once in Claude Cowork on KKD: Scheduled tasks → New → weekdays at 10:00 AM (Manila) → paste the text below. Keep KKD on,
+Chrome open with Claude in Chrome, and stay signed in to PhilGEPS (tick "remember me"). Cue's 10:30 check reads what this task
+writes; when it finds no RUN row for today, Cue tells you in the main chat.
 
 ---
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.1: the new PhilGEPS check moves to 10:00 (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "login times out. you know what we can move the job at 10a, so that i am already awake and can login".
+
+- Cowork's "New PhilGEPS check" on KKD runs weekdays at 10:00 (Kiko changes its time in Cowork; docs/cowork-philgeps-task.md
+  says 10:00).
+- New Schedule row "New PhilGEPS (Cowork)", weekdays 10:30: reads today's Cowork rows only (no ChatGPT search, no other site),
+  screens them like every bid, and posts new ones in the main chat as the New opportunities card. If Cowork did not run (no RUN
+  row), one main-chat line says so. Nothing is posted when Cowork ran and found nothing new.
+- The 6:30 bid check no longer reads the Cowork tab, and the 8 AM update no longer warns about Cowork.
+- Tests: CW1 to CW3 rewritten for the 10:30 run; SC4 and NH2 updated. 584 of 584 pass.
+
 ## Cue 1.28.0: the bid check opens the agency sites itself (not deployed)
 
 Asked by Kiko on 1 Nov 2026, on the proposal to open the other bid sites in code instead of leaving them to ChatGPT's web search:

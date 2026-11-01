@@ -51,8 +51,8 @@ test('NH2 the seeded Schedule list has no HubSpot or pipeline row, and a sheet s
   const before = t.tabs.Schedule.rows.length;
   const list = t.ctx.cueSchedules();
   ['sys-hubspot', 'sys-pipeline'].forEach(id => assert.ok(!list.some(x => x.id === id), id + ' dropped from the list'));
-  assert.strictEqual(t.tabs.Schedule.rows.length, before - 2, 'both rows deleted from the tab');
-  assert.ok(/^v13:/.test(t.props.CUE_SCHED_SEED), 'seed signature bumped to v13');
+  assert.ok(!t.tabs.Schedule.rows.some(r => /^sys-(hubspot|pipeline)$/.test(String(r[0]))), 'both rows deleted from the tab');
+  assert.ok(/^v1[3-9]:/.test(t.props.CUE_SCHED_SEED), 'seed signature bumped (v13 or later)');
   assert.ok(list.some(x => x.id === 'sys-funnel') && list.some(x => x.id === 'sys-bids'), 'the other rows stay');
   assert.ok(!JSON.stringify(list).match(/hub\s?spot/i), 'no HubSpot word in the list Settings shows');
   const runs = vm.runInContext('CUE_SCHED_RUNS_', t.ctx); assert.ok(!('hubspot' in runs) && !('pipeline' in runs), 'no run label for removed jobs');
