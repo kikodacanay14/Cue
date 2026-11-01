@@ -180,7 +180,7 @@ function cueK0WorkLines_(W, day, yd, moved) {
     const pn = String(p.name || p.id || 'Project'), tl = p.timeline;
     if (tl) {
       (tl.late || []).forEach(x => { const d = x.end || x.start || ''; if (d === day) L.crit.push(pn + ': ' + x.task + ' ends today (timeline)'); else L.over.push(pn + ': ' + x.task + (d ? ', ' + lateBy(d) : '') + ' (timeline)'); });
-      (tl.next || []).filter(x => x.milestone && (x.end || x.start) && (x.end || x.start) <= soonTo).forEach(x => L.soon.push(pn + ': ' + x.task + ', ' + cueK0Short_(x.end || x.start)));
+      (tl.next || []).filter(x => x.milestone && (x.end || x.start) >= day && (x.end || x.start) <= soonTo).forEach(x => L.soon.push(pn + ': ' + x.task + ', ' + cueK0Short_(x.end || x.start)));
     }
     (p.tasks || []).forEach(x => {
       const d = x.deadline || '', when = d && d < day ? lateBy(d) : d === day ? 'due today' : d === tomorrow ? 'due tomorrow' : '';

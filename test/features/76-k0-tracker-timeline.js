@@ -4,7 +4,7 @@
 const K0W_CS_ = { today: '2026-10-21', from: '2026-10-14', more: 0, missing: [], projects: [
   { id: 'S-10000001AA', name: 'Hiraya', date: '2026-11-20',
     timeline: { total: 5, done: 1, due: 2, pct: 20, late: [{ task: 'Stage masking artwork', end: '2026-10-21', milestone: false }, { task: 'Venue ocular', end: '2026-10-18', milestone: false }],
-      next: [{ task: 'Client design sign-off', end: '2026-10-23', milestone: true }, { task: 'Final run of show', end: '2026-10-30', milestone: true }, { task: 'Tarp print', end: '2026-10-22', milestone: false }] },
+      next: [{ task: 'Old milestone Canvas still lists', end: '2026-10-19', milestone: true }, { task: 'Client design sign-off', end: '2026-10-23', milestone: true }, { task: 'Final run of show', end: '2026-10-30', milestone: true }, { task: 'Tarp print', end: '2026-10-22', milestone: false }] },
     tasks: [{ item: 'Book the LED wall', assigned: 'Marco', deadline: '2026-10-20', late: true }, { item: 'Confirm caterer headcount', assigned: 'Kiko', deadline: '2026-10-21', late: false },
       { item: 'Send rooming list', assigned: 'Joy', deadline: '2026-10-22', late: false }, { item: 'Plan the dry run', assigned: 'Joy', deadline: '2026-11-10', late: false }] }] };
 function k0wBox(o) {
@@ -33,7 +33,7 @@ test('KW1 Today\'s focus reads the Tracker and the timelines: due today, overdue
   assert.ok(/- Nudge your team\n  - Hiraya: Book the LED wall \(Marco, 1 day late\)\n  - Hiraya: Send rooming list \(Joy, due tomorrow\)\n/.test(x), x);
   assert.ok(!/Plan the dry run/.test(x), 'a team task due later is not a nudge yet');
   assert.ok(/- Blocked, waiting on someone\n  - Converge accreditation \(T-103\)/.test(x));
-  assert.ok(/- Key milestones in the next 3 days\n  - Hiraya: Client design sign-off, Fri 23 Oct\n/.test(x) && !/Final run of show/.test(x) && !/Tarp print/.test(x), 'milestones within 3 days only');
+  assert.ok(/- Key milestones in the next 3 days\n  - Hiraya: Client design sign-off, Fri 23 Oct\n/.test(x) && !/Final run of show/.test(x) && !/Tarp print/.test(x) && !/Old milestone/.test(x), 'milestones from today to 3 days ahead only');
   assert.ok(/- Personal\n  - Renew passport \(T-105\): due today/.test(x) && !/Shared Drive clean-up/.test(x), 'Personal in its own group; Not Started with no date left out');
   t.log.csArgs.forEach(a => assert.strictEqual(bridgeCheck('client_status', a), '', 'real bridge schema'));
 });
