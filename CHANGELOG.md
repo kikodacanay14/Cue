@@ -27,7 +27,10 @@ thread". Built on 1.27.91 (PR #270).
 - Moved to part 3 (each needs a Canvas change): parking a contact after C2 (no stage-move bridge action), C4 accreditation status
   (Cue has no per-company P4 data), C7 from AccountsPayables@, S1 from info@, turning off Canvas's own Team Cue RFP chaser, the crew
   chasers, and the banner image. C3's 2-business-day wait and client-only filter come with the Trackers (part 4).
-- Tests: 575 (5 new in test/features/74-chaser-templates.js; payment, RFQ, award, accreditation, funnel, admin, brand voice and
+- One "Threads" (Kiko 1 Nov 2026, screenshot: "two words here that says Threads. remove the 2nd", and 7 on the button vs 6 in the
+  list): the pane header no longer repeats "Threads" and its count; the ☰ Threads badge counts threads waiting on Kiko (as the
+  list's Waiting on you does), not tasks, so a thread with two waiting tasks counts once.
+- Tests: 576 (6 new in test/features/74-chaser-templates.js; payment, RFQ, award, accreditation, funnel, admin, brand voice and
   mail alert tests updated to the new wording). FEATURE-MAP.md regenerated.
 
 ## Cue 1.27.91: the 8 AM update, quiet jobs, new morning times, background switches (not deployed)

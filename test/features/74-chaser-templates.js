@@ -42,3 +42,9 @@ test('CT5 Emails waiting is dropped: Canvas\'s card gets on:false and no threads
   deq([t.files.F1.on, t.files.F1.threads], [false, []]);
   assert.ok(JSON.parse(t.props.CUE_PLOG_Q).some(l => l.email === 'ana@acme.example'), 'the project log still gets the email');
 });
+
+test('CT6 one "Threads" (Kiko 1 Nov): the pane header no longer repeats it, and the ☰ Threads badge counts waiting threads, not tasks', () => {
+  const js = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
+  assert.ok(!/<span class="pname">Threads<\/span>/.test(js), 'no second "Threads" in the pane header');
+  assert.ok(/function needThreadsN\(th\)/.test(js) && /\$\('needCount'\)\.textContent = nn;/.test(js), 'the badge uses the thread count');
+});

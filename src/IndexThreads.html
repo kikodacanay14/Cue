@@ -2,8 +2,9 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
     var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
     if (!it) {
-      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
-      h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
+      // CUE-ONE-THREADS-2026-11-01 (Kiko 1 Nov, screenshot: "two words here that says Threads. remove the 2nd", and the 7 vs 6 counts):
+      // the pane header no longer repeats "Threads" and its count; the ☰ Threads button carries the one count (needThreadsN).
+      h = '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Settings') + x;
     } else {
@@ -771,9 +772,12 @@
       return x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> <span class="muted">(' + esc(x.folder) + ')</span>' : esc(x.name) + ' <span class="muted">(not saved yet)</span>'; }).join(', ') + '</div>';
   }
   // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
+  // CUE-ONE-THREADS-2026-11-01: the badge counts threads waiting on Kiko, the same as the list's "Waiting on you" group, not tasks
+  // (a thread with two waiting tasks counted twice: 7 on the button, 6 in the list).
+  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length; }
   function renderWidgets() {
-    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; });
-    $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
+    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; }), nn = needThreadsN(threads());
+    $('needCount').hidden = !nn; $('needCount').textContent = nn;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
     setHtml($('w-access'), accessHtml());
     bind();
