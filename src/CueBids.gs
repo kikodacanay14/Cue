@@ -788,9 +788,10 @@ function cueBidsFinish_(s) {
 }
 /** Still open (spec rule 3): the sheet's open rows, one per notice, with what this run's recheck changed. Built at Checking so the
  * Reading stage opens their documents too (PC check 24 Oct 07:28Z: none of the 19 still open notices had a document opened). A cancelled one leaves. */
+const CUE_BIDS_STILL_MAX_ = 30;   // TOO-LARGE-2026-11-01: the closing list is capped like New and Updated, so a run stays storable
 function cueBidsStill_(open, items, updated) {
   const fresh = {}; (items || []).forEach(it => { fresh[it.key] = 1; });
-  return open.filter(r => !fresh[r.key]).map(r => {
+  return open.filter(r => !fresh[r.key]).sort((a, b) => (a.deadline_ms || 9e15) - (b.deadline_ms || 9e15)).slice(0, CUE_BIDS_STILL_MAX_).map(r => {
     const u = (updated || []).filter(x => x.row === r.row)[0], docs = cueBidsParseDocs_(r.docs);
     if (u) u.documents.forEach(d => { if (d.url && !docs.some(x => x.url === d.url)) docs.push(d); });
     return { key: r.key, row: r.row, agency: r.agency, reference: r.ref, project: r.project, location: r.location, abc: r.abc, budget_note: r.budget_note,

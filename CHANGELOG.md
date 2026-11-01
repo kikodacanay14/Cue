@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.2: a run too large to store stops instead of repeating (not deployed)
+
+Reported by Kiko on 1 Nov 2026 (screenshot on /dev): "The bid check stopped: This request is too large to store (310994
+characters)" posted every 10 minutes for Saturday's bid check.
+
+- A run whose saved data outgrew its 4 cells could not even save that it failed, so the 5-minute job picked it up again and
+  posted the same line each time. Cue now saves a slim copy closed as Failed ("This run grew too large to store and was closed.
+  Nothing was sent or written. Run it again."), once.
+- The bid card's "Opportunities closing" list keeps the 30 soonest deadlines, like New and Updated already were capped, so a bid
+  check stays storable.
+- Tests: test/features/79-too-large.js (TL1, TL2). 586 of 586 pass.
+
 ## Cue 1.28.1: the new PhilGEPS check moves to 10:00 (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "login times out. you know what we can move the job at 10a, so that i am already awake and can login".
