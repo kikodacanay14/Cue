@@ -41,3 +41,17 @@ test('CW3 Cowork\'s documents are Drive links (Kiko 1 Nov: "download all the fil
   assert.ok(/Cowork notes: PhilGEPS Platinum/.test(it.limitations), 'Cowork\'s Notes reach the notice');
   assert.ok(t.tabs['Bid documents'].rows.some(r => r[3] === 'Opened · saved by Cowork'), 'recorded as saved by Cowork');
 });
+
+test('BP1 Cue opens CITEM, TPB, NPDC, PCC and City of Manila itself and gives their listing text, links kept, to the same 3 search calls (Kiko 1 Nov: "Yes, thats why we listed them down")', () => {
+  const html = '<html><head><script>x()</script></head><body><h1>Invitation to Bid</h1><table><tr><td><a href="/files/itb-041.pdf">ITB 2026-041 Gala dinner styling</a></td><td>ABC 450,000</td></tr></table></body></html>';
+  const t = bidBox({ livePages: true, web: req => /tpb\.gov\.ph\/invitation-to-bid\/?$/.test(req.url) ? resp(200, html) : /manila\.gov\.ph/.test(req.url) ? resp(503, '') : null });
+  const ai = () => t.log.gpt.filter(b => b.text.format.name === 'bids').length;
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
+  assert.strictEqual(ai(), 3, 'still 3 search calls, no extra AI call');
+  const inputs = t.log.gpt.filter(b => b.text.format.name === 'bids').map(b => b.input).join('\n');
+  const PI = inputs.slice(inputs.indexOf('<pages>'), inputs.indexOf('<pages>') + 900); assert.ok(/<page source="TPB" url="https:\/\/tpb\.gov\.ph\/invitation-to-bid\/">\nInvitation to Bid\s+ITB 2026-041 Gala dinner styling \[https:\/\/tpb\.gov\.ph\/files\/itb-041\.pdf\]/.test(inputs), PI);
+  assert.ok(!/x\(\)/.test(inputs), 'scripts are left out');
+  assert.ok(/<page source="City of Manila">Cue could not open it \(HTTP 503\)\. Use web search for this source\.<\/page>/.test(inputs));
+  assert.ok(/7b\. When a <page> is given for a source, Cue opened that site itself/.test(t.log.gpt.filter(b => b.text.format.name === 'bids')[0].instructions));
+  assert.ok(t.state(v.id).bids.pages.some(p => p.source === 'TPB' && p.read) && t.state(v.id).bids.pages.some(p => p.source === 'City of Manila' && !p.read && p.why === 'HTTP 503'));
+});

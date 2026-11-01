@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.0: the bid check opens the agency sites itself (not deployed)
+
+Asked by Kiko on 1 Nov 2026, on the proposal to open the other bid sites in code instead of leaving them to ChatGPT's web search:
+"Yes, thats why we listed them down"; then on /dev: "it has more details now but not about the other bid sites".
+
+- Cue fetches the listing pages of CITEM, TPB, NPDC, PCC and City of Manila itself (code, no AI), turns each into text with every
+  link kept, and gives that text to the same 3 bid search calls, so ChatGPT reads each site's real current list and opens the
+  notices on it instead of stopping at the landing page. Still 3 AI calls.
+- A site that does not open is named in the search ("Cue could not open it (HTTP 503)") and left to web search. The run keeps
+  which sites were read.
+- UNGM, ADB and GIZ (search forms) and EU (blocked) stay on web search; the new PhilGEPS comes from Cowork.
+- Script Property CUE_BID_PAGES=off turns it off.
+- Tests: BP1 in test/features/78-cowork-philgeps.js. 584 of 584 pass.
+
 ## Cue 1.27.99: Cowork downloads the new PhilGEPS bid documents (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "did you tell it to download all the files downloadable from the bid".

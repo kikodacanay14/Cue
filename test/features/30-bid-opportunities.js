@@ -37,6 +37,7 @@ function bidBox(o = {}, rows) {
   const f = sheetMock(); f.appendRow(['Reviewed on (PHT)']); (rows || [['2026-10-20', 'TPB', 'OLD-1', 'Travel fair booth', 'Open', 'Makati', 600000, 'PHP', '2026-10-27T17:00+08:00', '', '', '', 'https://tpb.gov.ph/x', '', '', '', '']]).forEach(r => f.appendRow(r));
   const l = sheetMock(); l.appendRow(['Check date (PHT)']);
   t.tabs['Web bid findings'] = f; t.tabs['Web source scan log'] = l;
+  if (!o.livePages) t.props.CUE_BID_PAGES = 'off';   // CUE-BID-PAGES-2026-11-01: these tests count document fetches; BP1 turns the pages on
   return t;
 }
 test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko\'s screen, single notices only, dedupe; Cue opens the documents; New and Still open; sheet rows; Needs you', () => {
