@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.27.97: the 2 PM funnel adds the 3 checks kept from the pipeline review (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "add the 3 missing", on the proposal to keep from the removed pipeline review only what the chasers
+do not already cover, as lines in the 2 PM update's Funnel section.
+
+- Waiting on your reply: an open deal (Inquiry or CE sent in Canvas) whose newest email with its contact came from them, 1 working
+  day or more ago. Read from Kiko's Gmail, read only; system mail (no-reply, notifications, login codes) is skipped.
+- Event soon, not won yet: the event is today or within 14 days.
+- Fix in Canvas: the event date passed with the deal still open, or the deal has no amount, no event date or no contact.
+- Code only: no AI call, nothing written or sent. Checks the 40 open deals with the nearest event dates.
+- Tests: FN6 in test/features/54-sales-funnel.js. 580 of 580 pass.
+
 ## Cue 1.27.96: HubSpot removed; bids are event work only; schedule texts updated (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "its still mentioning Hubspot. Can we make sure that we remove it from the process", then "Delete

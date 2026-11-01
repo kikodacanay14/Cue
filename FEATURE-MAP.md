@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 70 server files, 1368 top-level names, 33 task kinds, 32 word checks before the
+Counts: 70 server files, 1372 top-level names, 33 task kinds, 32 word checks before the
 chat call, 14 background jobs in the 5-minute trigger, 82 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -155,8 +155,8 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 3 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
-| `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 7 |
-| `CueGmail.gs` |  |  | 0 | 0 | 26 | 4 |
+| `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 8 |
+| `CueGmail.gs` |  |  | 0 | 0 | 27 | 4 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |
@@ -215,15 +215,15 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueSave_` | `Cue.gs` | 31 |
 | `cueAiAll_` | `CueAi.gs` | 28 |
 | `cueOwner_` | `Cue.gs` | 27 |
-| `cueEmail_` | `CueText.gs` | 25 |
+| `cueEmail_` | `CueText.gs` | 26 |
 | `CUE_VERSION_` | `Cue.gs` | 24 |
 | `cueGpt_` | `CueAi.gs` | 21 |
 | `cueClaude_` | `CueAi.gs` | 18 |
 | `cueMetrics_` | `Cue.gs` | 18 |
 | `cuePh_` | `CueDates.gs` | 17 |
 | `cueResume` | `Cue.gs` | 16 |
+| `CUE_GMAIL_` | `CueGmail.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
-| `CUE_GMAIL_` | `CueGmail.gs` | 14 |
 | `cueGmail_` | `CueGmail.gs` | 14 |
 | `cueRows_` | `Cue.gs` | 14 |
 | `cueView_` | `Cue.gs` | 14 |
@@ -234,11 +234,11 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueAskOpen_` | `CueRoute.gs` | 9 |
 | `cueBridgeParse_` | `CueBridge.gs` | 9 |
 | `cueBridgeReq_` | `CueBridge.gs` | 9 |
+| `cueOwnDomain_` | `CueGmail.gs` | 9 |
+| `CUE_DATE_RE_` | `CueText.gs` | 8 |
 | `cueAddDays_` | `CueDates.gs` | 8 |
 | `cueGmailDraft_` | `CueGmail.gs` | 8 |
 | `cueMnlDay_` | `CueDates.gs` | 8 |
-| `cueOwnDomain_` | `CueGmail.gs` | 8 |
-| `CUE_DATE_RE_` | `CueText.gs` | 7 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
 | `cueAskPick` | `CueRoute.gs` | 7 |
 | `cueBridgePlan_` | `CueBridge.gs` | 7 |

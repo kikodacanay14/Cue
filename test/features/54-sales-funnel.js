@@ -122,3 +122,26 @@ test('FN5 the daily row starts one funnel a day; the page draws it with no task 
   assert.ok(card.length > 100 && /id="fn-' \+ esc\(r\.id\)/.test(card), 'the card carries the spot the Today row names');
   assert.ok(!/fn-task|cueFunnelTaskDone|hst:|Mark done/.test(html), 'no task list, tasks tab or Mark done on the page');
 });
+
+test('FN6 the 3 checks kept from the pipeline review (Kiko 1 Nov: "add the 3 missing"): waiting on your reply, event soon, fix in Canvas; no AI call', () => {
+  const funnel = Object.assign({}, FN_CANVAS, { open: [
+    { kind: 'project', id: 'S-1', name: 'Globe Year-End Party', client: 'Globe', step: 'CE sent', date: '2026-10-30', email: 'ana@globe.example', priced: true },
+    { kind: 'project', id: 'S-2', name: 'Shell Family Day', client: 'Shell', step: 'Inquiry', date: '2026-10-15', email: 'mark@shell.example', priced: false },
+    { kind: 'deal', id: 'D-3', name: 'Ayala Launch', client: 'Ayala', step: 'Inquiry', date: '', email: '', contact: '', priced: true },
+    { kind: 'project', id: 'S-4', name: 'Won Gala', client: 'Acme', step: 'Won', date: '2026-10-25', email: 'x@acme.example' }] });
+  const gm = req => {
+    const u = req.url; if (u.indexOf('gmail.googleapis.com') < 0) return null;
+    if (/\/messages\?/.test(u)) return resp(200, { messages: /globe/.test(decodeURIComponent(u)) ? [{ id: 'g1' }] : /shell/.test(decodeURIComponent(u)) ? [{ id: 's1' }] : [] });
+    if (/\/messages\/g1/.test(u)) return resp(200, { id: 'g1', internalDate: String(Date.parse('2026-10-16T02:00:00Z')), labelIds: ['INBOX'], payload: { headers: [{ name: 'From', value: 'Ana <ana@globe.example>' }, { name: 'Subject', value: 'Re: CE' }] } });
+    if (/\/messages\/s1/.test(u)) return resp(200, { id: 's1', internalDate: String(Date.parse('2026-10-20T02:00:00Z')), labelIds: ['SENT'], payload: { headers: [{ name: 'From', value: 'kiko@example.com' }, { name: 'Subject', value: 'Quote' }] } });
+    return null;
+  };
+  const { t, v } = fnRun({ funnel, web: gm });
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
+  const L = v.fn.lines.join('\n');
+  assert.ok(/Waiting on your reply: Globe \(\d+ working days?\)/.test(L), L);
+  assert.ok(!/Waiting on your reply:[^\n]*Shell/.test(L), 'Kiko wrote last to Shell');
+  assert.ok(/Event soon, not won yet: Globe \(in 9 days\)/.test(L), L);
+  assert.ok(/Fix in Canvas: Shell: event date passed, deal still open, no amount, Ayala: no event date, no contact/.test(L), L);
+  assert.ok(!/Acme/.test(L), 'a won deal is not checked');
+});
