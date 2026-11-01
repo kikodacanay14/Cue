@@ -1,26 +1,5 @@
 # Changelog
 
-## Cue 1.27.95: the 8 AM update reads the Shared Task Tracker and the project timelines (not deployed)
-
-Asked by Kiko on 1 Nov 2026: "it should also reference the project timeline of any ongoing project". On the proposal: "1. add.
-anything assigned to internal that i need to nudge / 2. They should / 3. yes / 4. Yes / 5. yes".
-
-- Today's focus now also reads the Shared Task Tracker (Tasks tab) and, through Canvas's existing client_status read, the Project
-  timeline and open TRI tasks of every ongoing project (the same list as the Friday status updates). No AI call; no Canvas release.
-  - Critical today: Tracker rows due today, timeline rows ending today, and TRI tasks assigned to Kiko due today.
-  - Overdue: Tracker rows past their due date, late timeline rows, and Kiko's late TRI tasks, each with how many days late.
-  - Assigned to you: Tracker rows In Progress with no due date.
-  - Nudge your team (new): open TRI tasks assigned to someone else that are late or due today or tomorrow, with the name.
-  - Blocked, waiting on someone: Tracker rows marked Blocked.
-  - Key milestones in the next 3 days (new): timeline rows marked as key milestones.
-  - Personal (new): Personal-category Tracker rows, in their own group. Not Started rows with no date are left out.
-- Yesterday's summary adds Completed (Tracker rows marked Complete yesterday, or since Friday on a Monday) and Moved (Tracker rows
-  whose due date changed since the last 8 AM update; this starts the day after the first run).
-- Each group shows 8 lines at most, then "and N more". If the Tracker or Canvas cannot be read, the update still goes out and
-  says what it could not read.
-- Kiko's own TRI tasks are found by name: Script Property CUE_ME_NAMES (default "Kiko").
-- Tests: test/features/76-k0-tracker-timeline.js (KW1 to KW3). 585 of 585 pass.
-
 ## Cue 1.27.94: Reply on chat bubbles; New opportunities card under the 8 AM update (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "i want to keep it very much like a chat conversation but each chat has a bubble right? so i'm
