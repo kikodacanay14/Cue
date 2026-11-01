@@ -87,6 +87,8 @@ function cueK0Build_(day, contacts, mode, work) {
     // inside it and buttons"): today's new bids show as one card right under this message (cueK0Run_ posts it), not as numbered lines.
     const nb = bids && bids.bids && bids.status === 'Needs you' ? (bids.bids.items || []).filter(it => it.key && !it.decision).length : 0;
     const opps = nb ? ['- ' + nb + ' new bid' + (nb === 1 ? '' : 's') + ', in the card below'] : [];
+    // CUE-COWORK-PHILGEPS-2026-11-01 (Kiko: "if its not, let me know"): today's bid check found no RUN row from Cowork on KKD.
+    if (bids && bids.bids && bids.bids.cowork && !bids.bids.cowork.ran) opps.push('- New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on and Claude open?');
     const people = (contacts && contacts.people || []).map((p, i) => add({ t: 'contact', e: p.email, i: i + 1 }, [p.name || p.email.split('@')[0], p.title, p.company].filter(Boolean).join(', ') + ' (' + p.email + ')'));
     const W = WL || { crit: [], over: [], mine: [], blocked: [], nudge: [], soon: [], personal: [], done: [], moved: [] };
     sec('Yesterday\'s summary', [].concat(lvl('Completed', W.done), lvl('Moved', W.moved), lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
