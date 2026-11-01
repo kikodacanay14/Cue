@@ -2,7 +2,7 @@
  * Kiko's 8-step bid workflow, run by ChatGPT through the API and checked by code:
  *   1-2, 4, 6 ChatGPT (3 calls in parallel, web search on): searches the 11 agreed sources, keeps event-related notices, reads
  *     specs, eligibility, amendments and documents, and reports what each source let it see (Checked / Partial / Blocked). (AI calls)
- *   3, 5 Code: the screen (ABC ₱150,000 to ₱1,000,000, Kiko 1 Nov 2026 "raise it to 1M"; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Quezon; never Bataan; deadline still
+ *   3, 5 Code: the screen (ABC ₱150,000 to ₱1,000,000, Kiko 1 Nov 2026 "raise it to 1M"; NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Pampanga, CALABARZON; never Bataan or Quezon province; deadline still
  *     open; unclear budget or place = "For verification"), and the dedupe against Kiko's bid sheet.
  *   7 Code: new rows go to the "Web bid findings" tab and one row per source to "Web source scan log" of Kiko's bid sheet
  *     (CUE_BIDS_SHEET_ID). The card shows ONLY new opportunities (Kiko 19:07Z), changed earlier ones as "Updated", and the
@@ -17,8 +17,10 @@ const CUE_BIDS_SHEET_ = '1-ivct4PTYRsCuO2njhYgQbf7-TE3-qhuBkUG75OuR_o';   // "BS
 const CUE_BIDS_TABS_ = { findings: 'Web bid findings', log: 'Web source scan log' };
 const CUE_BIDS_RULES_ = { min: 150000, max: 1000000, hour: 7 };   // max was 700,000 until Kiko's "raise it to 1M" (1 Nov 2026)
 // Kiko 19:06Z "NCR cities, Batangas"; 19:08Z "yes" to the nearby provinces. Bataan excluded (Kiko 20 Oct).
-const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
-const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
+// Kiko 1 Nov 2026 ("Test chat continuation"): Pampanga added ("1. Yes"); CALABARZON and Region IV-A count as in the area ("2. Yes");
+// Quezon province does not, only Quezon City ("3. No"), so "quezon" alone no longer matches and Quezon province is out.
+const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon city|calabarzon|region\s*(iv|4)\s*-?\s*a|pampanga|angeles|clark|mabalacat|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
+const CUE_BIDS_OUT_RE_ = /\bbataan\b|\bquezon\b(?!\s+(city|ave|avenue|blvd|boulevard|memorial|circle)\b)|\b(lucena|tayabas|sariaya|candelaria|tiaong|gumaca|infanta)\b/i;
 const CUE_BIDS_UNSURE_RE_ = /^\s*(|n\/?a|tbd|tba|not (stated|given|verified|disclosed)|unverified|unknown|philippines|nationwide|various|multiple|online)\s*\.?\s*$/i;
 const CUE_BIDS_SOURCES_ = [
   ['New PhilGEPS', 'https://philgeps.gov.ph/Indexes/index', 'A'],   // read by code, not ChatGPT (CueBidsPg.gs)
@@ -236,7 +238,7 @@ function cueBidsCheck_(s) {
     { id: 1, label: 'All 11 sources reported', ok: srcOk.length === CUE_BIDS_SOURCES_.length, detail: srcOk.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => srcOk.indexOf(x) < 0).map(x => x.source).join(', ') },
     { id: 2, label: 'Every new notice has agency, reference, project, link and next action', ok: !miss.length, detail: miss.length ? 'Incomplete: ' + miss.slice(0, 6).join(', ') : '' },
     { id: 3, label: 'Budget ₱' + CUE_BIDS_RULES_.min.toLocaleString('en-US') + ' to ₱' + CUE_BIDS_RULES_.max.toLocaleString('en-US') + ' or For verification', ok: true, detail: out.dropped.budget ? out.dropped.budget + ' outside the range left out' : '' },
-    { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: out.dropped.area ? out.dropped.area + ' outside the area left out' : '' },
+    { id: 4, label: 'NCR, CALABARZON, Bulacan or Pampanga, never Bataan or Quezon province, or For verification', ok: true, detail: out.dropped.area ? out.dropped.area + ' outside the area left out' : '' },
     { id: 5, label: 'Deadline still open', ok: true, detail: out.dropped.closed ? out.dropped.closed + ' closed notices left out' : '' },
     { id: 6, label: 'No duplicates', ok: true, detail: out.dup ? out.dup + ' duplicates merged' : '' },
     { id: 7, label: 'Earlier open notices rechecked', ok: !notRe.length, detail: notRe.length ? 'Not rechecked: ' + notRe.slice(0, 6).map(r => r.ref || r.project).filter(Boolean).join(', ') : '' },

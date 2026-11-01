@@ -19,8 +19,11 @@ Documents, View all activity), said "raise it to 1M" for the budget cap, and rep
 - A failed or empty read shows New PhilGEPS as Blocked on the card with the reason, and fails the job in Job Runs. Pages that open
   only in part show it as Partial.
 - The ABC cap is now ₱150,000 to ₱1,000,000 for every source (it was ₱700,000). The process check label reads the rule's values.
+- Area (Kiko 1 Nov 2026, answers to three questions): Pampanga is now in the area ("1. Yes"); a place given only as CALABARZON or
+  Region IV-A counts as in the area ("2. Yes"); Quezon province is out and only Quezon City stays in ("3. No"). Before, "Quezon"
+  alone matched both. This applies to every source.
 - After the PC check, Kiko retires the "New PhilGEPS (Cowork)" row in Cue Admin › Scheduled tasks.
-- Tests: 469 (new `test/features/69-philgeps-code.js`, PGS1 to PGS4, built from the live page markup; BD1 updated).
+- Tests: 470 (new `test/features/69-philgeps-code.js`, PGS1 to PGS5, built from the live page markup; BD1 updated).
 
 ## Cue 1.27.82: Claude answers Ask Cue chat and looks things up first (live as Version 179, 30 Oct 2026 05:42Z, rollback Version 173; built as 1.27.81, renumbered by the deploys thread after the award chaser build took 1.27.81)
 

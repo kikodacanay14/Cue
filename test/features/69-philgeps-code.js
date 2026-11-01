@@ -91,3 +91,11 @@ test('PGS4 site down or changed: the source shows Blocked with the reason, the h
   const t3 = sandbox({ pg: PG_SITE({ index: () => pgPage(302, '') }) });
   assert.throws(() => t3.ctx.cueBidsPgTick_(), /sign-in page/);
 });
+
+test('PGS5 area (Kiko 1 Nov 2026): Pampanga and CALABARZON / Region IV-A are in; Quezon province is out, Quezon City stays in', () => {
+  const t = sandbox(), c = t.ctx, now = c.cueNow_(), at = place => c.cueBidsScreen_({ abc: 500000, location: place, deadline_ms: now + 864e5 }, now);
+  ['San Fernando, Pampanga', 'Clark, Pampanga', 'Angeles City', 'CALABARZON', 'Region IV-A', 'Quezon City', 'Quezon Avenue, Quezon City', 'Metro Manila', 'Calamba, Laguna']
+    .forEach(p => assert.ok(!at(p).drop, p + ' is in the area'));
+  ['Lucena City, Quezon, CALABARZON', 'Quezon', 'Quezon Province', 'Tayabas, Quezon', 'Balanga, Bataan', 'Eastern Samar', 'Leyte', 'Nueva Ecija', 'Cebu City']
+    .forEach(p => assert.strictEqual(at(p).drop, 'area', p + ' is outside the area'));
+});
