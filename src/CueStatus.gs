@@ -38,7 +38,7 @@ function cueStStart_(text, how, project) {
     status: 'Working', stage: ask ? 'Finding project' : 'Listing events', ref: '', st, metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'weekly') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'weekly' ? 'Friday status updates: ' : '') + 'Started ' + (ask ? 'a status update for ' + ask : 'the client status updates') + ' in its own thread. Nothing is sent until you tap Send on each email.', how === 'weekly' && cueK0On_() ? id : '>' + id);   // CUE-K0-2026-10-31 (R2)
+  cueChat_('Cue', (how === 'weekly' ? 'Friday status updates: ' : '') + 'Started ' + (ask ? 'a status update for ' + ask : 'the client status updates') + ' in its own thread. Nothing is sent until you tap Send on each email.', '>' + id);   // CUE-THREE-TOUCH-2026-11-01: the Friday client updates are the 5 PM Friday message (Kiko 1 Nov), so they say so in the chat
   cueChat_('Cue', 'Canvas first: a fresh readiness scan for ' + (ask ? ask : 'every active event') + ', then one client email each.', id);
   return { request_id: id, task: '' };
 }

@@ -35,10 +35,12 @@ test('AC2 a supplier reply in Kiko\'s Gmail after the last email turns the remin
   assert.ok(s.no_email && /They answered on 2026-10-17/.test(s.why));
 });
 
+// CUE-TEMPLATES-2026-10-31: a draft is text plus the designed html now; this reads its text part (or the whole body of a plain one).
+const mimeText = r => { const m = String(r).match(/Content-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/); return m ? Buffer.from(m[1].replace(/\r\n/g, ''), 'base64').toString('utf8') : ''; };
 test('AC3 drafts only: Kiko\'s Gmail draft replies in the accreditation thread, suppliers@ in CC; nothing is logged in Canvas', () => {
   const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
   const raws = t.log.gmail; assert.strictEqual(raws.length, 2);
-  const sonic = raws.find(r => /ben@sonic/.test(r)), body = Buffer.from(sonic.split('\r\n\r\n')[1], 'base64').toString('utf8');
+  const sonic = raws.find(r => /ben@sonic/.test(r)), body = mimeText(sonic);
   assert.ok(/^To: ben@sonic\.example\r\nCc: suppliers@blankspaceevent\.com\r\n/.test(sonic) && /In-Reply-To: <acc1@mail>/.test(sonic));
   assert.ok(body.indexOf('https://docs.google.com/forms/d/VAF/viewform') >= 0, 'the form link is always in');
   assert.ok(!t.log.accrLog, 'drafts are not logged in Canvas');
@@ -59,7 +61,7 @@ test('AC4 approve and send at 9:00: Canvas re-checks, the email goes from Kiko\'
 
 test('AC5 ChatGPT drops the form link: Cue puts it back; ChatGPT down: the template is used', () => {
   const t = accrBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.ctx.cueApprove(id, { send: false });
-  assert.ok(t.log.gmail.every(r => Buffer.from(r.split('\r\n\r\n')[1], 'base64').toString('utf8').indexOf('/forms/d/VAF/viewform') >= 0));
+  assert.ok(t.log.gmail.every(r => mimeText(r).indexOf('/forms/d/VAF/viewform') >= 0));
   const u = accrBox({ fail: { chasers: () => resp(500, {}) } }); u.ctx.cueSweep();
   const f = accrItems(batchOf(u)).find(i => i.who === 'Build Co');
   assert.ok(f.drafted_by === 'template' && /Vendor Accreditation Form/.test(f.body) && /- Bank details/.test(f.body));
@@ -97,7 +99,7 @@ test('AC9 the email never asks for an account number: a ChatGPT draft that does 
   assert.ok(st.length === 2 && st.every(i => i.drafted_by === 'template'), 'ChatGPT asked for the account number: template used');
   assert.ok(st.every(i => !/account (name|number|no)/i.test(i.body)), 'the template never asks either');
   const build = st.find(i => i.who === 'Build Co'); assert.ok(/- Bank details for payment\n/.test(build.body) || /- Bank details for payment$/m.test(build.body), build.body);
-  assert.ok(b.notes.some(n => /left out a required detail|fixed wording/.test(n)));
+  // CUE-TEMPLATES-2026-10-31: no ChatGPT draft any more (Kiko's templates), so nothing is turned down and no note is needed
   const u = accrBox(); u.ctx.cueSweep(); u.at('2026-10-21', 10, 0);
   u.ctx.cueApprove(batchOf(u).id, { send: false, bodies: { 'accr-form:buildco': 'Hi, please reply with your account number. https://docs.google.com/forms/d/VAF/viewform' } });
   const e = u.state(batchOf(u).id).batch.items.find(i => i.who === 'Build Co');
@@ -124,14 +126,14 @@ test('PS2 accreditation: a supplier on a cancelled, not awarded or completed pro
   const t = accrBox({ accr: Object.assign({}, ACCR, { rows }) }); t.ctx.cueSweep(); const b = batchOf(t), it = accrItems(b);
   assert.ok(!it.some(i => /Sonic Pro|Fresh Co/.test(i.who)), it.map(i => i.who).join());
   assert.ok(it.some(i => i.who === 'Build Co'), 'no project: kept');
-  assert.ok(b.notes.some(n => /Left out 2 lines whose project status does not fit: Accreditation chasers for Acme Gala \(Cancelled\), Accreditation chasers for Acme Gala \(Completed\)/.test(n)), b.notes.join(' | '));
+  assert.ok(b.notes.some(n => /Left out 2 lines whose project status does not fit: S1 Accreditation chasers for Acme Gala \(Cancelled\), S1 Accreditation chasers for Acme Gala \(Completed\)/.test(n)), b.notes.join(' | '));
   assert.ok(!t.log.board, 'the rows carry the status: no extra Canvas read');
 });
 test('PS3 RFQ: a supplier quote on a project in Closure, Complete or On Hold is not chased; a live project still is', () => {
   const t = rfqBox({ projects: [{ id: 'S-1', name: 'Acme Party', status: 'For Service Invoicing', phase: 'Closure', date: '2026-10-25' }, { id: 'S-2', name: 'Beta Expo', status: 'Closed Lost', date: '2026-11-20' }] });
   t.ctx.cueSweep(); const b = rfqBatch(t);
   deq(b.batch.items.map(i => i.key), ['rfq:aaaa0000000000a1'], 'SkyLights (Acme Party, now invoicing) left out; the unlinked RFQ stays');
-  assert.ok(b.notes.some(n => /Left out 1 line whose project status does not fit: RFQ chasers for Acme Party \(For Service Invoicing\)/.test(n)), b.notes.join(' | '));
+  assert.ok(b.notes.some(n => /Left out 1 line whose project status does not fit: S2 RFQ and RFP chasers for Acme Party \(For Service Invoicing\)/.test(n)), b.notes.join(' | '));
   assert.strictEqual(t.log.board, 1, 'still one Canvas read');
 });
 test('PS4 signature: crew papers on an On Hold project are not chased; payment chasers keep a cancelled project\'s overdue BI', () => {

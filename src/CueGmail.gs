@@ -24,14 +24,14 @@ function cueGmailSend_(draftId) {
 }
 
 /** One reply draft in thread f, with attachments. Multipart upload, so big attachments fit (Gmail allows 35 MB). */
-function cueGmailReply_(f, body, files) {
+function cueGmailReply_(f, body, files, html) {
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
   const wrap = t => t.replace(/.{1,76}/g, '$&\r\n');
   const subj = /^re:/i.test(f.subject) ? f.subject : 'Re: ' + f.subject, mix = 'cue_mix_' + cueNow_().toString(36);
   let mime = 'To: ' + f.to + '\r\nSubject: =?UTF-8?B?' + b64(subj.replace(/[\r\n]+/g, ' ')) + '?=\r\n'
     + (f.message_id ? 'In-Reply-To: ' + f.message_id + '\r\nReferences: ' + f.message_id + '\r\n' : '')
     + 'MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="' + mix + '"\r\n\r\n'
-    + '--' + mix + '\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + wrap(b64(body)) + '\r\n';
+    + '--' + mix + '\r\n' + (html ? cueRfpRich_(body, html, '') : 'Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + wrap(b64(body)) + '\r\n');   // CUE-TEMPLATES-2026-10-31: text and the designed html
   (files || []).forEach(a => {
     const n = a.name.replace(/["\\\r\n]/g, '_');
     mime += '--' + mix + '\r\nContent-Type: ' + a.type + '; name="' + n + '"\r\nContent-Disposition: attachment; filename="' + n + '"\r\n'
@@ -67,10 +67,10 @@ function cueGmailDraftDelete_(id) {
 
 // From CueIntake.gs
 /** Makes one Gmail draft through the Gmail API (gmail.compose scope only). To is left blank when the supplier has no email. */
-function cueGmailDraft_(to, subject, body) {
+function cueGmailDraft_(to, subject, body, html) {
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
   const mime = (cueEmailList_(to) ? 'To: ' + cueEmailList_(to) + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(String(subject || '').replace(/[\r\n]+/g, ' ')) + '?=\r\n'
-    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(body || '');
+    + 'MIME-Version: 1.0\r\n' + (html ? cueRfpRich_(body || '', html, '') : 'Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(body || ''));   // CUE-TEMPLATES-2026-10-31
   const res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', { method: 'post', contentType: 'application/json',
     muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
     payload: JSON.stringify({ message: { raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) } }) });

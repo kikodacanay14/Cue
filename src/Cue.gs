@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.91';   // 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
+const CUE_VERSION_ = 'Cue 1.27.94';   // 1.27.93 + Reply on chat bubbles and the New opportunities card under the 8 AM update; no Decide later (1.27.94). Before that: 1.27.92 + three weekday touchpoints: 8 AM update, 2 PM funnel and chasers (pick, tailored drafts, Tell Cue, Send each), weekdays only (1.27.93). Before that: 1.27.91 + Kiko's revised chaser templates in the designed email, C2 and C3, holidays skipped, Emails waiting off (1.27.92). Before that: 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -178,16 +178,22 @@ function cueChat_(who, text, id) {
 /* ---------- what the page calls ---------- */
 /** Kiko sends a message. mode 'intake' or 'chat' forces one; otherwise attachments or a "New project intake" opener start an
  * intake and everything else is a chat reply (one GPT call). Returns { request_id } for an intake or { chat, reply, suggest_intake }. */
-function cueSend(text, files, mode, ref) { return cueSendWith_(text, files, mode, ref, null); }
+function cueSend(text, files, mode, ref, reply) { return cueSendWith_(text, files, mode, ref, null, reply); }
 /** forced = a chat-call result already made (Teach Cue add-on, CueRoute.gs: a button under "which did you mean?"), so no second call. */
-function cueSendWith_(text, files, mode, ref, forced) {
+function cueSendWith_(text, files, mode, ref, forced, reply) {
   cueOwner_();
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
+  // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): Reply on a Cue bubble in the main chat quotes that
+  // message. A reply to an 8 AM or 2 PM update is answered there (cueK0Said_). Any other quoted task gets the message in its thread, and
+  // the main chat keeps Kiko's line with its quote ("↩<id>").
+  const rp = !ref && /^cue-[0-9A-Za-z-]{6,40}$/.test(String(reply || '')) ? cueLoad_(reply) : null;
+  reply = rp ? String(reply) : '';
+  if (reply && rp.s.kind !== 'k0' && !has) { cueChat_('Kiko', String(text || '').trim(), '↩' + reply); ref = reply; }
   const inThread = !!ref;
   // STRUCTURE-PHASE-2 (Kiko 28 Oct 2026 04:21Z): the word checks are one ordered list, cueRoutes_ in CueCommands.gs. Each entry
   // keeps its note on who asked for it and when. The first that answers wins, in the same order as the hand-written chain before.
-  const c = { text, files, has, mode, ref, inThread, forced };
+  const c = { text, files, has, mode, ref, inThread, forced, reply: reply && rp.s.kind === 'k0' ? reply : '' };
   for (const r of cueRoutes_()) {
     if (r.said) { const out = r.said(c); if (out) return out; }
     else if (r.when(c)) return r.go(c);

@@ -168,6 +168,20 @@
   .thread-row .tt { all:unset; cursor:pointer; color:var(--act); font-weight:700; text-decoration:underline; text-underline-offset:2px; }
   .thread-row .tt:hover { color:var(--white); } .thread-row .tt:focus-visible { outline:2px solid var(--act); border-radius:4px; }
   .msg[data-thread] { cursor:pointer; }
+  /* CUE-REPLY-BUBBLE-2026-11-01: ↩ Reply beside a Cue bubble (on hover; a long press on a phone), the quote in Kiko's bubble, and the
+     "Replying to" strip above the chat box. */
+  .msg { position:relative; }
+  .msg .rp { position:absolute; right:-40px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; border:1px solid var(--line2); background:var(--panel); color:var(--text); cursor:pointer; opacity:0; transition:opacity .15s; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .msg:hover .rp, .msg .rp:focus-visible { opacity:1; }
+  .msg .quote { display:block; border-left:3px solid var(--act); padding:2px 8px; margin:2px 0 6px; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .replybar { display:flex; align-items:center; gap:6px; padding:6px 10px; margin-bottom:6px; border-left:3px solid var(--act); background:var(--panel); border-radius:6px; }
+  .replybar[hidden] { display:none; }
+  .replybar b { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14px; }
+  /* CUE-K0-BIDS-CARD-2026-11-01: the New opportunities card under the 8 AM message. */
+  .card.k0bids { align-self:stretch; padding:0; overflow:hidden; max-width:92%; }
+  .k0bids .k0bh { background:var(--act); color:#fff; font-weight:700; font-size:14px; padding:10px 14px; }
+  .k0bids .k0b { padding:12px 14px; } .k0bids .k0b + .k0b { border-top:1px solid var(--line); }
+  .k0bids .actions { justify-content:flex-end; }
   .say { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); cursor:default; }
   .say .row input { flex:1; min-width:0; min-height:40px; } .say .btn { min-height:40px; }
   .say-last { margin-bottom:6px; }

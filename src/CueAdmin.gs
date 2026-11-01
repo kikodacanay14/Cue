@@ -52,8 +52,13 @@ function cueAdminRelnotes() {
 
 /** One line per chaser kind: what it chases, and who the email comes from. */
 const CUE_ADMIN_CHASE_ = {
+  // CUE-TEMPLATES-2026-10-31: C2 and C3 join the page (spec part 2).
+  inquiry: { about: 'C2: follows up a client who went quiet after their inquiry. First follow-up, then the final one, 3 business days apart; then it asks you to park them.',
+    from: 'your Gmail', to: 'the inquiry\'s contact in Canvas', sample: { who: '<Contact>', project: '<Client>', times: 0, facts: { contact: '<Contact>', client: '<Client>', inquiry: '<Inquiry>' } } },
+  inbox: { about: 'C3: a client replied and is waiting on you. ChatGPT writes only the answer and next step; the rest is your template. Listed in the 8 AM update.',
+    from: 'your Gmail, as a reply in their thread', to: 'the person who wrote to you', sample: { who: '<Name>', subject: '<Their subject>' }, middle: '<The direct answer to their question.> <The confirmed next step, with who and when.>' },
   rfq: { about: 'Nudges a supplier who hasn\'t answered your RFQ.', from: 'your Gmail, as a reply in the RFQ thread', to: 'the supplier you sent the RFQ to',
-    sample: { who: '<Supplier name>', to: '<supplier email>', thread_subject: 'RFQ: <RFQ title>', project: '<Event>', facts: { rfq_sent: '<RFQ date>', reply_by: '<Reply-by date>' } } },
+    sample: { who: '<Supplier name>', to: '<supplier email>', thread_subject: 'RFQ: <RFQ title>', project: '<Event>', facts: { rfq_subject: 'RFQ: <RFQ title>', rfq_sent: '<RFQ date>', reply_by: '<Reply-by date>' } } },
   award: { about: 'Asks a client if they have decided on a CE marked "For client awarding".', from: 'your Gmail, in the CE thread', to: 'the client contact on the CE email thread',
     sample: { who: '<Client>', project: '<Event>', facts: { chaser_number: 1, event_date: '<Event date>' } } },
   payment: { about: 'Reminds a client whose billing invoice is past due.', from: 'info@ through Canvas, you in CC', to: 'the client\'s billing contact in Client Desk',
@@ -67,8 +72,10 @@ const CUE_ADMIN_CHASE_ = {
 const CUE_ADMIN_SCHED_ = {
   // CUE-K0-2026-10-31 (spec cue-message-redesign-spec.md, approved by Kiko 31 Oct 2026). silent: with the 8 AM update on, the job posts
   // nothing to the main chat (rule R2); what it finds shows in the 8 AM update, and a failure still says so.
-  'sys-k0': { spec: 'cue-message-redesign-spec.md', about: 'One message at 8:00 in your format: Critical today, Yesterday\'s summary, Today\'s work, and a numbered For your OK list. Reply "send 1, 3", "add 4" or "no 2" and Cue does it. While it is on, the jobs marked Silent post nothing to the chat.',
+  'sys-k0': { spec: 'cue-message-redesign-spec.md', about: 'Weekdays at 8:00: Yesterday\'s summary, Today\'s focus, New opportunities (reply "start 1") and New clients (reply "add 2"). While it is on, the jobs marked Silent post nothing to the chat.',
     asked: 'Asked by Kiko 31 Oct, spec and mockup approved 31 Oct', follows: [['Your 8 AM format', 'Critical today; Yesterday\'s summary (projects, opportunities, company); Today\'s work (assigned, review, follow up, blocked). Empty parts are left out.'], ['Approve = send', 'Chasers, contacts, bids and Friday updates go only for the numbers you name.']] },
+  'sys-k0pm': { spec: 'cue-message-redesign-spec.md', about: 'Weekdays at 2 PM: the funnel\'s follow-ups and every chaser due, numbered. Reply "1, 3" and Cue drafts them (tailored to each client\'s latest email) as cards to check; each goes only when you press Send.',
+    asked: 'Asked by Kiko 1 Nov ("2PM Funnel, Chasers")', follows: [['Draft, then you send', 'A pick drafts; nothing goes out until you press Send on that email.']] },
   'sys-newmail': { silent: true, spec: 'cue-message-redesign-spec.md', about: 'Reads new mail in your Gmail and info@ every 5 minutes; Claude sorts it every 30 minutes into the New mail thread.',
     asked: 'Asked by Kiko 27 Oct; made silent 31 Oct', follows: [['Silent', 'No chat line for new mail; it stays in the New mail thread.']] },
   'sys-contacts': { silent: true, spec: 'gmail-new-contacts.md', about: 'Finds people you email who are not in Canvas yet. They come to you as "Add contact" lines in the 8 AM update.',
@@ -117,7 +124,7 @@ function cueAdminChasers() {
     kinds: Object.keys(CUE_ADMIN_CHASE_).map(kind => {
       const R = rules.kinds[kind] || {}, A = CUE_ADMIN_CHASE_[kind], k = cueKinds_().filter(x => x.kind === kind)[0];
       let tpl = { subject: '', body: '' };
-      try { if (k && typeof k.template === 'function') tpl = k.template(JSON.parse(JSON.stringify(A.sample))) || tpl; } catch (e) { console.warn('Cue Admin chasers: ' + kind + ' template: ' + e); }
+      try { if (k && typeof k.wrap === 'function' && A.middle) tpl = k.wrap(JSON.parse(JSON.stringify(A.sample)), A.middle) || tpl; else if (k && typeof k.template === 'function') tpl = k.template(JSON.parse(JSON.stringify(A.sample))) || tpl; } catch (e) { console.warn('Cue Admin chasers: ' + kind + ' template: ' + e); }
       return { kind, label: R.label || kind, on: R.on !== false, about: A.about, from: A.from, to: A.to,
         ai: !!(k && k.draftBrief), subject: String(tpl.subject || ''), body: String(tpl.body || '') };
     }) };

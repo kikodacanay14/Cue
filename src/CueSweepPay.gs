@@ -19,8 +19,8 @@ const CUE_PAY_BRIEF_ = 'A payment follow-up to a client about billing invoices (
   + 'or whether anything is needed to process it. A second or third follow-up is firmer and asks for a payment date. Never mention '
   + 'interest, penalties or legal action, and never change or round an amount.';
 
-cueKind_({ kind: 'payment', label: 'Payment chasers', every: CUE_PAY_.every, max: CUE_PAY_.max, sendAllowed: true,
-  draftBrief: CUE_PAY_BRIEF_, find: cuePayFind_, template: cuePayTemplate_, check: cuePayCheck_,
+cueKind_({ kind: 'payment', label: 'C7 Payment chasers', every: CUE_PAY_.every, max: CUE_PAY_.max, sendAllowed: true,
+  find: cuePayFind_, template: it => cueTplC7_(it) /* CUE-TEMPLATES-2026-10-31: Kiko's C7 wording, no AI call */, check: cuePayCheck_,
   send: (it, s) => cuePaySend_(it, s, 'send'), draft: (it, s) => cuePaySend_(it, s, 'draft') });
 
 /** The day's payment lines: one per client email, anchored on its oldest overdue BI. */

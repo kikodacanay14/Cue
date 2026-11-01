@@ -192,14 +192,16 @@ function cueCnTick_() {
   return added;
 }
 
-/** Approve or Skip page on the card (CueRoute.gs cueAskPick). note = "skip:2,5": the rows Kiko unticked. */
-function cueCnPick_(o, pick, done, note) {
+/** Approve or Skip page on the card (CueRoute.gs cueAskPick). note = "skip:2,5": the rows Kiko unticked. keep: emails that go back
+ * to New and come again on the next list (the 8 AM update's people Kiko did not name; Kiko 1 Nov: "B - until i decline or add"). */
+function cueCnPick_(o, pick, done, note, keep) {
+  keep = keep || [];
   const skip = {}; (String(note || '').match(/^skip:([\d,]*)$/) || ['', ''])[1].split(',').filter(Boolean).forEach(n => { skip[Number(n)] = 1; });
   const want = (o.emails || []).filter((e, i) => !skip[i + 1]);
   cueChat_('Kiko', pick === 'approve' ? 'Approve ' + want.length : 'Skip page', done);
   PropertiesService.getScriptProperties().deleteProperty('CUE_CN_CARD');
   const T = cueCnRead_(), now = new Date(cueNow_()), mark = (list, status) => list.forEach(e => { const i = T.at[e]; if (i === undefined) return; T.rows[i][6] = status; T.rows[i][10] = now; cueCnPut_(T, i); });
-  if (pick !== 'approve' || !want.length) { mark(o.emails || [], 'Skipped'); cueChat_('Cue', 'OK, nobody added. Nothing was written to Canvas. The next page comes in a few minutes.', done); return { chat: true }; }
+  if (pick !== 'approve' || !want.length) { mark((o.emails || []).filter(e => keep.indexOf(e) < 0), 'Skipped'); mark(keep, 'New'); cueChat_('Cue', 'OK, nobody added. Nothing was written to Canvas. The next page comes in a few minutes.', done); return { chat: true }; }
   const people = want.map(e => { const r = T.rows[T.at[e]] || []; const x = { email: e }, put = (k, v) => { if (String(v || '').trim()) x[k] = String(v).trim(); };
     put('name', cueStr_(r[1], 120)); put('title', cueStr_(r[8], 120)); put('phone', r[9]); put('company', cueStr_(r[7], 120)); put('via', r[2]); put('subject', cueStr_(r[3], 200));
     put('date', CUE_DATE_RE_.test(String(r[4])) ? r[4] : ''); put('thread', r[5]); return x; });
@@ -211,7 +213,8 @@ function cueCnPick_(o, pick, done, note) {
   if (r.refused) { mark(o.emails || [], 'New'); cueChat_('Cue', 'Canvas refused: ' + cueStr_(r.refused, 300) + ' Nobody was added.', done); return { chat: true }; }
   const added = (r.contacts || []).map(x => x.email), kn = r.known || [], sk = (r.skipped || []).map(x => x.email);
   mark(added, 'Added'); mark(kn, 'Known'); (r.skipped || []).forEach(x => mark([x.email], cueCnWhy_(x.why)));
-  mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0 && sk.indexOf(e) < 0), 'Not added');
+  mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0 && sk.indexOf(e) < 0 && keep.indexOf(e) < 0), 'Not added');
+  mark(keep.filter(e => want.indexOf(e) < 0), 'New');
   cueChat_('Cue', 'Added ' + added.length + ' contact' + (added.length === 1 ? '' : 's') + ((r.companies || []).length ? ' and ' + r.companies.length + ' new compan' + (r.companies.length === 1 ? 'y' : 'ies') + ' at P0' : '') + ' to Canvas.'
     + (kn.length ? ' ' + kn.length + ' already in Canvas, left alone.' : '') + (sk.length ? ' ' + sk.length + ' skipped (personal email, supplier or BSE staff).' : '') + ' Undo any of it in Canvas › Accounts › Auto add. The next page comes in a few minutes.', done);
   return { chat: true };
