@@ -1097,8 +1097,10 @@ function zbCeLines_(pid) {
   Object.keys(ZB_CE_COLS_).forEach(k => { c[k] = col_(R, ZB_CE_COLS_[k]); });
   if (c.req_id < 0 || c.unit_cost < 0) throw new Error('The Requirements tab has no Requirement ID or Unit Cost column.');
   const seen = {}, lines = [];
+  const rmc = col_(R, 'removed from ce'); // REQ-CANCEL-2026-10-30
   R.rows.forEach(r => {
     if (!mine(r)) return;
+    if (rmc >= 0 && /requirement is never deleted/i.test(String(r[rmc] || ''))) return; // REQ-CANCEL-2026-10-30: kept as Cancelled, off the CE
     const id = String(r[c.req_id] || '').trim(); if (!id || seen[id]) return; seen[id] = 1;
     const v = k => c[k] >= 0 ? r[c[k]] : '';
     lines.push({ req_id: id, category: String(v('category') || '').trim().slice(0, 200), description: String(v('description') || '').trim().slice(0, 600),
@@ -1482,9 +1484,10 @@ function zbCsMail_(p, today) {
     p.tasks.forEach(x => text.push('- ' + x.item + (x.assigned ? ' (' + x.assigned + ')' : '') + (x.deadline ? ', due ' + D(x.deadline) : ''))); }
   text.push('');
   // Go to Canvas
-  h += '<div style="margin:24px 0 6px;padding:16px;background:#FAF8F3;border-radius:8px">' + P('Want to see more details about your event? Everything is on Canvas.') + bseMailBtn_('Go to Canvas', p.link) + '</div>';
-  h += P('If you have questions, reply to this email.', '#5C5866') + '<p style="margin:16px 0 0;font-size:15px">Thank you,<br>Blank Space Events</p></div></div>';
-  text.push('Want to see more details about your event? Go to Canvas: ' + p.link, '', 'If you have questions, reply to this email.', '', 'Thank you,', 'Blank Space Events');
+  // EMAIL-BUTTON-LAST-2026-10-31 (Kiko 31 Oct: "the button is at the very bottom. aligned left"): the box with the button closes the card.
+  h += P('If you have any questions or clarifications, feel free to hit reply.', '#5C5866') + '<p style="margin:16px 0 0;font-size:15px">Thank you,<br>Blank Space Events</p>';
+  h += '<div style="margin:20px 0 0;padding:16px;background:#FAF8F3;border-radius:8px">' + P('Want to see more details about your event? Everything is on Canvas.') + bseMailBtn_('Go to Canvas', p.link) + '</div></div></div>';
+  text.push('Want to see more details about your event? Go to Canvas: ' + p.link, '', 'If you have any questions or clarifications, feel free to hit reply.', '', 'Thank you,', 'Blank Space Events');
   return { subject, text: text.join('\n'), html: h };
 }
 

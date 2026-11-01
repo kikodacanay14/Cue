@@ -89,9 +89,9 @@ function cueBidsStart_(text, how, from) {
   if (from) cueChat_('Kiko', s.text, from); else if (how !== 'daily') cueChat_('Kiko', s.text, '');
   if (home) {
     const line = (how === 'daily' ? '7:00 bid check: ' : '') + 'Running the bid check again in today\'s Bid check thread. It lists only notices new since the last run. ' + say;
-    cueChat_('Cue', line, from && from !== home ? from : '>' + home);
+    cueChat_('Cue', line, from && from !== home ? from : how === 'daily' && cueK0On_() ? home : '>' + home);   // CUE-K0-2026-10-31 (R2)
   } else if (from) cueChat_('Cue', 'Running the bid check again in a new thread. ' + say, from);   // asked inside an older day's Bid check thread
-  if (!home) cueChat_('Cue', (how === 'daily' ? '7:00 bid check: ' : '') + 'Started a bid opportunity check in its own thread. ' + say, '>' + id);
+  if (!home) cueChat_('Cue', (how === 'daily' ? 'Daily bid check: ' : '') + 'Started a bid opportunity check in its own thread. ' + say, how === 'daily' && cueK0On_() ? id : '>' + id);   // CUE-K0-2026-10-31 (R2)
   cueChat_('Cue', 'ChatGPT is searching the 11 sources. This takes a few minutes.', id);
   return { request_id: id, task: '' };
 }

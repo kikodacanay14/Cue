@@ -1,5 +1,125 @@
 # Changelog
 
+## Cue 1.27.94: Reply on chat bubbles; New opportunities card under the 8 AM update (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "i want to keep it very much like a chat conversation but each chat has a bubble right? so i'm
+thinking a reply in the chat bubble function"; "New Opportunities / Bids need to be a card. Coz they need to show more details,
+links inside it and buttons the rest can be message format"; "we can remove Decide Later. If we just scroll pass through it that
+means we dont want to decide yet"; the card subtitle "dont add this anymore"; "okay to build" on mockup cue-8am-bids-card.png.
+
+- Reply: a Cue bubble in the main chat that names a task shows ↩ on hover (a long press on a phone). Tapping it puts a "Replying
+  to <message>" strip above the chat box (× or Esc cancels). Kiko's sent line shows the quoted message above his words.
+- A reply to an 8 AM or 2 PM update answers that update, even on a later day ("1, 3" drafts those chasers). A reply to any other
+  task's bubble goes into that task's thread, and the quoted line stays in the main chat.
+- The 8 AM update's New opportunities section now reads "N new bids, in the card below". Right under it, the New opportunities
+  card lists each new bid: title, source and status labels (Scoped or For clarification), Agency, Budget (ABC), Closes,
+  Reference, What it needs (or Missing), document links, then View opportunity, Ask the agency (to clarify), Decline and Start
+  intake. Bids are no longer numbered for a typed reply.
+- Decide later is gone from every bid card. A bid Kiko scrolls past stays undecided until it closes.
+- New clients in the 8 AM update (Kiko 1 Nov: "B - until i decline or add"): "add 2" adds that person to Canvas, "no 3" drops
+  that person for good, and anyone Cue listed but you did not name goes back on the list for the next 8 AM update.
+- Tests: test/features/75-reply-bids-card.js (RB1 to RB5); BV5 updated. 582 of 582 pass.
+
+## Cue 1.27.93: 8 AM and 2 PM weekday updates; chasers drafted for your OK, tailored, sent one by one (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel, Chasers / 5PM
+…"; weekends "no. we rest"; on "send 1, 3": "what i actually meant is to draft it and show it to me for approval"; "In Cue";
+templates "would probably still need to be adjusted based no the client and situation"; "go with both". Spec section 10.
+
+- 8 AM update (weekdays): Yesterday's summary (Friday's on a Monday), Today's focus (critical today, assigned, needs your OK,
+  overdue), New opportunities (bids; reply "start 1"), New clients (contacts; reply "add 2"). No chasers in the morning.
+- 2 PM update (new Schedule row "2 PM update", weekdays 14:00): the funnel's follow-ups and every chaser due, numbered. Reply
+  "1, 3" or "all": Cue drafts those (nothing is sent), tailors only their middle sentences to the client's latest email in one AI
+  call (greeting, ask frame, "Thanks!" and sign-off stay the template; a draft that changes them is dropped), and shows each as a
+  card in the chasers thread with Edit, Tell Cue (one AI call per instruction, same check), Skip and Send. Each email goes only on
+  its own Send (approve = send, per message); payment, signature and accreditation chasers send through their own path.
+- Schedule: weekdays only for the bid check (06:30), 8 AM update, chasers (13:00, now their own time, no longer tied to Chaser
+  rules' build hour), sales funnel (13:15), 2 PM update and release notes (19:45). Friday client status updates move to Fri 17:00
+  and post their own line (the Friday 5 PM message). The other 5 PM reports get their own specs.
+- Tests: 577 (K1, K2, K5 rewritten, K6 new; schedule tests updated for weekdays and the new times).
+
+## Cue 1.27.92: chasers in Kiko's templates and the designed email, C2 and C3, holidays, Emails waiting off (not deployed)
+
+Asked by Kiko on 31 Oct 2026 ("yes sorry start part 2"). Part 2 of the spec cue-message-redesign-spec.md. Kiko's answers the same
+day: C2 stops after 2 follow-ups "as the templates say"; payment chasers "can be from AccountsPayables"; "Full design, in the same
+thread". Built on 1.27.91 (PR #270).
+
+- Kiko's revised templates (Google Doc "BSE Message Templates") replace the AI drafts for C6 CE award (follow-up and urgent),
+  S2 RFQ and RFP, S1 accreditation follow-up, C7 payment and C2. Cue fills only the blanks, so these chasers make no AI call. New
+  file `CueTemplates.gs`.
+- Designed email: each one goes as text plus HTML with the audience banner (cyan for clients, orange for suppliers), "Thanks!" and
+  the sign-off, as a reply in the original thread. An email Kiko edits goes as plain text, exactly as he typed it. The banner is a solid
+  colour band with the wordmark. The designed banner image (diamond and orbit pattern) comes with the Canvas release (part 3).
+- C2 They went quiet (was "Inquiry chasers"): first follow-up, then the final follow-up, 3 business days apart, at most 2, from
+  Kiko's Gmail once he names it in the 8 AM update (before, drafts only). Win-back drafts are removed.
+- C3 Replies waiting on you (was "Inbox"): ChatGPT writes only the middle (the direct answer and the next step). The greeting,
+  "Great to hear from you!", the closing line and the sign-off are fixed. The "Thanks for your email. I'll get back to you" holding
+  reply is gone; if ChatGPT can't draft, the line stays in the 8 AM update with no draft.
+- One S2 chaser: Canvas's Send RFP emails ("Quotation request | …", "RFP") are found by the same RFQ search.
+- Business days skip Philippine holidays (the fixed national ones for the rest of 2026 and 2027; Script Property CUE_HOLIDAYS adds
+  the proclaimed ones, such as Holy Week and National Heroes Day).
+- Emails waiting (J11) is dropped: Canvas's card gets `on:false` and no threads. The 10-minute inbox read stays, because it feeds the
+  project logs.
+- Chaser labels carry their message-map IDs (C2, C6, C7, S1, S2, R5/R6). Rules › Chaser rules lists C2; Jobs › Chasers shows C2 and
+  C3 with their templates.
+- Moved to part 3 (each needs a Canvas change): parking a contact after C2 (no stage-move bridge action), C4 accreditation status
+  (Cue has no per-company P4 data), C7 from AccountsPayables@, S1 from info@, turning off Canvas's own Team Cue RFP chaser, the crew
+  chasers, and the banner image. C3's 2-business-day wait and client-only filter come with the Trackers (part 4).
+- One "Threads" (Kiko 1 Nov 2026, screenshot: "two words here that says Threads. remove the 2nd", and 7 on the button vs 6 in the
+  list): the pane header no longer repeats "Threads" and its count; the ☰ Threads badge counts threads waiting on Kiko (as the
+  list's Waiting on you does), not tasks, so a thread with two waiting tasks counts once.
+- Tests: 576 (6 new in test/features/74-chaser-templates.js; payment, RFQ, award, accreditation, funnel, admin, brand voice and
+  mail alert tests updated to the new wording). FEATURE-MAP.md regenerated.
+
+## Cue 1.27.91: the 8 AM update, quiet jobs, new morning times, background switches (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat ("right now i wanna fix the messages being sent by Cue to me. i get overwhelmed").
+Spec cue-message-redesign-spec.md approved ("yes", with rules R1 to R4); mockup approved ("ok", after "if we can break it down
+further with the levels i gave earlier"). This is part 1 of 4. Built on top of PR #269 (Canvas look), on the live line.
+
+- 8 AM update (new Schedule row "8 AM update", daily 08:00, `CueMorning.gs`): one message in the main chat in Kiko's levels:
+  Critical today (task and scheduled reminders with a time), Yesterday's summary (project threads worked on, chasers sent, bids
+  found, contacts added, releases), Today's work (assigned to you, needs your review or approval, time to follow up, blocked), and a
+  numbered For your OK list (the morning batch's chasers, new contacts, new bids, Friday client updates). No AI call. Empty levels
+  are left out (R1). If the 07:00 batch is still drafting at 8:00 it waits and goes out as soon as the batch is ready (by 10:00).
+- Kiko replies in words: "send all", "send 1, 3", "add 4", "start 6", "no 2" (in the main chat or the update's thread). Chasers
+  he names go out at once from the batch (no 9:00 wait); the ones he does not name are skipped today and come back on their next
+  day. "add" adds the named contacts to Canvas, "start" starts a bid's intake, "send"/"no" sends or skips a Friday update. Cue
+  answers in one line ("Done: 3 chasers sent, 1 contact sent to Canvas.").
+- Quiet jobs (R2): while the 8 AM update is on, the morning batch, bid check, sales funnel, Friday status, New mail and the
+  approved-send line post nothing to the main chat (their threads keep their lines). A failure still says so. The new contacts card
+  is made once a day inside the update's thread instead of in the main chat. Turning the 8 AM update off in Cue Admin brings the
+  old posts back.
+- New morning times (applied once to the existing rows): bid check 06:30, sales funnel 06:45, Friday status Fri 06:45, so all are
+  ready for 08:00. The ChatGPT daily plan row is turned off once (the 8 AM update replaces it, decision D4).
+- Cue Admin › Jobs › Scheduled tasks: new rows with On switches for the background jobs that had none (New mail, New contacts from
+  Gmail, Client accreditation mail, CRM work); a Silent label on the jobs that keep out of the chat; their descriptions say the
+  results are in the 8 AM update; no Change time button on background rows.
+- Not in this part (spec parts 2 to 4): chaser rules and templates, sender changes, the Canvas release for supplier and crew
+  emails, the Shared Task Tracker and TRI Tracker (personal tasks), proposed stage moves, and the one-ping urgent email (K2).
+- Tests: 570 (5 new in test/features/73-morning-update.js; BD5, BD9, SC2, SC4, SC8, ST7 updated for the new times and quiet
+  posts). FEATURE-MAP.md regenerated.
+
+## Cue: Canvas look without magenta, lists, sent times, thread colours, bigger logo (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat "Test". Mockups C2 and D2 approved ("perfect"), and the thread colours approved ("A").
+Built on the live release (1.27.90, branch claude/project-thread-y5l4x9-rel12790), not on main, which is behind live.
+
+- No magenta: the "needs you" colour is now Canvas violet #23006F (Threads count, needs-you marks). The logo keeps its gradient.
+- Sent time: every message in the chat and in threads shows its time under its box, outside it, on the left for Cue and on the
+  right for Kiko ("1:39 PM" today, "Oct 30, 4:12 PM" before).
+- Lists: lines starting with "1." / "1)" / "-" show as real numbered or bulleted lists, with indented sub-points; a reply that
+  runs "1) … 2) …" in one paragraph is split into a list. The chat prompt now asks Claude to put each option on its own line.
+- Thread colours: a thread's header band and its row's side stripe are cyan (#559FEF) for project updates, orange (#CD5023) for
+  CRM and funnel, and violet (#23006F) for the rest. CRM wins when a thread is both. HubSpot is not counted as CRM (being removed).
+- Logo bigger: 30px to 40px standalone, 22px to 32px inside Canvas. "Threads ›" before an open thread's name is gone.
+- Reply line (Kiko 31 Oct: "If you have any questions or clarifications, feel free to hit reply."): the accreditation chaser's
+  fallback uses it. test/fixtures/ZapBridge.gs is refreshed from Canvas V364 (PR #377: email wording only, no bridge call changes).
+- "Close older runs" (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines): one main-chat line,
+  "Closed N older runs. Nothing was written or sent.", instead of one line in every closed thread (each surfaced in the main chat
+  with an "Earlier task" row). The old copies already in the chat are hidden. Test C40 updated.
+- Tests: 565 of 565 pass.
+
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)
 
 Kiko, 30 Oct 2026 09:36Z: "Ask Cue is not working"; 09:38Z: "nothing. it doesnt do anything". Built as Cue PR #265 (branch

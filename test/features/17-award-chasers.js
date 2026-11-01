@@ -17,8 +17,7 @@ test('A1 due after 3 business days: one item replying in the CE thread to the cl
   const t = awardBox(); t.ctx.cueSweep(); const [it] = awItems(t);
   deq([it.key, it.who, it.to, it.thread_id, it.message_id, it.thread_subject], ['award:S-1', 'Ana Reyes', 'ana@acme.example', 'T1', '<m1@mail>', 'BSE cost estimate: Acme Party']);
   assert.ok(/CE sent 2026-10-15 \(CE-26-047, PHP 1,250,000\), 4 business days with no award decision\. Event 2026-12-12\. Chaser 1 of 3/.test(it.why), it.why);
-  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.board, 1);
-  const sentToGpt = t.log.gpt[0].input; assert.ok(/chaser_number":1/.test(sentToGpt)); assert.ok(!/1250000|1,250,000|ce_total/.test(sentToGpt.replace(/"why":"[^"]*"/g, '')), 'no total in facts');
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call: Kiko\'s C6 template (31 Oct)'); assert.strictEqual(t.log.board, 1);
   assert.ok(/in:sent newer_than:180d \("Acme Party" OR "S-1"\).*-RFQ/.test(t.log.queries[0]));
   t.at('2026-10-21', 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true });
   assert.strictEqual(t.log.replies.length, 1); assert.ok(/"threadId":"T1"/.test(t.log.replies[0].payload) && /In-Reply-To: <m1@mail>/.test(t.log.replies[0].payload));
@@ -54,18 +53,18 @@ test('A6 event within 7 days: urgent draft, not ticked for 9:00; a past event is
   const a = by['award:S-1'], b = by['award:S-26001AB'], c = by['award:S-3'];
   deq([a.priority, a.no_email, a.tap, a.selected, a.short, a.to, a.thread_id], ['urgent', false, true, false, 'Event 2026-10-25', 'ana@acme.example', 'T1']);
   assert.ok(/Event on 2026-10-25 and still no award\. Send an urgent follow-up/.test(a.why), a.why);
-  assert.strictEqual(t.log.gpt.length, 1, 'drafted in the batch\'s one ChatGPT call'); assert.ok(/"urgent":true/.test(t.log.gpt[0].input));
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call: Kiko\'s C6 urgent template (31 Oct)');
   deq([b.priority, b.no_email, b.short], ['urgent', true, 'Event passed 2026-10-01']); assert.ok(/has passed/.test(b.why));
   assert.ok(/\?page=canvas&project=S-26001AB&tab=Main$/.test(b.canvas_url), b.canvas_url);
   deq([c.priority, c.no_email, !!c.tap], ['urgent', true, false]); assert.ok(/Call the client today/.test(c.why), 'no CE email found: still a flag');
   const v = t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0].batch.items.filter(i => i.kind === 'award');
   deq(v.map(i => [i.key, i.tap, i.short, !!i.canvas_url]).sort(), [['award:S-1', true, 'Event 2026-10-25', false], ['award:S-26001AB', false, 'Event passed 2026-10-01', true], ['award:S-3', false, 'Event 2026-10-24', false]]);
 });
-test('A6b the urgent template (ChatGPT down) asks for a decision today and never quotes the CE total', () => {
+test('A6b the C6 urgent template asks for a decision as soon as they can, names the event date and never quotes the CE total', () => {
   const tpl = t0 => t0.ctx.cueKinds_().filter(k => k.kind === 'award')[0].template;
   const t = awardBox(); const d = tpl(t)({ who: 'Ana Reyes', project: 'Acme Party', facts: { urgent: true, event_date: '2026-10-25' } });
-  assert.ok(/^Hi Ana,\n\nFollowing up on the cost estimate we sent for Acme Party\. With the event on 2026-10-25, could you let us know today if we can proceed\?/.test(d.body), d.body);
-  assert.ok(!/PHP|1,250,000|!/.test(d.body));
+  assert.ok(/^Hi Ana,\n\nAcme Party is coming up on 25 October 2026\. Could you review the cost estimate and let us know your decision as soon as you can\?/.test(d.body), d.body);
+  assert.ok(!/PHP|1,250,000/.test(d.body)); assert.strictEqual((d.body.match(/!/g) || []).length, 1, 'one "!": Thanks!');
 });
 test('A6c Send follow-up: Approve and send leaves the urgent line out; its own tap sends it once, in the CE thread, with Kiko\'s edit', () => {
   const t = awardBox({ projects: [AW({ date: '10/25/2026' })] }); t.ctx.cueSweep();

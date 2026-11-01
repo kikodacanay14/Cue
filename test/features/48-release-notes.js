@@ -74,7 +74,7 @@ test('RN6 a 7:45 PM run missed until the next morning covers the day it missed a
 test('RN5 the Daily release notes row is a system row at 19:45, on; the page shows the card with Post and Skip today', () => {
   const t = sandbox(); t.ctx.cueSchedSeed_();
   const row = t.tabs.Schedule.rows.find(r => r[0] === 'sys-relnotes');
-  deq([row[1], row[3], row[7], row[9], row[10]], ['Daily release notes', 'daily', "'19:45", 'relnotes', true]);
+  deq([row[1], row[3], row[7], row[9], row[10]], ['Daily release notes', 'weekdays', "'19:45", 'relnotes', true]);   // weekdays (Kiko 1 Nov: "we rest")
   const page = cuePage();
   ['function rnCardHtml', 'data-act="rn-post"', 'data-act="rn-skip"', "Post at 8 PM", 'data-say="rn-msg-'].forEach(x => assert.ok(page.indexOf(x) >= 0, x));
   [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].forEach(m => new vm.Script(m[1]));   // the page's own script still parses

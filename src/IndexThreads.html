@@ -2,21 +2,23 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
     var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
     if (!it) {
-      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
-      h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
+      // CUE-ONE-THREADS-2026-11-01 (Kiko 1 Nov, screenshot: "two words here that says Threads. remove the 2nd", and the 7 vs 6 counts):
+      // the pane header no longer repeats "Threads" and its count; the ☰ Threads button carries the one count (needThreadsN).
+      h = '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Settings') + x;
     } else {
       var t = thOf(th, it.id), name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      // CRUMB-NO-THREADS-2026-10-31 (Kiko 31 Oct: "remove the 2nd Threads >"): the thread's name only; the ☰ Threads tab opens the list.
+      h = '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
       var open = t && !t.hst && t.reqs.some(function (r) { return !CLOSED[r.status]; });
       h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
         + (t && !t.hst && t.reqs[0] && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
     }
-    setHtml($('ptabs'), h);
+    setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
   var tq = '', tshut = {}, tmore = false;
@@ -43,7 +45,7 @@
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
     // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
-    var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
+    var row = function (x) { return '<button class="trow cat-' + threadCat(th[x.k]) + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
       + (x.nm ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + x.nm + ' email' + (x.nm === 1 ? '' : 's') + ' waiting">' + x.nm + '</i>' : '')   // New mail: emails still waiting
       + (x.n ? '<span class="chip" title="' + x.n + ' message' + (x.n === 1 ? '' : 's') + '">' + icon('reply') + x.n + '</span>' : '')
@@ -240,7 +242,7 @@
       call('cueBatchStart', [ref()], function (v) { state.batches = v; renderBatch(); }, function (e) { alertErr(e, ref()); });
     };
   });
-  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };
+  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };   // Enter shares this path, so a reply goes with either
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
@@ -249,14 +251,15 @@
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
-      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box, sent: Date.now() };
+      var rp = !ref && box === $('box') && !files.length ? replyTo : ''; if (rp) setReply('');
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
     if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueSend', [t, files, mode, ref], function (r) {
+    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || ''], function (r) {
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
@@ -365,7 +368,7 @@
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
-  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('box').addEventListener('keydown', function (e) { if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
@@ -453,6 +456,7 @@
       expense: { name: 'Expense', family: 'approve', steps: EXPENSE, card: function () { return true; } },
       cecost: { name: 'CE costs', family: 'approve', steps: CECOST, card: function (r) { return !!r.cec; } },
       relnotes: { name: 'Release notes', family: 'approve', steps: null, card: function (r) { return !!r.rn; } },   // CUE-RELNOTES-2026-10-27
+      k0: { name: '8 AM update', family: 'info', steps: null, card: null },   // CUE-K0-2026-10-31: the morning message; its thread holds the new contacts list
       style: { name: 'Writing style', family: 'approve', steps: STYLE, card: null },
       memory: { name: 'Teach Cue: memory', family: 'approve', steps: TEACH, card: null },
       process: { name: 'Teach Cue: process', family: 'approve', steps: TEACH, card: null },
@@ -481,8 +485,36 @@
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
+    // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
+    // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
+    var rid = m.who !== 'Kiko' && /^>cue-/.test(m.request_id || '') ? m.request_id.slice(1) : '';
+    var qid = String(m.request_id || '').charAt(0) === '\u21a9' ? m.request_id.slice(1) : '';
+    var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + tickText(m) + askHtml(m)
+      + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + '</div>';
   }
+  // The quoted message's first line: the 8 AM title, or the task's thread name.
+  function replyTitle(id) {
+    var line = null; state.chat.forEach(function (x) { if (x.request_id === '>' + id && x.who !== 'Kiko' && !line) line = x; });
+    var t = line ? String(line.text || '').split('\n')[0] : '', r = byId()[id];
+    return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
+  }
+  var replyTo = '';   // the task id Kiko is replying to from the main chat box
+  function setReply(id) {
+    replyTo = id || ''; var bar = $('replybar'); if (!bar) return;
+    bar.hidden = !replyTo; $('replyto').textContent = replyTo ? replyTitle(replyTo) : '';
+    if (replyTo) $('box').focus();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-reply], #replyx'); if (!b) return;
+    e.stopPropagation(); setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
+  }, true);
+  var pressT = 0;   // a long press on a phone
+  document.addEventListener('touchstart', function (e) {
+    var m = e.target.closest && e.target.closest('#msgs .msg[data-rid]'); if (!m) return;
+    pressT = setTimeout(function () { pressT = 0; setReply(m.getAttribute('data-rid')); }, 500);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(function (k) { document.addEventListener(k, function () { if (pressT) { clearTimeout(pressT); pressT = 0; } }, { passive: true }); });
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
@@ -530,7 +562,46 @@
     }).join(', ');
   }
   // A chat line's text: the connect ticktick link, and CUE-CANVAS tokens drawn as "Open in Canvas" buttons.
+  /* CUE-CANVAS-LOOK-2026-10-31 (Kiko 31 Oct "For Project related updates we can do Cyan. For CRM and Funnel updates - we can do Orange,
+     for the rest we can do the violet"; sorting approved "A"; HubSpot is being removed, so it is not CRM here). CRM wins over project. */
+  var CAT_CRM = { pipeline: 1, bids: 1, crm: 1, funnel: 1, contacts: 1, winback: 1, inquiry: 1 };
+  var CAT_PROJ = { intake: 1, project: 1, readiness: 1, status: 1, change: 1, cecost: 1, expense: 1, supplier: 1, vendor: 1 };
+  function threadCat(t) {
+    var rs = (t && t.reqs) || [];
+    if (rs.some(function (r) { return CAT_CRM[r.kind] || /funnel|win-?back|inquiry/i.test(String(r.sweep || r.sub || '')); })) return 'crm';
+    if (rs.some(function (r) { return CAT_PROJ[r.kind] || /^SCP\d/i.test(String(r.project || '')); })) return 'proj';
+    return 'gen';
+  }
+  // A message's sent time: "1:39 PM" today, "Oct 30, 4:12 PM" before.
+  function msgWhen(v) {
+    var d = new Date(v); if (!v || isNaN(d)) return '';
+    var t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + t;
+  }
+  // Lines that start with "1." / "1)" / "-" / "•" become real lists (indent = nesting); a paragraph written "… 1) a 2) b" is split first.
+  function listify(t) {
+    t = String(t || '').replace(/(^|[^\n])\s+(1[.)])\s+(?=\S[^\n]*\s2[.)]\s)/g, '$1\n$2 ');
+    if (/(^|\n)1[.)] /.test(t)) t = t.replace(/([^\n])\s+(\d{1,2}[.)])\s+(?=[A-Z])/g, '$1\n$2 ');
+    var lines = t.split('\n'), out = [], stack = [];
+    var close = function (lvl) { while (stack.length > lvl) out.push('</li></' + stack.pop() + '>'); };
+    lines.forEach(function (ln) {
+      var m = ln.match(/^(\s*)(\d{1,2}[.)]|[-•*])\s+(.*)$/);
+      if (!m) { close(0); out.push({ p: ln }); return; }
+      var lvl = Math.min(3, Math.floor(m[1].replace(/\t/g, '    ').length / 2) + 1), tag = /\d/.test(m[2]) ? 'ol' : 'ul';
+      if (stack.length > lvl) close(lvl);
+      if (stack.length === lvl) out.push('</li><li>');
+      while (stack.length < lvl) { stack.push(tag); out.push('<' + tag + ' class="ml"><li>'); }
+      out.push({ p: m[3], li: 1 });
+    });
+    close(0);
+    return out;
+  }
   function richText(t) {
+    if (/(^|\n)\s*(\d{1,2}[.)]|[-•*])\s/.test(t) || /\s1\)\s.*\s2\)\s/.test(t)) return listify(t).map(function (x) {
+      return typeof x === 'string' ? x : richText1(x.p) + (x.li ? '' : '\n'); }).join('').replace(/\n(<(ol|ul) class="ml">)/g, '$1').replace(/\n$/, '');
+    return richText1(t);
+  }
+  function richText1(t) {
     var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
     var out = '', last = 0, m; CV_TOK.lastIndex = 0;
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
@@ -580,8 +651,13 @@
     var prev = null;
     allLines().forEach(function (m) { one(m); prev = m; });
     function one(m) {
+      if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
+      // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message.
+      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
+      // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
+      if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
@@ -601,6 +677,7 @@
       h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+    if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
   function rowHtml(root, t, head) {
@@ -729,9 +806,12 @@
       return x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> <span class="muted">(' + esc(x.folder) + ')</span>' : esc(x.name) + ' <span class="muted">(not saved yet)</span>'; }).join(', ') + '</div>';
   }
   // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
+  // CUE-ONE-THREADS-2026-11-01: the badge counts threads waiting on Kiko, the same as the list's "Waiting on you" group, not tasks
+  // (a thread with two waiting tasks counted twice: 7 on the button, 6 in the list).
+  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length; }
   function renderWidgets() {
-    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; });
-    $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
+    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; }), nn = needThreadsN(threads());
+    $('needCount').hidden = !nn; $('needCount').textContent = nn;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
     setHtml($('w-access'), accessHtml());
     bind();

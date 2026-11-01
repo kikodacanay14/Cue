@@ -209,7 +209,9 @@ test('C40 old runs (Kiko 24 Oct): a newer pipeline review replaces the older wai
   add('cue-20261020090400-2b2b', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' }); add('cue-20261020090500-3c3c', 'bids', 'Needs you', '2026-10-20', { ref: 'cue-20261020090000-b1d0' });
   const before = t.tabs.Chat.rows.length; deq(C.cueCloseOlder(), { closed: 3 }, 'the replaced review from today and both runs of the old bid thread');
   deq([C.cueLoad_(fresh).s.status, C.cueLoad_(held).s.status, C.cueLoad_(extra).s.status], ['Closed', 'Needs you', 'Needs you'], 'newest and drafting reviews stay');
-  assert.strictEqual(t.tabs.Chat.rows.slice(before).filter(x => /Close older runs/.test(x[2])).length, 2, 'one line per thread, not per run');
+  // CLOSE-OLDER-ONE-LINE-2026-10-31 (Kiko 31 Oct): one main-chat line for the whole tap, none in the closed threads.
+  const said = t.tabs.Chat.rows.slice(before).filter(x => /older run/.test(x[2]));
+  assert.strictEqual(said.length, 1, 'one line for the tap'); assert.strictEqual(said[0][2], 'Closed 3 older runs. Nothing was written or sent.'); assert.strictEqual(String(said[0][3] || ''), '', 'in the main chat, not a thread');
   const html = cuePage();
   assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
   const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);
