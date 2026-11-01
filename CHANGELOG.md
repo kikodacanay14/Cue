@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.27.98: new PhilGEPS through Claude Cowork on KKD (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "cant you use Clause Cowork. I wil leave it on. so that its on when you run. if its not, let me know",
+then "cowork. yes".
+
+- The new PhilGEPS site needs a sign-in, so Cue cannot read it. A Claude Cowork scheduled task on KKD (weekdays 6:00 AM, Kiko's
+  signed-in Chrome, read only) writes each event notice it finds into the bid sheet tab "Cowork PhilGEPS findings", plus one RUN
+  row each time it runs. The task text is in docs/cowork-philgeps-task.md; Kiko pastes it into Cowork once.
+- Cue's 6:30 bid check takes that tab's rows for today as New PhilGEPS notices, through the same screen as every other source
+  (events only, budget and area). They show in the New opportunities card.
+- When today has no RUN row, the 8 AM update says "New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on and
+  Claude open?". Script Property CUE_COWORK_PHILGEPS=off turns the check and the warning off.
+- Tests: test/features/78-cowork-philgeps.js (CW1, CW2). 582 of 582 pass.
+
 ## Cue 1.27.97: the 2 PM funnel adds the 3 checks kept from the pipeline review (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "add the 3 missing", on the proposal to keep from the removed pipeline review only what the chasers

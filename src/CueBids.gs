@@ -278,8 +278,36 @@ function cueBidsJunk_(x, loose) {
 }
 
 /* ---------- steps 3, 5, 7: code ---------- */
+/* ---------- CUE-COWORK-PHILGEPS-2026-11-01: the new PhilGEPS site, read by Claude Cowork on KKD ----------
+ * Kiko 1 Nov 2026: "cant you use Clause Cowork. I wil leave it on. so that its on when you run. if its not, let me know" and "cowork.
+ * yes". The new PhilGEPS needs a sign-in, so Cue cannot read it. A Cowork scheduled task on Kiko's PC (weekdays 6:00 AM, his
+ * signed-in Chrome) writes each notice it finds into the bid sheet tab below, plus one RUN row each time it runs. Cue's bid check
+ * takes today's rows as New PhilGEPS notices (same screen as every source) and says so when today has no RUN row. */
+const CUE_BIDS_COWORK_TAB_ = 'Cowork PhilGEPS findings';
+const CUE_BIDS_COWORK_HEAD_ = ['Date (PHT)', 'Agency', 'Reference', 'Title', 'Location', 'Budget (ABC)', 'Posted', 'Closes', 'Summary', 'Notice link', 'Documents', 'Notes'];
+/** Today's Cowork rows as raw items, and whether Cowork ran today: { ran, items }. A missing tab is "did not run". */
+function cueBidsCowork_(s) {
+  const out = { ran: false, items: [] };
+  if (cueProp_('CUE_COWORK_PHILGEPS', 'on') === 'off') return null;
+  const day = cueMnlDay_(cueNow_());
+  let sh = null; try { sh = SpreadsheetApp.openById(cueProp_('CUE_BIDS_SHEET_ID', CUE_BIDS_SHEET_)).getSheetByName(CUE_BIDS_COWORK_TAB_); } catch (e) { sh = null; }
+  if (!sh || sh.getLastRow() < 2) return out;
+  const n = sh.getLastRow(), v = sh.getRange(2, 1, n - 1, CUE_BIDS_COWORK_HEAD_.length).getValues();
+  v.forEach(r => {
+    if (cueK0Iso_(r[0]) !== day) return;
+    if (/^run$/i.test(String(r[2]).trim())) { out.ran = true; return; }
+    const docs = String(r[10] || '').split(/[,;\n]+/).map(x => x.trim()).filter(x => /^https:\/\//.test(x)).slice(0, 10).map((u, i) => ({ name: 'Document ' + (i + 1), url: u }));
+    out.items.push({ source: 'New PhilGEPS', agency: r[1], reference: r[2], project: r[3], location: r[4], abc: Number(String(r[5]).replace(/[^0-9.]/g, '')) || 0,
+      posted: cueK0Iso_(r[6]) || String(r[6] || ''), deadline: String(r[7] || ''), summary: r[8], url: r[9], documents: docs, amendments: 'none seen',
+      limitations: 'Read by Cowork on KKD from the new PhilGEPS site', relevant: true });
+  });
+  return out;
+}
 function cueBidsCheck_(s) {
   const B = s.bids, now = cueNow_(), seen = [], rows = cueBidsRows_(s), open = cueBidsOpenRows_(s, rows);
+  // CUE-COWORK-PHILGEPS-2026-11-01: Cowork's notices join ChatGPT's; whether it ran today is kept for the 8 AM update.
+  try { const cw = cueBidsCowork_(s); if (cw) { B.cowork = { ran: cw.ran, n: cw.items.length }; B.raw = (B.raw || []).concat(cw.items); } }
+  catch (e) { B.cowork = { ran: false, n: 0, error: cueStr_((e && e.message) || e, 160) }; }
   const out = { fresh: [], updated: [], dropped: { budget: 0, area: 0, closed: 0, other: 0, pages: 0 }, dup: 0, rechecked: {} }, pages = {};
   const nodocs = [], left = [];
   (B.raw || []).forEach(x => {
