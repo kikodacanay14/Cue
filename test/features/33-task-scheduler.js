@@ -39,7 +39,7 @@ test('SC2 "Schedule every Monday 9am pipeline review": no AI call, a Save card; 
   assert.ok(/Intake cannot be scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2])); assert.ok(!t.tabs.Chat.rows.slice(n).some(r => /^\?ask-/.test(String(r[3]))), 'no Save card');
   t.ctx.cueSend('Schedule pipeline review'); assert.ok(/could not tell when/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
   t.ctx.cueSend('show my schedules'); const l = t.tabs.Chat.rows.slice(-1)[0][2];
-  assert.ok(/Morning sweep: Daily 07:00/.test(l) && /Bid opportunities: Daily 07:00/.test(l) && /Monday HubSpot check: Mon 06:00/.test(l) && /Pipeline review: Mon 09:00, next Mon 2026-10-26 09:00/.test(l) && /HubSpot sales review: Thu 08:00, off/.test(l));
+  assert.ok(/Chasers \(for the 2 PM update\): Weekdays 13:00/.test(l) && /Bid opportunities: Weekdays 06:30/.test(l) && /Monday HubSpot check: Mon 06:00/.test(l) && /Pipeline review: Mon 09:00, next Mon 2026-10-26 09:00/.test(l) && /HubSpot sales review: Thu 08:00, off/.test(l));
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'still no AI call');
 });
 test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time row turns off; nothing due means the sheet is not even read', () => {
@@ -52,28 +52,27 @@ test('SC3 the 5-minute tick starts due rows once: a reminder fires, a one-time r
   const r = sched(t).filter(x => /^sch-/.test(x[0]))[0]; assert.strictEqual(r[10], false); assert.strictEqual(r[13], 'Reminded');
   t.ctx.__wait(5 * 60000); t.ctx.cueResume(); assert.strictEqual(t.tabs.Chat.rows.filter(r => r[2] === '⏰ Reminder: call Ana').length, 1, 'once');
 });
-test('SC4 system rows: the 07:00 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
+test('SC4 system rows: the 06:30 bid check starts from its row once a day, says when it is late, and never runs twice with the old trigger', () => {
   const t = sandbox(); t.ctx.cueState();
-  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Daily 07:00', true], ['sys-bids', 'Daily 07:00', true], ['sys-hubspot', 'Mon 06:00', false], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Daily 07:00', true], ['sys-status', 'Fri 07:00', true], ['sys-funnelreview', 'Mon 07:00', false], ['sys-relnotes', 'Daily 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-unsched', 'Daily 07:00', false]]);
+  const v = t.ctx.cueSchedules().filter(x => !/^sys-gt-/.test(x.id)); deq(v.map(x => [x.id, x.when, x.on]), [['sys-sweep', 'Weekdays 13:00', true], ['sys-bids', 'Weekdays 06:30', true], ['sys-hubspot', 'Mon 06:00', false], ['sys-pipeline', 'Thu 08:00', false], ['sys-funnel', 'Weekdays 13:15', true], ['sys-status', 'Fri 17:00', true], ['sys-funnelreview', 'Mon 07:00', false], ['sys-relnotes', 'Weekdays 19:45', true], ['sys-rfps', 'Every minute', true], ['sys-k0', 'Weekdays 08:00', true], ['sys-k0pm', 'Weekdays 14:00', true], ['sys-newmail', 'In the background', true], ['sys-contacts', 'In the background', true], ['sys-accred', 'In the background', true], ['sys-crm', 'In the background', true], ['sys-unsched', 'Daily 07:00', false]]);
   t.ctx.cueSchedSet('sys-sweep', { on: false });
-  t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume();
+  t.ctx.__wait(phMs('2026-10-22', '10:00') - Date.parse('2026-10-21T03:00:00Z')); t.ctx.cueResume(); t.ctx.__wait(5 * 60000); t.ctx.cueResume();   // 3 rows a tick: the 2 PM rows from the day before go first
   const bids = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'bids');
   assert.strictEqual(bids.length, 1); assert.strictEqual(bids[0].how, 'daily'); assert.strictEqual(t.props.CUE_BIDS_DAY, '2026-10-22');
   const row = t.ctx.cueSchedules().filter(x => x.id === 'sys-bids')[0];
-  assert.strictEqual(row.result, 'Started (late by 3 h)'); assert.strictEqual(row.task, bids[0].id); assert.strictEqual(row.next, 'Fri 2026-10-23 07:00');
+  assert.strictEqual(row.result, 'Started (late by 4 h)'); assert.strictEqual(row.task, bids[0].id); assert.strictEqual(row.next, 'Fri 2026-10-23 06:30');
   assert.strictEqual(t.ctx.cueBidsDaily(), null, 'an old 07:00 trigger firing after this does nothing');
   assert.ok(!t.tabs.Requests.rows.slice(1).some(r => t.state(r[0]).kind === 'sweep'), 'the sweep row is off');
 });
-test('SC5 Settings: on/off, a new time in words, Run now, Delete; Cue\'s own rows cannot be deleted; the sweep\'s hour is Chaser rules\' build hour', () => {
+test('SC5 Settings: on/off, a new time in words, Run now, Delete; Cue\'s own rows cannot be deleted; the chasers row keeps its own time', () => {
   const t = sandbox(); t.ctx.cueSend('Schedule every Monday 9am pipeline review'); t.ctx.cueAskPick(schAsk(t), 'save');
   const id = t.ctx.cueSchedules().filter(x => !x.system)[0].id;
   assert.strictEqual(t.ctx.cueSchedSet(id, { when: 'weekdays 8am' }).filter(x => x.id === id)[0].when, 'Weekdays 08:00');
   assert.throws(() => t.ctx.cueSchedSet(id, { when: 'weekdays 8am email Ana' }), /Only the time and days/);
   assert.strictEqual(t.ctx.cueSchedSet(id, { on: false }).filter(x => x.id === id)[0].next, '');
   assert.throws(() => t.ctx.cueSchedDelete('sys-bids'), /cannot be deleted|not deleted/);
-  assert.throws(() => t.ctx.cueSchedSet('sys-sweep', { when: 'daily 6:30am' }), /on the hour/);
-  t.ctx.cueSchedSet('sys-sweep', { when: 'daily 6am' }); assert.strictEqual(t.ctx.cueRules().general.build, 6);
-  assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Daily 06:00');
+  t.ctx.cueSchedSet('sys-sweep', { when: 'weekdays 1:30pm' }); assert.strictEqual(t.ctx.cueRules().general.build, 7, 'the chasers row has its own time (1 Nov)');
+  assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Weekdays 13:30');
   const r = t.ctx.cueSchedRunNow(id).filter(x => x.id === id)[0]; assert.strictEqual(r.result, 'Started');
   assert.strictEqual(t.state(r.task).kind, 'pipeline');
   assert.strictEqual(t.ctx.cueSchedDelete(id).filter(x => x.id === id).length, 0);

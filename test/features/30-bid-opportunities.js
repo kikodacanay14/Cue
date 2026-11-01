@@ -388,7 +388,7 @@ test('BD4 "do intake for <reference>": the notice becomes an intake and Intake??
 });
 test('BD5 daily 08:00 run happens once a Manila day and posts in its own thread', () => {
   const t = bidBox(); const a = t.ctx.cueBidsDaily(); assert.strictEqual(a.kind, 'bids'); assert.ok(/^Bid opportunities/.test(a.bids.title));
-  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^7:00 bid check/.test(r[2])));
+  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^Daily bid check/.test(r[2])));
   assert.ok(!t.tabs.Chat.rows.some(r => r[1] === 'Kiko'), 'no fake Kiko line for the daily run');
 });
 

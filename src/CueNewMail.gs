@@ -205,7 +205,7 @@ function cueNmSort_(run) {
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
   if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);
-  if (c.inquiry || c.reply) cueChat_('Cue', 'New mail: ' + parts.filter(p => !/FYI|skipped/.test(p)).join(', ') + '.', '>' + s.id);
+  if ((c.inquiry || c.reply) && !cueK0On_()) cueChat_('Cue', 'New mail: ' + parts.filter(p => !/FYI|skipped/.test(p)).join(', ') + '.', '>' + s.id);
   return s.id;
 }
 

@@ -54,23 +54,24 @@ test('SF4 the cloud check door runs one read-only funnel read and returns the li
 const FUNNEL2 = Object.assign({}, FUNNEL, {
   stuck: FUNNEL.stuck.concat([{ kind: 'deal', id: 'D-9', name: 'Kappa year-end party', client: 'Kappa', step: 'Inquiry', status: 'Deal: Inquiry', date: '2026-12-12', days: 6, quiet: 6, limit: 3, email: 'kim@kappa.example', contact: 'Kim Santos' }]),
   winback: [{ client: 'Lambda Corp', last: '2026-02-10', what: 'Lambda Town Hall', email: 'lia@lambda.example', contact: 'Lia' }, { client: 'No Mail Inc', last: '2026-01-05', what: '', email: '', contact: '' }] });
-test('SF5 quiet Inquiries and win-back clients with an email get chaser drafts in one ChatGPT call; Approve makes Gmail drafts, never sends', () => {
+test('SF5 C2 They went quiet (31 Oct): a quiet Inquiry with an email gets Kiko\'s C2 follow-up from his Gmail, no AI call; win-back is gone', () => {
   const t = sweepBox({ funnel: FUNNEL2 }, null); t.ctx.cueSweep(); const b = batchOf(t);
-  assert.strictEqual(t.log.funnel, 1, 'one Canvas read shared by the three kinds'); assert.strictEqual(t.log.funnelArgs[0].winback, true);
-  const inq = b.batch.items.filter(i => i.kind === 'inquiry'), wb = b.batch.items.filter(i => i.kind === 'winback');
-  deq(inq.map(i => [i.key, i.to, i.send_ok]), [['inq:D-9', 'kim@kappa.example', false]]);
-  deq(wb.map(i => [i.key, i.to, i.send_ok]), [['winback:lambdacorp', 'lia@lambda.example', false]]);
-  assert.ok(!lines(t).some(i => i.key === 'funnel:D-9'), 'with an email the Inquiry is a draft, not a plain line');
-  assert.strictEqual(t.log.gpt.filter(g => g.text.format.name === 'chasers').length, 1, 'one shared ChatGPT call');
-  assert.ok(/GPT nudge for Kim Santos about Kappa/.test(inq[0].body) && /GPT nudge for Lia about Lambda Corp/.test(wb[0].body), inq[0].body + ' | ' + wb[0].body);
+  assert.strictEqual(t.log.funnel, 1, 'one Canvas read shared by the kinds'); assert.strictEqual(t.log.funnelArgs[0].winback, true);
+  const inq = b.batch.items.filter(i => i.kind === 'inquiry');
+  deq(inq.map(i => [i.key, i.to, i.send_ok, i.label]), [['inq:D-9', 'kim@kappa.example', true, 'C2 They went quiet']]);
+  assert.ok(!b.batch.items.some(i => i.kind === 'winback'), 'win-back dropped from the message map');
+  assert.ok(!lines(t).some(i => i.key === 'funnel:D-9'), 'with an email the Inquiry is a follow-up, not a plain line');
+  assert.strictEqual(t.log.gpt.filter(g => g.text.format.name === 'chasers').length, 0, 'no AI call');
   t.at('2026-10-21', 9, 30); t.ctx.cueApprove(b.id, { send: true });
-  assert.ok(!t.log.sent, 'nothing sent'); assert.ok(t.log.gmail.length >= 2, 'drafts made in Kiko\'s Gmail');
+  assert.ok(t.log.gmail.length >= 1, 'goes from Kiko\'s Gmail once approved');
 });
-test('SF6 without ChatGPT the drafts use the templates: warm, no prices', () => {
-  const t = sweepBox({ funnel: FUNNEL2, fail: { chasers: () => ({ getResponseCode: () => 500, getContentText: () => '{}' }) } }, null); t.ctx.cueSweep();
-  const it = batchOf(t).batch.items.find(i => i.key === 'inq:D-9'), w = batchOf(t).batch.items.find(i => i.key === 'winback:lambdacorp');
-  assert.ok(/^Hi Kim,/.test(it.body) && /Kappa year-end party on 2026-12-12/.test(it.body) && !/₱|price/i.test(it.body), it.body);
-  assert.ok(/^Hi Lia,/.test(w.body) && /Lambda Town Hall/.test(w.body), w.body);
+test('SF6 the C2 wording: first follow-up, then the final one; client banner, Kiko\'s sign-off, no prices', () => {
+  const t = sweepBox({ funnel: FUNNEL2 }, null); t.ctx.cueSweep();
+  const it = t.state(batchOf(t).id).batch.items.find(i => i.key === 'inq:D-9');
+  assert.ok(/^Hi Kim,\n\nPicking up my note—I’d love to hear what Kappa is planning\./.test(it.body) && !/₱|price/i.test(it.body), it.body);
+  assert.ok(/\nThanks!\nKiko Dacanay\nBlank Space Events$/.test(it.body) && /background:#559FEF/.test(it.html));
+  const fin = t.ctx.cueTplC2_(Object.assign({}, it, { times: 1 }));
+  assert.ok(/I’ll leave the door open for now\. When the next event idea comes along at Kappa/.test(fin.body), fin.body);
 });
 test('SF7 Monday sales funnel review: one row at Mon 07:00, one funnel + report read, one ChatGPT call, 3 to 5 lines in Cue\'s chat; nothing sent', () => {
   const t = sandbox({ funnel: FUNNEL2, report: { won: 9, lost: 4, rate: 69, months: [], sources: [{ name: 'Referral', won: 5, lost: 1, open: 2, rate: 83 }], clients: [], reasons: [{ name: 'Price', n: 3 }], award: { n: 7, median: 12, avg: 14 } },

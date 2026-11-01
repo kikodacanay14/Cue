@@ -38,7 +38,7 @@ function cueFunnelStart_(text, how) {
     status: 'Working', stage: CUE_FUNNEL_STEPS_, ref: '', fn: { title: 'Sales funnel' }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'daily') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s P0 to P9 accounts, its deals and your HubSpot tasks in its own thread. Nothing is changed by the read.', '>' + id);
+  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s P0 to P9 accounts, its deals and your HubSpot tasks in its own thread. Nothing is changed by the read.', how === 'daily' && cueK0On_() ? id : '>' + id);   // CUE-K0-2026-10-31 (R2)
   return { request_id: id, task: '' };
 }
 
