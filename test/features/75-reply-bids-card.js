@@ -53,3 +53,17 @@ test('RB4 Reply on another task\'s bubble puts the message in that thread and ke
   assert.ok(/id="replybar"[\s\S]*Replying to[\s\S]*id="replyx"/.test(page) && /data-reply=/.test(page) && /touchstart/.test(page), 'reply strip, ↩ button, long press');
   assert.ok(/call\('cueSend', \[t, files, mode, ref, \(mine && mine\.reply\) \|\| ''\]/.test(page), 'the reply goes with the send');
 });
+
+test('RB5 new clients from the 8 AM update (Kiko 1 Nov: "B - until i decline or add"): "add" adds, "no" drops for good, the rest come back', () => {
+  const t = cnBox(); t.ctx.cueCnTick_();
+  const c = cnCard(t), o = JSON.parse(t.props['CUE_ASK_' + c.id]);
+  const ana = 'ana.reyes@northwind.test', mark = o.emails.filter(e => /mark/.test(e))[0], joy = o.emails.filter(e => /joy/.test(e))[0];
+  t.ctx.cueCnPick_(o, 'approve', '!' + c.id, 'skip:2,3', [mark]);   // add 1, no 3, nothing said about 2
+  const st = e => cnRows(t).filter(r => r[0] === e)[0][1];
+  assert.strictEqual(st(ana), 'Added'); assert.strictEqual(st(mark), 'New', 'not named: back on the list'); assert.strictEqual(st(joy), 'Not added', 'declined: gone');
+  assert.strictEqual(bridgeCheck('contact_add', t.log.cnAdd[0]), ''); deq(t.log.cnAdd[0].people.map(p => p.email), [ana]);
+  const t2 = cnBox(); t2.ctx.cueCnTick_(); const c2 = cnCard(t2), o2 = JSON.parse(t2.props['CUE_ASK_' + c2.id]);
+  t2.ctx.cueCnPick_(o2, 'approve', '!' + c2.id, 'skip:1,2,3', o2.emails.slice(0, 2));   // only "no 3"
+  assert.ok(!(t2.log.cnAdd || []).length, 'nothing written');
+  deq(o2.emails.map(e => cnRows(t2).filter(r => r[0] === e)[0][1]), ['New', 'New', 'Skipped']);
+});

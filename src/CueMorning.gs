@@ -223,16 +223,19 @@ function cueK0Said_(text, ref, reply) {
       chase.forEach(i => { k0.done[i] = 'drafted'; });
     } catch (e) { bad.push('Chasers: ' + cueStr_((e && e.message) || e, 200)); }
   }
-  // New contacts: Approve with the ones Kiko did not name left out.
-  const cAdd = want('contact', 'do');
-  if (cAdd.length && k0.ask) {
+  // New contacts: Approve the ones Kiko named with "add"; "no N" drops that person for good; anyone he did not name goes back to the
+  // list and comes again in the next 8 AM update (Kiko 1 Nov: "B - until i decline or add").
+  const cAdd = want('contact', 'do'), cNo = want('contact', 'no');
+  if ((cAdd.length || cNo.length) && k0.ask) {
     const Pp = PropertiesService.getScriptProperties(), raw = cueLocked_(() => { const v = Pp.getProperty('CUE_ASK_' + k0.ask); if (v) Pp.deleteProperty('CUE_ASK_' + k0.ask); return v; });
     if (!raw) bad.push('Contacts: that list was already answered.');
     else {
-      const o = JSON.parse(raw), nums = cAdd.map(i => items[i].i), skip = (o.emails || []).map((e, i) => i + 1).filter(n => nums.indexOf(n) < 0);
-      try { cueCnPick_(o, 'approve', '!' + k0.ask + '@' + K.id, 'skip:' + skip.join(',')); said.push(cAdd.length + ' contact' + (cAdd.length === 1 ? '' : 's') + ' sent to Canvas (see the update\'s thread)'); }
+      const o = JSON.parse(raw), nums = cAdd.map(i => items[i].i), noN = cNo.map(i => items[i].i), skip = (o.emails || []).map((e, i) => i + 1).filter(n => nums.indexOf(n) < 0);
+      const keep = (o.emails || []).filter((e, i) => nums.indexOf(i + 1) < 0 && noN.indexOf(i + 1) < 0);
+      try { cueCnPick_(o, 'approve', '!' + k0.ask + '@' + K.id, 'skip:' + skip.join(','), keep); if (cAdd.length) said.push(cAdd.length + ' contact' + (cAdd.length === 1 ? '' : 's') + ' sent to Canvas (see the update\'s thread)'); }
       catch (e) { bad.push('Contacts: ' + cueStr_((e && e.message) || e, 200)); }
-      items.forEach((x, i) => { if (x.t === 'contact') k0.done[i] = cAdd.indexOf(i) >= 0 ? 'added' : 'skipped'; });
+      if (keep.length) said.push(keep.length + ' new client' + (keep.length === 1 ? '' : 's') + ' left on the list for the next 8 AM update');
+      items.forEach((x, i) => { if (x.t === 'contact') k0.done[i] = cAdd.indexOf(i) >= 0 ? 'added' : cNo.indexOf(i) >= 0 ? 'skipped' : 'later'; });
     }
   }
   // Bids: start the intake for each one named.

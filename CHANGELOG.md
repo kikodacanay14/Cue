@@ -16,7 +16,9 @@ means we dont want to decide yet"; the card subtitle "dont add this anymore"; "o
   Reference, What it needs (or Missing), document links, then View opportunity, Ask the agency (to clarify), Decline and Start
   intake. Bids are no longer numbered for a typed reply.
 - Decide later is gone from every bid card. A bid Kiko scrolls past stays undecided until it closes.
-- Tests: test/features/75-reply-bids-card.js (RB1 to RB4); BV5 updated. 581 of 581 pass.
+- New clients in the 8 AM update (Kiko 1 Nov: "B - until i decline or add"): "add 2" adds that person to Canvas, "no 3" drops
+  that person for good, and anyone Cue listed but you did not name goes back on the list for the next 8 AM update.
+- Tests: test/features/75-reply-bids-card.js (RB1 to RB5); BV5 updated. 582 of 582 pass.
 
 ## Cue 1.27.93: 8 AM and 2 PM weekday updates; chasers drafted for your OK, tailored, sent one by one (not deployed)
 
