@@ -29,3 +29,15 @@ test('CW2 no RUN row today (Cowork did not run, or no tab yet): the 8 AM update 
   const t2 = cwBox(null); t2.props.CUE_COWORK_PHILGEPS = 'off'; t2.at('2026-10-21', 6, 30);
   const v2 = t2.ctx.cueRun(t2.ctx.cueSend('run bid opportunity check', [], '').request_id); assert.ok(!t2.state(v2.id).bids.cowork, 'off: not checked, no warning');
 });
+
+test('CW3 Cowork\'s documents are Drive links (Kiko 1 Nov: "download all the files"): shown as saved by Cowork, never fetched by Cue', () => {
+  const day = '2026-10-21', t = cwBox([[day, 'CITY OF PASIG', '13400001', 'Events Management for the Pasig Christmas Celebration', 'Pasig City', '450,000.00', '2026-10-20', '2026-10-30T10:00+08:00',
+    'Stage, lights and sounds', 'https://philgeps.gov.ph/tenders/viewBidNotice/13400001', 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view, https://drive.google.com/file/d/1QrStUvWxYz012345/view', 'PhilGEPS Platinum'],
+    [day, '', 'RUN', 'Checked 9 notices, kept 1', '', '', '', '', '', '', '', '']]);
+  t.at(day, 6, 30); const web = () => (t.log.web || []).filter(u => /drive\.google\.com/.test(String(u.url || u))).length, w0 = web();
+  const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), it = v.bids.items.filter(x => x.reference === '13400001')[0];
+  assert.ok(it, 'on the card'); const DD = JSON.stringify(it.documents); deq(it.documents.map(d => [d.state, d.drive]), [['saved', 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view'], ['saved', 'https://drive.google.com/file/d/1QrStUvWxYz012345/view']], DD);
+  assert.strictEqual(web(), w0, 'Cue does not fetch the Drive files');
+  assert.ok(/Cowork notes: PhilGEPS Platinum/.test(it.limitations), 'Cowork\'s Notes reach the notice');
+  assert.ok(t.tabs['Bid documents'].rows.some(r => r[3] === 'Opened · saved by Cowork'), 'recorded as saved by Cowork');
+});
