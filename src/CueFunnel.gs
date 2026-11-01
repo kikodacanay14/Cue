@@ -68,6 +68,7 @@ function cueFunnelRead_(s) {
     F.moves = prev ? cueFunnelMoves_(prev.map, F.pmap) : null;
     F.since = prev ? prev.at : '';
   }
+  try { F.checks = cueFunnelChecks_(s, cf); } catch (e) { F.checks = null; s.notes.push('Could not run the deal checks (' + cueStr_((e && e.message) || e, 120) + ').'); }   // CUE-FUNNEL-CHECKS-2026-11-01
   F.stuck = (cf.stuck || []).slice(0, 40).map(x => ({ step: cueStr_(x.step, 40), client: cueStr_(x.client || x.name, 120), quiet: Number(x.quiet) || 0 }));
   F.due_list = (cf.due || []).slice(0, 40).map(x => ({ client: cueStr_(x.client, 120), what: cueStr_(x.what, 200), due: cueStr_(x.due, 10) }));
   try { F.accounts_url = cueCanvasBase_() + '?page=clientdesk'; } catch (e) { F.accounts_url = ''; }
@@ -147,7 +148,62 @@ function cueFunnelUpdate_(F) {
   const w = F.wait || {}, st = F.stuck || [];
   if (w.n || st.length) out.push([w.n ? pl(w.n, 'deal') + ' waiting for award' : '', st.length ? pl(st.length, 'deal') + ' gone quiet: ' + names(st.map(x => x.client + ' (' + x.step + ', ' + x.quiet + ' days)'), 3) : ''].filter(Boolean).join('; ') + '.');
   if (P && P.risk) out.push(pl(P.risk, 'project') + ' at risk or escalated: ' + names(P.risk_names || [], 3) + '.');
+  const C = F.checks;   // CUE-FUNNEL-CHECKS-2026-11-01
+  if (C) {
+    if (C.wrote.length) out.push('Waiting on your reply: ' + names(C.wrote.map(x => x.client + ' (' + x.days + ' working day' + (x.days === 1 ? '' : 's') + ')'), 4) + '.');
+    if (C.soon.length) out.push('Event soon, not won yet: ' + names(C.soon.map(x => x.client + ' (' + (x.days === 0 ? 'today' : 'in ' + x.days + ' day' + (x.days === 1 ? '' : 's')) + ')'), 4) + '.');
+    if (C.fix.length) out.push('Fix in Canvas: ' + names(C.fix.map(x => x.client + ': ' + x.what), 4) + '.');
+  }
   if (!out.length) out.push('Nothing new in Accounts today.');
+  return out;
+}
+
+/* ---------- CUE-FUNNEL-CHECKS-2026-11-01: the 3 checks kept from the old pipeline review ----------
+ * Kiko 1 Nov 2026 ("add the 3 missing"), on the proposal to keep only what the chasers do not already cover, as lines in the 2 PM
+ * update's Funnel section. Code only, no AI call, nothing written. Canvas's open deals (crm_funnel open[], steps Inquiry and CE sent):
+ *   1 Waiting on your reply: the newest email with the deal's contact (Kiko's Gmail, read only) came from them, 1 working day or more ago.
+ *   2 Event soon, not won yet: the event is today or within 14 days.
+ *   3 Fix in Canvas: the event date passed with the deal still open; no amount, event date or contact; or Gmail shows who BSE writes
+ *     with but Canvas has no contact. */
+const CUE_FUNNEL_CHECK_ = { deals: 40, soon: 14, mail_days: 120 };
+const CUE_FUNNEL_AUTO_FROM_ = /(^|[._-])(no-?reply|do-?not-?reply|do_not_reply|notifications?|mailer-daemon|postmaster|bounces?|alerts?|automated|system)([._-]|@)|@([a-z0-9-]+\.)*(hs-?mail|coupahost|coupa|salesforce|mailchimp|mcsv|sendgrid|amazonses)\./i;
+const CUE_FUNNEL_AUTO_SUBJ_ = /verification code|login code|one[- ]time (pass)?code|\bOTP\b|password reset|reset your password|you've been assigned|has been assigned to you|unsubscribe/i;
+function cueFunnelChecks_(s, cf) {
+  const today = cueMnlDay_(cueNow_()), now = cueNow_(), out = { wrote: [], soon: [], fix: [] };
+  if (!Array.isArray(cf.open)) return out;
+  const ev = d => { const e = String(d.date || '').slice(0, 10); return CUE_DATE_RE_.test(e) ? e : ''; };
+  const deals = cf.open.filter(r => ['Inquiry', 'CE sent'].indexOf(String(r.step)) >= 0).map(d => {
+    const e = ev(d), mail = cueEmail_(d.email);
+    return { client: cueStr_(d.client, 120) || cueStr_(String(d.name || '').split(/\s+[—–-]\s+/)[0], 120), event: e, mail,
+      days: e ? Math.round((Date.parse(e + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / CUE_DAY_) : null,
+      priced: d.priced == null ? null : !!d.priced, contact: !!(mail || String(d.contact || '').trim()) };
+  }).sort((a, b) => (a.event || '9999') < (b.event || '9999') ? -1 : (a.event || '9999') > (b.event || '9999') ? 1 : 0).slice(0, CUE_FUNNEL_CHECK_.deals);
+  // Gmail, read only: the newest email a person sent with each deal's contact (3 newest, system mail skipped).
+  const withMail = deals.filter(d => d.mail);
+  if (withMail.length) {
+    const auth = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, own = cueOwnDomain_();
+    const all = reqs => { let o = []; for (let i = 0; i < reqs.length; i += 20) o = o.concat(UrlFetchApp.fetchAll(reqs.slice(i, i + 20))); return o; };
+    const q = d => 'newer_than:' + CUE_FUNNEL_CHECK_.mail_days + 'd (from:' + d.mail + ' OR to:' + d.mail + ')';
+    const lists = all(withMail.map(d => ({ url: CUE_GMAIL_ + '/messages?maxResults=3&q=' + encodeURIComponent(q(d)), muteHttpExceptions: true, headers: auth })));
+    const ids = []; lists.forEach((r, i) => { if (r.getResponseCode() === 200) (JSON.parse(r.getContentText() || '{}').messages || []).slice(0, 3).forEach(m => ids.push([withMail[i], m.id])); });
+    const got = all(ids.map(x => ({ url: CUE_GMAIL_ + '/messages/' + x[1] + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Auto-Submitted&metadataHeaders=Precedence&metadataHeaders=List-Unsubscribe',
+      muteHttpExceptions: true, headers: auth })));
+    got.forEach((r, i) => {
+      const d = ids[i][0]; if (d.last || r.getResponseCode() !== 200) return;
+      const m = JSON.parse(r.getContentText()), h = {}; ((m.payload && m.payload.headers) || []).forEach(x => { h[String(x.name).toLowerCase()] = String(x.value || ''); });
+      const as = String(h['auto-submitted'] || '').toLowerCase();
+      if ((as && as !== 'no') || /^(bulk|list|junk)$/i.test(String(h.precedence || '').trim()) || h['list-unsubscribe'] || CUE_FUNNEL_AUTO_FROM_.test(h.from || '') || CUE_FUNNEL_AUTO_SUBJ_.test(h.subject || '')) return;
+      const from = cueEmail_((String(h.from || '').match(/<([^>]+)>/) || [0, h.from])[1]), sent = (m.labelIds || []).indexOf('SENT') >= 0;
+      d.last = { dir: sent ? 'out' : from && (!own || from.split('@')[1] !== own) ? 'in' : 'internal', ms: Number(m.internalDate) || 0 };
+    });
+  }
+  deals.forEach(d => {
+    if (d.last && d.last.dir === 'in') { const n = cuePipeWorkDays_(d.last.ms, now); if (n >= 1) out.wrote.push({ client: d.client, days: n }); }
+    if (d.days != null && d.days >= 0 && d.days <= CUE_FUNNEL_CHECK_.soon) out.soon.push({ client: d.client, days: d.days });
+    const miss = [d.priced === false && 'no amount', !d.event && 'no event date', !d.contact && 'no contact'].filter(Boolean);
+    if (d.days != null && d.days < 0) miss.unshift('event date passed, deal still open');
+    if (miss.length) out.fix.push({ client: d.client, what: miss.join(', ') });
+  });
   return out;
 }
 
