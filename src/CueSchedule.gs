@@ -146,13 +146,16 @@ function cueSchedResolve_(cmd) {
   if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel)$/i.test(t)) return { run: 'funnel', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', status: 'Friday status updates', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9 and deals)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { bidscowork: 'New PhilGEPS (Cowork)', unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', status: 'Friday status updates', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9 and deals)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
   const rows = [
     { id: 'sys-sweep', name: 'Chasers (for the 2 PM update)', repeat: 'weekdays', time: '13:00', run: 'sweep',   /* CUE-THREE-TOUCH-2026-11-01: its own time, for the 2 PM update */ command: 'Morning sweep and chasers', on: true },
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'weekdays', time: '06:30', run: 'bids', command: 'Bid opportunity check', on: true },
+    // CUE-COWORK-1030-2026-11-01 (Kiko 1 Nov: "login times out ... move the job at 10a, so that i am already awake and can login"):
+    // Cowork on KKD checks the new PhilGEPS at 10:00; this row reads what it wrote at 10:30.
+    { id: 'sys-cowork', name: 'New PhilGEPS (Cowork)', repeat: 'weekdays', time: '10:30', run: 'bidscowork', command: 'New PhilGEPS notices from Cowork', on: true },
     { id: 'sys-funnel', name: 'Sales funnel', repeat: 'weekdays', time: '13:15', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
     { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '17:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
     { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: false },   // off: duplicate of the Sales funnel card (card review 30 Oct). CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
@@ -188,7 +191,7 @@ const CUE_SCHED_GONE_ = ['sys-hubspot', 'sys-pipeline'];
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v13:' + gt;   // v13 (1 Nov): HubSpot rows removed (Kiko: "Delete the Hubspot code")   // v12 (1 Nov): weekdays only, the 2 PM update, chasers at 13:00, Friday status at 17:00   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
+  const sig = 'v14:' + gt;   // v14 (1 Nov): New PhilGEPS (Cowork) at 10:30   // v13 (1 Nov): HubSpot rows removed (Kiko: "Delete the Hubspot code")   // v12 (1 Nov): weekdays only, the 2 PM update, chasers at 13:00, Friday status at 17:00   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -247,6 +250,11 @@ function cueSchedRunOne_(x, manual) {
     if (x.run === 'sweep') {
       if (manual) return { result: 'Started', task: id(cueSweepNow()) };
       const s = cueSweep(); return s ? { result: 'Started', task: s.id } : { result: 'Already ran today', task: '' };
+    }
+    if (x.run === 'bidscowork') {   // CUE-COWORK-1030-2026-11-01
+      if (!manual && P.getProperty('CUE_COWORK_DAY') === today) return { result: 'Already ran today', task: '' };
+      P.setProperty('CUE_COWORK_DAY', today);
+      return { result: 'Started', task: id(cueBidsStart_('New PhilGEPS notices from Cowork', 'cowork')) };
     }
     if (x.run === 'bids') {
       if (!manual && P.getProperty('CUE_BIDS_DAY') === today) return { result: 'Already ran today', task: '' };
