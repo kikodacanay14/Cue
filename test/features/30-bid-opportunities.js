@@ -26,7 +26,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   const t = bidBox(); const r = t.ctx.cueSend('run bid opportunity check', [], '');
   assert.strictEqual(t.log.gpt.length, 0, 'plain words, no chat call'); const v = t.ctx.cueRun(r.request_id);
   assert.strictEqual(t.log.gpt.length, 3); assert.ok(t.log.gpt.every(b => b.tools && b.tools[0].type === 'web_search'), 'web search on');
-  assert.ok(/New PhilGEPS: https:\/\/philgeps\.gov\.ph/.test(t.log.gpt[0].input) && /OLD-1/.test(t.log.gpt[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(/Other PhilGEPS: https:\/\/notices\.philgeps\.gov\.ph/.test(t.log.gpt[0].input) && /OLD-1/.test(t.log.gpt[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(!/New PhilGEPS/.test(t.log.gpt.map(b => b.input).join('\n')), 'New PhilGEPS is read by code, never sent to ChatGPT (Kiko 1 Nov 2026)');
   assert.ok(/Never register, pay, submit/.test(t.log.gpt[0].instructions));
   assert.strictEqual(v.kind, 'bids'); assert.strictEqual(v.status, 'Needs you');
   deq(v.bids.items.map(x => x.reference), ['2026-0999', 'PG-3', 'NP-77'], 'below minimum, Bataan, closed, outside area and the duplicate are left out');
