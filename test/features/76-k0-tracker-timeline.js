@@ -52,3 +52,14 @@ test('KW3 a Tracker or Canvas that cannot be read leaves its lines out and the u
   const o = t.ctx.cueK0Run_(false, 'am'), x = k0wText(t, o);
   assert.ok(/Could not read the Shared Task Tracker \(.+\); the project timelines in Canvas \(.+\)\. Those lines are left out today\./.test(x), x);
 });
+
+test('KW4 bids (Kiko 1 Nov: "add events management, lights and sounds", "on top of what you use now"): goods with no event are out', () => {
+  const t = k0Box(), keep = x => t.ctx.cueBidsEventy_(x);
+  ['Procurement of Office Supplies', 'Supply and Delivery of Business Plate Stickers for 2027.', 'Supply and Delivery of Speaker for the use of Local School Board',
+    'LEDIPO-27-PS2-0063 PRINTING OF THE QUEZON CITY INVESTOR\'S GUIDE BOOK AND OTHERS FOR THE YEAR 2027'].forEach(x => assert.strictEqual(keep(x), false, x));
+  ['PROCUREMENT OF EVENTS MANAGEMENT FOR THE CELEBRATION OF CAVITE CITY CULTURAL HERITAGE', 'Delivery of Mobile Sound System',
+    'SUPPLY AND DELIVERY OF FOOD PACKS AND KIDDIE TOYS FOR THE 2026 NATIONAL CHILDREN\'S MONTH CELEBRATION', 'Procurement of Lights and Sounds',
+    'Fabrication of Stage and Backdrop', 'Year-end Christmas party'].forEach(x => assert.strictEqual(keep(x), true, x));
+  const prompt = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueBids.gs'), 'utf8');
+  assert.ok(/Keep notices BSE could do: events, events management, conferences, launches, exhibits and booths, production, fabrication, stage and set, '\n\s*\+ 'audiovisual \(LED, sound, lights\), lights and sounds, styling and decor, event catering, souvenirs and event printing/.test(prompt), 'the list Kiko uses, plus events management and lights and sounds');
+});

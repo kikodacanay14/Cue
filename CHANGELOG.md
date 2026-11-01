@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.27.96: HubSpot removed; bids are event work only; schedule texts updated (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "its still mentioning Hubspot. Can we make sure that we remove it from the process", then "Delete
+the Hubspot code"; on bids: "how come the bid opportunities are procurement of stuff?", "add events management, lights and
+sounds", "no they are on top of what you use now"; on the Scheduled tasks card: "how come theres still this".
+
+- HubSpot is gone from Cue. Deleted: the Monday HubSpot clean-up, the pipeline review (and its "pipeline" chat command and
+  follow-up drafts), the HubSpot tasks list and Mark done in the sales funnel, the "Add to HubSpot" action on ChatGPT findings,
+  the HubSpot lookup, the CUE_HUBSPOT_TOKEN setup line and HubSpot wording in chat, cards, Cue Admin, Teach and Workflow. No
+  code calls HubSpot. The sales funnel reads Canvas only. The two HubSpot rows leave Scheduled tasks once. Old saved runs of
+  these kinds close quietly and show as "Removed task". Canvas still has its own HubSpot code (out of scope).
+- Bids: the bid check keeps the same kinds of work as before plus events management and lights and sounds. A notice that buys
+  goods ("Supply and delivery of", "Procurement of", "Purchase of", "Printing of") with no event or kept kind of work in its
+  title is left out, in ChatGPT's screen and again in code.
+- Scheduled tasks: the "Morning sweep" row is renamed "Chasers (for the 2 PM update)" in the saved list. Its description and
+  rule now say 1:00 PM, the 2 PM update and Send on each card. The 8 AM update, Bid check, Friday status (5 PM) and Sales
+  funnel (1:15 PM, for the 2 PM update) descriptions match the new schedule.
+- Tests: deleted 06-pipeline-review.js and 12-hubspot-cleanup.js; added 77-no-hubspot.js (NH1 to NH4) and KW4; kept the
+  non-HubSpot funnel and sweep tests. 579 of 579 pass.
+
 ## Cue 1.27.95: the 8 AM update reads the Shared Task Tracker and the project timelines (not deployed)
 
 Asked by Kiko on 1 Nov 2026: "it should also reference the project timeline of any ongoing project". On the proposal: "1. add.

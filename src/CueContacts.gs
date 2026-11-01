@@ -144,7 +144,7 @@ function cueContactLines_(r) {
  * their addresses instead of a project search. Runs only in an email's thread or when the message is about an email, a contact or
  * an address, for at most 3 capitalised names. Returns '' when it did not run. */
 const CUE_CT_ASK_RE_ = /\b(e-?mails?|contacts?|address(es)?|look\s*(for|up)|find|search|who\s+is|send\s+(it\s+)?to|cc|bcc|recipients?)\b|\bto:/i;
-const CUE_CT_NOT_NAME_ = ['i', 'cue', 'canvas', 'kiko', 'gmail', 'hubspot', 'bse', 'find', 'look', 'email', 'emails', 'contact', 'contacts', 'change', 'please', 'hi', 'hello',
+const CUE_CT_NOT_NAME_ = ['i', 'cue', 'canvas', 'kiko', 'gmail', 'bse', 'find', 'look', 'email', 'emails', 'contact', 'contacts', 'change', 'please', 'hi', 'hello',
   'not', 'that', 'the', 'can', 'you', 'its', 'it', 'this', 'yes', 'no', 'ok', 'okay', 'go', 'send', 'draft', 'to', 'cc', 'in', 'is', 'my', 'our', 'their', 'client', 'supplier', 'crew', 'staff', 'project'];
 function cueChatNames_(t) {
   return (String(t || '').match(/\b[A-Z][a-z][\p{L}'-]*(?:\s+[A-Z][a-z][\p{L}'-]*){0,2}/gu) || [])

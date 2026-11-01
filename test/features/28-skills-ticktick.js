@@ -107,8 +107,8 @@ test('TC14 PC test 17:42Z + Personality: a vague message that GPT only answered 
   t.ctx.cueMyRuleSave({ voice: 'Crisp chief of staff: numbered, no small talk.', on: false });
   t.ctx.cueSend('hello again', [], ''); assert.ok(!/Your voice in the reply field/.test(t.log.gpt[2].instructions), 'switched off: no voice');
   deq(t.tabs.Memory.rows.filter(r => r[1] === 'personality').length, 1, 'one row, updated in place');
-  const st = sandbox({ props: { CUE_TICKTICK_TOKEN: 'secret-tt', CUE_HUBSPOT_TOKEN: '' } }).ctx.cueSettings();
-  deq([st.ticktick, st.hubspot, JSON.stringify(st).indexOf('secret-tt')], [true, false, -1]);
+  const st = sandbox({ props: { CUE_TICKTICK_TOKEN: 'secret-tt' } }).ctx.cueSettings();
+  deq([st.ticktick, 'hubspot' in st, JSON.stringify(st).indexOf('secret-tt')], [true, false, -1]);
   assert.throws(() => t.ctx.cueFileData('../x'), /No such file/);
 });
 

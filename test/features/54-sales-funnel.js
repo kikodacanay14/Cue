@@ -83,3 +83,42 @@ test('SF7 Monday sales funnel review: one row at Mon 07:00, one funnel + report 
   assert.ok(t.tabs.Chat.rows.some(r => /^Monday sales funnel review \(\d{4}-\d{2}-\d{2}\):\n• Inquiries leak most/.test(r[2])));
   assert.ok(!t.log.sent && !(t.log.gmail || []).length);
 });
+
+// CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md), moved here from 06-pipeline-review.js when the pipeline review and HubSpot
+// were removed (HUBSPOT-REMOVAL-2026-11-01, Kiko 1 Nov 2026: "Delete the Hubspot code"). The funnel reads Canvas only, with no AI call.
+const FN_CANVAS = { today: '2026-10-21', limits: {}, steps: [{ step: 'Inquiry', count: 4, stuck: 1, limit: 3 }, { step: 'CE sent', count: 1, stuck: 0, limit: 10 },
+  { step: 'Won', count: 1, stuck: 0 }, { step: 'Delivered', count: 0, stuck: 0, limit: 30 }, { step: 'Paid', count: 2, stuck: 0 }], stuck: [], due: [] };
+const fnRun = (o = {}) => { const t = sandbox(Object.assign({ funnel: FN_CANVAS }, o)); const id = t.ctx.cueSend(o.say || 'show the sales funnel').request_id; return { t, id, v: t.ctx.cueRun(id) }; };
+test('FN1 funnel: chat words start it with no AI call; Canvas\'s steps counted, the award step named; Canvas reads only', () => {
+  const { t, id, v } = fnRun();
+  assert.strictEqual(v.kind, 'funnel'); assert.strictEqual(v.status, 'Needs you', v.error);
+  assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call'); assert.strictEqual(v.metrics.ai_calls, 0);
+  deq(v.fn.stages.map(x => [x.label, x.kind, x.n, x.stuck]), [['Inquiry', 'open', 4, 1], ['CE sent', 'open', 1, 0], ['Won', 'won', 1, 0], ['Delivered', 'won', 0, 0], ['Paid', 'won', 2, 0]]);
+  deq([v.fn.src, v.fn.title, v.fn.wait.label, v.fn.wait.n], ['canvas', 'Sales funnel', 'CE sent', 1]);
+  assert.strictEqual(v.fn.line, '4 Inquiry (1 stuck) · 1 CE sent · 1 Won · 2 Paid');
+  assert.strictEqual(t.log.funnel, 1, 'one crm_funnel read');
+  assert.ok(!('tasks' in v.fn) && !('deals' in v.fn) && !('task_error' in v.fn), 'no task list');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /^Reading Canvas's P0 to P9 accounts and its deals in its own thread\./.test(x[2])), 'pointer in the main chat');
+  ['funnel', 'show the sales funnel'].forEach(w => assert.ok(t.ctx.cueFunnelAsked_(w), w));
+  ['funnel review', 'review the funnel', 'my hubspot tasks', 'clean up hubspot', 'how is the pipeline'].forEach(w => assert.ok(!t.ctx.cueFunnelAsked_(w), w));
+});
+test('FN3 Today card: one funnel run gives one row pointing at its thread; a newer run closes the older one; the Done line lists it once', () => {
+  const { t, id, v } = fnRun();
+  const T = t.ctx.cueTodayFrom_([v], '2026-10-21');
+  deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales update · from Canvas Accounts', '1 deal waiting for award', 'Open update', id + '#fn-' + id]]);
+  t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
+  assert.strictEqual(t.state(id).status, 'Closed', 'the older snapshot closes'); assert.strictEqual(t.state(id2).status, 'Needs you');
+  const done = n => Object.assign({}, v, { id: 'f' + n, status: 'Done', created: '2026-10-21T0' + n + ':00:00Z' });
+  const D = t.ctx.cueTodayFrom_([done(1), done(2), done(3)], '2026-10-21');
+  assert.strictEqual((D.done.match(/sales funnel/g) || []).length, 1, D.done);
+  assert.strictEqual(t.ctx.cueFunnelDone(id2).status, 'Done', 'Done closes it; nothing is written');
+});
+test('FN5 the daily row starts one funnel a day; the page draws it with no task list and no Mark done', () => {
+  const t = sandbox(); t.ctx.cueSchedules();   // seeds the rows, as opening Settings does
+  t.ctx.__wait(phMs('2026-10-22', '13:16') - Date.parse('2026-10-21T03:00:00Z')); for (let i = 0; i < 6; i++) t.ctx.cueResume();
+  const f = t.tabs.Requests.rows.slice(1).map(r => t.state(r[0])).filter(s => s.kind === 'funnel');
+  assert.strictEqual(f.length, 1); assert.strictEqual(f[0].how, 'daily'); assert.strictEqual(t.props.CUE_FUNNEL_DAY, '2026-10-22');
+  const html = cuePage(), card = html.slice(html.indexOf('function funnelCardHtml(r)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
+  assert.ok(card.length > 100 && /id="fn-' \+ esc\(r\.id\)/.test(card), 'the card carries the spot the Today row names');
+  assert.ok(!/fn-task|cueFunnelTaskDone|hst:|Mark done/.test(html), 'no task list, tasks tab or Mark done on the page');
+});

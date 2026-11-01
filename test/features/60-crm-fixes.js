@@ -1,7 +1,7 @@
 // Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: the CRM timer from Kiko's account (crm_tick).
 /* CUE-CRM-TICK-2026-10-29 (bug; Kiko 29 Oct 02:11:02Z "Make all Cue and CRM related timers to my account"): Canvas V329 added the
  * bridge action crm_tick, but no Cue release called it. The "CRM work" job calls it every 15 minutes inside cueResume. The funnel
- * card's switch to Canvas's numbers is tested in FN1 and FN3 (06-pipeline-review.js). */
+ * card's switch to Canvas's numbers is tested in FN1 and FN3 (54-sales-funnel.js). */
 
 const crmJobRow = t => t.tabs['Job Runs'].rows.filter(r => r[2] === 'CRM work').pop();
 

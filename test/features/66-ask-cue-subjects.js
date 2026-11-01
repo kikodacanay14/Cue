@@ -44,7 +44,7 @@ test('SJ3 the subject list: Morning, Sales and Friday events hold the jobs on th
   const t = sandbox(), S = require('vm').runInContext('CUE_SUBJECTS_', t.ctx);
   deq(Object.keys(S).map(k => [k, S[k].title, S[k].jobs.join(',')]), [
     ['morning', 'Morning', 'sweep,gtask:daily_plan'],
-    ['sales', 'Sales', 'funnel,gtask:followups,pipeline,gtask:admin_funnel'],
+    ['sales', 'Sales', 'funnel,gtask:followups,gtask:admin_funnel'],
     ['friday', 'Friday events', 'status,gtask:production_readiness']]);
   assert.strictEqual(t.ctx.cueSubjDay_('2026-10-30'), 'Fri 30 Oct');
 });

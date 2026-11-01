@@ -12,10 +12,10 @@
 
 const CUE_SUBJECTS_ = {
   morning: { title: 'Morning', jobs: ['sweep', 'gtask:daily_plan'] },
-  sales: { title: 'Sales', jobs: ['funnel', 'gtask:followups', 'pipeline', 'gtask:admin_funnel'] },
+  sales: { title: 'Sales', jobs: ['funnel', 'gtask:followups', 'gtask:admin_funnel'] },
   friday: { title: 'Friday events', jobs: ['status', 'gtask:production_readiness'] }
 };
-const CUE_SUBJ_OLD_ = { bids: 1, gtask: 1, pipeline: 1, hubspot: 1, status: 1, relnotes: 1 };   // sweep and funnel already close their own older runs
+const CUE_SUBJ_OLD_ = { bids: 1, gtask: 1, status: 1, relnotes: 1 };   // sweep and funnel already close their own older runs
 
 /** The scheduler's job a saved task belongs to, in the Schedule tab's Run words ('gtask:daily_plan', 'bids'), or ''. */
 function cueSubjJob_(s) {

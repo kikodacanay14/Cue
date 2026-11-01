@@ -4,15 +4,15 @@
 test('CO1 removed and duplicate rows are off: a new sheet ships them off, an older sheet turns them off once, and a later turn-on by hand sticks', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueSchedules();
   const on = id => (t.ctx.cueSchedules().filter(x => x.id === id)[0] || {}).on;
-  ['sys-hubspot', 'sys-funnelreview', 'sys-unsched'].forEach(id => assert.strictEqual(on(id), false, id + ' ships off'));
+  ['sys-funnelreview', 'sys-unsched'].forEach(id => assert.strictEqual(on(id), false, id + ' ships off'));
   // An older sheet that had them on (seeded before v9): the seed turns each off once.
-  ['sys-hubspot', 'sys-funnelreview'].forEach(id => t.ctx.cueSchedSet(id, { on: true }));
+  ['sys-funnelreview', 'sys-unsched'].forEach(id => t.ctx.cueSchedSet(id, { on: true }));
   t.props.CUE_SCHED_SEED = 'v7:old'; t.ctx.cueSchedSeed_();
-  ['sys-hubspot', 'sys-funnelreview'].forEach(id => assert.strictEqual(on(id), false, id + ' turned off'));
-  assert.ok(/sys-hubspot/.test(t.props.CUE_SCHED_OFF_ONCE) && /sys-funnelreview/.test(t.props.CUE_SCHED_OFF_ONCE));
+  ['sys-funnelreview', 'sys-unsched'].forEach(id => assert.strictEqual(on(id), false, id + ' turned off'));
+  assert.ok(/sys-unsched/.test(t.props.CUE_SCHED_OFF_ONCE) && /sys-funnelreview/.test(t.props.CUE_SCHED_OFF_ONCE));
   // Turned on again by hand, it stays on through a later seed.
-  t.ctx.cueSchedSet('sys-hubspot', { on: true }); t.props.CUE_SCHED_SEED = 'v8:old'; t.ctx.cueSchedSeed_();
-  assert.strictEqual(on('sys-hubspot'), true);
+  t.ctx.cueSchedSet('sys-unsched', { on: true }); t.props.CUE_SCHED_SEED = 'v8:old'; t.ctx.cueSchedSeed_();
+  assert.strictEqual(on('sys-unsched'), true);
 });
 test('CO2 Today\'s tasks in the Morning thread: counts by place from Canvas plus Personal from the batch, no task repeated, and the batch drops its task lines', () => {
   const vm = require('vm'), fs = require('fs'), path = require('path');

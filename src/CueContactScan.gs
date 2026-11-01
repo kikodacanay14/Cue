@@ -8,7 +8,7 @@
  *      line Claude quotes (a phone also by Philippine number formats), and drops BSE's own details.
  *   4. an Approve card lists every proposed cell. Nothing is written before Approve.
  *   5. Approve sends one contact_fill, as the one command of a claimed plan. Canvas writes only cells that are still blank and
- *      logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. No HubSpot write, no email, no schedule. */
+ *      logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. No email, no schedule. */
 const CUE_CS_ = { people: 20, mails: 5, lines: 12, days: 90, years: 3 };   // 20 people a run keeps the card's saved answer under Script Properties' 9 KB
 const CUE_CS_RE_ = /^\s*(?:please\s+)?(?:fill|complete|find)\s+(?:in\s+)?(?:the\s+|blank\s+)?contact\s+(?:details?|info)\s+from\s+(?:my\s+|the\s+)?old\s+e-?mails?\s*[.!]?\s*$/i;
 const CUE_CS_SIGNOFF_ = /^(best|warm|kind|warmest)?\s*(regards|wishes)|^(thanks?|thank you|many thanks|cheers|sincerely|respectfully|yours truly|salamat|maraming salamat|god bless)\b/i;

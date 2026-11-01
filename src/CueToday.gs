@@ -4,7 +4,7 @@
  * sends them. Kiko 24 Oct 01:31Z: every row names who did the work ("Done by ChatGPT · checked by Cue"), from the AI calls the
  * run really made. Built from what the runs already hold: no AI call, nothing sent, nothing changed. */
 
-const CUE_TODAY_KINDS_ = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, funnel: 1, gtask: 1 };
+const CUE_TODAY_KINDS_ = { sweep: 1, bids: 1, status: 1, funnel: 1, gtask: 1 };
 const CUE_TODAY_NEED_ = { 'Needs you': 1, 'Done, drafts incomplete': 1, Failed: 1 };
 
 /** Who did a run's work, from its logged AI calls (CueAi.gs: provider 'GPT' or 'Claude'). */
@@ -36,23 +36,13 @@ function cueTodayRow_(r) {
     return { need: row({ eyebrow: B.base || String(B.title || '').replace(/ · \d+ new\b.*$/, '') || 'Bid check', title: n(items.length, 'new bid') + ' worth a look', button: 'Open bids',
       detail: items.slice(0, 2).map(x => [x.project || x.reference || x.agency, peso(Number(x.abc) || 0)].filter(Boolean).join(' ')).join(' · ') + (items.length > 2 ? ' and ' + (items.length - 2) + ' more' : '') }) };
   }
-  if (r.kind === 'hubspot') {
-    const H = r.hs || {}, all = [].concat.apply([], (H.groups || []).map(g => g.items)), open = all.filter(x => x.can_fix && !(x.result && x.result.ok));
-    if (!need || !open.length) return { done: 'HubSpot check (' + (all.length ? n(all.length, 'finding') + ', ' + (H.fixed || 0) + ' fixed' : 'nothing to fix') + ')', by };
-    return { need: row({ eyebrow: H.title || 'HubSpot check', title: n(open.length, 'HubSpot fix', 'HubSpot fixes') + ' to review', detail: open.slice(0, 3).map(x => x.title).join(' · '), button: 'Review fixes' }) };
-  }
   if (r.kind === 'status') {   // CUE-STATUS-FRIDAY-2026-10-29: one client email per event
     const T = r.st || {}, M = T.mails || [], left = M.filter(m => !m.sent && !m.skipped).length, sent = M.filter(m => m.sent).length;
     if (!need || T.empty) return { done: 'Friday status updates (' + (T.empty ? 'nothing to send' : n(sent, 'email') + ' sent') + ')', by };
     return { need: row({ eyebrow: T.title || 'Friday status updates', title: n(left, 'client update') + ' to send', button: 'Review and send',
       detail: M.filter(m => !m.sent && !m.skipped).slice(0, 3).map(m => m.name).join(' · ') + (left > 3 ? ' and ' + (left - 3) + ' more' : '') }) };
   }
-  if (r.kind === 'pipeline') {
-    const P = r.pipe || {}, k = P.counts || {};
-    if (!need) return { done: 'pipeline review', by };
-    return { need: row({ eyebrow: P.title || 'Pipeline review', title: n((k.act || 0) + (k.chase || 0), 'deal') + ' to act on or chase', detail: (k.data || 0) + ' to fix · ' + (k.ok || 0) + ' on track', button: 'Review deals' }) };
-  }
-  if (r.kind === 'funnel') {   // CUE-FUNNEL (Kiko 24 Oct 13:56Z): the funnel row and the HubSpot tasks row, one run
+  if (r.kind === 'funnel') {   // CUE-FUNNEL (Kiko 24 Oct 13:56Z): the funnel row
     if (!need || !r.fn) return { done: 'sales funnel (' + ((r.fn && r.fn.line) || 'read') + ')', by };
     return { needs: cueFunnelToday_(r, row) };
   }
@@ -61,8 +51,8 @@ function cueTodayRow_(r) {
   return { need: row({ eyebrow: G.title || name, title: n(f.length, 'finding') + ' to look at', detail: f.slice(0, 2).map(x => x.title || x.company).join(' · ') + (f.length > 2 ? ' and ' + (f.length - 2) + ' more' : ''), button: 'Review' }) };
 }
 function cueTodayName_(r) {
-  return r.kind === 'sweep' ? 'Morning batch' : r.kind === 'bids' ? 'Bid check' : r.kind === 'hubspot' ? 'HubSpot check' : r.kind === 'status' ? 'Friday status updates'
-    : r.kind === 'pipeline' ? 'Pipeline review' : r.kind === 'funnel' ? 'Sales funnel' : (r.gt && (r.gt.title || r.gt.task)) || 'ChatGPT task';
+  return r.kind === 'sweep' ? 'Morning batch' : r.kind === 'bids' ? 'Bid check' : r.kind === 'status' ? 'Friday status updates'
+    : r.kind === 'funnel' ? 'Sales funnel' : (r.gt && (r.gt.title || r.gt.task)) || 'ChatGPT task';
 }
 
 /** The card from the page's request views (cueView_), for one Manila day. Pure: the tests call it directly. */

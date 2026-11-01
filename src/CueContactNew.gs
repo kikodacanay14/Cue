@@ -12,7 +12,7 @@
  *      reader, CueContactScan.gs), one Claude Haiku call per 20 people.
  *   4. Approve sends one contact_add, as the one command of a claimed plan, with the ticked people. Canvas adds the P0 and P0
  *      Contacts rows and logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. Skip page adds nobody.
- *      Nothing is written to Canvas before Approve. No email, no HubSpot write. */
+ *      Nothing is written to Canvas before Approve. No email. */
 const CUE_CN_ = { years: 3, page: 100, pages: 4, batch: 50, cos: 25, people: 40, ai: 20, days: 7, check: 200, checks: 5, mails: 2, ms: 60000, tries: 3 };
 const CUE_CN_TAB_ = 'New contacts';
 const CUE_CN_MODEL_ = 'claude-haiku-5-5';
