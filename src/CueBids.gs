@@ -299,7 +299,7 @@ function cueBidsCowork_(s) {
     const docs = String(r[10] || '').split(/[,;\n]+/).map(x => x.trim()).filter(x => /^https:\/\//.test(x)).slice(0, 10).map((u, i) => ({ name: 'Document ' + (i + 1), url: u }));
     out.items.push({ source: 'New PhilGEPS', agency: r[1], reference: r[2], project: r[3], location: r[4], abc: Number(String(r[5]).replace(/[^0-9.]/g, '')) || 0,
       posted: cueK0Iso_(r[6]) || String(r[6] || ''), deadline: String(r[7] || ''), summary: r[8], url: r[9], documents: docs, amendments: 'none seen',
-      limitations: 'Read by Cowork on KKD from the new PhilGEPS site', relevant: true });
+      limitations: 'Read by Cowork on KKD from the new PhilGEPS site' + (String(r[11] || '').trim() ? '. Cowork notes: ' + cueStr_(r[11], 200) : ''), relevant: true });
   });
   return out;
 }

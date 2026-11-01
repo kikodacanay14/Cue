@@ -38,5 +38,6 @@ test('CW3 Cowork\'s documents are Drive links (Kiko 1 Nov: "download all the fil
   const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id), it = v.bids.items.filter(x => x.reference === '13400001')[0];
   assert.ok(it, 'on the card'); const DD = JSON.stringify(it.documents); deq(it.documents.map(d => [d.state, d.drive]), [['saved', 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view'], ['saved', 'https://drive.google.com/file/d/1QrStUvWxYz012345/view']], DD);
   assert.strictEqual(web(), w0, 'Cue does not fetch the Drive files');
+  assert.ok(/Cowork notes: PhilGEPS Platinum/.test(it.limitations), 'Cowork\'s Notes reach the notice');
   assert.ok(t.tabs['Bid documents'].rows.some(r => r[3] === 'Opened · saved by Cowork'), 'recorded as saved by Cowork');
 });

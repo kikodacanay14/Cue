@@ -9,8 +9,11 @@ writes; when it finds no RUN row for today, Cue's 8 AM update says "New PhilGEPS
 You check the new PhilGEPS site for Blank Space Events (BSE), a Philippine events company, every weekday morning. Read only.
 
 Rules
-- Never register, sign up, pay, buy bid documents, submit, upload, send a message or change anything on any site. Only search,
-  open and read. If PhilGEPS asks you to sign in or shows a CAPTCHA, stop and write a RUN row with "Signed out" in Notes.
+- Never register, sign up, pay, buy bid documents, submit, upload to PhilGEPS, send a message or change anything on PhilGEPS or any
+  agency site. There, only search, open, read and download free documents. If PhilGEPS asks you to sign in or shows a CAPTCHA, stop
+  and write a RUN row with "Signed out" in Notes.
+- The only things you may write are the downloaded files, into the Google Drive folder "PhilGEPS bid documents", and the rows in
+  the sheet tab named below.
 - Never type or save a password.
 
 Steps
