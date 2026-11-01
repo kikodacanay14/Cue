@@ -14,7 +14,7 @@
  * in Cue Admin brings back the old posts. */
 
 const CUE_K0_ = { look: 160, max_ok: 60, retry_until: 15 };   // retry until 15:00 for the 2 PM update   // requests read; numbered lines at most; retry while the batch drafts, until 10:00
-const CUE_K0_JOB_KINDS_ = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, funnel: 1, gtask: 1, relnotes: 1, k0: 1 };
+const CUE_K0_JOB_KINDS_ = { sweep: 1, bids: 1, status: 1, funnel: 1, gtask: 1, relnotes: 1, k0: 1 };
 
 /** True when the 8 AM update is on (its Schedule row exists and is on). Then the scheduled jobs keep out of the main chat (R2). */
 function cueK0On_() {

@@ -45,11 +45,11 @@ test('FP2 the funnel run reads the P0 tab once through Canvas\'s read_rows: the 
     '1 deal waiting for award. 1 project at risk or escalated: Account F (P9).', 'Open update', id + '#fn-' + id]);
   assert.ok(/\/exec\?page=clientdesk$/.test(v.fn.accounts_url), v.fn.accounts_url);
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Sales update: 1 follow-up email due \(P1 and P2, 3 business days with no reply\)\. 2 more below\.$/.test(x[2])), 'the update is posted in its thread');
-  assert.strictEqual(T.rows[1].eyebrow, 'HubSpot tasks · yours', 'HubSpot tasks are kept');
+  assert.strictEqual(T.rows.length, 1, 'one row: the update (HUBSPOT-REMOVAL-2026-11-01: no task row)');
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /P0 to P9 accounts/.test(x[2])));
 });
 
-test('FP3 an unreadable P0 tab is a note; the deal track and HubSpot tasks still show as before', () => {
+test('FP3 an unreadable P0 tab is a note; the deal track still shows as before', () => {
   const { t, v } = fnRun({ allow: [{ book: 'priority', tab: 'P0', key: '', mode: 'read', columns: FP_COLS, writable: [], rows: [] }] });
   assert.strictEqual(v.fn.p.total, 0, 'an empty tab reads as zero');
   const r = fnRun({ allow: [] });
@@ -60,7 +60,7 @@ test('FP3 an unreadable P0 tab is a note; the deal track and HubSpot tasks still
 });
 
 test('FP4 the page draws an update: plain lines and Open Accounts in Canvas, never the dashboard', () => {
-  const html = cuePage(), card = html.slice(html.indexOf('function funnelCardHtml(r, only)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
+  const html = cuePage(), card = html.slice(html.indexOf('function funnelCardHtml(r)'), html.indexOf('// CUE-AR (Kiko 07:42Z)'));
   // CRM-UPDATES-2026-10-29 (Kiko 16:13Z): updates, not a dashboard: plain lines and a link to Accounts, no cards, bars or tables.
   ['Sales update · from Canvas Accounts', 'Open Accounts in Canvas', 'F.lines'].forEach(w => assert.ok(card.indexOf(w) >= 0, w));
   ['In outreach', 'Accounts by P stage', 'Deals · P6 and P7', '<table'].forEach(w => assert.ok(card.indexOf(w) < 0, w));

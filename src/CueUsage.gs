@@ -8,8 +8,8 @@
 const cueUsageDefaults_ = () => ({ models: Object.assign({ 'gpt-5-mini': [0.25, 2] }, CUE_CLAUDE_PRICE_), web: 10, fx: 58 });
 const CUE_USAGE_MANILA_ = 8 * 3600000;
 const CUE_USAGE_KINDS_ = { intake: 'Project intake', supplier: 'Supplier registration', email: 'Email', style: 'Writing style', memory: 'Teach Cue',
-  process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search', hubspot: 'HubSpot clean-up',
-  bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch', pipeline: 'Pipeline review',
+  process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search',
+  bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch',
   readiness: 'Readiness check', change: 'Change request', status: 'Friday status updates' };
 const CUE_USAGE_TOP_ = 8;
 
@@ -46,7 +46,7 @@ function cueUsageKinds_() {
     const sh = cueSheet_('Requests'), n = sh.getLastRow() - 1;
     if (n > 0) sh.getRange(2, 1, n, 11).getValues().forEach(r => {
       const k = (/"kind":"([a-z_]+)"/.exec(String(r[10] || '').slice(0, 600)) || [])[1] || 'intake';
-      out[String(r[0])] = CUE_USAGE_KINDS_[k] || k;
+      out[String(r[0])] = CUE_USAGE_KINDS_[k] || (CUE_GONE_KINDS_.indexOf(k) >= 0 ? 'Removed task' : k);   // HUBSPOT-REMOVAL-2026-11-01
     });
   } catch (e) { console.warn('Usage kinds: ' + e); }
   return out;

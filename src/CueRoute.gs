@@ -8,9 +8,9 @@
  * Answering deletes the property. cueAskTidy_ removes blank ones left by Cue before 1.26.6 and questions unanswered for 30 days. */
 
 const CUE_ROUTE_TAB_ = 'Routing examples', CUE_ROUTE_HEAD_ = ['Saved', 'Phrase', 'Command'];
-const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search',
+const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', ar: 'ARs', vendor: 'Supplier search',
   workflow: 'Workflow map', email: 'Email', money: 'Money question', chat: 'Just chat' };
-const CUE_ROUTE_TALK_ = ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email'];   // the commands the chat call fills in
+const CUE_ROUTE_TALK_ = ['intake', 'readiness', 'ar', 'vendor', 'workflow', 'email'];   // the commands the chat call fills in
 // The command each task kind is (STRUCTURE-PHASE-2 item 2.2): the cmd field of its line in cueCommands_ (CueCommands.gs), not a second list here.
 const CUE_ROUTE_MAX_ = { examples: 5, phrase: 300, rows: 300 };
 
@@ -82,9 +82,9 @@ function cueAskTidy_() {
 
 /** The talk result for one command, from what the chat call filled in (cands), so a button needs no new AI call. */
 function cueRouteTalk_(cmd, cand, found) {
-  const t = { chat: true, reply: '', task: '', sweep: '', pipeline: null, suggest_intake: false, start_intake: '', readiness: '', start_ar: '', vendor: null, workflow: null, email: null, lookup: '' };
+  const t = { chat: true, reply: '', task: '', sweep: '', suggest_intake: false, start_intake: '', readiness: '', start_ar: '', vendor: null, workflow: null, email: null, lookup: '' };
   if (!cand) return null;
-  if (cmd === 'readiness') t.readiness = String(cand); else if (cmd === 'ar') t.start_ar = String(cand); else if (cmd === 'pipeline') t.pipeline = cand;
+  if (cmd === 'readiness') t.readiness = String(cand); else if (cmd === 'ar') t.start_ar = String(cand);
   else if (cmd === 'vendor') t.vendor = cand; else if (cmd === 'workflow') t.workflow = cand; else if (cmd === 'email') { t.email = cand; t.lookup = found || ''; }
   else return null;
   return t;
@@ -99,7 +99,7 @@ function cueRouteStart_(text, cmd, forced) {
   if (!cueRouteFilled_(talk, cmd)) { cueChat_('Cue', 'I could not start a ' + CUE_ROUTE_CMDS_[cmd].toLowerCase() + ' from that message. Say what you need and I will.', ''); return { chat: true }; }
   return cueSendWith_(text, [], '', '', talk);
 }
-const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, pipeline: t.pipeline, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];
+const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];
 
 /** Kiko taps a button under a question. pick is a command, or yes / no for "remember?". note = what Kiko typed for Change on a plan card. */
 function cueAskPick(id, pick, note) {

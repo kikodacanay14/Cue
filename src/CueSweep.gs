@@ -203,7 +203,7 @@ function cueSweepStart_(how) {
  * left out of the morning batch, with one note naming them. The phases are Canvas's own (Code.gs PROJECT_PHASES_); Canvas owns
  * the status, so the phase Canvas sends wins and Cue only works it out when a row carries the status words alone. A blank or
  * unknown status is kept (each kind's own checks still apply), and so is a line with no project. Payment has no list: money
- * owed is chased whatever the status. Kinds with no project (inbox triage, HubSpot) are never filtered. */
+ * owed is chased whatever the status. Kinds with no project (inbox triage) are never filtered. */
 const CUE_PHASES_ = [
   ['Initiation', ['For Admin Completion']],
   ['Planning', ['For CE Creation', 'For Pitch Presentation', 'For Client Awarding']],
@@ -617,19 +617,16 @@ function cueCloseThread(id) {
   return { closed: out.closed, running: out.running };
 }
 /** Scheduled and checking jobs whose old runs "Close older runs" may close. Intakes and other work Kiko started are never in it. */
-const CUE_OLD_KINDS_ = ['bids', 'gtask', 'pipeline', 'funnel', 'hubspot', 'status', 'skillobs'];
+const CUE_OLD_KINDS_ = ['bids', 'gtask', 'funnel', 'status', 'skillobs'];   // plus CUE_GONE_KINDS_ (Cue.gs): runs of removed kinds close whatever their day
 /** Kiko 24 Oct: one tap in Waiting on you closes every run of those jobs that waits (or failed) from before today, Manila time.
  * Nothing is sent or written. Returns { closed }. */
 function cueCloseOlder() {
   cueOwner_();
-  const today = cueMnlDay_(cueNow_()), newest = {};
-  // PC recheck 24 Oct: a pipeline review that a newer one of the same scope replaced is old too, even from today.
-  cueRows_(cueSheet_('Requests')).slice(-120).forEach(r => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join(''));
-    if (x.kind === 'pipeline') { const c = (x.pipe || {}).client || ''; if (!newest[c] || String(x.created) > String(newest[c].created)) newest[c] = x; } } catch (e) { /* skip */ } });
-  const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || (x.kind === 'pipeline' && newest[(x.pipe || {}).client || ''] && newest[(x.pipe || {}).client || ''].id !== x.id);
+  const today = cueMnlDay_(cueNow_());
+  const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || CUE_GONE_KINDS_.indexOf(x.kind) >= 0;
   // CLOSE-OLDER-ONE-LINE-2026-10-31 (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines, each with an
   // "Earlier task" row): no line in each closed thread, since each one surfaced in the main chat; one main-chat line says how many.
-  const ids = cueCloseSuperseded_(x => CUE_OLD_KINDS_.indexOf(x.kind) >= 0 && !x.phased && old(x) && !(x.kind === 'pipeline' && cuePipeHeld_(x)), '', true);
+  const ids = cueCloseSuperseded_(x => (CUE_OLD_KINDS_.indexOf(x.kind) >= 0 || CUE_GONE_KINDS_.indexOf(x.kind) >= 0) && !x.phased && old(x), '', true);
   if (ids.length) cueChat_('Cue', 'Closed ' + ids.length + ' older run' + (ids.length === 1 ? '' : 's') + '. Nothing was written or sent.', '');
   return { closed: ids.length };
 }

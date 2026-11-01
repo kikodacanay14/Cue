@@ -160,8 +160,13 @@ function cueBidsPrompt_() {
     + '1. Search ONLY the sources given, at the links given. Check every source; never skip one. In sources[].source use each source\'s name exactly as given.\n'
     + '2. Report individual notices only: one item = one notice, with its procuring entity (agency), its own reference number, its title (project) and the link to '
     + 'that notice itself (url). Never send a listing page, a search page, a sign-in page, an award notice (NOA) or a recheck line as an item.\n'
-    + '3. Keep notices BSE could do: events, conferences, launches, exhibits and booths, production, fabrication, stage and set, audiovisual (LED, sound, lights), '
-    + 'styling and decor, event catering, souvenirs and event printing, and related services. Mark others relevant=false or leave them out.\n'
+    // CUE-BIDS-EVENTS-2026-11-01 (Kiko 1 Nov: "how come the bid opportunities are procurement of stuff?"; "add events management,
+    // lights and sounds"; "no they are on top of what you use now"): the same list plus events management and lights and sounds, and
+    // goods bought with no event named are out.
+    + '3. Keep notices BSE could do: events, events management, conferences, launches, exhibits and booths, production, fabrication, stage and set, '
+    + 'audiovisual (LED, sound, lights), lights and sounds, styling and decor, event catering, souvenirs and event printing, and related services. '
+    + 'Mark relevant=false a purchase or supply and delivery of goods that names no event (office supplies, stickers, printing of books or forms, uniforms, '
+    + 'equipment for an office or school). Mark others relevant=false or leave them out.\n'
     + '4. For each notice give the Approved Budget for the Contract (ABC) in Philippine pesos as a number (0 when not stated or not in PHP, and say why in budget_note), '
     + 'and the actual city or province where the work happens ("" when not stated). Do not screen by budget or place yourself; give the facts.\n'
     + '5. posted: the date the notice was posted or published, YYYY-MM-DD ("" when not stated). deadline: the submission deadline as YYYY-MM-DDTHH:MM+08:00 '
@@ -293,7 +298,7 @@ function cueBidsCheck_(s) {
       if (tag) out.updated.push(Object.assign(it, { row: live.row, was: live.deadline, tag }));
       return;
     }
-    if (!x.relevant) { out.dropped.other++; return; }
+    if (!x.relevant || !cueBidsEventy_(it.project)) { out.dropped.other++; return; }
     const why = cueBidsScreen_(it, now);
     if (why.drop) { out.dropped[why.drop]++; return; }
     it.status = why.status;
@@ -946,6 +951,12 @@ function cueBidsMark_(it, val) {
  * Each notice shows its source (Kiko 10:48Z "indicate the source in the message"). Decline is one tap with no reason and writes No in the
  * bid sheet's Intake?? column (Kiko 10:51Z "yes"); a declined notice never comes back. Decide later leaves the column blank, so the
  * notice is rechecked in tomorrow's search and shows under Closing. */
+/** CUE-BIDS-EVENTS-2026-11-01: a check in code after ChatGPT's. A title that buys goods ("Supply and delivery of …", "Procurement
+ * of …", "Purchase of …", "Printing of …") is kept only when it also names an event or one of the kept kinds of work (events
+ * management, lights and sounds, stage, styling and decor, souvenirs, fabrication, production). Any other title is ChatGPT's call. */
+const CUE_BIDS_GOODS_RE_ = /\b(supply\s*(?:and|&)\s*delivery|delivery\s+of|procurement\s+of|purchase\s+of|acquisition\s+of|printing\s+of)\b/i;
+const CUE_BIDS_EVENT_RE_ = /\b(events?|celebrations?|festival|fiesta|congress|conference|convention|assembly|summit|forum|launch\w*|exhibit\w*|booths?|fair|party|parties|anniversary|program(?:me)?|team\s*building|workshop|seminar|ceremon\w*|christmas|month|lights?|sounds?|led\s+wall|audio\s*-?\s*visual|stage|styling|decor\w*|souvenirs?|tokens?|fabrication|production)\b/i;
+function cueBidsEventy_(title) { const t = String(title || ''); return !CUE_BIDS_GOODS_RE_.test(t) || CUE_BIDS_EVENT_RE_.test(t); }
 const CUE_BIDS_SRC_LABEL_ = { 'New PhilGEPS': 'PhilGEPS Bulletin Board', 'Other PhilGEPS': 'PhilGEPS (old site)' };
 /** Where a notice came from, by the source ChatGPT or Cue named, else by its link's site. */
 function cueBidsSourceOf_(it) {

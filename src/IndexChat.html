@@ -9,8 +9,6 @@
     ['Needs you', 'Kiko', 'Waiting for your approval']];
   var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
     ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Done', 'Done', 'Done']];
-  var HSTEPS = [['Reading HubSpot', 'Canvas', 'Canvas reads HubSpot and Client Desk (changes nothing)'], ['Claude checking', 'Claude', 'Claude checks the look-alikes and names'],
-    ['GPT looking up', 'GPT', 'ChatGPT looks up missing websites'], ['Fixing', 'Canvas', 'Canvas applies the ticked fixes and reads them back'], ['Needs you', 'Kiko', 'Waiting for your approval']];
   var $ = function (id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
@@ -143,7 +141,7 @@
     if (at >= 0) id = String(id).slice(0, at);
     // PC recheck 14:39Z: the spot is set after the pane's own render, so that render can't use it up before the bottom scroll below.
     goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id });
-    $('pscroll').scrollTop = id.indexOf('hst:') === 0 ? 0 : $('pscroll').scrollHeight; goSpot = spot; toSpot();   // the tasks tab reads from the top
+    $('pscroll').scrollTop = $('pscroll').scrollHeight; goSpot = spot; toSpot();
     if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
     // PC recheck 15:17Z: inside Canvas's slide-in the first scroll can land before the frame has its size again, so the tasks tab kept
     // the funnel's scroll. The place is set again a few times in the first second, unless Kiko scrolls first.
@@ -152,8 +150,7 @@
     [120, 400, 1000].forEach(function (ms) { setTimeout(function () {
       if (!mine || pactive !== key) return;
       var ps = $('pscroll'), el = spot && document.getElementById(spot);
-      if (id.indexOf('hst:') === 0) ps.scrollTop = 0;
-      else if (el) ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8;
+      if (el) ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8;
     }, ms); });
   }
   function toSpot() {

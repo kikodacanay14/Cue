@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.27.95';   // 1.27.94 + the 8 AM update reads the Shared Task Tracker and each ongoing project's timeline (1.27.95). Before that: 1.27.93 + Reply on chat bubbles and the New opportunities card under the 8 AM update; no Decide later (1.27.94). Before that: 1.27.92 + three weekday touchpoints: 8 AM update, 2 PM funnel and chasers (pick, tailored drafts, Tell Cue, Send each), weekdays only (1.27.93). Before that: 1.27.91 + Kiko's revised chaser templates in the designed email, C2 and C3, holidays skipped, Emails waiting off (1.27.92). Before that: 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
+const CUE_VERSION_ = 'Cue 1.27.96';   // 1.27.95 + HubSpot removed from Cue, bids are events only, schedule texts match the three updates (1.27.96). Before that: 1.27.94 + the 8 AM update reads the Shared Task Tracker and each ongoing project's timeline (1.27.95). Before that: 1.27.93 + Reply on chat bubbles and the New opportunities card under the 8 AM update; no Decide later (1.27.94). Before that: 1.27.92 + three weekday touchpoints: 8 AM update, 2 PM funnel and chasers (pick, tailored drafts, Tell Cue, Send each), weekdays only (1.27.93). Before that: 1.27.91 + Kiko's revised chaser templates in the designed email, C2 and C3, holidays skipped, Emails waiting off (1.27.92). Before that: 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -90,18 +90,16 @@ function cueSetup() {
   if (!ss) { ss = SpreadsheetApp.create('Cue'); props.setProperty('CUE_SHEET_ID', ss.getId()); }
   Object.keys(CUE_TABS_).forEach(n => { if (!ss.getSheetByName(n)) { const sh = ss.insertSheet(n); sh.appendRow(CUE_TABS_[n]); sh.setFrozenRows(1); } });
   cueTriggers_();
-  cueHsTrigger_();   // the Monday HubSpot check
   const missing = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ZAD_SECRET', 'CUE_BRIDGE_URL'].filter(k => !props.getProperty(k));
   let acc = null; try { acc = cueAccess_(); } catch (e) { acc = null; }
   const msg = 'Cue is set up (sheet ' + ss.getId() + '). ' + (missing.length ? 'Still missing in Script Properties: ' + missing.join(', ') + '.' : 'All keys are present.')
-    + (props.getProperty('CUE_HUBSPOT_TOKEN') ? '' : ' CUE_HUBSPOT_TOKEN is not set yet, so pipeline reviews cannot run.')
     + (acc && acc.checked ? (acc.missing.length ? ' Google access still missing: ' + acc.missing.join(', ') + '.' : ' Google access: all granted.') : '');
   console.log(msg);
   return msg;
 }
 
 /** The 5-minute resume trigger, and the 1-minute RFP sender (cueRfpKick). Also checked when Cue opens, so a deploy needs no extra step.
- * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday HubSpot check had their own
+ * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday check had their own
  * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
 const CUE_TRIGGERS_NOW_ = '6';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster")
 function cueTriggers_() {
@@ -291,7 +289,7 @@ function cueRecostStart_(t, ref) {
   return { request_id: id, task: base.id };
 }
 
-const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'command', 'command_client', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn', 'todo', 'canvas_edit'],
+const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['reply', 'looks_like_inquiry', 'start_intake', 'task', 'task_set', 'run_sweep', 'readiness', 'start_ar', 'vendor', 'workflow', 'email', 'sure', 'choices', 'learn', 'todo', 'canvas_edit'],
   properties: { reply: { type: 'string' }, looks_like_inquiry: { type: 'boolean' },
     canvas_edit: { type: 'string', description: 'Empty unless Kiko asks Cue to change, correct, fill in or add a value in a Canvas record (a billing invoice or BI, '
       + 'a PO, a payment request, a transfer, a supplier or project row), e.g. "change the description of BI 0014 to ...", "put the PO number on the '
@@ -306,18 +304,13 @@ const CUE_TALK_SCHEMA_ = { type: 'object', additionalProperties: false, required
       properties: { job: { type: 'string', enum: ['', 'add', 'list'] }, title: { type: 'string', description: 'The to-do in a few words, e.g. "Call Ana about the Acme brief"' },
         due: { type: 'string', description: 'YYYY-MM-DD in Philippine time, or ""' }, note: { type: 'string', description: 'Extra detail Kiko gave, or ""' } } },
     sure: { type: 'boolean', description: 'false when Kiko seems to ask Cue to do something but you cannot tell which command, or two fit about equally. true otherwise, including plain chat.' },
-    choices: { type: 'array', items: { type: 'string', enum: ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email', 'money', 'chat'] },
+    choices: { type: 'array', items: { type: 'string', enum: ['intake', 'readiness', 'ar', 'vendor', 'workflow', 'email', 'money', 'chat'] },
       description: 'When sure is false: the two commands that fit best, best first, with the fields of both filled in. Empty when sure is true.' },
     run_sweep: { type: 'boolean', description: 'True only when Kiko asks Cue to run the chasing sweep or the morning batch now.' },
     task_set: { type: 'object', additionalProperties: false, required: ['due', 'priority', 'remind'], description: 'Only when Kiko asks to set a due date, '
       + 'priority or reminder for the task Kiko is replying about (or the task you put in task). Empty strings for anything Kiko did not ask to change.',
       properties: { due: { type: 'string', description: 'YYYY-MM-DD, "none" to clear, or empty' }, priority: { type: 'string', description: 'High, Normal, Low, or empty' },
         remind: { type: 'string', description: 'YYYY-MM-DDTHH:mm in Philippine time, "none" to clear, or empty' } } },
-    command: { type: 'string', enum: ['', 'pipeline'], description: '"pipeline" when Kiko asks about deals, the sales pipeline or who to follow up '
-      + 'with clients (e.g. "how\'s the pipeline", "which deals went quiet", "who do I need to chase", "who\'s waiting on me", "what\'s pending award", '
-      + '"anything slipping", "where are we with Telus", "kumusta yung deals", "sino kailangan i-follow up"). Not for supplier RFQs, HubSpot clean-up, '
-      + 'profit or cash flow. Empty otherwise.' },
-    command_client: { type: 'string', description: 'For "pipeline": the one client or deal Kiko named, e.g. "Telus"; empty for the whole pipeline' },
     task: { type: 'string', description: 'The id from Tasks when Kiko\'s message is clearly about one of those tasks (same client, project or '
       + 'emails), so Cue answers in that task\'s thread. Empty when it is general or about none of them.' },
     start_intake: { type: 'string', description: 'Empty unless Kiko clearly asks Cue to run, redo or reload an intake, requote or drafts now. Then one '
@@ -381,9 +374,7 @@ const CUE_TALK_SYSTEM_ = 'You are Cue, the personal assistant of Kiko, who runs 
   + 'message or reply to someone, fill email (new or reply, who, what to say, audience, project) and reply in one short line that you are '
   + 'drafting it in its own thread; the draft waits on a card for Kiko to edit and send. Facts: Cue sends email only when Kiko '
   + 'taps Approve and send on a card, after editing the text there; otherwise it makes Gmail drafts. Never send or promise to send from chat, '
-  + 'and never ask Kiko to give access "to send". Pipeline review: when Kiko asks about the deals, the pipeline or which clients to follow '
-  + 'up, set command "pipeline" (and command_client if Kiko names one client) and reply in one short line that you are checking; Cue then '
-  + 'reads HubSpot and Kiko\'s Gmail in a new thread. "Clean up HubSpot" and profit or cash-flow questions are not built yet: say so. '
+  + 'and never ask Kiko to give access "to send". Profit or cash-flow questions are not built yet: say so. '
   + 'Gmail and Drive access is already working; '
   + 'only mention Fix Google access if Waiting on Kiko shows an access error. File names in the chat are complete; never claim a file name '
   + 'is cut off. Do not ask Kiko to confirm suppliers or scope: the card shows them. Cue CAN look up Canvas projects: before you answer, Cue '
@@ -432,7 +423,7 @@ function cueSameTopic_(t, x) {
 /** What the chat call filled in for each command, so a button can start it with no new AI call. */
 function cueTalkCands_(d, t, force) {
   return { intake: String(d.start_intake || '').trim() || (t.length >= 20 ? t : ''), readiness: String(d.readiness || '').trim(),
-    ar: String(d.start_ar || '').trim(), pipeline: d.command === 'pipeline' ? { client: String(d.command_client || '').trim().slice(0, 80) } : null,
+    ar: String(d.start_ar || '').trim(),
     vendor: d.vendor && d.vendor.job ? d.vendor : null, workflow: d.workflow && d.workflow.job === 'map' && !cuePlanAsk_(t, force) ? d.workflow : null,
     email: d.email && d.email.job && String(d.email.to || '').trim() ? d.email : null };
 }
@@ -452,7 +443,7 @@ function cueTalk_(t, ref, force, opt) {
   if (t.length > 4000) throw new Error('That is long for a chat message. If it is a client inquiry, tap New project intake first.');
   const now = cueNow_(), s = { id: 'chat-' + now.toString(36), metrics: { ai_calls: 0, calls: [] } };
   const st = cueState(), waiting = st.requests.filter(r => r.status === 'Needs you' || r.status === 'Failed' || r.status === 'Reopened')
-    .map(r => ((r.kind === 'personal' && 'a personal expense') || ((r.kind === 'memory' || r.kind === 'process') && 'learning Kiko\'s ' + r.kind) || (r.ready && r.ready.project && r.ready.project.name) || (r.vendor && 'supplier search for ' + r.vendor.ask) || (r.workflow && 'workflow map ' + (r.workflow.name || '')) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || (r.pipe && r.pipe.title) || 'an intake') + ' (' + r.status
+    .map(r => ((r.kind === 'personal' && 'a personal expense') || ((r.kind === 'memory' || r.kind === 'process') && 'learning Kiko\'s ' + r.kind) || (r.ready && r.ready.project && r.ready.project.name) || (r.vendor && 'supplier search for ' + r.vendor.ask) || (r.workflow && 'workflow map ' + (r.workflow.name || '')) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || 'an intake') + ' (' + r.status
       + (r.error ? ': ' + String(r.error).slice(0, 160) : '') + ')');
   // Kiko 06:07Z: each task has its own thread. A reply in a thread sees that thread's lines, not the whole chat.
   const by = {}; st.requests.forEach(r => { by[r.id] = r; });
@@ -478,7 +469,7 @@ function cueTalk_(t, ref, force, opt) {
       + (ex.length ? '\nWhat Kiko meant before (Kiko\'s own corrections; follow them):\n' + ex.join('\n') : '')
       + (force ? '\nKiko corrected Cue: this message is a ' + CUE_ROUTE_CMDS_[force] + ' request. Fill only that field, set sure to true and choices to [].' : '')
       + '\n<chat>\n' + hist + '\n</chat>\nKiko: ' + t });
-  let pick = !ref && r.ok && r.data.command !== 'pipeline' && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
+  let pick = !ref && r.ok && tasks.some(x => x.id === r.data.task) ? cueNewest_(st.requests, root, r.data.task) : '';
   // PC retest 17:58Z: "write a plan for a year-end campaign" joined the Morning batch thread. A plan, brainstorm or analysis ask
   // joins a task's thread only when it names that task's project or topic; otherwise it is answered in the main chat.
   if (pick && cuePlanAsk_(t, force) && !cueSameTopic_(t, by[pick])) pick = '';
@@ -565,15 +556,14 @@ function cueTalk_(t, ref, force, opt) {
   let sweep = '';
   if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
   const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
-  const pipeline = r.ok && r.data.command === 'pipeline' ? { client: String(r.data.command_client || '').trim().slice(0, 80) } : null;
   const ar = r.ok ? cueStr_(r.data.start_ar, 200).trim() : '';
   const v = r.ok && !start && r.data.vendor && r.data.vendor.job ? r.data.vendor : null;
   const vendor = v && (String(v.item || '').trim() || (v.suppliers || []).some(x => String(x || '').trim()) || String(v.project || '').trim()) ? v : null;
   const workflow = r.ok && !start && r.data.workflow && r.data.workflow.job === 'map' && !cuePlanAsk_(t, force) ? r.data.workflow : null;
   const email = r.ok && !start && r.data.email && r.data.email.job && String(r.data.email.to || '').trim() ? r.data.email : null;
   const canvasEdit = r.ok && !start ? cueStr_(r.data.canvas_edit, 2000).trim() : '';
-  const cmd = !!(ready || pipeline || ar || vendor || workflow || email || canvasEdit);   // a command the chat call picked wins over an intake
-  return { chat: true, reply, task: pick, pointed: !!pick, sweep, pipeline, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
+  const cmd = !!(ready || ar || vendor || workflow || email || canvasEdit);   // a command the chat call picked wins over an intake
+  return { chat: true, reply, task: pick, pointed: !!pick, sweep, suggest_intake: !!(r.ok && r.data.looks_like_inquiry && !start && !pick && !cmd), start_intake: start.length >= 20 && !cmd ? start : '',
     readiness: ready.length >= 2 ? ready : '', start_ar: ar.length >= 2 ? ar : '', vendor, workflow, email, lookup: email ? found : '', canvas_edit: canvasEdit.length >= 8 ? canvasEdit : '' };
 }
 
@@ -587,7 +577,7 @@ const CUE_LOOKUP_SKIP_ = ['lookup', 'look', 'find', 'check', 'show', 'open', 'ca
   'requirements', 'requirement', 'cost', 'costs', 'costing', 'again', 'scope', 'reanalyze', 'analyze', 'details', 'info', 'canvas', 'hey', 'hello',
   'thanks', 'thank', 'yes', 'okay', 'doing', 'gpt', 'claude', 'cue', 'ready', 'missing', 'readiness', 'done',
   'went', 'quiet', 'who', 'not', 'prepare', 'ars', 'deal', 'deals', 'pipeline', 'review', 'chase', 'chasers', 'follow', 'today', 'week', 'pay', 'paid',
-  'expense', 'expenses', 'record', 'receipt', 'supplier', 'suppliers', 'register', 'hubspot', 'clean', 'cleanup', 'inbox', 'triage', 'snapshot', 'screen', 'personal', 'map', 'process', 'workflow'];
+  'expense', 'expenses', 'record', 'receipt', 'supplier', 'suppliers', 'register', 'clean', 'cleanup', 'inbox', 'triage', 'snapshot', 'screen', 'personal', 'map', 'process', 'workflow'];
 
 /** Kiko 08:23Z: chat can look up Canvas projects. One parallel bridge read per distinctive word (search_projects, read only),
  * merged and ranked by how many words a project matched. Returns a short text list for the chat model; never throws. */
@@ -618,13 +608,12 @@ function cueTaskName_(x) {
   if (x.kind === 'style') return 'your writing style';
   if (x.kind === 'memory' || x.kind === 'process') return 'learning your ' + x.kind;
   if (x.kind === 'email') return 'the email to ' + ((x.mail && (x.mail.to || x.mail.to_addr)) || 'someone');
-  if (x.kind === 'pipeline') return (x.pipe && x.pipe.title) || 'the pipeline review';
+  if (CUE_GONE_KINDS_.indexOf(x.kind) >= 0) return 'a task Cue no longer has';
   if (x.kind === 'funnel') return 'the sales funnel';
   if (x.kind === 'accred') return 'accreditation with ' + ((x.acc && x.acc.company) || 'a client');
   if (x.kind === 'ar') return (x.ar && x.ar.doc === 'fsa' ? 'FSAs' : 'ARs') + ' for ' + ((x.ar && (x.ar.project || x.ar.asked)) || 'a project');
   if (x.kind === 'cecost') return 'CE costs for ' + ((x.cec && ((x.cec.project && x.cec.project.name) || x.cec.hint)) || 'a project');
   if (x.kind === 'finance') return (x.fin && x.fin.title) || 'Money';
-  if (x.kind === 'hubspot') return (x.hs && x.hs.title) || 'the HubSpot clean-up';
   if (x.kind === 'status') return (x.st && x.st.title) || 'the status updates';
   if (x.kind === 'relnotes') return (x.rn && x.rn.title) || 'the release notes';
   if (x.kind === 'bids') return (x.bids && x.bids.title) || 'the bid check';
@@ -650,13 +639,13 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['newmail', 'pipeline', 'finance', 'hubspot', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri', 'accred'];
+const CUE_RELATED_SKIP_ = ['newmail', 'finance', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'tri', 'accred'];
 const CUE_ADD_PROJECT_RE_ = /^(?:please\s+)?(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project\b(?!\s+intake)\s*[:,-]?/i;
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
   let list = [];
-  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0 && cueCheckMine_(x)); } catch (e) { return ''; }   // a pipeline review, money answer or HubSpot clean-up never takes an intake
+  try { list = cueRecent_(7).filter(x => x.id !== self && CUE_RELATED_SKIP_.indexOf(x.kind) < 0 && CUE_GONE_KINDS_.indexOf(x.kind) < 0 && cueCheckMine_(x)); } catch (e) { return ''; }   // a money answer or bid check never takes an intake
   const by = {}; list.forEach(x => { by[x.id] = x; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
   // PC check 25 Oct 01:51Z: a number (a year like 2026, a date, an amount) never ties a message to a task.
@@ -686,10 +675,8 @@ function cueTaskLine_(id) {
   if (s.kind === 'email') return 'email draft to ' + ((s.mail && (s.mail.to || s.mail.to_addr)) || 'someone') + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'style') return 'learning Kiko\'s writing style guide, status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
   if (s.kind === 'memory' || s.kind === 'process') return 'learning Kiko\'s ' + s.kind + ' (Teach Cue), status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
-  if (s.kind === 'pipeline') { const P = s.pipe || {}, k = P.counts || {};
-    return (P.title || 'pipeline review') + ', status ' + s.status + (P.counts ? '; ' + k.act + ' to act on today, ' + k.chase + ' to chase, ' + k.data + ' to fix; ' : '; ')
-      + 'summary: "' + String(P.summary || '').slice(0, 300) + '"' + ((P.drafts || []).length ? '; ' + P.drafts.length + ' follow-up draft(s)' : ''); }
-  if (s.kind === 'funnel') { const F = s.fn || {}; return 'sales funnel (P0 to P9, deals and HubSpot tasks), status ' + s.status + (F.stages ? '; ' + cueFunnelLine_(F) : '') + '; ' + (F.task_error || ((F.tasks || []).filter(t => !t.done).length + ' open HubSpot task(s)')); }
+  if (CUE_GONE_KINDS_.indexOf(s.kind) >= 0) return 'a task Cue no longer has, status ' + s.status;
+  if (s.kind === 'funnel') { const F = s.fn || {}; return 'sales funnel (P0 to P9 and deals), status ' + s.status + (F.stages ? '; ' + cueFunnelLine_(F) : ''); }
   if (s.kind === 'ar') return (s.ar && s.ar.doc === 'fsa' ? 'freelancer service agreements' : 'acknowledgement receipts') + ' for ' + ((s.ar && (s.ar.project || s.ar.asked)) || 'a project') + ', status ' + s.status
     + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '') + '; ' + ((s.ar && s.ar.items) || []).length + ' paid on the list';
   if (s.kind === 'finance') return 'money question about ' + ((s.fin && s.fin.scope && s.fin.scope.label) || 'BSE') + ', status ' + s.status + '; Kiko asked: "' + String(s.text || '').slice(0, 300) + '"';
@@ -697,7 +684,6 @@ function cueTaskLine_(id) {
   if (s.kind === 'gtask') { const G = s.gt || {}; return (G.title || 'ChatGPT task') + ', status ' + s.status + '; ' + (G.summary || '') + ((G.items || []).length ? ' Findings: ' + G.items.map(f => f.title).join('; ').slice(0, 600) : ''); }
   if (s.kind === 'status') { const T = s.st || {}, M = T.mails || []; return (T.title || 'status updates') + ', status ' + s.status + '; ' + (T.events || []).length + ' event(s), '
     + M.length + ' client email(s), ' + M.filter(m => m.sent_id).length + ' sent' + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : ''); }
-  if (s.kind === 'hubspot') { const H = s.hs || {}; return (H.title || 'HubSpot clean-up') + ', status ' + s.status + '; ' + (H.items || []).length + ' finding(s), ' + (H.fixed || 0) + ' fixed'; }
   if (s.kind === 'vendor') return 'supplier search for ' + cueVendorAsk_(s.vendor || {}) + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '')
     + '; Kiko wrote: "' + String(s.text || '').slice(0, 300) + '"';
   if (s.kind === 'tri') return cueTaskName_(s) + ' in ' + ((s.tri && (s.tri.project || s.tri.asked_project)) || 'a project') + ', status ' + s.status + (s.error ? ' (' + String(s.error).slice(0, 200) + ')' : '');
@@ -710,6 +696,9 @@ function cueTaskLine_(id) {
     + '; files: ' + ((s.files || []).map(f => f.name).join(', ') || 'none') + (c.drafts ? '; ' + c.drafts.length + ' requote draft(s)' : '');
 }
 
+/** HUBSPOT-REMOVAL-2026-11-01 (Kiko 1 Nov 2026: "Delete the Hubspot code"): task kinds Cue no longer has. Their saved runs stay in the
+ * Requests tab; they never run, approve or draw a card again, and "Close older runs" closes them. */
+const CUE_GONE_KINDS_ = ['hubspot', 'pipeline'];
 /** Runs a request's pipeline until it needs Kiko. The page calls this right after cueSend; cueResume picks up strays. */
 function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 
@@ -767,6 +756,8 @@ function cueRunLeased_(id) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
+  // HUBSPOT-REMOVAL-2026-11-01: a saved run of a removed kind closes quietly instead of running the intake.
+  if (CUE_GONE_KINDS_.indexOf(s.kind) >= 0) { Object.assign(s, { status: 'Closed', stage: 'Closed' }); delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
   const kind = cueCommand_(s.kind);   // STRUCTURE-PHASE-2: run and "stopped" line from the command list (cueCommands_ in CueCommands.gs)
   const run = kind.run || cueIntakeRun_, stopped = kind.stopped || 'The intake stopped: ';
   try { run(s, () => cueSave_(got.sh, got.row, s)); }
@@ -811,6 +802,7 @@ function cueRetry(id) {
 function cueApprove(id, edits) {
   cueOwner_();
   const L = cueLoad_(id);
+  if (L && CUE_GONE_KINDS_.indexOf(L.s.kind) >= 0) throw new Error('Cue no longer has this kind of task. Nothing was changed.');
   const approve = L ? cueCommand_(L.s.kind).approve : null;   // STRUCTURE-PHASE-2: each kind's Approve is in cueCommands_ (CueCommands.gs)
   if (approve) return cueView_(approve(id, edits || {}));
   if (L && L.s.phased) return cueView_(cuePhApprove_(id, edits || {}));
@@ -980,7 +972,7 @@ function cueSummary_(s) {
     if (s.phased && s.kind === 'intake') { const ph = cuePhSummary_(s); cueChat_('Cue', ph, '>' + s.id); cueChat_('Cue', ph, s.id); return; }
     const c = s.change || {}, p = s.proposal || {}, cv = s.canvas || {};
     // PC test 18:15Z: a rejected expense said "Summary for Project intake". Every kind names itself.
-    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'hubspot' ? ((s.hs && s.hs.title) || 'HubSpot clean-up') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'pipeline' ? ((s.pipe && s.pipe.title) || 'Pipeline review') : s.kind === 'funnel' ? 'Sales funnel' : s.kind === 'accred' ? 'Accreditation · ' + ((s.acc && s.acc.company) || '') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
+    const name = s.kind === 'expense' ? cueExpLine_(s) : s.kind === 'supplier' ? 'supplier ' + ((s.sup && s.sup.record['Supplier']) || '') : s.kind === 'ar' || s.kind === 'gtask' || s.kind === 'bids' ? cueTaskName_(s) : s.kind === 'funnel' ? 'Sales funnel' : s.kind === 'accred' ? 'Accreditation · ' + ((s.acc && s.acc.company) || '') : s.kind === 'change' ? ((c.match && c.match.name) || c.project || 'Change request') : ((p.client && p.client.company) || 'Project intake') + (p.event && p.event.name ? ', ' + p.event.name : '');
     const list = a => a.length > 4 ? a.slice(0, 4).join(', ') + ' and ' + (a.length - 4) + ' more' : a.join(', ');
     const out = [];
     if (s.kind === 'personal') {
@@ -1003,16 +995,7 @@ function cueSummary_(s) {
       return;
     }
     else if (s.kind === 'ar') out.push.apply(out, cueArSummary_(s));
-    else if (s.kind === 'pipeline') {
-      const P = s.pipe || {}, k = P.counts || {}, d = P.drafts || [], sent = d.filter(x => x.sent_id), wait = d.filter(x => x.draft_id && !x.sent_id), bad = d.filter(x => x.selected && x.error);
-      out.push((P.deals || []).length + ' open deal' + ((P.deals || []).length === 1 ? '' : 's') + ' checked: ' + (k.act || 0) + ' to act on, ' + (k.chase || 0) + ' to chase, ' + (k.data || 0) + ' to fix');
-      if (sent.length) out.push('sent ' + sent.length + ' follow-up' + (sent.length === 1 ? '' : 's'));
-      if (wait.length) out.push(wait.length + ' follow-up' + (wait.length === 1 ? '' : 's') + ' in your Gmail Drafts');
-      if (bad.length) out.push(bad.length + ' did not go through');
-    } else if (s.kind === 'hubspot') {
-      const H = s.hs || {}, it = H.items || [], bad = it.filter(x => x.result && !x.result.ok).length;
-      out.push(it.length + ' finding' + (it.length === 1 ? '' : 's') + ', ' + (H.fixed || 0) + ' fixed' + (bad ? ', ' + bad + ' not fixed' : ''));
-    } else if (s.kind === 'supplier') {
+    else if (s.kind === 'supplier') {
       const sp = s.sup || {}, a = cv.accreditation || {}, v = cv.verify || {}, f = (sp.saved || []).filter(x => x.url).length, m = sp.email || {};
       if (cv.supplier_id) out.push('added to the Supplier Database as ' + cv.supplier_id + ' with ' + (cv.contacts || []).length + ' contact' + ((cv.contacts || []).length === 1 ? '' : 's'));
       out.push(v.ok ? 'every cell read back correctly' : 'read back found a problem: ' + (v.problems || []).join(' '));
@@ -1051,8 +1034,9 @@ function cueView_(s) {
   // PC recheck 25 Oct 02:15Z: a bid-notice intake that an earlier build filed into another project's thread by a name guess (TPB 291 in
   // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
   const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
-  return { id: s.id, kind: s.kind || 'intake', ref, created: s.created, status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
-    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, pipe: s.kind === 'pipeline' ? cuePipeView_(s) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, hs: s.kind === 'hubspot' ? cueHsView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
+  return { id: s.id, kind: CUE_GONE_KINDS_.indexOf(s.kind) >= 0 ? 'removed' : s.kind || 'intake', ref,   // HUBSPOT-REMOVAL-2026-11-01: removed kinds show as 'removed'
+    created: s.created, status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
+    same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,
       items: (b.items || []).map(it => ({ key: it.key, kind: it.kind, label: it.label, project: it.project || '', who: it.who || '', to: it.to || '', why: it.why || '',

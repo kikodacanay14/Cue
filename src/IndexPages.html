@@ -157,7 +157,7 @@
     var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
-    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
+    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
   }
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
@@ -188,7 +188,7 @@
             + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>' : '') + '</div>';
       }).join('')
       + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
-      + 'Add one in the chat, e.g. "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".</div>');
+      + 'Add one in the chat, e.g. "Schedule every Monday 9am sales funnel" or "Schedule Friday 3pm remind me to send the invoice".</div>');
   }
   function schedDone(r) { schedList = r; schedErr = ''; $('w-sched')._h = null; renderSched(); }
   function schedFail(e) { schedErr = (e && e.message) || String(e); $('w-sched')._h = null; renderSched(); }

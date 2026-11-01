@@ -27,3 +27,14 @@ function cueAddWork_(day, n) {
   for (let i = 0; i < n;) { d = cueAddDays_(d, 1); if (cueWorkday_(d)) i++; }
   return d;
 }
+
+// From CuePipeline.gs (HUBSPOT-REMOVAL, Kiko 1 Nov 2026: "Delete the Hubspot code"): moved here unchanged when the pipeline review was deleted.
+const CUE_DAY_ = 864e5, CUE_MNL_ = 8 * 3600e3;   // Manila is UTC+8 all year
+function cueMnlDay_(ms) { return new Date(ms + CUE_MNL_).toISOString().slice(0, 10); }
+/** Working days (Mon-Fri, Manila) from one moment to another: 0 on the same day. */
+function cuePipeWorkDays_(from, to) {
+  let n = 0, t = Date.parse(cueMnlDay_(from) + 'T00:00:00Z');
+  const end = Date.parse(cueMnlDay_(to) + 'T00:00:00Z');
+  for (let i = 0; i < 400 && t < end; i++) { t += CUE_DAY_; const w = new Date(t).getUTCDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}

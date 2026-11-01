@@ -10,7 +10,7 @@
  *       send lock: Canvas actions that email people (CUE_CHECK_SENDS_) are refused unless CUE_CHECK_SEND_ is 'on', which
  *         test/checks/config.json allows only for a project whose crew are all Kiko's own aliases (Kiko 27 Oct 09:16Z: a
  *         real past project stands in for the test project, so its real crew must never be emailed).
- *       other writes: no other web write (HubSpot, TickTick, ...), no spreadsheet but the Cue sheet, no trigger changes.
+ *       other writes: no other web write (TickTick, ...), no spreadsheet but the Cue sheet, no trigger changes.
  *         The BSE Scopes and Transfers sheet may be read (transfer lookup) through a read-only view; any change stops the run.
  *       no leftovers: tasks and chat lines made in a check are tagged; cueResume, Send later and the sweep never run them, and
  *       the page Kiko uses never shows them. check_finish cancels any Send later and closes the run's tasks.
@@ -19,13 +19,13 @@
 const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove', 'cueReject', 'cueReopen', 'cueCloseTask', 'cueArchive',
   'cueAsNew', 'cueAskPick', 'cueSameAnswer', 'cueWrongCommand', 'cueCancelIntake', 'cueRescan', 'cueRfq', 'cueRfqPick', 'cueDrafts',
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
-  'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
+  'cueBidsClose', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusPreview', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueSweepSendOne', 'cueSweepRewrite', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_',
   'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck', 'cueIcPick_', 'cueIcStart_', 'cueIcDeep_', 'cueTriageIntake', 'cueMailProjectThreads_'];   // cueMailProjectThreads_: read-only list of Kiko's inbox threads Canvas files under a project (1.27.86 check); // cueTriageIntake: Start intake from Canvas's Emails waiting card (RFQ-RFP-INTAKE); cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
 // cueIc*_ (CueIntakeCheck.gs): the intake-real check picks real inquiries, starts intake on them, and runs phases 2 to 4 with nothing written.
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
-const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueAcDone', 'cueFunnelTaskDone', 'cueBidsStartIntake', 'cueBidsDecide', 'cueBidsClarifySend', 'cueBidsClarifyCancel', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
+const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueAcDone', 'cueBidsStartIntake', 'cueBidsDecide', 'cueBidsClarifySend', 'cueBidsClarifyCancel', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
   'cueSchedRunNow', 'cueUsagePrices', 'cueAdminTriage', 'cueAdminTriageDel', 'cueAdminRelnotes', 'cueAdminChasers', 'cueAdminLog', 'cueAdminCanvasChasers', 'cueAdminCanvasChaseSend', 'cueAdminSnBoard', 'cueAdminSnItems', 'cueAdminSnPrepare', 'cueAdminSnSend', 'cueFinSave', 'cueFinSheet', 'cueLearnChats', 'cueFileData', 'cueUpload'];
 // Bridge actions that only read. Every other action is a write and must name the test project.

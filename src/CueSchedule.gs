@@ -1,7 +1,7 @@
 /* CUE-SCHEDULE-2026-10-22 (Kiko 19:12Z "we need a task scheduler"; 19:13Z "run a command and tell Cue to Schedule a task followed by
  * the task we want it to do"; spec specs/task-scheduler.md, Kiko "Go" 22 Oct 00:57Z).
  *   One registry, one trigger. Every timed job is a row in the Schedule tab of the Cue sheet. The 5-minute cueResume trigger calls
- *   cueSchedTick_, which starts the rows whose time has come. The morning sweep, the bid check and the Monday HubSpot check were
+ *   cueSchedTick_, which starts the rows whose time has come. The morning sweep and the bid check were
  *   their own triggers; they are now system rows (on/off and time can change; they cannot be deleted), and their triggers go.
  *   "Schedule <when> <command>" in chat makes a row after one Save tap. "show my schedules" lists them. Settings > Scheduled tasks
  *   shows them all with on/off, time, Run now and Delete.
@@ -143,20 +143,16 @@ function cueSchedResolve_(cmd) {
   if (CUE_SCHED_INTAKE_RE_.test(t) && !cueBidsAsked_(t)) return { error: 'Intake cannot be scheduled: it needs an inquiry to read. Send the inquiry when it comes, and I will run it then.' };
   if (/^(?:run\s+|do\s+|start\s+)?(?:the\s+)?(?:morning\s+)?(?:chasing\s+)?(?:sweep|batch|morning\s+batch)$/i.test(t)) return { run: 'sweep', text: t };
   if (cueBidsAsked_(t)) return { run: 'bids', text: t };
-  if (cueHsAsked_(t)) return { run: 'hubspot', text: t };
-  if (/^(?:run\s+|do\s+|check\s+)?(?:the\s+|a\s+|my\s+)?(?:sales\s+)?pipeline(?:\s+(?:review|check|health))?$/i.test(t)) return { run: 'pipeline', text: t };
-  if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel|hub\s?spot\s+tasks)$/i.test(t)) return { run: 'funnel', text: t };
+  if (/^(?:show\s+|run\s+|check\s+)?(?:the\s+|my\s+)?(?:sales\s+funnel|funnel)$/i.test(t)) return { run: 'funnel', text: t };
   return { run: 'say', text: t };
 }
-const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', hubspot: 'HubSpot check', status: 'Friday status updates', pipeline: 'Pipeline review', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9, deals, HubSpot tasks)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
+const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', sweep: 'Morning sweep', bids: 'Bid opportunity check', status: 'Friday status updates', relnotes: 'Release notes', rfps: 'RFPs from your Gmail', funnel: 'Sales funnel (P0 to P9 and deals)', funnelreview: 'Sales funnel review', say: 'Runs as if you typed it' };
 
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
   const rows = [
     { id: 'sys-sweep', name: 'Chasers (for the 2 PM update)', repeat: 'weekdays', time: '13:00', run: 'sweep',   /* CUE-THREE-TOUCH-2026-11-01: its own time, for the 2 PM update */ command: 'Morning sweep and chasers', on: true },
     { id: 'sys-bids', name: 'Bid opportunities', repeat: 'weekdays', time: '06:30', run: 'bids', command: 'Bid opportunity check', on: true },
-    { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: false },   // off: Kiko 30 Oct 07:45Z "dont include" (card review)
-    { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
     { id: 'sys-funnel', name: 'Sales funnel', repeat: 'weekdays', time: '13:15', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
     { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '17:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
     { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: false },   // off: duplicate of the Sales funnel card (card review 30 Oct). CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
@@ -185,23 +181,31 @@ function cueSchedSystem_() {
 /** CUE-K0-2026-10-31: the times the approved spec moves, applied once to the rows already in the tab (Kiko can change them after). */
 const CUE_SCHED_MOVE_ONCE_ = { 'sys-bids': { time: '06:30', repeat: 'weekdays' }, 'sys-funnel': { time: '13:15', repeat: 'weekdays' }, 'sys-status': { time: '17:00' },
   'sys-sweep': { time: '13:00', repeat: 'weekdays' }, 'sys-relnotes': { repeat: 'weekdays' }, 'sys-k0': { repeat: 'weekdays' } };   // CUE-THREE-TOUCH-2026-11-01: weekdays; chasers for the 2 PM update
-const CUE_SCHED_OFF_ONCE_ = ['sys-hubspot', 'sys-gt-admin_funnel', 'sys-funnelreview', 'sys-unsched', 'sys-gt-daily_plan'];   // daily_plan: the 8 AM update replaces it (Kiko 31 Oct)
+const CUE_SCHED_OFF_ONCE_ = ['sys-gt-admin_funnel', 'sys-funnelreview', 'sys-unsched', 'sys-gt-daily_plan'];   // daily_plan: the 8 AM update replaces it (Kiko 31 Oct)
+/** v13 (1 Nov): HubSpot rows removed (Kiko: "Delete the Hubspot code"). System rows whose job is gone, deleted from the tab once. */
+const CUE_SCHED_GONE_ = ['sys-hubspot', 'sys-pipeline'];
 /** Adds any system row the tab does not have yet. Cheap: skipped while the list of system rows is unchanged. */
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v12:' + gt;   // v12 (1 Nov): weekdays only, the 2 PM update, chasers at 13:00, Friday status at 17:00   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
+  const sig = 'v13:' + gt;   // v13 (1 Nov): HubSpot rows removed (Kiko: "Delete the Hubspot code")   // v12 (1 Nov): weekdays only, the 2 PM update, chasers at 13:00, Friday status at 17:00   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
-    const sh = cueSchedSheet_(), have = cueSchedRead_(sh).map(x => x.id), now = cueNow_();
+    const sh = cueSchedSheet_(), now = cueNow_();
+    // v13: the rows of removed jobs leave the tab (bottom first, so the row numbers above stay right).
+    cueSchedRead_(sh).filter(x => CUE_SCHED_GONE_.indexOf(x.id) >= 0).sort((a, b) => b.row - a.row).forEach(x => sh.deleteRow(x.row));
+    // v13: rows renamed after they were saved (Kiko 1 Nov, the Morning sweep row "how come theres still this"): the saved name follows the code.
+    const ren = { 'sys-sweep': ['Morning sweep'] };
+    cueSchedRead_(sh).filter(x => ren[x.id] && ren[x.id].indexOf(x.name) >= 0).forEach(x => { x.name = sys.filter(y => y.id === x.id)[0].name; cueSchedWrite_(sh, x); });
+    const have = cueSchedRead_(sh).map(x => x.id);
     // v7 (Kiko 29 Oct 12:57Z "sent every Friday"): the old Monday status row becomes the Friday status updates, on.
     cueSchedRead_(sh).filter(x => x.id === 'sys-status' && (x.name === 'Monday status report' || String(x.days) === 'Mon')).forEach(x => {
       const f = sys.filter(y => y.id === 'sys-status')[0];
       Object.assign(x, { name: f.name, days: f.days, time: f.time, command: f.command, on: true }); x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x);
     });
     // v8 (card review, approved by Kiko 30 Oct 2026 07:59Z): rows whose cards were removed or merged are turned off once each. They stay
-    // in the list, off, so they can be turned on again by hand. Monday HubSpot check: "dont include" (07:45Z). Thursday funnel records
+    // in the list, off, so they can be turned on again by hand. Thursday funnel records
     // review and Monday sales funnel review: duplicates of the Sales funnel card (Kiko 06:57Z, "A8 is a duplicate"). Unscheduled
     // check: the review's Today's tasks card replaces it.
     const done = cueProp_('CUE_SCHED_OFF_ONCE', '').split(',').filter(Boolean);
@@ -249,11 +253,6 @@ function cueSchedRunOne_(x, manual) {
       P.setProperty('CUE_BIDS_DAY', today);
       return { result: 'Started', task: id(cueBidsStart_(manual ? 'Run bid opportunity check' : 'Daily bid opportunity check', 'daily')) };
     }
-    if (x.run === 'hubspot') {
-      if (!manual && P.getProperty('CUE_HSC_WEEK') === today) return { result: 'Already ran today', task: '' };
-      P.setProperty('CUE_HSC_WEEK', today);
-      return { result: 'Started', task: id(cueHsStart_('Monday HubSpot check', 'weekly')) };
-    }
     if (x.run === 'status') {
       if (!manual && P.getProperty('CUE_ST_DAY') === today) return { result: 'Already ran today', task: '' };
       if (!manual) P.setProperty('CUE_ST_DAY', today);
@@ -278,7 +277,6 @@ function cueSchedRunOne_(x, manual) {
       try { const o = cueFunnelReview_(manual); return { result: o.lines ? 'Posted ' + o.lines + ' lines in the chat' : 'Posted the numbers (no AI answer)', task: '' }; }
       catch (e) { return { result: 'Failed: ' + String((e && e.message) || e).slice(0, 200), task: '' }; }
     }
-    if (x.run === 'pipeline') return { result: 'Started', task: id(cuePipeStart_(x.command || 'Pipeline review', '')) };
     if (x.run === 'funnel') {
       if (!manual && P.getProperty('CUE_FUNNEL_DAY') === today) return { result: 'Already ran today', task: '' };
       P.setProperty('CUE_FUNNEL_DAY', today);
@@ -351,7 +349,7 @@ function cueSchedSaid_(text, ref) {
   const say = m => { cueChat_('Cue', m, ref || ''); return { chat: true, task: ref || '' }; };
   const p = cueSchedParse_(t.replace(CUE_SCHED_RE_, ''), cueNow_());
   if (p.error) return say(p.error);
-  if (!p.rest) return say('What should I run then? Say it like "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".');
+  if (!p.rest) return say('What should I run then? Say it like "Schedule every Monday 9am sales funnel" or "Schedule Friday 3pm remind me to send the invoice".');
   const r = cueSchedResolve_(p.rest);
   if (r.error) return say(r.error);
   const x = Object.assign({ days: [], dom: 0, date: '' }, p.when);
@@ -387,7 +385,7 @@ function cueSchedAdd_(o) {
 }
 function cueSchedListText_() {
   const list = cueSchedRead_(cueSchedSheet_());
-  if (!list.length) return 'Nothing is scheduled yet. Say "Schedule every Monday 9am pipeline review".';
+  if (!list.length) return 'Nothing is scheduled yet. Say "Schedule every Monday 9am sales funnel".';
   return 'Scheduled tasks (Manila time):\n' + list.map(x => '- ' + x.name + ': ' + cueSchedWhen_(x) + (x.on ? (x.next ? ', next ' + cueSchedShow_(x.next) : '') : ', off')
     + (x.last ? '. Last: ' + cueSchedShow_(x.last) + ', ' + (x.result || '') : '')).join('\n') + '\nTurn them on or off, change times or Run now in Settings > Scheduled tasks.';
 }

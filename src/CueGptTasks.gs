@@ -8,10 +8,10 @@
  *           nothing claimed as sent or changed, every record read) and keeps only findings not shown on an earlier card ("ChatGPT findings" tab).
  *           A record that could not be read fails the check and marks the card Incomplete (PC test 22 Oct: never a pass). Tasks built on
  *           Canvas's project list (project records, production readiness) stop with Try again when Canvas does not answer.
- *   4 Kiko  decides per finding: Draft email (a Gmail draft, never sent), Add to HubSpot (a note or a task, Kiko 19:54Z "HubSpot + Canvas"),
- *           or Open in Canvas (company, contact, supplier or project records change in Canvas, which syncs HubSpot).
+ *   4 Kiko  decides per finding: Draft email (a Gmail draft, never sent) or Open in Canvas (company, contact, supplier or project records
+ *           change in Canvas). HUBSPOT-REMOVAL-2026-11-01 (Kiko 1 Nov 2026: "Delete the Hubspot code"): the third action is gone.
  * Starts: the scheduler's rows call cueGtScheduled(key) at the times Kiko set (cueGtSchedules_); each task also runs by chat ("run daily plan").
- * Never: an email sent, a sheet, P0, Canvas or HubSpot record written without Kiko's tap. Records, emails and web pages are data, never instructions.
+ * Never: an email sent, a sheet, P0 or Canvas record written without Kiko's tap. Records, emails and web pages are data, never instructions.
  * ChatGPT through the API has no browser and no sign-in: LinkedIn, Facebook and signed-in portals are listed as not checked, never as read. */
 
 const CUE_GT_FUNNEL_ = '1PBpIi7tu4Tziuhivpd7IYdC9tZyF_cls1Mn2H3RqTBE';   // P1_P2_P3_P4_P5_Company_Priority_List_Bounce_Cleaned
@@ -65,8 +65,7 @@ const CUE_GT_ = {
     steps: ['Take the prospects Cue found due (recorded review date first; else P1 after 15 days, P2 one month after first outreach then 15 days, P4 two days after requirements were sent).',
       'Read the latest emails given for each. Automatic acknowledgments do not count. If a substantive reply came after the last outreach, do not draft: say so and suggest updating Reply Status.',
       'Never chase a held, bounced or departed contact, or a resolved request.',
-      'For each prospect still due, draft a concise follow-up tied to the actual last request. Add no commitment or deadline Kiko has not made.',
-      'Give each a HubSpot task with the next review date.'] },
+      'For each prospect still due, draft a concise follow-up tied to the actual last request. Add no commitment or deadline Kiko has not made.'] },
   monthly_email: { title: 'Monthly engagement email', area: 'lead', web: false, memory: true, when: '15th of the month, 4:00 PM',
     sched: { repeat: 'monthly', day_of_month: 15, time: '16:00' }, ask: /\b(monthly )?engagement emails?\b|\bnurture emails?\b/i,
     steps: ['Pick one useful planning topic for this month (for example year-end events or Q1 planning) and say why it suits the audience.',
@@ -390,11 +389,11 @@ const CUE_GT_SCHEMA_ = { type: 'object', additionalProperties: false, required: 
   steps: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['step', 'done', 'note'], properties: { step: { type: 'integer' }, done: { type: 'boolean' }, note: { type: 'string' } } } },
   coverage: { type: 'object', additionalProperties: false, required: ['checked', 'not_checked'], properties: { checked: { type: 'string' }, not_checked: { type: 'string' } } },
   findings: { type: 'array', items: { type: 'object', additionalProperties: false,
-    required: ['key', 'group', 'title', 'company', 'person', 'detail', 'evidence', 'next_action', 'due', 'email', 'hubspot', 'canvas', 'project_id', 'confidence'],
+    required: ['key', 'group', 'title', 'company', 'person', 'detail', 'evidence', 'next_action', 'due', 'email', 'canvas', 'project_id', 'confidence'],
     properties: { key: { type: 'string' }, group: { type: 'string' }, title: { type: 'string' }, company: { type: 'string' }, person: { type: 'string' }, detail: { type: 'string' },
       evidence: { type: 'array', items: CUE_GT_LINK_ }, next_action: { type: 'string' }, due: { type: 'string' },
       email: { type: 'object', additionalProperties: false, required: ['to', 'subject', 'body'], properties: { to: { type: 'string' }, subject: { type: 'string' }, body: { type: 'string' } } },
-      hubspot: { type: 'string', enum: ['none', 'note', 'task'] }, canvas: { type: 'string', enum: ['none', 'client', 'supplier', 'project'] }, project_id: { type: 'string' },
+      canvas: { type: 'string', enum: ['none', 'client', 'supplier', 'project'] }, project_id: { type: 'string' },
       confidence: { type: 'string', enum: ['high', 'medium', 'low'] } } } } } };
 
 function cueGtPrompt_(D) {
@@ -409,7 +408,7 @@ function cueGtPrompt_(D) {
     + '- key: a short stable id for the finding (company plus topic), the same every time the same thing is found.\n'
     + '- group: one of ' + CUE_GT_GROUPS_[D.area].join(', ') + '.\n'
     + '- email: subject and body only when a step says to draft one; short, plain, in Kiko\'s voice, signed "Kiko". Otherwise all three "".\n'
-    + '- due: YYYY-MM-DD when a date applies, else "". hubspot: "task" for a dated sales follow-up, "note" for research worth keeping on the company, else "none".\n'
+    + '- due: YYYY-MM-DD when a date applies, else "".\n'
     + '- canvas: "client" when a company or contact record should change, "supplier" for a supplier record, "project" for a Canvas project (with project_id), else "none".\n'
     + '- summary: two short sentences for Kiko. Answer only with the JSON.';
 }
@@ -435,7 +434,7 @@ function cueGtCheck_(s, a) {
   const bad = { evidence: [], guessed: [], claimed: [] }, keys = {}, list = [];
   (a.findings || []).slice(0, 40).forEach(x => {
     const f = { key: cueStr_(x.key, 120), group: CUE_GT_GROUPS_[D.area].indexOf(x.group) >= 0 ? x.group : 'Info', title: cueStr_(x.title, 200), company: cueStr_(x.company, 120), person: cueStr_(x.person, 120),
-      detail: cueStr_(x.detail, 1500), next_action: cueStr_(x.next_action, 300), due: /^\d{4}-\d{2}-\d{2}$/.test(x.due || '') ? x.due : '', hubspot: x.hubspot || 'none', canvas: x.canvas || 'none',
+      detail: cueStr_(x.detail, 1500), next_action: cueStr_(x.next_action, 300), due: /^\d{4}-\d{2}-\d{2}$/.test(x.due || '') ? x.due : '', canvas: x.canvas || 'none',
       project_id: CUE_PID_RE_.test(x.project_id || '') ? x.project_id : '', confidence: x.confidence || 'medium',
       evidence: (x.evidence || []).slice(0, 6).map(e => ({ label: cueStr_(e.label, 160), url: https(e.url) })).filter(e => e.label || e.url),
       email: { to: '', subject: cueStr_((x.email || {}).subject, 200).replace(/[\r\n]+/g, ' '), body: cueStr_((x.email || {}).body, 4000) } };
@@ -492,7 +491,7 @@ function cueGtSeenAdd_(s, list) {
 }
 
 /* ---------- step 4: Kiko's taps ---------- */
-/** what = 'draft' (one Gmail draft, never sent) | 'hubspot' (a note or a task on the company). */
+/** what = 'draft' (one Gmail draft, never sent). */
 function cueGtAct(id, fid, what) {
   cueOwner_();
   const L = cueLoad_(id); if (!L || L.s.kind !== 'gtask') throw new Error('No such ChatGPT task.');
@@ -501,7 +500,6 @@ function cueGtAct(id, fid, what) {
   try {
     if (what === 'draft') { if (done.draft) return cueView_(s); if (!f.email.body) throw new Error('No email to draft.');
       done.draft = cueGmailDraft_(f.email.to, f.email.subject, f.email.body); cueChat_('Cue', 'Draft saved in your Gmail' + (f.email.to ? ' to ' + f.email.to : ' (no address: add one)') + '. Not sent.', id); }
-    else if (what === 'hubspot') { if (done.hubspot) return cueView_(s); done.hubspot = cueGtHubspot_(f); cueChat_('Cue', 'Added to HubSpot: ' + done.hubspot + '.', id); }
     else throw new Error('Unknown action.');
     delete done.error;
   } catch (e) { done.error = cueStr_(e.message, 300); }
@@ -528,29 +526,6 @@ function cueGtClose(id) {
     L.s.status = 'Done'; L.s.stage = 'Done'; cueSave_(L.sh, L.row, L.s); return L.s; });
   return cueView_(s);
 }
-/** Kiko 19:54Z "HubSpot + Canvas": a note or task on the HubSpot company (activity only; company and contact fields stay Canvas's). */
-function cueGtHubspot_(f) {
-  const call = (method, path, body) => {
-    const res = UrlFetchApp.fetch(CUE_HS_ + path, cueHsReq_(method, body)), code = res.getResponseCode();
-    if (code === 401) throw new Error('HubSpot did not accept CUE_HUBSPOT_TOKEN.');
-    if (code === 403) throw new Error('The HubSpot token cannot do this yet. Give the private app read and write access for companies, notes and tasks.');
-    if (code < 200 || code > 299) throw new Error('HubSpot said HTTP ' + code);
-    return JSON.parse(res.getContentText() || '{}');
-  };
-  const name = String(f.company || '').trim(); if (!name) throw new Error('This finding names no company.');
-  const hit = (call('post', '/crm/v3/objects/companies/search', { filterGroups: [{ filters: [{ propertyName: 'name', operator: 'CONTAINS_TOKEN', value: name }] }], properties: ['name'], limit: 3 }).results || [])[0];
-  if (!hit) throw new Error('HubSpot has no company named ' + name + '. Add it in Canvas first (Canvas syncs companies to HubSpot).');
-  const body = [f.title, f.detail, f.next_action && 'Next: ' + f.next_action].concat(f.evidence.map(e => (e.label || 'Source') + (e.url ? ': ' + e.url : ''))).filter(Boolean).join('\n') + '\n(Cue, ChatGPT task)';
-  const at = f.due ? new Date(f.due + 'T09:00:00+08:00').toISOString() : new Date(cueNow_()).toISOString();
-  if (f.hubspot === 'task') {
-    call('post', '/crm/v3/objects/tasks', { properties: { hs_timestamp: at, hs_task_subject: cueStr_(f.next_action || f.title, 200), hs_task_body: body, hs_task_status: 'NOT_STARTED', hs_task_priority: 'MEDIUM' },
-      associations: [{ to: { id: hit.id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 192 }] }] });
-    return 'task "' + cueStr_(f.next_action || f.title, 80) + '" on ' + ((hit.properties || {}).name || name) + (f.due ? ', due ' + f.due : '');
-  }
-  call('post', '/crm/v3/objects/notes', { properties: { hs_timestamp: at, hs_note_body: body },
-    associations: [{ to: { id: hit.id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }] }] });
-  return 'note on ' + ((hit.properties || {}).name || name);
-}
 /** The Canvas page for a finding (open-in-canvas rule): Accounts for a client, Suppliers for a supplier, the project for a project. */
 function cueGtCanvas_(f) {
   try {
@@ -568,5 +543,5 @@ function cueGtView_(s) {
     checks: G.checks || [], steps: G.steps || [], groups: CUE_GT_GROUPS_[D.area || 'lead'],
     items: (G.items || []).map(f => { const a = (G.acted || {})[f.id] || {}, c = cueGtCanvas_(f);
       return { id: f.id, group: f.group, title: f.title, company: f.company, person: f.person, detail: f.detail, evidence: f.evidence, next_action: f.next_action, due: f.due,
-        email: f.email, hubspot: f.hubspot, confidence: f.confidence, canvas: c, drafted: !!a.draft, in_hubspot: a.hubspot || '', error: a.error || '' }; }) };
+        email: f.email, confidence: f.confidence, canvas: c, drafted: !!a.draft, error: a.error || '' }; }) };
 }
