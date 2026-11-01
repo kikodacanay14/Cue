@@ -7,7 +7,9 @@ const PG_INDEX = '<table><tr><th scope="col">Publish Date</th></tr>' + [
   PG_ROW('119200', 'Event Management Services for the Year-End Conference', 'DEPARTMENT OF TOURISM', '28-Oct-2026 05:00 PM'),
   PG_ROW('119151', 'SBFP HOT MEALS', 'KUBAYAN ELEMENTARY SCHOOL', '04-Nov-2026 09:00 AM'),            // not BSE's kind of work
   PG_ROW('119100', 'Supply of LED Wall for Anniversary', 'CITY OF PASIG', '20-Oct-2026 09:00 AM'),     // already closed
-  PG_ROW('119300', 'Sound and Lights Rental for the Town Fiesta', 'MUNICIPALITY OF TAYTAY', '30-Oct-2026 10:00 AM')].join('') + '</table>';
+  PG_ROW('119300', 'Sound and Lights Rental for the Town Fiesta', 'MUNICIPALITY OF TAYTAY', '30-Oct-2026 10:00 AM'),
+  PG_ROW('119400', 'Stage and Lights for the Provincial Founding Anniversary', 'PROVINCE OF BATAAN', '29-Oct-2026 10:00 AM'),     // Bataan
+  PG_ROW('119500', 'Sound System for the Cebu Trade Expo', 'CITY OF CEBU', '29-Oct-2026 10:00 AM')].join('') + '</table>';
 const PG_NOTICE = (ref, abc, place, title, cat) => `<div class="col-sm-9"> <label>Notice Reference Number :${ref}</label> </div> <div class="col-sm-3 tamoha_twelvepx"> <label>Bid Validity Period (in Days): </label></br>120</br></br> <label>Approved Budget of the Contract: </label></br> ${abc}</br></br> <label>Procurement Mode: </label></br>Small Value Procurement</br></br> <label>Classification: </label></br>Goods</br></br> <label>Delivery/Project Location: </label></br>${place}</br></br> <label>Business Category: </label></br>${cat}</br></br> <label>Client Agency: </label></br>DEPARTMENT OF TOURISM</br></br> </div> <table><tr> <td width="20%"> <div> <b>Project Name:</b> ${title} </div> </td></tr></table> <div class="col-sm-3 tamoha_twelvepx"> <label>Schedule of activity:</label>&nbsp; <a class="link" rel="facebox" href_path="/Tenders/tender_shedule/${ref}">View all activity</a><br> <fieldset style="border:1px solid #999;padding:8px;"> <legend>Prebid Conference:</legend> <label>Date:</label></br> 23-Oct-2026 10:00 AM </br></br> <label>Venue:</label></br> DOT Office, Makati </br></br> </fieldset> <label>Closing Date:</label></br> 28-Oct-2026 05:00 PM </br></br> <label>Documents:</label>&nbsp; <a class="link" rel="facebox" href_path="/Tenders/tender_doc_view/${ref}/${ref}">Preview</a><br><br> <label>Bid Supplements: </label>&nbsp; <a rel="facebox" href="/Indexes/tender_corr_details/${ref}"> 1 </a></br> </div>`;
 const PG_SCHED = `<h4>Schedule of activity</h4> <div id="table"> <div class="table-row"> <div class="table-col-label"><b>Bid Notice Published Date :</b></div> <div class="table-col-value">20-Oct-2026 12:00 AM</div> </div> <div class="table-row"> <div class="table-col-label"><b>Pre-Bid Meeting Start Date and Time :</b></div> <div class="table-col-value">23-Oct-2026 10:00 AM</div> </div> <div class="table-row" style="display:none;"> <div class="table-col-label"><b>Pre-Bid Meeting End Date and Time :</b></div> <div class="table-col-value">23-Oct-2026 10:00 AM</div> </div> <div class="table-row"> <div class="table-col-label"><b>Bid Submission Deadline Date and Time :</b></div> <div class="table-col-value">27-Oct-2026 10:00 AM</div> </div> <div class="table-row"> <div class="table-col-label"><b>Bid Opening Date and Time :</b></div> <div class="table-col-value">27-Oct-2026 11:00 AM</div> </div> </div>`;
 const PG_DOCS = ref => `<h4>Bid Notice Documents</h4><table><tr><td>1</td><td><a href="https://philgeps.gov.ph/portal_documents/bid_notice_documents/bid_notice_${ref}/bid_notice_document/1793240247_ITB_Year-End_Conference.pdf">1793240247_ITB_Year-End_Conference.pdf</a></td></tr></table>`;
@@ -16,6 +18,8 @@ const PG_SITE = (o = {}) => (u, req) => {
   const p = u.replace('https://philgeps.gov.ph', '');
   if (p === '/Indexes/index') return o.index ? o.index() : pgPage(200, PG_INDEX);
   let m = /^\/Indexes\/viewLiveTenderDetails\/(\d+)$/.exec(p);
+  if (m && m[1] === '119400') return pgPage(200, PG_NOTICE('119400', '500,000.00', 'Balanga, Bataan', 'Stage and Lights for the Provincial Founding Anniversary', 'Event management services'), 'CAKEPHP=abc123');
+  if (m && m[1] === '119500') return pgPage(200, PG_NOTICE('119500', '500,000.00', 'Cebu City', 'Sound System for the Cebu Trade Expo', 'Event management services'), 'CAKEPHP=abc123');
   if (m) return m[1] === '119300' ? pgPage(200, PG_NOTICE('119300', '1,200,000.00', 'Taytay, Rizal', 'Sound and Lights Rental for the Town Fiesta', 'Rental of sound and lights'), 'CAKEPHP=abc123')
     : pgPage(200, PG_NOTICE(m[1], '950,000.00', 'Metro Manila', 'Event Management Services for the Year-End Conference', 'Event management services'), 'CAKEPHP=abc123');
   const ajax = (req.headers || {})['X-Requested-With'] === 'XMLHttpRequest' && /CAKEPHP=abc123/.test((req.headers || {}).Cookie || '');
@@ -27,7 +31,7 @@ const PG_SITE = (o = {}) => (u, req) => {
 test('PGS1 PhilGEPS pages: the bulletin row, the notice labels, the shown schedule rows and the files parse from the live markup', () => {
   const t = sandbox(), c = t.ctx;
   const rows = c.cuePgRows_(PG_INDEX);
-  deq(rows.map(r => r.ref), ['119200', '119151', '119100', '119300']);
+  deq(rows.map(r => r.ref), ['119200', '119151', '119100', '119300', '119400', '119500']);
   deq([rows[0].title, rows[0].agency, rows[0].closing], ['Event Management Services for the Year-End Conference', 'DEPARTMENT OF TOURISM', '28-Oct-2026 05:00 PM']);
   const n = c.cuePgNotice_(PG_NOTICE('119200', '2,900,000.00', 'Metro Manila', 'Year-End Conference', 'Event management services'));
   deq([n.abc, n.location, n.category, n.agency, n.title, n.prebid, n.closing, n.supplements],
@@ -44,9 +48,9 @@ test('PGS1 PhilGEPS pages: the bulletin row, the notice labels, the shown schedu
 
 test('PGS2 hourly read (7 AM to 7 PM Manila, no AI): keeps only open notices that fit BSE\'s work; once an hour; nothing at night', () => {
   const t = sandbox({ pg: PG_SITE() }), c = t.ctx;
-  assert.strictEqual(c.cueBidsPgTick_(), 2, '11:00 Manila: the conference and the sound and lights rental');
+  assert.strictEqual(c.cueBidsPgTick_(), 4, '11:00 Manila: the four open event notices (the board has no place column, so place is screened at 07:00)');
   const st = JSON.parse(t.props.CUE_PG_SEEN);
-  deq(st.items.map(x => x.r), ['119200', '119300'], 'hot meals (not event work) and the closed LED wall are left out');
+  deq(st.items.map(x => x.r), ['119200', '119300', '119400', '119500'], 'hot meals (not event work) and the closed LED wall are left out');
   assert.strictEqual(t.log.gpt.length, 0, 'no AI call');
   c.cueBidsPgTick_(); assert.strictEqual(t.log.pg.length, 1, 'a second tick within the hour reads nothing');
   t.ctx.__wait(60 * 60 * 1000); assert.strictEqual(c.cueBidsPgTick_(), 0, 'an hour later it reads again and adds nothing twice'); assert.strictEqual(t.log.pg.length, 2);
@@ -64,6 +68,9 @@ test('PGS3 daily bid check: New PhilGEPS comes from code, with ABC, deadline, ke
   deq(it.documents.map(d => [d.name, d.status]), [['ITB Year-End Conference.pdf', 'not opened']]);
   assert.strictEqual(it.amendments, '1 bid supplement(s) posted');
   assert.ok(!v.bids.items.some(x => x.reference === '119300'), 'ABC ₱1,200,000 is over the cap');
+  assert.ok(!v.bids.items.some(x => x.reference === '119400'), 'Bataan is never kept');
+  assert.ok(!v.bids.items.some(x => x.reference === '119500'), 'Cebu City is outside the area');
+  assert.ok(/outside the area left out/.test(v.bids.checks.filter(x => x.id === 4)[0].detail), 'the process check counts them');
   const src = v.bids.sources.filter(x => x.source === 'New PhilGEPS')[0];
   assert.strictEqual(src.status, 'Checked', JSON.stringify(src));
   assert.ok(/₱1,000,000/.test(v.bids.checks.filter(x => x.id === 3)[0].label));
