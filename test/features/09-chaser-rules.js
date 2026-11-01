@@ -44,7 +44,7 @@ test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 
   t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
   assert.strictEqual(chase(t)[0][6], '2026-10-22');
 });
-test('R6 moving the build time moves the sweep\'s Schedule row (no trigger)', () => {
+test('R6 the chasers row keeps its own time (13:00, for the 2 PM update, 1 Nov): the build hour no longer moves it, and no trigger is made', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
-  assert.ok(!t.log.triggers.some(h => h === 'cueSweep')); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Daily 06:00');
+  assert.ok(!t.log.triggers.some(h => h === 'cueSweep')); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Weekdays 13:00');
 });

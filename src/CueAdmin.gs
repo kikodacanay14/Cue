@@ -72,8 +72,10 @@ const CUE_ADMIN_CHASE_ = {
 const CUE_ADMIN_SCHED_ = {
   // CUE-K0-2026-10-31 (spec cue-message-redesign-spec.md, approved by Kiko 31 Oct 2026). silent: with the 8 AM update on, the job posts
   // nothing to the main chat (rule R2); what it finds shows in the 8 AM update, and a failure still says so.
-  'sys-k0': { spec: 'cue-message-redesign-spec.md', about: 'One message at 8:00 in your format: Critical today, Yesterday\'s summary, Today\'s work, and a numbered For your OK list. Reply "send 1, 3", "add 4" or "no 2" and Cue does it. While it is on, the jobs marked Silent post nothing to the chat.',
+  'sys-k0': { spec: 'cue-message-redesign-spec.md', about: 'Weekdays at 8:00: Yesterday\'s summary, Today\'s focus, New opportunities (reply "start 1") and New clients (reply "add 2"). While it is on, the jobs marked Silent post nothing to the chat.',
     asked: 'Asked by Kiko 31 Oct, spec and mockup approved 31 Oct', follows: [['Your 8 AM format', 'Critical today; Yesterday\'s summary (projects, opportunities, company); Today\'s work (assigned, review, follow up, blocked). Empty parts are left out.'], ['Approve = send', 'Chasers, contacts, bids and Friday updates go only for the numbers you name.']] },
+  'sys-k0pm': { spec: 'cue-message-redesign-spec.md', about: 'Weekdays at 2 PM: the funnel\'s follow-ups and every chaser due, numbered. Reply "1, 3" and Cue drafts them (tailored to each client\'s latest email) as cards to check; each goes only when you press Send.',
+    asked: 'Asked by Kiko 1 Nov ("2PM Funnel, Chasers")', follows: [['Draft, then you send', 'A pick drafts; nothing goes out until you press Send on that email.']] },
   'sys-newmail': { silent: true, spec: 'cue-message-redesign-spec.md', about: 'Reads new mail in your Gmail and info@ every 5 minutes; Claude sorts it every 30 minutes into the New mail thread.',
     asked: 'Asked by Kiko 27 Oct; made silent 31 Oct', follows: [['Silent', 'No chat line for new mail; it stays in the New mail thread.']] },
   'sys-contacts': { silent: true, spec: 'gmail-new-contacts.md', about: 'Finds people you email who are not in Canvas yet. They come to you as "Add contact" lines in the 8 AM update.',

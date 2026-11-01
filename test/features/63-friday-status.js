@@ -91,13 +91,13 @@ test('ST6 "status of Acme" scans and builds only the matching events; what is no
   assert.strictEqual(mv.status, 'Done', 'the Friday run before the Canvas release is not a failure'); assert.ok(/^Skipped: .*next Canvas release/.test(mv.st.empty));
 });
 
-test('ST7 no active events: Done with one line; Fridays 06:45 (07:00 until 31 Oct) start it from its own row once; the old Monday row moves to Friday, on', () => {
+test('ST7 no active events: Done with one line; Fridays 17:00 (Kiko 1 Nov: the Friday 5 PM message) start it from its own row once; the old Monday row moves to Friday, on', () => {
   const t = stRun({ cs: { today: '2026-10-23', projects: [], more: 0, missing: [] } });
   assert.strictEqual(t.v.status, 'Done'); assert.ok(/No active events/.test(t.v.st.empty)); assert.ok(!t.log.readyArgs);
   const u = sandbox({ readiness: ST_SCORE }); u.ctx.cueState();
-  deq(u.ctx.cueSchedules().filter(x => x.id === 'sys-status').map(x => [x.name, x.when, x.on]), [['Friday status updates', 'Fri 06:45', true]]);
-  u.ctx.__wait(phMs('2026-10-23', '07:01') - Date.parse('2026-10-21T03:00:00Z'));
-  for (let i = 0; i < 4; i++) { u.ctx.cueResume(); u.ctx.__wait(5 * 60000); }
+  deq(u.ctx.cueSchedules().filter(x => x.id === 'sys-status').map(x => [x.name, x.when, x.on]), [['Friday status updates', 'Fri 17:00', true]]);
+  u.ctx.__wait(phMs('2026-10-23', '17:01') - Date.parse('2026-10-21T03:00:00Z'));
+  for (let i = 0; i < 8; i++) { u.ctx.cueResume(); u.ctx.__wait(5 * 60000); }   // more rows due by Friday 17:00 (2 PM updates, chasers), 3 a tick
   const runs = () => u.tabs.Requests.rows.slice(1).map(r => u.state(r[0])).filter(x => x.kind === 'status');
   assert.strictEqual(runs().length, 1); assert.strictEqual(runs()[0].how, 'weekly'); assert.ok(/^Friday status updates 10\/23/.test(runs()[0].st.title));
   assert.strictEqual(runs()[0].status, 'Needs you', 'cueResume ran it to the card'); assert.ok(!u.log.sent, 'the Friday run never sends');
@@ -106,7 +106,7 @@ test('ST7 no active events: Done with one line; Fridays 06:45 (07:00 until 31 Oc
   const w = sandbox(); w.ctx.cueSchedules();
   const sh = w.tabs.Schedule, row = sh.rows.find(r => r[0] === 'sys-status');
   row[1] = 'Monday status report'; row[4] = 'Mon'; row[10] = false; w.props.CUE_SCHED_SEED = 'v6:';
-  deq(w.ctx.cueSchedules().filter(x => x.id === 'sys-status').map(x => [x.name, x.when, x.on]), [['Friday status updates', 'Fri 06:45', true]]);
+  deq(w.ctx.cueSchedules().filter(x => x.id === 'sys-status').map(x => [x.name, x.when, x.on]), [['Friday status updates', 'Fri 17:00', true]]);
 });
 
 test('ST8 Done skips what is not sent; the card shows Preview, Send and Skip per email and sends only after one confirm', () => {

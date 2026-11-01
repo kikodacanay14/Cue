@@ -76,8 +76,8 @@
     var mail = b.items.filter(function (it) { return !it.no_email && !it.removed && !it.tap; }).length;
     // Send follow-up (it.tap) works until the batch is closed, also after Approve and send.
     var tapLive = waiting || again || r.status === 'Scheduled' || r.status === 'Done';
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
-      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Chasers</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
+      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Pick in the 2 PM update; each email goes only when you press Send.</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
     if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
     kinds.forEach(function (k, ki) {
@@ -100,9 +100,9 @@
           + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
         if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
         else if (!it.no_email) h += (it.tap ? tapLive && !it.sent : waiting) && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
-            + (it.tap ? '<div class="small muted" style="margin-top:4px">Sends from your Gmail, in the CE thread, only when you tap Send follow-up.</div>' : '')
+            + (it.tap ? '<div class="small muted" style="margin-top:4px">' + (it.picked ? (it.tailored ? 'Tailored to their latest email. ' : '') + 'Goes only when you press Send.' : 'Sends from your Gmail, in the CE thread, only when you tap Send follow-up.') + '</div>' : '')
           : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';
-        var first = it.tap && tapLive && !it.sent && !it.removed ? '<button class="btn" data-act="sweep-one" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Send follow-up</button>'
+        var first = it.tap && tapLive && !it.sent && !it.removed ? (it.picked ? '<button class="btn ghost" data-act="sweep-tell" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Tell Cue</button>' : '') + '<button class="btn" data-act="sweep-one" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + (it.picked ? 'Send' : 'Send follow-up') + '</button>'
           : it.canvas_url && !it.removed && (waiting || tapLive) ? '<a class="btn" data-canvas="1" data-name="' + esc(it.project) + '" href="' + esc(it.canvas_url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas</a>' : '';
         if (it.action && it.action !== 'none' && !it.acted && waiting) h += '<div class="actions"><button class="btn ghost" data-act="sweep-act" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + esc(it.action === 'start_intake' ? 'Start intake' : it.action) + '</button></div>';
         // Inbox lines are not chasers: Done hides the email, Mute this sender stops Cue showing that sender again.

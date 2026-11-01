@@ -13,7 +13,7 @@
  * Task Tracker in part 4 of the spec; until then they are left out (R1). The 8 AM update is the Schedule row sys-k0: turning it off
  * in Cue Admin brings back the old posts. */
 
-const CUE_K0_ = { look: 160, max_ok: 60, retry_until: 10 };   // requests read; numbered lines at most; retry while the batch drafts, until 10:00
+const CUE_K0_ = { look: 160, max_ok: 60, retry_until: 15 };   // retry until 15:00 for the 2 PM update   // requests read; numbered lines at most; retry while the batch drafts, until 10:00
 const CUE_K0_JOB_KINDS_ = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, funnel: 1, gtask: 1, relnotes: 1, k0: 1 };
 
 /** True when the 8 AM update is on (its Schedule row exists and is on). Then the scheduled jobs keep out of the main chat (R2). */
@@ -27,8 +27,8 @@ function cueK0On_() {
 
 const cueK0Day_ = (day, n) => new Date(Date.parse(day + 'T12:00:00+08:00') + n * 864e5).toISOString().slice(0, 10);
 const cueK0Time_ = ms => { const p = cuePh_(ms), h = p.hour % 12 || 12; return h + ':' + String(p.minute).padStart(2, '0') + ' ' + (p.hour < 12 ? 'AM' : 'PM'); };
-const cueK0Title_ = day => { const d = new Date(Date.parse(day + 'T12:00:00+08:00')); return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getUTCDay()]
-  + ', ' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + ' · your 8 AM update'; };
+const cueK0Title_ = (day, mode) => { const d = new Date(Date.parse(day + 'T12:00:00+08:00')); return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getUTCDay()]
+  + ', ' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + (mode === 'pm' ? ' · your 2 PM update' : ' · your 8 AM update'); };
 
 /** The saved requests Cue reads for the update: [{ s, updated }] (updated = the row's Updated cell, ms). */
 function cueK0Rows_() {
@@ -37,81 +37,78 @@ function cueK0Rows_() {
 }
 
 /** Builds the update for one Manila day. Pure apart from reads: the tests call it directly. Returns { title, text, items, lines }. */
-function cueK0Build_(day, contacts) {
+function cueK0Build_(day, contacts, mode) {
+  // CUE-THREE-TOUCH-2026-11-01 (Kiko 1 Nov: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel,
+  // Chasers"): mode 'am' is the 8:00 update, 'pm' the 2:00 update. Each numbers its own lines for Kiko's reply.
+  mode = mode === 'pm' ? 'pm' : 'am';
   const rows = cueK0Rows_(), yday = cueK0Day_(day, -1), dayOf = ms => ms ? cuePh_(ms).day : '';
   const made = x => dayOf(Date.parse(x.s.created) || 0);
   const latest = (kind, d) => rows.filter(x => x.s.kind === kind && made(x) === d && !x.s.check).map(x => x.s).pop() || null;
-  const sweep = latest('sweep', day), bids = latest('bids', day), status = latest('status', day), funnel = latest('funnel', day);
-  const items = [], ok = [], add = (o, line) => { if (items.length >= CUE_K0_.max_ok) return; items.push(o); ok.push(line); };
-  const crit = [], ydone = { projects: [], opps: [], company: [] }, today = { assigned: [], review: [], follow: [], blocked: [] };
-
-  // Critical today: anything with a clock today (task reminders and Kiko's own scheduled reminders).
-  rows.forEach(x => { const r = Number(x.s.remind_at) || 0; if (r && dayOf(r) === day && !x.s.archived) crit.push([r, cueK0Time_(r) + ': ' + cueTaskName_(x.s)]); });
-  try { const sh = cueSheet_(CUE_SCHED_TAB_); if (sh) cueSchedRead_(sh).filter(x => x.run === 'remind' && x.on && x.next && dayOf(x.next) === day)
-    .forEach(x => crit.push([x.next, cueK0Time_(x.next) + ': ' + x.command.replace(/^remind\s+me\s+(?:to\s+|about\s+|that\s+)?/i, '')])); } catch (e) { console.warn('K0 reminders: ' + e); }
-  crit.sort((a, b) => a[0] - b[0]);
-
-  // Today's work: Cue's own open tasks (one per thread), by due date and state.
+  const sweep = latest('sweep', day), bids = latest('bids', day), funnel = latest('funnel', day);
+  const items = [], add = (o, line) => { if (items.length >= CUE_K0_.max_ok) return null; items.push(o); return items.length + '. ' + line; };
   const by = {}; rows.forEach(x => { by[x.s.id] = x.s; });
   const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
-  const seen = {};
-  rows.forEach(x => {
-    const s = x.s; if (CUE_K0_JOB_KINDS_[s.kind] || s.archived || s.check) return;
-    const r = root(s.id), R = by[r] || s; if (seen[r] || R.archived) return;
-    const open = rows.some(y => root(y.s.id) === r && ['Done', 'Rejected', 'Closed'].indexOf(y.s.status) < 0);
-    if (!open) return; seen[r] = 1;
-    const name = cueTaskName_(R), due = String(R.due || ''), waiting = rows.some(y => root(y.s.id) === r && y.s.status === 'Needs you');
-    if (waiting) today.review.push(name + (due ? ' (due ' + due + ')' : ''));
-    else if (due && due < day) today.follow.push(name + ': overdue since ' + due);
-    else if (due === day) today.assigned.push(name + ': due today');
-  });
-
-  // The 07:00 morning batch: chaser drafts for Kiko's OK, the rest as follow-ups, the ones chased the max times as blocked.
-  if (sweep && sweep.batch) {
-    const b = sweep.batch, settled = !!b.approved_at || sweep.status !== 'Needs you';
-    (b.items || []).filter(it => !it.removed).forEach(it => {
-      const what = [it.label ? it.label.replace(/s$/, '') : 'Chaser', it.who ? 'to ' + it.who : '', it.project ? '(' + it.project + ')' : ''].filter(Boolean).join(' ');
-      if (it.kind === 'tasks') return;   // Cue's own tasks are listed above, from the tasks themselves
-      if (!it.no_email && !it.tap && it.send_ok && !settled) add({ t: 'chase', k: it.key }, what + (it.why ? ': ' + it.why : ''));
-      else if (!it.no_email && it.send_ok && settled) return;   // already handled from the batch
-      else today.follow.push(what + (it.why ? ': ' + it.why : ''));
-    });
-    (b.stopped || []).forEach(it => today.blocked.push((it.who || it.project || 'Someone') + (it.project && it.who ? ' (' + it.project + ')' : '') + ': chased ' + (it.times || 0) + ' times, no reply'));
-  }
-  // The sales funnel's lines are follow-ups.
-  if (funnel && funnel.fn && (funnel.fn.lines || []).length) funnel.fn.lines.forEach(l => today.follow.push(String(l)));
-  // New contacts on the open card (made by cueK0Run_ inside the update's thread).
-  (contacts && contacts.people || []).forEach((p, i) => add({ t: 'contact', e: p.email, i: i + 1 }, 'Add contact: ' + [p.name || p.email.split('@')[0], p.title, p.company].filter(Boolean).join(', ') + ' (' + p.email + ')'));
-  // The bid check's new notices: start an intake or not.
-  if (bids && bids.bids && bids.status === 'Needs you') (bids.bids.items || []).forEach(it => add({ t: 'bid', k: it.key },
-    'Bid: ' + [it.project || it.reference, it.agency].filter(Boolean).join(', ') + (it.deadline ? ', closes ' + it.deadline : '') + ': start intake?'));
-  // Friday: one client update per event.
-  if (status && status.st && status.status === 'Needs you') (status.st.mails || []).filter(m => !m.sent_id && !m.skipped).forEach(m => add({ t: 'status', k: m.k },
-    'Friday update: ' + (m.name || 'event') + (m.to ? ' to ' + m.to : ' (no client email in Canvas: reply "to <email>" in its thread)')));
-
-  // Yesterday's summary: what Cue's threads, chasers, bids and contacts show for that day.
-  const proj = {};
-  rows.forEach(x => { const s = x.s; if (CUE_K0_JOB_KINDS_[s.kind] || s.check || dayOf(x.updated) !== yday) return; const n = cueTaskName_(by[root(s.id)] || s); proj[n] = (proj[n] || 0) + 1; });
-  Object.keys(proj).forEach(n => ydone.projects.push(n));
-  const sent = {}; rows.filter(x => x.s.kind === 'sweep' && x.s.batch).forEach(x => (x.s.batch.items || []).forEach(it => { if (it.sent_at && dayOf(Date.parse(it.sent_at)) === yday) sent[it.label || 'chasers'] = (sent[it.label || 'chasers'] || 0) + 1; }));
-  if (Object.keys(sent).length) ydone.projects.push('Chasers sent: ' + Object.keys(sent).map(k => sent[k] + ' ' + k).join(', '));
-  const ybids = latest('bids', yday);
-  if (ybids && ybids.bids && (ybids.bids.items || []).length) ydone.opps.push('Bids found: ' + ybids.bids.items.slice(0, 4).map(it => it.project || it.reference).filter(Boolean).join(', ') + (ybids.bids.items.length > 4 ? ' and ' + (ybids.bids.items.length - 4) + ' more' : ''));
-  if (contacts && contacts.added_yday) ydone.opps.push('Contacts added to Canvas: ' + contacts.added_yday);
-  const rn = latest('relnotes', yday);
-  if (rn && rn.rn && (rn.rn.lines || rn.rn.items || []).length) ydone.company.push('Canvas and Cue: ' + (rn.rn.lines || rn.rn.items).slice(0, 4).map(l => typeof l === 'string' ? l : l.text || l.title || '').filter(Boolean).join('; '));
-
-  // The message (R1: a level with nothing in it is left out).
-  const out = [], sec = (h, list) => { if (list.length) { out.push('', h); list.forEach(l => out.push(l)); } };
+  const out = [], sec = (h, list) => { list = list.filter(Boolean); if (list.length) { out.push('', h); list.forEach(l => out.push(l)); } };
   const lvl = (h, list) => list.length ? ['- ' + h].concat(list.map(l => '  - ' + l)) : [];
-  sec('Critical today', crit.map(c => '- ' + c[1]));
-  sec('Yesterday\'s summary', [].concat(lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
-  sec('Today\'s work', [].concat(lvl('Assigned to you', today.assigned), lvl('Needs your review or approval', today.review), lvl('Time to follow up', today.follow),
-    lvl('Blocked, waiting on someone', today.blocked)));
-  if (ok.length) sec('For your OK (reply "send all", "send 1, 3", "add 4", "start 6" or "no 2")', ok.map((l, i) => (i + 1) + '. ' + l));
-  const title = cueK0Title_(day);
-  if (!out.length) out.push('', 'Nothing needs you this morning.');
-  return { title, text: title + '\n' + out.join('\n'), items, sweep: sweep && !sweep.batch.approved_at ? sweep.id : '', bids: bids ? bids.id : '', status: status ? status.id : '' };
+  const title = cueK0Title_(day, mode);
+
+  if (mode === 'am') {
+    // Today's focus: anything with a clock today, then Cue's own open tasks by due date and state.
+    const crit = [], focus = { assigned: [], review: [], follow: [] };
+    rows.forEach(x => { const r = Number(x.s.remind_at) || 0; if (r && dayOf(r) === day && !x.s.archived) crit.push([r, cueK0Time_(r) + ': ' + cueTaskName_(x.s)]); });
+    try { const sh = cueSheet_(CUE_SCHED_TAB_); if (sh) cueSchedRead_(sh).filter(x => x.run === 'remind' && x.on && x.next && dayOf(x.next) === day)
+      .forEach(x => crit.push([x.next, cueK0Time_(x.next) + ': ' + x.command.replace(/^remind\s+me\s+(?:to\s+|about\s+|that\s+)?/i, '')])); } catch (e) { console.warn('K0 reminders: ' + e); }
+    crit.sort((a, b) => a[0] - b[0]);
+    const seen = {};
+    rows.forEach(x => {
+      const s = x.s; if (CUE_K0_JOB_KINDS_[s.kind] || s.archived || s.check) return;
+      const r = root(s.id), R = by[r] || s; if (seen[r] || R.archived) return;
+      if (!rows.some(y => root(y.s.id) === r && ['Done', 'Rejected', 'Closed'].indexOf(y.s.status) < 0)) return; seen[r] = 1;
+      const name = cueTaskName_(R), due = String(R.due || ''), waiting = rows.some(y => root(y.s.id) === r && y.s.status === 'Needs you');
+      if (waiting) focus.review.push(name + (due ? ' (due ' + due + ')' : ''));
+      else if (due && due < day) focus.follow.push(name + ': overdue since ' + due);
+      else if (due === day) focus.assigned.push(name + ': due today');
+    });
+    // Yesterday's summary: what Cue's threads, chasers, bids and contacts show for that day (Friday's on a Monday).
+    const yd = cuePh_(Date.parse(day + 'T12:00:00+08:00')).day && new Date(Date.parse(day + 'T12:00:00+08:00')).getUTCDay() === 1 ? cueK0Day_(day, -3) : yday;
+    const ydone = { projects: [], opps: [], company: [] }, proj = {};
+    rows.forEach(x => { const s = x.s; if (CUE_K0_JOB_KINDS_[s.kind] || s.check || dayOf(x.updated) < yd || dayOf(x.updated) >= day) return; const n = cueTaskName_(by[root(s.id)] || s); proj[n] = 1; });
+    Object.keys(proj).forEach(n => ydone.projects.push(n));
+    const sent = {}; rows.filter(x => x.s.kind === 'sweep' && x.s.batch).forEach(x => (x.s.batch.items || []).forEach(it => { const d = it.sent_at ? dayOf(Date.parse(it.sent_at)) : ''; if (d && d >= yd && d < day) sent[it.label || 'chasers'] = (sent[it.label || 'chasers'] || 0) + 1; }));
+    if (Object.keys(sent).length) ydone.projects.push('Chasers sent: ' + Object.keys(sent).map(k => sent[k] + ' ' + k).join(', '));
+    const ybids = latest('bids', yday);
+    if (ybids && ybids.bids && (ybids.bids.items || []).length) ydone.opps.push('Bids found: ' + ybids.bids.items.slice(0, 4).map(it => it.project || it.reference).filter(Boolean).join(', ') + (ybids.bids.items.length > 4 ? ' and ' + (ybids.bids.items.length - 4) + ' more' : ''));
+    if (contacts && contacts.added_yday) ydone.opps.push('Contacts added to Canvas: ' + contacts.added_yday);
+    const rn = latest('relnotes', yday);
+    if (rn && rn.rn && (rn.rn.lines || rn.rn.items || []).length) ydone.company.push('Canvas and Cue: ' + (rn.rn.lines || rn.rn.items).slice(0, 4).map(l => typeof l === 'string' ? l : l.text || l.title || '').filter(Boolean).join('; '));
+    // New opportunities (bids to start an intake) and new clients (contacts to add), numbered for Kiko's reply.
+    const opps = bids && bids.bids && bids.status === 'Needs you' ? (bids.bids.items || []).map(it => add({ t: 'bid', k: it.key },
+      [it.project || it.reference, it.agency].filter(Boolean).join(', ') + (it.deadline ? ', closes ' + it.deadline : '') + ' (bid)')) : [];
+    const people = (contacts && contacts.people || []).map((p, i) => add({ t: 'contact', e: p.email, i: i + 1 }, [p.name || p.email.split('@')[0], p.title, p.company].filter(Boolean).join(', ') + ' (' + p.email + ')'));
+    sec('Yesterday\'s summary', [].concat(lvl('Project tasks worked on', ydone.projects), lvl('New opportunities and clients', ydone.opps), lvl('Company', ydone.company)));
+    sec('Today\'s focus', [].concat(lvl('Critical today', crit.map(c => c[1])), lvl('Assigned to you', focus.assigned), lvl('Needs your review or approval', focus.review), lvl('Overdue', focus.follow)));
+    sec('New opportunities (reply "start 1" to begin an intake)', opps);
+    sec('New clients (reply "add 2" to add them to Canvas)', people);
+    if (!out.length) out.push('', 'Nothing needs you this morning.');
+    return { title, text: title + '\n' + out.join('\n'), items, mode, bids: bids ? bids.id : '' };
+  }
+
+  // 2 PM: the funnel's follow-ups, then every chaser due, numbered. A pick drafts; nothing sends until Kiko presses Send on a card.
+  const funnelLines = [], blocked = [], chasers = [];
+  if (funnel && funnel.fn && (funnel.fn.lines || []).length) funnel.fn.lines.forEach(l => funnelLines.push(String(l)));
+  if (sweep && sweep.batch) {
+    (sweep.batch.items || []).filter(it => !it.removed && it.kind !== 'tasks').forEach(it => {
+      const what = [it.label ? it.label.replace(/s$/, '') : 'Chaser', it.who ? 'to ' + it.who : '', it.project ? '(' + it.project + ')' : ''].filter(Boolean).join(' ');
+      if (!it.no_email && !it.sent_id && !it.picked) chasers.push(add({ t: 'chase', k: it.key }, what + (it.why ? ': ' + it.why : '')));
+      else if (it.no_email) funnelLines.push(what + (it.why ? ': ' + it.why : ''));
+    });
+    (sweep.batch.stopped || []).forEach(it => blocked.push((it.who || it.project || 'Someone') + (it.project && it.who ? ' (' + it.project + ')' : '') + ': chased ' + (it.times || 0) + ' times, no reply'));
+  }
+  sec('Funnel', funnelLines.map(l => '- ' + l));
+  sec('Chasers for your OK (reply "1, 3" or "all": Cue drafts them for you to check; nothing is sent until you press Send)', chasers);
+  sec('Chased the max times, no reply: your call', blocked.map(l => '- ' + l));
+  if (!out.length) out.push('', 'No follow-ups or chasers due this afternoon.');
+  return { title, text: title + '\n' + out.join('\n'), items, mode, sweep: sweep ? sweep.id : '' };
 }
 
 /** The new contacts waiting in the New contacts tab, as one card in the update's thread (one Canvas check, no AI). */
@@ -135,34 +132,39 @@ function cueK0Contacts_(s) {
   return out;
 }
 
-/** The Schedule row sys-k0 (08:00 daily). Posts the update once a day; while the 07:00 batch is still drafting it waits (cueK0Retry_). */
-function cueK0Run_(manual) {
-  const P = PropertiesService.getScriptProperties(), now = cueNow_(), day = cuePh_(now).day;
-  if (!manual && P.getProperty('CUE_K0_DAY') === day) return { skip: 'Already sent today' };
-  const sw = cueK0Rows_().filter(x => x.s.kind === 'sweep' && cuePh_(Date.parse(x.s.created) || 0).day === day).map(x => x.s).pop();
-  if (!manual && sw && ['Working', 'Making drafts'].indexOf(sw.status) >= 0 && cuePh_(now).hour < CUE_K0_.retry_until) { P.setProperty('CUE_K0_RETRY', day); return { skip: 'Waiting for the morning batch' }; }
-  P.deleteProperty('CUE_K0_RETRY'); P.setProperty('CUE_K0_DAY', day);
+/** The Schedule rows sys-k0 (weekdays 08:00, mode 'am') and sys-k0pm (weekdays 14:00, mode 'pm'). Each posts once a day. The 2 PM
+ * update waits while the 13:00 chaser batch is still drafting (cueK0Retry_), until 15:00 at the latest. */
+function cueK0Run_(manual, mode) {
+  mode = mode === 'pm' ? 'pm' : 'am';
+  const P = PropertiesService.getScriptProperties(), now = cueNow_(), day = cuePh_(now).day, guard = mode === 'pm' ? 'CUE_K0PM_DAY' : 'CUE_K0_DAY';
+  if (!manual && P.getProperty(guard) === day) return { skip: 'Already sent today' };
+  if (mode === 'pm') {
+    const sw = cueK0Rows_().filter(x => x.s.kind === 'sweep' && cuePh_(Date.parse(x.s.created) || 0).day === day).map(x => x.s).pop();
+    if (!manual && sw && ['Working', 'Making drafts'].indexOf(sw.status) >= 0 && cuePh_(now).hour < CUE_K0_.retry_until) { P.setProperty('CUE_K0_RETRY', day); return { skip: 'Waiting for the chasers' }; }
+    P.deleteProperty('CUE_K0_RETRY');
+  }
+  P.setProperty(guard, day);
   const d = new Date(now), id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
-  const s = { id, version: CUE_VERSION_, kind: 'k0', created: d.toISOString(), started: now, text: cueK0Title_(day), files: [], status: 'Done', stage: 'Done', ref: '', day,
+  const s = { id, version: CUE_VERSION_, kind: 'k0', created: d.toISOString(), started: now, text: cueK0Title_(day, mode), files: [], status: 'Done', stage: 'Done', ref: '', day,
     metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   let contacts = { people: [] };
-  try { contacts = cueK0Contacts_(s); } catch (e) { s.notes.push('New contacts: ' + cueStr_((e && e.message) || e, 200)); }
-  const K = cueK0Build_(day, contacts);
-  s.k0 = { title: K.title, day, items: K.items, sweep: K.sweep, bids: K.bids, status: K.status, ask: contacts.ask || '', done: {} };
+  if (mode === 'am') try { contacts = cueK0Contacts_(s); } catch (e) { s.notes.push('New contacts: ' + cueStr_((e && e.message) || e, 200)); }
+  const K = cueK0Build_(day, contacts, mode);
+  s.k0 = { title: K.title, day, mode, items: K.items, sweep: K.sweep || '', bids: K.bids || '', ask: contacts.ask || '', done: {} };
   cueLocked_(() => { const L = cueLoad_(id); L.s.k0 = s.k0; L.s.notes = s.notes; cueSave_(L.sh, L.row, L.s); });
   cueChat_('Cue', K.text, '>' + id);
   return { request_id: id, items: K.items.length };
 }
-/** From cueResume: the update that waited for the morning batch goes out as soon as the batch is ready (or at 10:00 at the latest). */
+/** From cueResume: the 2 PM update that waited for the chaser batch goes out as soon as the batch is ready. */
 function cueK0Retry_() {
   const P = PropertiesService.getScriptProperties(), day = cuePh_(cueNow_()).day;
   if (P.getProperty('CUE_K0_RETRY') !== day) return;
   globalThis.CUE_SCHED_RUNNING_ = true;
-  try { cueK0Run_(false); } finally { globalThis.CUE_SCHED_RUNNING_ = false; }
+  try { cueK0Run_(false, 'pm'); } finally { globalThis.CUE_SCHED_RUNNING_ = false; }
 }
 
-/** Today's update (the newest kind k0 request of the day), or null. */
+/** Today's newest update (8 AM or 2 PM), or null. A reply answers the newest one. */
 function cueK0Today_() {
   const day = cuePh_(cueNow_()).day;
   const x = cueRows_(cueSheet_('Requests')).slice(-60).map(r => { try { return JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return null; } })
@@ -171,15 +173,16 @@ function cueK0Today_() {
 }
 
 /* ---------- Kiko's reply ---------- */
-const CUE_K0_VERB_ = { send: 'do', add: 'do', start: 'do', yes: 'do', ok: 'do', okay: 'do', approve: 'do', go: 'do', no: 'no', skip: 'no', dont: 'no', "don't": 'no' };
+const CUE_K0_VERB_ = { draft: 'do', pick: 'do', send: 'do', add: 'do', start: 'do', yes: 'do', ok: 'do', okay: 'do', approve: 'do', go: 'do', no: 'no', skip: 'no', dont: 'no', "don't": 'no' };
 /** "send 1, 2, 3 · add 4 · no 5" as [{ verb, all, nums }], or null when the words are not a reply to the update. */
 function cueK0Parse_(text) {
-  const t = String(text || '').toLowerCase().replace(/[.!]+\s*$/, '').trim();
+  let t = String(text || '').toLowerCase().replace(/[.!]+\s*$/, '').trim();
   if (!t || t.length > 200) return null;
-  const parts = t.split(/\s*(?:·|;|\n|\band\b(?=\s+(?:send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\b)|,(?=\s*(?:send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\b))\s*/).filter(Boolean);
+  if (/^(all|everything|#?\d{1,2}(\s*(,|and|&|\s)\s*#?\d{1,2})*)$/.test(t)) t = 'pick ' + t;   // 2 PM: "1, 3" or "all" picks chasers to draft
+  const parts = t.split(/\s*(?:·|;|\n|\band\b(?=\s+(?:draft|pick|send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\b)|,(?=\s*(?:draft|pick|send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\b))\s*/).filter(Boolean);
   const out = [];
   for (const p of parts) {
-    const m = p.match(/^(send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\s+(?:to\s+)?(all|everything|(?:#?\d{1,2}(?:\s*(?:,|and|&|\s)\s*#?\d{1,2})*))$/);
+    const m = p.match(/^(draft|pick|send|add|start|yes|ok|okay|approve|go|no|skip|dont|don't)\s+(?:to\s+)?(all|everything|(?:#?\d{1,2}(?:\s*(?:,|and|&|\s)\s*#?\d{1,2})*))$/);
     if (!m) return null;
     const all = /^(all|everything)$/.test(m[2]), nums = all ? [] : (m[2].match(/\d{1,2}/g) || []).map(Number);
     out.push({ verb: CUE_K0_VERB_[m[1]], word: m[1], all, nums });
@@ -194,24 +197,22 @@ function cueK0Said_(text, ref) {
   const k0 = K.k0, items = k0.items || [], home = ref || '';
   const pick = {};   // item index (0-based) -> 'do' | 'no'
   P.forEach(p => {
-    const idx = p.all ? items.map((x, i) => i).filter(i => p.word !== 'send' || items[i].t === 'chase') : p.nums.map(n => n - 1).filter(i => i >= 0 && i < items.length);
+    const idx = p.all ? items.map((x, i) => i).filter(i => (p.word !== 'send' && p.word !== 'pick') || items[i].t === 'chase') : p.nums.map(n => n - 1).filter(i => i >= 0 && i < items.length);
     idx.forEach(i => { pick[i] = p.verb; });
   });
   if (!Object.keys(pick).length) return null;
   cueChat_('Kiko', String(text).trim(), home);
   const said = [], bad = [];
   const want = (t, verb) => Object.keys(pick).map(Number).filter(i => items[i].t === t && pick[i] === verb && !k0.done[i]);
-  // Chasers: one approval for the whole batch, sent now. The ones Kiko did not pick are skipped today and come back on their next day.
+  // Chasers (2 PM): a pick drafts them; nothing is sent. Cue tailors each picked draft to the client's latest email (one AI call) and
+  // shows it as a card in the chasers thread with Edit, Tell Cue, Skip and Send (Kiko 1 Nov: "draft it and show it to me for approval").
   const chase = want('chase', 'do');
   if (chase.length && k0.sweep) {
-    const keys = chase.map(i => items[i].k), skip = items.filter(x => x.t === 'chase' && keys.indexOf(x.k) < 0).map(x => x.k);
+    const keys = chase.map(i => items[i].k);
     try {
-      const s = cueSweepApprove_(k0.sweep, { send: true, skip, only: keys, now: true }), b = s.batch, mine = b.items.filter(it => keys.indexOf(it.key) >= 0);
-      const ok = mine.filter(it => it.sent_id).length, err = mine.filter(it => it.error);
-      if (ok) said.push(ok + ' chaser' + (ok === 1 ? '' : 's') + ' sent');
-      err.forEach(it => bad.push((it.who || it.key) + ': ' + it.error));
-      chase.forEach(i => { k0.done[i] = 'sent'; });
-      items.forEach((x, i) => { if (x.t === 'chase' && !k0.done[i]) k0.done[i] = 'skipped'; });
+      const n = cueK0Pick_(k0.sweep, keys);
+      said.push(n + ' chaser' + (n === 1 ? '' : 's') + ' drafted for you to check in the chasers thread (nothing sent yet; each goes when you press Send)');
+      chase.forEach(i => { k0.done[i] = 'drafted'; });
     } catch (e) { bad.push('Chasers: ' + cueStr_((e && e.message) || e, 200)); }
   }
   // New contacts: Approve with the ones Kiko did not name left out.
@@ -240,7 +241,18 @@ function cueK0Said_(text, ref) {
   Object.keys(pick).map(Number).filter(i => pick[i] === 'no' && !k0.done[i]).forEach(i => { k0.done[i] = 'skipped'; });
   const skipped = Object.keys(pick).filter(i => pick[i] === 'no').length;
   cueLocked_(() => { const L = cueLoad_(K.id); if (L) { L.s.k0.done = k0.done; cueSave_(L.sh, L.row, L.s); } });
-  cueChat_('Cue', (said.length ? 'Done: ' + said.join(', ') + '.' : 'Nothing sent.') + (skipped ? ' Left ' + skipped + ' as you said.' : '')
+  cueChat_('Cue', (said.length ? 'Done: ' + said.join(', ') + '.' : 'Nothing done.') + (skipped ? ' Left ' + skipped + ' as you said.' : '')
     + (bad.length ? ' Not done: ' + bad.join('; ') + '.' : ''), home);
   return { chat: true, task: home };
+}
+
+/** The chasers Kiko picked in the 2 PM update: marked for one-by-one sending (Send on each card), tailored in one AI call. */
+function cueK0Pick_(sweepId, keys) {
+  const L = cueLoad_(sweepId); if (!L || L.s.kind !== 'sweep') throw new Error('The chasers are no longer there.');
+  const picked = (L.s.batch.items || []).filter(it => keys.indexOf(it.key) >= 0 && !it.sent_id && !it.no_email);
+  picked.forEach(it => { it.tap = true; it.picked = true; });
+  try { cueSweepTailor_(L.s, picked); } catch (e) { L.s.notes.push('Tailoring: ' + cueStr_((e && e.message) || e, 200)); }
+  cueLocked_(() => { const M = cueLoad_(sweepId); M.s.batch = L.s.batch; M.s.notes = L.s.notes; M.s.metrics = L.s.metrics; cueSave_(M.sh, M.row, M.s); });
+  if (picked.length) cueChat_('Cue', picked.length + ' chaser' + (picked.length === 1 ? '' : 's') + ' ready for you to check. Edit or Tell Cue what to change, then press Send on each.', sweepId);
+  return picked.length;
 }

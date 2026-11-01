@@ -27,7 +27,8 @@ const CUE_RULE_KINDS_ = {
   payment: { label: 'C7 Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
   accreditation: { label: 'S1 Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },
   signature: { label: 'R5/R6 FSA and AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' } };
-const CUE_RULE_GENERAL_ = { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
+const CUE_RULE_GENERAL_ = { build: 7, send: 9,   // CUE-THREE-TOUCH-2026-11-01: the chaser row runs at 13:00 by its own Schedule time; these stay for the old Approve and send path
+  quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
 const CUE_RULE_LIMITS_ = { first: [1, 60], every: [1, 60], max: [1, 10], soon_first: [1, 60], soon_every: [1, 60], build: [5, 10], send: [7, 20],
   quiet_from: [18, 23], quiet_to: [5, 9], per_kind: [1, 30], per_batch: [1, 60] };
 
@@ -101,7 +102,7 @@ const cueRuleName_ = f => ({ on: 'on', first: 'first chase after', every: 'then 
   build: 'build at', send: 'send at', quiet_from: 'quiet from', quiet_to: 'quiet until', per_kind: 'lines per chaser', per_batch: 'lines per batch' }[f] || f);
 const cueRuleShow_ = (f, v) => f === 'on' ? (v ? 'on' : 'off') : /^(build|send|quiet_from|quiet_to)$/.test(f) ? String(v).padStart(2, '0') + ':00' : String(v);
 /** Moves the morning sweep to a new hour: its row in the Schedule tab (CueSchedule.gs; it has no trigger of its own since the scheduler). */
-function cueSweepTrigger_(hour) { cueSchedSweepHour_(hour); }
+function cueSweepTrigger_(hour) { void hour; }   // CUE-THREE-TOUCH-2026-11-01: the chasers row has its own time now (no sync)
 /** The next day a line is due, by its kind's rule. */
 /** it.every (a whole number from 1 to 60) overrides the rule for that line, e.g. RFQ's event-soon interval. */
 function cueNextDue_(rule, today, it) {
@@ -361,7 +362,7 @@ function cueSweepDraft_(s, items) {
     if (typeof k.wrap === 'function') {   // CUE-TEMPLATES-2026-10-31: the AI wrote only the middle; the kind's template frames it
       if (d && String(d.body || '').trim()) { const w = k.wrap(it, d.body); d = Object.assign({}, d, { subject: w.subject || d.subject, body: w.body }); it.html = w.html || ''; }
       else if (it.needs_draft !== false && !it.body) { it.no_email = true; it.needs_draft = false; }
-    } else if (!d && t.html) it.html = t.html;   // a fixed template's designed email (Kiko 31 Oct: "Full design, in the same thread")
+    } else if (!d && t.html) { it.html = t.html; it.tpl_aud = t.aud || ''; it.tpl_btn = t.button || null; }   // a fixed template's designed email (Kiko 31 Oct: "Full design, in the same thread")
     it.subject = cueStr_((d && d.subject) || t.subject || it.subject || ('Following up: ' + (it.project || 'BSE')), 200).replace(/[\r\n]+/g, ' ');
     it.body = cueStr_((d && d.body) || t.body || it.body || '', 6000);
     it.drafted_by = d ? 'ChatGPT' : 'template';
@@ -508,19 +509,25 @@ function cueSweepSendOne(id, key, body) {
     const it = (L.s.batch.items || []).filter(x => x.key === key)[0];
     if (!it || !it.tap) throw new Error('That line has no Send follow-up.');
     if (it.sent_id) return L.s;
-    if (!cueEmail_(it.to)) throw new Error('This line has no client email address. Send it from Gmail instead.');
-    if (typeof body === 'string' && body.trim()) it.body = cueStr_(body, 6000);
+    if (!cueEmail_(it.to) && typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).send !== 'function') throw new Error('This line has no email address. Send it from Gmail instead.');
+    if (typeof body === 'string' && body.trim() && body.trim() !== String(it.body || '').trim()) { it.body = cueStr_(body, 6000); it.html = ''; }   // Kiko's own words go as he typed them
     const k = cueKinds_().filter(x => x.kind === it.kind)[0], today = cuePh_(cueNow_()).day;
     try {
-      if (!it.draft_id) it.draft_id = it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
-        : cueGmailDraft_(it.to, it.subject, it.body);
-      it.sent_id = cueGmailSend_(it.draft_id); it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
+      // CUE-THREE-TOUCH-2026-11-01: a kind that sends through Canvas (payment, signature) or with its own checks (accreditation) uses its own send.
+      if (typeof k.send === 'function') it.sent_id = String(k.send(it, L.s) || 'sent');
+      else {
+        if (!it.draft_id) it.draft_id = it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [], it.html)
+          : cueGmailDraft_(it.to, it.subject, it.body, it.html);
+        it.sent_id = cueGmailSend_(it.draft_id);
+      }
+      it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
       try { cuePlogChaser_(it, L.s); } catch (e) { console.error('Project log (chaser): ' + e); }
       cueChaseWrite_(cueChaseLog_(), it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(cueRules_(), k), today, it), note: 'sent' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
     cueSave_(L.sh, L.row, L.s); return L.s;
   });
-  if (!s.batch.items.filter(x => x.key === key)[0].error) cueChat_('Cue', 'Sent the follow-up for ' + (s.batch.items.filter(x => x.key === key)[0].project || 'that line') + ' from your Gmail.', s.id);
+  if (!s.batch.items.filter(x => x.key === key)[0].error) { const it = s.batch.items.filter(x => x.key === key)[0], k = cueKinds_().filter(x => x.kind === it.kind)[0] || {};
+    cueChat_('Cue', 'Sent the follow-up for ' + (it.project || 'that line') + (typeof k.send === 'function' ? '.' : ' from your Gmail.'), s.id); }
   return cueView_(s);
 }
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.27.93: 8 AM and 2 PM weekday updates; chasers drafted for your OK, tailored, sent one by one (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel, Chasers / 5PM
+…"; weekends "no. we rest"; on "send 1, 3": "what i actually meant is to draft it and show it to me for approval"; "In Cue";
+templates "would probably still need to be adjusted based no the client and situation"; "go with both". Spec section 10.
+
+- 8 AM update (weekdays): Yesterday's summary (Friday's on a Monday), Today's focus (critical today, assigned, needs your OK,
+  overdue), New opportunities (bids; reply "start 1"), New clients (contacts; reply "add 2"). No chasers in the morning.
+- 2 PM update (new Schedule row "2 PM update", weekdays 14:00): the funnel's follow-ups and every chaser due, numbered. Reply
+  "1, 3" or "all": Cue drafts those (nothing is sent), tailors only their middle sentences to the client's latest email in one AI
+  call (greeting, ask frame, "Thanks!" and sign-off stay the template; a draft that changes them is dropped), and shows each as a
+  card in the chasers thread with Edit, Tell Cue (one AI call per instruction, same check), Skip and Send. Each email goes only on
+  its own Send (approve = send, per message); payment, signature and accreditation chasers send through their own path.
+- Schedule: weekdays only for the bid check (06:30), 8 AM update, chasers (13:00, now their own time, no longer tied to Chaser
+  rules' build hour), sales funnel (13:15), 2 PM update and release notes (19:45). Friday client status updates move to Fri 17:00
+  and post their own line (the Friday 5 PM message). The other 5 PM reports get their own specs.
+- Tests: 577 (K1, K2, K5 rewritten, K6 new; schedule tests updated for weekdays and the new times).
+
 ## Cue 1.27.92: chasers in Kiko's templates and the designed email, C2 and C3, holidays, Emails waiting off (not deployed)
 
 Asked by Kiko on 31 Oct 2026 ("yes sorry start part 2"). Part 2 of the spec cue-message-redesign-spec.md. Kiko's answers the same

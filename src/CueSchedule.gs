@@ -153,18 +153,20 @@ const CUE_SCHED_RUNS_ = { unsched: 'Code check, no AI', remind: 'Reminder', swee
 /** The rows Cue itself keeps. On as before for jobs that already ran on their own trigger; the newer ones start off until Kiko turns them on. */
 function cueSchedSystem_() {
   const rows = [
-    { id: 'sys-sweep', name: 'Morning sweep', repeat: 'daily', time: String(cueRules_().general.build).padStart(2, '0') + ':00', run: 'sweep', command: 'Morning sweep and chasers', on: true },
-    { id: 'sys-bids', name: 'Bid opportunities', repeat: 'daily', time: '06:30', run: 'bids', command: 'Bid opportunity check', on: true },
+    { id: 'sys-sweep', name: 'Chasers (for the 2 PM update)', repeat: 'weekdays', time: '13:00', run: 'sweep',   /* CUE-THREE-TOUCH-2026-11-01: its own time, for the 2 PM update */ command: 'Morning sweep and chasers', on: true },
+    { id: 'sys-bids', name: 'Bid opportunities', repeat: 'weekdays', time: '06:30', run: 'bids', command: 'Bid opportunity check', on: true },
     { id: 'sys-hubspot', name: 'Monday HubSpot check', repeat: 'weekly', days: ['Mon'], time: '06:00', run: 'hubspot', command: 'HubSpot clean-up scan', on: false },   // off: Kiko 30 Oct 07:45Z "dont include" (card review)
     { id: 'sys-pipeline', name: 'HubSpot sales review', repeat: 'weekly', days: ['Thu'], time: '08:00', run: 'pipeline', command: 'Pipeline review', on: false },
-    { id: 'sys-funnel', name: 'Sales funnel', repeat: 'daily', time: '06:45', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
-    { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '06:45', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
+    { id: 'sys-funnel', name: 'Sales funnel', repeat: 'weekdays', time: '13:15', run: 'funnel', command: 'Sales funnel', on: true },   // Kiko 24 Oct 13:56Z, no AI
+    { id: 'sys-status', name: 'Friday status updates', repeat: 'weekly', days: ['Fri'], time: '17:00', run: 'status', command: 'Status updates', on: true },   // CueStatus.gs, Kiko 29 Oct 12:57Z "sent every Friday"
     { id: 'sys-funnelreview', name: 'Monday sales funnel review', repeat: 'weekly', days: ['Mon'], time: '07:00', run: 'funnelreview', command: 'Sales funnel review', on: false },   // off: duplicate of the Sales funnel card (card review 30 Oct). CueSweepFunnel.gs, spec canvas-crm-funnel.md F6 (Kiko 26 Oct 16:08Z)
-    { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'daily', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
+    { id: 'sys-relnotes', name: 'Daily release notes', repeat: 'weekdays', time: '19:45', run: 'relnotes', command: 'Release notes for today', on: true },   // CueRelnotes.gs, Kiko 02:34Z 27 Oct
     { id: 'sys-rfps', name: 'RFPs from your Gmail', repeat: 'minute', time: '', run: 'rfps', command: 'Send the RFPs you pressed Send on in Canvas', on: true },   // CueRfpSend.gs, its own 1-minute trigger; Run now sends at once (Kiko 28 Oct 08:33Z)
     // CUE-K0-2026-10-31 (spec cue-message-redesign-spec.md, approved by Kiko 31 Oct 2026): the 8 AM update, and an On switch for each
     // job that runs in the background (they had none). Bid check 06:30, funnel and Friday status 06:45, so all are ready for 08:00.
-    { id: 'sys-k0', name: '8 AM update', repeat: 'daily', time: '08:00', run: 'k0', command: 'Your 8 AM update', on: true },
+    { id: 'sys-k0', name: '8 AM update', repeat: 'weekdays', time: '08:00', run: 'k0', command: 'Your 8 AM update', on: true },
+    // CUE-THREE-TOUCH-2026-11-01 (Kiko 1 Nov: "2PM Funnel, Chasers"; weekends "no. we rest"): the 2 PM update; chasers drafted at 13:00.
+    { id: 'sys-k0pm', name: '2 PM update', repeat: 'weekdays', time: '14:00', run: 'k0pm', command: 'Your 2 PM update: funnel and chasers', on: true },
     { id: 'sys-newmail', name: 'New mail', repeat: 'minute', time: '', run: 'bg:newmail', command: 'Read new mail in your Gmail and info@, sort it every 30 minutes', on: true },
     { id: 'sys-contacts', name: 'New contacts from Gmail', repeat: 'minute', time: '', run: 'bg:contacts', command: 'Find senders not yet in Canvas', on: true },
     { id: 'sys-accred', name: 'Client accreditation mail', repeat: 'minute', time: '', run: 'bg:accred', command: 'File accreditation replies under each company', on: true },
@@ -181,13 +183,14 @@ function cueSchedSystem_() {
 }
 /** Rows the card review turned off (see cueSchedSeed_). */
 /** CUE-K0-2026-10-31: the times the approved spec moves, applied once to the rows already in the tab (Kiko can change them after). */
-const CUE_SCHED_MOVE_ONCE_ = { 'sys-bids': '06:30', 'sys-funnel': '06:45', 'sys-status': '06:45' };
+const CUE_SCHED_MOVE_ONCE_ = { 'sys-bids': { time: '06:30', repeat: 'weekdays' }, 'sys-funnel': { time: '13:15', repeat: 'weekdays' }, 'sys-status': { time: '17:00' },
+  'sys-sweep': { time: '13:00', repeat: 'weekdays' }, 'sys-relnotes': { repeat: 'weekdays' }, 'sys-k0': { repeat: 'weekdays' } };   // CUE-THREE-TOUCH-2026-11-01: weekdays; chasers for the 2 PM update
 const CUE_SCHED_OFF_ONCE_ = ['sys-hubspot', 'sys-gt-admin_funnel', 'sys-funnelreview', 'sys-unsched', 'sys-gt-daily_plan'];   // daily_plan: the 8 AM update replaces it (Kiko 31 Oct)
 /** Adds any system row the tab does not have yet. Cheap: skipped while the list of system rows is unchanged. */
 function cueSchedSeed_() {
   // Read every 5 minutes, so the check costs one property read: Cue's own rows (v2 added the unscheduled check), plus the ChatGPT task keys.
   let gt = ''; try { gt = typeof cueGtSchedules_ === 'function' ? cueGtSchedules_().map(g => g.key).join(',') : ''; } catch (e) { gt = ''; }
-  const sig = 'v11:' + gt;   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
+  const sig = 'v12:' + gt;   // v12 (1 Nov): weekdays only, the 2 PM update, chasers at 13:00, Friday status at 17:00   // v11 (31 Oct): the 8 AM update, background switches, new morning times   // v4 added the release notes, v5 the RFP sender, v6 the sales funnel review, v7 moved the status report to Friday, v8 turned the Monday HubSpot check off, v9 the two funnel duplicates, v10 the unscheduled check
   if (cueProp_('CUE_SCHED_SEED', '') === sig) return;
   const sys = cueSchedSystem_();
   cueLocked_(() => {
@@ -209,7 +212,7 @@ function cueSchedSeed_() {
     PropertiesService.getScriptProperties().setProperty('CUE_SCHED_OFF_ONCE', done.join(','));
     const moved = cueProp_('CUE_SCHED_MOVE_ONCE', '').split(',').filter(Boolean);
     cueSchedRead_(sh).filter(x => CUE_SCHED_MOVE_ONCE_[x.id] && moved.indexOf(x.id) < 0).forEach(x => {
-      x.time = CUE_SCHED_MOVE_ONCE_[x.id]; x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x); moved.push(x.id);
+      const mv = CUE_SCHED_MOVE_ONCE_[x.id]; if (mv.time) x.time = mv.time; if (mv.repeat) { x.repeat = mv.repeat; x.days = []; } x.next = cueSchedNextAt_(x, now); cueSchedWrite_(sh, x); moved.push(x.id);
     });
     PropertiesService.getScriptProperties().setProperty('CUE_SCHED_MOVE_ONCE', moved.join(','));
     sys.filter(x => have.indexOf(x.id) < 0).forEach(x => {
@@ -256,7 +259,7 @@ function cueSchedRunOne_(x, manual) {
       if (!manual) P.setProperty('CUE_ST_DAY', today);
       return { result: 'Started', task: id(cueStStart_(manual ? 'Run the status updates' : 'Friday status updates', manual ? 'chat' : 'weekly', '')) };
     }
-    if (x.run === 'k0') { const o = cueK0Run_(manual); return o.skip ? { result: o.skip, task: '' } : { result: 'Sent (' + o.items + ' for your OK)', task: o.request_id }; }   // CUE-K0-2026-10-31
+    if (x.run === 'k0' || x.run === 'k0pm') { const o = cueK0Run_(manual, x.run === 'k0pm' ? 'pm' : 'am'); return o.skip ? { result: o.skip, task: '' } : { result: 'Sent (' + o.items + ' for your OK)', task: o.request_id }; }   // CUE-K0-2026-10-31
     if (/^bg:/.test(x.run)) {   // Run now on a background job: runs it once, now
       const fn = { 'bg:newmail': 'cueNmTick_', 'bg:contacts': 'cueCnTick_', 'bg:accred': 'cueAcTick_', 'bg:crm': 'cueCrmTickTick_' }[x.run], f = globalThis[fn];
       if (typeof f !== 'function') return { result: 'Not in this Cue yet', task: '' };
@@ -401,11 +404,7 @@ function cueSchedules() { cueOwner_(); cueSchedSeed_(); return cueSchedView_(); 
 function cueSchedSet(id, o) {
   cueOwner_(); o = o || {};
   // The sweep's hour is also Chaser rules' "build at" (whole hours, before the send time): that is saved first, so a bad hour changes nothing.
-  if (String(id) === 'sys-sweep' && o.when != null) {
-    const p = cueSchedParse_(String(o.when), cueNow_()), hm = p.when && cueSchedHm_(p.when.time);
-    if (hm && hm.m) throw new Error('The morning sweep runs on the hour, e.g. 7am.');
-    if (hm && hm.h !== cueRules_().general.build) cueRulesSave({ 'general.build': hm.h });
-  }
+  // CUE-THREE-TOUCH-2026-11-01: the chasers row keeps its own time (13:00 for the 2 PM update); it no longer follows Chaser rules' build hour.
   cueLocked_(() => {
     const sh = cueSchedSheet_(), list = cueSchedRead_(sh), x = list.filter(y => y.id === String(id))[0], now = cueNow_();
     if (!x) throw new Error('No such schedule.');
