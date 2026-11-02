@@ -68,3 +68,13 @@ function cueAskSaid_(c) {
   if (!open.length) return null;
   return cueAskPick(open[0].id, pick);
 }
+
+/** Cloud check (test/checks/1.27.88-ask-cue.check.mjs): reads the email types and counts the Canvas edits log. Read only: it
+ * creates no tab and writes nothing. */
+function cueAccCheck() {
+  cueOwner_();
+  let edits = 0;
+  try { const sh = SpreadsheetApp.openById(cueProp_('CUE_SHEET_ID', '')).getSheetByName('Canvas edits'); edits = sh ? Math.max(0, sh.getLastRow() - 1) : 0; } catch (e) { edits = -1; }
+  const types = cueMtTypes_();
+  return { settings: CUE_MT_SETTINGS_, types: Object.keys(types).map(t => ({ type: t, setting: types[t] })), edits };
+}
