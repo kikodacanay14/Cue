@@ -195,6 +195,8 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You sort emails for Kiko/.test(body.system)) { log.claude.push(body); log.nmSorts = (log.nmSorts || 0) + 1;   // New mail (CueNewMail.gs)
       return (o.fail || {}).nmSort ? o.fail.nmSort() : claudeOk(typeof o.nmSort === 'function' ? o.nmSort(body) : o.nmSort || { items: [] }); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You read one email for Kiko/.test(body.system)) { log.claude.push(body); log.mcReads = (log.mcReads || 0) + 1;   // ACC-6 email read
+      return claudeOk(typeof o.mcRead === 'function' ? o.mcRead(body) : o.mcRead || { want: 'They want a quote.', history: 'Nothing earlier.', next: 'Reply with a quote date.' }); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
     if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }

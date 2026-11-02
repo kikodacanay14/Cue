@@ -147,7 +147,8 @@ function cueNmToday_(day) {
   const now = cueNow_();
   const id = 'cue-' + Utilities.formatDate(new Date(now), 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const s = { id, version: CUE_VERSION_, kind: 'newmail', created: new Date(now).toISOString(), started: now, day, text: 'New mail for ' + day,
-    status: 'Done', stage: 'Done', ref: '', nm: { items: [], skipped: [], sorted_at: 0 }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
+    status: 'Done', stage: 'Done', ref: '', nm: { items: [], skipped: [], sorted_at: 0 }, metrics: { ai_calls: 0, calls: [] }, notes: [],
+    archived: true, archived_by: 'email chats' };   // ACC-6 (Q3 "A"): the daily list is no longer shown; each email has its own chat
   const seen = {};
   older.forEach(o => {
     (o.s.nm ? o.s.nm.items : []).filter(x => !x.removed && !x.task_id).forEach(x => { if (!seen[x.key]) { seen[x.key] = 1; s.nm.items.push(x); } });
@@ -161,7 +162,7 @@ function cueNmToday_(day) {
 
 /** Needs you while any line waits for Kiko; Done once every line is handled. */
 function cueNmStatus_(s) {
-  const open = s.nm.items.filter(x => !x.removed && !x.task_id).length;
+  const open = s.nm.items.filter(x => !x.removed && !x.task_id && !x.chat_id).length;   // ACC-6: a line with its own chat waits there
   if (s.status === 'Closed' && !open) return;
   s.status = open ? 'Needs you' : 'Done'; s.stage = s.status;
   if (open) s.card_at = s.card_at || cueNow_();
@@ -204,7 +205,7 @@ function cueNmSort_(run) {
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
   if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);
-  if (c.inquiry || c.reply) cueChat_('Cue', 'New mail: ' + parts.filter(p => !/FYI|skipped/.test(p)).join(', ') + '.', '>' + s.id);
+  cueMcFromSort_(run, s.id);   // ACC-6: one chat per Own chat email, with Cue's read (one Haiku call each)
   return s.id;
 }
 
@@ -234,7 +235,7 @@ function cueNmTyped_(run, typed, types) {
   if (typed.learn.length) { const sh = cueSheet_('Triage rules'), t = new Date(cueNow_()); typed.learn.forEach(p => sh.appendRow([String(p[0]).toLowerCase(), 'type:' + p[1], t, 'typed by Claude'])); }
   if (typed.newTypes.length) {
     cueMtSave_(Object.keys(types).map(k => ({ type: k, setting: types[k], why: typed.newTypes.indexOf(k) >= 0 ? 'new kind of email' : 'Cue Admin' })));
-    typed.newTypes.forEach(t => cueChat_('Cue', 'New kind of email: "' + t + '". For now each one shows as one line. Tell me how to handle this kind from now on: own chat, one line or ignore.', ''));
+    typed.newTypes.forEach(t => cueMcAskType_(t, typed.firstOf[t]));   // ACC-5: asked once, in its own short chat
   }
 }
 /** R9: one Main chat line per email with a Canvas Project ID. The email stays unread and gets no type. No AI. */
@@ -298,7 +299,7 @@ const CUE_NM_ABOUT_ = 'Reply to this email for Kiko. Answer what they asked only
 
 /** Draft reply: the usual "Draft an email" card (CueMail.gs), filed in the New mail thread, so Kiko edits and sends in the same window.
  * Kiko's inbox: a reply in its Gmail thread. info@: a new email from Kiko's own Gmail to the sender ("Re: <subject>"), never from info@. */
-function cueNmReply_(nm, it) {
+function cueNmReply_(nm, it, ask) {   // ask: Kiko's own words from an email chat (ACC-6), used as the brief
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   let T = null;
@@ -313,7 +314,7 @@ function cueNmReply_(nm, it) {
   }
   const subject = /^re:/i.test(it.subject || '') ? it.subject : 'Re: ' + (it.subject || '');
   const M = { job: 'reply', to: cueStr_(it.who || it.sender, 200), to_addr: it.sender, audience: 'other', project: '', canvas: '', thread: T,
-    about: CUE_NM_ABOUT_ + (T ? '' : '\n\nTheir email (to info@' + (it.subject ? ', subject "' + it.subject + '"' : '') + '):\n' + (it.text || it.summary || '')),
+    about: CUE_NM_ABOUT_ + (ask ? '\n\nKiko\'s instruction for this reply: ' + cueStr_(ask, 1000) : '') + (T ? '' : '\n\nTheir email (to info@' + (it.subject ? ', subject "' + it.subject + '"' : '') + '):\n' + (it.text || it.summary || '')),
     reply_subject: T ? '' : cueStr_(subject, 200), from_inbox: it.inbox };
   const s = { id, version: CUE_VERSION_, kind: 'email', created: d.toISOString(), started: now,
     text: 'Reply to ' + (it.who || it.sender) + '\'s email "' + (it.subject || '') + '"' + (it.inbox === 'info' ? ' (to info@, sent from your Gmail)' : ''),

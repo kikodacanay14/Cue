@@ -96,14 +96,14 @@ function cueMtMarkRead_(run, ids) {
 /** After the sort: type each sorted line and apply its type's setting. items = the New mail lines just sorted (changed in place),
  * by = { key: sorted line with .type }. Returns { oneLine: [lines to post], read: [message ids], newTypes: [names], learn: [[sender, type]] }. */
 function cueMtApply_(items, by, types, senders) {
-  const out = { oneLine: [], read: [], newTypes: [], learn: [] };
+  const out = { oneLine: [], read: [], newTypes: [], learn: [], firstOf: {} };
   items.forEach(x => {
     const l = by[x.key]; if (!l || x.type) return;
     const known = cueMtSenderType_(senders, x.sender);
     let t = known || cueMtName_(l.type) || 'Other';
     const hit = Object.keys(types).filter(k => k.toLowerCase() === t.toLowerCase())[0];
     if (hit) t = hit;
-    else { types[t] = 'One line'; out.newTypes.push(t); }
+    else { types[t] = 'One line'; out.newTypes.push(t); out.firstOf[t] = x; }
     x.type = t;
     if (!known && x.sender) out.learn.push([x.sender, t]);
     const set = types[t];
