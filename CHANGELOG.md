@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.27.84: Messenger sign links for crew, the sender (not deployed)
+
+Kiko asked on 2 Nov 2026, in a cloud chat, to use m.me so crew get their papers on Facebook Messenger and their social details sit
+in the Freelancers database. He approved the stories, rules, mockups and spec the same day ("approve", "Approve"), and parked the
+Cloudflare relay that Meta's incoming messages need. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-papers-spec.md` and
+`docs/superpowers/plans/2026-11-02-messenger-crew-papers.md`.
+
+- New `src/CueMessenger.gs`: every 15 minutes (Job Runs "Messenger sign links") Cue asks Canvas for unsigned FSAs and ARs of crew
+  who linked their Messenger (bridge read `msgr_due`) and sends each sign link on Messenger once, only while Meta's 24-hour window
+  from the crew member's last message is open. Each send is recorded in Canvas (`msgr_mark`) so it never goes twice. A document
+  outside the window is tried again later. Email and SMS are unchanged. No AI call. Bank details never go in the text.
+- Does nothing until script property `MSGR_PAGE_TOKEN` is set (after Meta approves the app), and needs the Canvas release waiting
+  in CanvasWorkspace `deploy-queue.md` ("Main: Messenger for crew papers"). The receiving half (link-ups, crew replies in Cue)
+  waits for the parked relay.
+- `test/fixtures/ZapBridge.gs` gains the three Messenger bridge actions from the Canvas handoff build.
+- Tests: 477 (7 new, `test/features/70-messenger.js`).
+
 ## Cue 1.27.83: New PhilGEPS read by code, hourly, with no AI, and the ABC cap raised to ₱1,000,000 (not deployed)
 
 Kiko asked on 1 Nov 2026, in the cloud chat "Test chat continuation", for a very cheap and effective way to read the bids on the new
