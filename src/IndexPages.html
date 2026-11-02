@@ -157,8 +157,25 @@
     var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
-    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
+    var MS = S.msgr || {};   // CUE-MSGR-2026-11-02: Messenger relay key, relay address and Facebook's Page token (saved, never shown again)
+    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.')
+      + '<div style="margin-top:14px"><b>Messenger</b> <span class="small muted">crew sign links and replies</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay key</b>'
+      + (MS.key ? '<input readonly value="' + esc(MS.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
+      + '<button class="btn ghost" data-msgr-key="1">' + (MS.key ? 'New key' : 'Make key') + '</button></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay address</b>'
+      + '<input data-msgr-url placeholder="https://bse-messenger-relay.….workers.dev" value="' + esc(MS.url || '') + '" style="flex:1;min-width:180px"></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Page token</b>'
+      + '<span class="' + (MS.token ? '' : 'muted') + '">' + (MS.token ? 'Saved' : 'Not set') + '</span>'
+      + '<input type="password" data-msgr-token placeholder="Paste the Page access token" autocomplete="off" style="flex:1;min-width:180px">'
+      + '<button class="btn ghost" data-msgr-save="1">Save</button></div>'
+      + '</div>');
   }
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
+    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
+    var box = $('w-conn'), f = box.querySelector('[data-msgr-token]'), v = f.value; f.value = '';
+    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----

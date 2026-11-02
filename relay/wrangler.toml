@@ -1,0 +1,13 @@
+# CUE-MSGR-2026-11-02: the Messenger relay. From this folder:
+#   npx wrangler kv namespace create MSGR_EVENTS      (paste the id it prints below)
+#   npx wrangler deploy
+#   npx wrangler secret put VERIFY_TOKEN   (any long random text; the same text goes in Meta's "Verify token" box)
+#   npx wrangler secret put APP_SECRET     (Meta app › App settings › Basic › App secret)
+#   npx wrangler secret put CUE_KEY        (Cue › Settings › Connections › Messenger relay key)
+name = "bse-messenger-relay"
+main = "messenger-worker.js"
+compatibility_date = "2026-10-01"
+
+[[kv_namespaces]]
+binding = "MSGR_EVENTS"
+id = "PASTE_THE_KV_NAMESPACE_ID"

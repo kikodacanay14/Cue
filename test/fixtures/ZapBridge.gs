@@ -3149,3 +3149,23 @@ ZB_ACTIONS_.contact_add = {
   run: (r) => zbContactAdd_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
+
+/* MSGR-CREW-2026-11-02 (Kiko 2 Nov 2026; handoffs/messenger-crew-papers-spec.md): Messenger for crew papers. The work is in
+ * MessengerCrew.gs; the actions are registered here so ZB_ACTIONS_ exists first. fl_social_save and msgr_mark are queue
+ * actions (keyed by request_id) because Kiko approved them running with no tap (D11, A11). */
+ZB_ACTIONS_.fl_social_save = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, ref: { type: 'string', max: 400 },
+    email: { type: 'string', max: 200, re: /^[^@\s]+@[^@\s]+\.[^@\s]+$/ }, messenger_id: { type: 'string', max: 40, re: /^\d{1,40}$/ },
+    messenger_name: { type: 'string', max: 120 }, gender: { type: 'string', max: 20 }, linked_at: { type: 'string', max: 40 },
+    last_message: { type: 'string', max: 40 } },
+  run: (r) => zbFlSocialSave_(r.args)
+};
+ZB_ACTIONS_.msgr_due = { kind: 'read', needsProject: false, schema: {}, run: () => zbMsgrDue_() };
+ZB_ACTIONS_.msgr_mark = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, doc: { type: 'string', required: true, oneOf: ['FSA', 'AR'] },
+    id: { type: 'string', required: true, re: /^[A-Za-z0-9._-]{1,60}$/ }, email: { type: 'string', required: true, max: 200, re: /^[^@\s]+@[^@\s]+\.[^@\s]+$/ },
+    psid: { type: 'string', required: true, re: /^\d{1,40}$/ } },
+  run: (r) => zbMsgrMark_(r.args)
+};

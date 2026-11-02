@@ -208,6 +208,8 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      // CUE-MSGR-2026-11-02: o.bridgeFn(body) answers any action it returns a result for (Messenger tests).
+      if (o.bridgeFn) { const r = o.bridgeFn(body); if (r !== undefined) return resp(200, { ok: true, status: 'Completed', result: r }); }
       // CUE-HELP-2026-10-27: the Help Q&A list (help_qa, Live rows) and one Draft question (help_qa_add), with the bridge's shapes.
       if (body.action === 'help_qa') { log.helpReads = (log.helpReads || 0) + 1; return o.helpFail && log.helpReads <= o.helpFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' })
         : resp(200, { ok: true, status: 'Completed', result: JSON.parse(JSON.stringify(o.help || HELP_QA)) }); }
@@ -554,6 +556,9 @@ function sandbox(o = {}) {
       if (/\/project\/inbox\/data$/.test(u)) return resp(200, { tasks: [{ title: 'Pay Sonic Pro', status: 0, dueDate: '2026-10-25T16:00:00.000+0000' }, { title: 'Done one', status: 2 }, { title: 'Call Ana', status: 0 }] });
       return resp(404, {});
     }
+    // CUE-MSGR-2026-11-02: Meta's Graph API and the Messenger relay. o.fb / o.relay answer; defaults: sent / nothing held.
+    if (u.indexOf('https://graph.facebook.com/') === 0) { (log.fb = log.fb || []).push({ url: u, req, body }); return o.fb ? o.fb(u, req, body) : resp(200, { message_id: 'm.' + log.fb.length }); }
+    if (u.indexOf('https://relay.example.workers.dev/') === 0) { (log.relay = log.relay || []).push({ url: u, req, body }); return o.relay ? o.relay(u, req, body) : resp(200, { events: [] }); }
     throw new Error('unexpected fetch ' + u);
   };
   const ctx = {
