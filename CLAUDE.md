@@ -52,3 +52,7 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
+
+## Rule documentation navigation
+
+Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
