@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.27.88: take the gmail.modify scope back out (not deployed)
+
+Cue 1.27.85 added the Gmail scope `gmail.modify` for marking emails read. Apps Script triggers run the head code, and Deploy Cue's
+auto-preview put 1.27.85 on the head, so every trigger (the 5-minute resume, the 1-minute RFP send, the 07:00 jobs) needed an
+authorization Kiko had not given and could stop until he re-authorized Cue. Kiko said on 2 Nov 2026 he will not do extra steps.
+The scope is removed. Marking read stays in the code and simply notes "needs one more Google permission" until a release that adds
+the scope together with a planned re-authorization. Nothing else changes. Tests: 482.
+
 ## Cue 1.27.87: Cue edits Canvas records after Kiko's approve, typed answers, edit log with undo (not deployed)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "have you Cue to be allowed in modifying fields for contact and clients,
