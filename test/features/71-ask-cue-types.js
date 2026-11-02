@@ -130,3 +130,17 @@ test('ACC11 typing "approve" answers the Approve question waiting in that chat, 
   const n = (t.log.bridge || []).filter(b => b.action === 'write_rows').length;
   t.ctx.cueSend('not', [], ''); assert.strictEqual((t.log.bridge || []).filter(b => b.action === 'write_rows').length, n, '"not" writes nothing');
 });
+
+test('ACC12 a known contact\'s email whose signature has new details gets an edit question in its chat; Undo keeps a long old value whole', () => {
+  let cur = nmAdded(['11aa000000000001']);
+  const t = sandbox({ inbox: NM_BOX, info: [], history: () => cur, nmSort: TY_SORT, historyId: '500', edit: ED_PLAN,
+    mcRead: { want: 'A quote.', history: 'Nothing earlier.', next: 'Reply.', phone: '0918 222 7781', position: '', company: '' },
+    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: 'Acme Party', pid: 'S-1' }] } });
+  t.tabs['Triage rules'].appendRow(['maria@acme.example', 'type:Client', new Date(), 'set']);
+  const id = nmRun(t), m = t.state(id).nm.items.filter(x => x.sender === 'maria@acme.example')[0];
+  assert.ok(m.chat_id, 'Maria has a chat');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === m.chat_id && /^Cue noticed new details in this email's signature\.$/.test(r[2])), 'the proposal reaches the chat');
+  const long = 'x'.repeat(900);
+  t.ctx.cueEdLog_({ book: 'tracker', tab: 'BI', keycol: 'BI NUMBER', key: '0014', set: { DESCRIPTION: 'new' }, was: { DESCRIPTION: long } }, { DESCRIPTION: 'new' });
+  const row = t.tabs['Canvas edits'].rows.slice(-1)[0]; assert.strictEqual(String(row[6]).length, 900, 'the whole old value is kept for Undo');
+});

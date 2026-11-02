@@ -22,7 +22,7 @@ every edit logged and undoable, an undo needing approve too (assumptions 13, 21)
 - The Canvas part (Team Cue filing by Project ID, info@ mark-as-read, Canvas-side locks and the allow-list rows for the five
   records) is handed to Canvas Integration: CanvasWorkspace `handoffs/ask-cue-changes-for-canvas-integration.md`. Until the rows
   exist, Cue edits only the tabs already allow-listed, and Kiko can add one with "allow cue to edit ...".
-- New file `src/CueEditLog.gs`, new tab Canvas edits. Tests: 481 (ACC10, ACC11; ED2 and AD4 updated).
+- New file `src/CueEditLog.gs`, new tab Canvas edits. The log keeps whole values (up to 2,000 characters) so Undo restores them exactly. Tests: 482 (ACC10 to ACC12; ED2 and AD4 updated).
 
 ## Cue 1.27.86: one chat per email, answered by typing (not deployed)
 

@@ -127,7 +127,9 @@ function cueMcFromSort_(run, nmId) {
     Object.keys(done).forEach(id => pointers.push(['Cue', done[id], id]));
   });
   pointers.forEach(p => cueChat_(p[0], p[1], p[2]));
-  todo.forEach(t => cueMcPropose_(t, reads[t.key]));   // ACC-14: Cue offers an edit when a known contact's signature differs
+  // ACC-14: Cue offers an edit when a known contact's signature differs. The chat ids were set on the reloaded lines, so read them back.
+  const L2 = cueLoad_(nmId), ids = {}; ((L2 && L2.s.nm.items) || []).forEach(x => { ids[x.key] = x.chat_id; });
+  todo.forEach(t => cueMcPropose_(Object.assign({}, t, { chat_id: ids[t.key] || '' }), reads[t.key]));
   return n;
 }
 

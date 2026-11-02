@@ -230,7 +230,7 @@
       + (editList && !L.length ? '<div class="card small muted">No edits yet.</div>' : '')
       + (L.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr><th style="text-align:center">When</th><th style="text-align:center">Record</th><th style="text-align:center">Field</th><th style="text-align:center">Old</th><th style="text-align:center">New</th><th></th></tr>'
         + L.map(function (x) { return '<tr><td style="text-align:center;vertical-align:middle" class="small">' + esc(String(x.at).slice(0, 16).replace('T', ' ')) + '</td><td style="vertical-align:middle">' + esc(x.tab + ' · ' + x.key) + '</td>'
-          + '<td style="text-align:center;vertical-align:middle">' + esc(x.column) + '</td><td style="text-align:center;vertical-align:middle">' + esc(x.old) + '</td><td style="text-align:center;vertical-align:middle">' + esc(x.now) + '</td>'
+          + '<td style="text-align:center;vertical-align:middle">' + esc(x.column) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.old).slice(0, 120)) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.now).slice(0, 120)) + '</td>'
           + '<td style="text-align:center;vertical-align:middle"><button class="btn ghost" data-ed-undo="' + x.n + '">Undo</button></td></tr>'; }).join('') + '</table></div>' : ''));
   }
   $('w-edits').addEventListener('click', function (e) {

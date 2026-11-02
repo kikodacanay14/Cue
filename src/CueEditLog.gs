@@ -27,8 +27,9 @@ function cueEdBankCols_(o) { return cueEdSupplierMain_(o.book, o.tab) ? Object.k
 function cueEdLog_(o, now) {
   try {
     const sh = cueSheet_('Canvas edits'), t = new Date(cueNow_());
-    Object.keys(o.set || {}).forEach(c => sh.appendRow([t, o.book, o.tab, o.keycol || '', o.key, c, o.add ? '' : cueStr_((o.was || {})[c], 500),
-      cueStr_(now && now[c] != null ? now[c] : o.set[c], 500), o.undo ? 'undo of ' + o.undo : 'approved by Kiko']));
+    // Whole values (up to the edit limit), so Undo puts back exactly what was there; the Edit log shortens them only on screen.
+    Object.keys(o.set || {}).forEach(c => sh.appendRow([t, o.book, o.tab, o.keycol || '', o.key, c, o.add ? '' : cueStr_((o.was || {})[c], CUE_EDIT_MAX_.value),
+      cueStr_(now && now[c] != null ? now[c] : o.set[c], CUE_EDIT_MAX_.value), o.undo ? 'undo of ' + o.undo : 'approved by Kiko']));
   } catch (e) { console.warn('Canvas edits log: ' + e); }
 }
 
