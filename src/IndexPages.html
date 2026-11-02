@@ -105,6 +105,7 @@
     if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
+    if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
     if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
@@ -219,6 +220,23 @@
   // ACC-4 (Kiko 2 Nov 2026: "In triage, have a list of common email senders of type then i will indicate what to do"): email types,
   // what happens to each, and the senders under each. Saved as one list; the sender rules below stay as before.
   var typeList = null, typeErr = '';
+  // ACC-15 (Kiko 2 Nov 2026, assumptions 13 and 21): every Canvas edit Cue saved, newest first; Undo opens an Approve question in Ask Cue.
+  var editList = null, editErr = '';
+  function loadEdits() { call('cueAdminEdits', [], function (r) { editList = r; editErr = ''; renderEdits(); }, function (e) { editErr = (e && e.message) || String(e); renderEdits(); }); }
+  function renderEdits() {
+    var L = editList || [];
+    setHtml($('w-edits'), '<div class="small muted" style="margin-bottom:10px">Every change Cue saved in Canvas. Undo asks for your approve in Ask Cue before anything is written.</div>'
+      + (editErr ? '<div class="err">' + esc(editErr) + '</div>' : '') + (editList ? '' : '<div class="small muted">Loading…</div>')
+      + (editList && !L.length ? '<div class="card small muted">No edits yet.</div>' : '')
+      + (L.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr><th style="text-align:center">When</th><th style="text-align:center">Record</th><th style="text-align:center">Field</th><th style="text-align:center">Old</th><th style="text-align:center">New</th><th></th></tr>'
+        + L.map(function (x) { return '<tr><td style="text-align:center;vertical-align:middle" class="small">' + esc(String(x.at).slice(0, 16).replace('T', ' ')) + '</td><td style="vertical-align:middle">' + esc(x.tab + ' · ' + x.key) + '</td>'
+          + '<td style="text-align:center;vertical-align:middle">' + esc(x.column) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.old).slice(0, 120)) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.now).slice(0, 120)) + '</td>'
+          + '<td style="text-align:center;vertical-align:middle"><button class="btn ghost" data-ed-undo="' + x.n + '">Undo</button></td></tr>'; }).join('') + '</table></div>' : ''));
+  }
+  $('w-edits').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ed-undo]'); if (!b) return; b.disabled = true;
+    call('cueAdminEditUndo', [Number(b.getAttribute('data-ed-undo'))], function () { b.textContent = 'Asked in Ask Cue'; }, function (er) { editErr = (er && er.message) || String(er); $('w-edits')._h = null; renderEdits(); });
+  });
   function loadTriage() {
     call('cueAdminTriage', [], function (r) { triageList = r; triageErr = ''; renderTriage(); }, function (e) { triageErr = (e && e.message) || String(e); renderTriage(); });
     call('cueAdminTypes', [], function (r) { typeList = r; typeErr = ''; renderTriage(); }, function (e) { typeErr = (e && e.message) || String(e); renderTriage(); });
