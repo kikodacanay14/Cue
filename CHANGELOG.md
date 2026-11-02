@@ -1,5 +1,31 @@
 # Changelog
 
+## Cue 1.27.85: email types, one line per email, mark as read, project emails (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "identify what kind of email it is. Like if its personal or form the
+bank or dues ... In triage, have a list of common email senders of type then i will indicate what to do. For new types of email let
+Cue ask me how should it be treated moving forward". Later answers: each email gets one line ("Didnt we establish that each email will
+get 1 line?"), "Mark as read" for the types he does not need to open, and emails with a Project ID "should appear in Team Chat. Have
+Cue notify me instead". Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`, stories AC-3, AC-4, AC-7, AC-8, AC-10. Part 2a of 3.
+
+- Every new email gets a type: Client, Supplier, Freelancer, Personal, Government, Bank, Bills and dues, Platform notices,
+  Newsletters and promos, Other. A sender already filed under a type is typed by code; otherwise the New mail sort (the same one
+  Claude Haiku call per batch) also names the type, and Cue files that sender under it for next time.
+- Cue Admin › Triage now starts with the types and what happens to each: Own chat (stays a New mail line for now; one chat per email
+  is part 2b), One line (its own line in Ask Cue, marked read in Gmail) or Ignore (not shown, marked read in Gmail). Add, rename and
+  remove types, change a setting, and move a sender to a type there. Starting settings: Bank, Bills and dues and Platform notices are
+  One line; Newsletters and promos is Ignore; the rest are Own chat.
+- A kind of email that fits no type is added as One line, and Cue says so once in Ask Cue.
+- Mail from muted senders is marked read too. Cue never archives, labels or deletes mail. Only Kiko's own Gmail is marked read in
+  this part; info@ needs Canvas (AC-9).
+- An email with a Canvas Project ID is no longer silently dropped: it passes the junk and mute filters, gets no type, stays unread,
+  and Cue posts one line in Ask Cue naming the project ("It goes to that project's thread in Team Cue"). Filing it in Team Cue by the
+  ID in the subject is the Canvas part (AC-11).
+- New Gmail scope `gmail.modify`, for marking read only. After this release Kiko taps Allow once; until then the emails stay unread
+  and nothing else fails.
+- New tab Triage types (Type, Setting, Set, Why). New file `src/CueMailTypes.gs`.
+- Tests: 476 (new `test/features/71-ask-cue-types.js`, ACC3 to ACC6; NM3 now ignores the sender-type rows).
+
 ## Cue 1.27.84: old daily threads clear themselves (not deployed)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "move the and add the unresponded items from previous thread to

@@ -20,6 +20,7 @@ const CUE_TABS_ = {
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
+  'Triage types': ['Type', 'Setting', 'Set', 'Why'],                                             // ACC-4: email types and what happens to each (Cue Admin › Triage)
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
   'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count']                          // one row per background job run (CueJobs.gs); Canvas Admin reads it
 };
