@@ -437,6 +437,8 @@
       intake: { name: 'Project intake', family: 'approve', steps: null, card: null },
       change: { name: 'Change request', family: 'draft', steps: CHANGE, card: function (r) { return !!r.change; } },
       newmail: { name: 'New mail', family: 'question', steps: null, card: function () { return true; } },   // CueNewMail.gs: one card per day
+      mail: { name: function (r) { return r.text || 'Email'; }, family: 'info', steps: null, card: null },   // CueMailChat.gs: one chat per email (ACC-6)
+      mailtype: { name: function (r) { return r.text || 'New kind of email'; }, family: 'question', steps: null, card: null },   // ACC-5
       sweep: { name: function (r) { return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/'); }, family: 'draft', steps: null, card: null },
       readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
       funnel: { name: 'Sales funnel', family: 'info', steps: FUNNEL, card: null },
