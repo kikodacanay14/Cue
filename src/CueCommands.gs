@@ -75,6 +75,8 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
 function cueRoutes_() {
   const words = c => !c.has && c.mode !== 'intake';   // typed words, not an intake form
   return [
+    { key: 'askreply', name: 'Kiko types "approve" or "not" for an Approve question (ACC-12, no buttons in Ask Cue chat)', said: c => words(c) ? cueAskSaid_(c) : null },
+    { key: 'mailchat', name: 'Kiko\'s reply in an email chat or a new-kind-of-email chat (ACC-5, ACC-6)', said: c => words(c) ? cueMcSaid_(c) : null },
     { key: 'learn', name: '"remember: …" saves a rule', said: c => words(c) ? cueLearnSaid_(c.text, c.ref) : null },
     { key: 'relay', name: '"tell Claude: …" relay note', said: c => words(c) ? cueRelaySaid_(c.text, c.ref) : null },
     { key: 'help', name: '"help: …" Help Q&A answer', said: c => words(c) ? cueHelpSaid_(c.text, c.ref) : null },

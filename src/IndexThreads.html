@@ -418,6 +418,8 @@
       intake: { name: 'Project intake', family: 'approve', steps: null, card: null },
       change: { name: 'Change request', family: 'draft', steps: CHANGE, card: function (r) { return !!r.change; } },
       newmail: { name: 'New mail', family: 'question', steps: null, card: function () { return true; } },   // CueNewMail.gs: one card per day
+      mail: { name: function (r) { return r.text || 'Email'; }, family: 'info', steps: null, card: null },   // CueMailChat.gs: one chat per email (ACC-6)
+      mailtype: { name: function (r) { return r.text || 'New kind of email'; }, family: 'question', steps: null, card: null },   // ACC-5
       sweep: { name: function (r) { return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/'); }, family: 'draft', steps: null, card: null },
       readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
       pipeline: { name: 'Pipeline review', family: 'draft', steps: PIPE, card: null },
@@ -467,6 +469,9 @@
   function askHtml(m) {
     var q = askOf(m); if (!q || !q.open) return '';
     if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
+    // ACC-12 (Kiko 2 Nov 2026: "if this is in Ask Cue chat - dont pu options - i will reply in the message"): an Approve question
+    // shows no buttons; Kiko types "approve" or "not" in the chat (cueAskSaid_ in CueEditLog.gs answers it).
+    if (q.choices.join(',') === 'approve,not') return '<div class="small muted" style="margin-top:6px">Reply "approve" or "not".</div>';
     return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
       return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
     }).join('') + '</div>';

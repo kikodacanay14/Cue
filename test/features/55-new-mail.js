@@ -31,7 +31,7 @@ test('NM1 new mail: the first tick only notes where Gmail and info@ are; the nex
   assert.ok(!t.log.inboxNew && !t.log.history && !t.log.nmSorts, 'first tick: no history read, no Canvas read, no AI');
   t.ctx.__wait(5 * 60e3); const since = Number(t.props.CUE_NM_INFO_SINCE), id = t.ctx.cueNmTick_();
   assert.ok(/startHistoryId=500&historyTypes=messageAdded&labelId=INBOX/.test(t.log.history[0])); assert.strictEqual(t.log.inboxNew[0].since, since);
-  const s = t.state(id); assert.strictEqual(s.kind, 'newmail'); assert.strictEqual(s.day, '2026-10-21'); assert.strictEqual(s.status, 'Needs you');
+  const s = t.state(id); assert.strictEqual(s.kind, 'newmail'); assert.strictEqual(s.day, '2026-10-21'); assert.strictEqual(s.status, 'Done', 'ACC-6: each email waits in its own chat, not in the daily list'); assert.strictEqual(s.archived, true, 'the daily list is not shown');
   deq(s.nm.items.map(x => [x.inbox, x.sender, x.group]), [['mine', 'maria@acme.example', 'inquiry'], ['info', 'leo@brightlights.example', 'reply']]);
   deq(s.nm.skipped.map(x => [x.sender, x.why]), [['news@weekly.example', 'mailing list']]);
   assert.ok(s.nm.items[1].urgent && /hold the LED wall/.test(s.nm.items[1].summary));
@@ -42,7 +42,8 @@ test('NM1 new mail: the first tick only notes where Gmail and info@ are; the nex
   assert.strictEqual(t.tabs['Triage log'].rows.length - 1, 3, 'every line shown is logged, junk included');
   const claimed = t.ctx.cueTriageClaimed_(); assert.ok(claimed['m:n1'] && claimed['m:info:44dd000000000004'] && claimed['m:n2'], 'the Morning batch never shows them again');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /^2 new emails \(1 to info@\)\. Claude sorts them within 30 minutes\.$/.test(r[2])));
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + id && r[2] === 'New mail: 1 new inquiry, 1 needs your reply.'), 'one line in the main chat for mail that needs Kiko');
+  const chats = s.nm.items.map(x => x.chat_id); assert.ok(chats.every(Boolean) && chats[0] !== chats[1], 'ACC-6: one chat per email');
+  chats.forEach(c => assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + c), 'one line in the main chat points to each email chat'));
   assert.ok(!t.log.replies && !t.log.sent && !t.log.gmail.length, 'nothing is drafted or sent');
   t.ctx.__wait(5 * 60e3); assert.strictEqual(t.ctx.cueNmTick_(), ''); assert.strictEqual(t.state(id).nm.items.length, 2, 'the same mail again: nothing added'); assert.strictEqual(t.log.nmSorts, 1);
   const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.nm.items.length, 2); assert.ok(/#all\/11aa000000000001$/.test(v.nm.items[0].url)); assert.strictEqual(v.nm.items[1].url, '');
@@ -82,7 +83,7 @@ test('NM3 new mail buttons: Done, Mute sender, Not an inquiry; Draft reply makes
   const m = nmSandbox(); const mid = nmRun(m), mk = m.state(mid).nm.items[0].key;
   m.ctx.cueNmItem(mid, mk, 'no_inquiry'); assert.strictEqual(m.state(mid).nm.items[0].group, 'fyi');
   m.ctx.cueNmItem(mid, mk, 'mute'); assert.strictEqual(m.state(mid).nm.items[0].removed, 'mute');
-  deq(m.tabs['Triage rules'].rows.slice(1).map(x => [x[0], x[1]]), [['maria@acme.example', 'no_inquiry'], ['maria@acme.example', 'mute']]);
+  deq(m.tabs['Triage rules'].rows.slice(1).filter(x => !/^type:/.test(x[1])).map(x => [x[0], x[1]]), [['maria@acme.example', 'no_inquiry'], ['maria@acme.example', 'mute']]);   // type: rows are the sender types the sort keeps (ACC-3)
   const lk = m.state(mid).nm.items[1].key; const v2 = m.ctx.cueNmItem(mid, lk, 'done'); assert.strictEqual(v2.status, 'Done', 'every line handled: the thread is done');
   const q = nmSandbox(); const qid = nmRun(q), qi = q.ctx.cueNmItem(qid, q.state(qid).nm.items[1].key, 'intake');
   assert.ok(/New project intake from email to info@\.\nFrom: Leo Cruz <leo@brightlights\.example>\nSubject: LED wall hold/.test(q.state(qi.request_id).text));

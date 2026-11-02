@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.27.84: Messenger sign links for crew, the sender (not deployed)
+## Cue 1.27.90: Messenger sign links for crew, the sender (not deployed)
 
 Kiko asked on 2 Nov 2026, in a cloud chat, to use m.me so crew get their papers on Facebook Messenger and their social details sit
 in the Freelancers database. He approved the stories, rules, mockups and spec the same day ("approve", "Approve"), and parked the
@@ -15,7 +15,105 @@ Cloudflare relay that Meta's incoming messages need. Spec and plan: CanvasWorksp
   in CanvasWorkspace `deploy-queue.md` ("Main: Messenger for crew papers"). The receiving half (link-ups, crew replies in Cue)
   waits for the parked relay.
 - `test/fixtures/ZapBridge.gs` gains the three Messenger bridge actions from the Canvas handoff build.
-- Tests: 477 (7 new, `test/features/70-messenger.js`).
+- Tests: 489 (7 new, `test/features/70-messenger.js`).
+## Cue 1.27.89: cloud check for the Ask Cue changes (not deployed)
+
+Kiko said on 2 Nov 2026: "you do that. ive never been asked to do that and i wont" (the PC check). The cloud check (Check Cue
+workflow, Kiko ok 27 Oct 2026) runs instead: new read-only script `test/checks/1.27.88-ask-cue.check.mjs` and check-door read
+`cueAccCheck` (email types and the Canvas edits log count; writes nothing). Dry run passes. Tests: 482.
+
+## Cue 1.27.88: take the gmail.modify scope back out (not deployed)
+
+Cue 1.27.85 added the Gmail scope `gmail.modify` for marking emails read. Apps Script triggers run the head code, and Deploy Cue's
+auto-preview put 1.27.85 on the head, so every trigger (the 5-minute resume, the 1-minute RFP send, the 07:00 jobs) needed an
+authorization Kiko had not given and could stop until he re-authorized Cue. Kiko said on 2 Nov 2026 he will not do extra steps.
+The scope is removed. Marking read stays in the code and simply notes "needs one more Google permission" until a release that adds
+the scope together with a planned re-authorization. Nothing else changes. Tests: 482.
+
+## Cue 1.27.87: Cue edits Canvas records after Kiko's approve, typed answers, edit log with undo (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "have you Cue to be allowed in modifying fields for contact and clients,
+projects, suppliers and freelancers". Answers: access approved ("Yes"); "Cue can propose i will approve"; locks "A. Allow edit of
+supplier bank details. yes to others" and round 3 "A" (password, role and approval columns stay locked); the bank warning "Yes";
+every edit logged and undoable, an undo needing approve too (assumptions 13, 21); no buttons in Ask Cue chat. Spec: CanvasWorkspace
+`docs/specs/ask-cue-changes-spec.md`, stories AC-12 to AC-15. Part 3 of 3.
+
+- Edits keep the existing flow (CueEdit.gs, generic bridge `write_rows`): Kiko asks in chat, Cue shows old and new values, and
+  nothing is written before he approves. Approve questions now show no buttons: Kiko types "approve" or "not" in the chat
+  (this covers the edit, allow-list, contact-fill and invoice-line questions).
+- Cue checks Kiko's lock list before any question: TIN, accreditation, verification, government ID, e-signature, password, role,
+  approval, status, award, booking and payment columns, and bank columns everywhere except Supplier Database › Main. A locked
+  field gets "I can't edit ..." and nothing else.
+- A supplier bank edit's question carries "Confirm by calling the supplier on a number you already have." It blocks nothing.
+- Every saved edit is logged in the new Canvas edits tab. Cue Admin › Edit log lists them; Undo opens an approve question in Ask
+  Cue that puts the old value back.
+- In an email chat, a known contact's signature (phone, position, company) that differs from P0 Contacts becomes an edit question
+  there. It uses the email's read (no extra call for the read) plus the usual edit call.
+- The Canvas part (Team Cue filing by Project ID, info@ mark-as-read, Canvas-side locks and the allow-list rows for the five
+  records) is handed to Canvas Integration: CanvasWorkspace `handoffs/ask-cue-changes-for-canvas-integration.md`. Until the rows
+  exist, Cue edits only the tabs already allow-listed, and Kiko can add one with "allow cue to edit ...".
+- New file `src/CueEditLog.gs`, new tab Canvas edits. The log keeps whole values (up to 2,000 characters) so Undo restores them exactly. Tests: 482 (ACC10 to ACC12; ED2 and AD4 updated).
+
+## Cue 1.27.86: one chat per email, answered by typing (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "New email - make each email appear in Cue's Main chat. Have Cue analyze
+based on history and conversation. 1 conversation or chat per email that arrived". On the mockup: "if this is in Ask Cue chat - dont pu
+options - i will reply in the message". Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`, stories AC-5 and AC-6. Part 2b of 3.
+
+- Each email whose type is set to Own chat opens its own chat. One line in Ask Cue points to it ("Ana Reyes: Booth count"). Its first
+  message is Cue's read: who it is (type, and the Canvas client and project when Canvas knows the sender), what they want, what the
+  Gmail thread and the project's other emails add, and a suggested next step. One Claude Haiku call per email; the read uses that
+  email's thread and the project's emails only.
+- No buttons. Kiko answers in the chat: "done" closes it; "start intake" starts an intake; "draft a reply saying ..." makes the usual
+  email card in the chat with his words as the brief (nothing is sent before he taps). Anything else gets Ask Cue's normal answer there.
+- A later email in the same Gmail conversation joins its chat and reopens it. The same email in Kiko's Gmail and info@ is one chat.
+- A new kind of email opens a short chat that asks once; Kiko replies "own chat", "one line" or "ignore" and Triage keeps it.
+- The daily "New mail" thread is no longer shown; it stays in the sheet as the list the 5-minute check works from.
+- Not yet: a reply Kiko sends from Gmail itself (not through Cue) does not close the chat; he says "done".
+- New file `src/CueMailChat.gs`. Tests: 479 (ACC7 to ACC9 in `test/features/71-ask-cue-types.js`; NM1 now expects one chat per
+  email instead of the daily list's pointer line).
+
+## Cue 1.27.85: email types, one line per email, mark as read, project emails (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "identify what kind of email it is. Like if its personal or form the
+bank or dues ... In triage, have a list of common email senders of type then i will indicate what to do. For new types of email let
+Cue ask me how should it be treated moving forward". Later answers: each email gets one line ("Didnt we establish that each email will
+get 1 line?"), "Mark as read" for the types he does not need to open, and emails with a Project ID "should appear in Team Chat. Have
+Cue notify me instead". Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`, stories AC-3, AC-4, AC-7, AC-8, AC-10. Part 2a of 3.
+
+- Every new email gets a type: Client, Supplier, Freelancer, Personal, Government, Bank, Bills and dues, Platform notices,
+  Newsletters and promos, Other. A sender already filed under a type is typed by code; otherwise the New mail sort (the same one
+  Claude Haiku call per batch) also names the type, and Cue files that sender under it for next time.
+- Cue Admin › Triage now starts with the types and what happens to each: Own chat (stays a New mail line for now; one chat per email
+  is part 2b), One line (its own line in Ask Cue, marked read in Gmail) or Ignore (not shown, marked read in Gmail). Add, rename and
+  remove types, change a setting, and move a sender to a type there. Starting settings: Bank, Bills and dues and Platform notices are
+  One line; Newsletters and promos is Ignore; the rest are Own chat.
+- A kind of email that fits no type is added as One line, and Cue says so once in Ask Cue.
+- Mail from muted senders is marked read too. Cue never archives, labels or deletes mail. Only Kiko's own Gmail is marked read in
+  this part; info@ needs Canvas (AC-9).
+- An email with a Canvas Project ID is no longer silently dropped: it passes the junk and mute filters, gets no type, stays unread,
+  and Cue posts one line in Ask Cue naming the project ("It goes to that project's thread in Team Cue"). Filing it in Team Cue by the
+  ID in the subject is the Canvas part (AC-11).
+- New Gmail scope `gmail.modify`, for marking read only. After this release Kiko taps Allow once; until then the emails stay unread
+  and nothing else fails.
+- New tab Triage types (Type, Setting, Set, Why). New file `src/CueMailTypes.gs`.
+- Tests: 476 (new `test/features/71-ask-cue-types.js`, ACC3 to ACC6; NM3 now ignores the sender-type rows).
+
+## Cue 1.27.84: old daily threads clear themselves (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "move the and add the unresponded items from previous thread to
+today's thread so that old thread's can be archived". He chose daily threads only, carried from every older day (Q1 "A"), and
+approved that Cue archives the old thread itself (assumption 11). Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`,
+stories AC-1 and AC-2. This is part 1 of 3; one chat per email and Canvas field edits follow.
+
+- New mail: today's thread now takes the open lines from every older New mail thread still waiting, not only the latest one, with
+  no line twice. Each of those older threads closes and is archived.
+- Bid check: notices still open on an older day's Bid check thread (no intake, deadline not passed) move into today's thread,
+  marked with the day they came from, and the summary says how many are "still open from earlier days". The older thread closes
+  and is archived. A finished older thread is left as it is.
+- Morning batch: an older batch that still needed Kiko is now archived as well as closed when today's batch lists its lines again.
+- Archived threads leave Waiting on you and Recent and show under the Archived filter, as before.
+- Tests: 472 (new `test/features/70-ask-cue-carry.js`, ACC1 and ACC2).
 
 ## Cue 1.27.83: New PhilGEPS read by code, hourly, with no AI, and the ABC cap raised to ₱1,000,000 (not deployed)
 

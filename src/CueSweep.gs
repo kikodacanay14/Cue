@@ -185,7 +185,7 @@ function cueSweepStart_(how) {
     cueRows_(sh).forEach((r, i) => {
       if (String(r[2]) !== 'Needs you') return;
       let x = null; try { x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
-      if (x.kind === 'sweep' && x.day !== ph.day) { x.status = 'Closed'; x.closed_from = 'Needs you'; x.superseded = id; cueSave_(sh, i + 2, x); }
+      if (x.kind === 'sweep' && x.day !== ph.day) { x.status = 'Closed'; x.closed_from = 'Needs you'; x.superseded = id; x.archived = true; x.archived_by = 'carry'; cueSave_(sh, i + 2, x); }   // ACC-2: archived too (assumption 11)
     });
     sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
   });

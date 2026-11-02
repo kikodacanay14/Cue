@@ -89,25 +89,29 @@ function cueNmLine_(inbox, threadId, m) {
 /** The code filters, no AI and no writes: mail another task owns or a Canvas project's mail is dropped; junk and muted senders
  * are kept apart as skipped; the rest is kept with Kiko's rule for the sender. */
 function cueNmFilter_(run, found) {
-  const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [];
+  const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [], proj = [];
   let ids = null;
   const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
   found.forEach(l => {
     const m = l._m;
     if (claimed[l.thread_id] || claimed['m:' + m.id] || claimed['m:' + l.key.replace(/^inbox:/, '')]) return;
-    try { if (projectIds().some(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))) return; }   // a project's email: status reports and chasers
+    // A project's email (R6, R9): before the junk and mute filters, so it is never dropped; it belongs to Team Cue, with one line here.
+    try { const pid = projectIds().filter(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))[0]; if (pid) { proj.push(Object.assign(l, { pid })); return; } }
     catch (e) { console.warn('New mail: Canvas board: ' + e); }
     const rule = cueTriageRule_(rules, m.from), junk = rule === 'keep' ? '' : cueTriageJunk_(m);
     if (rule === 'mute' || junk) { skip.push(Object.assign(l, { group: 'skip', why: rule === 'mute' ? 'muted sender' : junk })); return; }
     l.rule = rule || '';
     keep.push(l);
   });
-  return { keep, skip };
+  return { keep, skip, proj };
 }
 
 /** Code filters (no AI), then the lines join today's New mail thread and the Triage log. Returns the thread's id ('' when nothing new). */
 function cueNmAdd_(run, found) {
   const f = cueNmFilter_(run, found), keep = f.keep, skip = f.skip;
+  cueNmProject_(f.proj || []);
+  // Muted senders' mail is marked read in Kiko's Gmail (assumption 16); junk stays as Gmail left it.
+  cueMtMarkRead_(run, skip.filter(l => l.inbox === 'mine' && l.why === 'muted sender').map(l => l.key.replace(/^inbox:/, '')));
   if (!keep.length && !skip.length) return '';
   const day = cuePh_(cueNow_()).day;
   const s = cueLocked_(() => {
@@ -131,22 +135,26 @@ function cueNmAdd_(run, found) {
 /** Today's New mail request, made on first use. Lines Kiko has not handled yet move from the day before, which then closes. Call locked. */
 function cueNmToday_(day) {
   const sh = cueSheet_('Requests'), rows = cueRows_(sh);
-  let prev = null;
+  // ACC-1 / ACC-2 (Kiko 2 Nov 2026, Q1 "A"): open lines move from every older New mail thread still waiting, not only the latest one;
+  // each of those threads closes and is archived (assumption 11).
+  const older = [];
   for (let i = rows.length - 1; i >= 0; i--) {
     let x = null; try { x = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { continue; }
     if (!x || x.kind !== 'newmail') continue;
     if (x.day === day) return { sh, row: i + 2, s: x };
-    prev = prev || { row: i + 2, s: x };
-    break;
+    if (!older.length || (x.status !== 'Closed' && !x.archived)) older.push({ row: i + 2, s: x });
   }
   const now = cueNow_();
   const id = 'cue-' + Utilities.formatDate(new Date(now), 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const s = { id, version: CUE_VERSION_, kind: 'newmail', created: new Date(now).toISOString(), started: now, day, text: 'New mail for ' + day,
-    status: 'Done', stage: 'Done', ref: '', nm: { items: [], skipped: [], sorted_at: 0 }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
-  if (prev && prev.s.nm) {
-    s.nm.items = prev.s.nm.items.filter(x => !x.removed && !x.task_id);
-    if (prev.s.status !== 'Closed') { prev.s.status = 'Closed'; prev.s.closed_from = 'Needs you'; prev.s.superseded = id; cueSave_(sh, prev.row, prev.s); }
-  }
+    status: 'Done', stage: 'Done', ref: '', nm: { items: [], skipped: [], sorted_at: 0 }, metrics: { ai_calls: 0, calls: [] }, notes: [],
+    archived: true, archived_by: 'email chats' };   // ACC-6 (Q3 "A"): the daily list is no longer shown; each email has its own chat
+  const seen = {};
+  older.forEach(o => {
+    (o.s.nm ? o.s.nm.items : []).filter(x => !x.removed && !x.task_id).forEach(x => { if (!seen[x.key]) { seen[x.key] = 1; s.nm.items.push(x); } });
+    if (o.s.status !== 'Closed') { o.s.closed_from = o.s.status; o.s.status = 'Closed'; o.s.superseded = id; }
+    o.s.archived = true; o.s.archived_by = 'carry'; cueSave_(sh, o.row, o.s);
+  });
   cueNmStatus_(s);
   sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
   return { sh, row: sh.getLastRow(), s };
@@ -154,7 +162,7 @@ function cueNmToday_(day) {
 
 /** Needs you while any line waits for Kiko; Done once every line is handled. */
 function cueNmStatus_(s) {
-  const open = s.nm.items.filter(x => !x.removed && !x.task_id).length;
+  const open = s.nm.items.filter(x => !x.removed && !x.task_id && !x.chat_id).length;   // ACC-6: a line with its own chat waits there
   if (s.status === 'Closed' && !open) return;
   s.status = open ? 'Needs you' : 'Done'; s.stage = s.status;
   if (open) s.card_at = s.card_at || cueNow_();
@@ -177,6 +185,8 @@ function cueNmSort_(run) {
   cueTriageSort_(run, ask, { claude: true, model: CUE_NM_MODEL_, label: 'Claude', fetch: l => l.inbox !== 'info' });
   const by = {}; ask.forEach(l => { by[l.key] = l; });
   const known = N0.items.some(x => x.inbox === 'mine' && !x.known) ? cueNmWaiting_(run) : null;
+  const types = cueMtTypes_(), senders = cueMtSenders_();
+  let typed = null;
   const s = cueLocked_(() => {
     const L = cueLoad_(L0.s.id);
     L.s.nm.items.forEach(x => {
@@ -184,16 +194,18 @@ function cueNmSort_(run) {
       x.group = l.group; x.summary = l.summary; x.urgent = !!l.urgent; x.why = l.why || ''; x.sorted = true;
       if (l.group === 'skip') { x.removed = 'skip'; }
     });
+    typed = cueMtApply_(L.s.nm.items, by, types, senders);   // ACC-3, ACC-7, ACC-8: type each line and apply its type's setting
     cueNmKnown_(known, L.s.nm.items);
     (run.notes || []).forEach(n => { if (L.s.notes.indexOf(n) < 0) L.s.notes.push(n); });
     const m = L.s.metrics || (L.s.metrics = { ai_calls: 0, calls: [] }); m.ai_calls = (m.ai_calls || 0) + (run.metrics.ai_calls || 0);
     cueNmStatus_(L.s); cueSave_(L.sh, L.row, L.s); return L.s;
   });
+  cueNmTyped_(run, typed, types);
   const c = {}; ask.forEach(l => { c[l.group] = (c[l.group] || 0) + 1; });
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
   if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);
-  if (c.inquiry || c.reply) cueChat_('Cue', 'New mail: ' + parts.filter(p => !/FYI|skipped/.test(p)).join(', ') + '.', '>' + s.id);
+  cueMcFromSort_(run, s.id);   // ACC-6: one chat per Own chat email, with Cue's read (one Haiku call each)
   return s.id;
 }
 
@@ -211,6 +223,28 @@ function cueNmKnown_(by, items) {
   items.forEach(x => {
     const i = x.inbox === 'mine' && !x.known && by[String(x.thread_id)];
     if (i) x.known = { who: cueStr_(i.who, 20), name: cueStr_(i.name, 120), project: cueStr_(i.project, 160), pid: cueStr_(i.pid, 40) };
+  });
+}
+
+/** ACC part 2a, after the sort: One line emails each get their own line in Main chat; One line and Ignore emails are marked read;
+ * senders Claude typed are kept in Triage; a new type is added (setting One line) and Cue says so once in Main chat. */
+function cueNmTyped_(run, typed, types) {
+  if (!typed) return;
+  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), ''));
+  cueMtMarkRead_(run, typed.read);
+  if (typed.learn.length) { const sh = cueSheet_('Triage rules'), t = new Date(cueNow_()); typed.learn.forEach(p => sh.appendRow([String(p[0]).toLowerCase(), 'type:' + p[1], t, 'typed by Claude'])); }
+  if (typed.newTypes.length) {
+    cueMtSave_(Object.keys(types).map(k => ({ type: k, setting: types[k], why: typed.newTypes.indexOf(k) >= 0 ? 'new kind of email' : 'Cue Admin' })));
+    typed.newTypes.forEach(t => cueMcAskType_(t, typed.firstOf[t]));   // ACC-5: asked once, in its own short chat
+  }
+}
+/** R9: one Main chat line per email with a Canvas Project ID. The email stays unread and gets no type. No AI. */
+function cueNmProject_(proj) {
+  if (!proj.length) return;
+  const t = new Date(cueNow_()), log = cueSheet_('Triage log');
+  proj.forEach(l => {
+    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '');
+    log.appendRow([t, l.key.replace(/^inbox:/, ''), l.thread_id, l.sender, cueStr_(l.subject, 200), 'project', l.pid, '']);
   });
 }
 
@@ -265,7 +299,7 @@ const CUE_NM_ABOUT_ = 'Reply to this email for Kiko. Answer what they asked only
 
 /** Draft reply: the usual "Draft an email" card (CueMail.gs), filed in the New mail thread, so Kiko edits and sends in the same window.
  * Kiko's inbox: a reply in its Gmail thread. info@: a new email from Kiko's own Gmail to the sender ("Re: <subject>"), never from info@. */
-function cueNmReply_(nm, it) {
+function cueNmReply_(nm, it, ask) {   // ask: Kiko's own words from an email chat (ACC-6), used as the brief
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   let T = null;
@@ -280,7 +314,7 @@ function cueNmReply_(nm, it) {
   }
   const subject = /^re:/i.test(it.subject || '') ? it.subject : 'Re: ' + (it.subject || '');
   const M = { job: 'reply', to: cueStr_(it.who || it.sender, 200), to_addr: it.sender, audience: 'other', project: '', canvas: '', thread: T,
-    about: CUE_NM_ABOUT_ + (T ? '' : '\n\nTheir email (to info@' + (it.subject ? ', subject "' + it.subject + '"' : '') + '):\n' + (it.text || it.summary || '')),
+    about: CUE_NM_ABOUT_ + (ask ? '\n\nKiko\'s instruction for this reply: ' + cueStr_(ask, 1000) : '') + (T ? '' : '\n\nTheir email (to info@' + (it.subject ? ', subject "' + it.subject + '"' : '') + '):\n' + (it.text || it.summary || '')),
     reply_subject: T ? '' : cueStr_(subject, 200), from_inbox: it.inbox };
   const s = { id, version: CUE_VERSION_, kind: 'email', created: d.toISOString(), started: now,
     text: 'Reply to ' + (it.who || it.sender) + '\'s email "' + (it.subject || '') + '"' + (it.inbox === 'info' ? ' (to info@, sent from your Gmail)' : ''),

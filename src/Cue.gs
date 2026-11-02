@@ -20,6 +20,8 @@ const CUE_TABS_ = {
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
+  'Canvas edits': ['Time', 'Book', 'Tab', 'Key column', 'Key', 'Column', 'Old', 'New', 'How'],   // ACC-15: every Canvas edit Cue saved (Edit log, Undo)
+  'Triage types': ['Type', 'Setting', 'Set', 'Why'],                                             // ACC-4: email types and what happens to each (Cue Admin › Triage)
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
   'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count']                          // one row per background job run (CueJobs.gs); Canvas Admin reads it
 };
@@ -632,7 +634,7 @@ const cueWords_ = t => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).fi
 
 // Live 22 Oct 02:35Z: a JBL Booth CE ask "reopened" the email-to-Rommel thread. Only project threads (intakes, change requests,
 // readiness, expenses, ARs, CE costs, supplier searches) take a new message; an email draft, style guide or batch never does.
-const CUE_RELATED_SKIP_ = ['newmail', 'pipeline', 'finance', 'hubspot', 'status', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'relay'];
+const CUE_RELATED_SKIP_ = ['newmail', 'mail', 'mailtype', 'pipeline', 'finance', 'hubspot', 'status', 'bids', 'gtask', 'email', 'style', 'memory', 'process', 'personal', 'sweep', 'workflow', 'supplier', 'relay'];
 /** Kiko 06:57Z: the task from the last 7 days that a new message belongs to, as its thread's newest run id ('' when none).
  * With pid: the task for the same Canvas project. Without: a task whose project or client name appears in the text. */
 function cueRelated_(text, pid, self) {
