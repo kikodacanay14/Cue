@@ -42,7 +42,7 @@ test('ED2 a column Cue may not write, no matching row, two rows, already there, 
   const cardOf = t => t.tabs.Chat.rows.filter(x => /^\?ask-/.test(String(x[3]))).length;
   const last = t => String(t.tabs.Chat.rows[t.tabs.Chat.rows.length - 1][2]);
   let t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { set: [{ column: 'STATUS', value: 'Paid', how: 'replace' }] }) });
-  t.ctx.cueSend('mark BI 0014 paid', [], ''); assert.ok(/STATUS can't be changed by Cue in BI\. Cue can change: DESCRIPTION\. Nothing was changed\./.test(last(t)), last(t)); assert.strictEqual(cardOf(t), 0);
+  t.ctx.cueSend('mark BI 0014 paid', [], ''); assert.ok(/^I can't edit STATUS\. It stays locked, .*Nothing was changed\.$/.test(last(t)), last(t));   // ACC-12, R2: Cue's own lock list answers first assert.strictEqual(cardOf(t), 0);
   t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { where: [{ column: 'BI NUMBER', equals: '0099', contains: '' }] }) });
   t.ctx.cueSend('fix BI 0099', [], ''); assert.ok(/^No BI row matches \(BI NUMBER = 0099\)/.test(last(t)), last(t));
   t = sandbox({ talk: TALK_ED, edit: Object.assign({}, ED_PLAN, { where: [{ column: 'BI NUMBER', equals: '', contains: '001' }] }) });

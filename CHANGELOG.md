@@ -1,5 +1,29 @@
 # Changelog
 
+## Cue 1.27.87: Cue edits Canvas records after Kiko's approve, typed answers, edit log with undo (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "have you Cue to be allowed in modifying fields for contact and clients,
+projects, suppliers and freelancers". Answers: access approved ("Yes"); "Cue can propose i will approve"; locks "A. Allow edit of
+supplier bank details. yes to others" and round 3 "A" (password, role and approval columns stay locked); the bank warning "Yes";
+every edit logged and undoable, an undo needing approve too (assumptions 13, 21); no buttons in Ask Cue chat. Spec: CanvasWorkspace
+`docs/specs/ask-cue-changes-spec.md`, stories AC-12 to AC-15. Part 3 of 3.
+
+- Edits keep the existing flow (CueEdit.gs, generic bridge `write_rows`): Kiko asks in chat, Cue shows old and new values, and
+  nothing is written before he approves. Approve questions now show no buttons: Kiko types "approve" or "not" in the chat
+  (this covers the edit, allow-list, contact-fill and invoice-line questions).
+- Cue checks Kiko's lock list before any question: TIN, accreditation, verification, government ID, e-signature, password, role,
+  approval, status, award, booking and payment columns, and bank columns everywhere except Supplier Database › Main. A locked
+  field gets "I can't edit ..." and nothing else.
+- A supplier bank edit's question carries "Confirm by calling the supplier on a number you already have." It blocks nothing.
+- Every saved edit is logged in the new Canvas edits tab. Cue Admin › Edit log lists them; Undo opens an approve question in Ask
+  Cue that puts the old value back.
+- In an email chat, a known contact's signature (phone, position, company) that differs from P0 Contacts becomes an edit question
+  there. It uses the email's read (no extra call for the read) plus the usual edit call.
+- The Canvas part (Team Cue filing by Project ID, info@ mark-as-read, Canvas-side locks and the allow-list rows for the five
+  records) is handed to Canvas Integration: CanvasWorkspace `handoffs/ask-cue-changes-for-canvas-integration.md`. Until the rows
+  exist, Cue edits only the tabs already allow-listed, and Kiko can add one with "allow cue to edit ...".
+- New file `src/CueEditLog.gs`, new tab Canvas edits. Tests: 481 (ACC10, ACC11; ED2 and AD4 updated).
+
 ## Cue 1.27.86: one chat per email, answered by typing (not deployed)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "New email - make each email appear in Cue's Main chat. Have Cue analyze

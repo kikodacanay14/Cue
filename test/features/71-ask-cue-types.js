@@ -107,3 +107,26 @@ test('ACC9 a later email in the same Gmail conversation joins its chat and reope
   const v = t.ctx.cueSend('ignore', [], 'chat', gym[0].id); assert.strictEqual(v.status, 'Done');
   assert.ok(t.tabs['Triage types'].rows.slice(1).some(r => r[0] === 'Gym memberships' && r[1] === 'Ignore'));
 });
+
+test('ACC10 edits: Kiko\'s lock list holds in Cue (supplier bank details editable, freelancer bank and TIN not); supplier bank edits carry the call-to-confirm warning', () => {
+  const t = sandbox();
+  deq(['TIN', 'Accreditation Status', 'Copy of Government ID', 'PROJECT STATUS', 'Account Number', 'Preferred Bank', 'Role', 'Approved by'].map(c => t.ctx.cueEdLocked_('admin', 'QRY', c)), [true, true, true, true, true, true, true, true]);
+  deq(['Bank', 'Account Name', 'AccountNumber', 'City'].map(c => t.ctx.cueEdLocked_('suppliers', 'Main', c)), [false, false, false, false]);
+  assert.strictEqual(t.ctx.cueEdLocked_('suppliers', 'Main', 'TIN'), true);
+  deq(t.ctx.cueEdBankCols_({ book: 'suppliers', tab: 'Main', set: { AccountNumber: '0123', City: 'Pasig' } }), ['AccountNumber']);
+  t.ctx.cueEditCard_({ book: 'suppliers', tab: 'Main', key: 'SUP-0412', keycol: 'Supplier ID #', set: { AccountNumber: '0123' }, was: { AccountNumber: '2290' } }, '');
+  assert.ok(t.tabs.Chat.rows.some(r => /Confirm by calling the supplier on a number you already have\./.test(r[2])));
+});
+
+test('ACC11 typing "approve" answers the Approve question waiting in that chat, writes once and logs it; "not" writes nothing; Undo opens a new question', () => {
+  const t = sandbox({ talk: TALK_ED, edit: ED_PLAN });
+  t.ctx.cueSend('change the BI 0014 description', [], '');
+  const before = (t.log.bridge || []).filter(b => b.action === 'write_rows').length;
+  t.ctx.cueSend('approve', [], '');
+  assert.strictEqual((t.log.bridge || []).filter(b => b.action === 'write_rows').length, before + 1, 'one write');
+  const log = t.tabs['Canvas edits'].rows.slice(1); assert.ok(log.length >= 1 && log[0][8] === 'approved by Kiko');
+  const e = t.ctx.cueAdminEdits(); assert.ok(e.length >= 1);
+  t.ctx.cueAdminEditUndo(e[0].n); assert.ok(t.tabs.Chat.rows.some(r => /^Undo asked from Cue Admin/.test(r[2])));
+  const n = (t.log.bridge || []).filter(b => b.action === 'write_rows').length;
+  t.ctx.cueSend('not', [], ''); assert.strictEqual((t.log.bridge || []).filter(b => b.action === 'write_rows').length, n, '"not" writes nothing');
+});

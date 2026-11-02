@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 65 server files, 1298 top-level names, 31 task kinds, 30 word checks before the
-chat call, 12 background jobs in the 5-minute trigger, 83 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
+Counts: 66 server files, 1309 top-level names, 31 task kinds, 31 word checks before the
+chat call, 12 background jobs in the 5-minute trigger, 85 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -52,36 +52,37 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 Who answers which words first. `cueSendWith_` (in `Cue.gs`) goes down `cueRoutes_` (`CueCommands.gs`); the first that answers wins.
 If none answers, the AI chat call reads the message, and its answer starts the first command in the second list that it filled in.
 
-1. `mailchat`: Kiko's reply in an email chat or a new-kind-of-email chat (ACC-5, ACC-6). Checks `cueMcSaid_` in `CueMailChat.gs`.
-2. `learn`: "remember: …" saves a rule. Checks `cueLearnSaid_` in `CueTeach.gs`.
-3. `relay`: "tell Claude: …" relay note. Checks `cueRelaySaid_` in `CueRelay.gs`.
-4. `help`: "help: …" Help Q&A answer. Checks `cueHelpSaid_` in `CueHelp.gs`.
-5. `ticktick`: "connect ticktick". Checks `cueTtConnectSaid_` in `CueTickTick.gs`.
-6. `schedule`: "schedule …" and "show my schedules". Checks `cueSchedSaid_` in `CueSchedule.gs`.
-7. `transfer`: Transfer lookup. Checks `cueTxSaid_` in `CueLookup.gs`.
-8. `invoice`: Invoice line edit. Checks `cueInvSaid_` in `CueLookup.gs`.
-9. `allow`: "allow cue to read\|edit …". Checks `cueAllowSaid_` in `CueEdit.gs`.
-10. `contact-scan`: Old-email contact scan. Checks `cueCsSaid_` in `CueContactScan.gs`.
-11. `bids-redo`: "redo" in a Bid check thread. Checks `cueBidsRedoSaid_`.
-12. `cecost-reply`: Reply to a CE cost question. Checks `cueCecReply_` in `CueCeCost.gs`.
-13. `cecost`: "update CE cost for …". Checks `cueCecAsked_` in `CueCeCost.gs`; starts `cueCecStart_` in `CueCeCost.gs`.
-14. `canvas`: Open in Canvas. Checks `cueCanvasSaid_` in `CueCanvas.gs`.
-15. `phased-reply`: Reply while a phased intake card waits. Checks `cuePhReply_` in `CueIntakePhases.gs`.
-16. `style`: "learn my style". Checks `CUE_STYLE_RE_` in `CueStyle.gs`; starts `cueStyleStart_` in `CueStyle.gs`.
-17. `memory`: "learn my memory". Checks `CUE_MEM_RE_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
-18. `process`: "learn my process". Checks `CUE_PROC_RE_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
-19. `memory-paste`: Pasted memory text. Checks `cueMemPaste_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
-20. `money-taught`: A money phrase Kiko taught word for word. Checks `cueRouteExact_` in `CueRoute.gs`; starts `cueFinance_` in `CueFinance.gs`.
-21. `gtask`: "run daily plan" and other ChatGPT tasks. Checks `cueGtAsked_` in `CueGptTasks.gs`; starts `cueGtStart_` in `CueGptTasks.gs`.
-22. `personal`: Personal expense (Kiko's own words). Checks `cueIsPersonal_` in `CuePersonal.gs`; starts `cuePersonalStart_` in `CuePersonal.gs`.
-23. `money`: Money question. Checks `cueMoneyAsked_`; starts `cueFinance_` in `CueFinance.gs`.
-24. `workflow-reply`: Reply in a waiting workflow map. Checks `cueWorkflowWaiting_`; starts `cueWorkflowReply_` in `CueWorkflow.gs`.
-25. `workflow-files`: Files with a map word. Checks `cueWorkflowAsked_` in `CueWorkflow.gs`; starts `cueWorkflowFiles_`.
-26. `hubspot`: HubSpot clean-up. Checks `cueHsAsked_` in `CueHubspot.gs`; starts `cueHsStart_` in `CueHubspot.gs`.
-27. `status`: "status report", "status of …". Checks `cueStatusSaid_`.
-28. `bids-intake`: "do intake for <bid>". Checks `cueBidsFor_` in `CueBids.gs`; starts `cueBidsIntake_` in `CueBids.gs`.
-29. `bids`: Bid check. Checks `cueBidsAsked_` in `CueBids.gs`; starts `cueBidsStart_` in `CueBids.gs`.
-30. `recost`: "cost them", "re-cost" in a thread with a read. Checks `cueRecostStart_` in `Cue.gs`.
+1. `askreply`: Kiko types "approve" or "not" for an Approve question (ACC-12, no buttons in Ask Cue chat). Checks `cueAskSaid_` in `CueEditLog.gs`.
+2. `mailchat`: Kiko's reply in an email chat or a new-kind-of-email chat (ACC-5, ACC-6). Checks `cueMcSaid_` in `CueMailChat.gs`.
+3. `learn`: "remember: …" saves a rule. Checks `cueLearnSaid_` in `CueTeach.gs`.
+4. `relay`: "tell Claude: …" relay note. Checks `cueRelaySaid_` in `CueRelay.gs`.
+5. `help`: "help: …" Help Q&A answer. Checks `cueHelpSaid_` in `CueHelp.gs`.
+6. `ticktick`: "connect ticktick". Checks `cueTtConnectSaid_` in `CueTickTick.gs`.
+7. `schedule`: "schedule …" and "show my schedules". Checks `cueSchedSaid_` in `CueSchedule.gs`.
+8. `transfer`: Transfer lookup. Checks `cueTxSaid_` in `CueLookup.gs`.
+9. `invoice`: Invoice line edit. Checks `cueInvSaid_` in `CueLookup.gs`.
+10. `allow`: "allow cue to read\|edit …". Checks `cueAllowSaid_` in `CueEdit.gs`.
+11. `contact-scan`: Old-email contact scan. Checks `cueCsSaid_` in `CueContactScan.gs`.
+12. `bids-redo`: "redo" in a Bid check thread. Checks `cueBidsRedoSaid_`.
+13. `cecost-reply`: Reply to a CE cost question. Checks `cueCecReply_` in `CueCeCost.gs`.
+14. `cecost`: "update CE cost for …". Checks `cueCecAsked_` in `CueCeCost.gs`; starts `cueCecStart_` in `CueCeCost.gs`.
+15. `canvas`: Open in Canvas. Checks `cueCanvasSaid_` in `CueCanvas.gs`.
+16. `phased-reply`: Reply while a phased intake card waits. Checks `cuePhReply_` in `CueIntakePhases.gs`.
+17. `style`: "learn my style". Checks `CUE_STYLE_RE_` in `CueStyle.gs`; starts `cueStyleStart_` in `CueStyle.gs`.
+18. `memory`: "learn my memory". Checks `CUE_MEM_RE_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
+19. `process`: "learn my process". Checks `CUE_PROC_RE_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
+20. `memory-paste`: Pasted memory text. Checks `cueMemPaste_` in `CueTeach.gs`; starts `cueTeachStart_` in `CueTeach.gs`.
+21. `money-taught`: A money phrase Kiko taught word for word. Checks `cueRouteExact_` in `CueRoute.gs`; starts `cueFinance_` in `CueFinance.gs`.
+22. `gtask`: "run daily plan" and other ChatGPT tasks. Checks `cueGtAsked_` in `CueGptTasks.gs`; starts `cueGtStart_` in `CueGptTasks.gs`.
+23. `personal`: Personal expense (Kiko's own words). Checks `cueIsPersonal_` in `CuePersonal.gs`; starts `cuePersonalStart_` in `CuePersonal.gs`.
+24. `money`: Money question. Checks `cueMoneyAsked_`; starts `cueFinance_` in `CueFinance.gs`.
+25. `workflow-reply`: Reply in a waiting workflow map. Checks `cueWorkflowWaiting_`; starts `cueWorkflowReply_` in `CueWorkflow.gs`.
+26. `workflow-files`: Files with a map word. Checks `cueWorkflowAsked_` in `CueWorkflow.gs`; starts `cueWorkflowFiles_`.
+27. `hubspot`: HubSpot clean-up. Checks `cueHsAsked_` in `CueHubspot.gs`; starts `cueHsStart_` in `CueHubspot.gs`.
+28. `status`: "status report", "status of …". Checks `cueStatusSaid_`.
+29. `bids-intake`: "do intake for <bid>". Checks `cueBidsFor_` in `CueBids.gs`; starts `cueBidsIntake_` in `CueBids.gs`.
+30. `bids`: Bid check. Checks `cueBidsAsked_` in `CueBids.gs`; starts `cueBidsStart_` in `CueBids.gs`.
+31. `recost`: "cost them", "re-cost" in a thread with a read. Checks `cueRecostStart_` in `Cue.gs`.
 
 Then a supplier to register (`cueIsSupplier_` in `CueSupplier.gs`) skips the chat call. Otherwise the chat call (`cueTalk_`) answers, and it starts, in this order:
 
@@ -122,7 +123,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 58 | 42 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 59 | 42 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 10 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send` |  | 0 | 0 | 2 | 5 |
 | `CueAgent.gs` | `contains` |  | 0 | 0 | 1 | 8 |
@@ -135,14 +136,15 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCanvas.gs` | `find_similar_projects`, `search_projects` |  | 0 | 0 | 11 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects` | Requests | 1 | 0 | 4 | 9 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 30 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 4 | 31 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
-| `CueCommands.gs` |  |  | 0 | 0 | 2 | 33 |
+| `CueCommands.gs` |  |  | 0 | 0 | 2 | 34 |
 | `CueContactScan.gs` |  | Contact scan | 0 | 1 | 2 | 9 |
 | `CueContacts.gs` |  |  | 0 | 0 | 3 | 6 |
 | `CueCrmLog.gs` | `mail_waiting` |  | 0 | 0 | 2 | 4 |
 | `CueDates.gs` |  |  | 0 | 0 | 16 | 0 |
-| `CueEdit.gs` | `contains` |  | 0 | 1 | 2 | 5 |
+| `CueEdit.gs` | `contains` |  | 0 | 1 | 4 | 6 |
+| `CueEditLog.gs` |  | Canvas edits | 0 | 0 | 3 | 4 |
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 4 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
@@ -156,7 +158,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 6 |
 | `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 5 |
-| `CueMailChat.gs` |  | Requests | 0 | 1 | 2 | 7 |
+| `CueMailChat.gs` |  | Requests | 0 | 1 | 2 | 8 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 3 | 4 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 4 | 8 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 4 | 5 |
@@ -166,7 +168,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueRelay.gs` | `ar_list`, `ce_lines`, `finance_snapshot`, `get_project`, `get_project_board`, `get_readiness`, `list_project_files`, `overdue_billings`, `search_projects`, `status_digest` | Relay, Requests | 0 | 0 | 6 | 10 |
 | `CueRelnotes.gs` |  | Release Notes, Requests | 0 | 1 | 6 | 6 |
 | `CueRfpSend.gs` | `rfp_outbox`, `rfp_sent` |  | 0 | 0 | 2 | 8 |
-| `CueRoute.gs` |  | Routing examples | 0 | 0 | 10 | 15 |
+| `CueRoute.gs` |  | Routing examples | 0 | 0 | 11 | 15 |
 | `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 7 | 15 |
 | `CueStatus.gs` | `add_tri_items`, `find_similar_projects`, `search_projects`, `status_digest` | AI Runs, Requests | 2 | 1 | 4 | 12 |
 | `CueStyle.gs` |  | Requests, Style | 0 | 1 | 15 | 4 |
@@ -180,7 +182,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueSweepRfq.gs` |  |  | 0 | 0 | 0 | 5 |
 | `CueSweepSignature.gs` | `list_unsigned_docs`, `send_doc_reminder` |  | 0 | 0 | 0 | 4 |
 | `CueTeach.gs` |  | Memory, Requests, Workflows | 0 | 3 | 7 | 9 |
-| `CueText.gs` |  |  | 0 | 0 | 53 | 0 |
+| `CueText.gs` |  |  | 0 | 0 | 54 | 0 |
 | `CueTickTick.gs` |  |  | 0 | 0 | 3 | 4 |
 | `CueTriage.gs` |  | Triage log, Triage rules | 1 | 1 | 8 | 6 |
 | `CueTutor.gs` |  | Patterns | 1 | 0 | 4 | 6 |
@@ -194,17 +196,17 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueStr_` | `CueText.gs` | 52 |
-| `cueNow_` | `Cue.gs` | 50 |
-| `cueChat_` | `Cue.gs` | 39 |
+| `cueStr_` | `CueText.gs` | 53 |
+| `cueNow_` | `Cue.gs` | 51 |
+| `cueChat_` | `Cue.gs` | 40 |
 | `cueLocked_` | `Cue.gs` | 33 |
 | `cueProp_` | `Cue.gs` | 33 |
+| `cueSheet_` | `Cue.gs` | 33 |
 | `cueBridge_` | `CueBridge.gs` | 32 |
-| `cueSheet_` | `Cue.gs` | 32 |
 | `cueAiAll_` | `CueAi.gs` | 30 |
 | `cueLoad_` | `Cue.gs` | 30 |
 | `cueSave_` | `Cue.gs` | 29 |
-| `cueOwner_` | `Cue.gs` | 27 |
+| `cueOwner_` | `Cue.gs` | 28 |
 | `CUE_VERSION_` | `Cue.gs` | 23 |
 | `cueEmail_` | `CueText.gs` | 23 |
 | `cueGpt_` | `CueAi.gs` | 23 |
@@ -231,13 +233,13 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueWords_` | `Cue.gs` | 8 |
 | `CUE_DATE_RE_` | `CueText.gs` | 7 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
+| `cueAskPick` | `CueRoute.gs` | 7 |
 | `cueBridgeParse_` | `CueBridge.gs` | 7 |
 | `cueBridgeReq_` | `CueBridge.gs` | 7 |
 | `cueDrive_` | `CueFiles.gs` | 7 |
 | `cueRecent_` | `Cue.gs` | 7 |
 | `cueStyleSignOff_` | `CueStyle.gs` | 7 |
 | `cueTerm_` | `CueText.gs` | 7 |
-| `cueAskPick` | `CueRoute.gs` | 6 |
 | `cueBridgePlan_` | `CueBridge.gs` | 6 |
 | `cueCanvasFind_` | `CueCanvas.gs` | 6 |
 | `cueR2_` | `CueText.gs` | 6 |
@@ -260,6 +262,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueAdminCanvas.gs`: `cueAdminCanvasChaseSend`, `cueAdminCanvasChasers`, `cueAdminSnBoard`, `cueAdminSnItems`, `cueAdminSnPrepare`, `cueAdminSnSend`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClose`
+- `CueEditLog.gs`: `cueAdminEditUndo`, `cueAdminEdits`
 - `CueExpense.gs`: `cueExpense`
 - `CueFiles.gs`: `cueFileData`, `cueUpload`
 - `CueFinance.gs`: `cueFinSave`, `cueFinSheet`
