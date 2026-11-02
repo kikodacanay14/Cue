@@ -39,6 +39,12 @@ function doPost(e) {
 /** The door's logic (doPost minus the HTTP wrapping). q = the parsed body or null. */
 function cueRelayCall_(q, path) {
   if (!q || typeof q !== 'object') return { ok: false, error: 'Send JSON with action and key.' };
+  // CUE-MSGR-2026-11-02: Meta's crew messages, forwarded by the Messenger relay (relay/messenger-worker.js) with its own key only.
+  if (q.action === 'msgr_event') {
+    const want = String(PropertiesService.getScriptProperties().getProperty('MSGR_RELAY_KEY') || '');
+    if (want.length < 24 || String(q.key || '') !== want) return { ok: false, error: 'Not allowed.' };
+    return cueMsgrEvent_(q.event);
+  }
   const who = cueRelayWho_(q.key);
   if (!who) return { ok: false, error: 'Not allowed.' };
   // 1.31: a confirm comes only through /exec/confirm, the GPT Action's consequential operation (ChatGPT asks Kiko to Allow
@@ -240,7 +246,8 @@ function cueRelayView_(s) {
 /* ---------- Settings: keys, the gate, the URL ---------- */
 function cueRelaySettings_() {
   return { url: cueProp_('CUE_RELAY_URL', ''), gate: cueProp_('CUE_RELAY_GATE', 'off') === 'on', writes: cueProp_('CUE_RELAY_WRITES', 'on') !== 'off',
-    keys: CUE_RELAY_SENDERS_.map(w => ({ slot: w, who: CUE_RELAY_WHO_[w], key: cueProp_('CUE_RELAY_KEY_' + w.toUpperCase(), '') })) };
+    keys: CUE_RELAY_SENDERS_.map(w => ({ slot: w, who: CUE_RELAY_WHO_[w], key: cueProp_('CUE_RELAY_KEY_' + w.toUpperCase(), '') })),
+    msgr: { key: cueProp_('MSGR_RELAY_KEY', ''), token: !!cueProp_('MSGR_PAGE_TOKEN', '') } };   // CUE-MSGR-2026-11-02: the token itself never leaves Cue
 }
 /** Makes the missing keys, or replaces one (who = chatgpt | claude): the old key stops working at once. */
 function cueRelayKeys(who) {

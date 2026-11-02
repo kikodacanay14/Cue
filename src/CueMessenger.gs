@@ -40,6 +40,13 @@ function cueMsgrSend_(psid, text) {
   return { ok: false, error: 'Meta ' + code + (msg ? ': ' + String(msg).slice(0, 160) : '') };
 }
 
+/** Tells Canvas a document went out on Messenger (once, A11). On success the local note is dropped; on failure it stays for the next tick. */
+function cueMsgrMark_(s, d, k, P) {
+  try {
+    const r = cueBridge_(s, 'msgr_mark', { request_id: 'msgr:' + d.doc + ':' + d.id, doc: d.doc, id: d.id, email: d.email, psid: String(d.messenger_id) }) || {};
+    if (r.ok) P.deleteProperty('CUE_MSGR_SENT_' + k);
+  } catch (e) { console.warn('Messenger mark ' + k + ': ' + e); }
+}
 /** The job (Job Runs "Messenger sign links"). Returns how many documents went out on Messenger this tick. */
 function cueMsgrTick_() {
   const P = PropertiesService.getScriptProperties(), now = cueNow_();
@@ -51,15 +58,156 @@ function cueMsgrTick_() {
 /** One pass: { sent, skipped: [{ id, why }], failed: [{ id, why }] }. */
 function cueMsgrRun_(now) {
   const s = { id: 'msgr' }, o = cueBridge_(s, 'msgr_due', {}) || {}, out = { sent: 0, skipped: [], failed: [] };
+  // A send Meta accepted is remembered here first, so a failed msgr_mark is retried on the next tick without a second message.
+  const P = PropertiesService.getScriptProperties(), held = k => P.getProperty('CUE_MSGR_SENT_' + k);
   (o.docs || []).forEach(d => {
-    if (d.sent) return;
+    const k = d.doc + ':' + d.id;
+    if (d.sent) { if (held(k)) P.deleteProperty('CUE_MSGR_SENT_' + k); return; }
+    if (held(k)) { cueMsgrMark_(s, d, k, P); return; }
     if (!d.messenger_id || !d.sign_link) { out.skipped.push({ id: d.id, why: 'not linked' }); return; }
     if (!cueMsgrInWindow_(d.last_message, now)) { out.skipped.push({ id: d.id, why: 'last message over 24 hours ago' }); return; }
     const r = cueMsgrSend_(d.messenger_id, cueMsgrText_(d));
     if (!r.ok) { out.failed.push({ id: d.id, why: r.error }); return; }
-    cueBridge_(s, 'msgr_mark', { request_id: 'msgr:' + d.doc + ':' + d.id, doc: d.doc, id: d.id, email: d.email, psid: String(d.messenger_id) });
+    P.setProperty('CUE_MSGR_SENT_' + k, String(cueNow_()));
     out.sent++;
+    cueMsgrMark_(s, d, k, P);
   });
   if (out.failed.length) throw new Error('Messenger: ' + out.failed.length + ' not sent (' + out.failed.map(x => x.id + ': ' + x.why).join('; ').slice(0, 250) + ')');
   return out;
+}
+
+/* ---------- the receiving half (CUE-MSGR-2026-11-02, plan Task 6) ----------
+ * Meta posts each crew message to the Messenger relay (relay/messenger-worker.js), which checks Meta's signature and forwards
+ * it to Cue's relay door as { action: 'msgr_event', key: MSGR_RELAY_KEY, event }. Cue then:
+ *   - a message carrying a crew member's sealed m.me ref: saves the link-up in Canvas (fl_social_save, no tap: D11), remembers
+ *     the person in the "Messenger People" tab and says they are linked;
+ *   - a message from a linked person: updates their last-message time in Canvas and adds it to their Cue chat
+ *     "Messenger · <name>" (one chat per person, mockup MSG-5); Kiko answers there by typing;
+ *   - anyone else: a polite reply, nothing saved, and one line in Ask Cue (R5).
+ * Crew messages are untrusted data: Cue never follows instructions inside them and makes no AI call on them. */
+const CUE_MSGR_PEOPLE_ = { tab: 'Messenger People', head: ['PSID', 'Email', 'Name', 'Last message', 'Chat'] };
+const CUE_MSGR_SAY_ = {
+  linked: n => 'Hi ' + n + '! You\'re linked to Blank Space Events. Your papers to sign will come here too. Reply anytime if you have a question.',
+  stranger: 'Thanks for messaging Blank Space Events! This chat is for our crew. If you are crew, open the Messenger link in your email from us. '
+    + 'For anything else, email info@blankspaceevent.com.',
+  badLink: 'Thanks for messaging Blank Space Events! That link did not work. Please open the Messenger link in your newest email from us.'
+};
+
+function cueMsgrPeopleTab_() { return cueSheet_(CUE_MSGR_PEOPLE_.tab); }   // made on first use from CUE_TABS_
+/** { psid: { row, psid, email, name, last, chat } } */
+function cueMsgrPeople_() {
+  const sh = cueMsgrPeopleTab_(), out = {};
+  if (sh.getLastRow() >= 2) sh.getRange(2, 1, sh.getLastRow() - 1, CUE_MSGR_PEOPLE_.head.length).getValues().forEach((r, i) => {
+    const p = String(r[0] || '').trim(); if (p) out[p] = { row: i + 2, psid: p, email: String(r[1] || ''), name: String(r[2] || ''), last: String(r[3] || ''), chat: String(r[4] || '') };
+  });
+  return out;
+}
+function cueMsgrPersonSave_(p) {
+  const sh = cueMsgrPeopleTab_(), row = [p.psid, p.email, p.name, p.last, p.chat || ''];
+  if (p.row) sh.getRange(p.row, 1, 1, row.length).setValues([row]); else { sh.appendRow(row); p.row = sh.getLastRow(); }
+  return p;
+}
+/** Name and gender from Meta (needs the profile permissions); {} when Meta does not answer. */
+function cueMsgrProfile_(psid) {
+  const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
+  if (!token) return {};
+  try {
+    const res = UrlFetchApp.fetch('https://graph.facebook.com/v21.0/' + encodeURIComponent(psid) + '?fields=name,gender',
+      { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + token } });
+    if (res.getResponseCode() !== 200) return {};
+    const o = JSON.parse(res.getContentText());
+    return { name: cueStr_(o.name || '', 120), gender: cueStr_(o.gender || '', 20) };
+  } catch (e) { return {}; }
+}
+/** The person's Cue chat (one per crew member), made when missing. Returns its id. Call locked. */
+function cueMsgrChatFor_(p) {
+  if (p.chat && cueLoad_(p.chat)) return p.chat;
+  const sh = cueSheet_('Requests'), id = cueMcId_();
+  const s = { id, version: CUE_VERSION_, kind: 'msgr', created: new Date(cueNow_()).toISOString(), started: cueNow_(), ref: '',
+    text: 'Messenger · ' + (p.name || p.email || 'crew member'), status: 'Needs you', stage: 'Needs you', card_at: cueNow_(),
+    msgr: { psid: p.psid, email: p.email, name: p.name }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
+  sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
+  p.chat = id;
+  return id;
+}
+/** The door's msgr_event: one Meta webhook body. Returns { ok, handled }. */
+function cueMsgrEvent_(body) {
+  let handled = 0;
+  ((body && body.entry) || []).forEach(en => ((en && en.messaging) || []).forEach(m => {
+    try { if (cueMsgrOne_(m)) handled++; } catch (e) { console.error('Messenger event: ' + e); }
+  }));
+  return { ok: true, handled };
+}
+function cueMsgrOne_(m) {
+  const psid = String((m.sender || {}).id || '').trim(), msg = m.message || {};
+  if (!/^\d{1,40}$/.test(psid) || msg.is_echo) return false;   // our own messages come back as echoes
+  const at = new Date(Number(m.timestamp) || cueNow_()).toISOString(), text = cueStr_(msg.text || '', 2000);
+  const ref = cueStr_((m.referral || {}).ref || ((m.postback || {}).referral || {}).ref || '', 400), s = { id: 'msgr' };
+  const people = cueMsgrPeople_();
+  let p = people[psid];
+  if (ref) {
+    const prof = cueMsgrProfile_(psid);
+    const r = cueBridge_(s, 'fl_social_save', { request_id: 'msgrlink:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), ref, messenger_id: psid,
+      messenger_name: prof.name || '', gender: prof.gender || '', linked_at: at, last_message: at }) || {};
+    if (!r.ok) {
+      cueMsgrSend_(psid, CUE_MSGR_SAY_.badLink);
+      cueChat_('Cue', 'Messenger: someone opened a crew Messenger link that did not work (' + cueStr_(r.error || 'not saved', 160) + '). Nothing was saved.', '');
+      return true;
+    }
+    p = Object.assign(p || { psid }, { email: r.email, name: prof.name || (p && p.name) || r.email, last: at });
+    cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); });
+    cueMsgrSend_(psid, CUE_MSGR_SAY_.linked(String(p.name || '').split(/\s+/)[0] || 'there'));
+    cueChat_('Cue', 'Linked on Messenger: ' + p.name + ' (' + p.email + ').', p.chat);
+    if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
+    return true;
+  }
+  if (!p) {
+    cueMsgrSend_(psid, CUE_MSGR_SAY_.stranger);
+    cueChat_('Cue', 'Messenger: a message from someone who is not linked as crew. Nothing was saved. Read it in the Page inbox.', '');
+    return true;
+  }
+  p.last = at;
+  cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at });
+  cueLocked_(() => {
+    cueMsgrChatFor_(p); cueMsgrPersonSave_(p);
+    const L = cueLoad_(p.chat);
+    if (L && L.s.status !== 'Needs you') { L.s.status = 'Needs you'; L.s.stage = 'Needs you'; L.s.card_at = cueNow_(); delete L.s.archived; cueSave_(L.sh, L.row, L.s); }
+  });
+  if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
+  return true;
+}
+/** Kiko's words in a Messenger chat: "done" closes it; anything else goes to the crew member on Messenger, inside the window (R10). */
+function cueMsgrSaid_(c) {
+  if (!c.ref || c.has || c.mode === 'intake') return null;
+  const L = cueLoad_(c.ref); if (!L || L.s.kind !== 'msgr') return null;
+  const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || { last: '' };
+  cueChat_('Kiko', t, L.s.id);
+  if (/^(done|close( it| this)?)[.!]?$/i.test(t)) {
+    const s = cueMcClose_(L.s.id, 'Done'); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);
+  }
+  if (!cueMsgrInWindow_(p.last, cueNow_())) {
+    cueChat_('Cue', 'Messenger is closed for ' + M.name + ': their last message was over 24 hours ago, so Facebook will not deliver this. '
+      + 'Reach them by SMS or email instead.', L.s.id);
+    return cueView_(L.s);
+  }
+  const r = cueMsgrSend_(M.psid, t);
+  cueChat_('Cue', r.ok ? 'Sent on Messenger.' : 'Not sent: ' + r.error + '.', L.s.id);
+  return cueView_(L.s);
+}
+
+/* ---------- Settings › Messenger (owner only) ---------- */
+/** Makes or replaces the key the Messenger relay sends with (MSGR_RELAY_KEY); the old key stops at once. */
+function cueMsgrKey() {
+  cueOwner_();
+  PropertiesService.getScriptProperties().setProperty('MSGR_RELAY_KEY', 'mr_' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
+  return cueSettings();
+}
+/** Saves Facebook's Page access token (MSGR_PAGE_TOKEN). It is never shown again; empty clears it, which stops all Messenger sends. */
+function cueMsgrTokenSet(token) {
+  cueOwner_();
+  const t = String(token || '').trim(), P = PropertiesService.getScriptProperties();
+  if (!t) P.deleteProperty('MSGR_PAGE_TOKEN');
+  else if (!/^[A-Za-z0-9_-]{60,}$/.test(t)) throw new Error('That does not look like a Page access token. Copy it again from the Meta app (Messenger API settings, Generate).');
+  else P.setProperty('MSGR_PAGE_TOKEN', t);
+  return cueSettings();
 }

@@ -212,6 +212,8 @@ function sandbox(o = {}) {
       assert.strictEqual(sig, want, 'bridge signature'); log.bridge.push(body);
       const bad = bridgeCheck(body.action, body.args);
       if (bad) return resp(200, { ok: false, status: 'Rejected', error: bad });
+      // CUE-MSGR-2026-11-02: o.bridgeFn(body) answers any action it returns a result for (Messenger tests).
+      if (o.bridgeFn) { const r = o.bridgeFn(body); if (r !== undefined) return resp(200, { ok: true, status: 'Completed', result: r }); }
       // CUE-PROJECT-LOG-2026-10-27: log lines for the projects' threads (project_log); Canvas files what it can and skips the rest.
       if (body.action === 'project_log') { (log.plog = log.plog || []).push(body.args); if (o.plogFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         return resp(200, { ok: true, status: 'Completed', result: { added: body.args.lines.length, skipped: [] } }); }
@@ -571,6 +573,8 @@ function sandbox(o = {}) {
     }
     // CUE-BIDS-PG-2026-11-01: New PhilGEPS's public pages (CueBidsPg.gs). o.pg(url, req) answers; without it the site is down.
     if (u.indexOf('https://philgeps.gov.ph/') === 0) { (log.pg = log.pg || []).push({ url: u, headers: req.headers || {} }); return o.pg ? o.pg(u, req) : resp(503, 'down'); }
+    // CUE-MSGR-2026-11-02: Meta's Graph API (Messenger sends, profile reads). o.fb(url, req, body) answers; default: sent.
+    if (u.indexOf('https://graph.facebook.com/') === 0) { (log.fb = log.fb || []).push({ url: u, req, body }); return o.fb ? o.fb(u, req, body) : resp(200, { message_id: 'm.' + log.fb.length }); }
     throw new Error('unexpected fetch ' + u);
   };
   const ctx = {
