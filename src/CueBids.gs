@@ -247,12 +247,39 @@ function cueBidsCheck_(s) {
   B.items = out.fresh; B.updated = out.updated; B.dropped = out.dropped;
   cueBidsWrite_(s);
   cueBidsLeads_(s);
-  const passed = B.checks.filter(c => c.ok).length, part = B.sources.filter(x => x.status !== 'Checked').length;
-  B.summary = (B.items.length ? B.items.length + ' new' : 'No new bid opportunities') + (B.updated.length ? ', ' + B.updated.length + ' updated' : '')
+  const carried = cueBidsCarry_(s);   // ACC-1: open notices from older days' Bid check threads move here; those threads close and archive
+  const passed = B.checks.filter(c => c.ok).length, part = B.sources.filter(x => x.status !== 'Checked').length, fresh = B.items.length - carried;
+  B.summary = (fresh ? fresh + ' new' : 'No new bid opportunities') + (B.updated.length ? ', ' + B.updated.length + ' updated' : '')
+    + (carried ? ', ' + carried + ' still open from earlier days' : '')
     + '. ' + (CUE_BIDS_SOURCES_.length - part) + ' of 11 sources fully checked' + (part ? ', ' + part + ' partial or blocked' : '') + '. Process check: ' + passed + ' of 9 passed.';
   s.ready_at = cueNow_(); s.card_at = s.card_at || cueNow_();
   if (B.items.length || B.updated.length) { s.status = 'Needs you'; s.stage = 'Needs you'; cueChat_('Cue', B.summary + ' Say "do intake for <reference>" to start one.', s.id); }
   else { s.status = 'Done'; s.stage = 'Done'; cueChat_('Cue', B.summary, s.id); }
+}
+
+/* ACC-1 / ACC-2 (Kiko 2 Nov 2026, "move the and add the unresponded items from previous thread to today's thread so that old
+ * thread's can be archived"; Q1 "A": daily threads only, from every older day). Notices still open on an older day's Bid check
+ * thread (still in the open list: no intake, deadline not passed) join today's thread, marked with the day they came from. The older
+ * thread closes and is archived (assumption 11). Returns how many notices moved. */
+function cueBidsCarry_(s) {
+  const B = s.bids, day = B.day || cueBidsDay_(), open = {}, have = {};
+  (B.open || []).forEach(r => { if (r.key) open[r.key] = 1; });
+  B.items.concat(B.updated || []).forEach(it => { if (it.key) have[it.key] = 1; });
+  let n = 0;
+  cueLocked_(() => {
+    const sh = cueSheet_('Requests');
+    cueBidsRuns_(sh).forEach(x => {
+      if (!x.day || x.day >= day || x.s.status !== 'Needs you') return;
+      const b = x.s.bids || {};
+      (b.items || []).concat(b.updated || []).forEach(it => {
+        if (!it || !it.key || have[it.key] || !open[it.key]) return;
+        have[it.key] = 1; n++; B.items.push(Object.assign({}, it, { carried_from: x.day }));
+      });
+      x.s.status = 'Closed'; x.s.closed_from = 'Needs you'; x.s.superseded = s.id; x.s.archived = true; x.s.archived_by = 'carry';
+      cueSave_(sh, x.row, x.s);
+    });
+  });
+  return n;
 }
 
 /** One notice from ChatGPT, cut to the fields Cue keeps. Links must be https. */
