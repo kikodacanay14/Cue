@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.27.84: old daily threads clear themselves (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "move the and add the unresponded items from previous thread to
+today's thread so that old thread's can be archived". He chose daily threads only, carried from every older day (Q1 "A"), and
+approved that Cue archives the old thread itself (assumption 11). Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`,
+stories AC-1 and AC-2. This is part 1 of 3; one chat per email and Canvas field edits follow.
+
+- New mail: today's thread now takes the open lines from every older New mail thread still waiting, not only the latest one, with
+  no line twice. Each of those older threads closes and is archived.
+- Bid check: notices still open on an older day's Bid check thread (no intake, deadline not passed) move into today's thread,
+  marked with the day they came from, and the summary says how many are "still open from earlier days". The older thread closes
+  and is archived. A finished older thread is left as it is.
+- Morning batch: an older batch that still needed Kiko is now archived as well as closed when today's batch lists its lines again.
+- Archived threads leave Waiting on you and Recent and show under the Archived filter, as before.
+- Tests: 472 (new `test/features/70-ask-cue-carry.js`, ACC1 and ACC2).
+
 ## Cue 1.27.83: New PhilGEPS read by code, hourly, with no AI, and the ABC cap raised to ₱1,000,000 (not deployed)
 
 Kiko asked on 1 Nov 2026, in the cloud chat "Test chat continuation", for a very cheap and effective way to read the bids on the new
