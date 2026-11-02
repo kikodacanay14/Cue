@@ -82,7 +82,7 @@ test('NM3 new mail buttons: Done, Mute sender, Not an inquiry; Draft reply makes
   const m = nmSandbox(); const mid = nmRun(m), mk = m.state(mid).nm.items[0].key;
   m.ctx.cueNmItem(mid, mk, 'no_inquiry'); assert.strictEqual(m.state(mid).nm.items[0].group, 'fyi');
   m.ctx.cueNmItem(mid, mk, 'mute'); assert.strictEqual(m.state(mid).nm.items[0].removed, 'mute');
-  deq(m.tabs['Triage rules'].rows.slice(1).map(x => [x[0], x[1]]), [['maria@acme.example', 'no_inquiry'], ['maria@acme.example', 'mute']]);
+  deq(m.tabs['Triage rules'].rows.slice(1).filter(x => !/^type:/.test(x[1])).map(x => [x[0], x[1]]), [['maria@acme.example', 'no_inquiry'], ['maria@acme.example', 'mute']]);   // type: rows are the sender types the sort keeps (ACC-3)
   const lk = m.state(mid).nm.items[1].key; const v2 = m.ctx.cueNmItem(mid, lk, 'done'); assert.strictEqual(v2.status, 'Done', 'every line handled: the thread is done');
   const q = nmSandbox(); const qid = nmRun(q), qi = q.ctx.cueNmItem(qid, q.state(qid).nm.items[1].key, 'intake');
   assert.ok(/New project intake from email to info@\.\nFrom: Leo Cruz <leo@brightlights\.example>\nSubject: LED wall hold/.test(q.state(qi.request_id).text));

@@ -498,6 +498,9 @@ function sandbox(o = {}) {
         parts: m.html ? [{ mimeType: 'text/html', body: { data: enc(m.html) } }] : [{ mimeType: 'text/plain', body: { data: enc(m.body) } }, { mimeType: 'text/html', body: { data: enc('<p>ignored</p>') } }] } });
     }
     if (u.indexOf('api.hubapi.com') >= 0) throw new Error('Cue must not call HubSpot: ' + u);   // HUBSPOT-REMOVAL-2026-11-01
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages/batchModify') >= 0) {   // ACC-8: mark read (gmail.modify)
+      if (o.noModify) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
+      const b = JSON.parse(req.payload); (log.markRead = log.markRead || []).push({ ids: b.ids, remove: b.removeLabelIds, add: b.addLabelIds }); return resp(204, {}); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/profile') >= 0) { log.profile = (log.profile || 0) + 1; return resp(200, { emailAddress: 'kiko@example.com', historyId: o.historyId || '500' }); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/history?') >= 0) { (log.history = log.history || []).push(u);   // New mail: what changed since startHistoryId
       if (o.historyGone) return resp(404, { error: { code: 404, message: 'Requested entity was not found.' } });

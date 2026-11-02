@@ -21,6 +21,7 @@ const CUE_TABS_ = {
   'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
   Rules: ['Rule', 'Value', 'Changed', 'Was'],   // Kiko's Chaser rules card (CueSweep.gs)
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
+  'Triage types': ['Type', 'Setting', 'Set', 'Why'],                                             // ACC-4: email types and what happens to each (Cue Admin › Triage)
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
   'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count'],                         // one row per background job run (CueJobs.gs); Canvas Admin reads it
   'Accreditation Mail': ['Time', 'Message ID', 'Company', 'From', 'Subject', 'Thread']            // CueAccred.gs: client accreditation replies already posted

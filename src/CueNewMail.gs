@@ -89,14 +89,15 @@ function cueNmLine_(inbox, threadId, m) {
 /** The code filters, no AI and no writes: mail another task owns or a Canvas project's mail is dropped; junk and muted senders
  * are kept apart as skipped; the rest is kept with Kiko's rule for the sender. */
 function cueNmFilter_(run, found) {
-  const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [];
+  const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [], proj = [];
   let ids = null;
   const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
   let pt = null; const projThreads = () => pt || (pt = cueMailProjectThreads_(run));
   found.forEach(l => {
     const m = l._m;
     if (claimed[l.thread_id] || claimed['m:' + m.id] || claimed['m:' + l.key.replace(/^inbox:/, '')]) return;
-    try { if (projectIds().some(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))) return; }   // a project's email: status reports and chasers
+    // A project's email (R6, R9): before the junk and mute filters, so it is never dropped; it belongs to Team Cue, with one line here.
+    try { const pid = projectIds().filter(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))[0]; if (pid) { proj.push(Object.assign(l, { pid })); return; } }
     catch (e) { console.warn('New mail: Canvas board: ' + e); }
     if (l.inbox !== 'info' && projThreads()[String(l.thread_id)]) return;   // ASK-CUE-ONCE-2026-10-30: Canvas files it under a project (Team Cue)
     const rule = cueTriageRule_(rules, m.from), junk = rule === 'keep' ? '' : cueTriageJunk_(m);
@@ -104,12 +105,15 @@ function cueNmFilter_(run, found) {
     l.rule = rule || '';
     keep.push(l);
   });
-  return { keep, skip };
+  return { keep, skip, proj };
 }
 
 /** Code filters (no AI), then the lines join today's New mail thread and the Triage log. Returns the thread's id ('' when nothing new). */
 function cueNmAdd_(run, found) {
   const f = cueNmFilter_(run, found), keep = f.keep, skip = f.skip;
+  cueNmProject_(f.proj || []);
+  // Muted senders' mail is marked read in Kiko's Gmail (assumption 16); junk stays as Gmail left it.
+  cueMtMarkRead_(run, skip.filter(l => l.inbox === 'mine' && l.why === 'muted sender').map(l => l.key.replace(/^inbox:/, '')));
   if (!keep.length && !skip.length) return '';
   const day = cuePh_(cueNow_()).day;
   const s = cueLocked_(() => {
@@ -188,6 +192,8 @@ function cueNmSort_(run) {
   cueTriageSort_(run, ask, { claude: true, model: CUE_NM_MODEL_, label: 'Claude', fetch: l => l.inbox !== 'info' });
   const by = {}; ask.forEach(l => { by[l.key] = l; });
   const known = N0.items.some(x => x.inbox === 'mine' && !x.known) ? cueNmWaiting_(run) : null;
+  const types = cueMtTypes_(), senders = cueMtSenders_();
+  let typed = null;
   const s = cueLocked_(() => {
     const L = cueLoad_(L0.s.id);
     L.s.nm.items.forEach(x => {
@@ -195,6 +201,7 @@ function cueNmSort_(run) {
       x.group = l.group; x.summary = l.summary; x.urgent = !!l.urgent; x.why = l.why || ''; x.sorted = true;
       if (l.group === 'skip') { x.removed = 'skip'; }
     });
+    typed = cueMtApply_(L.s.nm.items, by, types, senders);   // ACC-3, ACC-7, ACC-8: type each line and apply its type's setting
     cueNmKnown_(known, L.s.nm.items);
     // RFQ-RFP-INTAKE: a sorted line whose subject asks for a quotation or proposal is a new inquiry, unless a known supplier sent it (Kiko's
     // card answer 29 Oct 15:20Z: "No, skip supplier replies", since suppliers answering his RFQs keep the subject).
@@ -204,6 +211,7 @@ function cueNmSort_(run) {
     const m = L.s.metrics || (L.s.metrics = { ai_calls: 0, calls: [] }); m.ai_calls = (m.ai_calls || 0) + (run.metrics.ai_calls || 0);
     cueNmStatus_(L.s); cueSave_(L.sh, L.row, L.s); return L.s;
   });
+  cueNmTyped_(run, typed, types);
   const c = {}; s.nm.items.forEach(x => { if (by[x.key]) c[x.group] = (c[x.group] || 0) + 1; });
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
@@ -229,6 +237,28 @@ function cueNmKnown_(by, items) {
     // ASK-CUE-ONCE-2026-10-30 (Kiko 30 Oct 2026 05:50Z "project emails stay in Team Cue others are in Ask Cue"): an email Canvas files
     // under a project shows in that project's thread in Team Cue, so it leaves today's New mail list (kept, marked, never deleted).
     if (i && i.pid && !x.removed && !x.task_id) x.removed = 'project';
+  });
+}
+
+/** ACC part 2a, after the sort: One line emails each get their own line in Main chat; One line and Ignore emails are marked read;
+ * senders Claude typed are kept in Triage; a new type is added (setting One line) and Cue says so once in Main chat. */
+function cueNmTyped_(run, typed, types) {
+  if (!typed) return;
+  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), ''));
+  cueMtMarkRead_(run, typed.read);
+  if (typed.learn.length) { const sh = cueSheet_('Triage rules'), t = new Date(cueNow_()); typed.learn.forEach(p => sh.appendRow([String(p[0]).toLowerCase(), 'type:' + p[1], t, 'typed by Claude'])); }
+  if (typed.newTypes.length) {
+    cueMtSave_(Object.keys(types).map(k => ({ type: k, setting: types[k], why: typed.newTypes.indexOf(k) >= 0 ? 'new kind of email' : 'Cue Admin' })));
+    typed.newTypes.forEach(t => cueChat_('Cue', 'New kind of email: "' + t + '". For now each one shows as one line. Tell me how to handle this kind from now on: own chat, one line or ignore.', ''));
+  }
+}
+/** R9: one Main chat line per email with a Canvas Project ID. The email stays unread and gets no type. No AI. */
+function cueNmProject_(proj) {
+  if (!proj.length) return;
+  const t = new Date(cueNow_()), log = cueSheet_('Triage log');
+  proj.forEach(l => {
+    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '');
+    log.appendRow([t, l.key.replace(/^inbox:/, ''), l.thread_id, l.sender, cueStr_(l.subject, 200), 'project', l.pid, '']);
   });
 }
 
