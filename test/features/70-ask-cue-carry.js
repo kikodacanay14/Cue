@@ -21,17 +21,16 @@ test('ACC1 New mail: open lines from every older New mail thread move to today\'
   assert.strictEqual(again.s.id, L.s.id, 'the same day reuses today\'s thread');
 });
 
-test('ACC2 Bid check: notices still open on older days move into today\'s thread with the day they came from; the older thread closes and archives', () => {
+test('ACC2 Bid check: the day\'s first check archives older days\' Bid check threads that still wait (their open notices show as still open in today\'s); a finished older thread is left as it is', () => {
   const t = sandbox();
   accPut(t, { id: 'cue-20261019190000-aaaa', kind: 'bids', created: '2026-10-19T11:00:00.000Z', status: 'Needs you', ref: '', text: 'x',
-    bids: { title: 'Bid check', day: '2026-10-19', items: [{ key: 'a', reference: '119200' }, { key: 'c', reference: '119100' }], updated: [] } });
+    bids: { title: 'Bid check', day: '2026-10-19', items: [{ key: 'a', reference: '119200' }], updated: [] } });
   accPut(t, { id: 'cue-20261020190000-bbbb', kind: 'bids', created: '2026-10-20T11:00:00.000Z', status: 'Done', ref: '', text: 'x',
     bids: { title: 'Bid check', day: '2026-10-20', items: [], updated: [] } });
-  const s = { id: 'cue-20261021110000-cccc', bids: { day: '2026-10-21', items: [{ key: 'b', reference: '119300' }], updated: [], open: [{ key: 'a' }, { key: 'b' }] } };
-  assert.strictEqual(t.ctx.cueBidsCarry_(s), 1, 'only a notice still open (no intake, deadline not passed) moves');
-  deq(s.bids.items.map(x => [x.key, x.carried_from || '']), [['b', ''], ['a', '2026-10-19']]);
+  const id = t.ctx.cueBidsStart_('check bids', 'chat').request_id;
   const old = t.ctx.cueLoad_('cue-20261019190000-aaaa').s;
-  deq([old.status, old.archived, old.superseded], ['Closed', true, s.id]);
+  deq([old.status, old.archived, old.superseded], ['Closed', true, id]);
   assert.strictEqual(t.ctx.cueLoad_('cue-20261020190000-bbbb').s.status, 'Done', 'a finished older thread is left as it is');
-  assert.strictEqual(t.ctx.cueBidsCarry_(s), 0, 'a second run moves nothing');
+  const again = t.ctx.cueBidsStart_('check bids again', 'chat').request_id;
+  assert.strictEqual(t.ctx.cueLoad_(again).s.ref, id, 'a later run the same day joins today\'s thread and archives nothing more');
 });

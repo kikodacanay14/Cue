@@ -19,18 +19,11 @@
 const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove', 'cueReject', 'cueReopen', 'cueCloseTask', 'cueArchive',
   'cueAsNew', 'cueAskPick', 'cueSameAnswer', 'cueWrongCommand', 'cueCancelIntake', 'cueRescan', 'cueRfq', 'cueRfqPick', 'cueDrafts',
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
-<<<<<<< HEAD
   'cueBidsClose', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
   'cueStatusDone', 'cueStatusPreview', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueSweepSendOne', 'cueSweepRewrite', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
   'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_',
-  'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck', 'cueIcPick_', 'cueIcStart_', 'cueIcDeep_', 'cueTriageIntake', 'cueMailProjectThreads_'];   // cueMailProjectThreads_: read-only list of Kiko's inbox threads Canvas files under a project (1.27.86 check); // cueTriageIntake: Start intake from Canvas's Emails waiting card (RFQ-RFP-INTAKE); cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
+  'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck', 'cueIcPick_', 'cueIcStart_', 'cueIcDeep_', 'cueTriageIntake', 'cueMailProjectThreads_', 'cueAccCheck'];   // cueMailProjectThreads_: read-only list of Kiko's inbox threads Canvas files under a project (1.27.86 check); // cueTriageIntake: Start intake from Canvas's Emails waiting card (RFQ-RFP-INTAKE); cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
 // cueIc*_ (CueIntakeCheck.gs): the intake-real check picks real inquiries, starts intake on them, and runs phases 2 to 4 with nothing written.
-=======
-  'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
-  'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
-  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules',
-  'cueCrmLogCheck', 'cueFunnelCheck', 'cueJobsCheck', 'cueRnCheck', 'cueBidsLeadsCheck', 'cueNmCheck', 'cueAccCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs); the sales funnel one for the lines the morning batch would list (CueSweepFunnel.gs); the 1.27.57 one for made-up release notes (CueRelnotes.gs); the 1.27.56 one for the bid leads it would send (CueBids.gs); the 1.27.56 New mail one for a read-only pass over the last day of mail (CueNewMail.gs)
->>>>>>> 13362f1 (Cloud check for the Ask Cue changes (read only) (#293))
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
 const CUE_CHECK_NEVER_ = ['cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueAcDone', 'cueBidsStartIntake', 'cueBidsDecide', 'cueBidsClarifySend', 'cueBidsClarifyCancel', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
