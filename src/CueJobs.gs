@@ -22,6 +22,8 @@ function cueJobs_() {
     { job: 'FSA and AR Send later', fn: 'cueArDue_' },              // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
     { job: 'Emails waiting check', fn: 'cueMaTick_' },              // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
     { job: 'Project log', fn: 'cuePlogFlush_' },                    // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
+    { job: 'Messenger inbox', fn: 'cueMsgrPull_' },                   // CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI
+    { job: 'Messenger sign links', fn: 'cueMsgrTick_' },              // CUE-MSGR-2026-11-02: unsigned FSA and AR links on Messenger, every 15 min, no AI
     { job: 'Release notes at 8 PM', fn: 'cueRnDue_' },              // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM
     { job: 'CRM email log', fn: 'cueCrmLogTick_' },                 // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
     { job: 'New mail', fn: 'cueNmTick_', row: 'sys-newmail' },                          // CUE-NEW-MAIL-2026-10-27: new mail in Kiko's inbox and info@, Claude sorts every 30 min

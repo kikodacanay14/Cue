@@ -577,7 +577,7 @@ function cueMyRuleSave(o) {
  * Read only; no token or secret leaves the server, only whether it is there. */
 function cueSettings() {
   cueOwner_();
-  const id = cueProp_('CUE_SHEET_ID', ''), out = { processes: [], ticktick: !!cueProp_('CUE_TICKTICK_TOKEN', ''), tutor: cueTutorOn_(),
+  const id = cueProp_('CUE_SHEET_ID', ''), out = { processes: [], ticktick: !!cueProp_('CUE_TICKTICK_TOKEN', ''), tutor: cueTutorOn_(), msgr: cueMsgrSettings_(),   // CUE-MSGR-2026-11-02
     sheet_url: /^[\w-]{10,}$/.test(id) ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : '' };
   try {
     const wf = id ? SpreadsheetApp.openById(id).getSheetByName('Workflows') : null, n = wf ? wf.getLastRow() - 1 : 0, seen = {};

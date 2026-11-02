@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay
+
+Kiko asked on 2 Nov 2026 for crew papers on Messenger (m.me) and said "you built the spec you code it", then "you do it" for the
+deploy. Built on the live line (1.28.3, Version 189); the same feature is on main as 1.27.90 (Cue PR #289), where the relay
+posts to Cue instead. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-papers-spec.md`,
+`docs/superpowers/plans/2026-11-02-messenger-crew-papers.md`.
+
+- Sign links: every 15 minutes (Job Runs "Messenger sign links") unsigned FSA and AR links of linked crew go on Messenger once,
+  inside Meta's 24-hour window (Canvas `msgr_due`, `msgr_mark`). A send Meta accepted is remembered before Canvas is told.
+- Receiving: Meta's messages wait in the Messenger relay (`relay/`, a Cloudflare Worker that checks Meta's signature); every
+  5 minutes (Job Runs "Messenger inbox") Cue collects them with its key. Cue's /exec stays Google sign-in only. A sealed m.me
+  link saves the link-up in Canvas (`fl_social_save`, with Facebook name and gender) and opens a Cue chat "Messenger · <name>";
+  Kiko answers by typing there (sent inside the window; otherwise Cue says Messenger is closed). Strangers get a polite reply.
+- Settings › Connections › Messenger: relay key (Make key / New key), relay address, and a password box for the Page token.
+- Inert until the relay address and Page token are saved. No AI call. Tests: 613 (15 new, `test/features/80-messenger.js`).
 ## Cue 1.28.3: Ask Cue changes: old threads clear themselves, email types and one chat per email, Canvas edits after approve (not deployed)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": carry unanswered items into today's thread so old threads can be
