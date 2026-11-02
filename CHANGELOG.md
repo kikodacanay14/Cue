@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.27.86: one chat per email, answered by typing (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "New email - make each email appear in Cue's Main chat. Have Cue analyze
+based on history and conversation. 1 conversation or chat per email that arrived". On the mockup: "if this is in Ask Cue chat - dont pu
+options - i will reply in the message". Spec: CanvasWorkspace `docs/specs/ask-cue-changes-spec.md`, stories AC-5 and AC-6. Part 2b of 3.
+
+- Each email whose type is set to Own chat opens its own chat. One line in Ask Cue points to it ("Ana Reyes: Booth count"). Its first
+  message is Cue's read: who it is (type, and the Canvas client and project when Canvas knows the sender), what they want, what the
+  Gmail thread and the project's other emails add, and a suggested next step. One Claude Haiku call per email; the read uses that
+  email's thread and the project's emails only.
+- No buttons. Kiko answers in the chat: "done" closes it; "start intake" starts an intake; "draft a reply saying ..." makes the usual
+  email card in the chat with his words as the brief (nothing is sent before he taps). Anything else gets Ask Cue's normal answer there.
+- A later email in the same Gmail conversation joins its chat and reopens it. The same email in Kiko's Gmail and info@ is one chat.
+- A new kind of email opens a short chat that asks once; Kiko replies "own chat", "one line" or "ignore" and Triage keeps it.
+- The daily "New mail" thread is no longer shown; it stays in the sheet as the list the 5-minute check works from.
+- Not yet: a reply Kiko sends from Gmail itself (not through Cue) does not close the chat; he says "done".
+- New file `src/CueMailChat.gs`. Tests: 479 (ACC7 to ACC9 in `test/features/71-ask-cue-types.js`; NM1 now expects one chat per
+  email instead of the daily list's pointer line).
+
 ## Cue 1.27.85: email types, one line per email, mark as read, project emails (not deployed)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": "identify what kind of email it is. Like if its personal or form the

@@ -25,7 +25,7 @@ test('ACC3 email types: Bank (One line) gets its own line in Ask Cue and is mark
   assert.strictEqual(t.tabs.Chat.rows.filter(r => /^New kind of email: "Gym memberships"/.test(r[2])).length, 1);
   const learned = t.tabs['Triage rules'].rows.slice(1).filter(r => /^type:/.test(r[1])).map(r => [r[0], r[1]]);
   deq(learned.sort(), [['ana@client.example', 'type:Client'], ['leo@brightlights.example', 'type:Gym memberships'], ['maria@acme.example', 'type:Bank']]);
-  assert.strictEqual(s.status, 'Needs you', 'Ana\'s line still waits');
+  assert.ok(by('ana@client.example').chat_id, 'Ana\'s email has its own chat (ACC-6)'); assert.strictEqual(t.state(by('ana@client.example').chat_id).status, 'Needs you');
 });
 
 test('ACC4 a sender already typed is typed by code; Ignore marks read and shows nothing; Cue Admin saves types and moves a sender', () => {
@@ -64,4 +64,46 @@ test('ACC6 no Gmail modify permission yet: nothing fails, the emails stay unread
   const t = tySandbox({ noModify: true }); const id = nmRun(t);
   assert.strictEqual(t.state(id).nm.items.filter(x => x.sender === 'maria@acme.example')[0].removed, 'oneline');
   assert.ok(!t.log.markRead, 'nothing marked');
+});
+
+test('ACC7 one chat per email: Cue\'s read is the first message (one Haiku call each, thread text as data), no buttons; "done" closes it', () => {
+  const t = tySandbox(); const id = nmRun(t), ana = t.state(id).nm.items.filter(x => x.sender === 'ana@client.example')[0];
+  const ch = t.state(ana.chat_id); deq([ch.kind, ch.status, ch.mc.thread_id, ch.mc.type], ['mail', 'Needs you', '55ee000000000005', 'Client']);
+  assert.strictEqual(t.log.mcReads, 1, 'one read: only the Own chat email (Bank and the new kind are One line)');
+  const read = t.log.claude.filter(b => /^You read one email for Kiko/.test(b.system))[0];
+  assert.strictEqual(read.model, 'claude-haiku-5-5'); assert.ok(/Can we add 2 booths\?/.test(read.messages[0].content));
+  const msg = t.tabs.Chat.rows.filter(r => r[3] === ana.chat_id).map(r => r[2]).join('\n');
+  assert.ok(/What they want: They want a quote\./.test(msg) && /Suggested next step: Reply with a quote date\./.test(msg) && /Reply here: "draft a reply saying …", "start intake" or "done"\./.test(msg));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^Ana Reyes: Booth count$/.test(r[2])), 'one line in Ask Cue points to the chat');
+  const v = t.ctx.cueSend('done', [], 'chat', ana.chat_id);
+  assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.state(id).nm.items.filter(x => x.key === ana.key)[0].removed, 'done');
+  assert.ok(!t.log.markRead.some(x => x.ids.indexOf('n5') >= 0), 'done changes nothing in Gmail');
+});
+
+test('ACC8 "draft a reply saying …" in an email chat makes the email card in that chat with Kiko\'s words as the brief; "start intake" starts one', () => {
+  const t = tySandbox(); const id = nmRun(t), ana = t.state(id).nm.items.filter(x => x.sender === 'ana@client.example')[0];
+  const out = t.ctx.cueSend('draft a reply saying 2 more booths are fine, Kiko will confirm the cost', [], 'chat', ana.chat_id);
+  const e = t.state(out.request_id); deq([e.kind, e.ref], ['email', ana.chat_id]);
+  assert.ok(/Kiko's instruction for this reply: draft a reply saying 2 more booths are fine/.test(e.mail.about));
+  assert.strictEqual(e.mail.thread.thread_id, '55ee000000000005', 'a reply in its Gmail thread');
+  assert.ok(!t.log.sent, 'nothing sent before Kiko taps');
+  const u = tySandbox(); const uid = nmRun(u), ua = u.state(uid).nm.items.filter(x => x.sender === 'ana@client.example')[0];
+  const iout = u.ctx.cueSend('start intake', [], 'chat', ua.chat_id); assert.ok(iout.request_id);
+  assert.strictEqual(u.state(ua.chat_id).status, 'Done'); assert.strictEqual(u.state(uid).nm.items.filter(x => x.key === ua.key)[0].acted, 'intake');
+});
+
+test('ACC9 a later email in the same Gmail conversation joins its chat and reopens it; a new kind of email asks once in its own chat and the typed answer sets it', () => {
+  const box = JSON.parse(JSON.stringify(NM_BOX)); let cur = nmAdded(['11aa000000000001', '22bb000000000002', '55ee000000000005']);
+  const t = sandbox({ inbox: box, info: [NM_INFO], history: () => cur, nmSort: TY_SORT, historyId: '500' });
+  const id = nmRun(t), ana = t.state(id).nm.items.filter(x => x.sender === 'ana@client.example')[0];
+  t.ctx.cueSend('done', [], 'chat', ana.chat_id);
+  box.filter(x => x.id === '55ee000000000005')[0].msgs.push({ id: 'n7', ms: MS('2026-10-21T03:40:00Z'), h: H('Ana Reyes <ana@client.example>', 'Re: Booth count'), body: 'Also 1 more table please.' });
+  cur = nmAdded(['55ee000000000005']); t.ctx.__wait(35 * 60e3); t.ctx.cueNmTick_();
+  const ch = t.state(ana.chat_id); assert.strictEqual(ch.status, 'Needs you', 'reopened'); assert.strictEqual(ch.mc.message_ids.length, 2);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New in this conversation: Ana Reyes: Re: Booth count$/.test(r[2])));
+  const gym = t.tabs.Requests.rows.slice(1).map(r => { try { return JSON.parse(r.slice(10).join('')); } catch (e) { return null; } }).filter(x => x && x.kind === 'mailtype');
+  assert.strictEqual(gym.length, 1, 'asked once'); assert.strictEqual(gym[0].mt.type, 'Gym memberships');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === gym[0].id && /Reply here: own chat, one line or ignore\./.test(r[2])));
+  const v = t.ctx.cueSend('ignore', [], 'chat', gym[0].id); assert.strictEqual(v.status, 'Done');
+  assert.ok(t.tabs['Triage types'].rows.slice(1).some(r => r[0] === 'Gym memberships' && r[1] === 'Ignore'));
 });
