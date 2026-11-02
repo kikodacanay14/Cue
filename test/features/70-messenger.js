@@ -1,0 +1,167 @@
+// Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: Messenger sign links (CueMessenger.gs).
+// CUE-MSGR-2026-11-02. Canvas bridge actions msgr_due and msgr_mark are not in fixtures/ZapBridge.gs until the Canvas release
+// ships (handoffs/messenger-crew-canvas in CanvasWorkspace); their argument shapes are checked here by hand.
+const MSGR_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueMessenger.gs'), 'utf8');
+const MSGR_NOW = Date.parse('2026-11-02T08:00:00Z');
+const MSGR_DUE = [
+  { doc: 'FSA', id: 'FSA-0101', project: 'Synthetic Year-End Party', name: 'Ana Cruz', email: 'ana@example.test',
+    sign_link: 'https://canvas.blankspaceevent.com/crew?v=sign&t=aaa.bbb', messenger_id: '1001', last_message: '2026-11-02T06:06:00Z', sent: false },
+  { doc: 'AR', id: 'AR-0202', project: 'Synthetic Year-End Party', name: 'Ben Lim', email: 'ben@example.test',
+    sign_link: 'https://canvas.blankspaceevent.com/crew?v=sign&t=ccc.ddd', messenger_id: '1002', last_message: '2026-10-30T06:00:00Z', sent: false },
+  { doc: 'AR', id: 'AR-0303', project: 'Synthetic Year-End Party', name: 'Ana Cruz', email: 'ana@example.test',
+    sign_link: 'https://canvas.blankspaceevent.com/crew?v=sign&t=eee.fff', messenger_id: '1001', last_message: '2026-11-02T06:06:00Z', sent: true },
+  { doc: 'FSA', id: 'FSA-0404', project: 'Synthetic Year-End Party', name: 'Cy Go', email: 'cy@example.test',
+    sign_link: 'https://canvas.blankspaceevent.com/crew?v=sign&t=ggg.hhh', messenger_id: '1003', last_message: '', sent: false }];
+function msgrBox(o = {}) {
+  const props = Object.assign({ MSGR_PAGE_TOKEN: 'page-token' }, o.props || {}), log = { bridge: [], fetch: [] };
+  const ctx = { console, JSON, Date, Number, String, Math, Object, Array, isNaN,
+    cueNow_: () => o.now || MSGR_NOW,
+    cueBridge_: (s, action, args) => { log.bridge.push([action, args, s && s.id]); if (action === 'msgr_due') return { docs: o.docs || MSGR_DUE };
+      if (o.markFail && o.markFail()) throw new Error('Canvas busy'); return { ok: true, existed: false }; },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] == null ? null : props[k], setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
+    UrlFetchApp: { fetch: (url, req) => { log.fetch.push([url, req]); const code = o.code ? o.code(req) : 200;
+      return { getResponseCode: () => code, getContentText: () => code === 200 ? '{"message_id":"m1"}' : '{"error":{"message":"(#10) This message is sent outside of allowed window."}}' }; } } };
+  vm.createContext(ctx); vm.runInContext(MSGR_SRC, ctx);
+  return { ctx, log, props };
+}
+test('MS1 window: readable and under 24 hours only; blank or bad time is outside', () => {
+  const { ctx } = msgrBox();
+  assert.strictEqual(ctx.cueMsgrInWindow_('2026-11-02T06:06:00Z', MSGR_NOW), true);
+  assert.strictEqual(ctx.cueMsgrInWindow_('2026-11-01T08:00:00Z', MSGR_NOW), false, 'exactly 24 hours is closed');
+  assert.strictEqual(ctx.cueMsgrInWindow_('', MSGR_NOW), false);
+  assert.strictEqual(ctx.cueMsgrInWindow_('not a date', MSGR_NOW), false);
+  assert.strictEqual(ctx.cueMsgrInWindow_('2026-11-03T08:00:00Z', MSGR_NOW), false, 'a future time is not trusted');
+});
+test('MS2 one pass: sends only inside the window, skips sent docs, marks each send once in Canvas', () => {
+  const { ctx, log } = msgrBox(), r = ctx.cueMsgrRun_(MSGR_NOW);
+  assert.strictEqual(r.sent, 1);
+  deq(r.skipped.map(x => [x.id, x.why]), [['AR-0202', 'last message over 24 hours ago'], ['FSA-0404', 'last message over 24 hours ago']]);
+  assert.strictEqual(log.fetch.length, 1);
+  const [url, req] = log.fetch[0], body = JSON.parse(req.payload);
+  assert.strictEqual(url, 'https://graph.facebook.com/v21.0/me/messages');
+  assert.strictEqual(req.headers.Authorization, 'Bearer page-token'); assert.ok(url.indexOf('page-token') < 0, 'the token is never in the URL');
+  deq(body.recipient, { id: '1001' }); assert.strictEqual(body.messaging_type, 'RESPONSE'); assert.ok(!body.tag, 'no message tag');
+  assert.strictEqual(body.message.text, 'Ana, your Freelancer Service Agreement for Synthetic Year-End Party is ready to sign: '
+    + 'https://canvas.blankspaceevent.com/crew?v=sign&t=aaa.bbb\nThe link works for 30 days. It\'s also in your email.');
+  const marks = log.bridge.filter(b => b[0] === 'msgr_mark');
+  deq(marks.map(b => b[1]), [{ request_id: 'msgr:FSA:FSA-0101', doc: 'FSA', id: 'FSA-0101', email: 'ana@example.test', psid: '1001' }]);
+  const m = marks[0][1];
+  assert.strictEqual(bridgeCheck('msgr_mark', m), ''); assert.strictEqual(bridgeCheck('msgr_due', {}), '');
+});
+test('MS3 a document skipped today goes out when the crew member messages again while it is unsigned', () => {
+  const later = MSGR_DUE.map(d => d.id === 'AR-0202' ? Object.assign({}, d, { last_message: '2026-11-04T01:00:00Z' }) : Object.assign({}, d, { sent: true }));
+  const { ctx, log } = msgrBox({ docs: later }); const r = ctx.cueMsgrRun_(Date.parse('2026-11-04T02:00:00Z'));
+  assert.strictEqual(r.sent, 1); assert.strictEqual(JSON.parse(log.fetch[0][1].payload).recipient.id, '1002');
+  assert.ok(/Acknowledgement Receipt/.test(JSON.parse(log.fetch[0][1].payload).message.text));
+});
+test('MS3b Meta accepted but Canvas did not record it: the next tick retries only the record, never a second message (Codex review)', () => {
+  let fail = true; const b = msgrBox({ markFail: () => fail });
+  assert.strictEqual(b.ctx.cueMsgrRun_(MSGR_NOW).sent, 1); assert.strictEqual(b.log.fetch.length, 1);
+  assert.ok(b.props['CUE_MSGR_SENT_FSA:FSA-0101'], 'remembered locally');
+  fail = false; b.ctx.cueMsgrRun_(MSGR_NOW + 15 * 60 * 1000);
+  assert.strictEqual(b.log.fetch.length, 1, 'no second Messenger send');
+  assert.strictEqual(b.log.bridge.filter(x => x[0] === 'msgr_mark').length, 2); assert.ok(!b.props['CUE_MSGR_SENT_FSA:FSA-0101'], 'dropped once Canvas has it');
+});
+test('MS4 the text carries only the sign link: no account numbers or other people', () => {
+  const { ctx } = msgrBox(), t = ctx.cueMsgrText_(MSGR_DUE[0]);
+  assert.ok(!/\d{6,}/.test(t.replace(MSGR_DUE[0].sign_link, '')), t); assert.ok(t.indexOf('Ben') < 0);
+});
+test('MS5 a Meta refusal is not marked, so it is tried again; the job reports it as Failed in Job Runs', () => {
+  const { ctx, log } = msgrBox({ code: () => 400 });
+  assert.throws(() => ctx.cueMsgrRun_(MSGR_NOW), /Messenger: 1 not sent \(FSA-0101: Meta 400: \(#10\) This message is sent outside of allowed window\.\)/);
+  assert.ok(!log.bridge.some(b => b[0] === 'msgr_mark'));
+});
+test('MS6 the job runs every 15 minutes at most, and does nothing without the page token', () => {
+  const a = msgrBox(); assert.strictEqual(a.ctx.cueMsgrTick_(), 1);
+  assert.strictEqual(a.ctx.cueMsgrTick_(), 0, 'same tick window'); assert.strictEqual(a.log.bridge.filter(b => b[0] === 'msgr_due').length, 1);
+  const b = msgrBox({ props: { MSGR_PAGE_TOKEN: null } }); assert.strictEqual(b.ctx.cueMsgrTick_(), 0);
+  assert.strictEqual(b.log.bridge.length, 0, 'no Canvas read without the token'); assert.strictEqual(b.log.fetch.length, 0);
+});
+test('MS7 the job is on the Job Runs list', () => {
+  const jobs = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueJobs.gs'), 'utf8');
+  assert.ok(/\{ job: 'Messenger sign links', fn: 'cueMsgrTick_' \}/.test(jobs));
+});
+
+// ---------- the receiving half (relay door msgr_event, Messenger chats) ----------
+const MSGR_KEY = 'relay-key-not-real-0123456789abcdef';
+const msgrIn = (psid, o = {}) => ({ object: 'page', entry: [{ id: '110499580567237', messaging: [Object.assign({ sender: { id: psid }, recipient: { id: '110499580567237' },
+  timestamp: o.ts || Date.parse('2026-11-02T06:06:00Z') }, o.ref ? { referral: { ref: o.ref, source: 'SHORTLINK', type: 'OPEN_THREAD' } } : {},
+  o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}) } : {})] }] });
+function msgrSandbox(o = {}) {
+  const saves = [];
+  const t = sandbox(Object.assign({
+    bridgeFn: b => {
+      if (b.action !== 'fl_social_save') return undefined;
+      saves.push(b.args);
+      if (b.args.ref === 'bad.ref') return { ok: false, error: 'This Messenger link is not valid.' };
+      return { ok: true, email: b.args.email || 'ana@example.test', raketeer: 'FR-ANCR5001', written: [] };
+    },
+    fb: (u, req) => /\?fields=name,gender$/.test(u) ? { getResponseCode: () => 200, getContentText: () => '{"name":"Ana Cruz","gender":"female","id":"1001"}' }
+      : { getResponseCode: () => 200, getContentText: () => '{"message_id":"m1"}' }
+  }, o));
+  t.props.MSGR_PAGE_TOKEN = 'page-token'; t.props.MSGR_RELAY_KEY = MSGR_KEY;
+  let T = Date.parse('2026-11-02T06:40:00Z'); t.ctx.cueNow_ = () => T; t.at = iso => { T = Date.parse(iso); };
+  const door = (event, key) => JSON.parse(t.ctx.doPost({ postData: { contents: JSON.stringify({ action: 'msgr_event', key: key == null ? MSGR_KEY : key, event }) } }).text);
+  return { t, saves, door, sent: () => (t.log.fb || []).filter(x => /\/me\/messages$/.test(x.url)).map(x => [x.body.recipient.id, x.body.message.text]) };
+}
+test('MS8 a sealed m.me ref links the crew member in Canvas with Facebook name and gender, says so, and opens their Cue chat', () => {
+  const { t, saves, door, sent } = msgrSandbox();
+  deq(door(msgrIn('1001', { ref: 'sealed.ref', text: 'Hi! Ana here' })), { ok: true, handled: 1 });
+  assert.strictEqual(saves.length, 1); const a = saves[0];
+  deq([a.ref, a.messenger_id, a.messenger_name, a.gender, a.linked_at, a.last_message], ['sealed.ref', '1001', 'Ana Cruz', 'female', '2026-11-02T06:06:00.000Z', '2026-11-02T06:06:00.000Z']);
+  assert.ok(/^msgrlink:1001:/.test(a.request_id));
+  deq(sent(), [['1001', 'Hi Ana! You\'re linked to Blank Space Events. Your papers to sign will come here too. Reply anytime if you have a question.']]);
+  const ppl = t.tabs['Messenger People'].rows; deq(ppl[1].slice(0, 3), ['1001', 'ana@example.test', 'Ana Cruz']);
+  const chat = ppl[1][4], s = t.state(chat);
+  deq([s.kind, s.text, s.status, s.msgr.psid], ['msgr', 'Messenger · Ana Cruz', 'Needs you', '1001']);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && r[1] === 'Ana Cruz · Messenger' && r[2] === 'Hi! Ana here'));
+  assert.strictEqual(t.log.claude.length, 0, 'no AI call on crew messages');
+});
+test('MS9 a linked crew member\'s message updates the last-message time in Canvas and lands in the same chat; echoes are ignored', () => {
+  const { t, saves, door } = msgrSandbox(); door(msgrIn('1001', { ref: 'sealed.ref' }));
+  const chat = t.tabs['Messenger People'].rows[1][4];
+  door(msgrIn('1001', { text: 'Signed na po. Anong oras call time sa Friday?', ts: Date.parse('2026-11-02T06:31:00Z') }));
+  deq(saves[1], { request_id: saves[1].request_id, email: 'ana@example.test', last_message: '2026-11-02T06:31:00.000Z' });
+  assert.ok(t.bridgeOk !== false && bridgeCheck('fl_social_save', saves[1]) === '');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /Anong oras call time/.test(r[2])));
+  deq(door(msgrIn('1001', { text: 'our own reply', echo: true })), { ok: true, handled: 0 });
+});
+test('MS10 strangers and changed links save nothing, get a polite reply, and leave one line in Ask Cue (R5)', () => {
+  const { t, saves, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'magkano po package?' }));
+  door(msgrIn('3003', { ref: 'bad.ref', text: 'hi' }));
+  assert.strictEqual(saves.filter(x => x.messenger_id === '2002').length, 0);
+  deq(sent().map(x => x[0]), ['2002', '3003']); assert.ok(/This chat is for our crew/.test(sent()[0][1])); assert.ok(/did not work/.test(sent()[1][1]));
+  assert.ok(!t.tabs['Messenger People'] || t.tabs['Messenger People'].rows.length <= 1);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '' && /not linked as crew/.test(r[2])));
+});
+test('MS11 the door takes msgr_event only with the relay key', () => {
+  const { door, saves } = msgrSandbox();
+  deq(door(msgrIn('1001', { ref: 'sealed.ref' }), 'wrong'), { ok: false, error: 'Not allowed.' });
+  deq(door(msgrIn('1001', { ref: 'sealed.ref' }), ''), { ok: false, error: 'Not allowed.' });
+  assert.strictEqual(saves.length, 0);
+});
+test('MS12 Kiko answers in the chat: sent inside the window; outside it Cue says Messenger is closed; "done" closes', () => {
+  const { t, door, sent } = msgrSandbox(); door(msgrIn('1001', { ref: 'sealed.ref', ts: Date.parse('2026-11-02T06:06:00Z') }));
+  const chat = t.tabs['Messenger People'].rows[1][4];
+  t.ctx.cueSend('Thanks Ana! Call time is 2:00 PM at Ayala Triangle Gardens. See you!', [], 'chat', chat);
+  assert.ok(sent().some(x => x[0] === '1001' && /Call time is 2:00 PM/.test(x[1])), 'sent on Messenger');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && r[2] === 'Sent on Messenger.'));
+  t.at('2026-11-04T01:00:00Z');
+  const n = sent().length; t.ctx.cueSend('Are you free on the 20th?', [], 'chat', chat);
+  assert.strictEqual(sent().length, n, 'nothing sent outside the window');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /^Messenger is closed for Ana Cruz/.test(r[2])));
+  t.ctx.cueSend('done', [], 'chat', chat); assert.strictEqual(t.state(chat).status, 'Done');
+});
+test('MS13 the Messenger relay (relay/messenger-worker.js): Meta webhook check, signature check, forward to Cue', () => {
+  require('child_process').execFileSync(process.execPath, [path.join(__dirname, '..', 'relay', 'messenger-worker.test.mjs')], { stdio: 'pipe' });
+});
+test('MS14 Settings › Messenger: owner makes the relay key and saves the Page token; the token never comes back to the page', () => {
+  const t = sandbox(); delete t.props.MSGR_RELAY_KEY;
+  let S = t.ctx.cueMsgrKey(); assert.ok(/^mr_[0-9a-f]{64}$/.test(S.relay.msgr.key)); assert.strictEqual(S.relay.msgr.token, false);
+  S = t.ctx.cueMsgrTokenSet('EAAG' + 'x'.repeat(120)); assert.strictEqual(S.relay.msgr.token, true);
+  assert.ok(JSON.stringify(S).indexOf('EAAG') < 0, 'the token is not in the settings answer');
+  assert.throws(() => t.ctx.cueMsgrTokenSet('short'), /does not look like a Page access token/);
+  S = t.ctx.cueMsgrTokenSet(''); assert.strictEqual(S.relay.msgr.token, false);
+  assert.throws(() => sandbox({ viewer: 'someone@example.com' }).ctx.cueMsgrKey(), /owner|Kiko|only/i);
+});

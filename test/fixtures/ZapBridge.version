@@ -1,4 +1,5 @@
 CanvasWorkspace main src/ZapBridge.gs = live Canvas V330, plus two Canvas releases not yet live (29 Oct 2026): rel-cue-admin-move-main (PR #278,
-run_now_list/run_now_send/sn_board/sn_items/sn_prepare/sn_send, md5 5af6d66277b539e562ce11a81cabfb0f) and rel-sent-log-main (sent_log, appended at the end).
-md5 35d73dbb1c67547c8d9d2860155ed48a
+run_now_list/run_now_send/sn_board/sn_items/sn_prepare/sn_send, md5 5af6d66277b539e562ce11a81cabfb0f) and rel-sent-log-main (sent_log, appended at the end). Plus the Messenger for crew block (MSGR-CREW-2026-11-02: fl_social_save, msgr_due, msgr_mark), appended at the end, not yet live:
+CanvasWorkspace handoffs/messenger-crew-canvas/files/ZapBridge.gs (PR #396), waiting in deploy-queue.md.
+md5 0ad7b62ae2bac81e73eb18ff8ae3c755
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).

@@ -1,5 +1,31 @@
 # Changelog
 
+## Cue 1.27.90: Messenger for crew: sign links, link-ups, crew chats and the relay (not deployed)
+
+Kiko asked on 2 Nov 2026, in a cloud chat, to use m.me so crew get their papers on Facebook Messenger and their social details sit
+in the Freelancers database. He approved the stories, rules, mockups and spec the same day ("approve", "Approve"), and parked the
+Cloudflare relay that Meta's incoming messages need. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-papers-spec.md` and
+`docs/superpowers/plans/2026-11-02-messenger-crew-papers.md`.
+
+- New `src/CueMessenger.gs`: every 15 minutes (Job Runs "Messenger sign links") Cue asks Canvas for unsigned FSAs and ARs of crew
+  who linked their Messenger (bridge read `msgr_due`) and sends each sign link on Messenger once, only while Meta's 24-hour window
+  from the crew member's last message is open. Each send is recorded in Canvas (`msgr_mark`) so it never goes twice. A document
+  outside the window is tried again later. Email and SMS are unchanged. No AI call. Bank details never go in the text.
+- Does nothing until script property `MSGR_PAGE_TOKEN` is set (after Meta approves the app), and needs the Canvas release waiting
+  in CanvasWorkspace `deploy-queue.md` ("Main: Messenger for crew papers"). The receiving half (link-ups, crew replies in Cue)
+  waits for the parked relay.
+- `test/fixtures/ZapBridge.gs` gains the three Messenger bridge actions from the Canvas handoff build.
+- Receiving (Kiko 2 Nov 2026: "you built the spec you code it"): the relay door takes `msgr_event` with its own key
+  (`MSGR_RELAY_KEY`). A sealed m.me link saves the crew member's link-up in Canvas (`fl_social_save`, with Facebook name and
+  gender) and opens their Cue chat "Messenger · <name>"; their later messages land there. Kiko answers by typing in that chat:
+  sent on Messenger inside the 24-hour window, otherwise Cue says Messenger is closed. "done" closes it. Strangers and changed
+  links get a polite reply and nothing is saved. New tab "Messenger People". No AI call on crew messages.
+- New `relay/messenger-worker.js` (Cloudflare Worker, `relay/wrangler.toml`): answers Meta's webhook check, checks Meta's
+  signature with the app secret, and forwards events to Cue. Its tests run inside `node test/cue.test.js`.
+- Settings › Relay gets a Messenger block: Make or New key for the relay, and a password box for the Page token (saved, never
+  shown again).
+- Codex review: a send Meta accepted is remembered before Canvas is told, so a failed record is retried without a second message.
+- Tests: 497 (15 new, `test/features/70-messenger.js`).
 ## Cue 1.27.89: cloud check for the Ask Cue changes (not deployed)
 
 Kiko said on 2 Nov 2026: "you do that. ive never been asked to do that and i wont" (the PC check). The cloud check (Check Cue

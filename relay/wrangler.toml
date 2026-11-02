@@ -1,0 +1,5 @@
+# CUE-MSGR-2026-11-02: the Messenger relay. Deploy: npx wrangler deploy (from this folder), then set the four secrets:
+# npx wrangler secret put VERIFY_TOKEN / APP_SECRET / CUE_URL / CUE_KEY
+name = "bse-messenger-relay"
+main = "messenger-worker.js"
+compatibility_date = "2026-10-01"

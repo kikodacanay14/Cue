@@ -22,6 +22,7 @@ const CUE_TABS_ = {
   'Triage log': ['Time', 'Message', 'Thread', 'From', 'Subject', 'Group', 'Summary', 'Run'],      // CueTriage.gs: emails already shown
   'Canvas edits': ['Time', 'Book', 'Tab', 'Key column', 'Key', 'Column', 'Old', 'New', 'How'],   // ACC-15: every Canvas edit Cue saved (Edit log, Undo)
   'Triage types': ['Type', 'Setting', 'Set', 'Why'],                                             // ACC-4: email types and what happens to each (Cue Admin › Triage)
+  'Messenger People': ['PSID', 'Email', 'Name', 'Last message', 'Chat'],                         // CUE-MSGR-2026-11-02: crew linked on Messenger, one chat each
   'Triage rules': ['Sender', 'Rule', 'Set', 'Why'],                                               // mute / keep / no_inquiry; Kiko can delete rows
   'Job Runs': ['Started', 'Finished', 'Job', 'Result', 'Error', 'Count']                          // one row per background job run (CueJobs.gs); Canvas Admin reads it
 };
