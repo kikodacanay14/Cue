@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.3: Ask Cue changes: old threads clear themselves, email types and one chat per email, Canvas edits after approve (not deployed)
+## Cue 1.28.3: Ask Cue changes: old threads clear themselves, email types and one chat per email, Canvas edits after approve (LIVE as Version 189, 2 Nov 2026 06:15Z; rollback Version 187)
 
 Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": carry unanswered items into today's thread so old threads can be
 archived; one chat per new email with Cue's read of it, a type for every email and a Triage list of what to do per type; and Cue
