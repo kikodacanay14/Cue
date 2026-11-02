@@ -107,3 +107,40 @@ test('ACC9 a later email in the same Gmail conversation joins its chat and reope
   const v = t.ctx.cueSend('ignore', [], 'chat', gym[0].id); assert.strictEqual(v.status, 'Done');
   assert.ok(t.tabs['Triage types'].rows.slice(1).some(r => r[0] === 'Gym memberships' && r[1] === 'Ignore'));
 });
+
+test('ACC10 edits: Kiko\'s lock list holds in Cue (supplier bank details editable, freelancer bank and TIN not); supplier bank edits carry the call-to-confirm warning', () => {
+  const t = sandbox();
+  deq(['TIN', 'Accreditation Status', 'Copy of Government ID', 'PROJECT STATUS', 'Account Number', 'Preferred Bank', 'Role', 'Approved by'].map(c => t.ctx.cueEdLocked_('admin', 'QRY', c)), [true, true, true, true, true, true, true, true]);
+  deq(['Bank', 'Account Name', 'AccountNumber', 'City'].map(c => t.ctx.cueEdLocked_('suppliers', 'Main', c)), [false, false, false, false]);
+  assert.strictEqual(t.ctx.cueEdLocked_('suppliers', 'Main', 'TIN'), true);
+  deq(t.ctx.cueEdBankCols_({ book: 'suppliers', tab: 'Main', set: { AccountNumber: '0123', City: 'Pasig' } }), ['AccountNumber']);
+  t.ctx.cueEditCard_({ book: 'suppliers', tab: 'Main', key: 'SUP-0412', keycol: 'Supplier ID #', set: { AccountNumber: '0123' }, was: { AccountNumber: '2290' } }, '');
+  assert.ok(t.tabs.Chat.rows.some(r => /Confirm by calling the supplier on a number you already have\./.test(r[2])));
+});
+
+test('ACC11 typing "approve" answers the Approve question waiting in that chat, writes once and logs it; "not" writes nothing; Undo opens a new question', () => {
+  const t = sandbox({ talk: TALK_ED, edit: ED_PLAN });
+  t.ctx.cueSend('change the BI 0014 description', [], '');
+  const before = (t.log.bridge || []).filter(b => b.action === 'write_rows').length;
+  t.ctx.cueSend('approve', [], '');
+  assert.strictEqual((t.log.bridge || []).filter(b => b.action === 'write_rows').length, before + 1, 'one write');
+  const log = t.tabs['Canvas edits'].rows.slice(1); assert.ok(log.length >= 1 && log[0][8] === 'approved by Kiko');
+  const e = t.ctx.cueAdminEdits(); assert.ok(e.length >= 1);
+  t.ctx.cueAdminEditUndo(e[0].n); assert.ok(t.tabs.Chat.rows.some(r => /^Undo asked from Cue Admin/.test(r[2])));
+  const n = (t.log.bridge || []).filter(b => b.action === 'write_rows').length;
+  t.ctx.cueSend('not', [], ''); assert.strictEqual((t.log.bridge || []).filter(b => b.action === 'write_rows').length, n, '"not" writes nothing');
+});
+
+test('ACC12 a known contact\'s email whose signature has new details gets an edit question in its chat; Undo keeps a long old value whole', () => {
+  let cur = nmAdded(['11aa000000000001']);
+  const t = sandbox({ inbox: NM_BOX, info: [], history: () => cur, nmSort: TY_SORT, historyId: '500', edit: ED_PLAN,
+    mcRead: { want: 'A quote.', history: 'Nothing earlier.', next: 'Reply.', phone: '0918 222 7781', position: '', company: '' },
+    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: 'Acme Party', pid: 'S-1' }] } });
+  t.tabs['Triage rules'].appendRow(['maria@acme.example', 'type:Client', new Date(), 'set']);
+  const id = nmRun(t), m = t.state(id).nm.items.filter(x => x.sender === 'maria@acme.example')[0];
+  assert.ok(m.chat_id, 'Maria has a chat');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === m.chat_id && /^Cue noticed new details in this email's signature\.$/.test(r[2])), 'the proposal reaches the chat');
+  const long = 'x'.repeat(900);
+  t.ctx.cueEdLog_({ book: 'tracker', tab: 'BI', keycol: 'BI NUMBER', key: '0014', set: { DESCRIPTION: 'new' }, was: { DESCRIPTION: long } }, { DESCRIPTION: 'new' });
+  const row = t.tabs['Canvas edits'].rows.slice(-1)[0]; assert.strictEqual(String(row[6]).length, 900, 'the whole old value is kept for Undo');
+});
