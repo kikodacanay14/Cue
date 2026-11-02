@@ -82,6 +82,14 @@ function cueBidsStart_(text, how, from) {
     if (runs.length) {
       home = runs[0].s.id; s.ref = home; s.bids.title = s.bids.base = title + ', ' + Utilities.formatDate(d, 'Asia/Manila', 'HH:mm');
       cueBidsTidy_(sh, runs);
+    } else {
+      // ACC-1 / ACC-2 (Kiko 2 Nov 2026, Q1 "A", assumption 11): the day's first check lists every earlier notice still open
+      // (cueBidsStill_), so older days' Bid check threads that still wait close and are archived here.
+      cueBidsRuns_(sh).forEach(x => {
+        if (!x.day || x.day >= s.bids.day || x.s.status !== 'Needs you') return;
+        x.s.closed_from = x.s.status; x.s.status = 'Closed'; x.s.superseded = id; x.s.archived = true; x.s.archived_by = 'carry';
+        cueSave_(sh, x.row, x.s);
+      });
     }
     sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
   });

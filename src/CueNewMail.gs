@@ -133,22 +133,25 @@ function cueNmAdd_(run, found) {
 /** Today's New mail request, made on first use. Lines Kiko has not handled yet move from the day before, which then closes. Call locked. */
 function cueNmToday_(day) {
   const sh = cueSheet_('Requests'), rows = cueRows_(sh);
-  let prev = null;
+  // ACC-1 / ACC-2 (Kiko 2 Nov 2026, Q1 "A"): open lines move from every older New mail thread still waiting, not only the latest one;
+  // each of those threads closes and is archived (assumption 11).
+  const older = [];
   for (let i = rows.length - 1; i >= 0; i--) {
     let x = null; try { x = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { continue; }
     if (!x || x.kind !== 'newmail') continue;
     if (x.day === day) return { sh, row: i + 2, s: x };
-    prev = prev || { row: i + 2, s: x };
-    break;
+    if (!older.length || (x.status !== 'Closed' && !x.archived)) older.push({ row: i + 2, s: x });
   }
   const now = cueNow_();
   const id = 'cue-' + Utilities.formatDate(new Date(now), 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const s = { id, version: CUE_VERSION_, kind: 'newmail', created: new Date(now).toISOString(), started: now, day, text: 'New mail for ' + day,
     status: 'Done', stage: 'Done', ref: '', nm: { items: [], skipped: [], sorted_at: 0 }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
-  if (prev && prev.s.nm) {
-    s.nm.items = prev.s.nm.items.filter(x => !x.removed && !x.task_id);
-    if (prev.s.status !== 'Closed') { prev.s.status = 'Closed'; prev.s.closed_from = 'Needs you'; prev.s.superseded = id; cueSave_(sh, prev.row, prev.s); }
-  }
+  const seen = {};
+  older.forEach(o => {
+    (o.s.nm ? o.s.nm.items : []).filter(x => !x.removed && !x.task_id).forEach(x => { if (!seen[x.key]) { seen[x.key] = 1; s.nm.items.push(x); } });
+    if (o.s.status !== 'Closed') { o.s.closed_from = o.s.status; o.s.status = 'Closed'; o.s.superseded = id; }
+    o.s.archived = true; o.s.archived_by = 'carry'; cueSave_(sh, o.row, o.s);
+  });
   cueNmStatus_(s);
   sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
   return { sh, row: sh.getLastRow(), s };
