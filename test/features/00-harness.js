@@ -193,6 +193,8 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You sort emails for Kiko/.test(body.system)) { log.claude.push(body); log.nmSorts = (log.nmSorts || 0) + 1;   // New mail (CueNewMail.gs)
       return (o.fail || {}).nmSort ? o.fail.nmSort() : claudeOk(typeof o.nmSort === 'function' ? o.nmSort(body) : o.nmSort || { items: [] }); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You read one email for Kiko/.test(body.system)) { log.claude.push(body); log.mcReads = (log.mcReads || 0) + 1;   // ACC-6 email read
+      return claudeOk(typeof o.mcRead === 'function' ? o.mcRead(body) : o.mcRead || { want: 'They want a quote.', history: 'Nothing earlier.', next: 'Reply with a quote date.' }); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You read email signature lines/.test(body.system)) { log.claude.push(body); return claudeOk(o.csAi || CS_AI); }   // old-email contact scan
     if (u.indexOf('api.anthropic.com') >= 0 && /one change to a Canvas sheet row/.test(body.system)) { log.claude.push(body); return claudeOk(o.edit || ED_PLAN); }
     if (u.indexOf('api.anthropic.com') >= 0 && /finance admin/.test(body.system)) { log.claude.push(body); return claudeOk(o.xplan || XPLAN); }
@@ -500,6 +502,9 @@ function sandbox(o = {}) {
         parts: m.html ? [{ mimeType: 'text/html', body: { data: enc(m.html) } }] : [{ mimeType: 'text/plain', body: { data: enc(m.body) } }, { mimeType: 'text/html', body: { data: enc('<p>ignored</p>') } }] } });
     }
     if (u.indexOf('api.hubapi.com') >= 0) throw new Error('Cue must not call HubSpot: ' + u);   // HUBSPOT-REMOVAL-2026-11-01
+    if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/messages/batchModify') >= 0) {   // ACC-8: mark read (gmail.modify)
+      if (o.noModify) return resp(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED' } });
+      const b = JSON.parse(req.payload); (log.markRead = log.markRead || []).push({ ids: b.ids, remove: b.removeLabelIds, add: b.addLabelIds }); return resp(204, {}); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/profile') >= 0) { log.profile = (log.profile || 0) + 1; return resp(200, { emailAddress: 'kiko@example.com', historyId: o.historyId || '500' }); }
     if (u.indexOf('gmail.googleapis.com/gmail/v1/users/me/history?') >= 0) { (log.history = log.history || []).push(u);   // New mail: what changed since startHistoryId
       if (o.historyGone) return resp(404, { error: { code: 404, message: 'Requested entity was not found.' } });

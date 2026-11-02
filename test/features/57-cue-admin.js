@@ -34,8 +34,8 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'auto', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'usage']);   // release line: AI relay is not live yet, so it has no button here
-  ['triage', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'usage']);   // release line: AI relay is not live yet, so it has no button here
+  ['triage', 'edits', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });
 

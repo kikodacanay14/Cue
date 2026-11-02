@@ -143,6 +143,7 @@
     if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
+    if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
     if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
@@ -251,18 +252,70 @@
   function appUrl() { var u = (state && state.app_url) || ''; return /^https:\/\//.test(u) ? u : ''; }
   var triageList = null, triageErr = '', rnList = null, rnErr = '';
   var TRIAGE_WORD = { mute: 'Mute', keep: 'Keep', no_inquiry: 'No inquiry' };
-  function loadTriage() { call('cueAdminTriage', [], function (r) { triageList = r; triageErr = ''; renderTriage(); }, function (e) { triageErr = (e && e.message) || String(e); renderTriage(); }); }
+  function triageWord(r) { return TRIAGE_WORD[r] || (/^type:/.test(r) ? 'Type: ' + r.slice(5) : r); }
+  // ACC-4 (Kiko 2 Nov 2026: "In triage, have a list of common email senders of type then i will indicate what to do"): email types,
+  // what happens to each, and the senders under each. Saved as one list; the sender rules below stay as before.
+  var typeList = null, typeErr = '';
+  // ACC-15 (Kiko 2 Nov 2026, assumptions 13 and 21): every Canvas edit Cue saved, newest first; Undo opens an Approve question in Ask Cue.
+  var editList = null, editErr = '';
+  function loadEdits() { call('cueAdminEdits', [], function (r) { editList = r; editErr = ''; renderEdits(); }, function (e) { editErr = (e && e.message) || String(e); renderEdits(); }); }
+  function renderEdits() {
+    var L = editList || [];
+    setHtml($('w-edits'), '<div class="small muted" style="margin-bottom:10px">Every change Cue saved in Canvas. Undo asks for your approve in Ask Cue before anything is written.</div>'
+      + (editErr ? '<div class="err">' + esc(editErr) + '</div>' : '') + (editList ? '' : '<div class="small muted">Loading…</div>')
+      + (editList && !L.length ? '<div class="card small muted">No edits yet.</div>' : '')
+      + (L.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr><th style="text-align:center">When</th><th style="text-align:center">Record</th><th style="text-align:center">Field</th><th style="text-align:center">Old</th><th style="text-align:center">New</th><th></th></tr>'
+        + L.map(function (x) { return '<tr><td style="text-align:center;vertical-align:middle" class="small">' + esc(String(x.at).slice(0, 16).replace('T', ' ')) + '</td><td style="vertical-align:middle">' + esc(x.tab + ' · ' + x.key) + '</td>'
+          + '<td style="text-align:center;vertical-align:middle">' + esc(x.column) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.old).slice(0, 120)) + '</td><td style="text-align:center;vertical-align:middle">' + esc(String(x.now).slice(0, 120)) + '</td>'
+          + '<td style="text-align:center;vertical-align:middle"><button class="btn ghost" data-ed-undo="' + x.n + '">Undo</button></td></tr>'; }).join('') + '</table></div>' : ''));
+  }
+  $('w-edits').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ed-undo]'); if (!b) return; b.disabled = true;
+    call('cueAdminEditUndo', [Number(b.getAttribute('data-ed-undo'))], function () { b.textContent = 'Asked in Ask Cue'; }, function (er) { editErr = (er && er.message) || String(er); $('w-edits')._h = null; renderEdits(); });
+  });
+  function loadTriage() {
+    call('cueAdminTriage', [], function (r) { triageList = r; triageErr = ''; renderTriage(); }, function (e) { triageErr = (e && e.message) || String(e); renderTriage(); });
+    call('cueAdminTypes', [], function (r) { typeList = r; typeErr = ''; renderTriage(); }, function (e) { typeErr = (e && e.message) || String(e); renderTriage(); });
+  }
+  function typesHtml() {
+    if (!typeList) return '<div class="small muted">Loading types…</div>';
+    var opts = function (cur) { return typeList.settings.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); };
+    return '<div class="small muted" style="margin-bottom:10px">What happens to each kind of email. Own chat: Cue reads it for you. One line: one line in Ask Cue, marked read in Gmail. Ignore: not shown, marked read in Gmail.</div>'
+      + '<div style="overflow-x:auto"><table class="tytab" style="width:100%;border-collapse:collapse"><tr><th style="text-align:center">Type</th><th style="text-align:center">Setting</th><th style="text-align:center">Senders</th><th></th></tr>'
+      + typeList.types.map(function (t, i) {
+        return '<tr data-ty="' + i + '"><td style="vertical-align:middle"><input id="ty-n-' + i + '" value="' + esc(t.type) + '" aria-label="Type name" style="width:100%;min-width:120px"></td>'
+          + '<td style="text-align:center;vertical-align:middle"><select id="ty-s-' + i + '" aria-label="Setting for ' + esc(t.type) + '">' + opts(t.setting) + '</select></td>'
+          + '<td class="small muted" style="vertical-align:middle">' + (t.senders.length ? esc(t.senders.slice(0, 3).join(', ')) + (t.senders.length > 3 ? ' +' + (t.senders.length - 3) : '') : '–') + '</td>'
+          + '<td style="text-align:center;vertical-align:middle"><button class="btn ghost" data-ty-del="' + i + '">Remove</button></td></tr>';
+      }).join('') + '</table></div>'
+      + '<div class="arow" style="gap:8px;margin:10px 0 18px;flex-wrap:wrap"><button class="btn ghost" data-ty-add="1">Add type</button><button class="btn" data-ty-save="1">Save types</button>'
+      + '<input id="ty-who" placeholder="sender@example.com or @domain" aria-label="Sender" style="min-width:200px"><select id="ty-to" aria-label="Move sender to type">' + typeList.types.map(function (t) { return '<option>' + esc(t.type) + '</option>'; }).join('') + '</select><button class="btn ghost" data-ty-move="1">Move sender</button></div>'
+      + '<div class="label">Sender rules</div>';
+  }
+  function typesRead() {
+    return typeList.types.map(function (t, i) { var n = $('ty-n-' + i), s2 = $('ty-s-' + i); return n ? { type: n.value, setting: s2.value } : null; }).filter(Boolean);
+  }
+  function typesDone(r) { typeList = r; typeErr = ''; $('w-triage')._h = null; renderTriage(); }
+  function typesFail(er) { typeErr = (er && er.message) || String(er); $('w-triage')._h = null; renderTriage(); }
   function renderTriage() {
     var L = triageList || [];
-    setHtml($('w-triage'), '<div class="small muted" style="margin-bottom:10px">Senders Cue mutes, always keeps, or treats as not an inquiry in New mail. Set from the inbox lines; Remove takes one off.</div>'
+    setHtml($('w-triage'), (typeErr ? '<div class="err">' + esc(typeErr) + '</div>' : '') + typesHtml() + '<div class="small muted" style="margin-bottom:10px">Senders Cue mutes, always keeps, treats as not an inquiry, or files under a type. Remove takes one off.</div>'
       + (triageErr ? '<div class="err">' + esc(triageErr) + '</div>' : '') + (triageList ? '' : '<div class="small muted">Loading…</div>')
       + (triageList && !L.length ? '<div class="card small muted">No triage rules yet.</div>' : '')
       + L.map(function (x) {
-        return '<div class="card arow"><div style="flex:1;min-width:0"><b>' + esc(x.sender) + '</b><div class="small muted">' + esc(TRIAGE_WORD[x.rule] || x.rule) + (x.set ? ' · ' + esc(x.set) : '') + (x.why ? ' · "' + esc(x.why) + '"' : '') + '</div></div>'
-          + '<span class="apill">' + esc(TRIAGE_WORD[x.rule] || x.rule) + '</span><button class="btn ghost" data-tr-del="' + esc(x.key) + '" data-tr-who="' + esc(x.sender) + '">Remove</button></div>';
+        return '<div class="card arow"><div style="flex:1;min-width:0"><b>' + esc(x.sender) + '</b><div class="small muted">' + esc(triageWord(x.rule)) + (x.set ? ' · ' + esc(x.set) : '') + (x.why ? ' · "' + esc(x.why) + '"' : '') + '</div></div>'
+          + '<span class="apill">' + esc(triageWord(x.rule)) + '</span><button class="btn ghost" data-tr-del="' + esc(x.key) + '" data-tr-who="' + esc(x.sender) + '">Remove</button></div>';
       }).join(''));
   }
   $('w-triage').addEventListener('click', function (e) {
+    var ty = e.target.closest('[data-ty-add],[data-ty-save],[data-ty-del],[data-ty-move]');
+    if (ty && typeList) {
+      var list = typesRead();
+      if (ty.hasAttribute('data-ty-add')) { typeList.types.push({ type: 'New type', setting: 'Own chat', senders: [] }); $('w-triage')._h = null; renderTriage(); return; }
+      if (ty.hasAttribute('data-ty-del')) { typeList.types.splice(Number(ty.getAttribute('data-ty-del')), 1); list = typesRead(); }
+      if (ty.hasAttribute('data-ty-move')) { ty.disabled = true; call('cueAdminTypeSender', [$('ty-who').value, $('ty-to').value], typesDone, typesFail); return; }
+      ty.disabled = true; call('cueAdminTypesSave', [list], typesDone, typesFail); return;
+    }
     var b = e.target.closest('[data-tr-del]'); if (!b) return;
     ask('Remove the rule for ' + b.getAttribute('data-tr-who') + '?', 'New mail treats this sender as it does any other from the next check.', null, 'Remove',
       function () { b.disabled = true; call('cueAdminTriageDel', [b.getAttribute('data-tr-del')], function (r) { triageList = r; triageErr = ''; $('w-triage')._h = null; renderTriage(); },

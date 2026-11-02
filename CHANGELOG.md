@@ -3,7 +3,7 @@
 ## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay
 
 Kiko asked on 2 Nov 2026 for crew papers on Messenger (m.me) and said "you built the spec you code it", then "you do it" for the
-deploy. Built on the live line (1.28.2, Version 187); the same feature is on main as 1.27.90 (Cue PR #289), where the relay
+deploy. Built on the live line (1.28.3, Version 189); the same feature is on main as 1.27.90 (Cue PR #289), where the relay
 posts to Cue instead. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-papers-spec.md`,
 `docs/superpowers/plans/2026-11-02-messenger-crew-papers.md`.
 
@@ -14,7 +14,35 @@ posts to Cue instead. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-pa
   link saves the link-up in Canvas (`fl_social_save`, with Facebook name and gender) and opens a Cue chat "Messenger · <name>";
   Kiko answers by typing there (sent inside the window; otherwise Cue says Messenger is closed). Strangers get a polite reply.
 - Settings › Connections › Messenger: relay key (Make key / New key), relay address, and a password box for the Page token.
-- Inert until the relay address and Page token are saved. No AI call. Tests: 601 (15 new, `test/features/80-messenger.js`).
+- Inert until the relay address and Page token are saved. No AI call. Tests: 613 (15 new, `test/features/80-messenger.js`).
+## Cue 1.28.3: Ask Cue changes: old threads clear themselves, email types and one chat per email, Canvas edits after approve (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": carry unanswered items into today's thread so old threads can be
+archived; one chat per new email with Cue's read of it, a type for every email and a Triage list of what to do per type; and Cue
+allowed to change Contacts, Clients, Projects, Suppliers and Freelancers fields. Spec, approved 2 Nov 2026: CanvasWorkspace
+`docs/specs/ask-cue-changes-spec.md`. Built on Cue main as 1.27.84 to 1.27.89 (PRs #287, #288, #290 to #293) and restacked here on
+1.28.2. Kiko 2 Nov 2026: "approve".
+
+- Old daily threads: open lines from every older New mail thread move into today's; the day's first Bid check archives older days'
+  Bid check threads that still wait (their open notices already show as still open in today's); an older Morning batch is archived
+  as well as closed.
+- Email types (Client, Supplier, Freelancer, Personal, Government, Bank, Bills and dues, Platform notices, Newsletters and promos,
+  Other): typed by sender in code, otherwise by the existing New mail sort, which then remembers the sender. Cue Admin › Triage sets
+  Own chat, One line or Ignore per type; a new kind of email asks once in its own short chat.
+- Own chat emails each open a chat (one Haiku call for Cue's read). Kiko answers by typing: "done", "start intake", "draft a reply
+  saying ...". A later email in the same Gmail conversation joins its chat. The daily New mail thread is no longer shown.
+- One line emails each get a line in Ask Cue. These lines and the email-chat pointers post in the main chat even when the 8 AM update
+  is on, because Kiko asked on 2 Nov for each email to appear in the main chat.
+- Emails with a Canvas Project ID now pass the junk and mute filters and get one line pointing to Team Cue (still unread). Threads
+  Canvas already files under a project stay out of Ask Cue, as before.
+- Marking emails read is in the code but switched off: it needs the Gmail scope gmail.modify, which is not added, so triggers keep
+  their current authorization. The line notes the missing permission instead.
+- Canvas edits: approve questions take a typed "approve" or "not" (no buttons); Kiko's lock list is checked in Cue; supplier bank
+  edits carry "Confirm by calling the supplier on a number you already have."; every saved edit goes to the Canvas edits tab, with
+  Undo in Cue Admin › Edit log; a known contact's signature that differs from P0 Contacts becomes an edit question in its chat.
+- The Canvas part (Team Cue filing by Project ID for every sender, info@ mark-read, Canvas-side locks, allow-list rows) is handed to
+  Canvas Integration (CanvasWorkspace `handoffs/ask-cue-changes-for-canvas-integration.md`).
+- Cloud check: `test/checks/1.27.88-ask-cue.check.mjs` (read only). Tests: 598.
 
 ## Cue 1.28.2: a run too large to store stops instead of repeating (not deployed)
 
