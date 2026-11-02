@@ -1,5 +1,11 @@
 # Changelog
 
+## Cue 1.27.89: cloud check for the Ask Cue changes (not deployed)
+
+Kiko said on 2 Nov 2026: "you do that. ive never been asked to do that and i wont" (the PC check). The cloud check (Check Cue
+workflow, Kiko ok 27 Oct 2026) runs instead: new read-only script `test/checks/1.27.88-ask-cue.check.mjs` and check-door read
+`cueAccCheck` (email types and the Canvas edits log count; writes nothing). Dry run passes. Tests: 482.
+
 ## Cue 1.27.88: take the gmail.modify scope back out (not deployed)
 
 Cue 1.27.85 added the Gmail scope `gmail.modify` for marking emails read. Apps Script triggers run the head code, and Deploy Cue's

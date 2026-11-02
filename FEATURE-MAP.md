@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 66 server files, 1309 top-level names, 31 task kinds, 31 word checks before the
+Counts: 66 server files, 1310 top-level names, 31 task kinds, 31 word checks before the
 chat call, 12 background jobs in the 5-minute trigger, 85 page-to-server functions, 64 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -144,7 +144,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCrmLog.gs` | `mail_waiting` |  | 0 | 0 | 2 | 4 |
 | `CueDates.gs` |  |  | 0 | 0 | 16 | 0 |
 | `CueEdit.gs` | `contains` |  | 0 | 1 | 4 | 6 |
-| `CueEditLog.gs` |  | Canvas edits | 0 | 0 | 3 | 4 |
+| `CueEditLog.gs` |  | Canvas edits | 0 | 0 | 3 | 5 |
 | `CueExpense.gs` | `expense_evidence`, `record_expense` | Requests | 1 | 1 | 4 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 15 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
@@ -159,7 +159,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueMail.gs` |  | Requests | 1 | 0 | 2 | 6 |
 | `CueMailAlerts.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMailChat.gs` |  | Requests | 0 | 1 | 2 | 8 |
-| `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 3 | 4 |
+| `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 4 | 8 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 4 | 5 |
 | `CuePipeline.gs` |  | Pipeline, Requests | 1 | 1 | 9 | 5 |
@@ -199,8 +199,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueStr_` | `CueText.gs` | 53 |
 | `cueNow_` | `Cue.gs` | 51 |
 | `cueChat_` | `Cue.gs` | 40 |
+| `cueProp_` | `Cue.gs` | 34 |
 | `cueLocked_` | `Cue.gs` | 33 |
-| `cueProp_` | `Cue.gs` | 33 |
 | `cueSheet_` | `Cue.gs` | 33 |
 | `cueBridge_` | `CueBridge.gs` | 32 |
 | `cueAiAll_` | `CueAi.gs` | 30 |
