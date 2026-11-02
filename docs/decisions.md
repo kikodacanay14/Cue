@@ -1,6 +1,6 @@
 # Cue decisions and unresolved differences
 
-This is the repository evidence/decision register, not a second operational question queue. Read existing Feature Board/spec answers first. The separately proposed Google Sheet review master is pending creation; until its verified URL is recorded here, do not claim a sheet exists or is synchronized. Future sheet/repository snapshots must preserve IDs and disclose manual synchronization and refresh time.
+This is the repository evidence/decision snapshot, not a second operational question queue. The existing Feature Board is the required operational register for its stories. No Google Sheet is planned unless Kiko explicitly requests one later. Board access and actual card mapping remain unverified; the findings below are unsynced proposals, not saved board records.
 
 ## Evidence conventions
 - User statement: quote or faithful paraphrase with supported date/source/scope.
@@ -26,11 +26,15 @@ Snapshot: main 3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20, 2026-11-02. Review find
 | CUE-D10 | CUE-028: pipeline description says every open deal while code caps inspection. | Retain explicit partial-coverage language; decide if exhaustive review is required. | Coverage limitation documented. |
 | CUE-D11 | CUE-008/012/030: external sends precede local result persistence. | Define recovery for uncertain send outcomes; do not promise exactly-once or blindly resend. | Known uncertainty; no recovery implementation changed. |
 
+## Required Feature Board workflow
+
+The existing [Feature Board](https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP) is the required operational question-and-answer register for work on its stories. Read the relevant existing card and its qa before asking or implementing a decision-dependent change. Reuse card ID plus the exact question; do not invent a question-ID field or create a duplicate queue. Use existing q/a/s fields: label unconfirmed assumptions explicitly in q, leave a blank and s Open until Kiko answers; preserve exact answers, other questions and manual statuses. Read the current version before an authorized update, use if_version and verify saved contents. If access is unavailable, mark proposed mapping unsynced and report the gap; stop only changes dependent on the unresolved decision, continuing independent authorized work. docs/decisions.md is a dated source-linked snapshot, not a substitute board, and is not automatically synchronized. Do not create a Google Sheet unless Kiko requests it later.
+
 ## Existing question source and decision record template
 
 The [historical Feature Board reference](https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP) is repository-verified in CanvasWorkspace's questions-for-kiko skill, but live access/content was not verified. Do not claim it currently provides an accessible authoritative log or synchronized state.
 
-For a real decision record preserve the existing card/question ID. Record status (Open/Decided/Implemented/Verified/Superseded), Manila asked time, applies-to scope, exact question and why, assumptions with User-stated/Author-stated/Code-inferred basis and evidence/risk/state, exact supported answer/date/source, interpretation separately, limits/unresolved items, affected rule/code/doc/test references, implementation commit, verification result/date/gaps and append-only supersession history. Only assign a new operational question ID after confirming it does not duplicate existing records.
+For a real decision record preserve the existing card ID plus the exact question; no separate question-ID field is assumed. Record status (Open/Decided/Implemented/Verified/Superseded), Manila asked time, applies-to scope, exact question and why, assumptions with User-stated/Author-stated/Code-inferred basis and evidence/risk/state, exact supported answer/date/source, interpretation separately, limits/unresolved items, affected rule/code/doc/test references, implementation commit, verification result/date/gaps and append-only supersession history. Reconcile against the existing card's q/a/s records; do not invent operational IDs or claim a mapping until it is saved and read back.
 
 ## Branding authority and drift
 
@@ -45,3 +49,31 @@ Kiko approved saving the described documentation package on separate CanvasWorks
 ## Maintenance
 
 For each resolved item add supported answer, source/date, scope, affected rule IDs, implementation reference and verification state. If source permission is unavailable, preserve the question as unresolved. Never mark an answer implemented just because it is written here.
+
+## Decision history — Feature Board preference
+
+2026-11-02: Kiko confirmed using the existing Feature Board for gathered questions and assumptions after the proposal to check it first and record questions, assumptions and answers there, with repository logs linking back. This supersedes the earlier proposed Google Sheet review-master direction, preserved in Git history. Approval to map does not establish that a mapping has been saved. Current extraction findings remain unsynced pending live card access and identity verification; no existing answers, IDs or statuses are invented.
+
+## Prepared Feature Board mapping — not imported
+
+Live Feature Board access is blocked; no actual cards or qa entries were read, deduplicated or updated. The feature areas below are proposed search targets, not verified card titles or IDs. D references are extraction findings only. All answer cells are deliberately blank. Before import, find the existing card and exact question, preserve existing answers/manual statuses and resolve duplicates. If existing policy already answers a question, record an implementation gap rather than ask it again.
+
+| Finding | Proposed existing feature area to locate | Proposed q / treatment after existing-answer check | a |
+|---|---|---|---|
+| CUE-D01 / CUE-017 | Personal expense deduplication | Existing dot instructions require a full reference with corroborating transaction details. Treat substring matching as a possible implementation gap. Only if Cue policy remains unresolved: “Is an exact complete reference, with corroborating transaction details, required to identify the same transaction?” | |
+| CUE-D02 / CUE-019 | Personal expense duplicate review | “May a reviewed duplicate warning be overridden, and what evidence/reason must be retained before treating it as a distinct transaction?” Unconfirmed override policy. | |
+| CUE-D03 / CUE-018 | Personal/project expense classification | Known policy: unknown spending is not automatically personal. Map that implementation gap first. Residual question: “If the project cross-check is unavailable, should the item remain pending until evidence resolves classification?” | |
+| CUE-D04 / CUE-025 | Follow-up/chase accounting | “Should preparing an unsent draft consume a chase count or move the next-contact date, or should those advance only after a confirmed send?” Unconfirmed draft-equals-contact assumption. | |
+| CUE-D05 / CUE-024,029,030 | Separate RFP outbox, CRM metadata logging and Messenger sign-link stories | Verify original approval and runtime scope separately. Only if missing: “What existing standing approval covers this specific automatic action and its limits?” Not a blanket new approval request. | |
+| CUE-D06 / CUE-022 | Readiness follow-up dates | “Should a generated reply-by date remain a proposed date requiring approval before sending?” Do not invent a deadline or commitment. | |
+| CUE-D07 / CUE-007,026 | Recipient selection and reply threading | “If the intended recipient or reply thread cannot be verified, should Cue require an explicit selection instead of starting a new email?” Split recipient/thread into separate existing questions where decisions differ. | |
+| CUE-D10 / CUE-028 | Pipeline review coverage | “Is an exhaustive open-deal review required, or is a clearly labeled bounded review acceptable for this Cue feature?” Dot's Thursday complete-count requirement remains explicit and unchanged. | |
+| CUE-D11 / CUE-008,012,030 | Separate RFP, RFQ and Messenger send-recovery stories | “When delivery may have occurred but no local result exists, what evidence must resolve the outcome before any retry?” Never blindly resend; match the actual existing stories. | |
+
+CUE-D08 records the app-specific read-state boundary, not a new question. CUE-D09 records canonical brand authority and implementation drift, not a request to reapprove fonts. Migration scope may require its own existing decision check.
+
+Evidence: [source-pinned rule catalog](https://github.com/kikodacanay14/Cue/blob/dbe01638f45021595cd3909387592c8f6f9549b5/docs/business-rules.md); underlying code snapshot 3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20. User-policy boundaries are preserved as operational constraints; no unseen Feature Board answer is inferred.
+
+Import only through an authorized supported route: read current board/card version, reconcile exact questions, use existing q/a/s fields and if_version, leave unconfirmed a blank and s Open, then read back saved content/version. If blocked, retain this unsynced proposal and continue independent work; do not claim import, deduplication or synchronization succeeded.
+
+Match by application, story scope and source references, not title keywords alone. Read candidate qa and approved specs. No unique card match means unresolved mapping: do not create a card or invent IDs. For a genuinely unmatched question on a verified card, append only {q: clear question including the unconfirmed assumption, a: '', s: 'Open'} while preserving all existing qa. On version conflict reread and reconcile. Do not add fields, fabricated answers, deleted history, doer/handedAt/status changes or role handoffs in this mapping run.
