@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay
+## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay (live as Version 190, 2 Nov 2026 06:20Z; rollback 189)
 
 Kiko asked on 2 Nov 2026 for crew papers on Messenger (m.me) and said "you built the spec you code it", then "you do it" for the
 deploy. Built on the live line (1.28.3, Version 189); the same feature is on main as 1.27.90 (Cue PR #289), where the relay
