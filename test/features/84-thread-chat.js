@@ -66,3 +66,11 @@ test('THC3 accreditation chasers leave out a row whose name is a client in Canva
   const u = accrBox({ deskUnknown: true }); u.ctx.cueSweep();
   assert.ok(accrItems(batchOf(u)).some(i => i.who === 'Build Co'), 'an older Canvas: nothing left out');
 });
+
+test('THC4 the chasers card says one true thing about sending: Send on a picked line, Approve and send for the ticked ones; never "each email goes only when you press Send" next to a 9:00 send', () => {
+  const pages = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  const card = pages.match(/function sweepCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  assert.ok(!/'\. Pick in the 2 PM update; each email goes only when you press Send/.test(card), 'the contradicting header is gone');
+  assert.ok(/\(taps \? ' Pick in the 2 PM update; a picked email goes only when you press Send\.' : ''\) \+ \(mail \? ' Ticked emails go only after you tap Approve and send\.' : ''\)/.test(card));
+  assert.ok(/Approve and send makes them now and sends the ticked ones at 9:00/.test(card), 'the footer still says when');
+});
