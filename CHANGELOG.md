@@ -1,5 +1,32 @@
 # Changelog
 
+## Cue 1.28.11: Cue Admin › Templates, every message from the BSE Message Templates doc (not deployed)
+
+Kiko asked on 1 Nov 2026, in the CRM chat: "why is the template not being referenced in the admin? we want it there so we can be sure
+that its actually being used. we want it there so that if we want to edit them we can easily do so", and described the page: "Filter
+who receives it and theres a list of communications on the right. once clicked on the type of comms - theres a template viewer on the
+right that allows editing. would also show there inbox that sends it and files attached to the email". He approved the spec and the
+page ("yeah i made it") the same day (CanvasWorkspace `docs/specs/message-templates-from-doc.md`, PR #391). On 3 Nov 2026 he asked for a
+build of each piece for his approval ("make a new build for each one i will approve").
+
+- `src/CueMsgTemplates.gs` (new): `cueAdminTemplates` reads every template from the doc through Canvas (bridge read
+  `message_templates`, Canvas rel-v414) and joins it with what the doc does not hold, exactly as Kiko's approved mockup lists it: the
+  journey step, who sends it, the sending inbox and CC, the attachments and the status. The six team drafts carry Kiko's T codes (T1 to
+  T6) and show as not in the doc yet. A template with a send in Canvas's Template Sends log shows In use, with Last sent. When Canvas or
+  the doc cannot be read the page lists nothing and says why; Cue keeps no copy of any wording.
+- `cueAdminTemplatePreview` shows Canvas's own render of the template (bridge read `message_render`, draft mode) with the doc's banner;
+  `cueAdminTemplateTest` (Send me a test) sends that render from Kiko's Gmail to Kiko only, subject "[Test] ...", banner inline. A test is
+  not logged as a send.
+- `src/Index.html`, `src/IndexPages.html`, `src/IndexStyle.html`: Cue Admin › Rules › Templates, the three columns of the mockup
+  (filters by who receives it, channel and status; the list by journey step; the viewer) in Cue Admin's existing look.
+- Edit opens the template in the doc. Saving from the page is not in this build: Canvas cannot write to the doc yet (info@ has no edit
+  right on it), so the page's editor waits for Kiko's call on how Canvas gets that right.
+- `src/CueCheck.gs`: the three page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
+- `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` (rel-v414, not live yet), which adds the three template actions.
+  `test/fixtures/message-templates.json` is Canvas's `message_templates` answer for the real doc (48 templates).
+
+Tests: 630 (6 new, MT1 to MT6; AD4 lists the new section).
+
 ## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
 
 Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption

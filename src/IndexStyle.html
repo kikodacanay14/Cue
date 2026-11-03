@@ -339,6 +339,35 @@
   #settings .logf input[type=search] { flex:1; min-width:160px; }
   #settings .logrow { gap:12px; }
   #settings .logrow .logt { width:96px; flex:none; opacity:.7; }
+  /* CUE-MT-2026-11-03: Cue Admin › Templates, laid out as Kiko's approved mockup (filters, list, viewer); colours from the doc's receivers */
+  #settings .smain > section[data-sec="templates"] { max-width:none; }   /* the three columns of the approved mockup need the page's width */
+  #settings .mtsrc { margin:0 0 10px; }
+  #settings .mtw { display:grid; grid-template-columns:200px minmax(260px,340px) minmax(0,1fr); gap:12px; align-items:start; }
+  #settings .mtcol { background:var(--panel); border:1px solid var(--line2); border-radius:6px; overflow:auto; max-height:calc(100vh - 170px); }
+  #settings .mtf { padding:10px; } #settings .mtf h4 { margin:6px 0 6px; font-size:13px; }
+  #settings .mtchip { display:flex; align-items:center; gap:8px; width:100%; padding:6px 9px; border:1px solid transparent; border-radius:6px; background:none; color:var(--text); font:inherit; font-size:13px; cursor:pointer; text-align:left; }
+  #settings .mtchip[aria-pressed="true"] { background:#ECEAFD; border-color:#C9C2F7; font-weight:700; }
+  #settings .mtchip .n { margin-left:auto; font-size:12px; opacity:.7; }
+  #settings .mtdot { width:12px; height:12px; border-radius:3px; flex:none; }
+  #settings .mtgrp { position:sticky; top:0; z-index:1; background:#FAF8F3; border-bottom:1px solid var(--line); padding:6px 12px; font-size:12px; font-weight:700; color:#23006F; text-transform:uppercase; letter-spacing:.06em; }
+  #settings .mtit { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; align-items:center; width:100%; padding:8px 12px; border:0; border-bottom:1px solid var(--line); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+  #settings .mtit[aria-current="true"] { background:#F1EEFB; box-shadow:inset 3px 0 0 #23006F; }
+  #settings .mtcode { color:#fff; font-weight:700; font-size:12px; border-radius:4px; padding:2px 0; text-align:center; }
+  #settings .mtv { padding:14px 18px; } #settings .mtv h3 { margin:0; font-size:18px; color:#23006F; }
+  #settings .mthd { display:flex; align-items:center; gap:10px; flex-wrap:wrap; } #settings .mthd .mtcode { padding:3px 9px; font-size:13px; }
+  #settings .mttag { display:inline-block; border-radius:4px; padding:1px 8px; font-size:11.5px; font-weight:600; white-space:nowrap; background:#EEE; color:#555; }
+  #settings .mttag.use { background:#E5F3EA; color:#1E7A46; } #settings .mttag.old { background:#FBF0D9; color:#8A5300; } #settings .mttag.new { background:#FBE9E7; color:#B3261E; } #settings .mttag.man { background:#ECEAFD; color:#2810DC; }
+  #settings table.mtfacts { width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 14px; } #settings table.mtfacts td { padding:6px 8px; border-top:1px solid var(--line); vertical-align:middle; }
+  #settings table.mtfacts td:first-child { width:130px; font-weight:700; } #settings table.mtfacts tr:last-child td { border-bottom:1px solid var(--line); }
+  #settings .mtatt { display:inline-flex; align-items:center; gap:6px; background:#F7F3EA; border:1px solid var(--line2); border-radius:4px; padding:1px 8px; margin:2px 6px 2px 0; font-size:12.5px; }
+  #settings .mtvar { background:#ECEAFD; color:#2810DC; border-radius:3px; padding:0 3px; font-weight:600; }
+  #settings .mtprev { border:1px solid var(--line2); border-radius:6px; background:#fff; max-width:680px; }
+  #settings .mtprev .sj { padding:10px 14px; border-bottom:1px solid var(--line); font-size:14px; }
+  #settings .mtprev iframe { display:block; width:100%; height:560px; border:0; }
+  #settings .mtsms { max-width:420px; background:#E9E6F7; border-radius:14px 14px 14px 4px; padding:10px 14px; white-space:pre-wrap; }
+  #settings .mtact a.btn { text-decoration:none; }
+  #settings .mtact { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-top:14px; max-width:680px; }
+  @media (max-width: 1100px) { #settings .mtw { grid-template-columns:1fr; } #settings .mtcol { max-height:none; } }
   #settings .apill.bad { background:#FDE2E6; color:#B00020; }
   #settings .tvar { background:#FDE4F4; color:#B0007D; border-radius:4px; padding:0 3px; font-weight:700; }
   #settings .aschk { display:flex; gap:12px; margin:6px 0 2px; font-size:12px; }

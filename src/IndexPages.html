@@ -148,6 +148,7 @@
     if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
+    if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();   // a failed read is tried again each time the section opens
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -494,6 +495,74 @@
     if (e.target.closest('[data-sn-em]') && SNW.kind === 'own') { SNW.d.email = !SNW.d.email; snPeople(); snMsg(); return; }
     if (e.target.closest('[data-sn-tx]')) { SNW.d.textOn = !SNW.d.textOn; snPeople(); snMsg(); return; }
     var g = e.target.closest('[data-sn-go]'); if (g && !SNW.busy) snGo(g.getAttribute('data-sn-go') === 'test'); });
+  /* CUE-MT-2026-11-03 (spec #391, Kiko 1 Nov: "Filter who receives it and theres a list of communications on the right. once clicked on
+   * the type of comms - theres a template viewer on the right that allows editing. would also show there inbox that sends it and files
+   * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test and Edit in
+   * doc (saving from the page waits on Canvas being able to write to the doc). The words come only from the doc, through Canvas (CueMsgTemplates.gs). */
+  var MT = { d: null, err: '', f: { who: '', ch: 'Email', st: '' }, sel: '', prev: {}, perr: {}, busy: false, msg: '' };
+  var MT_COL = { C: '#559FEF', S: '#CD5023', R: '#B3107C', T: '#23006F' }, MT_WHO = [['', 'All'], ['C', 'Clients'], ['S', 'Suppliers'], ['R', 'Crew'], ['T', 'Team']];
+  var MT_TAG = { 'In use': 'use', 'Old wording': 'old', 'New draft': 'new', 'Sent by hand': 'man' };
+  function mtLoad() { MT.err = ''; call('cueAdminTemplates', [], function (r) { MT.d = r; if (!mtRow(MT.sel)) MT.sel = (mtShown()[0] || {}).key || ''; mtDraw(); mtPrev(); }, function (e) { MT.err = (e && e.message) || String(e); mtDraw(); }); }
+  function mtRow(k) { return ((MT.d && MT.d.list) || []).filter(function (x) { return x.key === k; })[0] || null; }
+  function mtShown() { return ((MT.d && MT.d.list) || []).filter(function (x) { return (!MT.f.who || x.who === MT.f.who) && (!MT.f.ch || x.channel === MT.f.ch) && (!MT.f.st || x.status === MT.f.st); }); }
+  function mtVars(s) { return esc(s).replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, '<span class="mtvar">{{$1}}</span>'); }
+  function mtRev(r) { return /^\d{12,}$/.test(String(r || '')) ? new Date(Number(r)).toLocaleString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : String(r || ''); }   // Canvas's doc version is the doc's last-saved time
+  function mtTag(st) { return '<span class="mttag ' + (MT_TAG[st] || '') + '">' + esc(st) + '</span>'; }
+  function mtCode(x) { return '<span class="mtcode" style="background:' + (MT_COL[x.who] || '#23006F') + '">' + esc(x.code) + '</span>'; }
+  function mtPrev() {   // the doc's own render of the picked email (Canvas message_render, draft mode), once per template
+    var x = mtRow(MT.sel); if (!x || !x.indoc || x.channel !== 'Email' || MT.prev[x.key] || MT.perr[x.key]) return;
+    MT.prev[x.key] = 'loading';
+    call('cueAdminTemplatePreview', [x.key], function (r) { MT.prev[x.key] = r; mtDraw(); }, function (e) { delete MT.prev[x.key]; MT.perr[x.key] = (e && e.message) || String(e); mtDraw(); });
+  }
+  function mtFrame(html) {   // fill-ins highlighted in the text only, never inside a link
+    var h = String(html || '').replace(/>([^<]+)</g, function (m, t) { return '>' + t.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, '<span style="background:#ECEAFD;color:#2810DC;border-radius:3px;padding:0 3px">{{$1}}</span>') + '<'; });
+    return '<iframe sandbox="" title="Email preview" srcdoc="' + esc('<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">' + h + '</body>') + '"></iframe>';
+  }
+  function mtDraw() {
+    var D = MT.d || { list: [], statuses: [] }, L = D.list || [], q = function (a) { return L.filter(a).length; };
+    var h = '<div class="adesc mtsrc">Source: <a href="' + esc(D.doc || '#') + '" target="_blank" rel="noopener"><b>BSE Message Templates Revised</b></a> · every email Cue and Canvas send uses one of these' + (D.rev ? ' · doc saved ' + esc(mtRev(D.rev)) : '') + '</div>';
+    if (MT.err) h += '<div class="err">' + esc(MT.err) + '</div>';
+    if (!MT.d) return setHtml($('w-mt'), h + (MT.err ? '' : '<div class="small muted">Loading…</div>'));
+    if (D.error) h += '<div class="err">The templates could not be read, so none are shown: ' + esc(D.error) + '</div>';
+    var F = '<h4>Who receives it</h4>' + MT_WHO.map(function (w) {
+      return '<button class="mtchip" data-mt-who="' + w[0] + '" aria-pressed="' + (MT.f.who === w[0]) + '"><span class="mtdot" style="background:' + (w[0] ? MT_COL[w[0]] : 'linear-gradient(90deg,#559FEF 0 25%,#CD5023 25% 50%,#B3107C 50% 75%,#23006F 75%)') + '"></span>' + esc(w[1])
+        + '<span class="n">' + q(function (x) { return (!w[0] || x.who === w[0]) && (!MT.f.ch || x.channel === MT.f.ch); }) + '</span></button>'; }).join('')
+      + '<h4>Channel</h4>' + ['Email', 'SMS', 'Social'].map(function (c) { return '<button class="mtchip" data-mt-ch="' + c + '" aria-pressed="' + (MT.f.ch === c) + '">' + c + '<span class="n">' + q(function (x) { return x.channel === c && (!MT.f.who || x.who === MT.f.who); }) + '</span></button>'; }).join('')
+      + '<h4>Status</h4>' + [''].concat(D.statuses || []).map(function (st) { return '<button class="mtchip" data-mt-st="' + esc(st) + '" aria-pressed="' + (MT.f.st === st) + '">' + esc(st || 'Any') + '</button>'; }).join('');
+    var S = mtShown(), g = null, Li = '';
+    S.forEach(function (x) { var gg = (MT.f.who ? '' : x.whoName + ' · ') + String(x.stage || '').replace(/^\d+ /, ''); if (gg !== g) { g = gg; Li += '<div class="mtgrp">' + esc(g) + '</div>'; }
+      Li += '<button class="mtit" data-mt-key="' + esc(x.key) + '" aria-current="' + (MT.sel === x.key) + '">' + mtCode(x) + '<span><b style="font-weight:600">' + esc(x.name) + '</b><div class="adesc">' + esc(x.sentBy) + '</div></span>' + mtTag(x.status) + '</button>'; });
+    h += '<div class="mtw"><div class="mtcol mtf">' + F + '</div><div class="mtcol">' + (Li || '<div class="mtv small muted">Nothing matches these filters.</div>') + '</div><div class="mtcol mtv">' + mtView() + '</div></div>';
+    setHtml($('w-mt'), h);
+  }
+  function mtView() {
+    var x = mtRow(MT.sel); if (!x) return '<div class="small muted">Pick a message.</div>';
+    var h = '<div class="mthd">' + mtCode(x) + '<h3>' + esc(x.name) + '</h3>' + mtTag(x.status) + '</div>' + (x.use ? '<div class="adesc" style="margin-top:4px">' + mtVars(x.use) + '</div>' : '');
+    var att = x.attachments.length ? x.attachments.map(function (a) { return '<span class="mtatt">📎 ' + mtVars(a.name || a.id) + '</span>'; }).join('') : '<span class="muted">None</span>';
+    var last = x.last ? esc(x.last.at) + ' · to ' + esc(x.last.to) + (x.last.rev ? ' · doc saved ' + esc(mtRev(x.last.rev)) : '') : '<span class="muted">No send logged yet</span>';
+    h += '<table class="mtfacts"><tr><td>Receives it</td><td>' + esc(x.whoName) + (/^\d/.test(x.stage) ? ' · journey step ' + esc(x.stage) : '') + '</td></tr><tr><td>Sent by</td><td>' + esc(x.sentBy || '?') + ' · ' + esc(x.channel) + '</td></tr>'
+      + '<tr><td>Sends from</td><td>' + esc(x.from || '?') + (x.cc ? ' · CC ' + esc(x.cc) : '') + '</td></tr><tr><td>Attachments</td><td>' + att + '</td></tr>'
+      + (x.button ? '<tr><td>Button opens</td><td>' + mtVars(x.button) + '</td></tr>' : '') + '<tr><td>Last sent</td><td>' + last + '</td></tr></table>';
+    if (MT.msg) h += '<div class="card small">' + esc(MT.msg) + '</div>';
+    if (!x.indoc) return h + '<div class="card small muted">Not in the doc yet. Its words go into the doc once you approve them.</div>';
+    if (x.channel !== 'Email') h += '<div class="mtsms">' + mtVars(x.blocks.map(function (b) { return b.text; }).join('\n')) + '</div>';
+    else { var p = MT.prev[x.key];
+      h += MT.perr[x.key] ? '<div class="err">The preview could not be built: ' + esc(MT.perr[x.key]) + '</div>'
+        : !p || p === 'loading' ? '<div class="small muted">Building the preview from the doc…</div>'
+        : '<div class="mtprev"><div class="sj"><b class="muted">Subject</b> ' + mtVars(p.subject) + '</div>' + mtFrame(p.html) + '</div>'; }
+    return h + '<div class="mtact">'
+      + (x.channel === 'Email' ? '<button class="btn ghost" data-mt-go="test"' + (MT.busy ? ' disabled' : '') + '>Send me a test</button>' : '')
+      + '<a class="btn" href="' + esc(MT.d.doc) + '" target="_blank" rel="noopener" title="Saving from this page comes once Canvas can write to the doc">Edit in doc</a></div>';
+  }
+  $('w-mt').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-mt-who],[data-mt-ch],[data-mt-st]');
+    if (c) { if (c.hasAttribute('data-mt-who')) MT.f.who = c.getAttribute('data-mt-who'); if (c.hasAttribute('data-mt-ch')) MT.f.ch = c.getAttribute('data-mt-ch'); if (c.hasAttribute('data-mt-st')) MT.f.st = c.getAttribute('data-mt-st');
+      if (!mtShown().some(function (x) { return x.key === MT.sel; })) MT.sel = (mtShown()[0] || {}).key || ''; MT.msg = ''; mtDraw(); mtPrev(); return; }
+    var it = e.target.closest('[data-mt-key]'); if (it) { MT.sel = it.getAttribute('data-mt-key'); MT.msg = ''; mtDraw(); mtPrev(); return; }
+    var go = e.target.closest('[data-mt-go]'), x = mtRow(MT.sel); if (!go || !x || MT.busy) return;
+    if (go.getAttribute('data-mt-go') === 'test') { MT.busy = true; MT.msg = 'Sending you a test…'; mtDraw();
+      call('cueAdminTemplateTest', [x.key], function (r) { MT.busy = false; MT.msg = 'Test sent to ' + r.to + ': ' + r.subject; mtDraw(); }, function (er) { MT.busy = false; MT.msg = 'The test was not sent: ' + ((er && er.message) || er); mtDraw(); }); }
+  });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */
   var logData = null, logErr = '', logF = { job: '', status: '', q: '' };

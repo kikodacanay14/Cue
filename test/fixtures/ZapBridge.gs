@@ -3001,6 +3001,40 @@ ZB_ACTIONS_.sent_log = {
   run: (r) => sentLogRead_(r.args)
 };
 
+/* MSG-TEMPLATES-2026-11-03 (spec docs/specs/message-templates-from-doc.md, approved by Kiko 1 Nov 2026, release 1: "Cue gets the
+ * templates from Canvas through the signed bridge (new read action message_templates), so both apps always use the same version").
+ * Cue builds every email from Kiko's doc through these three; MessageTemplates.gs does the work. A doc that cannot be read comes
+ * back Blocked with the reason, and Cue sends nothing (Kiko 1 Nov: "fix why its not sending it"). */
+ZB_ACTIONS_.message_templates = {
+  // Every template (code, name, receiver, channel, Use line, subject, blocks with {{fill_ins}}), the doc version and link, and
+  // each template's last send from Template Sends. No banners (they ride message_render). Read only.
+  kind: 'read', needsProject: false, schema: {},
+  run: () => mtBridgeList_()
+};
+ZB_ACTIONS_.message_render = {
+  // One template filled from Cue's record values: subject, plain text, HTML, banner (base64 PNG, cid:mtbanner), doc version and
+  // the fill-ins no value was given for. mode send drops lines with an empty fill-in; draft keeps them for Kiko to type. Read only.
+  kind: 'read', needsProject: false,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, data: { type: 'object' }, mode: { type: 'string', oneOf: ['send', 'draft'] } },
+  run: (r) => mtBridgeRender_({ key: r.args.key, data: zbMtData_(r.args.data), mode: r.args.mode })
+};
+ZB_ACTIONS_.message_log = {
+  // Cue reports one message it sent (or failed to send) from a template, so Template Sends holds every send (the Templates page's
+  // "Last sent"). Appends one row; changes nothing else.
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, rev: { type: 'string', max: 40 }, to: { type: 'string', required: true, max: 300 },
+    channel: { type: 'string', oneOf: ['Email', 'SMS', 'Social'] }, status: { type: 'string', oneOf: ['Sent', 'Failed'] },
+    ref: { type: 'string', max: 200 }, error: { type: 'string', max: 500 } },
+  run: (r) => mtBridgeLog_(r.args),
+  check: (r, res) => res && res.ok ? { ok: true } : { ok: false, error: 'not logged' }
+};
+/** message_render's data: plain values only (text, number, yes/no), each as text of at most 2000 characters. */
+function zbMtData_(d) {
+  const out = {};
+  Object.keys(d || {}).forEach(k => { const v = d[k]; if (/^[a-z0-9_]{1,60}$/i.test(k) && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) out[k] = String(v).slice(0, 2000); });
+  return out;
+}
+
 
 /* ---------- CLIENT-DOOR-2026-10-29: Canvas Client's calls without the library ----------
  * Canvas Client (the crew, client and supplier sites) used to load this whole project as the library CanvasMain, which cost every
