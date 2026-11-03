@@ -54,10 +54,32 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
 - Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
   marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
+- Usage rule (Kiko, 2 Nov 2026: "Hold off any UI or UX improvements if Usage is lower than 30$"): no UI or UX improvement while
+  Kiko's remaining Claude usage is under $30. Claude cannot see the balance, so it asks Kiko before starting UI or UX work; bug fixes
+  and requested features are not held.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
+- Tables (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are
+  always aligned center"; 14:51Z: "middle align tables for short columns and the headers"): centre every table header, every
+  number cell (amount, count, percent) and every short column (each filled cell 12 characters or fewer: status, P-stage, date,
+  yes/no, code), on pages, Cue Admin, emails, reports and mockups. Long text keeps its own alignment, and every cell sits in
+  the middle of its row.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
+- UI rules for every card and table (Kiko, 30 Oct 2026 06:12Z: "Tables: Headers are always aligned Center. Columns with
+  Financial values are alignes Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size
+  bigger than the values. Overall: Headers are either in bold, darker colors or a size bigger than the value. Value should be
+  lighter, never in bold, a size smaller than the header. Buttons - aligned bottom right. Labels - should never look like buttons.
+  Icons with Labels - always aligned middle"). Headers and field names dark, bold, 14px; values regular, 13px; card buttons at the
+  bottom right; tags flat with square corners; icons middle. They live in the UI-RULES block of `src/IndexStyle.html` (tests in
+  `test/features/70-ui-rules.js`) and match Canvas Brand.html `style#bs-uirules`.
+- Labels (Kiko, 29 Oct 2026 14:48Z and 14:49Z: "make your label same - and make it a global UI", "make it a standard UI....
+  dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
+  same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
+  marks what a mockup or release changes says only New, Changed or Removed, with no counts like "+5".
+- Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
+  short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
+  Mockups follow it too.
 
 ## Always-on skills
 
@@ -79,3 +101,9 @@ one. Never create `skill-observations/` or `skill-updates/` here: a second log w
    this repo (Cue), and Canvas has no deploy, so logging never touches a release.
 4. On Kiko's PC the log stays at `C:\Users\kiko\Documents\Claude\skill-observations`; this section applies only to cloud
    sessions.
+
+## Rule documentation navigation
+
+Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
+
+Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.

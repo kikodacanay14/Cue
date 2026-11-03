@@ -10,7 +10,8 @@
  *       send lock: Canvas actions that email people (CUE_CHECK_SENDS_) are refused unless CUE_CHECK_SEND_ is 'on', which
  *         test/checks/config.json allows only for a project whose crew are all Kiko's own aliases (Kiko 27 Oct 09:16Z: a
  *         real past project stands in for the test project, so its real crew must never be emailed).
- *       other writes: no other web write (HubSpot, TickTick, ...), no spreadsheet but the Cue sheet, no trigger changes.
+ *       other writes: no other web write (TickTick, ...), no spreadsheet but the Cue sheet, no trigger changes.
+ *         The BSE Scopes and Transfers sheet may be read (transfer lookup) through a read-only view; any change stops the run.
  *       no leftovers: tasks and chat lines made in a check are tagged; cueResume, Send later and the sweep never run them, and
  *       the page Kiko uses never shows them. check_finish cancels any Send later and closes the run's tasks.
  * A refused write throws; the unsafe ones are also kept for check_finish, so the run fails and says what was stopped. */
@@ -18,12 +19,13 @@
 const CUE_CHECK_FNS_ = ['cueState', 'cueSend', 'cueRun', 'cueRetry', 'cueApprove', 'cueReject', 'cueReopen', 'cueCloseTask', 'cueArchive',
   'cueAsNew', 'cueAskPick', 'cueSameAnswer', 'cueWrongCommand', 'cueCancelIntake', 'cueRescan', 'cueRfq', 'cueRfqPick', 'cueDrafts',
   'cueFolders', 'cueSupplierCanvas', 'cueSupplierSaved', 'cueReadyFollowups', 'cueReadyPick', 'cueReadyRecheck', 'cueHelpAct',
-  'cueBidsClose', 'cueHsClose', 'cueHsLookup', 'cuePipeDone', 'cuePipeFollowUps', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
-  'cueStatusDone', 'cueStatusTri', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
-  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules',
-  'cueCrmLogCheck', 'cueFunnelCheck', 'cueJobsCheck', 'cueRnCheck', 'cueBidsLeadsCheck', 'cueNmCheck', 'cueAccCheck'];   // not page calls: the 1.27.34 check script asks the door for one read-only email log run; the 1.27.54 one for one Job Runs row (CueJobs.gs); the sales funnel one for the lines the morning batch would list (CueSweepFunnel.gs); the 1.27.57 one for made-up release notes (CueRelnotes.gs); the 1.27.56 one for the bid leads it would send (CueBids.gs); the 1.27.56 New mail one for a read-only pass over the last day of mail (CueNewMail.gs)
+  'cueBidsClose', 'cueGtAct', 'cueGtClose', 'cueGtDraftAll',
+  'cueStatusDone', 'cueStatusPreview', 'cueSweepAct', 'cueSweepCancel', 'cueSweepItem', 'cueSweepSendOne', 'cueSweepRewrite', 'cueNmItem', 'cueVendorRfqs', 'cueBatchAdd', 'cueBatchCancel',
+  'cueBatchStart', 'cueBatchTake', 'cueExpense', 'cueUsage', 'cueRules', 'cueJobsCheck', 'cueRnCheck', 'cueRfpSendTick_',
+  'cueCrmLogCheck', 'cueNmCheck', 'cueBidsLeadsCheck', 'cueFunnelCheck', 'cueIcPick_', 'cueIcStart_', 'cueIcDeep_', 'cueTriageIntake', 'cueMailProjectThreads_', 'cueAccCheck'];   // cueMailProjectThreads_: read-only list of Kiko's inbox threads Canvas files under a project (1.27.86 check); // cueTriageIntake: Start intake from Canvas's Emails waiting card (RFQ-RFP-INTAKE); cueFunnelCheck: the lines the morning batch would list (CueSweepFunnel.gs); cueBidsLeadsCheck: the bid leads the phase 4 check would send (CueBids.gs); cueJobsCheck: the 1.27.54 Job Runs check (CueJobs.gs); cueCrmLogCheck: the 1.27.34 email log check, read only (CueCrmLog.gs); cueNmCheck: the 1.27.56 New mail check, read only (CueNewMail.gs)
+// cueIc*_ (CueIntakeCheck.gs): the intake-real check picks real inquiries, starts intake on them, and runs phases 2 to 4 with nothing written.
 // Page calls the check never runs: settings, keys, schedules, Kiko's own rules and files. The page shows them as an error.
-const CUE_CHECK_NEVER_ = ['cueMsgrKey', 'cueMsgrTokenSet', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
+const CUE_CHECK_NEVER_ = ['cueMsgrKey', 'cueMsgrSave', 'cueCloseOlder', 'cueCloseThread', 'cueFunnelDone', 'cueAcDone', 'cueBidsStartIntake', 'cueBidsDecide', 'cueBidsClarifySend', 'cueBidsClarifyCancel', 'cueFixAccess', 'cueSettings', 'cueRelayAct', 'cueRelayGate', 'cueRelayKeys', 'cueRelayUrlSet', 'cueRelayWrites',
   'cueRulesSave', 'cueMyRules', 'cueMyRuleSave', 'cueMyPatternDemote', 'cueTutorSet', 'cueSchedules', 'cueSchedSet', 'cueSchedDelete',
   'cueSchedRunNow', 'cueUsagePrices', 'cueAdminTriage', 'cueAdminTriageDel', 'cueAdminTypes', 'cueAdminTypesSave', 'cueAdminTypeSender', 'cueAdminEdits', 'cueAdminEditUndo', 'cueAdminRelnotes', 'cueAdminChasers', 'cueAdminLog', 'cueAdminCanvasChasers', 'cueAdminCanvasChaseSend', 'cueAdminSnBoard', 'cueAdminSnItems', 'cueAdminSnPrepare', 'cueAdminSnSend', 'cueFinSave', 'cueFinSheet', 'cueLearnChats', 'cueFileData', 'cueUpload'];
 // Bridge actions that only read. Every other action is a write and must name the test project.
@@ -31,11 +33,13 @@ const CUE_CHECK_NEVER_ = ['cueMsgrKey', 'cueMsgrTokenSet', 'cueFixAccess', 'cueS
 const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 'send_doc_reminder'];
 const CUE_CHECK_READS_ = ['inbox_new', 'search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
-  'list_unsigned_docs', 'help_qa', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel', 'crm_report',
-  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); write_rows and allow_list_set name no project, so a check stops them
+  'list_unsigned_docs', 'help_qa', 'client_check', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel', 'crm_report',
+  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox', 'client_status'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); client_status: the Friday status emails, read only (CueStatus.gs); write_rows and allow_list_set name no project, so a check stops them
 
 const cueCheckTag_ = () => String(CUE_CHECK_FP_).slice(0, 12);
 const cueCheckOn_ = () => !!globalThis.CUE_CHECK_ON_;
+/** In a check, only the check's own tasks (a check's message never joins or reopens one of Kiko's threads). Always true outside a check. */
+const cueCheckMine_ = x => !cueCheckOn_() || !!(x && x.check === cueCheckTag_());
 
 /** The door (doPost on the check version). q = { action, key, fn?, args? }. */
 function cueCheckDoor_(q) {
@@ -74,7 +78,11 @@ function cueCheckEnter_() {
   const pass = (t, k) => { const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; };
   const fetch = (u, o) => { cueCheckAllow_(Object.assign({ url: u }, o || {})); return U.fetch(u, o); };
   const fetchAll = reqs => { (reqs || []).forEach(cueCheckAllow_); return U.fetchAll(reqs); };
-  const openById = id => { if (String(id) !== cueProp_('CUE_SHEET_ID', '')) cueCheckStop_('opening a spreadsheet other than the Cue sheet', true); return S.openById(id); };
+  const openById = id => {
+    if (String(id) === cueProp_('CUE_SHEET_ID', '')) return S.openById(id);
+    if (cueCheckReadSheets_().indexOf(String(id)) >= 0) return cueCheckReadOnly_(S.openById(id), 'spreadsheet ' + String(id).slice(0, 8));
+    return cueCheckStop_('opening a spreadsheet other than the Cue sheet', true);
+  };
   try {
     globalThis.CUE_CHECK_WEB_ = U;
     globalThis.UrlFetchApp = new Proxy(U, { get: (t, k) => (k === 'fetch' ? fetch : k === 'fetchAll' ? fetchAll : k === '__cueCheck' ? true : pass(t, k)) });
@@ -86,6 +94,25 @@ function cueCheckEnter_() {
   if (!(UrlFetchApp.__cueCheck === true && SpreadsheetApp.__cueCheck === true && ScriptApp.__cueCheck === true)) return false;
   globalThis.CUE_CHECK_ON_ = true;
   return true;
+}
+
+/** Sheets a check may read but never change: BSE Scopes and Transfers (transfer lookup, CueLookup.gs, 1.27.38). */
+function cueCheckReadSheets_() {
+  return [typeof CUE_PE_BSE_ === 'string' ? cueProp_('CUE_PERSONAL_BSE_SHEET', CUE_PE_BSE_) : ''].filter(Boolean);
+}
+/** A read-only view of a spreadsheet object: get/is/has calls pass (their results are wrapped the same way); anything that
+ *  could change it stops the run. Values, strings, numbers and Dates come back as they are. */
+const CUE_CHECK_READ_RE_ = /^(get|is|has|can)[A-Z]|^(toString|valueOf)$/;
+function cueCheckReadOnly_(o, what) {
+  const wrap = v => (v && typeof v === 'object' && !(v instanceof Date) ? (Array.isArray(v) ? v.map(x => (x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof Date) ? cueCheckReadOnly_(x, what) : x)) : cueCheckReadOnly_(v, what)) : v);
+  return new Proxy(o, { get: (t, k) => {
+    if (k === '__cueCheckReadOnly') return true;
+    const v = t[k];
+    if (typeof k !== 'string' || (typeof v !== 'function' && (v !== undefined || /^(then|toJSON|constructor)$/.test(k)))) return v;
+    if (!CUE_CHECK_READ_RE_.test(k)) return () => cueCheckStop_('changing ' + what + ' (' + k + ')');   // any other call, known or not, could change it
+    if (typeof v !== 'function') return v;
+    return (...a) => wrap(v.apply(t, a));
+  } });
 }
 
 /** Throws; an unsafe attempt is also kept so check_finish fails the run. quiet = housekeeping Cue tries on its own (not unsafe). */

@@ -11,7 +11,7 @@
  *   so the restriction to the actions below comes from this bridge (signature + ZB_ACTIONS_), not from the role. Keep
  *   the address a sheet row with no Google account behind it, so nobody can sign in as it.
  * - Only the actions in ZB_ACTIONS_ run, with strict arguments. Nothing sets project status, files a CE, changes the
- *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas (it drives HubSpot stages).
+ *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas.
  *   One exception (CUE-EXPENSE-2026-10-21): record_expense, for one expense Kiko approved on Cue's card, may add its supplier
  *   entry, award it when the scope has no award yet, and record the payment Kiko already made. It never moves an award.
   },
@@ -53,7 +53,7 @@ const ZB_PNO_RE_ = /^\d{3}$/;                   // Project Number Registry: 3 di
 
 const ZB_FORBIDDEN_ = {
   file_ce: 'Filing a CE needs Kiko\'s separate approval.', set_active_ce: 'Changing the active CE needs Kiko\'s separate approval.',
-  set_project_status: 'Project status is set by a person in Canvas; it drives HubSpot award stages.',
+  set_project_status: 'Project status is set by a person in Canvas.',
   delete_ce_lines: 'Deleting CE lines is not exposed.', save_entry: 'Supplier entries are not exposed yet.',
   award: 'Award needs approval.', book: 'Booking needs approval.', pay: 'Payment needs approval.'
 };
@@ -281,6 +281,19 @@ const ZB_ACTIONS_ = {
       return zbStatusDigest_(ids, r.args.past_days == null ? 7 : Math.min(r.args.past_days, 60));
     }
   },
+  client_status: {
+    // STATUS-FRIDAY-2026-10-29 (Kiko 29 Oct 12:57Z: "lets reopen status updates - sent every Friday"). Cue's Friday client status
+    // emails: per active project (as status_digest picks them) or the project_ids asked for, the client-safe view the Canvas
+    // Client site shows: requirements and their stage, the Project timeline, the readiness score of the last checklist run,
+    // open risks, issues and tasks, the main client contact and the site link. email: true adds the branded email. Read only.
+    kind: 'read', needsProject: false,
+    schema: { project_ids: { type: 'array', maxItems: 25 }, past_days: { type: 'number', min: 0 }, email: { type: 'boolean' }, ids_only: { type: 'boolean' } },
+    run: (r) => {
+      const ids = r.args.project_ids || [];
+      if (ids.some(x => typeof x !== 'string' || !ZB_PID_RE_.test(x))) throw new Error('project_ids must be Canvas project IDs');
+      return zbClientStatus_(ids, r.args.past_days == null ? 7 : Math.min(r.args.past_days, 60), !!r.args.email, !!r.args.ids_only);
+    }
+  },
   add_tri_items: {
     // CUE-STATUS-2026-10-22: the tasks, issues and risks Kiko approved on Cue's status cards, added to TRI Tracker › TRI the
     // way the Canvas page adds one (saveProjectRow), then read back. A row with the same description already in the project
@@ -317,38 +330,6 @@ const ZB_ACTIONS_ = {
       if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
       return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
     }
-  },
-  /* CUE-HUBSPOT-2026-10-21 (Kiko 07:50Z approved specs/hubspot-cleanup.md). hubspot_scan reads HubSpot, the HubSpot Links tab and
-   * Client Desk contacts and returns findings (canvas-ai/AiHubspot.gs, fixed rules, no AI). hubspot_fix applies the fixes Kiko
-   * ticked on Cue's card, at most 50 record changes, each re-checked and read back. It never deletes for good (archive goes to
-   * HubSpot's recycle bin), never touches a Canvas deal, and edits Canvas fields only in Client Desk (P0 Contacts). */
-  hubspot_scan: {
-    kind: 'read', needsProject: false, schema: { old_days: { type: 'number', min: 90 } },
-    run: (r) => aiHsScan_(r.args)
-  },
-  hubspot_fix: {
-    kind: 'queue', needsProject: false,
-    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
-      fixes: { type: 'array', required: true, minItems: 1, maxItems: 50, items: {
-        key: { type: 'string', required: true, re: /^H\d{1,4}$/ },
-        op: { type: 'string', required: true, oneOf: ['set', 'link', 'owner', 'archive', 'merge', 'canvas_contact'] },
-        type: { type: 'string', oneOf: ['companies', 'contacts', 'deals'] }, id: { type: 'string', re: /^\d{1,20}$/ },
-        keep: { type: 'string', re: /^\d{1,20}$/ }, merge: { type: 'array', maxItems: 5 },
-        company: { type: 'string', max: 200 }, owner: { type: 'string', re: /^\d{1,20}$/ }, ids: { type: 'array', maxItems: 50 },
-        props: { type: 'object', fields: { domain: { type: 'string', max: 200 }, industry: { type: 'string', max: 100 }, city: { type: 'string', max: 100 },
-          country: { type: 'string', max: 100 }, hubspot_owner_id: { type: 'string', re: /^\d{1,20}$/ }, name: { type: 'string', max: 200 },
-          firstname: { type: 'string', max: 100 }, lastname: { type: 'string', max: 100 }, jobtitle: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } },
-        email: { type: 'string', max: 200 }, field: { type: 'string', oneOf: ['name', 'title', 'phone'] }, from: { type: 'string', max: 300 }, to: { type: 'string', max: 300 } } } },
-    run: (r) => { const f = r.args.fixes, idRe = /^\d{1,20}$/;
-      for (const x of f) {
-        if (x.op === 'canvas_contact' ? !(x.email && x.company && x.field) : !x.type) return { ok: false, error: x.key + ': the fix is missing its record' };
-        if ((x.op === 'set' || x.op === 'link' || x.op === 'archive') && !x.id) return { ok: false, error: x.key + ': the fix is missing its record' };
-        if (x.op === 'link' && !idRe.test(String(x.company || ''))) return { ok: false, error: x.key + ': link needs a company ID' };
-        if (x.op === 'merge' && !(x.keep && (x.merge || []).length && x.merge.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': merge needs the record to keep and the ones to merge' };
-        if (x.op === 'owner' && !(x.owner && (x.ids || []).length && x.ids.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': owner needs the owner and the records' };
-        if (x.op === 'set' && !(x.props && Object.keys(x.props).length)) return { ok: false, error: x.key + ': nothing to set' };
-      }
-      return aiHsApply_(f); }
   },
   accreditation_gaps: {
     // CUE-2026-10-21 (Kiko approved specs/accreditation-chasers.md 08:22Z). Supplier Accreditation rows that still miss
@@ -727,7 +708,7 @@ const ZB_ACTIONS_ = {
 // Unlike other public functions, guestGate_ runs only after the signature is checked (in zbHandle_), so an unsigned
 // caller reaches no Canvas code at all: not even the save stopwatch or the open-cache bump guestGate_ does.
 function zapBridge(raw, sig) {
-  if (String(Session.getActiveUser().getEmail() || '')) throw new Error('This is only for the Zapier adapter.');
+  if (String(activeEmail_() || '')) throw new Error('This is only for the Zapier adapter.');
   const s = String(sig || '');   // GPT-DOOR-2026-10-23: no signature = a ChatGPT call, checked by its key instead
   return JSON.stringify(s ? zbHandle_(String(raw || ''), s, Date.now(), false) : zbGptDoor_(String(raw || ''), Date.now()));
 }
@@ -1084,8 +1065,10 @@ function zbCeLines_(pid) {
   Object.keys(ZB_CE_COLS_).forEach(k => { c[k] = col_(R, ZB_CE_COLS_[k]); });
   if (c.req_id < 0 || c.unit_cost < 0) throw new Error('The Requirements tab has no Requirement ID or Unit Cost column.');
   const seen = {}, lines = [];
+  const rmc = col_(R, 'removed from ce'); // REQ-CANCEL-2026-10-30
   R.rows.forEach(r => {
     if (!mine(r)) return;
+    if (rmc >= 0 && /requirement is never deleted/i.test(String(r[rmc] || ''))) return; // REQ-CANCEL-2026-10-30: kept as Cancelled, off the CE
     const id = String(r[c.req_id] || '').trim(); if (!id || seen[id]) return; seen[id] = 1;
     const v = k => c[k] >= 0 ? r[c[k]] : '';
     lines.push({ req_id: id, category: String(v('category') || '').trim().slice(0, 200), description: String(v('description') || '').trim().slice(0, 600),
@@ -1124,7 +1107,9 @@ const ZB_ST_MAX_ = { projects: 25, items: 15 };
 const ZB_ST_PHASES_ = ['Execution', 'Closure'];                     // For Production Start or later, not Completed
 const ZB_ST_SCOPE_OFF_ = /cancel|not awarded|dropped|removed|void/i, ZB_ST_SCOPE_DONE_ = /done|complete|closed|liquidat/i;
 const ZB_ST_MAIN_RE_ = /main|primary|point|poc|project|event|lead|owner|head|manager/i;
-function zbStatusDigest_(ids, past) {
+/** The projects a status read covers: the project_ids asked for, else every active one (For Production Start or later, not BSE's own
+ * accounts, event no more than past days ago), soonest event first. STATUS-FRIDAY-2026-10-29: shared by status_digest and client_status. */
+function zbStPick_(ids, past) {
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const from = Utilities.formatDate(new Date(Date.parse(today + 'T12:00:00Z') - past * 864e5), 'UTC', 'yyyy-MM-dd');
   const want = {}; ids.forEach(x => { want[x] = 1; });
@@ -1136,10 +1121,14 @@ function zbStatusDigest_(ids, past) {
     const date = aifIso_(p.date);
     if (ids.length) { if (!want[id]) return; }
     else if (ZB_ST_PHASES_.indexOf(phaseOfStatus_(p.status)) < 0 || own.indexOf(ownKey(p.account)) >= 0 || (date && date < from)) return;
-    list.push({ id, name: String(p.name || '').slice(0, 200), account: String(p.account || '').slice(0, 200), status: String(p.status || ''), date,
-      contact: null, tri: { open: 0, closed: 0, overdue: [], risks: [], issues: [], tasks: [] }, scope: { done: 0, total: 0 }, money: null, suppliers: [], overdue_bills: [] });
+    list.push({ id, name: String(p.name || '').slice(0, 200), account: String(p.account || '').slice(0, 200), status: String(p.status || ''), date });
   });
   list.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  return { today, from, list };
+}
+function zbStatusDigest_(ids, past) {
+  const pk = zbStPick_(ids, past), today = pk.today, from = pk.from;
+  const list = pk.list.map(p => Object.assign(p, { contact: null, tri: { open: 0, closed: 0, overdue: [], risks: [], issues: [], tasks: [] }, scope: { done: 0, total: 0 }, money: null, suppliers: [], overdue_bills: [] }));
   const keep = list.slice(0, ZB_ST_MAX_.projects), by = {}, missing = [];
   keep.forEach(p => { by[p.id] = p; });
   if (!keep.length) return { today, from, projects: [], more: 0, missing };
@@ -1187,22 +1176,287 @@ function zbStatusDigest_(ids, past) {
         p.overdue_bills.push({ no: b.no, balance: b.balance, due: b.due, days_late: b.days_late }); });
   } catch (e) { missing.push('billings: ' + zbErr_(e)); }
   // The main client contact: a project contact (main or primary first), else the account's Client Desk contact.
-  try {
-    const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
-    const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
-    const ok = e => ZB_PAY_EMAIL_RE_.test(e) && !ZB_PAY_OWN_RE_.test(e);
-    const proj = (P.missing ? [] : P.rows).map(r => ({ pid: g(P, r, 'project id'), name: g(P, r, 'contact name'), role: g(P, r, 'role / title'), email: g(P, r, 'email').toLowerCase() })).filter(c => ok(c.email));
-    const co = (K.missing ? [] : K.rows).map(r => ({ company: norm_(g(K, r, 'company')), name: g(K, r, 'contact name'), email: g(K, r, 'email address').toLowerCase(),
-      role: [g(K, r, 'position / title'), g(K, r, 'relationship'), g(K, r, 'role group')].join(' '), gone: !!g(K, r, 'exception date') || g(K, r, 'email / contact status') === CD.bounced }))
-      .filter(c => !c.gone && ok(c.email));
-    const best = a => a.filter(c => ZB_ST_MAIN_RE_.test(c.role))[0] || a[0] || null;
-    keep.forEach(p => {
-      const pc = best(proj.filter(c => c.pid === p.id)), cc = pc ? null : best(co.filter(c => c.company && c.company === norm_(p.account)));
-      const c = pc || cc;
-      p.contact = c ? { name: c.name.slice(0, 120), email: c.email, role: c.role.slice(0, 120), source: pc ? 'project contacts' : 'Client Desk' } : null;
-    });
-  } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
+  try { zbStContacts_(keep); } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
   return { today, from, projects: keep, more: list.length - keep.length, missing: missing.slice(0, 10) };
+}
+
+/** Sets p.contact on each project: a project contact (main or primary first), else the account's Client Desk contact; null when
+ * neither has a client email. Throws when the contact tabs can't be read. STATUS-FRIDAY-2026-10-29: shared by both status reads. */
+function zbStContacts_(keep, all) {   // all: also p.contacts, every usable contact of the event (client_status's To list)
+  const P = table_(SRC.ADMIN, 'PROJ Contacts'), K = table_(CD.sheetId, CD.contactsTab);
+  const g = (T, r, n) => { const i = col_(T, n); return i < 0 ? '' : zbPayTxt_(r[i]); };
+  const ok = e => ZB_PAY_EMAIL_RE_.test(e) && !ZB_PAY_OWN_RE_.test(e);
+  const proj = (P.missing ? [] : P.rows).map(r => ({ pid: g(P, r, 'project id'), name: g(P, r, 'contact name'), role: g(P, r, 'role / title'), email: g(P, r, 'email').toLowerCase() })).filter(c => ok(c.email));
+  const co = (K.missing ? [] : K.rows).map(r => ({ company: norm_(g(K, r, 'company')), name: g(K, r, 'contact name'), email: g(K, r, 'email address').toLowerCase(),
+    role: [g(K, r, 'position / title'), g(K, r, 'relationship'), g(K, r, 'role group')].join(' '), gone: !!g(K, r, 'exception date') || g(K, r, 'email / contact status') === CD.bounced }))
+    .filter(c => !c.gone && ok(c.email));
+  const best = a => a.filter(c => ZB_ST_MAIN_RE_.test(c.role))[0] || a[0] || null;
+  keep.forEach(p => {
+    const pc = best(proj.filter(c => c.pid === p.id)), cc = pc ? null : best(co.filter(c => c.company && c.company === norm_(p.account)));
+    const c = pc || cc;
+    p.contact = c ? { name: c.name.slice(0, 120), email: c.email, role: c.role.slice(0, 120), source: pc ? 'project contacts' : 'Client Desk' } : null;
+    if (!all) return;
+    const seen = {}, mine = proj.filter(x => x.pid === p.id).map(x => Object.assign({ source: 'project contacts' }, x))
+      .concat(co.filter(x => x.company && x.company === norm_(p.account)).map(x => Object.assign({ source: 'Client Desk' }, x)));
+    p.contacts = (c ? [Object.assign({ source: p.contact.source }, c)] : []).concat(mine).filter(x => !seen[x.email] && (seen[x.email] = 1)).slice(0, 12)
+      .map(x => ({ name: String(x.name || '').slice(0, 120), email: x.email, role: String(x.role || '').trim().slice(0, 120), source: x.source }));
+  });
+}
+
+/* CLIENT-TEXT-HIDE-2026-10-29, copied for client_status (STATUS-FRIDAY-2026-10-29) from Canvas Client Code.gs (C208), names prefixed zb.
+   Keep the two in step: the Friday status email must cut the same text the client site cuts.
+   (Kiko 29 Oct 09:23Z, F9 spec R1-R8, /mnt/project-files/client-text-hide/SPEC.md).
+   Project text typed by staff is cleaned on the way to the site; the sheets are never changed.
+   R1 clients: a supplier name in the text is shown as "supplier" ("Safelift's" -> "supplier's").
+   R2 clients and crew: a peso amount is cut. A peso amount has P, PHP, Php or the peso sign before it, or PHP / pesos after it,
+      and 3+ digits, a comma or a "k" (P12,000, P500, PHP 12000, Php12k, 12,000 PHP). "P1", "200 pax", "1,200 chairs" stay.
+   R3 names: Supplier Database > Main > Supplier, and Common / Display Name when it is a name (60 characters or less, not a note).
+      Whole words, capitals ignored.
+   R4 a supplier's first word counts as its name when it is 6+ letters, no other supplier name starts with it, and it is not an
+      everyday word or a person's first name (Q7). Those words are listed in ZB_TH_FIRST_ (Safelift); the list is in the report.
+   R5 venues and talents stay (Main Service: Venue / Event Space, Singer / Band, Talent / Host, Dancers, DJ / Music,
+      Drag Performer, Influencer / Content Creator). R6 Business Type National Chain stays.
+   R7 crew who are not on the project's client account keep names; only R2 applies to them.
+   R8 a supplier name that is also the project's client account is never cut.
+   The name list is kept in the script cache for up to 1 hour. If the Supplier Database can't be read, names are not cut
+   (amounts still are) and the page still opens. */
+const ZB_TH_SUPPLIER_DB_ = '10yrvrc61ZZGYJaYaAW-QVl1pLCJzFkfW4A6awZpxBjo'; // same book as PAY_SUPPLIERS_
+const ZB_TH_KEEP_SERVICE_ = /^(venue \/ event space|singer \/ band|talent \/ host|dancers|dj \/ music|drag performer|influencer \/ content creator)$/;
+const ZB_TH_KEEP_TYPE_ = /^national chain$/;
+const ZB_TH_FIRST_ = [ // R4 first words, checked by hand on 29 Oct 2026 against the live Supplier Database (no everyday words, no first names)
+  'blaksand', 'bluelemon', 'brandbuilders', 'ceramikhaus', 'cityhoops', 'coftea', 'colorata', 'desprintify', 'dexact',
+  'ecooil', 'filtra', 'flipfun', 'funlimited', 'greenpak', 'herbies', 'hipive', 'iclickmo', 'intermatrix', 'intuit',
+  'jklcamo', 'johner', 'johnstones', 'kayleatwork', 'kaylebsky', 'keiken', 'lightview', 'lunavida', 'magiccarpet',
+  'manlapaz', 'mastertech', 'momentomp', 'momentoshot', 'monteza', 'multiplay', 'neoprint', 'onehny', 'optimaxx',
+  'packtica', 'paoheiah', 'photographia', 'photoparty', 'piksel', 'praiselight', 'primedia', 'printad', 'printhub',
+  'prontotek', 'safelift', 'seashell', 'snaptech', 'snapzap', 'spandi', 'spectroom', 'threecolors', 'topcoms',
+  'transcare', 'trimazel', 'ubales', 'uniqueverse', 'urbanart', 'verberry', 'verliz', 'wilvereen', 'xentro',
+  'zairanna', 'zeravla'];
+const ZB_TH_KEEP_ = []; // names or R4 first words Kiko strikes from the pre-release report (they stay visible), lower case
+const ZB_TH_WORD_ = 'A-Za-z0-9\u00C0-\u024F';
+const ZB_TH_NUM_ = '\\d[\\d,]*(?:\\.\\d+)?\\s?[kK]?';
+const ZB_TH_MONEY_ = new RegExp('(?:\u20b1|(?<![' + ZB_TH_WORD_ + '])(?:PHP|Php|php|P)\\.?)\\s?(' + ZB_TH_NUM_ + ')(?:\\s?(?:-|\u2013|to)\\s?(?:\u20b1|PHP|Php|php|P)?\\.?\\s?' + ZB_TH_NUM_ + ')?(?![' + ZB_TH_WORD_ + '])'
+  + '|(?<![' + ZB_TH_WORD_ + ',.])(' + ZB_TH_NUM_ + ')(?:\\s?(?:-|\u2013|to)\\s?' + ZB_TH_NUM_ + ')?\\s?(?:PHP|Php|php|pesos?|Pesos?)(?![' + ZB_TH_WORD_ + '])', 'g');
+const zbThIsAmount_ = n => { const s = String(n || ''); return /,/.test(s) || /k\s*$/i.test(s) || (s.replace(/\..*$/, '').replace(/\D/g, '').length >= 3); };
+const zbThEsc_ = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// The names to cut: [{ name, first }] where first marks an R4 first word.
+function zbThNames_() {
+  const cache = CacheService.getScriptCache();
+  try { const hit = cache.get('zbth.names.1'); if (hit) return JSON.parse(hit); } catch (e) { /* read again */ }
+  let out;
+  try {
+    const t = table_(ZB_TH_SUPPLIER_DB_, 'Main'), iN = col_(t, 'supplier'), iD = col_(t, 'common / display name'), iT = col_(t, 'business type'), iS = col_(t, 'main service');
+    const at = (r, i) => i >= 0 ? String(r[i] || '').trim() : '';
+    const hide = {}, firsts = {}, firstHide = {};
+    t.rows.forEach(r => {
+      const name = at(r, iN); if (!name) return;
+      const first = (name.match(/^[A-Za-z\u00C0-\u024F]+/) || [''])[0].toLowerCase();
+      if (first) firsts[first] = (firsts[first] || 0) + 1;
+      if (ZB_TH_KEEP_SERVICE_.test(norm_(at(r, iS))) || ZB_TH_KEEP_TYPE_.test(norm_(at(r, iT)))) return; // R5, R6
+      const disp = at(r, iD), names = [name].concat(disp && disp.length <= 60 && !/[.!?]\s/.test(disp) ? [disp] : []);
+      names.forEach(n => {
+        if (ZB_TH_KEEP_.indexOf(n.toLowerCase()) < 0) hide[n.toLowerCase()] = n;
+        const bare = n.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/[\s,]+(inc\.?|corp\.?|corporation|opc|co\.)\s*$/i, '').replace(/\s+/g, ' ').trim();
+        if (bare.length >= 3 && ZB_TH_KEEP_.indexOf(bare.toLowerCase()) < 0) hide[bare.toLowerCase()] = bare;
+      });
+      if (first.length >= 6 && ZB_TH_FIRST_.indexOf(first) >= 0) firstHide[first] = 1;
+    });
+    out = Object.keys(hide).filter(k => k.length >= 2).map(k => ({ name: hide[k] }))
+      .concat(Object.keys(firstHide).filter(f => firsts[f] === 1 && ZB_TH_KEEP_.indexOf(f) < 0 && !hide[f]).map(f => ({ name: f, first: true })));
+    try { cache.put('zbth.names.1', JSON.stringify(out), 3600); } catch (e) { /* too big for the cache: read each time */ }
+  } catch (e) { out = []; }
+  return out;
+}
+
+// One cleaner per site open: clean(text, client, account).
+function zbThCleaner_() {
+  let re; // built on the first client text only: crew text needs no names
+  const names = () => { if (re === undefined) { const list = zbThNames_().slice().sort((a, b) => b.name.length - a.name.length);
+    re = list.length ? new RegExp('(?<![' + ZB_TH_WORD_ + '])(' + list.map(x => zbThEsc_(x.name).replace(/\s+/g, '\\s+').replace(/&/g, '(?:&|and)')).join('|') + ')(?![' + ZB_TH_WORD_ + '])', 'gi') : null; }
+    return re; };
+  const tidy = s => s.replace(/\(\s*\)/g, '').replace(/\s+([,.;:!?)])/g, '$1').replace(/([(])\s+/g, '$1').replace(/[ \t]{2,}/g, ' ')
+    .replace(/(^|\n)[ \t]*[-\u2013:,@\/x]?[ \t]*(?=\n|$)/g, '$1').replace(/[ \t]*(?:[-\u2013:,@\/]|\bat|\bx)[ \t]*$/gim, '').trim();
+  return (text, client, account) => {
+    if (text == null || text === '') return text;
+    let s = String(text), cut = false;
+    s = s.replace(ZB_TH_MONEY_, (m, a, b) => zbThIsAmount_(a || b) ? (cut = true, ' ') : m); // R2
+    if (client && names()) { // R1, R8
+      const w = v => ' ' + norm_(v).replace(/[^a-z0-9]+/g, ' ').trim() + ' ', acct = w(account);
+      s = s.replace(re, m => { const k = w(m);
+        if (acct.trim() && (acct.indexOf(k) >= 0 || k.indexOf(acct) >= 0)) return m;
+        cut = true; return 'supplier'; });
+      s = s.replace(/\bsupplier(?:\s+supplier)+\b/gi, 'supplier');
+    }
+    return cut ? tidy(s) : s;
+  };
+}
+
+/* ---------- STATUS-FRIDAY-2026-10-29: Cue's Friday client status emails (client_status) ----------
+ * Kiko 29 Oct 12:57Z: "lets reopen status updates - sent every Friday. provide an update on the progress of each requirement,
+ * show progress based on timeline, Project Readiness score - run first Project Readiness scan before sending, Open Risks and
+ * Issues, Task Update. If they want to see more details about the project > Go to Canvas".
+ * Per project, the client-safe view the Canvas Client site shows (Code.gs there: clientData0_, clientTimeline, stage_):
+ *   - requirements: Scope Categories cards with their stage (Planning, In production, For delivery, Done); a card the CE removed
+ *     or a cancelled one is left out, Day manpower cards too (crew only on the site).
+ *   - timeline: the workbook's Project timeline table (TASK, START, END, KEY MILESTONE?, COMPLETE?): tasks done, due by today,
+ *     late (due and not complete) and the next ones coming up.
+ *   - readiness: the Pre-Event Readiness score of the project's last checklist run (ckScoreGet_). Cue runs get_readiness first,
+ *     so that run is the fresh scan.
+ *   - TRI: open risks and issues with their plan (Mitigation), open tasks, and how many tasks are closed.
+ *   - the main client contact (zbStContacts_) and the client site link that opens the project.
+ * Text staff typed is cleaned as on the site (zbThCleaner_: supplier names and peso amounts cut). email: true adds the branded
+ * email (subject, text, html, the Canvas logo once as logo). Read only: nothing is written or sent. */
+const ZB_CS_MAX_ = { projects: 25, reqs: 40, late: 8, next: 5, tri: 12 };
+const ZB_CS_GONE_ = /cancel|not awarded|dropped|removed|void/i;        // CCU_GONE_ on the site
+const ZB_CS_YES_ = /^(true|yes|y|1|✓|done|complete|completed)$/i;     // tlYes on the site
+const ZB_CS_STAGES_ = ['Planning', 'In production', 'For delivery', 'Done'];
+// The site's stage_: scope statuses in words a client reads (no sourcing, awarding or payment steps).
+function zbCsStage_(status) {
+  const s = norm_(status);
+  if (/complete|done|closed|liquidat/.test(s)) return 'Done';
+  if (/deliver/.test(s)) return 'For delivery';
+  if (/production|payment/.test(s)) return 'In production';
+  return 'Planning';
+}
+const zbCsName_ = v => String(v == null ? '' : v).split(/[,;]/).map(x => x.replace(/[^\s<>()]+@[^\s<>()]+/g, '').replace(/[<>()]/g, '').replace(/\s+/g, ' ').trim())
+  .filter(Boolean).join(', ');                                       // nameOnly_ on the site: names, never emails
+// A timeline date as yyyy-MM-dd; "Oct 24" without a year takes the event's year.
+function zbCsDay_(v, year) {
+  const s = String(v == null ? '' : v).trim(); if (!s) return '';
+  const iso = aifIso_(/\d{4}/.test(s) || !year ? s : s + ' ' + year);
+  return /^20\d\d-/.test(iso) ? iso : '';
+}
+
+function zbClientStatus_(ids, past, email, idsOnly) {
+  const pk = zbStPick_(ids, past), today = pk.today, keep = pk.list.slice(0, ZB_CS_MAX_.projects), by = {}, missing = [];
+  // ids_only: the cheap list Cue scans readiness for first (no sheets read beyond the project list).
+  if (idsOnly) return { today, from: pk.from, projects: keep.map(p => ({ id: p.id, name: p.name, date: p.date })), more: pk.list.length - keep.length, missing };
+  if (!keep.length) return { today, from: pk.from, projects: [], more: 0, missing };
+  keep.forEach(p => { by[p.id] = Object.assign(p, { contact: null, contacts: [], link: CLIENT_ONE_LINK_ + '?v=project&p=' + encodeURIComponent(p.id),
+    requirements: [], progress: { done: 0, total: 0 }, timeline: null, readiness: null, risks: [], issues: [], tasks: [], tasks_done: 0 }); });
+  const clean = zbThCleaner_(), txt = (p, v, n) => String(clean(zbPayTxt_(v), true, p.account) || '').slice(0, n || 300);
+  // Requirements: Scope Categories, as the site's Deliverables tab lists them.
+  try {
+    objects_(table_(SRC.SCOPES, 'Scope Categories'), ['event id', 'category', 'description', 'status', 'removed from ce', 'manpower', 'expense type']).forEach(x => {
+      const p = by[String(x['event id'] || '').trim()]; if (!p) return;
+      if (String(x['removed from ce'] || '').trim() || ZB_CS_GONE_.test(String(x.status || ''))) return;
+      if (/^day\s*\(/i.test(String(x.manpower || '').trim()) && /manpower/i.test(String(x['expense type'] || ''))) return;
+      const r = { name: txt(p, x.category, 120), detail: txt(p, x.description, 200), stage: zbCsStage_(x.status) };
+      if (!r.name && !r.detail) return;
+      p.progress.total++; if (r.stage === 'Done') p.progress.done++;
+      if (p.requirements.length < ZB_CS_MAX_.reqs) p.requirements.push(r);
+    });
+    keep.forEach(p => { p.requirements.sort((a, b) => ZB_CS_STAGES_.indexOf(a.stage) - ZB_CS_STAGES_.indexOf(b.stage)); });
+  } catch (e) { missing.push('Scope Categories: ' + zbErr_(e)); }
+  // Timeline: the Project timeline table on each project's workbook Timeline tab (or its tab in BSE Project Timelines).
+  let urls = {};
+  try { objects_(table_(SRC.ADMIN, 'Directory'), ['project id', 'workbook url']).forEach(d => { urls[String(d['project id'] || '').trim()] = d['workbook url']; }); }
+  catch (e) { urls = {}; missing.push('Directory: ' + zbErr_(e)); }
+  keep.forEach(p => {
+    let w; try { w = workbookTimeline_(urls[p.id] || '', p.id, true); } catch (e) { w = { error: zbErr_(e) }; }
+    if (w && w.error) { missing.push(p.id + ' timeline: ' + String(w.error).slice(0, 160)); return; }
+    const t = ((w && w.tables) || []).filter(x => x.title === 'Project timeline')[0]; if (!t) return;
+    const year = (p.date || today).slice(0, 4), tl = { total: 0, done: 0, due: 0, late: [], next: [] };
+    t.rows.filter(r => !r._group && String(r.task || '').trim()).forEach(r => {
+      const end = zbCsDay_(r.end || r['end date'] || r['stop'] || r.deadline, year), start = zbCsDay_(r.start || r['start date'], year);
+      const done = ZB_CS_YES_.test(String(r['complete?'] || r.complete || r.status || '').trim()), mile = ZB_CS_YES_.test(String(r['key milestone?'] || '').trim());
+      const it = { task: txt(p, r.task, 160), start, end, milestone: mile };
+      tl.total++; if (done) tl.done++;
+      if (end && end <= today) { tl.due++; if (!done && tl.late.length < ZB_CS_MAX_.late) tl.late.push(it); }
+      else if (!done) tl.next.push(it);
+    });
+    if (!tl.total) return;
+    tl.next = tl.next.sort((a, b) => (b.milestone - a.milestone) || (a.end || a.start || '9999').localeCompare(b.end || b.start || '9999')).slice(0, ZB_CS_MAX_.next)
+      .sort((a, b) => (a.end || a.start || '9999').localeCompare(b.end || b.start || '9999'));
+    tl.pct = Math.round(tl.done * 100 / tl.total);
+    p.timeline = tl;
+  });
+  // Readiness: the score of the last checklist run (6 hours in the script cache; Cue's get_readiness call just made it).
+  try { const sc = ckScoreGet_(keep); keep.forEach(p => { const x = sc[p.id]; if (x && x.total) p.readiness = { ready: x.ready, total: x.total, pct: x.pct }; }); }
+  catch (e) { missing.push('readiness: ' + zbErr_(e)); }
+  // Risks, issues and tasks: TRI Tracker › TRI, open ones; closed tasks are counted.
+  try {
+    objects_(table_(SRC.TRI, 'TRI'), ['project id', 'type', 'description', 'mitigation', 'assigned to', 'deadline', 'status', 'likelihood', 'impact']).forEach(t => {
+      const p = by[String(t['project id'] || '').trim()]; if (!p || !String(t.description || '').trim()) return;
+      const kind = /risk/i.test(t.type) ? 'risks' : /task|action/i.test(t.type) ? 'tasks' : 'issues', closed = CKC_OPEN_RE_.test(String(t.status || ''));
+      if (closed) { if (kind === 'tasks') p.tasks_done++; return; }
+      if (p[kind].length >= ZB_CS_MAX_.tri) return;
+      const due = aifIso_(t.deadline);
+      p[kind].push({ item: txt(p, t.description, 300), plan: txt(p, t.mitigation, 300), assigned: zbCsName_(t['assigned to']).slice(0, 120), deadline: due,
+        late: !!due && due < today, status: txt(p, t.status, 40) || 'Open', impact: txt(p, t.impact, 40) });
+    });
+    keep.forEach(p => ['risks', 'issues', 'tasks'].forEach(k => p[k].sort((a, b) => (b.late - a.late) || (a.deadline || '9999').localeCompare(b.deadline || '9999'))));
+  } catch (e) { missing.push('TRI Tracker: ' + zbErr_(e)); }
+  try { zbStContacts_(keep, true); } catch (e) { missing.push('contacts: ' + zbErr_(e)); }
+  if (email) keep.forEach(p => Object.assign(p, zbCsMail_(p, today)));
+  return Object.assign({ today, from: pk.from, projects: keep, more: pk.list.length - keep.length, missing: missing.slice(0, 10) }, email ? { logo: NTF_LOGO_PNG_ } : {});
+}
+
+/* The Friday email, in the BSE look (bseMailTop_: the Canvas logo head, white card, DM Sans or Arial) and the brand voice guide
+ * (first name, "event" not "project", no emoji, one exclamation mark at most, "Thank you," then Blank Space Events). */
+const ZB_CS_PILL_ = { 'Done': ['#E3F3E8', '#1E6B34'], 'For delivery': ['#E8E5FF', '#2810DC'], 'In production': ['#FFF2D1', '#7A5A00'], 'Planning': ['#F1EFEA', '#5C5866'] };
+function zbCsMail_(p, today) {
+  const e = ntfEsc_, D = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? Utilities.formatDate(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 4)), 'Asia/Manila', 'EEE, d MMM') : ''; };
+  const first = (p.contact && String(p.contact.name || '').trim().split(/\s+/)[0]) || '', hello = 'Hi' + (first ? ' ' + first : '') + ',';
+  const days = p.date ? Math.round((Date.parse(p.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null;
+  const when = days == null ? '' : days > 1 ? days + ' days to go until ' + D(p.date) + '.' : days === 1 ? 'Your event is tomorrow, ' + D(p.date) + '.'
+    : days === 0 ? 'Your event is today.' : 'Your event was on ' + D(p.date) + ', and we\'re wrapping up.';
+  const intro = 'Here\'s your Friday update on ' + p.name + '. ' + when;
+  const subject = p.name + ' · Friday update, ' + Utilities.formatDate(new Date(Date.parse(today + 'T04:00:00Z')), 'Asia/Manila', 'd MMM');
+  const S = t => '<p style="margin:14px 0 6px;font-size:14px"><b>' + e(t) + '</b></p>';
+  const H = t => '<p style="margin:22px 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:bold;color:#B3107C">' + e(t) + '</p>';
+  const P = (t, c) => '<p style="margin:0 0 10px;font-size:14px;line-height:1.5;color:' + (c || '#16151B') + '">' + t + '</p>';
+  const pill = st => { const c = ZB_CS_PILL_[st] || ZB_CS_PILL_.Planning; return '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:bold;white-space:nowrap;background:' + c[0] + ';color:' + c[1] + '">' + e(st) + '</span>'; };
+  const bar = pct => '<div style="background:#F1EFEA;border-radius:999px;height:8px;margin:4px 0 10px"><div style="background:#B3107C;border-radius:999px;height:8px;width:' + Math.max(0, Math.min(100, pct)) + '%"></div></div>';
+  const rows = (list, cells) => '<table style="border-collapse:collapse;width:100%;font-size:14px">' + list.map(x => '<tr>' + cells(x).map((c, i) => '<td style="padding:7px 0;border-top:1px solid #EFEAE0;vertical-align:top;' + (i ? 'text-align:right;padding-left:12px;white-space:nowrap' : '') + '">' + c + '</td>').join('') + '</tr>').join('') + '</table>';
+  const stat = (label, big, small) => '<td style="width:33%;padding:12px;border:1px solid #E3DDD0;border-radius:8px;vertical-align:top"><div style="font-size:12px;color:#5C5866">' + e(label) + '</div><div style="font-size:22px;font-weight:bold;margin:2px 0">' + e(big) + '</div><div style="font-size:12px;color:#5C5866">' + e(small) + '</div></td>';
+  const R = p.readiness, G = p.progress, T = p.timeline, text = [hello, '', intro, ''];
+  let h = bseMailTop_('Friday update', 600) + '<p style="margin:0 0 14px;font-size:15px">' + e(hello) + '</p>' + P(e(intro));
+  h += '<table style="border-collapse:separate;border-spacing:8px 0;width:100%;margin:14px -8px 4px"><tr>'
+    + stat('Readiness score', R ? R.pct + '%' : 'Not yet', R ? R.ready + ' of ' + R.total + ' checks ready' : 'Checklist not started')
+    + stat('Requirements', G.total ? G.done + ' of ' + G.total : 'None yet', G.total ? 'done' : 'listed')
+    + stat('Timeline', T ? T.done + ' of ' + T.total : 'Not yet', T ? 'tasks done' : 'shared') + '</tr></table>';
+  text.push('Readiness score: ' + (R ? R.pct + '% (' + R.ready + ' of ' + R.total + ' checks ready)' : 'not yet'),
+    'Requirements: ' + (G.total ? G.done + ' of ' + G.total + ' done' : 'none listed yet'), 'Timeline: ' + (T ? T.done + ' of ' + T.total + ' tasks done' : 'not shared yet'), '');
+  // Progress of each requirement
+  h += H('Progress of each requirement');
+  if (p.requirements.length) {
+    h += rows(p.requirements, r => ['<b>' + e(r.name || r.detail) + '</b>' + (r.name && r.detail ? '<br><span style="color:#5C5866;font-size:13px">' + e(r.detail) + '</span>' : ''), pill(r.stage)]);
+    if (G.total > p.requirements.length) h += P(e('And ' + (G.total - p.requirements.length) + ' more on Canvas.'), '#5C5866');
+    text.push('PROGRESS OF EACH REQUIREMENT'); p.requirements.forEach(r => text.push('- ' + (r.name || r.detail) + (r.name && r.detail ? ' (' + r.detail + ')' : '') + ': ' + r.stage)); text.push('');
+  } else { h += P('We are still listing your requirements.', '#5C5866'); text.push('PROGRESS OF EACH REQUIREMENT', 'We are still listing your requirements.', ''); }
+  // Progress on the timeline
+  h += H('Progress on the timeline'); text.push('PROGRESS ON THE TIMELINE');
+  if (T) {
+    const line = T.done + ' of ' + T.total + ' tasks done. ' + (T.late.length ? T.late.length + ' of the ' + T.due + ' due by today ' + (T.late.length === 1 ? 'is' : 'are') + ' still open.' : T.due ? 'Everything due by today is done.' : 'Nothing was due yet.');
+    h += P(e(line)) + bar(T.pct); text.push(line);
+    if (T.late.length) { h += S('Catching up') + rows(T.late, x => [e(x.task), '<span style="color:#B3107C">was due ' + e(D(x.end)) + '</span>']);
+      text.push('Catching up:'); T.late.forEach(x => text.push('- ' + x.task + ' (was due ' + D(x.end) + ')')); }
+    if (T.next.length) { h += S('Coming up') + rows(T.next, x => [e(x.task) + (x.milestone ? ' <span style="color:#5C5866;font-size:12px">· milestone</span>' : ''), e(D(x.end || x.start))]);
+      text.push('Coming up:'); T.next.forEach(x => text.push('- ' + x.task + (x.milestone ? ' (milestone)' : '') + ': ' + D(x.end || x.start))); }
+  } else { h += P('Your event timeline is not on Canvas yet.', '#5C5866'); text.push('Your event timeline is not on Canvas yet.'); }
+  text.push('');
+  // Open risks and issues
+  const ri = p.risks.map(x => Object.assign({ kind: 'Risk' }, x)).concat(p.issues.map(x => Object.assign({ kind: 'Issue' }, x)));
+  h += H('Open risks and issues'); text.push('OPEN RISKS AND ISSUES');
+  if (ri.length) { h += rows(ri, x => ['<b>' + e(x.kind) + ':</b> ' + e(x.item) + (x.plan ? '<br><span style="color:#5C5866;font-size:13px">Our plan: ' + e(x.plan) + '</span>' : ''), e(x.status)]);
+    ri.forEach(x => text.push('- ' + x.kind + ': ' + x.item + (x.plan ? ' Our plan: ' + x.plan : '') + ' (' + x.status + ')')); }
+  else { h += P('No open risks or issues this week.', '#5C5866'); text.push('No open risks or issues this week.'); }
+  text.push('');
+  // Task update
+  h += H('Task update'); text.push('TASK UPDATE');
+  const tl = p.tasks.length ? p.tasks.length + ' open' + (p.tasks_done ? ', ' + p.tasks_done + ' done so far.' : '.') : p.tasks_done ? 'All ' + p.tasks_done + ' tasks are done.' : 'No tasks listed yet.';
+  h += P(e(tl)); text.push(tl);
+  if (p.tasks.length) { h += rows(p.tasks, x => [e(x.item) + (x.assigned ? '<br><span style="color:#5C5866;font-size:13px">' + e(x.assigned) + '</span>' : ''), x.deadline ? (x.late ? '<span style="color:#B3107C">' : '<span>') + 'due ' + e(D(x.deadline)) + '</span>' : '']);
+    p.tasks.forEach(x => text.push('- ' + x.item + (x.assigned ? ' (' + x.assigned + ')' : '') + (x.deadline ? ', due ' + D(x.deadline) : ''))); }
+  text.push('');
+  // Go to Canvas
+  // EMAIL-BUTTON-LAST-2026-10-31 (Kiko 31 Oct: "the button is at the very bottom. aligned left"): the box with the button closes the card.
+  h += P('If you have any questions or clarifications, feel free to hit reply.', '#5C5866') + '<p style="margin:16px 0 0;font-size:15px">Thank you,<br>Blank Space Events</p>';
+  h += '<div style="margin:20px 0 0;padding:16px;background:#FAF8F3;border-radius:8px">' + P('Want to see more details about your event? Everything is on Canvas.') + bseMailBtn_('Go to Canvas', p.link) + '</div></div></div>';
+  text.push('Want to see more details about your event? Go to Canvas: ' + p.link, '', 'If you have any questions or clarifications, feel free to hit reply.', '', 'Thank you,', 'Blank Space Events');
+  return { subject, text: text.join('\n'), html: h };
 }
 
 /** Adds the approved TRI items (type, description, assignee, deadline...) and reads them back. One saveProjectRow per item. */
@@ -1303,6 +1557,7 @@ function zbReadiness_(pid, want) {
     project: { id: pid, name: t(p.name, 200), event_date: iso, status: t(p.status, 60) },
     counts: { blockers_open: ev.blockers || 0, blockers_total: ev.blockersTotal || 0, warnings_open: ev.warnings || 0, warnings_total: ev.warningsTotal || 0,
       waiting_on_others: ev.waiting || 0, needs_kiko: ev.needsKiko || 0, to_review: ev.toReview || 0, unchecked: ev.unchecked || 0, clear: live.length - live.filter(it => !it.clear).length },
+    score: (() => { try { const sc = ckScoreOf_(st.items || []); return { ready: sc.ready, total: sc.total, pct: sc.pct }; } catch (e) { return null; } })(), // STATUS-FRIDAY-2026-10-29: the Readiness score
     ready: !!ev.ready, unchecked_items: (ev.uncheckedItems || []).slice(0, 20).map(x => t(x, 300)),
     auto: (ev.auto || []).map(a => ({ key: t(a.key, 30), label: t(a.label, 120), open: (a.ids || []).length, items: (a.ids || []).slice(0, 10).map(x => t(x, 80)), error: t(a.error, 300) })),
     items: open };
@@ -1310,15 +1565,34 @@ function zbReadiness_(pid, want) {
 
 /* GPT-READINESS-CACHE-2026-10-23. A full readiness run takes minutes and ChatGPT stops waiting after about one, but the call
  * still finishes here. Each finished result is kept 6 hours (script cache, per project and gate); a result under 15 minutes
- * old (or under max_age_minutes) is returned at once with as_of. Read only: no trigger, schedule or sheet write. */
+ * old (or under max_age_minutes) is returned at once with as_of. Read only: no trigger, schedule or sheet write (READINESS-SPEED-2026-10-29:
+ * apart from its one Save Timings row). */
 const ZB_RD_FRESH_MIN_ = 15, ZB_RD_TTL_ = 21600;
 const zbRdKey_ = (pid, gate) => 'gptrd:' + pid + ':' + gate;
+/* READINESS-SPEED-2026-10-29 (Friday status check 29 Oct: one get_readiness took 301 s). The checklist's parts each read
+ * some of the same whole tabs (project, scopes, automatic checks, rules); inside tmemo_ each of these is read once per call.
+ * Every fresh run also writes one Save Timings row ("Open: Bridge get_readiness ...") with the slowest sources, so the next
+ * fix aims at what is measured. */
+const ZB_RD_TABS_ = () => [[SRC.ADMIN, 'Directory'], [SRC.SCOPES, 'Scope Categories'], [SRC.SCOPES, 'Payment Request'], [SRC.SCOPES, 'Transfers'],
+  [SRC.SCOPES, 'Supplier Entries'], [SRC.SCOPES, 'Requirements'], [SRC.TRI, 'TRI']];
+function zbRdTime_(pid, gate, ms) {
+  try {
+    const sh = ocQuiet_(logSheet_).getParent().getSheetByName(SW_TAB_); if (!sh) return;
+    const top = Object.keys(CKC_SW_.t).map(k => [k, CKC_SW_.t[k]]).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(x => x[0] + ' ' + (x[1] / 1000).toFixed(1)).join(' · ');
+    const what = 'Open: Bridge get_readiness ' + pid + ' ' + gate + ' (open ' + (PM_.open / 1000).toFixed(1) + ' · read ' + (PM_.read / 1000).toFixed(1)
+      + ' in ' + PM_.n + ' · ' + top + ')';
+    sh.appendRow([new Date(), 'Cue bridge', what.slice(0, 900), '', '', '', '', '', Math.round(ms / 100) / 10]);
+  } catch (e) { console.error('Readiness timings: ' + e); }
+}
 function zbRdCached_(pid, gate, maxAge) {
   const lim = (maxAge || ZB_RD_FRESH_MIN_) * 60000;
   let c = null; try { const s = CacheService.getScriptCache().get(zbRdKey_(pid, gate)); c = s ? JSON.parse(s) : null; } catch (e) { c = null; }
   if (c && Date.now() - Date.parse(c.as_of) < lim)
     return Object.assign(c, { cached: true, stale: Date.now() - Date.parse(c.as_of) >= ZB_RD_FRESH_MIN_ * 60000 });
-  const out = Object.assign(zbReadiness_(pid, gate), { as_of: new Date().toISOString(), cached: false });
+  const t0 = Date.now(); CKC_SW_.t = {};
+  const out = Object.assign(tmemo_(ZB_RD_TABS_(), () => zbReadiness_(pid, gate)), { as_of: new Date().toISOString(), cached: false });
+  zbRdTime_(pid, out.gate || gate, Date.now() - t0); // READINESS-SPEED-2026-10-29
   try {
     let s = JSON.stringify(out);
     if (s.length > 95000) { const k = Object.assign({}, out, { items: (out.items || []).slice(0, 40), items_cut: true }); s = JSON.stringify(k); }
@@ -1636,7 +1910,9 @@ function zbArEmail_(r) {
     if (!arCovers_({ reqs: g('Request ID') }, p)) { out = { ok: false, error: p.name + ' was paid again since this receipt was made. Make it again first.' }; return; }
     if (/^Sent to /.test(g('Emailed'))) { out = { ok: true, existed: true, name: p.name, ar_id: g('AR ID'), emailed: g('Emailed') }; return; }
     if (!g('PDF ID')) { out = { ok: false, error: 'This receipt has no PDF. Make it again.' }; return; }
-    const sent = arEmail_(p, arEvent_(pid), DriveApp.getFileById(g('PDF ID')));
+    // AR-INTRO-LINK-2026-11-01 (bug: the intro Kiko edited in Cue was dropped and the link went to the crew Payments page): the
+    // receipt's own AR ID makes the one-document sign link, and the intro replaces the opening line.
+    const sent = arEmail_(p, Object.assign({}, arEvent_(pid), { arId: g('AR ID') }), DriveApp.getFileById(g('PDF ID')), String(((r.args || {}).intro) || '').trim().slice(0, 2000));
     sh.getRange(o.row, AR_C_['Emailed'] + 1).setValue(safe_(sent));
     out = /^Sent to /.test(sent) ? { ok: true, existed: false, name: p.name, ar_id: g('AR ID'), emailed: sent } : { ok: false, error: sent };
   });
@@ -2042,7 +2318,12 @@ ZB_ACTIONS_.crm_funnel = {
     return { today: f.today, limits: f.limits, steps: f.steps.map(s => ({ step: s.step, count: s.count, stuck: s.stuck, limit: s.limit, median_days: s.median_days })),
       stuck: f.rows.filter(x => x.stuck).slice(0, 40).map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit,
         email: x.email || '', contact: x.contact || '' })),   // CRM-FUNNEL-REST-2026-10-28: the client's newest known email, for Cue's chaser drafts
-      due: f.due.slice(0, 40), winback: r.args.winback ? zbCrmWinback_() : undefined };
+      due: f.due.slice(0, 40), winback: r.args.winback ? zbCrmWinback_() : undefined,
+      // CRM-13-2026-10-29 (Cue #235): every open Inquiry and CE sent row, nearest event first, for Cue's pipeline review (HubSpot is
+      // frozen since V328). priced (true or false) only, never the amount.
+      open: f.rows.filter(x => x.step === 'Inquiry' || x.step === 'CE sent').sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')).slice(0, 60)
+        .map(x => ({ kind: x.kind, id: x.id, name: x.name, client: x.client, step: x.step, status: x.status, date: x.date, days: x.days, quiet: x.quiet, limit: x.limit,
+          email: x.email || '', contact: x.contact || '', priced: x.amount != null && x.amount > 0 })) };
   }
 };
 /* CRM-FUNNEL-REST-2026-10-28 (F6): clients to win back (no open deal, last event older than the win-back months), with the newest known
@@ -2711,12 +2992,162 @@ ZB_ACTIONS_.contact_fill = {
   run: (r) => zbContactFill_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
+
 ZB_ACTIONS_.sent_log = {
   // SENT-LOG-2026-10-29 (N8 / N9; Kiko 03:43-03:46Z: reports in Cue Admin, "not split", a Log page "filtered by the different
   // Jobs. and Status"): every email and text Canvas sent in the last 1 to 30 days, one row per send, newest first, with the
   // failed count of the last 7 days and the Semaphore text credit, for the Cue Admin Reports page (SentLog.gs). Read only.
   kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 1 }, failed_only: { type: 'boolean' } },
   run: (r) => sentLogRead_(r.args)
+};
+
+
+/* ---------- CLIENT-DOOR-2026-10-29: Canvas Client's calls without the library ----------
+ * Canvas Client (the crew, client and supplier sites) used to load this whole project as the library CanvasMain, which cost every
+ * Client call 4-5 s before its own code ran (Save Timings "Client open:" rows, 29 Oct). Now the Client sends its ten calls here as a
+ * web request. Kiko's rule for this door (yes asked 29 Oct 13:34Z): it answers only the Client's own Google account
+ * (CLIENT_DOOR_USER_) and only these ten functions. While one runs, activeEmail_() is '' as it was for library calls from the
+ * anonymous Client, so every existing check behaves the same. */
+const CLIENT_DOOR_USER_ = 'info@blankspaceevent.com';
+const CLIENT_DOOR_FNS_ = {
+  zapBridge: a => zapBridge(a[0], a[1]), smsSendCode: a => smsSendCode(a[0], a[1]), signLinkCheck: a => signLinkCheck(a[0]),
+  acctBridge: a => acctBridge(a[0], a[1], a[2]), regPendingNotify: a => regPendingNotify(a[0]), autoDocsAfterRegister: a => autoDocsAfterRegister(a[0]),
+  sitePersonalFile: a => sitePersonalFile(a[0], a[1], a[2], a[3], a[4], a[5]), siteScopeFile: a => siteScopeFile(a[0], a[1], a[2], a[3], a[4], a[5], a[6]),
+  clientAutoWelcome: a => clientAutoWelcome(a[0], a[1]), bseMailKit: a => bseMailKit(a[0], a[1], a[2]),
+  crmSiteInquiry: a => crmSiteInquiry(a[0]) // CRM-SITE-INQUIRY-2026-10-29: the client-site inquiry form (Kiko 29 Oct 14:03Z, mockups approved 14:38Z)
+};
+var CLIENT_DOOR_ = false; // var, not let: activeEmail_ may run before this line while the files load
+function activeEmail_() { return CLIENT_DOOR_ ? '' : String(Session.getActiveUser().getEmail() || ''); }
+function doPost(e) {
+  let out;
+  try {
+    if (String(Session.getActiveUser().getEmail() || '').trim().toLowerCase() !== CLIENT_DOOR_USER_) throw new Error('This is only for Canvas Client.');
+    let q = null; try { q = JSON.parse(String((e && e.postData && e.postData.contents) || '')); } catch (err) { q = null; }
+    const fn = q && typeof q.fn === 'string' && Object.prototype.hasOwnProperty.call(CLIENT_DOOR_FNS_, q.fn) ? CLIENT_DOOR_FNS_[q.fn] : null;
+    if (!fn) throw new Error('This is only for Canvas Client.');
+    CLIENT_DOOR_ = true;
+    const v = fn(Array.isArray(q.args) ? q.args : []);
+    out = { door: 1, ok: true, v: v === undefined ? null : v };
+  } catch (err) { out = { door: 1, ok: false, error: String((err && err.message) || err) }; }
+  finally { CLIENT_DOOR_ = false; }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+/* CUE-CONTACT-NEW-2026-10-29 (Kiko 29 Oct 13:14Z, backlog thread: "1. my email only 2. one time 3 year scan 3. senders and people
+ * copied 4. P0 unless there are contacts 5. once for the 3 year rewind. then we run weekly for ongoing emails"; Cue spec
+ * specs/gmail-new-contacts.md, card gmail-new-contacts). Cue reads the From and Cc of Kiko's own Gmail and lists the people Canvas does
+ * not have on one Approve card. Two actions, neither on the GPT door:
+ *   contact_new_check (read)  per person: already in Canvas (the email is in P0 Contacts, PROJ Contacts or the Admin Directory), or
+ *                             the company the person would go to. A company already in P0 keeps its P stage ("keep"); a company not
+ *                             in P0 is new and starts at P0 ("new"); a personal-mail address with no company in its signature has no
+ *                             company ("none"). One email domain is one company. Skipped, never on the card (R1, Kiko 29 Oct
+ *                             14:02Z "approve"): a personal address (Gmail, Yahoo, Outlook, Hotmail, iCloud), a known supplier (an
+ *                             email or a business domain in the Supplier Database: Main and Supplier Contact) and BSE staff (BSE's
+ *                             own domain). They come back as skipped: [{ email, why: 'personal'|'supplier'|'staff' }].
+ *   contact_add (write)       under the lock, the same check again on the list Kiko approved, then new P0 rows (Priority P0) and new
+ *                             P0 Contacts rows. Each row is logged in CRM Auto Added (Kind "Company" or "Contact", Source "Kiko Gmail
+ *                             (From / Cc)", Run = the request id), so Accounts › Auto add's Undo takes it back. Email is the key: a
+ *                             repeat adds nobody twice. No P stage of a company already in P0 changes, and nothing goes to HubSpot. */
+const ZB_NEW_SRC_ = 'Kiko Gmail (From / Cc)';
+const ZB_NEW_GENERIC_ = /^(com|net|org|gov|edu|mil|int|co|ph|biz|info|io|asia|mail|email|www)$/;
+/** PURE (unit-tested). A company name from an email domain: "events.northwind.com.ph" -> "Northwind". */
+function zbDomName_(d) {
+  const parts = String(d || '').toLowerCase().split('.').filter(Boolean);
+  while (parts.length > 1 && (ZB_NEW_GENERIC_.test(parts[parts.length - 1]) || parts[parts.length - 1].length <= 2)) parts.pop();
+  const w = parts.length ? parts[parts.length - 1] : '';
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
+}
+// R1 (Kiko 29 Oct 14:02Z "approve"): personal mail, suppliers and BSE staff are skipped.
+const ZB_NEW_PERSONAL_ = /^(gmail|yahoo|outlook|hotmail|icloud)\./;
+const ZB_NEW_OWN_ = ['blankspaceevent.com'];
+/** PURE (node tools/test/contact-new.test.js). people = [{email, company, ...}]; have = crmHave_() of P0 and P0 Contacts; known =
+ *  {email: 1} from PROJ Contacts and the Admin Directory; skip = zbNewSkip_(): { emails: {email: why}, doms: {domain: why} }.
+ *  Returns { known: [email], skipped: [{ email, why }], groups: [{ company, domain, status: 'keep'|'new'|'none', p, people }] }. */
+function zbNewPlan_(people, have, known, skip) {
+  const out = { known: [], skipped: [], groups: [] }, by = {}, order = [], seen = {}, sk = skip || { emails: {}, doms: {} };
+  const coOf = n => { const k = crmNk_(n); return k.length >= 2 ? have.keys[k] || '' : ''; };
+  const pOf = co => ((have.cos || []).filter(c => c.name === co)[0] || {}).p || '';
+  (people || []).forEach(x => {
+    const e = crmMail_(x.email); if (!e || seen[e]) return; seen[e] = 1;
+    if (have.emails[e] || known[e]) { out.known.push(e); return; }
+    const d = crmDom_(e), why = ZB_NEW_PERSONAL_.test(d) ? 'personal' : sk.emails[e] || sk.doms[d] || '';
+    if (why) { out.skipped.push({ email: e, why }); return; }
+    const free = CMC_FREE_.test(d), sig = String(x.company || '').replace(/\s+/g, ' ').trim();
+    const co = (!free && have.dom[d]) || coOf(sig) || (!free ? coOf(zbDomName_(d)) : '');
+    const key = co ? 'k|' + crmNk_(co) : !free ? 'd|' + d : sig ? 'n|' + crmNk_(sig) : 'x|';
+    let g = by[key];
+    if (!g) { g = by[key] = { company: co, domain: free ? '' : d, status: co ? 'keep' : (free && !sig ? 'none' : 'new'), p: co ? pOf(co) : (free && !sig ? '' : 'P0'), names: {}, people: [] }; order.push(key); }
+    if (!co && sig) g.names[sig] = (g.names[sig] || 0) + 1;
+    g.people.push(Object.assign({}, x, { email: e }));
+  });
+  order.forEach(k => { const g = by[k];
+    if (g.status === 'new') g.company = Object.keys(g.names).sort((a, b) => g.names[b] - g.names[a])[0] || zbDomName_(g.domain);
+    delete g.names; out.groups.push(g); });
+  return out;
+}
+/** Every email address in PROJ Contacts and the Admin Directory (any column whose header says email). */
+function zbNewKnown_() {
+  const out = {};
+  ['PROJ Contacts', 'Directory'].forEach(tab => {
+    const t = table_(SRC.ADMIN, tab); if (t.missing) throw new Error('Admin tab "' + tab + '" is missing');
+    const js = t.head.map((h, j) => /e-?mail/.test(h) ? j : -1).filter(j => j >= 0);
+    t.rows.forEach(r => js.forEach(j => crmMails_(r[j]).forEach(e => { out[e] = 1; })));
+  });
+  return out;
+}
+/** R1: { emails: {email: 'supplier'}, doms: {domain: 'supplier'|'staff'} }. Supplier emails come from every email column of
+ *  Supplier Database › Main and Supplier Contact; a supplier's domain counts only when it is not a free-mail domain. BSE's own
+ *  domains (blankspaceevent.com and the deploying account's) are staff. */
+function zbNewSkip_() {
+  const out = { emails: {}, doms: {} }, add = e => { out.emails[e] = 'supplier'; const d = crmDom_(e); if (d && !CMC_FREE_.test(d)) out.doms[d] = 'supplier'; };
+  const T = aiSupTable_();
+  T.head.forEach((h, j) => { if (/e-?mail/i.test(h)) T.rows.forEach(r => aiSupMail_(r[j]).forEach(add)); });
+  const ct = contactsSheet_(), ce = ct.col('Email Address');
+  if (ce >= 0 && ct.sheet.getLastRow() > 1) ct.sheet.getRange(2, ce + 1, ct.sheet.getLastRow() - 1, 1).getDisplayValues().forEach(r => aiSupMail_(r[0]).forEach(add));
+  ZB_NEW_OWN_.concat([domain_()]).forEach(d => { out.doms[String(d).toLowerCase()] = 'staff'; });
+  return out;
+}
+const zbNewOut_ = p => ({ known: p.known, skipped: p.skipped, groups: p.groups.map(g => ({ company: g.company, domain: g.domain, status: g.status, p: g.p, emails: g.people.map(x => x.email) })) });
+function zbContactNewCheck_(a) {
+  const B = crmBooks_();
+  return zbNewOut_(zbNewPlan_(a.people, crmHave_(B.P, B.K), zbNewKnown_(), zbNewSkip_()));
+}
+function zbContactAdd_(a, task) {
+  const res = withLock_(function () {
+    const B = crmBooks_(), plan = zbNewPlan_(a.people, crmHave_(B.P, B.K), zbNewKnown_(), zbNewSkip_());
+    const today = crmToday_(), now = new Date(), log = [], cos = plan.groups.filter(g => g.status === 'new');
+    const k = []; plan.groups.forEach(g => g.people.forEach(x => k.push(Object.assign({}, x, { co: g.company }))));
+    if (!cos.length && !k.length) return { saved: true, companies: [], contacts: [], known: plan.known, skipped: plan.skipped };
+    auditPage_('Client Desk');
+    const pRows = crmAddRows_(B.P, crmLastIdx_(B.P, ['Company']), {
+      Priority: cos.map(() => 'P0'), Company: cos.map(g => g.company), 'Source Match': cos.map(() => 'Cue Gmail scan'), 'Date Added': cos.map(() => today),
+      'Prospecting Notes / Source': cos.map(g => 'Added by Cue from ' + ZB_NEW_SRC_ + (g.domain ? ' (' + g.domain + ')' : '') + ' on ' + today), 'Source Tabs': cos.map(() => 'Cue Gmail scan') }, cos.length);
+    cos.forEach((g, i) => log.push({ ID: crmId_('AA'), When: now, Kind: 'Company', Company: g.company, Name: '', Email: '', Phone: '', Source: ZB_NEW_SRC_, Ref: g.domain + ' ' + task,
+      Tab: CD.companiesTab, Row: pRows[i].row, Cells: pRows[i].cells, Status: 'Added', 'Undone by': '', Run: a.request_id }));
+    const kRows = crmAddRows_(B.K, crmLastIdx_(B.K, ['Company', 'Contact Name', 'Email Address']), {
+      Company: k.map(x => x.co), 'Contact Name': k.map(x => x.name || ''), 'Email Address': k.map(x => x.email), 'Position / Title': k.map(x => x.title || ''), Phone: k.map(x => x.phone || ''),
+      'Source / Evidence': k.map(x => 'Cue Gmail scan: ' + (x.via || 'From') + (x.date ? ' ' + x.date : '')), 'Last Relevant Subject': k.map(x => x.subject || ''),
+      'Last Contact Date': k.map(x => x.date && x.date <= today ? x.date : '') }, k.length);
+    k.forEach((x, i) => log.push({ ID: crmId_('AA'), When: now, Kind: 'Contact', Company: x.co, Name: x.name || '', Email: x.email, Phone: x.phone || '', Source: ZB_NEW_SRC_,
+      Ref: (x.thread ? 'mail:' + x.thread : '') + ' ' + task, Tab: CD.contactsTab, Row: kRows[i].row, Cells: kRows[i].cells, Status: 'Added', 'Undone by': '', Run: a.request_id }));
+    crmAppend_('auto', log);
+    return { saved: true, companies: cos.map(g => g.company), contacts: k.map(x => ({ email: x.email, company: x.co })), known: plan.known, skipped: plan.skipped };
+  });
+  try { if (res.contacts.length) logEvent('Cue added contacts from Gmail', 'clientdesk', res.companies.length + ' companies, ' + res.contacts.length + ' contacts (' + a.request_id + ')'); } catch (e) { /* logging never blocks */ }
+  return res;
+}
+const ZB_NEW_PERSON_ = { email: { type: 'string', required: true, nonBlank: true, max: 200 }, name: { type: 'string', max: 120 }, title: { type: 'string', max: 120 },
+  phone: { type: 'string', max: 40, re: /^\+?[0-9 ()./-]{7,40}$/ }, company: { type: 'string', max: 120 }, via: { type: 'string', oneOf: ['From', 'Cc'] },
+  subject: { type: 'string', max: 200 }, date: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ }, thread: { type: 'string', max: 40, re: /^[0-9a-f]{6,40}$/ } };
+ZB_ACTIONS_.contact_new_check = {
+  kind: 'read', needsProject: false,
+  schema: { people: { type: 'array', required: true, minItems: 1, maxItems: 200, items: { email: ZB_NEW_PERSON_.email, company: ZB_NEW_PERSON_.company } } },
+  run: (r) => zbContactNewCheck_(r.args)
+};
+ZB_ACTIONS_.contact_add = {
+  kind: 'write', needsProject: false, retrySafe: true,   // email is the key: a repeat finds its own rows and adds nobody twice
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, people: { type: 'array', required: true, minItems: 1, maxItems: 60, items: ZB_NEW_PERSON_ } },
+  run: (r) => zbContactAdd_(r.args, r.task_id),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
 };
 
 /* MSGR-CREW-2026-11-02 (Kiko 2 Nov 2026; handoffs/messenger-crew-papers-spec.md): Messenger for crew papers. The work is in

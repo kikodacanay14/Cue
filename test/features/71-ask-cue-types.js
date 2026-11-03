@@ -74,7 +74,7 @@ test('ACC7 one chat per email: Cue\'s read is the first message (one Haiku call 
   assert.strictEqual(read.model, 'claude-haiku-5-5'); assert.ok(/Can we add 2 booths\?/.test(read.messages[0].content));
   const msg = t.tabs.Chat.rows.filter(r => r[3] === ana.chat_id).map(r => r[2]).join('\n');
   assert.ok(/What they want: They want a quote\./.test(msg) && /Suggested next step: Reply with a quote date\./.test(msg) && /Reply here: "draft a reply saying …", "start intake" or "done"\./.test(msg));
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^Ana Reyes: Booth count$/.test(r[2])), 'one line in Ask Cue points to the chat');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New email: Ana Reyes <ana@client\.example> · Client · /.test(r[2]) && /\nSubject: Booth count\n/.test(r[2])), 'one post in Ask Cue points to the chat');
   const v = t.ctx.cueSend('done', [], 'chat', ana.chat_id);
   assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.state(id).nm.items.filter(x => x.key === ana.key)[0].removed, 'done');
   assert.ok(!t.log.markRead.some(x => x.ids.indexOf('n5') >= 0), 'done changes nothing in Gmail');
@@ -100,7 +100,7 @@ test('ACC9 a later email in the same Gmail conversation joins its chat and reope
   box.filter(x => x.id === '55ee000000000005')[0].msgs.push({ id: 'n7', ms: MS('2026-10-21T03:40:00Z'), h: H('Ana Reyes <ana@client.example>', 'Re: Booth count'), body: 'Also 1 more table please.' });
   cur = nmAdded(['55ee000000000005']); t.ctx.__wait(35 * 60e3); t.ctx.cueNmTick_();
   const ch = t.state(ana.chat_id); assert.strictEqual(ch.status, 'Needs you', 'reopened'); assert.strictEqual(ch.mc.message_ids.length, 2);
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New in this conversation: Ana Reyes: Re: Booth count$/.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New in this conversation: Ana Reyes <ana@client\.example> · Client · /.test(r[2]) && /\nSubject: Re: Booth count\n/.test(r[2])));
   const gym = t.tabs.Requests.rows.slice(1).map(r => { try { return JSON.parse(r.slice(10).join('')); } catch (e) { return null; } }).filter(x => x && x.kind === 'mailtype');
   assert.strictEqual(gym.length, 1, 'asked once'); assert.strictEqual(gym[0].mt.type, 'Gym memberships');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === gym[0].id && /Reply here: own chat, one line or ignore\./.test(r[2])));
@@ -135,7 +135,7 @@ test('ACC12 a known contact\'s email whose signature has new details gets an edi
   let cur = nmAdded(['11aa000000000001']);
   const t = sandbox({ inbox: NM_BOX, info: [], history: () => cur, nmSort: TY_SORT, historyId: '500', edit: ED_PLAN,
     mcRead: { want: 'A quote.', history: 'Nothing earlier.', next: 'Reply.', phone: '0918 222 7781', position: '', company: '' },
-    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: 'Acme Party', pid: 'S-1' }] } });
+    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: '', pid: '' }] } });   // no project: a project's thread goes to Team Cue
   t.tabs['Triage rules'].appendRow(['maria@acme.example', 'type:Client', new Date(), 'set']);
   const id = nmRun(t), m = t.state(id).nm.items.filter(x => x.sender === 'maria@acme.example')[0];
   assert.ok(m.chat_id, 'Maria has a chat');

@@ -10,6 +10,14 @@
  * - Timing is the engine's Chaser rules (accreditation: first 3, every 3, max 3 days); the max shows as "to decide on" with the
  *   supplier's phone number, so Kiko can call. Urgent when the event is 5 days away or less. Bank numbers never appear. */
 const CUE_ACCR_ = { cc: 'suppliers@blankspaceevent.com', soon: 5, subject: 'Supplier accreditation · Blank Space Events' };
+/* Bug fixes 27 Oct: an address that cannot take a reply (an invoicing app's sender, no-reply, bounce) is never emailed or searched,
+ * and the email never asks for an account number, account name or "acct no.": code turns down a ChatGPT draft that does (the
+ * template is used), cuts Canvas's ask list to "Bank details for payment", and refuses Kiko's own edit that does. */
+function cueNoReply_(e) { const a = String(e || '').toLowerCase(), local = a.split('@')[0], dom = a.split('@')[1] || '';
+  return /^(no-?reply|do-?not-?reply|do_not_reply|donotreply|mailer-daemon|postmaster|bounces?|notifications?|notification-service|message-service|auto-?reply)([+._-].*)?$/.test(local)
+    || /(^|\.)(sender|bounces?|mailer|notifications?)\./.test(dom) || /(^|\.)zohoinvoice\.com$/.test(dom); }
+function cueAccrAsksAccount_(t) { return /\b(account|acct)\.?\s*(number|no\b|no\.|num\b|#)|\baccount\s+name\b|\bacct\b/i.test(String(t || '')); }
+const cueAccrAskItem_ = n => cueAccrAsksAccount_(n) ? 'Bank details for payment' : n;
 
 const cueAccrKey_ = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 60) || 'x';
 const cueAccrList_ = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '';
@@ -44,7 +52,7 @@ function cueAccrThreads_(rows) {
 /** The morning lines: one per supplier. */
 function cueAccrFind_(ctx) {
   const g = cueBridge_(ctx.s, 'accreditation_gaps', {}) || { rows: [] }, rule = ctx.rule('accreditation'), today = ctx.today;
-  const rows = (g.rows || []).map(r => Object.assign({}, r, { sent_to: (r.sent_to || []).map(e => String(e).toLowerCase()).filter(cueEmail_) }));
+  const rows = (g.rows || []).map(r => Object.assign({}, r, { sent_to: (r.sent_to || []).map(e => String(e).toLowerCase()).filter(e => cueEmail_(e) && !cueNoReply_(e)) }));
   const th = cueAccrThreads_(rows);
   return rows.map((r, i) => {
     const t = th[i] || null;
@@ -53,10 +61,10 @@ function cueAccrFind_(ctx) {
     const last = [r.form_sent || '', r.last_reminder || '', byHand].sort().pop(), first = !r.form_sent && !byHand;
     const soon = r.event_date && r.event_date >= today && r.event_date <= cueAddDays_(today, CUE_ACCR_.soon);
     const contact = r.contact && (r.contact.name || r.contact.phone) ? ' Contact: ' + [r.contact.name, r.contact.phone].filter(String).join(', ') + '.' : '';
-    const base = { key: (first ? 'accr-form:' : 'accr:') + cueAccrKey_(r.supplier), project: r.project || '', project_id: r.project_id || '', who: r.supplier,
+    const base = { key: (first ? 'accr-form:' : 'accr:') + cueAccrKey_(r.supplier), project: r.project || '', project_id: r.project_id || '', project_status: r.project_status, who: r.supplier,
       to: r.sent_to.join(', '), priority: soon ? 'urgent' : 'normal', due_since: last || r.opened || today,
       facts: { supplier: r.supplier, contact_name: (r.contact && r.contact.name) || '', missing: r.missing, project: r.project || '', event_date: r.event_date || '',
-        form_url: g.form_url || '', first_email: first, asks: r.asks || [] } };
+        form_url: g.form_url || '', first_email: first, asks: (r.asks || []).map(([h, items]) => [h, (items || []).map(cueAccrAskItem_)]) } };
     if (t) Object.assign(base, { thread_id: t.thread_id, message_id: t.message_id, thread_subject: t.subject });
     const answered = r.replied_since || (t && t.from_them && last && t.day >= last ? t.day : '');
     if (answered) return Object.assign(base, { no_email: true, needs_draft: false,
@@ -76,7 +84,7 @@ function cueAccrTemplate_(it) {
     const asks = (f.asks || []).map(([h, items]) => h + ':\n' + items.map(n => '- ' + n).join('\n')).join('\n\n');
     return { subject: CUE_ACCR_.subject + (f.project ? ' · ' + f.project : ''),
       body: hi + 'Thank you for working with us' + on + '. To set you up in our supplier records and process your payments, please complete our Vendor Accreditation Form:\n'
-        + f.form_url + '\n\n' + asks + '\n\nIf you have questions, just reply to this email.' + sign };
+        + f.form_url + '\n\n' + asks + '\n\nIf you have any questions or clarifications, feel free to hit reply.' + sign };
   }
   return { subject: CUE_ACCR_.subject + (f.project ? ' · ' + f.project : ''),
     body: hi + 'A quick reminder about our Vendor Accreditation Form' + (f.project ? ' for ' + f.project : '') + '. We still need: '
@@ -89,12 +97,13 @@ const cueAccrBody_ = it => { const u = (it.facts || {}).form_url || '', b = Stri
 
 /** One draft in Kiko's Gmail with suppliers@ in CC: a reply in the accreditation thread when there is one. Returns the draft id. */
 function cueAccrDraft_(it) {
+  if (cueAccrAsksAccount_(cueAccrBody_(it))) throw new Error('The email never asks for an account number or account name. Say "bank details" and send them to the form. Edit it and retry.');
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes()), cc = cueProp_('CUE_ACCR_CC', CUE_ACCR_.cc);
   const subj0 = it.thread_id && it.thread_subject ? it.thread_subject : it.subject || cueAccrTemplate_(it).subject;
   const subj = it.thread_id && !/^re:/i.test(subj0) ? 'Re: ' + subj0 : subj0;
   const mime = 'To: ' + it.to + '\r\n' + (cueEmail_(cc) ? 'Cc: ' + cc + '\r\n' : '') + 'Subject: =?UTF-8?B?' + b64(subj.replace(/[\r\n]+/g, ' ')) + '?=\r\n'
     + (it.thread_id && it.message_id ? 'In-Reply-To: ' + it.message_id + '\r\nReferences: ' + it.message_id + '\r\n' : '')
-    + 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(cueAccrBody_(it));
+    + 'MIME-Version: 1.0\r\n' + (it.html ? cueRfpRich_(cueAccrBody_(it), it.html, '') : 'Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + b64(cueAccrBody_(it)));   // CUE-TEMPLATES-2026-10-31: the designed email
   const msg = { raw: Utilities.base64EncodeWebSafe(Utilities.newBlob(mime).getBytes()) };
   if (it.thread_id) msg.threadId = it.thread_id;
   const res = UrlFetchApp.fetch(CUE_GMAIL_ + '/drafts', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -116,8 +125,7 @@ function cueAccrSend_(it, s) {
   return sent;
 }
 
-cueKind_({ kind: 'accreditation', label: 'Accreditation chasers', every: 3, max: 3, sendAllowed: true,
-  draftBrief: 'A supplier still has not completed BSE\'s supplier accreditation. If facts.first_email is true, invite them to fill in the '
-    + 'Vendor Accreditation Form and list what to have ready (facts.asks); otherwise remind them, naming exactly the items in facts.missing. '
-    + 'Always include facts.form_url exactly as given. Say "bank details" only, never ask for account numbers in the email. Short and friendly.',
-  template: cueAccrTemplate_, find: cueAccrFind_, draft: it => cueAccrDraft_(it), send: cueAccrSend_ });
+cueKind_({ kind: 'accreditation', label: 'S1 Accreditation chasers', every: 3, max: 3, sendAllowed: true,
+  // CUE-TEMPLATES-2026-10-31: Kiko's S1 Accreditation follow-up wording and look, no AI call. The first request keeps Cue's own wording
+  // until Canvas sends S1 from info@ (part 3).
+  template: it => ((it.facts || {}).first_email ? cueAccrTemplate_(it) : cueTplS1_(it)), check: it => !cueAccrAsksAccount_(it.body), find: cueAccrFind_, draft: it => cueAccrDraft_(it), send: cueAccrSend_ });

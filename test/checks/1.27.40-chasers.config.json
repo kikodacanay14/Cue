@@ -1,0 +1,7 @@
+{
+  "about": "Cloud check for the 1.27.40 chaser fixes (Cue PR #117). The robot runs the chasing sweep and reads the batch card; it never approves, so nothing is drafted or sent. The project below is only the write lock: the sweep writes nothing to Canvas, and check mode refuses any write, any Gmail draft and any send.",
+  "project_id": "S-25506500TR",
+  "project_name": "Trick or Treat - Manila",
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}

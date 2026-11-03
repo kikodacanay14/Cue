@@ -12,13 +12,17 @@
 const CUE_RFQ_ = { lookbackDays: 30, maxThreads: 60, soonDays: 7 };
 // Used only when the Chaser rules card has no rfq rule (Kiko approved 3 / 3 / max 2 working days; event within 7 days: 1 and 1).
 const CUE_RFQ_RULE_ = { on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 };
-const CUE_RFQ_Q_ = '(RFQ OR RFQs OR requote OR "request for quotation" OR "request for quote")';
+const CUE_RFQ_Q_ = '(RFQ OR RFQs OR RFP OR requote OR "request for quotation" OR "request for quote" OR "quotation request")';   // CUE-TEMPLATES-2026-10-31: Canvas's Send RFP emails ("Quotation request | …") join the one S2 chaser
+// Bug fix 27 Oct: BSE's own applications to become a client's supplier (accreditation, vendor registration) mention "RFQ" in the
+// body, so the search found them and they were chased as RFQs. They are left out of the search and, by their first subject, here.
+const CUE_RFQ_NOT_Q_ = ' -subject:accreditation -subject:"vendor registration" -subject:"supplier registration"';
+function cueRfqNotRfq_(subj) { return /accredit|\b(vendor|supplier)\s+(registration|enroll?ment|onboarding)\b|procurement process/i.test(String(subj || '')); }
 const CUE_PUBLIC_MAIL_ = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
 
 /** Mon to Fri days after day `from` up to and including `to` (both YYYY-MM-DD, PH dates). */
 function cueWorkDays_(from, to) {
   let n = 0;
-  for (let d = cueAddDays_(from, 1); d <= to && n < 400; d = cueAddDays_(d, 1)) { const w = new Date(d + 'T00:00:00Z').getUTCDay(); if (w > 0 && w < 6) n++; }
+  for (let d = cueAddDays_(from, 1); d <= to && n < 400; d = cueAddDays_(d, 1)) { if (cueWorkday_(d)) n++; }   // holidays skipped (31 Oct)
   return n;
 }
 /** A Canvas event date as a PH date: 'YYYY-MM-DD', 'M/D/YYYY', or a sheet date serialised as an ISO moment. '' when unknown. */
@@ -63,7 +67,7 @@ function cueRfqFind_(ctx) {
     .map(r => (r.getResponseCode() === 200 ? JSON.parse(r.getContentText() || '{}') : null));
   // 1. Candidate threads: Kiko's sent RFQs (search), plus every RFQ Cue sent itself, whatever its subject.
   const known = cueRfqKnown_(), threads = {};
-  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + CUE_RFQ_Q_)).messages || [])
+  (cueGmail_('/messages?maxResults=100&q=' + encodeURIComponent('in:sent newer_than:' + CUE_RFQ_.lookbackDays + 'd ' + CUE_RFQ_Q_ + CUE_RFQ_NOT_Q_)).messages || [])
     .forEach(m => { threads[m.threadId] = 1; });
   const ours = Object.keys(known.byMsg);
   many(ours.map(id => CUE_GMAIL_ + '/messages/' + encodeURIComponent(id) + '?format=minimal')).forEach(m => { if (m && m.threadId) threads[m.threadId] = 1; });
@@ -78,6 +82,7 @@ function cueRfqFind_(ctx) {
       return { id: m.id, ms: Number(m.internalDate) || 0, draft: (m.labelIds || []).indexOf('DRAFT') >= 0, h, from: cueRfqAddr_(h.from)[0] || '', snippet: cueStr_(m.snippet, 300) }; })
       .sort((a, b) => a.ms - b.ms);
     if (msgs.some(m => m.draft)) return;                          // a nudge or reply is already waiting in Drafts
+    if (cueRfqNotRfq_(msgs[0].h.subject)) return;                 // BSE's own supplier application, not an RFQ
     const last = msgs[msgs.length - 1];
     if (!isUs(last.from)) return;                                 // the supplier (or someone else) spoke last
     const to = cueRfqAddr_(last.h.to).filter(a => !isUs(a));
@@ -126,12 +131,6 @@ function cueRfqBy_(today) {
     + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][dt.getUTCMonth()];
 }
 
-cueKind_({ kind: 'rfq', label: 'RFQ chasers', every: 3, max: 2, unit: 'working', sendAllowed: true,
-  draftBrief: 'A supplier has not answered Kiko\'s request for quotation (RFQ). Write 2 to 3 short lines as a reply in the RFQ thread: '
-    + 'a friendly nudge that names the item or project from rfq_subject, asks for the quotation by reply_by, and offers to clarify '
-    + 'anything. No attachments, no prices, no other suppliers. If the event is soon, say the date is close.',
-  template: it => ({ subject: 'Re: ' + (it.thread_subject || 'RFQ'),
-    body: 'Hi ' + (it.who && it.who !== it.to ? it.who : 'there') + ',\n\nA quick follow-up on our request for quotation for ' + it.project
-      + (it.facts && it.facts.rfq_sent ? ', sent on ' + it.facts.rfq_sent : '') + '. Could you send your quotation by '
-      + ((it.facts && it.facts.reply_by) || 'the end of the week') + '? We\'re happy to clarify anything.\n\nThank you,\nKiko\nBlank Space Events' }), // VOICE-2026-10-29: brand voice guide
+cueKind_({ kind: 'rfq', label: 'S2 RFQ and RFP chasers', every: 3, max: 2, unit: 'working', sendAllowed: true,
+  template: it => cueTplS2_(it),   // CUE-TEMPLATES-2026-10-31: Kiko's S2 Quotation follow-up wording, no AI call
   find: cueRfqFind_ });

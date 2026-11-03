@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html><head><base target="_top"><meta charset="utf-8"></head>
+<body>
+<script>
+/* CUE-TODAY: Canvas Home's hidden frame (CueToday.gs). It shows nothing. Same guard as Index.html (CUE-IN-CANVAS): every window
+   above must be Google's Apps Script, and it says nothing until a window above it sends {canvasWs:'cueHost'} (Canvas sends that only
+   after its server says the viewer is Kiko). Then it answers that window only, with {canvasWs:'cue-today', day, count, rows, done, version},
+   and again every 5 minutes while Home is open. */
+(function () {
+  var anc = window.location && window.location.ancestorOrigins, ok = /^https:\/\/(script\.google\.com|[a-z0-9-]+[.-]script\.googleusercontent\.com)$/, host = null;
+  if (!anc) return;   // without ancestorOrigins the frame can't check who is above it, so it stays silent
+  for (var i = 0; i < anc.length; i++) if (!ok.test(anc[i])) return;
+  function above(src) { var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; if (p === src) return true; } return false; }
+  function send() {
+    google.script.run.withSuccessHandler(function (d) { if (host && d) host.postMessage({ canvasWs: 'cue-today', day: d.day, count: d.count, rows: d.rows, done: d.done, version: d.version }, '*'); })
+      .withFailureHandler(function (e) { if (host) host.postMessage({ canvasWs: 'cue-today', error: 'Cue could not load today\'s results.' }, '*'); }).cueToday();
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data; if (!d || d.canvasWs !== 'cueHost' || host || !above(e.source)) return;
+    host = e.source; send(); setInterval(send, 5 * 60 * 1000);
+  });
+  var p = window; for (var j = 0; j < 12 && p !== p.parent; j++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello', view: 'today' }, '*'); } catch (e) {} }
+})();
+</script>
+</body></html>

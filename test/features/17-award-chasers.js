@@ -17,8 +17,7 @@ test('A1 due after 3 business days: one item replying in the CE thread to the cl
   const t = awardBox(); t.ctx.cueSweep(); const [it] = awItems(t);
   deq([it.key, it.who, it.to, it.thread_id, it.message_id, it.thread_subject], ['award:S-1', 'Ana Reyes', 'ana@acme.example', 'T1', '<m1@mail>', 'BSE cost estimate: Acme Party']);
   assert.ok(/CE sent 2026-10-15 \(CE-26-047, PHP 1,250,000\), 4 business days with no award decision\. Event 2026-12-12\. Chaser 1 of 3/.test(it.why), it.why);
-  assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(t.log.board, 1);
-  const sentToGpt = t.log.gpt[0].input; assert.ok(/chaser_number":1/.test(sentToGpt)); assert.ok(!/1250000|1,250,000|ce_total/.test(sentToGpt.replace(/"why":"[^"]*"/g, '')), 'no total in facts');
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call: Kiko\'s C6 template (31 Oct)'); assert.strictEqual(t.log.board, 1);
   assert.ok(/in:sent newer_than:180d \("Acme Party" OR "S-1"\).*-RFQ/.test(t.log.queries[0]));
   t.at('2026-10-21', 10, 0); t.ctx.cueApprove(batchOf(t).id, { send: true });
   assert.strictEqual(t.log.replies.length, 1); assert.ok(/"threadId":"T1"/.test(t.log.replies[0].payload) && /In-Reply-To: <m1@mail>/.test(t.log.replies[0].payload));
@@ -45,11 +44,66 @@ test('A5 chased 3 times: no more drafts; "call the client or mark Not Awarded" o
   const t = awardBox({ thread, projects: [AW({ awaiting: { since: '2026-09-20' } })] }); t.ctx.cueSweep(); const [it] = awItems(t);
   assert.ok(/Chased 3 times with no decision\. Call the client, or mark it Not Awarded/.test(it.why)); assert.strictEqual(it.no_email, true);
 });
-test('A6 event within 7 days (or past) is urgent with no draft', () => {
-  const t = awardBox({ projects: [AW({ date: '10/25/2026' }), AW({ id: 'S-2', name: 'Old Gala', date: '2026-10-01', awaiting: {} })] }); t.ctx.cueSweep();
-  const [a, b] = awItems(t).sort((x, y) => x.key.localeCompare(y.key));
-  deq([a.priority, a.no_email, b.priority], ['urgent', true, 'urgent']);
-  assert.ok(/Event on 2026-10-25 and still no award/.test(a.why)); assert.ok(/has passed/.test(b.why)); assert.strictEqual(t.log.gpt.length, 0);
+/* AWARD-TAP-2026-10-30 (Kiko 30 Oct 2026 03:21Z "how come there is no send follow up button?", card "Yes, build all" 03:54Z):
+ * an event within 7 days whose CE thread waits on the client gets an urgent draft and Send follow-up; a past event gets Open in Canvas. */
+test('A6 event within 7 days: urgent draft, not ticked for 9:00; a past event is a flag with Open in Canvas; no CE thread stays a flag', () => {
+  const t = awardBox({ projects: [AW({ date: '10/25/2026' }), AW({ id: 'S-26001AB', name: 'Old Gala', date: '2026-10-01', awaiting: {} }),
+    AW({ id: 'S-3', name: 'Lost Expo', date: '2026-10-24', awaiting: {} })] }); t.ctx.cueSweep();
+  const by = {}; awItems(t).forEach(i => { by[i.key] = i; });
+  const a = by['award:S-1'], b = by['award:S-26001AB'], c = by['award:S-3'];
+  deq([a.priority, a.no_email, a.tap, a.selected, a.short, a.to, a.thread_id], ['urgent', false, true, false, 'Event 2026-10-25', 'ana@acme.example', 'T1']);
+  assert.ok(/Event on 2026-10-25 and still no award\. Send an urgent follow-up/.test(a.why), a.why);
+  assert.strictEqual(t.log.gpt.length, 0, 'no AI call: Kiko\'s C6 urgent template (31 Oct)');
+  deq([b.priority, b.no_email, b.short], ['urgent', true, 'Event passed 2026-10-01']); assert.ok(/has passed/.test(b.why));
+  assert.ok(/\?page=canvas&project=S-26001AB&tab=Main$/.test(b.canvas_url), b.canvas_url);
+  deq([c.priority, c.no_email, !!c.tap], ['urgent', true, false]); assert.ok(/Call the client today/.test(c.why), 'no CE email found: still a flag');
+  const v = t.ctx.cueState().requests.filter(r => r.kind === 'sweep')[0].batch.items.filter(i => i.kind === 'award');
+  deq(v.map(i => [i.key, i.tap, i.short, !!i.canvas_url]).sort(), [['award:S-1', true, 'Event 2026-10-25', false], ['award:S-26001AB', false, 'Event passed 2026-10-01', true], ['award:S-3', false, 'Event 2026-10-24', false]]);
+});
+test('A6b the C6 urgent template asks for a decision as soon as they can, names the event date and never quotes the CE total', () => {
+  const tpl = t0 => t0.ctx.cueKinds_().filter(k => k.kind === 'award')[0].template;
+  const t = awardBox(); const d = tpl(t)({ who: 'Ana Reyes', project: 'Acme Party', facts: { urgent: true, event_date: '2026-10-25' } });
+  assert.ok(/^Hi Ana,\n\nAcme Party is coming up on 25 October 2026\. Could you review the cost estimate and let us know your decision as soon as you can\?/.test(d.body), d.body);
+  assert.ok(!/PHP|1,250,000/.test(d.body)); assert.strictEqual((d.body.match(/!/g) || []).length, 1, 'one "!": Thanks!');
+});
+test('A6c Send follow-up: Approve and send leaves the urgent line out; its own tap sends it once, in the CE thread, with Kiko\'s edit', () => {
+  const t = awardBox({ projects: [AW({ date: '10/25/2026' })] }); t.ctx.cueSweep();
+  const id = batchOf(t).id;
+  t.at('2026-10-21', 10, 0); t.ctx.cueApprove(id, { send: true });
+  assert.ok(!t.log.sent, 'not in the batch send');
+  t.ctx.cueSweepSendOne(id, 'award:S-1', 'Hi Ana,\n\nEdited by Kiko.\n\nThank you,\nKiko');
+  assert.strictEqual(t.log.replies.length, 1); assert.ok(/"threadId":"T1"/.test(t.log.replies[0].payload) && /In-Reply-To: <m1@mail>/.test(t.log.replies[0].payload));
+  assert.strictEqual(t.log.sent.length, 1);
+  const [it] = awItems(t); assert.ok(it.sent_id && /Edited by Kiko/.test(it.body)); assert.strictEqual(it.error, '');
+  t.ctx.cueSweepSendOne(id, 'award:S-1', 'again'); assert.strictEqual(t.log.sent.length, 1, 'a second tap sends nothing');
+  assert.ok(t.tabs.Chat.rows.some(r => /Sent the follow-up for Acme Party from your Gmail/.test(r[2])));
+  assert.throws(() => t.ctx.cueSweepSendOne(id, 'award:nope', ''), /no Send follow-up/);
+});
+test('A6d Morning batch page: kinds and lines fold (first kind open), the urgent line shows Send follow-up, a past one Open in Canvas', () => {
+  const page = cuePage();
+  const src = page.slice(page.indexOf('  var swOpen = {};'), page.indexOf('  // ---- Settings page'));
+  const ctx = vm.createContext({ document: { addEventListener() {} }, String, Number, Date, JSON });
+  vm.runInContext('var SWEEP_GROUP = {}; function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); } function metricLine() { return ""; }\n'
+    + src + '\nthis.card = sweepCardHtml;', ctx);
+  const it = (o) => Object.assign({ kind: 'award', label: 'CE award chasers', priority: 'urgent', times: 0, removed: '', task_id: '', action: '' }, o);
+  const r = { id: 'R1', status: 'Needs you', day: '2026-10-30', notes: [], batch: { over: 0, stopped: [], items: [
+    it({ key: 'award:a', project: 'Gala', who: 'Ana', to: 'ana@x.ph', tap: true, no_email: false, send_ok: true, body: 'Hi Ana', short: 'Event 2026-11-01' }),
+    it({ key: 'award:b', project: 'Old Gala', no_email: true, canvas_url: 'https://script.google.com/macros/s/X/exec?page=canvas&project=S-1', short: 'Event passed 2026-10-15' }),
+    it({ key: 'rfq:c', kind: 'rfq', label: 'RFQ reminders', project: 'Expo', who: 'Supp', to: 's@x.ph', priority: 'normal', no_email: false, send_ok: true, selected: true, body: 'Hi' })] } };
+  const h = ctx.card(r);
+  assert.ok(/<details class="sec" data-swfold="R1\|CE award chasers" open><summary>CE award chasers \(2\)<\/summary>/.test(h), 'first kind open');
+  assert.ok(/<details class="sec" data-swfold="R1\|RFQ reminders"><summary>RFQ reminders \(1\)/.test(h), 'other kinds folded');
+  assert.ok(/<details class="card swl"[^>]*data-swfold="R1\|award:a"><summary><b>Gala<\/b> <span class="tag flag">urgent<\/span><span class="small muted swn">Event 2026-11-01<\/span><\/summary>/.test(h), 'line folds to one row');
+  assert.ok(/data-act="sweep-one" data-id="R1" data-key="award:a">Send follow-up<\/button><button class="btn ghost" data-act="sweep-skip"/.test(h));
+  assert.ok(/<textarea class="mail" data-sb="R1" data-k="award:a"/.test(h) && /only when you tap Send follow-up/.test(h));
+  assert.ok(/<a class="btn" data-canvas="1" data-name="Old Gala" href="https:\/\/script\.google\.com\/macros\/s\/X\/exec\?page=canvas&amp;project=S-1"[^>]*>Open in Canvas<\/a><button class="btn ghost" data-act="sweep-skip"/.test(h));
+  assert.ok(/<input type="checkbox" data-sk="R1" value="rfq:c" checked/.test(h) && !/data-sk="R1" value="award:a"/.test(h), 'the urgent line has no tick');
+  assert.strictEqual((h.match(/data-act="sweep-send"/g) || []).length, 1, 'the RFQ line still counts as mail');
+  const sent = ctx.card(Object.assign({}, r, { status: 'Done', batch: Object.assign({}, r.batch, { items: [Object.assign({}, r.batch.items[0], { sent: true })] }) }));
+  assert.ok(!/Send follow-up<\/button>/.test(sent) && /<span class="tag pref">sent<\/span>/.test(sent), 'sent: no button, a sent tag');
+  const after = ctx.card(Object.assign({}, r, { status: 'Scheduled' }));
+  assert.ok(/Send follow-up<\/button>/.test(after) && !/sweep-skip/.test(after), 'after Approve and send the tap still works');
+  assert.ok(page.indexOf("call('cueSweepSendOne', [id, b.getAttribute('data-key'), ta ? ta.value : ''], done, fail)") > 0, 'tap sends that box\'s words');
 });
 test('A7 no CE email in Sent: chase by hand (only once it is due); projects in other statuses are ignored', () => {
   const t = awardBox({ thread: null, projects: [AW(), AW({ id: 'S-3', name: 'Done Expo', status: 'For Production Start' })] }); t.ctx.cueSweep();

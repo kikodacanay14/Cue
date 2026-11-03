@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <? /* STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z; story Cue #141): this page is joined from parts by doGet (cueInclude_ in Cue.gs).
  * IndexStyle: styles. IndexChat: state, server calls, panes, Canvas pane. IndexViewer: file viewer and toolbar. IndexThreads: thread list,
  * files, composer and send, chat and thread rendering. IndexPages: morning batch, settings, schedules, usage, rules. IndexCards: cards.
@@ -16,6 +16,7 @@
   <div class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3.2 1.7 6 4.4 7.9L7.3 28l5.6-3c1 .2 2 .3 3.1.3 6.6 0 12-4.6 12-10.2S22.6 5 16 5z" fill="#fff"/><text x="16" y="19.6" text-anchor="middle" font-family="DM Sans,Segoe UI,system-ui,sans-serif" font-weight="700" font-size="11" fill="#23006F">C</text></svg></div>
   <div><h1>Cue</h1><div class="sub">One chat. Each task gets its own thread. <span id="ver" title="The Cue version this page is running"></span></div></div>
   <span class="dot" id="dot" title="Connected"></span>
+  <button class="btn ghost tcue" id="team-cue" type="button" hidden>Back to Team Cue</button>
   <button class="avatar" id="avatar" title="Settings" aria-label="Settings">K</button>
 </header>
 <div id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-t" hidden>
@@ -26,7 +27,7 @@
       <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes and business rules</button><button data-s="tutor">Tutor mode</button>
       <div class="sgrp">Rules</div><button data-s="chasers">Chaser rules</button><button data-s="triage">Triage</button><button data-s="edits">Edit log</button><button data-s="auto">Auto-send</button>
       <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
-      <div class="sgrp">System</div><button data-s="conn">Connections</button><button data-s="relay">AI relay</button><button data-s="usage">AI usage and cost</button>
+      <div class="sgrp">System</div><button data-s="conn">Connections</button><button data-s="usage">AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
@@ -34,7 +35,6 @@
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
-      <section data-sec="relay" hidden><div class="label" style="margin-top:0">AI relay<span class="qhelp" tabindex="0" data-tip="A mailbox inside Cue where ChatGPT and Claude leave notes for each other, so one can pass what it found to the other without you copying it across. Every note lands in the Relay tab and in a thread you can read.&#10;&#10;It never makes an AI call, sends an email, or changes Canvas, HubSpot or Gmail. Notes are information only, never orders to Cue. Bank details, passwords and keys are refused.&#10;&#10;Asked by Kiko 23 Oct · built by Claude" aria-label="What is the AI relay?">?</span></div><div id="w-relay"></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <section data-sec="auto" hidden><div class="label" style="margin-top:0">Auto-send</div><div class="card"><b>Off for every kind of email.</b><div class="small muted" style="margin-top:6px">Nothing goes out until you tap Approve; Approve sends. Money, contracts and client emails never auto-send. Per-kind rules will show here when you turn one on.</div></div>
         <!-- CUE-ADMIN-2-2026-10-29 (Kiko 03:17Z "just indicate the process or business rule that auto triggers it"); CUE-ADMIN-3/4 (Kiko 03:27Z and 03:35Z: a row opens to the message template, icons, checkboxes for where it is sent): Canvas's automatic sends. The templates are Canvas's own wording. -->
@@ -193,7 +193,7 @@ Turn this email off in Canvas &gt; My profile.</div></div></details></section>
 </div>
 <dialog id="ask" aria-labelledby="ask-t">
   <form method="dialog">
-    <b id="ask-t" style="font-size:17px;color:#fff"></b>
+    <b id="ask-t" style="font-size:17px;color:var(--white)"></b>
     <div class="small muted" id="ask-sub" style="margin:4px 0 12px"></div>
     <input id="ask-in" style="width:100%;box-sizing:border-box">
     <div class="actions" style="justify-content:flex-end"><button class="btn ghost" value="cancel">Cancel</button><button class="btn bad" id="ask-ok" value="ok">OK</button></div>
@@ -202,6 +202,7 @@ Turn this email off in Canvas &gt; My profile.</div></div></details></section>
 <div class="composer" id="composer" data-cue-app="1">
   <div class="in">
     <div class="batchbar" id="batchbar" role="status" hidden></div>
+    <div class="replybar" id="replybar" hidden><span class="small muted">Replying to</span> <b id="replyto"></b><button class="btn ghost sm" id="replyx" aria-label="Cancel the reply">×</button></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="small muted" id="hint" role="status" hidden></div>
     <div class="row">

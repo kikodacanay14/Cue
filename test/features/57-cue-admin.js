@@ -34,7 +34,7 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'relay', 'usage']);
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'usage']);   // release line: AI relay is not live yet, so it has no button here
   ['triage', 'edits', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });
@@ -45,12 +45,13 @@ test('AD4 the page groups the sections as in the approved mockup and has the two
 test('AD5 Jobs › Chasers: each chaser kind with its sender, who it goes to and its email template, placeholders in angle brackets; read only', () => {
   const t = sandbox({ rfq: true, award: true });
   const J = JSON.parse(JSON.stringify(t.ctx.cueAdminChasers()));
-  deq(J.kinds.map(k => k.kind), ['rfq', 'award', 'payment', 'accreditation', 'signature']);
+  deq(J.kinds.map(k => k.kind), ['inquiry', 'inbox', 'rfq', 'award', 'payment', 'accreditation', 'signature']);   // C2 and C3 joined 31 Oct
   assert.ok(J.kinds.every(k => k.about && k.from && k.to && k.body), 'every chaser has a template');
-  const r = J.kinds[0];
-  deq([r.label, r.subject, r.ai], ['RFQ chasers', 'Re: RFQ: <RFQ title>', true]);
-  assert.ok(/^Hi <Supplier name>,/.test(r.body) && r.body.includes('our request for quotation for <Event>, sent on <RFQ date>'));
-  assert.ok(J.kinds[4].body.includes('<FSA or AR> for <Event> (<Role>)') && J.kinds[4].ai === false, 'signature: fixed wording');
+  const r = J.kinds[2];
+  deq([r.label, r.subject, r.ai], ['S2 RFQ and RFP chasers', 'Re: RFQ: <RFQ title>', false]);   // Kiko's S2 template, no AI (31 Oct)
+  assert.ok(/^Hi <Supplier name>,/.test(r.body) && r.body.includes('Checking in on our request for <RFQ title> for <Event>. Could you send your itemized quote by <Reply-by date>?'), r.body);
+  assert.ok(J.kinds[6].body.includes('<FSA or AR> for <Event> (<Role>)') && J.kinds[6].ai === false, 'signature: fixed wording');
+  assert.ok(J.kinds[1].ai === true && /Great to hear from you! <The direct answer/.test(J.kinds[1].body), 'C3: the AI writes only the middle');
   deq([J.build, J.send], ['07:00', '09:00']);
   deq(t.log.sent || [], [], 'nothing is sent');
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8').includes("'cueAdminChasers'"), 'never run by a cloud check');
@@ -69,10 +70,11 @@ test('AD6 Chaser rules and Scheduled tasks carry what each one is about; a task 
 });
 
 test('AD7 the page shows the Auto-send rules with each message, the channel icons, the AI relay ? and "Processes and business rules"', () => {
+  // release line: AI relay is not live yet, so its ? help and Pass on words are not on this page
   const page = cuePage();
   ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
     'Payment received: &lt;Amount&gt;', 'class="adesc"', 'type="checkbox" disabled checked', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
-    'class="qhelp"', 'A mailbox inside Cue where ChatGPT and Claude leave notes', 'waits in Cue until you tap Pass on', 'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
+    'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
 });
 
 /* CUE-ADMIN-LOG-2026-10-29 (Kiko 29 Oct 03:43Z "It has to be all not split"; 03:46Z "a Historical or Log page? filtered by the different

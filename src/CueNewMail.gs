@@ -92,12 +92,14 @@ function cueNmFilter_(run, found) {
   const claimed = cueTriageClaimed_(), rules = cueTriageRules_(), keep = [], skip = [], proj = [];
   let ids = null;
   const projectIds = () => ids || (ids = cueTriageProjectIds_(cueBridge_(run, 'get_project_board', {})));
+  let pt = null; const projThreads = () => pt || (pt = cueMailProjectThreads_(run));
   found.forEach(l => {
     const m = l._m;
     if (claimed[l.thread_id] || claimed['m:' + m.id] || claimed['m:' + l.key.replace(/^inbox:/, '')]) return;
     // A project's email (R6, R9): before the junk and mute filters, so it is never dropped; it belongs to Team Cue, with one line here.
     try { const pid = projectIds().filter(id => cueTriageHas_(m.subject + ' ' + m.snippet, id))[0]; if (pid) { proj.push(Object.assign(l, { pid })); return; } }
     catch (e) { console.warn('New mail: Canvas board: ' + e); }
+    if (l.inbox !== 'info' && projThreads()[String(l.thread_id)]) return;   // ASK-CUE-ONCE-2026-10-30: Canvas files it under a project (Team Cue)
     const rule = cueTriageRule_(rules, m.from), junk = rule === 'keep' ? '' : cueTriageJunk_(m);
     if (rule === 'mute' || junk) { skip.push(Object.assign(l, { group: 'skip', why: rule === 'mute' ? 'muted sender' : junk })); return; }
     l.rule = rule || '';
@@ -171,6 +173,12 @@ function cueNmStatus_(s) {
 /* ---------- the sort: Claude, at most every 30 minutes, 07:00 to 21:00 ---------- */
 function cueNmSortOpen_(now) { const h = cuePh_(now).hour; return h >= CUE_NM_.start_h && h < CUE_NM_.end_h; }
 
+/* RFQ-RFP-INTAKE (Kiko 29 Oct 2026 15:13Z, on an Emails waiting card for Moldex's "Request Quotation" email: "i dont think it sensed
+ * that its for intake - keywords - Request for Quotation, Request for Proposal and variations of it"). A subject with one of these words
+ * is a new inquiry, whatever the sort said (unless a known supplier sent it: Kiko 15:20Z "No, skip supplier replies"), and Canvas's Emails waiting card for it offers Start intake (CueMailAlerts.gs writes rfq). */
+const CUE_RFQ_RE_ = /\b(rf[qp]s?|request(?:ing|s)?\s+(?:for\s+)?(?:an?\s+)?(?:quotations?|quotes?|proposals?)|(?:quotations?|quotes?|proposals?)\s+requests?)\b/i;
+function cueRfqSubject_(subject) { return CUE_RFQ_RE_.test(String(subject || '')); }
+
 /** Sorts today's unsorted lines in ONE Claude call when a sort is due. Returns the thread's id, or ''. */
 function cueNmSort_(run) {
   const now = cueNow_();
@@ -196,12 +204,16 @@ function cueNmSort_(run) {
     });
     typed = cueMtApply_(L.s.nm.items, by, types, senders);   // ACC-3, ACC-7, ACC-8: type each line and apply its type's setting
     cueNmKnown_(known, L.s.nm.items);
+    // RFQ-RFP-INTAKE: a sorted line whose subject asks for a quotation or proposal is a new inquiry, unless a known supplier sent it (Kiko's
+    // card answer 29 Oct 15:20Z: "No, skip supplier replies", since suppliers answering his RFQs keep the subject).
+    L.s.nm.items.forEach(x => { if (by[x.key] && x.sorted && x.group !== 'inquiry' && cueRfqSubject_(x.subject) && !(x.known && x.known.who === 'Supplier')) {
+      x.group = 'inquiry'; x.why = 'the subject asks for a quotation or proposal'; if (x.removed === 'skip') delete x.removed; } });
     (run.notes || []).forEach(n => { if (L.s.notes.indexOf(n) < 0) L.s.notes.push(n); });
     const m = L.s.metrics || (L.s.metrics = { ai_calls: 0, calls: [] }); m.ai_calls = (m.ai_calls || 0) + (run.metrics.ai_calls || 0);
     cueNmStatus_(L.s); cueSave_(L.sh, L.row, L.s); return L.s;
   });
   cueNmTyped_(run, typed, types);
-  const c = {}; ask.forEach(l => { c[l.group] = (c[l.group] || 0) + 1; });
+  const c = {}; s.nm.items.forEach(x => { if (by[x.key]) c[x.group] = (c[x.group] || 0) + 1; });
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
     c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
   if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);
@@ -223,6 +235,9 @@ function cueNmKnown_(by, items) {
   items.forEach(x => {
     const i = x.inbox === 'mine' && !x.known && by[String(x.thread_id)];
     if (i) x.known = { who: cueStr_(i.who, 20), name: cueStr_(i.name, 120), project: cueStr_(i.project, 160), pid: cueStr_(i.pid, 40) };
+    // ASK-CUE-ONCE-2026-10-30 (Kiko 30 Oct 2026 05:50Z "project emails stay in Team Cue others are in Ask Cue"): an email Canvas files
+    // under a project shows in that project's thread in Team Cue, so it leaves today's New mail list (kept, marked, never deleted).
+    if (i && i.pid && !x.removed && !x.task_id) x.removed = 'project';
   });
 }
 
@@ -341,7 +356,7 @@ function cueNmCheck() {
     (r.items || []).forEach(x => { if (x && x.id && x.thread_id) found.push(cueNmLine_('info', x.thread_id, { id: String(x.id), from: String(cueEmail_(x.from) || '').toLowerCase(),
       name: cueStr_(x.name, 120), subject: cueStr_(x.subject, 300), snippet: cueStr_(x.snippet, 300), h: x.h || {}, labels: ['INBOX'] })); });
   } catch (e) { info = String((e && e.message) || e).slice(0, 300); }
-  const f = cueNmFilter_(run, found), out = l => ({ inbox: l.inbox, who: cueStr_(l.who, 120), subject: cueStr_(l.subject, 160), why: l.why || '' });
+  const f = cueNmFilter_(run, found), out = l => ({ inbox: l.inbox, thread_id: String(l.thread_id || ''), who: cueStr_(l.who, 120), subject: cueStr_(l.subject, 160), why: l.why || '' });
   return { history, info_error: info, threads: list.length, keep: f.keep.map(out), skip: f.skip.map(out) };
 }
 

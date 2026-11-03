@@ -8,9 +8,9 @@
 const cueUsageDefaults_ = () => ({ models: Object.assign({ 'gpt-5-mini': [0.25, 2] }, CUE_CLAUDE_PRICE_), web: 10, fx: 58 });
 const CUE_USAGE_MANILA_ = 8 * 3600000;
 const CUE_USAGE_KINDS_ = { intake: 'Project intake', supplier: 'Supplier registration', email: 'Email', style: 'Writing style', memory: 'Teach Cue',
-  process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search', hubspot: 'HubSpot clean-up',
-  bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch', pipeline: 'Pipeline review',
-  readiness: 'Readiness check', change: 'Change request', status: 'Status report' };
+  process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search',
+  bids: 'Bid check', gtask: 'ChatGPT task', finance: 'Money', expense: 'Expense', ar: 'Receipts', sweep: 'Morning batch',
+  readiness: 'Readiness check', change: 'Change request', status: 'Friday status updates' };
 const CUE_USAGE_TOP_ = 8;
 
 /** A dated model id ("gpt-5-mini-2025-08-07", "claude-x-20251001") prices as its plain name. */
@@ -46,7 +46,7 @@ function cueUsageKinds_() {
     const sh = cueSheet_('Requests'), n = sh.getLastRow() - 1;
     if (n > 0) sh.getRange(2, 1, n, 11).getValues().forEach(r => {
       const k = (/"kind":"([a-z_]+)"/.exec(String(r[10] || '').slice(0, 600)) || [])[1] || 'intake';
-      out[String(r[0])] = CUE_USAGE_KINDS_[k] || k;
+      out[String(r[0])] = CUE_USAGE_KINDS_[k] || (CUE_GONE_KINDS_.indexOf(k) >= 0 ? 'Removed task' : k);   // HUBSPOT-REMOVAL-2026-11-01
     });
   } catch (e) { console.warn('Usage kinds: ' + e); }
   return out;
@@ -54,9 +54,9 @@ function cueUsageKinds_() {
 function cueUsageCmd_(kinds, req, step) {
   req = String(req || '');
   if (/^chat-/.test(req)) return 'Chat';
+  if (/^cue-nm-/.test(req)) return 'New mail';   // CueNewMail.gs: the sort runs under its tick's own id, not a request's
   if (req === 'canvas') return 'Canvas: ' + (String(step || '').trim() || 'AI');   // CUE-STRUCTURE-4.6: a Canvas AI Runs row, by its job
   if (/^cue-ed-/.test(req)) return 'Other (canvas edit)';   // Canvas edits (CueEdit.gs) are not in the Requests tab
-  if (/^cue-nm-/.test(req)) return 'New mail';   // CueNewMail.gs: the sort runs under its tick's own id, not a request's
   return kinds[req] || (String(step || '').trim() ? 'Other (' + String(step).trim().replace(/\s+\d+( of \d+)?$/, '') + ')' : 'Other');
 }
 
@@ -122,7 +122,11 @@ function cueUsageCanvas_() {
   let T;
   try { if (!cueGtListed_(s, 'airuns')) return { rows: [], note: 'Canvas AI calls not included yet (AI Runs is not on Canvas\'s allow-list).' };
     T = cueGtBridgeTab_(s, 'airuns'); }
-  catch (e) { return { rows: [], note: 'Canvas AI calls could not be read: ' + cueStr_((e && e.message) || e, 160) }; }
+  catch (e) {
+    const m = String((e && e.message) || e);
+    if (/tab AI Runs was not found/.test(m)) return { rows: [], note: 'No Canvas AI calls yet (Canvas makes its AI Runs tab on its first AI call).' };   // the Ledger has no AI Runs tab until Canvas's first AI call
+    return { rows: [], note: 'Canvas AI calls could not be read: ' + cueStr_(m, 160) };
+  }
   const get = (o, h) => { const k = Object.keys(o).filter(x => x.toLowerCase() === h.toLowerCase())[0]; return k ? o[k] : ''; };
   const num = v => Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')) || 0;
   const rows = [];

@@ -27,7 +27,8 @@ const CUE_CANVAS_PAGES_ = {
 const CUE_CANVAS_SUPCOLS_ = ['Common / Display Name', 'Address', 'City', 'Province', 'Owner/Manager', 'Website/Social Media', 'Main Service',
   'Secondary Service', 'Supplier Type', 'Business Type', 'TIN', 'TIN Status', 'Company Email'];
 const CUE_CANVAS_TABWORDS_ = { main: 'Main', scope: 'Scope', scopes: 'Scope', expenses: 'Expenses', expense: 'Expenses', rm: 'RM', resources: 'RM', timeline: 'Timeline',
-  'food count': 'Food Count', inrush: 'Inrush', history: 'History', checklist: 'Checklist', readiness: 'Checklist' };
+  'food count': 'Food Count', inrush: 'Inrush', history: 'History', checklist: 'Checklist', readiness: 'Checklist',
+  tasks: 'Main', 'task list': 'Main' };   // Kiko 24 Oct: tasks, issues and risks are on Main, where Canvas's "Open tasks" goes
 
 function cueCanvasBase_() {
   const u = cueProp_('CUE_CANVAS_URL', CUE_CANVAS_DEFAULT_);
@@ -48,8 +49,10 @@ function cueCanvasLink_(o) {
   const nm = t(o.name || pid);
   switch (o.what) {
     case 'project': { const tab = CUE_CANVAS_TABS_.indexOf(o.tab) >= 0 ? o.tab : 'Main', act = ['ar', 'fsa'].indexOf(o.action) >= 0 ? o.action : '';
-      return { title: (act ? (act === 'ar' ? 'ARs' : 'FSAs') + ' · ' : '') + nm + (tab === 'Main' ? '' : ' · ' + tab),
-        url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab, action: act, payee: act ? cueStr_(o.payee, 120) : '' }) }; }
+      // PC check 24 Oct 07:28Z: Canvas has no Tasks tab; &focus=tasks | issues | risks scrolls Main to that block (Canvas release with CUE-TASKS-FOCUS).
+      const focus = tab === 'Main' && ['tasks', 'issues', 'risks'].indexOf(o.focus) >= 0 ? o.focus : '';
+      return { title: (act ? (act === 'ar' ? 'ARs' : 'FSAs') + ' · ' : '') + nm + (tab === 'Main' ? (focus ? ' · ' + focus[0].toUpperCase() + focus.slice(1) : '') : ' · ' + tab),
+        url: base + '?' + cueCanvasQ_({ page: 'canvas', project: pid, tab, action: act, payee: act ? cueStr_(o.payee, 120) : '', focus }) }; }
     case 'pay': { const f = o.fill || {}, qc = {};
       if (f.scope) qc.scope = cueStr_(f.scope, 60); if (Number(f.amount) > 0) qc.amount = Math.round(Number(f.amount) * 100) / 100;
       if (f.supplier) qc.supplier = cueStr_(f.supplier, 200); if (f.cost) qc.cost = cueStr_(f.cost, 200); if (f.etype) qc.etype = cueStr_(f.etype, 120);
@@ -99,6 +102,10 @@ function cueCanvasParse_(text) {
   if ((m = /^(?:make|generate|prepare|create|do)\s+(?:the\s+)?(fsas?|ars?|acknowledgement receipts?|freelancer service agreements?|service agreements?)\s+(?:for|in|on)\s+(?:project\s+)?(.+)$/i.exec(t)))
     return { what: 'crewdocs', project: m[2].trim(), doc: /^(fsa|freelancer|service)/i.test(m[1]) ? 'fsa' : 'ar' };
   if (/^(?:make|generate|prepare|create|do)\s+(?:the\s+)?fsas?$/i.test(t)) return { what: 'page', key: 'fsa generator' };
+  // Kiko 24 Oct (specs/cue-add-tasks.md): "tasks of Selecta" / "Selecta tasks" open Main, like Canvas's "Open tasks" button.
+  if ((m = /^(?:tasks|task list)\s+(?:of|for|in)\s+(?:project\s+)?(.{2,})$/i.exec(t))) return { what: 'project', project: m[1], tab: 'Main', focus: 'tasks' };
+  if (!/^(?:show|list|what|whats|what's|my|all|open|any|how|which|the|today|todays|today's|tomorrow|pending|overdue|due)\b/i.test(t)
+    && (m = /^(?:project\s+)?(.{2,}?)(?:'s)?\s+(?:tasks|task list)$/i.exec(t))) return { what: 'project', project: m[1], tab: 'Main', focus: 'tasks' };
   if (!(m = open.exec(t))) return null;
   const rest = t.slice(m[0].length).trim(), low = rest.toLowerCase().replace(/\s+page$/, '').replace(/\s+tab$/, '');
   if ((m = /^(?:supplier|vendor)\s+(?!for\b)(.{2,})$/i.exec(rest))) return { what: 'supplier', q: m[1].trim() };
@@ -108,10 +115,10 @@ function cueCanvasParse_(text) {
   if ((m = /^(?:account|client|company|contact)\s+(?!for\b)(.{2,})$/i.exec(rest))) return { what: 'accounts', q: m[1].trim() };
   if ((m = /^(?:ces?|cost estimates?|ce desk)\s+(?:for|of)\s+(?:project\s+)?(.{2,})$/i.exec(rest))) return { what: 'cedesk', q: m[1].trim() };
   if (/^(?:suppliers?|vendors?)\b/i.test(rest)) return null;   // "open suppliers for LED walls" is a supplier search, not a page
-  if ((m = /^(main|scopes?|expenses?|rm|resources|timeline|food count|inrush|history|checklist|readiness)(?:\s+tab)?\s+(?:of|for|in)\s+(?:project\s+)?(.+)$/i.exec(rest)))
-    return { what: 'project', project: m[2], tab: CUE_CANVAS_TABWORDS_[m[1].toLowerCase()] };
-  if ((m = /^(?:project\s+)?(.+?)(?:'s)?\s+(main|scopes?|expenses?|rm|resources|timeline|food count|inrush|history|checklist|readiness)(?:\s+tab)?$/i.exec(rest)))
-    return { what: 'project', project: m[1], tab: CUE_CANVAS_TABWORDS_[m[2].toLowerCase()] };
+  if ((m = /^(main|scopes?|expenses?|rm|resources|timeline|food count|inrush|history|checklist|readiness|tasks|task list)(?:\s+tab)?\s+(?:of|for|in)\s+(?:project\s+)?(.+)$/i.exec(rest)))
+    return Object.assign({ what: 'project', project: m[2], tab: CUE_CANVAS_TABWORDS_[m[1].toLowerCase()] }, /^task/i.test(m[1]) ? { focus: 'tasks' } : {});
+  if ((m = /^(?:project\s+)?(.+?)(?:'s)?\s+(main|scopes?|expenses?|rm|resources|timeline|food count|inrush|history|checklist|readiness|tasks|task list)(?:\s+tab)?$/i.exec(rest)))
+    return Object.assign({ what: 'project', project: m[1], tab: CUE_CANVAS_TABWORDS_[m[2].toLowerCase()] }, /^task/i.test(m[2]) ? { focus: 'tasks' } : {});
   return rest.length >= 3 ? { what: 'project', project: rest.replace(/^project\s+/i, ''), tab: 'Main' } : null;
 }
 
@@ -141,6 +148,7 @@ function cueCanvasSaid_(text, ref) {
     if (!ref) cueChat_('Cue', 'Started a thread for it.', '>' + id);
     return { request_id: id, task: ref || '' };
   }
+
   let link = null, picks = [];
   if (c.project) {
     let hits; try { hits = cueCanvasFind_(s, c.project); } catch (e) { hits = null; c.error = cueStr_((e && e.message) || e, 200); }
@@ -182,6 +190,7 @@ function cueCanvasFor_(s) {
     if (k === 'change' && s.change && s.change.match && CUE_PID_RE_.test(s.change.match.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.change.match.project_id, name: s.change.match.name, tab: 'Scope' });
     if (k === 'vendor' && s.vendor && s.vendor.item) return cueCanvasLink_({ what: 'pricewatch', q: s.vendor.item });
     if (k === 'supplier' && s.sup) return cueSupCanvas_(s);
+    if (k === 'tri' && s.tri && CUE_PID_RE_.test(s.tri.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.tri.project_id, name: s.tri.project, tab: 'Main', focus: ({ Issue: 'issues', Risk: 'risks' })[s.tri.type] || 'tasks' });
     if (k === 'intake' && s.canvas && CUE_PID_RE_.test(s.canvas.project_id || '')) return cueCanvasLink_({ what: 'project', project_id: s.canvas.project_id, name: s.canvas.name, tab: 'Main' });
   } catch (e) { console.warn('Canvas link: ' + e); }
   return null;

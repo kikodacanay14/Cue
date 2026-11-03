@@ -146,24 +146,126 @@ test('IC1 the tab icon loads as the owner\'s Google account (authuser), stays pr
 test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will not run and waiting tasks with no date; silent when all is fine; Mute these hides them', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueSchedules();
   const card = () => t.tabs.Chat.rows.filter(r => /^\?ask-/.test(String(r[3])) && /Unscheduled check/.test(r[2])).pop();
-  // Day one: the rows that ship off (HubSpot sales review, the ChatGPT tasks) are listed; nothing waits on Kiko.
+  // Day one: the rows that ship off (Monday sales funnel review, the ChatGPT tasks) are listed; nothing waits on Kiko.
   t.ctx.cueSchedRunNow('sys-unsched'); let c = card();
-  assert.ok(/\d+ to look at/.test(c[2]) && /HubSpot sales review \(Thu 08:00\): switched off/.test(c[2]) && /Monthly engagement email \(15th monthly 16:00\): switched off/.test(c[2]) && /:ok,mute$/.test(c[3]));
+  assert.ok(/\d+ to look at/.test(c[2]) && /Monday sales funnel review \(Mon 07:00\): switched off/.test(c[2]) && /Monthly engagement email \(15th monthly 16:00\): switched off/.test(c[2]) && /:ok,mute$/.test(c[3]));
   assert.ok(!/Tasks waiting on you/.test(c[2]));
   t.ctx.cueAskPick(String(c[3]).match(/^\?(ask-[0-9a-z]+)/)[1], 'mute');
   const n = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched');
   assert.strictEqual(t.tabs.Chat.rows.slice(n).filter(r => /^\?ask-/.test(String(r[3]))).length, 0, 'muted: no card'); assert.ok(/everything is scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
   // A waiting task with no date shows; one with a reminder does not. A missed run shows.
-  const add = (id, st, extra) => { t.tabs.Requests.appendRow([id]); t.tabs.Requests.rows[t.tabs.Requests.rows.length - 1] = [id, '', st, '', '', 0, '', '', '', '', JSON.stringify(Object.assign({ id, kind: 'pipeline', status: st, ref: '', created: '2026-10-21T01:00:00Z', pipe: { title: 'Pipeline: ' + id } }, extra || {}))]; };
+  const add = (id, st, extra) => { t.tabs.Requests.appendRow([id]); t.tabs.Requests.rows[t.tabs.Requests.rows.length - 1] = [id, '', st, '', '', 0, '', '', '', '', JSON.stringify(Object.assign({ id, kind: 'bids', status: st, ref: '', created: '2026-10-21T01:00:00Z', bids: { title: 'Bids: ' + id } }, extra || {}))]; };
   add('cue-a', 'Needs you'); add('cue-b', 'Needs you', { remind_at: Date.parse('2026-10-23T01:00:00Z') }); add('cue-c', 'Working');
-  const rows = t.tabs.Schedule.rows, i = rows.findIndex(r => r[0] === 'sys-hubspot'); rows[i][11] = new Date(Date.parse('2026-10-21T01:00:00Z'));
+  const rows = t.tabs.Schedule.rows, i = rows.findIndex(r => r[0] === 'sys-status'); rows[i][11] = new Date(Date.parse('2026-10-21T01:00:00Z'));
   const m = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched'); c = card();
   assert.ok(t.tabs.Chat.rows.slice(m).indexOf(c) >= 0, 'a new card');
-  assert.ok(/Monday HubSpot check \(Mon 06:00\): missed its/.test(c[2]) && /Pipeline: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
-  assert.ok(!/cue-b|cue-c/.test(c[2]) && !/HubSpot sales review/.test(c[2]), 'reminder set, still working, muted: left out');
+  assert.ok(/Friday status updates \(Fri 17:00\): missed its/.test(c[2]) && /Bids: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
+  assert.ok(!/cue-b|cue-c/.test(c[2]) && !/Monday sales funnel review/.test(c[2]), 'reminder set, still working, muted: left out');
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
   // The daily row runs from the tick at 07:00 and finds nothing when all is fine: no card.
   const u = sandbox(); u.ctx.cueState(); u.ctx.cueSchedules().filter(x => !x.on).forEach(x => u.ctx.cueSchedSet(x.id, { on: true }));
-  u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); u.ctx.cueResume(); u.ctx.__wait(5 * 60000); u.ctx.cueResume();   // Wednesday 19:00 was missed too: 3 rows per tick
+  u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); for (let i = 0; i < 6; i++) { u.ctx.cueResume(); u.ctx.__wait(5 * 60000); }   // the rows missed since Wednesday (2 PM updates, chasers, release notes) go first: 3 rows per tick
   assert.strictEqual(u.ctx.cueSchedules().filter(x => x.id === 'sys-unsched')[0].result, 'All scheduled'); assert.ok(!u.tabs.Chat.rows.some(r => /Unscheduled check/.test(r[2])));
+});
+
+/* CUE-IN-CANVAS (Kiko 23 Oct 07:39Z, 08:48Z, 08:52Z; specs/cue-in-canvas.md) */
+test('CIC1 Cue may show inside Canvas: doGet allows framing, and the page guards itself instead', () => {
+  assert.ok(/setXFrameOptionsMode\(HtmlService\.XFrameOptionsMode\.ALLOWALL\)/.test(CODE), 'ALLOWALL');
+  const html = cuePage();
+  assert.ok(/var CUE_HOST = cueFrameCheck\(window\);/.test(html) && html.indexOf('#cue-cover {') > 0, 'guard runs on load and has a cover');
+});
+test('CIC2 frame guard: own tab is free; inside Canvas waits for cueHost; any non-Google ancestor or a deep frame without ancestorOrigins is covered', () => {
+  const html = cuePage();
+  const src = html.slice(html.indexOf('function cueFrameCheck('), html.indexOf('function cueAncestor('));
+  const ctx = vm.createContext({}); vm.runInContext(src, ctx);
+  const chain = (depth, anc) => { let top = {}; top.parent = top; let w = top; for (let i = 0; i < depth; i++) { const c = { parent: w }; w = c; } w.location = { ancestorOrigins: anc }; return w; };
+  const G = 'https://script.google.com', S = 'https://n-abc123-0lu-script.googleusercontent.com';
+  const own = ctx.cueFrameCheck(chain(2, [S, G]));
+  deq([own.foreign, own.nested], ['', false]);
+  const canvas = ctx.cueFrameCheck(chain(5, [S, G, S, S, G]));
+  deq([canvas.foreign, canvas.nested, canvas.canvas], ['', true, null], 'inside Canvas: covered until cueHost');
+  deq(!!ctx.cueFrameCheck(chain(3, [S, G, 'https://evil.example'])).foreign, true, 'a foreign page is covered for good');
+  deq(ctx.cueFrameCheck(chain(3, [S, G, 'https://evil.example'])).foreign, 'https://evil.example', 'the cover names the host');
+  deq(!!ctx.cueFrameCheck(chain(3, [S, G, 'https://script.google.com.evil.example'])).foreign, true, 'look-alike host');
+  const short = ctx.cueFrameCheck(chain(6, [S, G, S, S, G, 'https://canvas.blankspaceevent.com']));
+  deq([short.foreign, short.nested], ['', true], 'Canvas opened from its short link: waits for cueHost like Canvas');
+  deq(!!ctx.cueFrameCheck(chain(6, [S, G, S, S, G, 'https://canvas.blankspaceevent.com.evil.example'])).foreign, true, 'short-link look-alike');
+  deq(ctx.cueFrameCheck(chain(5, undefined)).nested, true, 'no ancestorOrigins and deep: covered');
+  deq(ctx.cueFrameCheck(chain(2, undefined)).nested, false, 'no ancestorOrigins in its own tab: free');
+});
+test('CIC3 inside Canvas: Open in Canvas goes to Canvas itself; only the host that sent cueHost may open a thread', () => {
+  const html = cuePage();
+  assert.ok(/if \(CUE_HOST\.canvas\) return void CUE_HOST\.canvas\.postMessage\(\{ canvasWs: 'cueOpen', url: l\.url \}, '\*'\);/.test(html));
+  assert.ok(/d\.canvasWs === 'cueThread' && e\.source === CUE_HOST\.canvas/.test(html), 'thread only from the host');
+  assert.ok(/!cueAncestor\(e\.source\)/.test(html), 'messages only from windows above Cue');
+});
+test('CIC4 Cue wears Canvas: Workspace tokens (cream, ink, purple action, magenta need), no graphite left', () => {
+  const html = cuePage();
+  ['--bg:#F7F3EA', '--text:#16151B', '--act:#23006F', '--need:#F000AA', '--line:#E2DCCF', '--muted:#5B5766'].forEach(t => assert.ok(html.indexOf(t) > 0, t));
+  ['#141518', '#17181c', '#0e0f11', '#262930', '#22344d', '#1f2b3d', '#0b1320'].forEach(c => assert.ok(html.indexOf(c) < 0, c + ' left'));
+  assert.ok(!/<b [^>]*color:#fff/.test(html), 'card titles use the ink token, not white');
+});
+
+// CUE-TODAY (spec specs/daily-digest.md): one Today card from the scheduled jobs' runs; Canvas Home draws it.
+const TD = (o) => Object.assign({ created: '2026-10-21T00:05:00Z', status: 'Needs you', metrics: { calls: [] } }, o);
+const GPTC = { calls: [{ provider: 'GPT', status: 'OK' }] }, CLC = { calls: [{ provider: 'Claude', status: 'OK' }] };
+test('TD1 Today card: one row per run that needs Kiko, chasers first, who did it from the real calls', () => {
+  const { ctx } = sandbox();
+  const v = [
+    TD({ id: 'b1', kind: 'bids', metrics: GPTC, bids: { items: [{ project: 'DepEd Batangas', abc: 420000 }, { project: 'Laguna LGU', abc: 610000 }], updated: [{}] } }),
+    TD({ id: 's1', kind: 'sweep', metrics: GPTC, batch: { items: [{ label: 'RFQ' }, { label: 'RFQ' }, { label: 'Payment' }, { label: 'Inbox', no_email: true }, { label: 'RFQ', removed: 'skip' }] } }),
+    TD({ id: 'h1', kind: 'status', metrics: CLC, st: { title: 'Friday status updates', mails: [{ k: 'm1', name: 'Acme Gala' }, { k: 'm2', name: 'Done one', sent_id: 'x1' }] } }),
+    TD({ id: 'g1', kind: 'gtask', status: 'Done', metrics: GPTC, gt: { title: 'Repeat-event accounts', items: [] } }),
+    TD({ id: 'g2', kind: 'gtask', status: 'Done', metrics: { calls: [] }, gt: { title: 'Moved contacts', items: [] } }),
+    TD({ id: 'old', kind: 'bids', created: '2026-10-19T23:00:00Z', bids: { items: [{ project: 'X' }] } }),
+    TD({ id: 'i1', kind: 'intake' }),
+    TD({ id: 'w1', kind: 'gtask', status: 'Working', gt: { title: 'Still running', items: [] } })];
+  const T = ctx.cueTodayFrom_(v.map(x => ctx.cueView_(x)), '2026-10-21');   // the page's views, as cueToday() and cueState() pass them
+  deq(T.count, 3);
+  deq(T.rows.map(r => r.thread), ['s1', 'b1', 'h1'], 'the morning batch first; old days, other kinds and running jobs left out');
+  deq([T.rows[0].title, T.rows[0].detail, T.rows[0].primary, T.rows[0].button], ['Send 3 emails', '2 RFQ, 1 Payment, 1 Inbox.', true, 'Review and send']);
+  deq([T.rows[1].title, T.rows[1].detail, T.rows[1].by], ['2 new bids worth a look', 'DepEd Batangas ₱420k · Laguna LGU ₱610k', 'Done by ChatGPT · checked by Cue']);
+  deq([T.rows[2].title, T.rows[2].by], ['1 client update to send', 'Done by Claude · checked by Cue']);
+  deq(T.done, 'repeat-event accounts (nothing new) (by ChatGPT); moved contacts (nothing new) (by Cue)');
+});
+test('TD2 Today card: a failed run is a Try again row; a thread joined by a redo points at its root; no AI call ran', () => {
+  const t = sandbox(), before = JSON.stringify(t.log);
+  const T = t.ctx.cueTodayFrom_([TD({ id: 'r0', kind: 'status' }), TD({ id: 'r1', kind: 'bids', ref: 'r0', status: 'Failed', error: 'ChatGPT timed out', metrics: { calls: [{ provider: 'GPT', status: 'Failed' }] } })], '2026-10-21');
+  const f = T.rows.find(r => r.thread === 'r0' && r.button === 'Try again');
+  assert.ok(f, 'failed row points at the thread root');
+  deq([f.title, f.detail, f.by], ['Bid check didn\'t finish', 'ChatGPT timed out', 'Stopped · nothing was sent or changed']);
+  deq(JSON.stringify(t.log), before, 'building the card makes no fetch');
+});
+test('TD5 Today card: only the day\'s latest bid run counts; a row names its run (PC checks 24 Oct 10:41Z and 12:39Z)', () => {
+  const { ctx } = sandbox();
+  const run = (id, at, items, still) => TD({ id, kind: 'bids', ref: id === 'd0' ? '' : 'd0', created: '2026-10-21T' + at + ':00Z', metrics: GPTC,
+    status: id === 'd0' ? 'Closed' : 'Needs you', bids: { base: 'Bid opportunities · Wed 21 Oct, ' + at, title: 'Bid opportunities · Wed 21 Oct, ' + at + ' · ' + items.length + ' new, ' + still.length + ' still open', items, still } });
+  const two = [{ project: 'PCC catering' }, { project: 'PCC IEC printing' }];
+  let T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d1', '09:17', [], [{}]), run('d2', '09:58', two, [{}])].map(x => ctx.cueView_(x)), '2026-10-21');
+  assert.ok(!('base' in ctx.cueView_(run('d2', '09:58', two, [])).bids), 'the page view carries the title, not base: the row must work from the view');
+  deq(T.count, 1);
+  deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].thread], ['Bid opportunities · Wed 21 Oct, 09:58', '2 new bids worth a look', 'd0'], 'the row says which run holds the new bids; the tap opens the day\'s Bid check thread');
+  assert.ok(!/bid check/.test(T.done), 'older bid runs that day are not listed again: ' + T.done);
+  T = ctx.cueTodayFrom_([run('d0', '01:00', [], []), run('d2', '09:58', two, [{}]), run('d3', '10:30', [], two)].map(x => ctx.cueView_(x)), '2026-10-21');
+  deq(T.count, 0, 'a later redo with 0 new supersedes the older card\'s 2 new (they are in its Still open now)');
+  assert.ok(/bid check \(no new bids\)/.test(T.done), T.done);
+});
+test('TD3 Today frame: silent until cueHost from a Google window above it; doGet serves it framable; owner-only call', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Today.html'), 'utf8'), gs = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/if \(!anc\) return;/.test(html) && /if \(!ok\.test\(anc\[i\]\)\) return;/.test(html), 'stays silent without, or with a foreign, ancestor');
+  assert.ok(/d\.canvasWs !== 'cueHost' \|\| host \|\| !above\(e\.source\)/.test(html), 'only the first cueHost from a window above');
+  assert.ok(/done: d\.done, version: d\.version \}/.test(html) && /version: CUE_VERSION_/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueToday.gs'), 'utf8')), 'the payload says which build answered');
+  assert.ok(/host\.postMessage\(\{ canvasWs: 'cue-today'/.test(html) && !/parent\.postMessage\(\{ canvasWs: 'cue-today'/.test(html), 'rows go to the host only');
+  assert.ok(/q\.view === 'today'\) return HtmlService\.createHtmlOutputFromFile\('Today'\)/.test(gs));
+  const t = sandbox({ viewer: 'someone@example.com' });
+  assert.throws(() => t.ctx.cueToday(), /owner|Kiko|only/i);
+});
+test('TD4 Cue chat: a day\'s scheduled-job pointer lines fold into one Today line', () => {
+  const page = cuePage();
+  assert.ok(/var jd = jobDay\(pt\); if \(jd && !answers\) \{ if \(!dayShown\[jd\]\) \{ dayShown\[jd\] = 1; h \+= todayHtml\(jd, th\); \} return; \}/.test(page));
+  const src = page.slice(page.indexOf('var TODAY_K = '), page.indexOf('  // The chat: Kiko\'s general messages'));
+  const ctx = vm.createContext({ esc: x => String(x), state: { today: { day: '2026-10-21', rows: [{ title: 'Send 3 emails', detail: '3 RFQ.', by: 'Done by ChatGPT · checked by Cue', thread: 's1' }], done: 'bid check (no new bids) (by ChatGPT)' } } });
+  vm.runInContext(src, ctx);
+  const h = ctx.todayHtml('2026-10-21', {});
+  assert.ok(/Today: 1 thing needs you/.test(h) && /data-thread="s1"/.test(h) && /Done by ChatGPT · checked by Cue/.test(h) && /Done for you: bid check/.test(h), h);
 });

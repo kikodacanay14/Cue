@@ -2,7 +2,7 @@
  * Map a workflow (command C14, "Process Mapper"): Kiko describes a Zapier or Cue workflow, or pastes or screenshots a Zap, and
  * gets a step-by-step map that names each step's Cue block and who handles it. Cue checks the map against Kiko's rules in code
  * and saves it to the Workflows tab only after Kiko approves. It never builds, changes or switches on a Zap, and never writes to
- * Canvas, HubSpot or Gmail.
+ * Canvas or Gmail.
  *   1 GPT    the chat call (already made for every message) recognises the ask: no extra call.
  *   (1 GPT   only when Kiko attached a screenshot or file: GPT reads it into plain steps.)
  *   - Code   the block list, Kiko's rules, and a saved workflow with a similar name (so it is updated, not duplicated).
@@ -36,7 +36,7 @@ const CUE_WF_SCHEMA_ = { type: 'object', additionalProperties: false,
         block: { type: 'string', description: 'One of the approved blocks. Only when none fits, a short new name (Cue flags it for Kiko).' },
         who: { type: 'string', enum: CUE_WF_WHO_ },
         input: { type: 'string' }, output: { type: 'string' },
-        writes: { type: 'string', enum: ['', 'Canvas', 'HubSpot', 'Drive', 'Cue'], description: 'The system this step changes, "" when it only reads or thinks' },
+        writes: { type: 'string', enum: ['', 'Canvas', 'Drive', 'Cue'], description: 'The system this step changes, "" when it only reads or thinks' },
         sends: { type: 'boolean', description: 'true when the step sends an email or message to someone outside Cue' },
         readback: { type: 'boolean', description: 'For a Canvas write: true when the step reads the change back to confirm it' },
         why_owner: { type: 'string', description: 'One short line: why this owner handles it' } } } },
@@ -51,7 +51,7 @@ const CUE_WF_SYSTEM_ = 'You map workflows for Kiko, who runs BSE (Blank Space Ev
   + 'writes to Canvas and never owns code. Code is Cue\'s plain code: fixed rules, checks, searches, saving and scheduling, with no AI. Canvas '
   + 'is BSE\'s company system; it reads and writes records only through the signed bridge. Zapier wires apps together until Cue Builder '
   + 'exists. Kiko approves every send, record change, money matter and signature. Kiko\'s rules: put a Wait for Kiko step before any step '
-  + 'that writes to Canvas or HubSpot or sends an email; read every Canvas write back; a major function uses 3 to 5 AI calls (Ask Claude or '
+  + 'that writes to Canvas or sends an email; read every Canvas write back; a major function uses 3 to 5 AI calls (Ask Claude or '
   + 'Ask ChatGPT steps) and at most 3 minutes; scheduled jobs never depend on ChatGPT; avoid passing work between the two AIs unless it '
   + 'helps. Use the fewest steps that do the job. Follow the rules when you map, but map what Kiko describes: if Kiko asks for something '
   + 'that breaks a rule, keep it and say so in reply (Cue flags it). When saved holds an earlier version, update it and keep its name. '
@@ -133,7 +133,7 @@ function cueWorkflowClean_(d) {
   const t = (v, n) => cueStr_(v, n).trim();
   return { name: t(d.name, 120) || 'Workflow', goal: t(d.goal, 400), target: d.target === 'Cue' ? 'Cue' : 'Zapier', trigger: t(d.trigger, 300), scheduled: !!d.scheduled,
     steps: (d.steps || []).slice(0, CUE_WF_MAX_.steps).map((x, i) => ({ n: i + 1, title: t(x.title, 200), block: t(x.block, 60), who: CUE_WF_WHO_.indexOf(x.who) >= 0 ? x.who : 'Code',
-      input: t(x.input, 300), output: t(x.output, 300), writes: ['Canvas', 'HubSpot', 'Drive', 'Cue'].indexOf(x.writes) >= 0 ? x.writes : '', sends: !!x.sends, readback: !!x.readback,
+      input: t(x.input, 300), output: t(x.output, 300), writes: ['Canvas', 'Drive', 'Cue'].indexOf(x.writes) >= 0 ? x.writes : '', sends: !!x.sends, readback: !!x.readback,
       why_owner: t(x.why_owner, 200) })),
     est_seconds: Math.max(0, Math.min(3600, Math.round(Number(d.est_seconds) || 0))), questions: (d.questions || []).slice(0, 4).map(q => t(q, 300)).filter(String),
     zap_steps: d.target === 'Cue' ? [] : (d.zap_steps || []).slice(0, 40).map(z => t(z, 400)).filter(String), reply: t(d.reply, 500) };
@@ -147,7 +147,7 @@ function cueWorkflowRules_(m) {
     const known = CUE_WF_BLOCKS_.indexOf(x.block) >= 0, owner = CUE_WF_OWNER_[x.block];
     if (!known) add(x.n, 6, '"' + (x.block || 'no block') + '" is not an approved block. Approve it as a new block, or change the step.');
     if (owner && x.who !== owner) add(x.n, 6, x.block + ' is handled by ' + owner + ', but this step says ' + x.who + '.');
-    const changes = x.block === 'Write to Canvas' || x.writes === 'Canvas' || x.writes === 'HubSpot', sends = x.block === 'Send email' || x.sends;
+    const changes = x.block === 'Write to Canvas' || x.writes === 'Canvas', sends = x.block === 'Send email' || x.sends;
     if ((changes || sends) && !gate) add(x.n, sends && CUE_WF_MONEY_RE_.test(x.title + ' ' + x.input + ' ' + x.output) ? 5 : 1, (sends ? 'Sends' : 'Writes to ' + (x.writes || 'Canvas'))
       + ' with no Wait for Kiko step before it.' + (sends && CUE_WF_MONEY_RE_.test(x.title + ' ' + x.input + ' ' + x.output) ? ' Money, contracts, signatures and client emails are never sent without you.' : ''));
     if (x.who === 'ChatGPT' && (x.writes === 'Canvas' || x.block === 'Write to Canvas')) add(x.n, 2, 'ChatGPT never writes to Canvas.');
