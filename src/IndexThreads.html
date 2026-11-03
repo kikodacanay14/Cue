@@ -616,17 +616,30 @@
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
+  // Kiko 3 Nov 2026 ("its so hard coz i have to scroll all the way", then "should be at the boottom!!"): the newest line stays at the
+  // bottom and Cue keeps the chat and an open thread pinned there. The pin was lost when the first scroll ran before the page had
+  // its size (Canvas's slide-in, a hidden tab) or before late content (cards, pictures) grew the page, and later renders then read
+  // "not at the bottom" and never scrolled. Now each scroll area remembers whether it is pinned: Kiko scrolling up unpins it,
+  // scrolling back to the end pins it again, and while pinned any change of size or content scrolls it to the end.
+  function pinBottom(el, inner, page) {
+    el._pin = true;
+    el.addEventListener('scroll', function () { if (el.clientHeight) el._pin = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }, { passive: true });
+    var go = function () { if (el._pin && el.clientHeight && !$(page).hidden) el.scrollTop = el.scrollHeight; };   // the Threads list is never pinned
+    if (window.ResizeObserver) { var ro = new ResizeObserver(go); ro.observe(el); inner.forEach(function (x) { ro.observe(x); }); }
+    window.addEventListener('resize', go); document.addEventListener('visibilitychange', go);
+  }
+  pinBottom($('scroller'), [$('msgs')], 'page-chat'); pinBottom($('pscroll'), [$('tmsgs')], 'page-thread');
   function renderChat() {
-    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    var sc = $('scroller'), atBottom = sc._pin, th = threads();
     var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
     renderMain(th);
-    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
-    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (!$('page-chat').hidden && (atBottom || grew)) { sc._pin = true; sc.scrollTop = sc.scrollHeight; }
+    var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
       lastThread = tn; renderThread(t);
-      if (!toSpot() && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
+      if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
     renderPaneTabs(th); renderThreadList(th);
   }
