@@ -64,3 +64,9 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
+
+## Rule documentation navigation
+
+Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
+
+Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
