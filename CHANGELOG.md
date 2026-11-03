@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue (number set by the deploys thread): the chat and an open thread stay at the newest line (bug fix, not deployed)
+
+Kiko asked on 3 Nov 2026 06:29Z: "its so hard coz i have to scroll all the way... please change that", and on 10:14Z, when the
+newest line was moved to the top: "at top?\"???????? should be at the boottom!!". So the newest line stays at the bottom, and the
+fix is that Cue lands there.
+
+- Cause: Cue scrolled to the end once per render, then judged "not at the bottom" from the page as it was. When cards, pictures or
+  the Canvas slide-in grew the page after that scroll, the view stayed partway up and every later render left it there.
+- Fix (`pinBottom` in `src/IndexThreads.html`, `goThread` in `src/IndexChat.html`): the chat and an open thread remember whether they
+  are pinned to the end. Kiko scrolling up unpins; scrolling back to the end pins again; while pinned, any change of size or content
+  scrolls to the end. A link to a spot in a thread still jumps to that spot. The Threads list is never pinned.
+- Checked in a browser render: with 600 px of late content, the old code left the chat 612 px from the end and a thread 514 px;
+  the new code leaves both at 0, and a chat Kiko scrolled up stays where he left it.
+- Tests: `test/features/82-chat-stays-at-bottom.js` (SB1, SB2). The newest-on-top change (1.28.7 on rel1286) is dropped.
+
 ## Cue (number set by the deploys thread): new mail shows only in the main chat (not deployed)
 
 Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
