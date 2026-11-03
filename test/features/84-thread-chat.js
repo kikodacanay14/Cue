@@ -74,3 +74,12 @@ test('THC4 the chasers card says one true thing about sending: Send on a picked 
   assert.ok(/\(taps \? ' Pick in the 2 PM update; a picked email goes only when you press Send\.' : ''\) \+ \(mail \? ' Ticked emails go only after you tap Approve and send\.' : ''\)/.test(card));
   assert.ok(/Approve and send makes them now and sends the ticked ones at 9:00/.test(card), 'the footer still says when');
 });
+
+test('THC5 shops and booking sites (Kiko 3 Nov 23:37Z "yes"): Booking.com, Shell and Autosweep are not chased for accreditation and not checked against Client Desk', () => {
+  const extra = ['Booking.com', 'Shell', 'Shell / Autosweep RFID'].map(n => Object.assign({}, ACCR.rows[1], { supplier: n }));
+  const t = accrBox({ accr: Object.assign({}, ACCR, { rows: ACCR.rows.concat(extra) }) }); t.ctx.cueSweep();
+  const it = accrItems(batchOf(t));
+  assert.ok(!it.some(i => /booking|shell|autosweep/i.test(i.who)), 'skipped: ' + it.map(i => i.who).join(', '));
+  assert.ok(it.some(i => i.who === 'Build Co') && it.some(i => i.who === 'Sonic Pro'), 'suppliers still chased');
+  assert.ok(!t.log.deskCheck.some(a => /booking|shell/i.test(a.company)), 'no Canvas call for them');
+});

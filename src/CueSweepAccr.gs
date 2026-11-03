@@ -63,11 +63,17 @@ function cueAccrClients_(s, rows) {
   return out;
 }
 
+/* ACCR-SHOPS-2026-11-04 (PC check 3 Nov: Booking.com and Shell were chased for accreditation; Kiko 3 Nov 23:37Z "yes" to Cue
+ * skipping shops and booking sites like these on its own). They are awarded payees (hotel nights, fuel, toll RFID) that are never
+ * accredited, so the morning batch leaves them out. Only the names seen so far are listed; Stop chasing still covers any other. */
+const CUE_ACCR_SHOPS_ = /\b(booking\.com|shell|autosweep)\b/i;
+
 /** The morning lines: one per supplier. */
 function cueAccrFind_(ctx) {
   const g = cueBridge_(ctx.s, 'accreditation_gaps', {}) || { rows: [] }, rule = ctx.rule('accreditation'), today = ctx.today;
   const all = (g.rows || []).map(r => Object.assign({}, r, { sent_to: (r.sent_to || []).map(e => String(e).toLowerCase()).filter(e => cueEmail_(e) && !cueNoReply_(e)) }));
-  const isClient = cueAccrClients_(ctx.s, all), rows = all.filter((r, i) => !isClient[i]);
+  const shops = all.filter(r => !CUE_ACCR_SHOPS_.test(String(r.supplier || '')));
+  const isClient = cueAccrClients_(ctx.s, shops), rows = shops.filter((r, i) => !isClient[i]);
   const th = cueAccrThreads_(rows);
   return rows.map((r, i) => {
     const t = th[i] || null;
