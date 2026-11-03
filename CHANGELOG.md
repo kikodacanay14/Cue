@@ -1,5 +1,12 @@
 # Changelog
 
+## Cue 1.28.16: each 2 PM chaser is logged in its project's Team Cue thread (not deployed)
+
+Kiko answered "2" on 3 Nov 2026 23:40Z in the chasers thread, picking the option where Cue logs each 2 PM chaser to its project's
+Team Cue thread automatically, with no tap from him. Each chaser due at 2 PM that has a Canvas project now also gets one line in
+that project's thread in Team Cue (bridge project_log, kind Chaser, from "2 PM chasers"). Chasers with no Canvas project stay in
+Cue's chasers thread only, and a line changes no Canvas record. Built on 1.28.15.
+
 ## Cue 1.28.15: threads read like a chat, Fold inside the card, no accreditation chasers for clients (not deployed)
 
 Kiko approved three proposals on 3 Nov 2026 at 14:59Z ("yes yes tes"), each with a mockup. Built on 1.28.12 (cbe4363), so
