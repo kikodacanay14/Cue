@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue (unnumbered): the 2 PM update stops flooding (not deployed)
+
+Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the
+duplicates, Do not Flood details that are not necessary." The screenshots were the 2 PM update. Chasers that cannot be emailed (no
+address on file, client already replied, chased 3 times) were listed one by one under the Funnel heading. Now the 2 PM update shows one
+count line per chaser type under "Not emailed: need you in Canvas", and the details stay in the chaser batch's own thread. A chaser listed
+twice (same type, person and project) is numbered once, and chased-the-max lines become one count line. Built on live Version 190
+(1.28.4). Tests: 614/614 (new K81).
+
 ## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay (live as Version 190, 2 Nov 2026 06:20Z; rollback 189)
 
 Kiko asked on 2 Nov 2026 for crew papers on Messenger (m.me) and said "you built the spec you code it", then "you do it" for the

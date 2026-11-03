@@ -102,19 +102,30 @@ function cueK0Build_(day, contacts, mode, work) {
   }
 
   // 2 PM: the funnel's follow-ups, then every chaser due, numbered. A pick drafts; nothing sends until Kiko presses Send on a card.
-  const funnelLines = [], blocked = [], chasers = [];
+  // CUE-PM-NO-FLOOD-2026-11-03 (Kiko 3 Nov: "Goal is not to make it confusing. Remove the duplicates, Do not Flood details that are not
+  // necessary."): chasers that cannot be emailed (no address, client replied, chased 3 times) no longer pile up under Funnel one by one;
+  // the update gives one count line per chaser type and the details stay in the chaser batch's own thread. A chaser listed twice (same
+  // type, person and project) is numbered once. Chased-the-max lines become one count line.
+  const funnelLines = [], chasers = [], noMail = {}, noMailOrder = [], seenChase = {};
   if (funnel && funnel.fn && (funnel.fn.lines || []).length) funnel.fn.lines.forEach(l => funnelLines.push(String(l)));
+  let stopped = 0;
   if (sweep && sweep.batch) {
     (sweep.batch.items || []).filter(it => !it.removed && it.kind !== 'tasks').forEach(it => {
-      const what = [it.label ? it.label.replace(/s$/, '') : 'Chaser', it.who ? 'to ' + it.who : '', it.project ? '(' + it.project + ')' : ''].filter(Boolean).join(' ');
-      if (!it.no_email && !it.sent_id && !it.picked) chasers.push(add({ t: 'chase', k: it.key }, what + (it.why ? ': ' + it.why : '')));
-      else if (it.no_email) funnelLines.push(what + (it.why ? ': ' + it.why : ''));
+      const lab = it.label ? it.label.replace(/s$/, '') : 'Chaser';
+      const what = [lab, it.who ? 'to ' + it.who : '', it.project ? '(' + it.project + ')' : ''].filter(Boolean).join(' ');
+      if (it.no_email) { if (!noMail[lab]) { noMail[lab] = 0; noMailOrder.push(lab); } noMail[lab]++; return; }
+      if (it.sent_id || it.picked) return;
+      const dup = (lab + '|' + (it.who || it.to || '') + '|' + (it.project || '')).toLowerCase();
+      if (seenChase[dup]) return; seenChase[dup] = 1;
+      chasers.push(add({ t: 'chase', k: it.key }, what + (it.why ? ': ' + it.why : '')));
     });
-    (sweep.batch.stopped || []).forEach(it => blocked.push((it.who || it.project || 'Someone') + (it.project && it.who ? ' (' + it.project + ')' : '') + ': chased ' + (it.times || 0) + ' times, no reply'));
+    stopped = (sweep.batch.stopped || []).length;
   }
   sec('Funnel', funnelLines.map(l => '- ' + l));
   sec('Chasers for your OK (reply "1, 3" or "all": Cue drafts them for you to check; nothing is sent until you press Send)', chasers);
-  sec('Chased the max times, no reply: your call', blocked.map(l => '- ' + l));
+  const held = noMailOrder.map(lab => '- ' + noMail[lab] + ' ' + lab.replace(/ chaser$/i, '') + (noMail[lab] === 1 ? ' chaser' : ' chasers'));
+  if (stopped) held.push('- ' + stopped + (stopped === 1 ? ' chaser' : ' chasers') + ' chased the max times with no reply');
+  sec('Not emailed: need you in Canvas (details in the chasers thread)', held);
   if (!out.length) out.push('', 'No follow-ups or chasers due this afternoon.');
   return { title, text: title + '\n' + out.join('\n'), items, mode, sweep: sweep ? sweep.id : '' };
 }
