@@ -1,5 +1,47 @@
 # Changelog
 
+## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, not deployed)
+
+Kiko asked on 3 Nov 2026 06:29Z: "its so hard coz i have to scroll all the way... please change that", and on 10:14Z, when the
+newest line was moved to the top: "at top?\"???????? should be at the boottom!!". So the newest line stays at the bottom, and the
+fix is that Cue lands there.
+
+- Cause: Cue scrolled to the end once per render, then judged "not at the bottom" from the page as it was. When cards, pictures or
+  the Canvas slide-in grew the page after that scroll, the view stayed partway up and every later render left it there.
+- Fix (`pinBottom` in `src/IndexThreads.html`, `goThread` in `src/IndexChat.html`): the chat and an open thread remember whether they
+  are pinned to the end. Kiko scrolling up unpins; scrolling back to the end pins again; while pinned, any change of size or content
+  scrolls to the end. A link to a spot in a thread still jumps to that spot. The Threads list is never pinned.
+- Checked in a browser render: with 600 px of late content, the old code left the chat 612 px from the end and a thread 514 px;
+  the new code leaves both at 0, and a chat Kiko scrolled up stays where he left it.
+- Tests: `test/features/82-chat-stays-at-bottom.js` (SB1, SB2). The newest-on-top change (1.28.7 on rel1286) is dropped.
+
+## Cue 1.28.7: each new email's post in the main chat gives its context (not deployed)
+
+Kiko asked on 3 Nov 2026 at 10:15Z, in the Cue project: "when you post on the left give some context. like what did they send, what
+time, what is it for, what do they expect, what needs to be done after?" Built on 1.28.6 (new mail in the main chat only).
+
+- `src/CueMailChat.gs` (`cueMcLeft_`): the main chat's post for an email that has its own chat now reads: "New email: name <address> ·
+  type · day, time" (Manila), the subject, "What they sent", "What it is for", "What they expect" and "What to do next". A later email
+  in the same conversation posts the same way, starting "New in this conversation".
+- The same one Claude Haiku read per email gives the three new parts (`sent`, `purpose`, `expect` in its answer), so there is no extra AI
+  call. When the read fails, the post still gives the sender, time, subject and what the email says, and leaves out the rest.
+- The email's own chat still starts with Cue's full read. Emails whose type is set to One line keep their one line.
+- Tests: `test/features/81-mail-left-only.js` ML4 and ML5; ACC7 and ACC9 updated for the new post. 619 tests pass.
+
+## Cue 1.28.6: new mail shows only in the main chat (not deployed)
+
+Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
+to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
+in the main chat and as a row under "Waiting on you" in the Threads list.
+
+- `src/IndexThreads.html` (`listShows`): an email's own chat (kind `mail`) and a new-kind-of-email question (kind `mailtype`) no longer
+  show in the Threads list or in the ☰ Threads count (`needThreadsN`). They stay in the main chat on the left, and their line there still opens
+  the chat.
+- A mail chat joins the Threads list once Kiko writes in it (anything except a plain "done") or another task joins it, such as the
+  reply draft or an intake. A "done" alone closes the chat without listing it.
+- Page only: no server change, no AI call, no Canvas change. New mail sorting, types and the daily New mail list are unchanged.
+- Tests: `test/features/81-mail-left-only.js` (3 tests); 616 tests pass. FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
 ## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, LIVE as Version 191, 3 Nov 2026 10:17Z; rollback Version 190)
 
 Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the

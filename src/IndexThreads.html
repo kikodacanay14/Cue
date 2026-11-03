@@ -33,7 +33,7 @@
   function renderThreadList(th) {
     var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
-      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
       var lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
@@ -410,6 +410,16 @@
     var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
     return !!th && th.reqs.some(function (r) { return OLDK[r.kind] && !r.phased && (r.status === 'Needs you' || r.status === 'Failed') && r.created && new Date(Date.parse(r.created) + 8 * 3600000).toISOString().slice(0, 10) < today; });
   }
+  // Kiko 3 Nov 2026 06:30Z: "the new mails are redundant. only make them appear on the left. if i ask it to do an action that is the
+  // only time it will show in the threadss". An email's own chat (kind mail) and a new-kind-of-email question (mailtype) show only in
+  // the main chat, not in the Threads list or its count. A mail chat joins the list once Kiko asks Cue something in it (any message
+  // but a plain "done") or another task joins it (the reply draft, an intake). The chat itself still opens from its line on the left.
+  var MAIL_ONLY = { mail: 1, mailtype: 1 }, MAIL_DONE = /^(done|ok,? done|got it|mark (it |this )?(as )?done|close( it| this)?)[.!]?$/i;
+  function listShows(th) {
+    if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
+    return th.reqs.some(function (r) { return r.kind === 'mail'; })
+      && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
+  }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
@@ -606,17 +616,30 @@
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
+  // Kiko 3 Nov 2026 ("its so hard coz i have to scroll all the way", then "should be at the boottom!!"): the newest line stays at the
+  // bottom and Cue keeps the chat and an open thread pinned there. The pin was lost when the first scroll ran before the page had
+  // its size (Canvas's slide-in, a hidden tab) or before late content (cards, pictures) grew the page, and later renders then read
+  // "not at the bottom" and never scrolled. Now each scroll area remembers whether it is pinned: Kiko scrolling up unpins it,
+  // scrolling back to the end pins it again, and while pinned any change of size or content scrolls it to the end.
+  function pinBottom(el, inner, page) {
+    el._pin = true;
+    el.addEventListener('scroll', function () { if (el.clientHeight) el._pin = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }, { passive: true });
+    var go = function () { if (el._pin && el.clientHeight && !$(page).hidden) el.scrollTop = el.scrollHeight; };   // the Threads list is never pinned
+    if (window.ResizeObserver) { var ro = new ResizeObserver(go); ro.observe(el); inner.forEach(function (x) { ro.observe(x); }); }
+    window.addEventListener('resize', go); document.addEventListener('visibilitychange', go);
+  }
+  pinBottom($('scroller'), [$('msgs')], 'page-chat'); pinBottom($('pscroll'), [$('tmsgs')], 'page-thread');
   function renderChat() {
-    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    var sc = $('scroller'), atBottom = sc._pin, th = threads();
     var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
     renderMain(th);
-    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
-    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (!$('page-chat').hidden && (atBottom || grew)) { sc._pin = true; sc.scrollTop = sc.scrollHeight; }
+    var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
       lastThread = tn; renderThread(t);
-      if (!toSpot() && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
+      if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
     renderPaneTabs(th); renderThreadList(th);
   }
@@ -799,7 +822,7 @@
   // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
   // CUE-ONE-THREADS-2026-11-01: the badge counts threads waiting on Kiko, the same as the list's "Waiting on you" group, not tasks
   // (a thread with two waiting tasks counted twice: 7 on the button, 6 in the list).
-  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length; }
+  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && listShows(th[k]) && threadState(th[k]).need; }).length; }
   function renderWidgets() {
     var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; }), nn = needThreadsN(threads());
     $('needCount').hidden = !nn; $('needCount').textContent = nn;
