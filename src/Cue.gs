@@ -13,7 +13,7 @@ const CUE_VERSION_ = 'Cue 1.28.11';   // 1.28.10 + New PhilGEPS read by code hou
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
-  Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
+  Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
@@ -28,7 +28,8 @@ const CUE_TABS_ = {
   'Accreditation Mail': ['Time', 'Message ID', 'Company', 'From', 'Subject', 'Thread'],           // CueAccred.gs: client accreditation replies already posted
   'Messenger People': ['PSID', 'Email', 'Name', 'Last message', 'Chat']                           // CUE-MSGR-2026-11-02: crew linked on Messenger, one chat each
 };
-const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
+const CUE_CELL_ = 45000, CUE_CELLS_ = 10;          // a request's JSON is split over up to 10 cells (a cell holds 50,000 chars). BID-CHECK-SIZE-2026-11-03:
+                                                    // 4 cells (180,000 chars) were too few for the daily bid check (210,412 on 3 Nov, 310,994 on 1 Nov), so it stopped.
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
 const CUE_LEASE_MS_ = 5 * 60 * 1000;               // one run at a time per request; a stuck run is resumed after this
 
