@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.11: New PhilGEPS read by code, Cowork removed, bid range up to ₱1,000,000 (not deployed)
+## Cue 1.28.11: New PhilGEPS read by code, Cowork removed, bid range up to ₱1,000,000 (LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko on 3 Nov 2026 at 14:36Z, in the Canvas project: "We removed co-work because it uses a lot of usage and then we just used script
 or code. And then it was able to download it." The code reader is Cue PR #284 (merged to main on 1 Nov 2026, never live), rebuilt
@@ -20,7 +20,7 @@ Region IV-A "2. Yes"; Quezon province "3. No"; "QC or Quezon City is ok"), kept 
 - Tests: `test/features/83-philgeps-code.js` (PGS1 to PGS6), BD1 and SC4 updated, harness answers philgeps.gov.ph; 630 tests pass.
   FEATURE-MAP.md refreshed with `node tools/map.mjs`.
 
-## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
+## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption
 because it has so much more details about the post". Cue has read that field (`lblAbstractText` under the page's "Description" label)
@@ -35,7 +35,7 @@ the before and after mockup (`canvas-integration/mockups/philgeps-description-ca
 - No new AI call, no new fetch, no Canvas change. Notices already copied get the full text from their saved record at the next check.
 - Tests: `test/features/82-philgeps-description.js` (2 tests), BO4 updated for the kept line breaks; 619 tests pass.
 
-## Cue 1.28.9: scheduled job reports in their own threads (not deployed)
+## Cue 1.28.9: scheduled job reports in their own threads (LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko asked on 3 Nov 2026 06:40Z: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an
 update to me every step"; 10:13Z picked "Own thread in Team Cue"; 10:15Z "ok" on the mockup
@@ -43,7 +43,7 @@ canvas-integration/mockups/job-threads/job-threads-before-after.png. The 8 AM an
 the main chat gets one short line that opens each ("8 AM update is ready.", "2 PM chasers: 4 for your OK"). The 2 PM funnel
 follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. A reply of "1, 3" works in the main chat or in the chasers thread. Built on live Version 191 (1.28.5). Tests: 615/615 (new K82).
 
-## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, not deployed)
+## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko asked on 3 Nov 2026 06:29Z: "its so hard coz i have to scroll all the way... please change that", and on 10:14Z, when the
 newest line was moved to the top: "at top?\"???????? should be at the boottom!!". So the newest line stays at the bottom, and the
@@ -58,7 +58,7 @@ fix is that Cue lands there.
   the new code leaves both at 0, and a chat Kiko scrolled up stays where he left it.
 - Tests: `test/features/82-chat-stays-at-bottom.js` (SB1, SB2). The newest-on-top change (1.28.7 on rel1286) is dropped.
 
-## Cue 1.28.7: each new email's post in the main chat gives its context (not deployed)
+## Cue 1.28.7: each new email's post in the main chat gives its context (LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko asked on 3 Nov 2026 at 10:15Z, in the Cue project: "when you post on the left give some context. like what did they send, what
 time, what is it for, what do they expect, what needs to be done after?" Built on 1.28.6 (new mail in the main chat only).
@@ -71,7 +71,7 @@ time, what is it for, what do they expect, what needs to be done after?" Built o
 - The email's own chat still starts with Cue's full read. Emails whose type is set to One line keep their one line.
 - Tests: `test/features/81-mail-left-only.js` ML4 and ML5; ACC7 and ACC9 updated for the new post. 619 tests pass.
 
-## Cue 1.28.6: new mail shows only in the main chat (not deployed)
+## Cue 1.28.6: new mail shows only in the main chat (LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 
 Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
 to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
