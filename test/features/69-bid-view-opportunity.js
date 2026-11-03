@@ -41,12 +41,12 @@ test('BO3 the notice page gives the agency\'s description, contact, delivery per
   deq([f.solicitation, f.delivery, f.category, f.mode, f.doc_requests], ['Goods 2026-150', '30 Day/s', 'Audio and Visual Equipment', 'Negotiated Procurement - Small Value Procurement (Sec. 34)', 11]);
 });
 test('BO4 Cue saves a PDF copy of each old PhilGEPS notice once, and the card shows the description, category, delivery period and the copy', () => {
-  const site = log => req => { const m = req.url.match(/refID=(\d+)/); if (m && m[1] === '13310846') { (log.abs = log.abs || []).push(req.url); return PG_ABS_FULL.replace(/13318074/g, '13310846').replace('251,100.00', '500,000.00'); } return PG_SITE(log)(req); };
+  const site = log => req => { const m = req.url.match(/refID=(\d+)/); if (m && m[1] === '13310846') { (log.abs = log.abs || []).push(req.url); return PG_ABS_FULL.replace(/13318074/g, '13310846').replace('251,100.00', '500,000.00').replace(/Procurement of Office Supplies/g, 'Lights and Sounds for the Year-end Program'); } return PG_SITE(log)(req); };
   const t = bidBox({ gpt: { bids: [{ sources: SRC(['New PhilGEPS', 'Other PhilGEPS']), items: [] }, { sources: [], items: [] }, { sources: [], items: [] }], bid_docs: BID_DOCS }, philgeps: req => site(t.log)(req) });
   const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
   const x = v.bids.items.filter(i => i.reference === '13310846')[0];
   assert.ok(x, 'the notice is on the card');
-  assert.ok(/^Good day! Kindly refer to the attached RFQ Form/.test(x.summary), 'the agency\'s description, not the category and mode: ' + x.summary);
+  assert.ok(/^Good day!\n\nKindly refer to the attached RFQ Form/.test(x.summary), 'the agency\'s description, not the category and mode: ' + x.summary);
   deq(x.details, { category: 'Audio and Visual Equipment', mode: 'Negotiated Procurement - Small Value Procurement (Sec. 34)', delivery: '30 Day/s', solicitation: 'Goods 2026-150', doc_requests: 11 });
   deq(x.contacts.map(c => c.email), ['armmcquotations@gmail.com']);
   assert.ok(/^https:\/\/drive\.google\.com\/file\/d\/f\d+\/view$/.test(x.copy.drive), 'Cue\'s copy');

@@ -120,9 +120,4 @@ function cueAwardTemplate_(it) {
   return { subject: 'Following up: cost estimate for ' + it.project, body: 'Hi ' + first + ',\n\n' + ask + (f.event_date ? ' The event is on ' + f.event_date + '.' : '') + '\n\nThank you,\nKiko\nBlank Space Events' };
 }
 
-cueKind_({ kind: 'award', label: 'CE award chasers', every: CUE_AWARD_.every, max: CUE_AWARD_.max, unit: CUE_AWARD_.unit, sendAllowed: true, find: cueAwardFind_, template: cueAwardTemplate_,
-  draftBrief: 'The client received a cost estimate (CE) from BSE for this event and has not decided on the award. Reply in the CE thread: '
-    + 'ask politely whether they have reviewed it and have a decision, and offer to revise the CE if anything needs to change. Name the '
-    + 'project and the event date from facts. facts.chaser_number 1 is a gentle first follow-up; 2 and 3 are firmer but still warm. '
-    + 'When facts.urgent is true the event is only days away: ask kindly for a decision today so BSE can proceed. '
-    + 'Never mention prices, totals, discounts, deadlines or holds, and never promise anything.' });
+cueKind_({ kind: 'award', label: 'C6 CE award chasers', every: CUE_AWARD_.every, max: CUE_AWARD_.max, unit: CUE_AWARD_.unit, sendAllowed: true, find: cueAwardFind_, template: it => cueTplC6_(it) /* CUE-TEMPLATES-2026-10-31: Kiko's C6 wording, no AI */ });

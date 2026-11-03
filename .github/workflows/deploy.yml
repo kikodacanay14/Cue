@@ -1,8 +1,7 @@
 name: Deploy Cue
 # Ships src/ onto Cue's web app (same /exec address) with clasp, signed in as deploy.json's account (see tools/deploy.mjs).
 # mode=check only reads and shows what would change. mode=preview puts the code on the test link (/dev) only; live is
-# untouched. mode=test makes a version and points only the separate "Cue test" deployment at it (Canvas ?dev=1 frames it,
-# since /dev cannot load inside Canvas; Kiko 24 Oct 09:13Z); live is untouched. mode=deploy runs the tests first and stops if any fail.
+# untouched. mode=deploy runs the tests first and stops if any fail.
 # Auto-preview (Kiko 22 Oct 2026): when Test Cue passes on a push to main, this runs mode=preview by itself, so /dev always
 # equals main. Live (/exec) is never touched automatically. Pause it with the repo variable CUE_AUTO_PREVIEW = off
 # (Settings > Secrets and variables > Actions > Variables). Note: Apps Script triggers run head, so they run main's code too.
@@ -10,9 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: check, preview, test or deploy
+        description: check, preview or deploy
         required: true
         default: check
+  # Security note: workflow_run is safe here because it's restricted to the main branch only.
+  # This prevents privilege escalation attacks from untrusted pull requests, as only commits
+  # that have already been merged to main (and passed review) can trigger this workflow.
   workflow_run:
     workflows: [Test Cue]
     types: [completed]
@@ -63,7 +65,7 @@ jobs:
         env:
           MODE: ${{ github.event_name == 'workflow_run' && 'preview' || inputs.mode }}
         run: |
-          case "$MODE" in check|preview|test|deploy) ;; *) echo "mode must be check, preview, test or deploy"; exit 1;; esac
+          case "$MODE" in check|preview|deploy) ;; *) echo "mode must be check, preview or deploy"; exit 1;; esac
           node tools/deploy.mjs "$MODE"
       - if: always()
         run: rm -f ~/.clasprc.json

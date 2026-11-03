@@ -2,21 +2,23 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
     var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
     if (!it) {
-      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
-      h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
+      // CUE-ONE-THREADS-2026-11-01 (Kiko 1 Nov, screenshot: "two words here that says Threads. remove the 2nd", and the 7 vs 6 counts):
+      // the pane header no longer repeats "Threads" and its count; the ☰ Threads button carries the one count (needThreadsN).
+      h = '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Settings') + x;
     } else {
       var t = thOf(th, it.id), name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = '<span class="crumb"><button data-p="list">Threads</button><span class="sep">›</span><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      // CRUMB-NO-THREADS-2026-10-31 (Kiko 31 Oct: "remove the 2nd Threads >"): the thread's name only; the ☰ Threads tab opens the list.
+      h = '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
-      var open = t && !t.hst && t.reqs.some(function (r) { return !CLOSED[r.status]; });
+      var open = t && t.reqs.some(function (r) { return !CLOSED[r.status]; });
       h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
-        + (t && !t.hst && t.reqs[0] && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
+        + (t && t.reqs[0] && t.reqs[0].kind !== 'sweep' && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
       h += '<span class="pane-wide">' + ib('data-p="wide"', wide ? 'narrow' : 'wide', wide ? 'Narrow the pane' : 'Widen the pane', wide) + '</span>' + ib('data-p="close"', 'x', 'Close ' + name);
     }
-    setHtml($('ptabs'), h);
+    setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
   var tq = '', tshut = {}, tmore = false;
@@ -31,7 +33,7 @@
   function renderThreadList(th) {
     var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
-      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
       var lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
@@ -43,7 +45,7 @@
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
     // A row: dot, bold title, a two-line status (Needs you / Failed in amber, like Claude's "Blocked"), replies, and time.
-    var row = function (x) { return '<button class="trow' + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
+    var row = function (x) { return '<button class="trow cat-' + threadCat(th[x.k]) + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"><i class="dot" style="background:' + x.st.color + '"></i>'
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
       + (x.nm ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + x.nm + ' email' + (x.nm === 1 ? '' : 's') + ' waiting">' + x.nm + '</i>' : '')   // New mail: emails still waiting
       + (x.n ? '<span class="chip" title="' + x.n + ' message' + (x.n === 1 ? '' : 's') + '">' + icon('reply') + x.n + '</span>' : '')
@@ -240,7 +242,7 @@
       call('cueBatchStart', [ref()], function (v) { state.batches = v; renderBatch(); }, function (e) { alertErr(e, ref()); });
     };
   });
-  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };
+  $('send').onclick = function () { sendFrom($('box'), 'files', ''); };   // Enter shares this path, so a reply goes with either
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
@@ -249,14 +251,15 @@
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
-      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: ref, time: '', box: box, sent: Date.now() };
+      var rp = !ref && box === $('box') && !files.length ? replyTo : ''; if (rp) setReply('');
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
     if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
     if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueSend', [t, files, mode, ref], function (r) {
+    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || ''], function (r) {
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
@@ -365,7 +368,7 @@
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
-  $('box').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('box').addEventListener('keydown', function (e) { if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
@@ -402,10 +405,20 @@
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
   function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
   var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
-  var OLDK = { bids: 1, gtask: 1, pipeline: 1, funnel: 1, hubspot: 1, status: 1, skillobs: 1 };   // the same list as CUE_OLD_KINDS_ in CueSweep.gs
+  var OLDK = { bids: 1, gtask: 1, funnel: 1, status: 1, skillobs: 1 };   // the same list as CUE_OLD_KINDS_ in CueSweep.gs
   function oldRun(th) {
     var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
     return !!th && th.reqs.some(function (r) { return OLDK[r.kind] && !r.phased && (r.status === 'Needs you' || r.status === 'Failed') && r.created && new Date(Date.parse(r.created) + 8 * 3600000).toISOString().slice(0, 10) < today; });
+  }
+  // Kiko 3 Nov 2026 06:30Z: "the new mails are redundant. only make them appear on the left. if i ask it to do an action that is the
+  // only time it will show in the threadss". An email's own chat (kind mail) and a new-kind-of-email question (mailtype) show only in
+  // the main chat, not in the Threads list or its count. A mail chat joins the list once Kiko asks Cue something in it (any message
+  // but a plain "done") or another task joins it (the reply draft, an intake). The chat itself still opens from its line on the left.
+  var MAIL_ONLY = { mail: 1, mailtype: 1 }, MAIL_DONE = /^(done|ok,? done|got it|mark (it |this )?(as )?done|close( it| this)?)[.!]?$/i;
+  function listShows(th) {
+    if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
+    return th.reqs.some(function (r) { return r.kind === 'mail'; })
+      && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
   }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
@@ -415,9 +428,8 @@
     return { color: 'var(--muted)', text: last ? last.status : '' };
   }
   function threadTitle(th) {   // a reopened thread keeps its name while the new run is still being read
-    if (th.hst) return 'HubSpot tasks';
     var subj = th.reqs.filter(function (r) { return r.subject && r.subject.title; })[0]; if (subj) return subj.subject.title;   // CUE-SUBJECTS-2026-10-30: Morning, Sales, Friday events
-    var nm = function (r) { return (r.kind === 'help' && r.help && 'Help · ' + r.help.ask) || (r.kind === 'newmail' && r.nm && 'New mail · ' + r.nm.day) || (r.kind === 'accred' && r.acc && 'Accreditation · ' + r.acc.company) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.pipe && r.pipe.title) || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.hs && r.hs.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
+    var nm = function (r) { return (r.kind === 'help' && r.help && 'Help · ' + r.help.ask) || (r.kind === 'newmail' && r.nm && 'New mail · ' + r.nm.day) || (r.kind === 'accred' && r.acc && 'Accreditation · ' + r.acc.company) || (r.gt && r.gt.title) || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.kind === 'personal' && personalName(r)) || (r.kind === 'cecost' && 'CE costs · ' + ((r.cec && r.cec.project && r.cec.project.name) || (r.cec && r.cec.ask) || 'a project')) || (r.workflow && r.workflow.name && 'Map: ' + r.workflow.name) || (r.fin && r.fin.title) || (r.vendor && r.vendor.ask) || (r.ready && ((r.ready.project && r.ready.project.name) || r.ready.ask)) || (r.change && r.change.project) || (r.proposal && r.proposal.client && r.proposal.client.company) || r.name || (r.ar && r.ar.project ? (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project : '') || (r.expense && r.expense.project ? 'Expense · ' + r.expense.project.name : '') || (r.bids && r.bids.title) || (r.supplier && r.supplier.record.Supplier ? 'Supplier · ' + r.supplier.record.Supplier : '') || ''; };
     // Kiko 18:41Z option: the first task that has a name names the thread, so a later task filed into it (an expense) does not rename it.
     for (var i = 0; i < th.reqs.length; i++) if (th.reqs[i].kind !== 'sweep' && nm(th.reqs[i])) return nm(th.reqs[i]);
     // PC test 18:15Z: a thread showing the Unilever intake was titled "Morning batch 10/22". The newest task that is not a batch names it.
@@ -435,13 +447,13 @@
       intake: { name: 'Project intake', family: 'approve', steps: null, card: null },
       change: { name: 'Change request', family: 'draft', steps: CHANGE, card: function (r) { return !!r.change; } },
       newmail: { name: 'New mail', family: 'question', steps: null, card: function () { return true; } },   // CueNewMail.gs: one card per day
+      mail: { name: function (r) { return r.text || 'Email'; }, family: 'info', steps: null, card: null },   // CueMailChat.gs: one chat per email (ACC-6)
+      mailtype: { name: function (r) { return r.text || 'New kind of email'; }, family: 'question', steps: null, card: null },   // ACC-5
       sweep: { name: function (r) { return 'Morning batch ' + String(r.day || '').slice(5).replace('-', '/'); }, family: 'draft', steps: null, card: null },
       readiness: { name: 'Readiness check', family: 'draft', steps: READY, card: null },
-      pipeline: { name: 'Pipeline review', family: 'draft', steps: PIPE, card: null },
       funnel: { name: 'Sales funnel', family: 'info', steps: FUNNEL, card: null },
       accred: { name: function (r) { return 'Accreditation · ' + ((r.acc && r.acc.company) || ''); }, family: 'info', steps: null, card: function (r) { return !!r.acc; } },   // CueAccred.gs
       ar: { name: function (r) { return r.ar && r.ar.doc === 'fsa' ? 'FSAs' : 'Receipts'; }, family: 'draft', steps: ARSTEPS, card: function (r) { return !!r.ar; } },
-      hubspot: { name: 'HubSpot clean-up', family: 'approve', steps: HSTEPS, card: function (r) { return !!r.hs; } },
       status: { name: 'Friday status updates', family: 'draft', steps: STSTEPS, card: function (r) { return !!r.st; } },   // CueStatus.gs
       bids: { name: 'Bid check', family: 'info', steps: null, card: function () { return true; } },
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
@@ -453,26 +465,21 @@
       expense: { name: 'Expense', family: 'approve', steps: EXPENSE, card: function () { return true; } },
       cecost: { name: 'CE costs', family: 'approve', steps: CECOST, card: function (r) { return !!r.cec; } },
       relnotes: { name: 'Release notes', family: 'approve', steps: null, card: function (r) { return !!r.rn; } },   // CUE-RELNOTES-2026-10-27
+      k0: { name: '8 AM update', family: 'info', steps: null, card: null },   // CUE-K0-2026-10-31: the morning message; its thread holds the new contacts list
       style: { name: 'Writing style', family: 'approve', steps: STYLE, card: null },
       memory: { name: 'Teach Cue: memory', family: 'approve', steps: TEACH, card: null },
       process: { name: 'Teach Cue: process', family: 'approve', steps: TEACH, card: null },
       email: { name: 'Email', family: 'draft', steps: MAILSTEPS, card: null },
       finance: { name: 'Money', family: 'info', steps: null, card: null },
       help: { name: 'Help answer', family: 'info', steps: null, card: function (r) { return !!r.help; } },
-      inbox: { name: '', family: 'info', steps: null, card: null }
+      inbox: { name: '', family: 'info', steps: null, card: null },
+      removed: { name: 'Removed task', family: 'info', steps: null, card: null }   // HUBSPOT-REMOVAL-2026-11-01: a saved run of a kind Cue no longer has
     };
     return Object.prototype.hasOwnProperty.call(kindsMemo, r.kind) ? kindsMemo[r.kind] : kindsMemo.intake;
   }
   function kindName(r) { var n = kindOf(r).name; return (typeof n === 'function' ? n(r) : n) || 'Project intake'; }
   // Kiko's replies in a thread go to its newest task, so the chat model and any redo see the latest state.
-  /* 1.27.25 (PC recheck 24 Oct 15:00Z): Review tasks opens its own pane tab, "hst:<funnel run>", that shows only that run's HubSpot
-     tasks, so it needs no jump inside the funnel thread. It is a view of the funnel run, not a run of its own: replies and Mark done go
-     to the run. A run the page no longer has falls back to the newest funnel run. */
-  function thOf(th, id) {
-    if (String(id).indexOf('hst:') !== 0) return th[id];
-    var r = byId()[String(id).slice(4)] || state.requests.filter(function (x) { return x.kind === 'funnel' && x.fn; })[0];
-    return { root: id, lines: [], reqs: r ? [r] : [], hst: true };
-  }
+  function thOf(th, id) { return th[id]; }   // HUBSPOT-REMOVAL-2026-11-01: the separate tasks tab is gone
   function threadRef() { if (!openThread) return ''; var th = thOf(threads(), openThread), r = th && th.reqs[th.reqs.length - 1]; return r ? r.id : openThread; }
   function ago(iso) {
     var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -481,10 +488,38 @@
   function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + '><span class="who">' + esc(m.who) + '</span>' + tickText(m) + askHtml(m) + '</div>';
+    // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
+    // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
+    var rid = m.who !== 'Kiko' && /^>cue-/.test(m.request_id || '') ? m.request_id.slice(1) : '';
+    var qid = String(m.request_id || '').charAt(0) === '\u21a9' ? m.request_id.slice(1) : '';
+    var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + tickText(m) + askHtml(m)
+      + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + '</div>';
   }
+  // The quoted message's first line: the 8 AM title, or the task's thread name.
+  function replyTitle(id) {
+    var line = null; state.chat.forEach(function (x) { if (x.request_id === '>' + id && x.who !== 'Kiko' && !line) line = x; });
+    var t = line ? String(line.text || '').split('\n')[0] : '', r = byId()[id];
+    return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
+  }
+  var replyTo = '';   // the task id Kiko is replying to from the main chat box
+  function setReply(id) {
+    replyTo = id || ''; var bar = $('replybar'); if (!bar) return;
+    bar.hidden = !replyTo; $('replyto').textContent = replyTo ? replyTitle(replyTo) : '';
+    if (replyTo) $('box').focus();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-reply], #replyx'); if (!b) return;
+    e.stopPropagation(); setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
+  }, true);
+  var pressT = 0;   // a long press on a phone
+  document.addEventListener('touchstart', function (e) {
+    var m = e.target.closest && e.target.closest('#msgs .msg[data-rid]'); if (!m) return;
+    pressT = setTimeout(function () { pressT = 0; setReply(m.getAttribute('data-rid')); }, 500);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(function (k) { document.addEventListener(k, function () { if (pressT) { clearTimeout(pressT); pressT = 0; } }, { passive: true }); });
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
-  var ASKL = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
+  var ASKL = { intake: 'Project intake', readiness: 'Readiness check', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
     go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
@@ -504,13 +539,16 @@
   function askHtml(m) {
     var q = askOf(m); if (!q || !q.open) return '';
     if (state.chat.some(function (c) { var a = askOf(c); return a && !a.open && a.id === q.id; })) return '';   // answered
+    // ACC-12 (Kiko 2 Nov 2026: "if this is in Ask Cue chat - dont pu options - i will reply in the message"): an Approve question
+    // shows no buttons; Kiko types "approve" or "not" in the chat (cueAskSaid_ in CueEditLog.gs answers it).
+    if (q.choices.join(',') === 'approve,not') return '<div class="small muted" style="margin-top:6px">Reply "approve" or "not".</div>';
     return '<div class="actions" style="margin-top:8px">' + q.choices.map(function (c, i) {
       return '<button class="btn' + (c === 'chat' || c === 'no' || c === 'undo' || c === 'again' ? ' ghost' : i ? ' ghost' : '') + '" data-act="ask-pick" data-id="' + esc(q.id) + '" data-pick="' + esc(c) + '">' + esc(ASKL[c] || c) + '</button>';
     }).join('') + '</div>';
   }
   // "Wrong command?" (Kiko 17:00Z): on a waiting task that came from a message. Pick the right one; Cue redoes it and asks once to remember.
   function wrongHtml(r) {
-    var now = { intake: 'intake', change: 'intake', readiness: 'readiness', pipeline: 'pipeline', ar: 'ar', vendor: 'vendor', workflow: 'workflow', email: 'email', finance: 'money' }[r.kind];
+    var now = { intake: 'intake', change: 'intake', readiness: 'readiness', ar: 'ar', vendor: 'vendor', workflow: 'workflow', email: 'email', finance: 'money' }[r.kind];
     return '<details class="small" style="margin:0 0 10px"><summary class="muted">Wrong command?</summary><div class="actions" style="margin-top:6px">'
       + '<select data-wc="' + esc(r.id) + '" aria-label="The right command">' + Object.keys(ASKL).filter(function (k) { return k !== now && !/^(yes|no|keep|undo)$/.test(k); })
         .map(function (k) { return '<option value="' + k + '">' + esc(ASKL[k]) + '</option>'; }).join('') + '</select>'
@@ -530,7 +568,46 @@
     }).join(', ');
   }
   // A chat line's text: the connect ticktick link, and CUE-CANVAS tokens drawn as "Open in Canvas" buttons.
+  /* CUE-CANVAS-LOOK-2026-10-31 (Kiko 31 Oct "For Project related updates we can do Cyan. For CRM and Funnel updates - we can do Orange,
+     for the rest we can do the violet"; sorting approved "A"; HubSpot is being removed, so it is not CRM here). CRM wins over project. */
+  var CAT_CRM = { bids: 1, crm: 1, funnel: 1, contacts: 1, winback: 1, inquiry: 1 };
+  var CAT_PROJ = { intake: 1, project: 1, readiness: 1, status: 1, change: 1, cecost: 1, expense: 1, supplier: 1, vendor: 1 };
+  function threadCat(t) {
+    var rs = (t && t.reqs) || [];
+    if (rs.some(function (r) { return CAT_CRM[r.kind] || /funnel|win-?back|inquiry/i.test(String(r.sweep || r.sub || '')); })) return 'crm';
+    if (rs.some(function (r) { return CAT_PROJ[r.kind] || /^SCP\d/i.test(String(r.project || '')); })) return 'proj';
+    return 'gen';
+  }
+  // A message's sent time: "1:39 PM" today, "Oct 30, 4:12 PM" before.
+  function msgWhen(v) {
+    var d = new Date(v); if (!v || isNaN(d)) return '';
+    var t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + t;
+  }
+  // Lines that start with "1." / "1)" / "-" / "•" become real lists (indent = nesting); a paragraph written "… 1) a 2) b" is split first.
+  function listify(t) {
+    t = String(t || '').replace(/(^|[^\n])\s+(1[.)])\s+(?=\S[^\n]*\s2[.)]\s)/g, '$1\n$2 ');
+    if (/(^|\n)1[.)] /.test(t)) t = t.replace(/([^\n])\s+(\d{1,2}[.)])\s+(?=[A-Z])/g, '$1\n$2 ');
+    var lines = t.split('\n'), out = [], stack = [];
+    var close = function (lvl) { while (stack.length > lvl) out.push('</li></' + stack.pop() + '>'); };
+    lines.forEach(function (ln) {
+      var m = ln.match(/^(\s*)(\d{1,2}[.)]|[-•*])\s+(.*)$/);
+      if (!m) { close(0); out.push({ p: ln }); return; }
+      var lvl = Math.min(3, Math.floor(m[1].replace(/\t/g, '    ').length / 2) + 1), tag = /\d/.test(m[2]) ? 'ol' : 'ul';
+      if (stack.length > lvl) close(lvl);
+      if (stack.length === lvl) out.push('</li><li>');
+      while (stack.length < lvl) { stack.push(tag); out.push('<' + tag + ' class="ml"><li>'); }
+      out.push({ p: m[3], li: 1 });
+    });
+    close(0);
+    return out;
+  }
   function richText(t) {
+    if (/(^|\n)\s*(\d{1,2}[.)]|[-•*])\s/.test(t) || /\s1\)\s.*\s2\)\s/.test(t)) return listify(t).map(function (x) {
+      return typeof x === 'string' ? x : richText1(x.p) + (x.li ? '' : '\n'); }).join('').replace(/\n(<(ol|ul) class="ml">)/g, '$1').replace(/\n$/, '');
+    return richText1(t);
+  }
+  function richText1(t) {
     var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
     var out = '', last = 0, m; CV_TOK.lastIndex = 0;
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
@@ -539,22 +616,35 @@
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
+  // Kiko 3 Nov 2026 ("its so hard coz i have to scroll all the way", then "should be at the boottom!!"): the newest line stays at the
+  // bottom and Cue keeps the chat and an open thread pinned there. The pin was lost when the first scroll ran before the page had
+  // its size (Canvas's slide-in, a hidden tab) or before late content (cards, pictures) grew the page, and later renders then read
+  // "not at the bottom" and never scrolled. Now each scroll area remembers whether it is pinned: Kiko scrolling up unpins it,
+  // scrolling back to the end pins it again, and while pinned any change of size or content scrolls it to the end.
+  function pinBottom(el, inner, page) {
+    el._pin = true;
+    el.addEventListener('scroll', function () { if (el.clientHeight) el._pin = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }, { passive: true });
+    var go = function () { if (el._pin && el.clientHeight && !$(page).hidden) el.scrollTop = el.scrollHeight; };   // the Threads list is never pinned
+    if (window.ResizeObserver) { var ro = new ResizeObserver(go); ro.observe(el); inner.forEach(function (x) { ro.observe(x); }); }
+    window.addEventListener('resize', go); document.addEventListener('visibilitychange', go);
+  }
+  pinBottom($('scroller'), [$('msgs')], 'page-chat'); pinBottom($('pscroll'), [$('tmsgs')], 'page-thread');
   function renderChat() {
-    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    var sc = $('scroller'), atBottom = sc._pin, th = threads();
     var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
     renderMain(th);
-    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
-    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (!$('page-chat').hidden && (atBottom || grew)) { sc._pin = true; sc.scrollTop = sc.scrollHeight; }
+    var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
       lastThread = tn; renderThread(t);
-      if (!toSpot() && !t.hst && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
+      if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
     renderPaneTabs(th); renderThreadList(th);
   }
-  // CUE-TODAY: the scheduled jobs' runs (bid check, morning batch, HubSpot check, status report, pipeline review, ChatGPT tasks).
-  var TODAY_K = { sweep: 1, bids: 1, hubspot: 1, status: 1, pipeline: 1, gtask: 1 };
+  // CUE-TODAY: the scheduled jobs' runs (bid check, morning batch, status report, ChatGPT tasks).
+  var TODAY_K = { sweep: 1, bids: 1, status: 1, gtask: 1 };
   function phDay(iso) { var t = Date.parse(iso); return isNaN(t) ? '' : new Date(t + 8 * 3600000).toISOString().slice(0, 10); }
   function jobDay(pt) { var r = pt && pt.reqs.filter(function (x) { return TODAY_K[x.kind]; })[0]; return r ? phDay(r.created) : ''; }
   // One line a day: what needs Kiko (tap opens that run's thread), who did it, and what is done. Today's rows come from the
@@ -580,8 +670,13 @@
     var prev = null;
     allLines().forEach(function (m) { one(m); prev = m; });
     function one(m) {
+      if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) { h += msgHtml(m); return; }
+      // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message.
+      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
+      // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
+      if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
@@ -601,6 +696,7 @@
       h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+    if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
   function rowHtml(root, t, head) {
@@ -648,11 +744,6 @@
       }).join('') + '</tbody></table><div class="actions"><button class="btn ghost" data-today-done="' + day + '">Done for now</button></div></div>';
   }
   function renderThread(t) {
-    if (t.hst) {
-      var f = t.reqs[0]; setHtml($('tdock'), '');
-      setHtml($('tmsgs'), f && f.fn && f.fn.stages && f.status !== 'Failed' ? funnelCardHtml(f, 'tasks') : '<div class="small muted">No HubSpot task list yet. Say "my HubSpot tasks" in the chat.</div>');
-      return bind();
-    }
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
     var kiko = t.lines.some(function (m) { return m.who === 'Kiko'; });
@@ -671,7 +762,7 @@
       else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
       else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
       else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || r.pipe || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h += cardHtml(r);
+      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h += cardHtml(r);
       else h += doneHtml(r);
     });
     if (threadTitle(t) === 'Morning') h = h.slice(0, cardsAt) + todayTasksHtml(t) + h.slice(cardsAt);   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
@@ -709,7 +800,7 @@
     if (r.kind === 'expense') return expenseCardHtml(r, reopen);
     if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
     var p = r.proposal || {}, c = p.client || {}, cv = r.canvas || {}, rd = r.ready && r.ready.canvas, v = r.vendor, vp = v && v.pick && (v.cands || []).filter(function (x) { return x.k === v.pick.k; })[0];
-    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+    return '<div class="card"><b>' + esc(c.company || (r.kind === 'style' && 'Your writing style') || (r.kind === 'memory' && 'Learn my memory') || (r.kind === 'process' && 'Learn my process') || (r.kind === 'email' && 'Email to ' + ((r.mail && r.mail.to) || 'someone')) || (r.change && r.change.project) || (r.ready && r.ready.project && r.ready.project.name) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.hs && r.hs.title) || (v && 'Suppliers: ' + v.ask) || personalName(r) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (rd ? '<div class="small">Readiness: ' + esc(rd.counts.blockers_total - rd.counts.blockers_open) + ' of ' + esc(rd.counts.blockers_total) + ' blockers clear, ' + esc(rd.counts.warnings_open) + ' warnings open</div>' : '')
       + (v ? '<div class="small">' + esc((v.cands || []).length) + ' supplier' + ((v.cands || []).length === 1 ? '' : 's') + (vp ? ' · Claude\'s pick: ' + esc(vp.name) : '') + '</div>' : '')
       + (cv.project_id ? '<div class="small">Canvas project ' + esc(cv.project_number || '') + ' (' + esc(cv.project_id) + ')' + (cv.date_tbc ? ', Date TBC' : '') + '</div>' + foldersHtml(r) : '')
@@ -718,7 +809,7 @@
   }
   function reopenedHtml(r) {
     var p = r.proposal || {}, c = p.client || {};
-    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.pipe && r.pipe.title) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.vendor && 'Suppliers: ' + r.vendor.ask) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
+    return '<div class="card need"><b>' + esc(c.company || (r.change && r.change.project) || (r.ar && (r.ar.doc_many || 'ARs') + ' for ' + r.ar.project) || (r.vendor && 'Suppliers: ' + r.vendor.ask) || (r.workflow && 'Map: ' + (r.workflow.name || 'workflow')) || 'Intake') + '</b> <span class="muted small">Reopened</span>'
       + '<div class="small muted">Tell Cue what to do next. Nothing runs until you do.</div>'
       + '<div class="actions"><button class="btn ghost" data-act="close-task" data-id="' + esc(r.id) + '">Close again</button></div></div>';
   }
@@ -729,9 +820,12 @@
       return x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> <span class="muted">(' + esc(x.folder) + ')</span>' : esc(x.name) + ' <span class="muted">(not saved yet)</span>'; }).join(', ') + '</div>';
   }
   // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
+  // CUE-ONE-THREADS-2026-11-01: the badge counts threads waiting on Kiko, the same as the list's "Waiting on you" group, not tasks
+  // (a thread with two waiting tasks counted twice: 7 on the button, 6 in the list).
+  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && listShows(th[k]) && threadState(th[k]).need; }).length; }
   function renderWidgets() {
-    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; });
-    $('needCount').hidden = !need.length; $('needCount').textContent = need.length;
+    var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; }), nn = needThreadsN(threads());
+    $('needCount').hidden = !nn; $('needCount').textContent = nn;
     if (need.some(function (r) { return ACCESS_RE.test(r.error || ''); })) accessNeeded = true;
     setHtml($('w-access'), accessHtml());
     bind();
@@ -750,11 +844,7 @@
   var STSTEPS = [['Finding project', 'Canvas', 'Canvas finds the event you named'], ['Listing events', 'Canvas', 'Canvas lists the active events'],
     ['Readiness scan', 'Canvas', 'Canvas runs a fresh readiness scan for each event'], ['Building emails', 'Canvas', 'Canvas builds each client\'s Friday update'],
     ['Needs you', 'Kiko', 'Each email waits for your Send']];
-  var PIPE = [['Reading HubSpot', 'HubSpot', 'Cue reads your open deals from HubSpot'], ['Checking Gmail', 'Gmail', 'Cue finds the newest email for each deal'],
-    ['Claude reviewing', 'Claude', 'Claude writes where each deal stands and what to do'], ['GPT drafting follow-ups', 'GPT', 'GPT drafts the follow-ups you ticked'],
-    ['Needs you', 'Kiko', 'Waiting for you'], ['Making Gmail drafts', 'Gmail', 'Follow-ups become Gmail drafts in their threads'],
-    ['Sending', 'Gmail', 'Follow-ups go out from your Gmail as replies in their threads']];
-  var FUNNEL = [['Reading HubSpot', 'Canvas', 'Cue reads Canvas\'s P0 to P9 accounts and deals, and your open HubSpot tasks (no AI)'], ['Needs you', 'Kiko', 'Waiting for you']];
+  var FUNNEL = [['Reading Canvas', 'Canvas', 'Cue reads Canvas\'s P0 to P9 accounts and deals (no AI)'], ['Needs you', 'Kiko', 'Waiting for you']];
   var ARSTEPS = [['Finding the project', 'Canvas', 'Canvas finds the project'], ['Reading the list', 'Canvas', 'Canvas lists the people'],
     ['Needs you', 'Kiko', 'Waiting for your ticks'], ['Canvas is making', 'Canvas', 'Canvas makes the files'], ['Ready to send', 'Kiko', 'Send, edit or send later'], ['Sending', 'Canvas', 'Canvas emails them']];
   var VENDOR = [['Reading Canvas', 'Canvas', 'Canvas lists suppliers (Preferred first) and past quotes'], ['GPT researching', 'GPT', 'GPT searches the web for new suppliers'],

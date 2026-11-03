@@ -37,7 +37,6 @@ function cueTutorCmd_(d, t) {
   const v = d.vendor && d.vendor.job && (String(d.vendor.item || '').trim() || (d.vendor.suppliers || []).some(x => String(x || '').trim()) || String(d.vendor.project || '').trim());
   if (d.workflow && d.workflow.job === 'map' && !cuePlanAsk_(t, '')) return 'workflow';
   if (String(d.readiness || '').trim().length >= 2) return 'readiness';
-  if (d.command === 'pipeline') return 'pipeline';
   if (String(d.start_ar || '').trim().length >= 2) return 'ar';
   if (d.email && d.email.job && String(d.email.to || '').trim()) return 'email';
   if (v) return 'vendor';
@@ -207,7 +206,7 @@ function cueTutorPick_(o, pick, note, done) {
   }
   // Not that: the other commands as buttons plus Just chat; the pick is saved so the code learns it.
   cueChat_('Kiko', 'Not that', done);
-  const code = cueTutorCode_(o.text), order = (o.alts || []).concat([code, 'intake', 'vendor', 'readiness', 'email', 'pipeline', 'money']);
+  const code = cueTutorCode_(o.text), order = (o.alts || []).concat([code, 'intake', 'vendor', 'readiness', 'email', 'money']);
   const choices = order.filter((c, i) => c && c !== o.cmd && c !== 'chat' && CUE_ROUTE_CMDS_[c] && order.indexOf(c) === i).slice(0, 3).concat(['chat']);
   const id = cueAskOpen_({ type: 'route', text: o.text, choices, cands: {}, found: '', learn: true }, 'What did you want instead?', choices, o.ref);
   return { chat: true, ask: id };

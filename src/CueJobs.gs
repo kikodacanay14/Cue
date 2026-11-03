@@ -22,20 +22,31 @@ function cueJobs_() {
     { job: 'FSA and AR Send later', fn: 'cueArDue_' },              // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
     { job: 'Emails waiting check', fn: 'cueMaTick_' },              // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
     { job: 'Project log', fn: 'cuePlogFlush_' },                    // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
+    { job: 'Messenger inbox', fn: 'cueMsgrPull_' },                   // CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI
+    { job: 'Messenger sign links', fn: 'cueMsgrTick_' },              // CUE-MSGR-2026-11-02: unsigned FSA and AR links on Messenger, every 15 min, no AI
     { job: 'Release notes at 8 PM', fn: 'cueRnDue_' },              // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM
     { job: 'CRM email log', fn: 'cueCrmLogTick_' },                 // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
-    { job: 'New mail', fn: 'cueNmTick_' },                          // CUE-NEW-MAIL-2026-10-27: new mail in Kiko's inbox and info@, Claude sorts every 30 min
-    { job: 'New contacts from Gmail', fn: 'cueCnTick_' },          // CUE-CONTACT-NEW-2026-10-29: 3-year rewind, then weekly; one Approve card at a time
-    { job: 'CRM work', fn: 'cueCrmTickTick_' },                     // CUE-CRM-TICK-2026-10-29: Canvas's 15-minute CRM work, from Kiko's account (bridge crm_tick)
-    { job: 'Client accreditation mail', fn: 'cueAcTick_' },         // CLIENT-ACCRED-THREADS-2026-10-29: replies into each company's Accreditation thread, every 30 min
+    { job: 'New mail', fn: 'cueNmTick_', row: 'sys-newmail' },                          // CUE-NEW-MAIL-2026-10-27: new mail in Kiko's inbox and info@, Claude sorts every 30 min
+    { job: 'New contacts from Gmail', fn: 'cueCnTick_', row: 'sys-contacts' },          // CUE-CONTACT-NEW-2026-10-29: 3-year rewind, then weekly; one Approve card at a time
+    { job: 'CRM work', fn: 'cueCrmTickTick_', row: 'sys-crm' },                     // CUE-CRM-TICK-2026-10-29: Canvas's 15-minute CRM work, from Kiko's account (bridge crm_tick)
+    { job: 'Client accreditation mail', fn: 'cueAcTick_', row: 'sys-accred' },
+    { job: '8 AM update after the morning batch', fn: 'cueK0Retry_' },   // CUE-K0-2026-10-31: the update waits while the 07:00 batch still drafts         // CLIENT-ACCRED-THREADS-2026-10-29: replies into each company's Accreditation thread, every 30 min
+    { job: 'New PhilGEPS read', fn: 'cueBidsPgTick_' },             // CUE-BIDS-PG-2026-11-01: the public bulletin board, hourly 7 AM to 7 PM, no AI
     { job: 'Schedules', fn: 'cueSchedTick_', last: true }          // last, after the tasks: a task it starts runs on the next tick in its own 6 minutes
   ];
+}
+
+/** CUE-K0-2026-10-31: a background job's On switch (its Schedule row). No row yet = on, as before. One read per tick. */
+function cueJobOn_(id) {
+  if (!globalThis.CUE_JOB_ROWS_) { const m = {}; try { const sh = cueSheet_(CUE_SCHED_TAB_); if (sh) cueSchedRead_(sh).forEach(x => { m[x.id] = x.on; }); } catch (e) { console.warn('Job switches: ' + e); } globalThis.CUE_JOB_ROWS_ = m; }
+  return globalThis.CUE_JOB_ROWS_[id] !== false;
 }
 
 /** Runs one job and adds its row to `rows`. A failure is caught here, so the next job still runs (as the old try chain did). */
 function cueJobRun_(j, rows) {
   const run = globalThis[j.fn];
   if (typeof run !== 'function') return;   // not in this build
+  if (j.row && !cueJobOn_(j.row)) return;   // CUE-K0-2026-10-31: switched off in Cue Admin › Jobs › Scheduled tasks
   const started = new Date(cueNow_());
   let out, err = '';
   try { out = run(); }

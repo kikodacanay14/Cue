@@ -146,25 +146,25 @@ test('IC1 the tab icon loads as the owner\'s Google account (authuser), stays pr
 test('SC8 unscheduled alarm (Kiko 05:20Z, Both): one card lists jobs that will not run and waiting tasks with no date; silent when all is fine; Mute these hides them', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueSchedules();
   const card = () => t.tabs.Chat.rows.filter(r => /^\?ask-/.test(String(r[3])) && /Unscheduled check/.test(r[2])).pop();
-  // Day one: the rows that ship off (HubSpot sales review, the ChatGPT tasks) are listed; nothing waits on Kiko.
+  // Day one: the rows that ship off (Monday sales funnel review, the ChatGPT tasks) are listed; nothing waits on Kiko.
   t.ctx.cueSchedRunNow('sys-unsched'); let c = card();
-  assert.ok(/\d+ to look at/.test(c[2]) && /HubSpot sales review \(Thu 08:00\): switched off/.test(c[2]) && /Monthly engagement email \(15th monthly 16:00\): switched off/.test(c[2]) && /:ok,mute$/.test(c[3]));
+  assert.ok(/\d+ to look at/.test(c[2]) && /Monday sales funnel review \(Mon 07:00\): switched off/.test(c[2]) && /Monthly engagement email \(15th monthly 16:00\): switched off/.test(c[2]) && /:ok,mute$/.test(c[3]));
   assert.ok(!/Tasks waiting on you/.test(c[2]));
   t.ctx.cueAskPick(String(c[3]).match(/^\?(ask-[0-9a-z]+)/)[1], 'mute');
   const n = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched');
   assert.strictEqual(t.tabs.Chat.rows.slice(n).filter(r => /^\?ask-/.test(String(r[3]))).length, 0, 'muted: no card'); assert.ok(/everything is scheduled/.test(t.tabs.Chat.rows.slice(-1)[0][2]));
   // A waiting task with no date shows; one with a reminder does not. A missed run shows.
-  const add = (id, st, extra) => { t.tabs.Requests.appendRow([id]); t.tabs.Requests.rows[t.tabs.Requests.rows.length - 1] = [id, '', st, '', '', 0, '', '', '', '', JSON.stringify(Object.assign({ id, kind: 'pipeline', status: st, ref: '', created: '2026-10-21T01:00:00Z', pipe: { title: 'Pipeline: ' + id } }, extra || {}))]; };
+  const add = (id, st, extra) => { t.tabs.Requests.appendRow([id]); t.tabs.Requests.rows[t.tabs.Requests.rows.length - 1] = [id, '', st, '', '', 0, '', '', '', '', JSON.stringify(Object.assign({ id, kind: 'bids', status: st, ref: '', created: '2026-10-21T01:00:00Z', bids: { title: 'Bids: ' + id } }, extra || {}))]; };
   add('cue-a', 'Needs you'); add('cue-b', 'Needs you', { remind_at: Date.parse('2026-10-23T01:00:00Z') }); add('cue-c', 'Working');
   const rows = t.tabs.Schedule.rows, i = rows.findIndex(r => r[0] === 'sys-status'); rows[i][11] = new Date(Date.parse('2026-10-21T01:00:00Z'));
   const m = t.tabs.Chat.rows.length; t.ctx.cueSchedRunNow('sys-unsched'); c = card();
   assert.ok(t.tabs.Chat.rows.slice(m).indexOf(c) >= 0, 'a new card');
-  assert.ok(/Friday status updates \(Fri 07:00\): missed its/.test(c[2]) && /Pipeline: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
-  assert.ok(!/cue-b|cue-c/.test(c[2]) && !/HubSpot sales review/.test(c[2]), 'reminder set, still working, muted: left out');
+  assert.ok(/Friday status updates \(Fri 17:00\): missed its/.test(c[2]) && /Bids: cue-a: waiting on you \(Needs you\), no due date or reminder/.test(c[2]));
+  assert.ok(!/cue-b|cue-c/.test(c[2]) && !/Monday sales funnel review/.test(c[2]), 'reminder set, still working, muted: left out');
   assert.strictEqual(t.log.gpt.length + t.log.claude.length, 0, 'no AI call');
   // The daily row runs from the tick at 07:00 and finds nothing when all is fine: no card.
   const u = sandbox(); u.ctx.cueState(); u.ctx.cueSchedules().filter(x => !x.on).forEach(x => u.ctx.cueSchedSet(x.id, { on: true }));
-  u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); u.ctx.cueResume(); u.ctx.__wait(5 * 60000); u.ctx.cueResume();   // Wednesday 19:00 was missed too: 3 rows per tick
+  u.ctx.__wait(phMs('2026-10-22', '07:01') - Date.parse('2026-10-21T03:00:00Z')); for (let i = 0; i < 6; i++) { u.ctx.cueResume(); u.ctx.__wait(5 * 60000); }   // the rows missed since Wednesday (2 PM updates, chasers, release notes) go first: 3 rows per tick
   assert.strictEqual(u.ctx.cueSchedules().filter(x => x.id === 'sys-unsched')[0].result, 'All scheduled'); assert.ok(!u.tabs.Chat.rows.some(r => /Unscheduled check/.test(r[2])));
 });
 
@@ -214,7 +214,7 @@ test('TD1 Today card: one row per run that needs Kiko, chasers first, who did it
   const v = [
     TD({ id: 'b1', kind: 'bids', metrics: GPTC, bids: { items: [{ project: 'DepEd Batangas', abc: 420000 }, { project: 'Laguna LGU', abc: 610000 }], updated: [{}] } }),
     TD({ id: 's1', kind: 'sweep', metrics: GPTC, batch: { items: [{ label: 'RFQ' }, { label: 'RFQ' }, { label: 'Payment' }, { label: 'Inbox', no_email: true }, { label: 'RFQ', removed: 'skip' }] } }),
-    TD({ id: 'h1', kind: 'hubspot', metrics: CLC, hs: { title: 'Monday HubSpot check', items: [{ key: 'm1', group: 'dup', title: 'Merge Acme', fix: { op: 'archive' }, recs: [] }, { key: 'm2', group: 'dup', title: 'Done one', fix: { op: 'archive' }, recs: [], result: { ok: true } }] } }),
+    TD({ id: 'h1', kind: 'status', metrics: CLC, st: { title: 'Friday status updates', mails: [{ k: 'm1', name: 'Acme Gala' }, { k: 'm2', name: 'Done one', sent_id: 'x1' }] } }),
     TD({ id: 'g1', kind: 'gtask', status: 'Done', metrics: GPTC, gt: { title: 'Repeat-event accounts', items: [] } }),
     TD({ id: 'g2', kind: 'gtask', status: 'Done', metrics: { calls: [] }, gt: { title: 'Moved contacts', items: [] } }),
     TD({ id: 'old', kind: 'bids', created: '2026-10-19T23:00:00Z', bids: { items: [{ project: 'X' }] } }),
@@ -225,7 +225,7 @@ test('TD1 Today card: one row per run that needs Kiko, chasers first, who did it
   deq(T.rows.map(r => r.thread), ['s1', 'b1', 'h1'], 'the morning batch first; old days, other kinds and running jobs left out');
   deq([T.rows[0].title, T.rows[0].detail, T.rows[0].primary, T.rows[0].button], ['Send 3 emails', '2 RFQ, 1 Payment, 1 Inbox.', true, 'Review and send']);
   deq([T.rows[1].title, T.rows[1].detail, T.rows[1].by], ['2 new bids worth a look', 'DepEd Batangas ₱420k · Laguna LGU ₱610k', 'Done by ChatGPT · checked by Cue']);
-  deq([T.rows[2].title, T.rows[2].by], ['1 HubSpot fix to review', 'Done by Claude · checked by Cue']);
+  deq([T.rows[2].title, T.rows[2].by], ['1 client update to send', 'Done by Claude · checked by Cue']);
   deq(T.done, 'repeat-event accounts (nothing new) (by ChatGPT); moved contacts (nothing new) (by Cue)');
 });
 test('TD2 Today card: a failed run is a Try again row; a thread joined by a redo points at its root; no AI call ran', () => {

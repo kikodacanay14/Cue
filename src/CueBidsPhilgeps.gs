@@ -6,7 +6,7 @@
  *     Printing Services 29). A list is a plain GET; its next pages are ASP.NET postbacks of the same form (nextLB), 20 rows a page.
  *   - Each notice's abstract page, once: the ABC, Area of Delivery, agency, title and closing time sit in spans with fixed ids.
  *     What was read is kept in the Cue sheet's hidden "PhilGEPS notices" tab, so a later day reads only notices new since then.
- *   - The notices go into the same screen as ChatGPT's (Kiko's ₱50,000 to ₱700,000, area list, never Bataan, still open) and the same
+ *   - The notices go into the same screen as ChatGPT's (Kiko's ₱50,000 to ₱1,000,000, area list, never Bataan or Quezon province, still open) and the same
  *     dedupe against his bid sheet. Nothing new is decided here: this only opens what the source already lists.
  * The site needs no sign-in. Reads are paced (a pause between batches of abstracts) and capped at about two minutes per run; what is
  * left carries on at the next 5-minute resume. A check version reads page 1 only (a postback is a POST). No AI call. */
@@ -70,7 +70,7 @@ function cueBidsPgDetails_(html) {
   const sp = id => cueBidsPgText_(raw(id));
   const desc = lines('lblAbstractText').join('\n').replace(/\n{3,}/g, '\n\n').trim();
   const c = lines('lblDisplayContactPerson').filter(Boolean), email = c.filter(x => /@/.test(x))[0] || '', phones = c.filter(x => /^\+?[\d\s()\-]{6,}(?:\s*Ext\.?\s*\d+)?$/i.test(x));
-  return { description: desc.slice(0, 2000), contact: c.length ? { name: c[0], role: c[1] || '', email, phone: phones.join(', ') } : null,
+  return { description: desc.length > 2000 ? desc.slice(0, 1999) + '…' : desc, contact: c.length ? { name: c[0], role: c[1] || '', email, phone: phones.join(', ') } : null,
     solicitation: sp('lblDisplaySolNumber'), delivery: sp('lblDisplayPeriod'), category: sp('lblDisplayCategory'), mode: sp('lblDisplayProcureMode'),
     doc_requests: /^\d+$/.test(sp('lblDisplayDocReqList')) ? Number(sp('lblDisplayDocReqList')) : '' };
 }

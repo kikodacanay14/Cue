@@ -15,7 +15,7 @@ test('RI2 New mail: an email whose subject asks for a quotation is a new inquiry
   const t = nmSandbox({ inbox: box }); t.setAdded(['11aa000000000001', '22bb000000000002', '33cc000000000003', '66ff000000000006']);
   const id = nmRun(t), it = t.state(id).nm.items.find(x => x.sender === 'ruth@moldex.example');
   deq([it.group, it.why, !!it.removed], ['inquiry', 'the subject asks for a quotation or proposal', false]);
-  assert.ok(t.tabs.Chat.rows.some(r => /^New mail: 2 new inquiries/.test(r[2])), 'the RFQ counts as a new inquiry in the main chat line');
+  assert.ok(it.chat_id, 'the RFQ opens its own email chat (Ask Cue changes part 2b)');
 });
 test('RI3 the Emails waiting file marks RFQ and RFP emails, so Canvas can offer Start intake; others are not marked', () => {
   const hd = (s, from) => ({ headers: [{ name: 'From', value: from || 'Ruth <ruth@moldex.example>' }, { name: 'Subject', value: s }] });

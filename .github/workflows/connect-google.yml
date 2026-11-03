@@ -5,14 +5,15 @@ name: Connect Google (one-time sign-in for Cue deploys)
 # 3. clasp finishes the sign-in. Its saved sign-in is kept only encrypted (.deploy/clasprc.enc) with the DEPLOY_KEY secret.
 # The pasted address is useless to anyone else: clasp's one-time check (PKCE) lives only inside this run.
 on: workflow_dispatch
-permissions:
-  contents: write
-  issues: write
+permissions: {}
 concurrency: deploy-cue
 jobs:
   connect:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - run: npm install -g @google/clasp@3.4.1

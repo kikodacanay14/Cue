@@ -43,10 +43,10 @@ const cueEditNew_ = (old, v, how) => { const o = String(old == null ? '' : old).
   return how === 'after' ? o.replace(/[.;,:\s]+$/, '') + '. ' + n : n.replace(/[.;,:\s]+$/, '') + '. ' + o; };
 
 /** The chat route (Cue.gs, talk.canvas_edit): the ask as the chat call restated it. Ends with an Approve card or a plain answer. */
-function cueEditStart_(ask, where, text, posted) {   // posted: the chat call already put Kiko's line in the chat
+function cueEditStart_(ask, where, text, posted, quiet) {   // posted: the chat call already put Kiko's line in the chat; quiet: a Cue proposal (ACC-14) that says nothing unless a value differs
   const t = String(text || ask || '').trim(), home = where || '';
   if (!posted) cueChat_('Kiko', t, home);
-  const say = m => { cueChat_('Cue', m, home); return { chat: true, task: home }; };
+  const say = m => { if (!quiet) cueChat_('Cue', m, home); return { chat: true, task: home }; };
   const s = { id: cueEditId_('cue-ed-'), metrics: { ai_calls: 0, calls: [] } };
   let tabs;
   try { tabs = cueEditTabs_(s); } catch (e) { return say('Canvas did not answer (' + cueStr_((e && e.message) || e, 200) + '). Nothing was changed.'); }
@@ -61,6 +61,8 @@ function cueEditStart_(ask, where, text, posted) {   // posted: the chat call al
   if (!tab) return say(d.book + ' › ' + d.tab + ' is not a tab Cue may edit. Nothing was changed.');
   const named = c => tab.writable.filter(h => h.toUpperCase() === String(c || '').trim().toUpperCase())[0] || String(c || '').trim();   // Claude's spelling, the tab's name
   const set = (d.set || []).filter(x => x && String(x.column || '').trim()).map(x => Object.assign({}, x, { column: named(x.column) }));
+  const locked = set.filter(x => cueEdLocked_(tab.book, tab.tab, x.column)).map(x => x.column);   // ACC-12, R2: Kiko's lock list, checked in Cue too
+  if (locked.length) return say('I can\'t edit ' + locked.join(', ') + '. ' + CUE_ED_LOCK_SAY_ + ' Nothing was changed.');
   const bad = set.filter(x => tab.writable.indexOf(x.column) < 0).map(x => x.column);
   if (bad.length || !set.length) return say((bad.length ? bad.join(', ') + ' can\'t be changed by Cue in ' + tab.tab : 'Nothing to change was named') + '. Cue can change: ' + (tab.writable.join(', ') || 'nothing there') + '. Nothing was changed.');
   if (d.add) {
@@ -79,13 +81,16 @@ function cueEditStart_(ask, where, text, posted) {   // posted: the chat call al
   const row = rows.rows[0], vals = {}, was = {};
   set.forEach(x => { was[x.column] = String(row[x.column] == null ? '' : row[x.column]); vals[x.column] = cueStr_(cueEditNew_(row[x.column], x.value, x.how), CUE_EDIT_MAX_.value); });
   if (Object.keys(vals).every(c => vals[c] === was[c])) return say('Already there: ' + tab.tab + ' ' + tab.key + ' ' + row[tab.key] + ' has it. Nothing was changed.');
+  if (quiet) Object.keys(vals).forEach(c => { if (vals[c] === was[c]) { delete vals[c]; delete was[c]; } });   // a proposal shows only what differs
+  if (quiet) cueChat_('Cue', 'Cue noticed new details in this email\'s signature.', home);
   return cueEditCard_({ book: tab.book, tab: tab.tab, key: String(row[tab.key]), keycol: tab.key, add: false, set: vals, was }, home);
 }
 function cueEditCard_(o, home) {
   const lines = Object.keys(o.set).map(c => c + ': ' + (o.add ? '' : cueStr_(o.was[c] || '(blank)', 160) + '\n  becomes: ') + cueStr_(o.set[c], 300));
   const q = (o.add ? 'Add this row to ' + o.tab + ' in Canvas?\n' + (o.keycol || 'Key') + ': ' + o.key : 'Change this in Canvas?\n' + o.tab + ', ' + (o.keycol || 'key') + ' ' + o.key)
-    + '\n' + lines.join('\n') + '\nNothing is saved until you approve.';
-  cueAskOpen_({ type: 'canvasedit', book: o.book, tab: o.tab, key: o.key, add: !!o.add, set: o.set }, q, ['approve', 'not'], home);
+    + '\n' + lines.join('\n') + (cueEdBankCols_(o).length ? '\nConfirm by calling the supplier on a number you already have.' : '')   // ACC-13, R3: a warning only
+    + '\nNothing is saved until you approve.';
+  cueAskOpen_({ type: 'canvasedit', book: o.book, tab: o.tab, key: o.key, keycol: o.keycol || '', add: !!o.add, set: o.set, was: o.was || {}, undo: o.undo || '' }, q, ['approve', 'not'], home);
   return { chat: true, task: home };
 }
 /** Approve or Not on the edit card (CueRoute.gs cueAskPick). Approve writes once, as the one command of a claimed plan. */
@@ -100,6 +105,7 @@ function cueEditPick_(o, pick, done) {
   catch (e) { cueChat_('Cue', 'Canvas did not save it: ' + cueStr_((e && e.message) || e, 300), done); return { chat: true }; }
   if (r.refused) { cueChat_('Cue', 'Canvas refused: ' + cueStr_(r.refused, 300), done); return { chat: true }; }
   const now = r.now || {};
+  if (!r.already) cueEdLog_(o, now);   // ACC-15: every edit Cue saved, for the Edit log and Undo
   cueChat_('Cue', (r.already ? 'Already there, nothing new written. ' : 'Saved. ') + o.tab + ' ' + o.key + ' now reads:\n'
     + Object.keys(now).map(c => c + ': ' + cueStr_(now[c], 300)).join('\n'), done);
   return { chat: true };

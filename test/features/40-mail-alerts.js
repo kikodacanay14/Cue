@@ -21,7 +21,7 @@ function maBox(threads) {
 }
 const maMsg = (from, ms, labels) => ({ internalDate: String(ms), labelIds: labels || [], payload: { headers: [{ name: 'From', value: from }, { name: 'Subject', value: 'Re: RFQ' }] } });
 
-test('MA1 Cue writes Emails waiting for Canvas every 10 minutes: waiting threads only, shared view-only with info@, unchanged threads not read again', () => {
+test('MA1 every 10 minutes Cue reads the waiting threads (for the project logs) and keeps Canvas\'s Emails waiting card off (dropped 31 Oct), shared view-only with info@, unchanged threads not read again', () => {
   const now = Date.parse('2026-10-27T02:00:00Z');
   const threads = [
     { id: 'a1', h: '10', msgs: [maMsg('Kiko <kikodacanay@blankspaceevent.com>', now - 9e6), maMsg('Ana Reyes <ana@acme.example>', now - 3e6, ['INBOX', 'UNREAD'])] },
@@ -32,7 +32,8 @@ test('MA1 Cue writes Emails waiting for Canvas every 10 minutes: waiting threads
   t.ctx.cueNow_ = () => now;
   assert.strictEqual(t.ctx.cueMaTick_(), 1);
   deq([t.files.F1.on, t.files.F1.email, t.files.F1.checked, t.files.F1.threads.map(x => [x.id, x.email, x.unread, x.repliedBefore])],
-    [true, 'kikodacanay@blankspaceevent.com', now, [['a1', 'ana@acme.example', true, true]]]);
+    [false, 'kikodacanay@blankspaceevent.com', now, []]);   // CUE-TEMPLATES-2026-10-31: Emails waiting dropped (J11); the card stays off
+  deq(t.ctx.cueMaWaiting_('kikodacanay@blankspaceevent.com', now).map(x => [x.id, x.email, x.unread, x.repliedBefore]), [['a1', 'ana@acme.example', true, true]], 'still read for the project logs');
   deq([t.files.name, t.perms], ['canvas-email-alerts.json', [{ role: 'reader', type: 'user', emailAddress: 'info@blankspaceevent.com' }]]);
   assert.ok(t.calls.some(c => /permissions\?sendNotificationEmail=false/.test(c)), 'no share email');
   assert.strictEqual(t.ctx.cueMaTick_(), null, 'not due again within 10 minutes');
@@ -57,7 +58,7 @@ test('MA3 each waiting email carries its first line from Gmail\'s preview, greet
     { snippet: 'Hi Kiko, Good day! I hope you&#39;re well. May we ask for your rate for the video edit &amp; the schedule?' });
   const t = maBox([{ id: 'c1', h: '1', msgs: [msg] }]);
   t.ctx.cueNow_ = () => now; t.ctx.cueMaTick_();
-  assert.strictEqual(t.files.F1.threads[0].gist, 'May we ask for your rate for the video edit & the schedule?');
+  assert.strictEqual(t.ctx.cueMaWaiting_('kikodacanay@blankspaceevent.com', now)[0].gist, 'May we ask for your rate for the video edit & the schedule?');
   const g = t.ctx.cueMaGist_;
   deq([g('Dear Ms. Ana, Attached is the PO.'), g('Good morning team, please see the quote.'), g('Hello!'), g(''), g('x'.repeat(300)).length],
     ['Attached is the PO.', 'please see the quote.', 'Hello!', '', 220]);

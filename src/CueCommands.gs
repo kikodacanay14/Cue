@@ -16,10 +16,8 @@ function cueCommands_() {
     change: { name: 'Change request', cmd: 'intake', run: cueIntakeRun_, approve: cueChangeApprove_, stopped: 'The intake stopped: ' },
     sweep: { name: 'Morning sweep', cmd: '', run: cueSweepRun_, approve: cueSweepApprove_, stopped: 'The morning sweep stopped: ' },
     readiness: { name: 'Readiness check', cmd: 'readiness', run: cueReadyRun_, approve: cueReadyApprove_, stopped: 'The readiness check stopped: ' },
-    pipeline: { name: 'Pipeline review', cmd: 'pipeline', run: cuePipeRun_, approve: cuePipeApprove_, stopped: 'The pipeline review stopped: ' },
     funnel: { name: 'Sales funnel', cmd: '', run: cueFunnelRun_, approve: null, stopped: 'The sales funnel stopped: ' },
     ar: { name: 'ARs', cmd: 'ar', run: cueArRun_, approve: cueArApprove_, stopped: 'The receipts stopped: ' },
-    hubspot: { name: 'HubSpot clean-up', cmd: '', run: cueHsRun_, approve: cueHsApprove_, stopped: 'The HubSpot clean-up stopped: ' },
     status: { name: 'Friday status updates', cmd: '', run: cueStRun_, approve: cueStApprove_, stopped: 'The status updates stopped: ' },
     relnotes: { name: 'Release notes', cmd: '', run: cueRnRun_, approve: cueRnApprove_, stopped: 'The release notes stopped: ' },   // CUE-RELNOTES-2026-10-27 (CueRelnotes.gs)
     bids: { name: 'Bid check', cmd: '', run: cueBidsRun_, approve: null, stopped: 'The bid check stopped: ' },
@@ -71,8 +69,7 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
  * personal: Kiko's own words say it is personal (CuePersonal.gs): its own task, never an intake or a project expense.
  * money: CFO Advisor (Kiko 07:41Z), see cueMoneyAsked_ below.
  * workflow-reply, workflow-files: Kiko 08:07Z (specs/process-mapper.md), see cueWorkflowWaiting_ below.
- * hubspot: command C12, its own thread.
- * funnel: Kiko 24 Oct 13:50Z (CueFunnel.gs): "show the funnel", "my HubSpot tasks" read HubSpot in their own thread, no AI call.
+ * funnel: Kiko 24 Oct 13:50Z (CueFunnel.gs): "show the funnel" reads Canvas in its own thread, no AI call.
  * status: Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs), see cueStatusSaid_ below.
  * bids-intake, bids: Kiko 19:04Z-19:10Z (specs/bid-opportunities.md): "do intake for <reference>" of a found bid starts its intake; any bid-opportunity ask starts a bid check.
  *   PC check 22 Oct 04:45Z: "redo bid check" in a Bid check thread became a Project intake plan. A bid ask there (or "again", "redo",
@@ -81,7 +78,11 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
 function cueRoutes_() {
   const words = c => !c.has && c.mode !== 'intake';   // typed words, not an intake form
   return [
+    { key: 'askreply', name: 'Kiko types "approve" or "not" for an Approve question (ACC-12, no buttons in Ask Cue chat)', said: c => words(c) ? cueAskSaid_(c) : null },
+    { key: 'msgrchat', name: 'Kiko\'s reply in a Messenger chat with a crew member (CUE-MSGR-2026-11-02)', said: c => words(c) ? cueMsgrSaid_(c) : null },
+    { key: 'mailchat', name: 'Kiko\'s reply in an email chat or a new-kind-of-email chat (ACC-5, ACC-6)', said: c => words(c) ? cueMcSaid_(c) : null },
     { key: 'learn', name: '"remember: …" saves a rule', said: c => words(c) ? cueLearnSaid_(c.text, c.ref) : null },
+    { key: 'k0-reply', name: 'Reply to the 8 AM update ("send 1, 3", "add 4", "no 5")', said: c => words(c) ? cueK0Said_(c.text, c.ref, c.reply) : null },   // CUE-K0-2026-10-31
     { key: 'help', name: '"help: <question>" answers from the Help Q&A list', said: c => words(c) ? cueHelpSaid_(c.text, c.ref) : null },
     { key: 'ticktick', name: '"connect ticktick"', said: c => words(c) ? cueTtConnectSaid_(c.text, c.ref) : null },
     { key: 'schedule', name: '"schedule …" and "show my schedules"', said: c => words(c) ? cueSchedSaid_(c.text, c.ref) : null },
@@ -108,8 +109,7 @@ function cueRoutes_() {
     { key: 'money', name: 'Money question', when: c => cueMoneyAsked_(c), go: c => cueFinance_(String(c.text).trim(), c.ref) },
     { key: 'workflow-reply', name: 'Reply in a waiting workflow map', when: c => cueWorkflowWaiting_(c), go: c => cueWorkflowReply_(c.ref, c.text) },
     { key: 'workflow-files', name: 'Files with a map word', when: c => c.has && c.mode !== 'intake' && cueWorkflowAsked_(c.text), go: c => cueWorkflowFiles_(c) },
-    { key: 'hubspot', name: 'HubSpot clean-up', when: c => words(c) && !c.ref && cueHsAsked_(c.text), go: c => cueHsStart_(String(c.text || '').trim(), 'chat') },
-    { key: 'funnel', name: '"show the funnel", "my HubSpot tasks"', when: c => words(c) && !c.ref && cueFunnelAsked_(c.text), go: c => cueFunnelStart_(String(c.text || '').trim(), 'chat') },
+    { key: 'funnel', name: '"show the funnel"', when: c => words(c) && !c.ref && cueFunnelAsked_(c.text), go: c => cueFunnelStart_(String(c.text || '').trim(), 'chat') },
     { key: 'status', name: '"status updates", "status of …"', said: c => cueStatusSaid_(c) },
     { key: 'bids-intake', name: '"do intake for <bid>"', when: c => c.mode !== 'chat' && words(c) && cueBidsFor_(c.text), go: c => cueBidsIntake_(String(c.text).trim(), c.ref) },
     { key: 'bids', name: 'Bid check', when: c => words(c) && !c.ref && cueBidsAsked_(c.text), go: c => cueBidsStart_(String(c.text || '').trim(), 'chat', '') },
@@ -120,7 +120,6 @@ function cueRoutes_() {
 /** What the chat call can start, in the order cueSendWith_ checks its answer. go gets the chat call's answer, the message and its text. */
 /* Where each came from (kept word for word):
  * readiness: Kiko 07:32Z (specs/project-readiness.md): "is X ready?" starts a readiness check in its own thread (or the thread Kiko is in).
- * pipeline: command C11, its own thread.
  * start_ar: CUE-AR: "prepare ARs for <project>" (GPT picked it in the same chat call).
  * vendor: Kiko 07:54Z (specs/vendor-management.md): "find / compare / assess suppliers" starts a supplier search in its own thread.
  * email: Kiko 08:21Z (specs/write-like-me.md step 2): "email X about Y" / "reply to X" drafts one email in Kiko's style in its own thread.
@@ -130,7 +129,6 @@ function cueTalkRoutes_() {
   return [
     { key: 'workflow', name: 'Workflow map', go: (talk, c, t) => { const out = cueWorkflowStart_(talk.workflow, c.ref || talk.task || '', t, []); cueOnIt_(c.ref, talk.task, 'Started a thread to map it.', out.request_id, talk.pointed); return out; } },
     { key: 'readiness', name: 'Readiness check', go: (talk, c) => { const home = c.ref || talk.task || cueReadyHome_(talk.readiness); const out = cueReadyStart_(talk.readiness, home, null, false); cueOnIt_(c.ref, home, 'Started a thread for it.', out.request_id, talk.pointed); return out; } },
-    { key: 'pipeline', name: 'Pipeline review', go: (talk, c, t) => cuePipeStart_(t, talk.pipeline.client) },
     { key: 'start_ar', name: 'ARs', go: (talk, c, t) => { const home = c.ref || talk.task || '', id = cueArStart_(talk.start_ar, t, home); if (!home) cueChat_('Cue', 'Started a thread for it.', '>' + id); return { request_id: id, task: home }; } },
     { key: 'email', name: 'Email', go: (talk, c, t) => { const out = cueMailStart_(talk.email, c.ref || talk.task || '', t, talk.lookup); cueOnIt_(c.ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; } },
     { key: 'vendor', name: 'Supplier search', go: (talk, c, t) => { const out = cueVendorStart_(talk.vendor, c.ref || talk.task || '', t); cueOnIt_(c.ref, talk.task, 'Started a thread for it.', out.request_id, talk.pointed); return out; } },

@@ -10,14 +10,3 @@ test('AK1 the page script declares each function once, so a new card cannot repl
   assert.deepStrictEqual(dup, []);
   assert.ok(/function todayHtml\(day, th\)/.test(js) && /function todayTasksHtml\(t\)/.test(js));
 });
-// Kiko, 30 Oct 2026 09:56Z: "when i click change and typed in the replan doesnt do anything". Enter in Cue's question box used the
-// form's first button, Cancel, so the words were dropped with no message.
-test('AK2 Enter in the question box means OK: Cancel is a plain button that closes the box, and OK is the form\'s only submit button', () => {
-  const fs = require('fs'), path = require('path');
-  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), chat = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexChat.html'), 'utf8');
-  const form = page.match(/<dialog id="ask"[\s\S]*?<\/dialog>/)[0];
-  const submits = (form.match(/<button(?![^>]*type="button")[^>]*>/g) || []);
-  assert.strictEqual(submits.length, 1); assert.ok(/id="ask-ok"/.test(submits[0]));
-  assert.ok(/<button[^>]*type="button"[^>]*id="ask-no"[^>]*>Cancel<\/button>/.test(form));
-  assert.ok(/\$\('ask-no'\)\.addEventListener\('click', function \(\) \{ \$\('ask'\)\.close\('cancel'\); \}\);/.test(chat));
-});

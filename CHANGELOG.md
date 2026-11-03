@@ -1,14 +1,396 @@
 # Changelog
 
-## Cue 1.27.91: Re-plan takes typed words again (BUG FIX, not deployed)
+## Cue 1.28.12: no repeated messages (BUG FIX, not deployed)
 
-Kiko, 30 Oct 2026 09:56Z: "when i click change and typed in the replan doesnt do anything". Built on branch
-claude/project-thread-hmigp5 @ 642546c, numbered by the deploys thread.
+Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
+thread, you see the message in the main chat, and then after a while, you see it again", with about 40 repeats in 60 morning
+messages; earlier that day: "Goal is not to make it confusing. Remove the duplicates, Do not Flood details that are not necessary."
+The Chat tab for 1 to 3 Nov showed three sources of word-for-word repeats. Built on 1.28.10 (branch claude/project-thread-st4gw7),
+so 1.28.6 (new mail only in the main chat) and 1.28.9 (job reports in their own threads) are kept.
 
-- Pressing Enter in Cue's question box (Re-plan, Change and other typed answers) used the form's first button, Cancel, so the
-  typed words were dropped. Cancel is now a plain button that closes the box, and Enter means OK. The box itself has been
-  unchanged since 1.27.6.
-- Tests: 566 pass.
+- One run at a time: on 3 Nov at 19:00 two runs of one "Daily personal spending" passed the sheet lease seconds apart, so every line
+  posted twice and ChatGPT was paid twice. The lease now also sits in a Script Property, checked inside the same lock, and is let go
+  when the run ends (`cueRunLeased_` in Cue.gs).
+- No word-for-word repeat: a Cue line that is exactly the newest line already in the same place (same thread, same pointer or the
+  main chat, within a day) is not posted again (`cueChatRepeat_` in Cue.gs). Seen live: "The bid check stopped" every 10 minutes,
+  two identical one-line DMARC emails. A line from Kiko in between makes the next Cue line new; Kiko's own lines always post.
+- Nothing changes in how anything looks. No AI call. Tests: 626 (2 new, `test/features/83-no-repeat.js`).
+
+## Cue 1.28.11: New PhilGEPS read by code, Cowork removed, bid range up to ₱1,000,000 (not deployed)
+
+Kiko on 3 Nov 2026 at 14:36Z, in the Canvas project: "We removed co-work because it uses a lot of usage and then we just used script
+or code. And then it was able to download it." The code reader is Cue PR #284 (merged to main on 1 Nov 2026, never live), rebuilt
+on 1.28.10. The bid rules are Kiko's answers in that thread on 1 Nov 2026 ("raise it to 1M"; Pampanga "1. Yes"; CALABARZON and
+Region IV-A "2. Yes"; Quezon province "3. No"; "QC or Quezon City is ok"), kept with his 29 Oct floor ("you can lower it to 50k").
+
+- `src/CueBidsPg.gs` (new): Cue's own code reads New PhilGEPS's public bulletin board (`/Indexes/index`, the latest 100 open notices),
+  each matching notice's page, its activity schedule and its document list, with plain HTTP. No AI call, no browser, no sign-in.
+  The constant is `CUE_NPG_` because the old PhilGEPS reader (`CueBidsPhilgeps.gs`) already uses `CUE_PG_`.
+- `src/CueJobs.gs`: new job "New PhilGEPS read", hourly from 7 AM to 7 PM Manila, because the board shows only the latest 100.
+- `src/CueBids.gs`: New PhilGEPS is no longer sent to ChatGPT; the 06:30 check takes the waiting notices from the code reader and
+  opens their files with the same document step as every other source. ABC ₱50,000 to ₱1,000,000. Area: Pampanga, CALABARZON and
+  Region IV-A in; Quezon province out (Quezon City and "QC" stay in).
+- `src/CueSchedule.gs`, `src/CueAdmin.gs`: the "New PhilGEPS (Cowork)" 10:30 row and its run are removed; a saved row leaves the
+  Schedule tab once (seed v15). The Cowork task on KKD is no longer read. The Cowork helper code in `CueBids.gs` is left in place
+  but nothing calls it any more.
+- Tests: `test/features/83-philgeps-code.js` (PGS1 to PGS6), BD1 and SC4 updated, harness answers philgeps.gov.ph; 630 tests pass.
+  FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
+## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
+
+Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption
+because it has so much more details about the post". Cue has read that field (`lblAbstractText` under the page's "Description" label)
+since 1.27.85, but the card ran it into one line and cut it at 600 characters, so a list of inclusions became a wall of text. Kiko saw
+the before and after mockup (`canvas-integration/mockups/philgeps-description-card.png`) and said yes on 3 Nov 2026 at 10:16Z.
+
+- `src/CueBids.gs` (`cueBidsCopyFrom_`): "Summary of requirements" on an old PhilGEPS notice is now the whole Description with its own line
+  breaks, up to 2,000 characters.
+- `src/CueBidsPhilgeps.gs` (`cueBidsPgDetails_`): a Description over 2,000 characters ends with "…"; the full text stays in Cue's PDF copy.
+- `src/IndexCards.html` (bid card `kv`): a summary with line breaks shows line by line, left aligned. One-line summaries keep the
+  justified look. Nothing else on the card changes.
+- No new AI call, no new fetch, no Canvas change. Notices already copied get the full text from their saved record at the next check.
+- Tests: `test/features/82-philgeps-description.js` (2 tests), BO4 updated for the kept line breaks; 619 tests pass.
+
+## Cue 1.28.9: scheduled job reports in their own threads (not deployed)
+
+Kiko asked on 3 Nov 2026 06:40Z: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an
+update to me every step"; 10:13Z picked "Own thread in Team Cue"; 10:15Z "ok" on the mockup
+canvas-integration/mockups/job-threads/job-threads-before-after.png. The 8 AM and 2 PM updates now sit in their own threads and
+the main chat gets one short line that opens each ("8 AM update is ready.", "2 PM chasers: 4 for your OK"). The 2 PM funnel
+follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. A reply of "1, 3" works in the main chat or in the chasers thread. Built on live Version 191 (1.28.5). Tests: 615/615 (new K82).
+
+## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, not deployed)
+
+Kiko asked on 3 Nov 2026 06:29Z: "its so hard coz i have to scroll all the way... please change that", and on 10:14Z, when the
+newest line was moved to the top: "at top?\"???????? should be at the boottom!!". So the newest line stays at the bottom, and the
+fix is that Cue lands there.
+
+- Cause: Cue scrolled to the end once per render, then judged "not at the bottom" from the page as it was. When cards, pictures or
+  the Canvas slide-in grew the page after that scroll, the view stayed partway up and every later render left it there.
+- Fix (`pinBottom` in `src/IndexThreads.html`, `goThread` in `src/IndexChat.html`): the chat and an open thread remember whether they
+  are pinned to the end. Kiko scrolling up unpins; scrolling back to the end pins again; while pinned, any change of size or content
+  scrolls to the end. A link to a spot in a thread still jumps to that spot. The Threads list is never pinned.
+- Checked in a browser render: with 600 px of late content, the old code left the chat 612 px from the end and a thread 514 px;
+  the new code leaves both at 0, and a chat Kiko scrolled up stays where he left it.
+- Tests: `test/features/82-chat-stays-at-bottom.js` (SB1, SB2). The newest-on-top change (1.28.7 on rel1286) is dropped.
+
+## Cue 1.28.7: each new email's post in the main chat gives its context (not deployed)
+
+Kiko asked on 3 Nov 2026 at 10:15Z, in the Cue project: "when you post on the left give some context. like what did they send, what
+time, what is it for, what do they expect, what needs to be done after?" Built on 1.28.6 (new mail in the main chat only).
+
+- `src/CueMailChat.gs` (`cueMcLeft_`): the main chat's post for an email that has its own chat now reads: "New email: name <address> ·
+  type · day, time" (Manila), the subject, "What they sent", "What it is for", "What they expect" and "What to do next". A later email
+  in the same conversation posts the same way, starting "New in this conversation".
+- The same one Claude Haiku read per email gives the three new parts (`sent`, `purpose`, `expect` in its answer), so there is no extra AI
+  call. When the read fails, the post still gives the sender, time, subject and what the email says, and leaves out the rest.
+- The email's own chat still starts with Cue's full read. Emails whose type is set to One line keep their one line.
+- Tests: `test/features/81-mail-left-only.js` ML4 and ML5; ACC7 and ACC9 updated for the new post. 619 tests pass.
+
+## Cue 1.28.6: new mail shows only in the main chat (not deployed)
+
+Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
+to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
+in the main chat and as a row under "Waiting on you" in the Threads list.
+
+- `src/IndexThreads.html` (`listShows`): an email's own chat (kind `mail`) and a new-kind-of-email question (kind `mailtype`) no longer
+  show in the Threads list or in the ☰ Threads count (`needThreadsN`). They stay in the main chat on the left, and their line there still opens
+  the chat.
+- A mail chat joins the Threads list once Kiko writes in it (anything except a plain "done") or another task joins it, such as the
+  reply draft or an intake. A "done" alone closes the chat without listing it.
+- Page only: no server change, no AI call, no Canvas change. New mail sorting, types and the daily New mail list are unchanged.
+- Tests: `test/features/81-mail-left-only.js` (3 tests); 616 tests pass. FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
+## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, LIVE as Version 191, 3 Nov 2026 10:17Z; rollback Version 190)
+
+Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the
+duplicates, Do not Flood details that are not necessary." The screenshots were the 2 PM update. Chasers that cannot be emailed (no
+address on file, client already replied, chased 3 times) were listed one by one under the Funnel heading. Now the 2 PM update shows one
+count line per chaser type under "Not emailed: need you in Canvas", and the details stay in the chaser batch's own thread. A chaser listed
+twice (same type, person and project) is numbered once, and chased-the-max lines become one count line. Built on live Version 190
+(1.28.4).
+
+## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay (live as Version 190, 2 Nov 2026 06:20Z; rollback 189)
+
+Kiko asked on 2 Nov 2026 for crew papers on Messenger (m.me) and said "you built the spec you code it", then "you do it" for the
+deploy. Built on the live line (1.28.3, Version 189); the same feature is on main as 1.27.90 (Cue PR #289), where the relay
+posts to Cue instead. Spec and plan: CanvasWorkspace `handoffs/messenger-crew-papers-spec.md`,
+`docs/superpowers/plans/2026-11-02-messenger-crew-papers.md`.
+
+- Sign links: every 15 minutes (Job Runs "Messenger sign links") unsigned FSA and AR links of linked crew go on Messenger once,
+  inside Meta's 24-hour window (Canvas `msgr_due`, `msgr_mark`). A send Meta accepted is remembered before Canvas is told.
+- Receiving: Meta's messages wait in the Messenger relay (`relay/`, a Cloudflare Worker that checks Meta's signature); every
+  5 minutes (Job Runs "Messenger inbox") Cue collects them with its key. Cue's /exec stays Google sign-in only. A sealed m.me
+  link saves the link-up in Canvas (`fl_social_save`, with Facebook name and gender) and opens a Cue chat "Messenger · <name>";
+  Kiko answers by typing there (sent inside the window; otherwise Cue says Messenger is closed). Strangers get a polite reply.
+- Settings › Connections › Messenger: relay key (Make key / New key), relay address, and a password box for the Page token.
+- Inert until the relay address and Page token are saved. No AI call. Tests: 613 (15 new, `test/features/80-messenger.js`).
+## Cue 1.28.3: Ask Cue changes: old threads clear themselves, email types and one chat per email, Canvas edits after approve (not deployed)
+
+Kiko asked on 2 Nov 2026, in the cloud chat "Ask Cue changes": carry unanswered items into today's thread so old threads can be
+archived; one chat per new email with Cue's read of it, a type for every email and a Triage list of what to do per type; and Cue
+allowed to change Contacts, Clients, Projects, Suppliers and Freelancers fields. Spec, approved 2 Nov 2026: CanvasWorkspace
+`docs/specs/ask-cue-changes-spec.md`. Built on Cue main as 1.27.84 to 1.27.89 (PRs #287, #288, #290 to #293) and restacked here on
+1.28.2. Kiko 2 Nov 2026: "approve".
+
+- Old daily threads: open lines from every older New mail thread move into today's; the day's first Bid check archives older days'
+  Bid check threads that still wait (their open notices already show as still open in today's); an older Morning batch is archived
+  as well as closed.
+- Email types (Client, Supplier, Freelancer, Personal, Government, Bank, Bills and dues, Platform notices, Newsletters and promos,
+  Other): typed by sender in code, otherwise by the existing New mail sort, which then remembers the sender. Cue Admin › Triage sets
+  Own chat, One line or Ignore per type; a new kind of email asks once in its own short chat.
+- Own chat emails each open a chat (one Haiku call for Cue's read). Kiko answers by typing: "done", "start intake", "draft a reply
+  saying ...". A later email in the same Gmail conversation joins its chat. The daily New mail thread is no longer shown.
+- One line emails each get a line in Ask Cue. These lines and the email-chat pointers post in the main chat even when the 8 AM update
+  is on, because Kiko asked on 2 Nov for each email to appear in the main chat.
+- Emails with a Canvas Project ID now pass the junk and mute filters and get one line pointing to Team Cue (still unread). Threads
+  Canvas already files under a project stay out of Ask Cue, as before.
+- Marking emails read is in the code but switched off: it needs the Gmail scope gmail.modify, which is not added, so triggers keep
+  their current authorization. The line notes the missing permission instead.
+- Canvas edits: approve questions take a typed "approve" or "not" (no buttons); Kiko's lock list is checked in Cue; supplier bank
+  edits carry "Confirm by calling the supplier on a number you already have."; every saved edit goes to the Canvas edits tab, with
+  Undo in Cue Admin › Edit log; a known contact's signature that differs from P0 Contacts becomes an edit question in its chat.
+- The Canvas part (Team Cue filing by Project ID for every sender, info@ mark-read, Canvas-side locks, allow-list rows) is handed to
+  Canvas Integration (CanvasWorkspace `handoffs/ask-cue-changes-for-canvas-integration.md`).
+- Cloud check: `test/checks/1.27.88-ask-cue.check.mjs` (read only). Tests: 598.
+
+## Cue 1.28.2: a run too large to store stops instead of repeating (not deployed)
+
+Reported by Kiko on 1 Nov 2026 (screenshot on /dev): "The bid check stopped: This request is too large to store (310994
+characters)" posted every 10 minutes for Saturday's bid check.
+
+- A run whose saved data outgrew its 4 cells could not even save that it failed, so the 5-minute job picked it up again and
+  posted the same line each time. Cue now saves a slim copy closed as Failed ("This run grew too large to store and was closed.
+  Nothing was sent or written. Run it again."), once.
+- The bid card's "Opportunities closing" list keeps the 30 soonest deadlines, like New and Updated already were capped, so a bid
+  check stays storable.
+- Tests: test/features/79-too-large.js (TL1, TL2). 586 of 586 pass.
+
+## Cue 1.28.1: the new PhilGEPS check moves to 10:00 (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "login times out. you know what we can move the job at 10a, so that i am already awake and can login".
+
+- Cowork's "New PhilGEPS check" on KKD runs weekdays at 10:00 (Kiko changes its time in Cowork; docs/cowork-philgeps-task.md
+  says 10:00).
+- New Schedule row "New PhilGEPS (Cowork)", weekdays 10:30: reads today's Cowork rows only (no ChatGPT search, no other site),
+  screens them like every bid, and posts new ones in the main chat as the New opportunities card. If Cowork did not run (no RUN
+  row), one main-chat line says so. Nothing is posted when Cowork ran and found nothing new.
+- The 6:30 bid check no longer reads the Cowork tab, and the 8 AM update no longer warns about Cowork.
+- Tests: CW1 to CW3 rewritten for the 10:30 run; SC4 and NH2 updated. 584 of 584 pass.
+
+## Cue 1.28.0: the bid check opens the agency sites itself (not deployed)
+
+Asked by Kiko on 1 Nov 2026, on the proposal to open the other bid sites in code instead of leaving them to ChatGPT's web search:
+"Yes, thats why we listed them down"; then on /dev: "it has more details now but not about the other bid sites".
+
+- Cue fetches the listing pages of CITEM, TPB, NPDC, PCC and City of Manila itself (code, no AI), turns each into text with every
+  link kept, and gives that text to the same 3 bid search calls, so ChatGPT reads each site's real current list and opens the
+  notices on it instead of stopping at the landing page. Still 3 AI calls.
+- A site that does not open is named in the search ("Cue could not open it (HTTP 503)") and left to web search. The run keeps
+  which sites were read.
+- UNGM, ADB and GIZ (search forms) and EU (blocked) stay on web search; the new PhilGEPS comes from Cowork.
+- Script Property CUE_BID_PAGES=off turns it off.
+- Tests: BP1 in test/features/78-cowork-philgeps.js. 584 of 584 pass.
+
+## Cue 1.27.99: Cowork downloads the new PhilGEPS bid documents (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "did you tell it to download all the files downloadable from the bid".
+
+- The Cowork task text (docs/cowork-philgeps-task.md) now downloads every free bid document of each kept notice into Google Drive,
+  folder "PhilGEPS bid documents", one subfolder per reference number, never paying for one, and lists the Drive links in
+  Documents. It checks service, location and the ₱50,000 to ₱700,000 budget on the notice page first and downloads nothing for a
+  notice that fails (Kiko: "check the filters first ... if not within our range then dont download at all"). It does not read
+  the documents, to keep usage low; Cue reads them only when Kiko asks about that bid.
+- Cue's bid check shows those Drive links on the New opportunities card as saved by Cowork. Cue does not fetch them: it can open
+  only files it made itself.
+- Tests: CW3 in test/features/78-cowork-philgeps.js. 583 of 583 pass.
+
+## Cue 1.27.98: new PhilGEPS through Claude Cowork on KKD (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "cant you use Clause Cowork. I wil leave it on. so that its on when you run. if its not, let me know",
+then "cowork. yes".
+
+- The new PhilGEPS site needs a sign-in, so Cue cannot read it. A Claude Cowork scheduled task on KKD (weekdays 6:00 AM, Kiko's
+  signed-in Chrome, read only) writes each event notice it finds into the bid sheet tab "Cowork PhilGEPS findings", plus one RUN
+  row each time it runs. The task text is in docs/cowork-philgeps-task.md; Kiko pastes it into Cowork once.
+- Cue's 6:30 bid check takes that tab's rows for today as New PhilGEPS notices, through the same screen as every other source
+  (events only, budget and area). They show in the New opportunities card.
+- When today has no RUN row, the 8 AM update says "New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on and
+  Claude open?". Script Property CUE_COWORK_PHILGEPS=off turns the check and the warning off.
+- Tests: test/features/78-cowork-philgeps.js (CW1, CW2). 582 of 582 pass.
+
+## Cue 1.27.97: the 2 PM funnel adds the 3 checks kept from the pipeline review (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "add the 3 missing", on the proposal to keep from the removed pipeline review only what the chasers
+do not already cover, as lines in the 2 PM update's Funnel section.
+
+- Waiting on your reply: an open deal (Inquiry or CE sent in Canvas) whose newest email with its contact came from them, 1 working
+  day or more ago. Read from Kiko's Gmail, read only; system mail (no-reply, notifications, login codes) is skipped.
+- Event soon, not won yet: the event is today or within 14 days.
+- Fix in Canvas: the event date passed with the deal still open, or the deal has no amount, no event date or no contact.
+- Code only: no AI call, nothing written or sent. Checks the 40 open deals with the nearest event dates.
+- Tests: FN6 in test/features/54-sales-funnel.js. 580 of 580 pass.
+
+## Cue 1.27.96: HubSpot removed; bids are event work only; schedule texts updated (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "its still mentioning Hubspot. Can we make sure that we remove it from the process", then "Delete
+the Hubspot code"; on bids: "how come the bid opportunities are procurement of stuff?", "add events management, lights and
+sounds", "no they are on top of what you use now"; on the Scheduled tasks card: "how come theres still this".
+
+- HubSpot is gone from Cue. Deleted: the Monday HubSpot clean-up, the pipeline review (and its "pipeline" chat command and
+  follow-up drafts), the HubSpot tasks list and Mark done in the sales funnel, the "Add to HubSpot" action on ChatGPT findings,
+  the HubSpot lookup, the CUE_HUBSPOT_TOKEN setup line and HubSpot wording in chat, cards, Cue Admin, Teach and Workflow. No
+  code calls HubSpot. The sales funnel reads Canvas only. The two HubSpot rows leave Scheduled tasks once. Old saved runs of
+  these kinds close quietly and show as "Removed task". Canvas still has its own HubSpot code (out of scope).
+- Bids: the bid check keeps the same kinds of work as before plus events management and lights and sounds. A notice that buys
+  goods ("Supply and delivery of", "Procurement of", "Purchase of", "Printing of") with no event or kept kind of work in its
+  title is left out, in ChatGPT's screen and again in code.
+- Scheduled tasks: the "Morning sweep" row is renamed "Chasers (for the 2 PM update)" in the saved list. Its description and
+  rule now say 1:00 PM, the 2 PM update and Send on each card. The 8 AM update, Bid check, Friday status (5 PM) and Sales
+  funnel (1:15 PM, for the 2 PM update) descriptions match the new schedule.
+- Tests: deleted 06-pipeline-review.js and 12-hubspot-cleanup.js; added 77-no-hubspot.js (NH1 to NH4) and KW4; kept the
+  non-HubSpot funnel and sweep tests. 579 of 579 pass.
+
+## Cue 1.27.95: the 8 AM update reads the Shared Task Tracker and the project timelines (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "it should also reference the project timeline of any ongoing project". On the proposal: "1. add.
+anything assigned to internal that i need to nudge / 2. They should / 3. yes / 4. Yes / 5. yes".
+
+- Today's focus now also reads the Shared Task Tracker (Tasks tab) and, through Canvas's existing client_status read, the Project
+  timeline and open TRI tasks of every ongoing project (the same list as the Friday status updates). No AI call; no Canvas release.
+  - Critical today: Tracker rows due today, timeline rows ending today, and TRI tasks assigned to Kiko due today.
+  - Overdue: Tracker rows past their due date, late timeline rows, and Kiko's late TRI tasks, each with how many days late.
+  - Assigned to you: Tracker rows In Progress with no due date.
+  - Nudge your team (new): open TRI tasks assigned to someone else that are late or due today or tomorrow, with the name.
+  - Blocked, waiting on someone: Tracker rows marked Blocked.
+  - Key milestones in the next 3 days (new): timeline rows marked as key milestones.
+  - Personal (new): Personal-category Tracker rows, in their own group. Not Started rows with no date are left out.
+- Yesterday's summary adds Completed (Tracker rows marked Complete yesterday, or since Friday on a Monday) and Moved (Tracker rows
+  whose due date changed since the last 8 AM update; this starts the day after the first run).
+- Each group shows 8 lines at most, then "and N more". If the Tracker or Canvas cannot be read, the update still goes out and
+  says what it could not read.
+- Kiko's own TRI tasks are found by name: Script Property CUE_ME_NAMES (default "Kiko").
+- Tests: test/features/76-k0-tracker-timeline.js (KW1 to KW3). 585 of 585 pass.
+
+## Cue 1.27.94: Reply on chat bubbles; New opportunities card under the 8 AM update (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "i want to keep it very much like a chat conversation but each chat has a bubble right? so i'm
+thinking a reply in the chat bubble function"; "New Opportunities / Bids need to be a card. Coz they need to show more details,
+links inside it and buttons the rest can be message format"; "we can remove Decide Later. If we just scroll pass through it that
+means we dont want to decide yet"; the card subtitle "dont add this anymore"; "okay to build" on mockup cue-8am-bids-card.png.
+
+- Reply: a Cue bubble in the main chat that names a task shows ↩ on hover (a long press on a phone). Tapping it puts a "Replying
+  to <message>" strip above the chat box (× or Esc cancels). Kiko's sent line shows the quoted message above his words.
+- A reply to an 8 AM or 2 PM update answers that update, even on a later day ("1, 3" drafts those chasers). A reply to any other
+  task's bubble goes into that task's thread, and the quoted line stays in the main chat.
+- The 8 AM update's New opportunities section now reads "N new bids, in the card below". Right under it, the New opportunities
+  card lists each new bid: title, source and status labels (Scoped or For clarification), Agency, Budget (ABC), Closes,
+  Reference, What it needs (or Missing), document links, then View opportunity, Ask the agency (to clarify), Decline and Start
+  intake. Bids are no longer numbered for a typed reply.
+- Decide later is gone from every bid card. A bid Kiko scrolls past stays undecided until it closes.
+- New clients in the 8 AM update (Kiko 1 Nov: "B - until i decline or add"): "add 2" adds that person to Canvas, "no 3" drops
+  that person for good, and anyone Cue listed but you did not name goes back on the list for the next 8 AM update.
+- Tests: test/features/75-reply-bids-card.js (RB1 to RB5); BV5 updated. 582 of 582 pass.
+
+## Cue 1.27.93: 8 AM and 2 PM weekday updates; chasers drafted for your OK, tailored, sent one by one (not deployed)
+
+Asked by Kiko on 1 Nov 2026: "8AM Yesterday's Summary, Today's focus, New Opportunities, New Clients / 2PM Funnel, Chasers / 5PM
+…"; weekends "no. we rest"; on "send 1, 3": "what i actually meant is to draft it and show it to me for approval"; "In Cue";
+templates "would probably still need to be adjusted based no the client and situation"; "go with both". Spec section 10.
+
+- 8 AM update (weekdays): Yesterday's summary (Friday's on a Monday), Today's focus (critical today, assigned, needs your OK,
+  overdue), New opportunities (bids; reply "start 1"), New clients (contacts; reply "add 2"). No chasers in the morning.
+- 2 PM update (new Schedule row "2 PM update", weekdays 14:00): the funnel's follow-ups and every chaser due, numbered. Reply
+  "1, 3" or "all": Cue drafts those (nothing is sent), tailors only their middle sentences to the client's latest email in one AI
+  call (greeting, ask frame, "Thanks!" and sign-off stay the template; a draft that changes them is dropped), and shows each as a
+  card in the chasers thread with Edit, Tell Cue (one AI call per instruction, same check), Skip and Send. Each email goes only on
+  its own Send (approve = send, per message); payment, signature and accreditation chasers send through their own path.
+- Schedule: weekdays only for the bid check (06:30), 8 AM update, chasers (13:00, now their own time, no longer tied to Chaser
+  rules' build hour), sales funnel (13:15), 2 PM update and release notes (19:45). Friday client status updates move to Fri 17:00
+  and post their own line (the Friday 5 PM message). The other 5 PM reports get their own specs.
+- Tests: 577 (K1, K2, K5 rewritten, K6 new; schedule tests updated for weekdays and the new times).
+
+## Cue 1.27.92: chasers in Kiko's templates and the designed email, C2 and C3, holidays, Emails waiting off (not deployed)
+
+Asked by Kiko on 31 Oct 2026 ("yes sorry start part 2"). Part 2 of the spec cue-message-redesign-spec.md. Kiko's answers the same
+day: C2 stops after 2 follow-ups "as the templates say"; payment chasers "can be from AccountsPayables"; "Full design, in the same
+thread". Built on 1.27.91 (PR #270).
+
+- Kiko's revised templates (Google Doc "BSE Message Templates") replace the AI drafts for C6 CE award (follow-up and urgent),
+  S2 RFQ and RFP, S1 accreditation follow-up, C7 payment and C2. Cue fills only the blanks, so these chasers make no AI call. New
+  file `CueTemplates.gs`.
+- Designed email: each one goes as text plus HTML with the audience banner (cyan for clients, orange for suppliers), "Thanks!" and
+  the sign-off, as a reply in the original thread. An email Kiko edits goes as plain text, exactly as he typed it. The banner is a solid
+  colour band with the wordmark. The designed banner image (diamond and orbit pattern) comes with the Canvas release (part 3).
+- C2 They went quiet (was "Inquiry chasers"): first follow-up, then the final follow-up, 3 business days apart, at most 2, from
+  Kiko's Gmail once he names it in the 8 AM update (before, drafts only). Win-back drafts are removed.
+- C3 Replies waiting on you (was "Inbox"): ChatGPT writes only the middle (the direct answer and the next step). The greeting,
+  "Great to hear from you!", the closing line and the sign-off are fixed. The "Thanks for your email. I'll get back to you" holding
+  reply is gone; if ChatGPT can't draft, the line stays in the 8 AM update with no draft.
+- One S2 chaser: Canvas's Send RFP emails ("Quotation request | …", "RFP") are found by the same RFQ search.
+- Business days skip Philippine holidays (the fixed national ones for the rest of 2026 and 2027; Script Property CUE_HOLIDAYS adds
+  the proclaimed ones, such as Holy Week and National Heroes Day).
+- Emails waiting (J11) is dropped: Canvas's card gets `on:false` and no threads. The 10-minute inbox read stays, because it feeds the
+  project logs.
+- Chaser labels carry their message-map IDs (C2, C6, C7, S1, S2, R5/R6). Rules › Chaser rules lists C2; Jobs › Chasers shows C2 and
+  C3 with their templates.
+- Moved to part 3 (each needs a Canvas change): parking a contact after C2 (no stage-move bridge action), C4 accreditation status
+  (Cue has no per-company P4 data), C7 from AccountsPayables@, S1 from info@, turning off Canvas's own Team Cue RFP chaser, the crew
+  chasers, and the banner image. C3's 2-business-day wait and client-only filter come with the Trackers (part 4).
+- One "Threads" (Kiko 1 Nov 2026, screenshot: "two words here that says Threads. remove the 2nd", and 7 on the button vs 6 in the
+  list): the pane header no longer repeats "Threads" and its count; the ☰ Threads badge counts threads waiting on Kiko (as the
+  list's Waiting on you does), not tasks, so a thread with two waiting tasks counts once.
+- Tests: 576 (6 new in test/features/74-chaser-templates.js; payment, RFQ, award, accreditation, funnel, admin, brand voice and
+  mail alert tests updated to the new wording). FEATURE-MAP.md regenerated.
+
+## Cue 1.27.91: the 8 AM update, quiet jobs, new morning times, background switches (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat ("right now i wanna fix the messages being sent by Cue to me. i get overwhelmed").
+Spec cue-message-redesign-spec.md approved ("yes", with rules R1 to R4); mockup approved ("ok", after "if we can break it down
+further with the levels i gave earlier"). This is part 1 of 4. Built on top of PR #269 (Canvas look), on the live line.
+
+- 8 AM update (new Schedule row "8 AM update", daily 08:00, `CueMorning.gs`): one message in the main chat in Kiko's levels:
+  Critical today (task and scheduled reminders with a time), Yesterday's summary (project threads worked on, chasers sent, bids
+  found, contacts added, releases), Today's work (assigned to you, needs your review or approval, time to follow up, blocked), and a
+  numbered For your OK list (the morning batch's chasers, new contacts, new bids, Friday client updates). No AI call. Empty levels
+  are left out (R1). If the 07:00 batch is still drafting at 8:00 it waits and goes out as soon as the batch is ready (by 10:00).
+- Kiko replies in words: "send all", "send 1, 3", "add 4", "start 6", "no 2" (in the main chat or the update's thread). Chasers
+  he names go out at once from the batch (no 9:00 wait); the ones he does not name are skipped today and come back on their next
+  day. "add" adds the named contacts to Canvas, "start" starts a bid's intake, "send"/"no" sends or skips a Friday update. Cue
+  answers in one line ("Done: 3 chasers sent, 1 contact sent to Canvas.").
+- Quiet jobs (R2): while the 8 AM update is on, the morning batch, bid check, sales funnel, Friday status, New mail and the
+  approved-send line post nothing to the main chat (their threads keep their lines). A failure still says so. The new contacts card
+  is made once a day inside the update's thread instead of in the main chat. Turning the 8 AM update off in Cue Admin brings the
+  old posts back.
+- New morning times (applied once to the existing rows): bid check 06:30, sales funnel 06:45, Friday status Fri 06:45, so all are
+  ready for 08:00. The ChatGPT daily plan row is turned off once (the 8 AM update replaces it, decision D4).
+- Cue Admin › Jobs › Scheduled tasks: new rows with On switches for the background jobs that had none (New mail, New contacts from
+  Gmail, Client accreditation mail, CRM work); a Silent label on the jobs that keep out of the chat; their descriptions say the
+  results are in the 8 AM update; no Change time button on background rows.
+- Not in this part (spec parts 2 to 4): chaser rules and templates, sender changes, the Canvas release for supplier and crew
+  emails, the Shared Task Tracker and TRI Tracker (personal tasks), proposed stage moves, and the one-ping urgent email (K2).
+- Tests: 570 (5 new in test/features/73-morning-update.js; BD5, BD9, SC2, SC4, SC8, ST7 updated for the new times and quiet
+  posts). FEATURE-MAP.md regenerated.
+
+## Cue: Canvas look without magenta, lists, sent times, thread colours, bigger logo (not deployed)
+
+Asked by Kiko on 31 Oct 2026 in the cloud chat "Test". Mockups C2 and D2 approved ("perfect"), and the thread colours approved ("A").
+Built on the live release (1.27.90, branch claude/project-thread-y5l4x9-rel12790), not on main, which is behind live.
+
+- No magenta: the "needs you" colour is now Canvas violet #23006F (Threads count, needs-you marks). The logo keeps its gradient.
+- Sent time: every message in the chat and in threads shows its time under its box, outside it, on the left for Cue and on the
+  right for Kiko ("1:39 PM" today, "Oct 30, 4:12 PM" before).
+- Lists: lines starting with "1." / "1)" / "-" show as real numbered or bulleted lists, with indented sub-points; a reply that
+  runs "1) … 2) …" in one paragraph is split into a list. The chat prompt now asks Claude to put each option on its own line.
+- Thread colours: a thread's header band and its row's side stripe are cyan (#559FEF) for project updates, orange (#CD5023) for
+  CRM and funnel, and violet (#23006F) for the rest. CRM wins when a thread is both. HubSpot is not counted as CRM (being removed).
+- Logo bigger: 30px to 40px standalone, 22px to 32px inside Canvas. "Threads ›" before an open thread's name is gone.
+- Reply line (Kiko 31 Oct: "If you have any questions or clarifications, feel free to hit reply."): the accreditation chaser's
+  fallback uses it. test/fixtures/ZapBridge.gs is refreshed from Canvas V364 (PR #377: email wording only, no bridge call changes).
+- "Close older runs" (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines): one main-chat line,
+  "Closed N older runs. Nothing was written or sent.", instead of one line in every closed thread (each surfaced in the main chat
+  with an "Earlier task" row). The old copies already in the chat are hidden. Test C40 updated.
+- Tests: 565 of 565 pass.
 
 ## Cue 1.27.90: Ask Cue works again (BUG FIX, LIVE as Version 185, 30 Oct 2026 09:48Z; rollback Version 184)
 

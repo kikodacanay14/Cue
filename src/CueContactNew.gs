@@ -12,7 +12,7 @@
  *      reader, CueContactScan.gs), one Claude Haiku call per 20 people.
  *   4. Approve sends one contact_add, as the one command of a claimed plan, with the ticked people. Canvas adds the P0 and P0
  *      Contacts rows and logs each in CRM Auto Added, so Accounts › Auto add's Undo takes it back. Skip page adds nobody.
- *      Nothing is written to Canvas before Approve. No email, no HubSpot write. */
+ *      Nothing is written to Canvas before Approve. No email. */
 const CUE_CN_ = { years: 3, page: 100, pages: 4, batch: 50, cos: 25, people: 40, ai: 20, days: 7, check: 200, checks: 5, mails: 2, ms: 60000, tries: 3 };
 const CUE_CN_TAB_ = 'New contacts';
 const CUE_CN_MODEL_ = 'claude-haiku-5-5';
@@ -138,7 +138,7 @@ function cueCnSign_(s, people) {
 
 /** One card: the next New rows, at most 25 companies and 40 people, new companies first. Returns the card's id, '' when everyone
  *  turned out to be in Canvas (the next run makes the next card), or null when nobody is left to show. */
-function cueCnCard_(s, T, st) {
+function cueCnCard_(s, T, st, where) {
   const by = {}, order = [];
   T.rows.forEach((r, i) => { if (r[6] !== 'New') return; const g = String(r[7]) ? 'c|' + String(r[7]).toLowerCase() : 'd|' + String(r[0]).split('@')[1];
     if (!by[g]) { by[g] = []; order.push(g); } by[g].push(i); });
@@ -167,7 +167,7 @@ function cueCnCard_(s, T, st) {
   return cueAskOpen_({ type: 'contactnew', run: s.id, emails },
     'Add new contacts to Canvas? From the From and Cc of your Gmail (' + (st.kind === 'weekly' ? 'the last week' : 'the last ' + CUE_CN_.years + ' years') + '): '
     + cos + ' compan' + (cos === 1 ? 'y' : 'ies') + ', ' + emails.length + ' ' + (emails.length === 1 ? 'person' : 'people') + (left ? ', ' + left + ' more after this card' : '') + '.\n'
-    + lines.join('\n') + '\nUntick anyone you don\'t want. Nothing is added until you tap Approve. Undo any of it in Canvas › Accounts › Auto add.', ['approve', 'skippage'], '');
+    + lines.join('\n') + '\nUntick anyone you don\'t want. Nothing is added until you tap Approve. Undo any of it in Canvas › Accounts › Auto add.', ['approve', 'skippage'], where || '');
   return true;
 }
 
@@ -186,19 +186,22 @@ function cueCnTick_() {
   const open = P.getProperty('CUE_CN_CARD');
   if (open && P.getProperty('CUE_ASK_' + open)) return added;   // one card at a time
   if (T.rows.some(r => r[6] === 'Waiting')) return added;       // Canvas checks the rest first
+  if (cueK0On_()) return added;                                  // CUE-K0-2026-10-31: the 8 AM update lists them (its own card, in its thread)
   const id = cueCnCard_(s, T, st);
   if (id) P.setProperty('CUE_CN_CARD', id); else P.deleteProperty('CUE_CN_CARD');
   return added;
 }
 
-/** Approve or Skip page on the card (CueRoute.gs cueAskPick). note = "skip:2,5": the rows Kiko unticked. */
-function cueCnPick_(o, pick, done, note) {
+/** Approve or Skip page on the card (CueRoute.gs cueAskPick). note = "skip:2,5": the rows Kiko unticked. keep: emails that go back
+ * to New and come again on the next list (the 8 AM update's people Kiko did not name; Kiko 1 Nov: "B - until i decline or add"). */
+function cueCnPick_(o, pick, done, note, keep) {
+  keep = keep || [];
   const skip = {}; (String(note || '').match(/^skip:([\d,]*)$/) || ['', ''])[1].split(',').filter(Boolean).forEach(n => { skip[Number(n)] = 1; });
   const want = (o.emails || []).filter((e, i) => !skip[i + 1]);
   cueChat_('Kiko', pick === 'approve' ? 'Approve ' + want.length : 'Skip page', done);
   PropertiesService.getScriptProperties().deleteProperty('CUE_CN_CARD');
   const T = cueCnRead_(), now = new Date(cueNow_()), mark = (list, status) => list.forEach(e => { const i = T.at[e]; if (i === undefined) return; T.rows[i][6] = status; T.rows[i][10] = now; cueCnPut_(T, i); });
-  if (pick !== 'approve' || !want.length) { mark(o.emails || [], 'Skipped'); cueChat_('Cue', 'OK, nobody added. Nothing was written to Canvas. The next page comes in a few minutes.', done); return { chat: true }; }
+  if (pick !== 'approve' || !want.length) { mark((o.emails || []).filter(e => keep.indexOf(e) < 0), 'Skipped'); mark(keep, 'New'); cueChat_('Cue', 'OK, nobody added. Nothing was written to Canvas. The next page comes in a few minutes.', done); return { chat: true }; }
   const people = want.map(e => { const r = T.rows[T.at[e]] || []; const x = { email: e }, put = (k, v) => { if (String(v || '').trim()) x[k] = String(v).trim(); };
     put('name', cueStr_(r[1], 120)); put('title', cueStr_(r[8], 120)); put('phone', r[9]); put('company', cueStr_(r[7], 120)); put('via', r[2]); put('subject', cueStr_(r[3], 200));
     put('date', CUE_DATE_RE_.test(String(r[4])) ? r[4] : ''); put('thread', r[5]); return x; });
@@ -210,7 +213,8 @@ function cueCnPick_(o, pick, done, note) {
   if (r.refused) { mark(o.emails || [], 'New'); cueChat_('Cue', 'Canvas refused: ' + cueStr_(r.refused, 300) + ' Nobody was added.', done); return { chat: true }; }
   const added = (r.contacts || []).map(x => x.email), kn = r.known || [], sk = (r.skipped || []).map(x => x.email);
   mark(added, 'Added'); mark(kn, 'Known'); (r.skipped || []).forEach(x => mark([x.email], cueCnWhy_(x.why)));
-  mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0 && sk.indexOf(e) < 0), 'Not added');
+  mark((o.emails || []).filter(e => added.indexOf(e) < 0 && kn.indexOf(e) < 0 && sk.indexOf(e) < 0 && keep.indexOf(e) < 0), 'Not added');
+  mark(keep.filter(e => want.indexOf(e) < 0), 'New');
   cueChat_('Cue', 'Added ' + added.length + ' contact' + (added.length === 1 ? '' : 's') + ((r.companies || []).length ? ' and ' + r.companies.length + ' new compan' + (r.companies.length === 1 ? 'y' : 'ies') + ' at P0' : '') + ' to Canvas.'
     + (kn.length ? ' ' + kn.length + ' already in Canvas, left alone.' : '') + (sk.length ? ' ' + sk.length + ' skipped (personal email, supplier or BSE staff).' : '') + ' Undo any of it in Canvas › Accounts › Auto add. The next page comes in a few minutes.', done);
   return { chat: true };

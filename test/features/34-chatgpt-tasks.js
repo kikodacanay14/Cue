@@ -15,13 +15,13 @@ const GT_P0 = [['P1', 'Acme Corp', 'Sent', '2026-09-20', '2026-10-01', 'No Reply
   ['P3', 'Golf Group', 'Sent', '', '', 'No Reply', '2026-10-21', '']];
 const GT_F = (o) => Object.assign({ key: 'acme-followup', group: 'Follow-up', title: 'Follow up Acme proposal', company: 'Acme Corp', person: 'Ana', detail: 'No reply since 1 Oct.',
   evidence: [{ label: 'P0 row 5', url: '' }], next_action: 'Send the follow-up', due: '2026-10-22', email: { to: 'ana@acme.example', subject: 'Following up', body: 'Hi Ana,\nJust checking in.\nKiko' },
-  hubspot: 'task', canvas: 'client', project_id: '', confidence: 'high' }, o);
+  canvas: 'client', project_id: '', confidence: 'high' }, o);
 const GT_ANS = { summary: 'Three prospects are due.', coverage: { checked: 'P0 due list and Gmail', not_checked: 'LinkedIn' },
-  steps: [1, 2, 3, 4].map(n => ({ step: n, done: true, note: '' })),
+  steps: [1, 2, 3].map(n => ({ step: n, done: true, note: '' })),
   findings: [GT_F(), GT_F({ key: 'gamma', title: 'Second outreach Gamma', company: 'Gamma Co', email: { to: 'guess@gamma.example', subject: 'Hello again', body: 'Hi,\nKiko' } }),
-    GT_F({ key: 'delta', title: 'Delta requirements', company: 'Delta Ltd', evidence: [], detail: 'I sent the reminder yesterday.', email: { to: '', subject: '', body: '' }, hubspot: 'none', canvas: 'none' })] };
+    GT_F({ key: 'delta', title: 'Delta requirements', company: 'Delta Ltd', evidence: [], detail: 'I sent the reminder yesterday.', email: { to: '', subject: '', body: '' }, canvas: 'none' })] };
 function gtBox(o = {}) {
-  const t = sandbox(Object.assign({ gpt: { gtask: GT_ANS }, props: { CUE_HUBSPOT_TOKEN: 'hs-test' },
+  const t = sandbox(Object.assign({ gpt: { gtask: GT_ANS },
     gmailList: q => (/from:acme\.example/.test(q) ? [{ id: 'g1', thread: 't1' }] : []),
     msgs: [{ id: 'g1', thread: 't1', ms: Date.parse('2026-10-02T02:00:00Z'), from: 'Ana <ana@acme.example>', to: 'kiko@example.com', subject: 'Re: proposal', snippet: 'Thanks, will review' }] }, o));
   t.tabs.P0 = p0Tab(o.p0 || GT_P0);
@@ -40,7 +40,7 @@ test('GT1 prospect follow-ups: chat words, no chat call; code picks who is due (
   assert.ok(/1\. Take the prospects Cue found due/.test(t.log.gpt[0].instructions), 'the skill steps are the instructions');
   assert.strictEqual(v.kind, 'gtask'); assert.strictEqual(v.status, 'Needs you');
   deq(v.gt.checks.map(c => c.ok), [false, true, false, false, false, true, true], "check 8: P0 and Gmail read");
-  assert.ok(/step 5/.test(v.gt.checks[0].detail) && /guess@gamma\.example/.test(v.gt.checks[3].detail));
+  assert.ok(/step 4/.test(v.gt.checks[0].detail) && /guess@gamma\.example/.test(v.gt.checks[3].detail));
   const g = v.gt.items.find(f => f.company === 'Gamma Co'); assert.strictEqual(g.email.to, '', 'a guessed address is removed');
   assert.strictEqual(v.gt.items.find(f => f.company === 'Acme Corp').email.to, 'ana@acme.example', 'an address in the records stays');
   assert.ok(/^3 new findings\. Process check: 3 of 7 passed\.$/.test(v.gt.summary), v.gt.summary);
@@ -51,17 +51,13 @@ test('GT2 only new findings: the same answer next time shows nothing new and the
   const v = t.ctx.cueRun(t.ctx.cueSend('prospect follow-ups', [], '').request_id);
   assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.gt.items.length, 0); assert.ok(/^Nothing new \(3 already shown\)/.test(v.gt.summary), v.gt.summary);
 });
-test('GT3 Kiko\'s taps: Draft email makes a Gmail draft (never sent); Add to HubSpot puts a task on the company; a token without write access says so', () => {
-  const t = gtBox({ hsCompanies: [{ id: '77', name: 'Acme Corp' }] }); const v = t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id);
+test('GT3 Kiko\'s taps: Draft email makes a Gmail draft (never sent); the removed HubSpot action is refused and calls nothing', () => {
+  const t = gtBox(); const v = t.ctx.cueRun(t.ctx.cueSend('run prospect follow-ups', [], '').request_id);
   const acme = v.gt.items.find(f => f.company === 'Acme Corp');
   const d = t.ctx.cueGtAct(v.id, acme.id, 'draft'); assert.ok(/To: ana@acme\.example/.test(t.log.gmail[0])); assert.ok(d.gt.items.find(f => f.id === acme.id).drafted);
   assert.ok(!(t.log.sent || []).length, 'nothing sent');
-  const h = t.ctx.cueGtAct(v.id, acme.id, 'hubspot'); const w = t.log.hs.find(x => x.path === '/crm/v3/objects/tasks');
-  assert.ok(w && w.body.associations[0].to.id === '77' && w.body.associations[0].types[0].associationTypeId === 192 && w.body.properties.hs_task_status === 'NOT_STARTED');
-  assert.ok(/task "Send the follow-up" on Acme Corp, due 2026-10-22/.test(h.gt.items.find(f => f.id === acme.id).in_hubspot));
-  t.ctx.cueGtAct(v.id, acme.id, 'hubspot'); assert.strictEqual(t.log.hs.filter(x => x.path === '/crm/v3/objects/tasks').length, 1, 'never twice');
-  const u = gtBox({ hsCompanies: [{ id: '77', name: 'Acme Corp' }], hsWrite403: true }); const x = u.ctx.cueRun(u.ctx.cueSend('run prospect follow-ups', [], '').request_id);
-  assert.throws(() => u.ctx.cueGtAct(x.id, x.gt.items.find(f => f.company === 'Acme Corp').id, 'hubspot'), /read and write access/);
+  assert.throws(() => t.ctx.cueGtAct(v.id, acme.id, 'hubspot'), /Unknown action/);
+  assert.ok(!('hubspot' in acme) && !('in_hubspot' in acme), 'no HubSpot field on a finding');
   assert.ok(acme.canvas && /page=clientdesk/.test(acme.canvas.url), 'company changes open Canvas Accounts');
 });
 test('GT4 Draft all: one separate draft per email on the card; findings without a body are skipped', () => {
@@ -88,7 +84,7 @@ test('GT7 Friday readiness: only For Production Start and For Event Execution pr
   const t = gtBox({ projects: [{ id: 'S-10000001AA', name: 'Acme Gala', status: 'For Production Start', eventDate: '2026-10-30' }, { id: 'S-10000002BB', name: 'Beta Launch', status: 'For Event Execution', eventDate: '2026-10-24' },
     { id: 'S-10000003CC', name: 'Gamma Party', status: 'For Client Awarding' }],
     gpt: { gtask: { summary: 'One at risk.', coverage: { checked: 'Canvas checklists', not_checked: 'none' }, steps: [1, 2, 3, 4, 5].map(n => ({ step: n, done: true, note: '' })),
-      findings: [GT_F({ key: 'acme-gala', group: 'At Risk', title: 'Acme Gala: supplier not confirmed', company: 'Acme Corp', project_id: 'S-10000001AA', canvas: 'project', hubspot: 'none', email: { to: '', subject: '', body: '' } })] } } });
+      findings: [GT_F({ key: 'acme-gala', group: 'At Risk', title: 'Acme Gala: supplier not confirmed', company: 'Acme Corp', project_id: 'S-10000001AA', canvas: 'project', email: { to: '', subject: '', body: '' } })] } } });
   const v = t.ctx.cueRun(t.ctx.cueSend('friday readiness', [], '').request_id);
   deq(t.log.bridge.filter(b => b.action === 'get_readiness').map(b => b.project_id), ['S-10000001AA', 'S-10000002BB']);
   assert.ok(t.log.gpt[0].input.indexOf('Gamma Party') < 0);

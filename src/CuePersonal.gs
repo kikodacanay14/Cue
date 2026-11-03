@@ -5,7 +5,7 @@
  *   - Code: duplicates in Personal Expense 2 (exact reference, then date + amount), a read-only look at BSE Scopes and
  *     Transfers (Transfers by reference, Payment Request by amount + payee), and credits, refunds and own-wallet top-ups set apart.
  *   - Kiko edits and ticks the items on the card. Approve moves each proof into "Personal expense proofs" in Kiko's My Drive,
- *     writes one row per ticked item, and reads every saved row back. Nothing goes to Canvas, HubSpot or any email.
+ *     writes one row per ticked item, and reads every saved row back. Nothing goes to Canvas or any email.
  * The sheet is owned by the account Cue runs as. Cue reads its live headers each time; it never trusts column letters. */
 
 const CUE_PE_SHEET_ = '1w1W1KOwsDBXynNv9-_AFhvEyxqdyffgT4PVBGGSI_rQ', CUE_PE_TAB_ = 'Personal Expense 2';

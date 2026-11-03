@@ -364,133 +364,32 @@
     return h;
   }
 
-  // Pipeline review (command C11, Kiko 07:34Z): open deals grouped by what they need, each with why and the next step. Read only.
-  function pipeCardHtml(r) {
-    var P = r.pipe, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', dr = P.drafts || [], drafting = waiting && dr.length, k = P.counts || {};
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Pipeline review</div><b style="font-size:17px;color:var(--white)">' + esc(P.title) + '</b>'
-      + (P.summary ? '<div style="margin-top:6px">' + esc(P.summary) + '</div>' : '')
-      + (P.counts ? '<div class="small muted" style="margin-top:6px">' + esc(P.deals.length) + ' checked of ' + esc(P.open) + ' open: ' + esc(k.act) + ' act today · ' + esc(k.chase) + ' chase · ' + esc(k.data) + ' fix · ' + esc(k.ok) + ' on track</div>' : '');
-    (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
-    var row = function (d) {
-      var tick = waiting && !dr.length && d.can_draft ? '<input type="checkbox" data-pk="' + esc(r.id) + '" value="' + esc(d.k) + '">' : '<span class="muted">•</span>';
-      // A flag that already counts the days to the event (Kiko 24 Oct: said 3 times) leaves just the date here.
-      var m = d.mail, counted = d.flags.some(function (f) { return /^Event /.test(f); });
-      var when = counted ? 'event' : d.days == null ? 'no event date' : d.days < 0 ? 'event ' + esc(-d.days) + ' day(s) ago' : d.days === 0 ? 'event today' : 'event in ' + esc(d.days) + ' day(s)';
-      return '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">' + tick + '<span>'
-        + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener"><b>' + esc(d.name) + '</b></a>' : '<b>' + esc(d.name) + '</b>')
-        + '<br><span class="small muted">' + esc(d.stage) + (d.amount ? ' · ' + peso(d.amount) : '') + ' · ' + when + (d.event ? ' (' + esc(d.event) + ')' : '') + '</span><br>'
-        + d.flags.map(function (f) { return '<span class="tag flag">' + esc(f) + '</span>'; }).join('')
-        + (d.status ? '<div class="small" style="margin-top:4px">' + esc(d.status) + '</div>' : '')
-        // Kiko 24 Oct: last email, then Next, then the action for that deal.
-        + (m ? '<div class="small muted" style="margin-top:4px">Last email ' + esc(m.date) + ', ' + (m.dir === 'in' ? 'from them' : m.dir === 'out' ? 'from you' : 'internal') + ': '
-          + (m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.subject || '(no subject)') + '</a>' : esc(m.subject)) + '</div>' : '<div class="small muted" style="margin-top:4px">No email from a person found in your Gmail.</div>')
-        + (d.next ? '<div class="small" style="margin-top:4px"><b>Next:</b> ' + esc(d.next) + '</div>' : '')
-        + pipeAct(d)
-        + '</span></label></div>';
-    };
-    var pipeAct = function (d) {
-      var b = [];
-      if (waiting && !dr.length && d.can_draft) b.push('<button class="btn" data-act="pipe-draft1" data-id="' + esc(r.id) + '" data-k="' + esc(d.k) + '">' + (d.mail && d.mail.dir === 'in' ? 'Draft reply' : 'Draft follow-up') + '</button>');
-      if (d.canvas && d.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(d.canvas.url) + '" target="_blank" rel="noopener">Fix in Canvas</a>');
-      if (!b.length && d.mail && d.mail.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(d.mail.url) + '" target="_blank" rel="noopener">Open email</a>');
-      return b.length ? '<div class="actions" style="margin-top:6px">' + b.join('') + '</div>' : '';
-    };
-    if (!drafting && !again && !(r.status === 'Done' && dr.length)) [['act', 'Act today'], ['chase', 'Chase'], ['data', 'Fix the data (in Canvas)']].forEach(function (g) {
-      var l = P.deals.filter(function (d) { return d.group === g[0]; }); if (!l.length) return;
-      h += '<div class="label">' + g[1] + ' (' + l.length + ')</div>' + l.map(row).join('');
-    });
-    var ok = P.deals.filter(function (d) { return d.group === 'ok'; });
-    if (ok.length && !drafting) h += '<details style="margin-top:10px"><summary class="small">On track (' + ok.length + ')</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
-      + ok.map(function (d) { return '<li>' + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.name) + '</a>' : esc(d.name)) + ' <span class="muted">' + esc(d.stage) + '</span></li>'; }).join('') + '</ul></details>';
-    if (dr.length) {
-      h += '<div class="label">Follow-ups' + (drafting ? '. Edit before sending. Nothing has gone out yet' : '') + '</div>' + (P.note ? '<div class="small muted">' + esc(P.note) + '</div>' : '');
-      dr.forEach(function (d) {
-        h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (drafting ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>' : '<span>' + (d.made ? '✓' : '•') + '</span>')
-          + '<span><b>' + esc(d.deal) + '</b> <span class="small muted">' + esc(d.to) + '</span>' + (d.sent ? ' <span class="tag pref">sent</span>' : d.made ? ' <span class="tag new">in Drafts</span>' : '')
-          + '<br><span class="small muted">Re: ' + esc(d.subject) + '</span></span></label>'
-          + (drafting ? '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(d.k) + '" aria-label="Email for ' + esc(d.deal) + '">' + esc(d.body) + '</textarea>' : '<pre style="margin-top:8px">' + esc(d.body) + '</pre>')
-          + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
-      });
-    }
-    var can = P.deals.some(function (d) { return d.can_draft; });
-    h += '<div class="actions">'
-      + (waiting && !dr.length && can ? '<button class="btn" data-act="pipe-draft" data-id="' + esc(r.id) + '">Draft follow-ups for ticked</button>' : '')
-      + (drafting ? '<button class="btn" data-act="send-pipe" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-pipe" data-id="' + esc(r.id) + '">Drafts only</button>' : '')
-      + (again ? '<button class="btn" data-act="approve-pipe" data-id="' + esc(r.id) + '">' + (r.pipe.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
-      + (waiting ? '<button class="btn ghost" data-act="pipe-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
-      + (waiting && !dr.length ? '<div class="small muted" style="margin-top:6px">Read only: Canvas is not changed. Tick deals with an email thread, then Draft follow-ups. Nothing is sent until you approve.</div>' : '')
-      + metricLine(r) + '</div>';
-    return h;
-  }
-
-  // CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md): deals per HubSpot stage as bars, the deals by stage biggest first,
-  // and Kiko's open HubSpot tasks. Read only, except Mark done, which closes that one task in HubSpot.
-  function pesoK(v) { v = Number(v) || 0; return v >= 1e6 ? '₱' + (Math.round(v / 1e5) / 10) + 'M' : v >= 1e4 ? '₱' + Math.round(v / 1e3) + 'k' : '₱' + Math.round(v).toLocaleString('en-US'); }
-  // 1.27.25 (PC recheck 24 Oct 15:00Z): only = 'tasks' draws the HubSpot tasks alone, for Review tasks' own pane tab (hst:<run>).
-  function funnelCardHtml(r, only) {
-    var F = r.fn, waiting = r.status === 'Needs you', w = F.wait || {}, max = 1, link = function (u, t) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
+  // CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md): the sales funnel, read only.
+  // HUBSPOT-REMOVAL-2026-11-01 (Kiko 1 Nov 2026: "Delete the Hubspot code"): Canvas only; the task list and its close button are gone.
+  function funnelCardHtml(r) {
+    var F = r.fn, waiting = r.status === 'Needs you', w = F.wait || {}, max = 1;
     F.stages.forEach(function (x) { if (x.n > max) max = x.n; });
     var COL = { open: 'var(--act)', won: 'var(--ok)', lost: 'var(--line2)' };
-    var tasksBy = {}; F.tasks.forEach(function (t) { tasksBy[t.id] = t; });
-    var taskBtn = function (t, word) { return waiting && !t.done ? '<button class="btn ghost" data-act="fn-task" data-id="' + esc(r.id) + '" data-t="' + esc(t.id) + '">' + word + '</button>' : ''; };
-    var h;
-    if (only === 'tasks') h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">HubSpot tasks · yours</div>'
-      + '<div class="small muted">From HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. The deals and stages are in the Sales funnel thread.</div>';
-    else {
-    // CRM-FUNNEL-CANVAS-2026-10-29: a run that read Canvas's Sales funnel says so; its steps have no deal list or amounts here.
-    var canvas = F.src === 'canvas';
     // CRM-UPDATES-2026-10-29 (Kiko 29 Oct 16:13Z "it has to be able to give updates not a dashboard. you cant fit a dashboard in a chat
     // window"): a run with update lines shows them as plain sentences and a link to Accounts in Canvas, where the dashboard lives.
     var L = F.lines || null;
-    h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">' + (L ? 'Sales update · from Canvas Accounts' : 'Sales funnel · from ' + (canvas ? 'Canvas' : 'HubSpot')) + '</div>'
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">' + (L ? 'Sales update · from Canvas Accounts' : 'Sales funnel · from Canvas') + '</div>'
       + (L ? '<b style="font-size:16px;color:var(--white)">' + esc(L[0]) + '</b>'
-        : '<b style="font-size:20px;color:var(--white)">' + esc(w.amount ? pesoK(w.amount) + ' waiting for award' : (w.n || 0) + ' deal(s) waiting for award') + '</b>'
-      + '<div class="small muted">' + (canvas ? 'Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.'
-        : 'Every deal in HubSpot' + (F.read ? ', read at ' + esc(F.read) : '') + '. Stage and amount come from Canvas.') + '</div>');
+        : '<b style="font-size:20px;color:var(--white)">' + esc((w.n || 0) + ' deal(s) waiting for award') + '</b>'
+      + '<div class="small muted">Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.</div>');
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
     if (L) {
       h += (L.length > 1 ? '<ul style="margin:8px 0 0;padding-left:18px">' + L.slice(1).map(function (x) { return '<li style="margin:4px 0">' + esc(x) + '</li>'; }).join('') + '</ul>' : '')
         + '<div class="small muted" style="margin-top:6px">Read at ' + esc(F.read || '') + '. The numbers and lists are on Canvas\'s Accounts dashboard.</div>'
         + (F.accounts_url ? '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(F.accounts_url) + '" target="_blank" rel="noopener">Open Accounts in Canvas</a></div>' : '');
     } else {
-    // Empty open stages fold into one grey line instead of empty bars.
-    var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
-    h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
-      return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span style="flex:0 0 38%">' + esc(x.label) + '</span>'
-        + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:16px;border-radius:4px;background:' + (x.id === w.id ? 'var(--need)' : COL[x.kind]) + ';width:' + Math.max(3, Math.round(55 * x.n / max)) + '%"></span>'
-        + '<span>' + esc(x.n) + (x.amount && x.kind !== 'lost' ? ' · ' + pesoK(x.amount) : '') + (x.stuck ? ' · ' + esc(x.stuck) + ' stuck' : '') + '</span></span></div>';
-    }).join('') + (empty.length ? '<div class="small muted">None right now: ' + esc(empty.map(function (x) { return x.label; }).join(', ')) + '</div>' : '') + '</div>';
-    if (F.none.length) h += '<div class="warn">' + esc(F.none.length) + ' deal' + (F.none.length === 1 ? ' has' : 's have') + ' no stage, so the funnel leaves ' + (F.none.length === 1 ? 'it' : 'them') + ' out: '
-      + F.none.map(function (d) { return link(d.url, d.name); }).join(' · ') + '. Check its project status in Canvas.</div>';
-    if (!canvas) F.stages.filter(function (x) { return x.n; }).forEach(function (x) {
-      var l = F.deals.filter(function (d) { return d.stage === x.id; });
-      // PC check 24 Oct 14:13Z: a summary styled display:inline loses its marker, so a closed stage looked empty. The .sec marker shows it opens.
-      h += '<details class="sec"' + (x.id === w.id || l.length <= 5 ? ' open' : '') + '><summary>' + esc(x.label) + ' (' + l.length + ')</summary>'
-        + l.map(function (d) {
-          var ts = d.tasks.map(function (k) { return tasksBy[k]; }).filter(Boolean);
-          return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(d.url, d.name) + '</b><br><span class="small muted">' + (d.amount ? pesoK(d.amount) : 'no amount') + '</span>'
-            + ts.map(function (t) { return '<div class="small" style="margin-top:4px"><span class="tag flag">HubSpot task' + (t.late ? ' · ' + esc(t.late) + ' day' + (t.late === 1 ? '' : 's') + ' late' : '') + '</span> ' + esc(t.subject)
-              + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark task done') + '</div></div>'; }).join('') + '</div>';
-        }).join('') + '</details>';
-    });
-    }
-    h += '<div class="label" id="fnt-' + esc(r.id) + '">HubSpot tasks · yours</div>';
-    }
-    if (F.task_error) h += '<div class="warn">' + esc(F.task_error) + '</div>';
-    else {
-      var open = F.tasks.filter(function (t) { return !t.done; });
-      h += '<div class="small muted">' + esc(open.length) + ' open' + (open.length !== F.tasks.length ? ', ' + esc(F.tasks.length - open.length) + ' marked done here' : '') + '. Mark done closes that one task in HubSpot, then Cue reads it back.</div>';
-      [['deal', 'Deal follow-ups'], ['category', 'Company category'], ['other', 'Other']].forEach(function (g) {
-        var l = F.tasks.filter(function (t) { return t.group === g[0]; }); if (!l.length) return;
-        h += '<details class="sec"' + (g[0] === 'deal' || l.length <= 5 ? ' open' : '') + '><summary>' + g[1] + ' (' + l.filter(function (t) { return !t.done; }).length + ')</summary>'
-          + l.map(function (t) {
-            return '<div style="padding:8px 0;border-top:1px solid var(--line)"><b>' + link(t.url, t.subject) + '</b>' + (t.done ? ' <span class="tag pref">done</span>' : '')
-              + '<br><span class="small">' + (t.due ? (t.late && !t.done ? '<span style="color:var(--bad)">Due ' + esc(t.due) + ' · ' + esc(t.late) + ' day' + (t.late === 1 ? '' : 's') + ' late</span>' : 'Due ' + esc(t.due)) : 'No due date') + '</span>'
-              + (t.deal ? '<span class="small muted"> · ' + link(t.deal_url, t.deal) + (t.amount ? ' ' + pesoK(t.amount) : '') + (t.stage ? ', ' + esc(t.stage) : '') + '</span>' : '')
-              + (t.error ? '<div class="err">' + esc(t.error) + '</div>' : '') + '<div class="actions" style="margin-top:4px">' + taskBtn(t, 'Mark done') + '</div></div>';
-          }).join('') + '</details>';
-      });
+      // Empty open stages fold into one grey line instead of empty bars.
+      var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
+      h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
+        return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span style="flex:0 0 38%">' + esc(x.label) + '</span>'
+          + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:16px;border-radius:4px;background:' + (x.id === w.id ? 'var(--need)' : COL[x.kind]) + ';width:' + Math.max(3, Math.round(55 * x.n / max)) + '%"></span>'
+          + '<span>' + esc(x.n) + (x.stuck ? ' · ' + esc(x.stuck) + ' stuck' : '') + '</span></span></div>';
+      }).join('') + (empty.length ? '<div class="small muted">None right now: ' + esc(empty.map(function (x) { return x.label; }).join(', ')) + '</div>' : '') + '</div>';
     }
     h += '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="fn-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
       + '<div class="small muted" style="margin-top:6px">No AI. Deal stages and amounts are never changed here: Canvas owns them.</div>' + metricLine(r) + '</div>';
@@ -602,41 +501,6 @@
     h += '<div class="actions">' + (f.sheet_url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.sheet_url) + '" target="_blank" rel="noopener">Open the sheet</a>' : '<button class="btn ghost" data-act="fin-sheet" data-id="' + esc(r.id) + '">Save as Sheet</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
-  // Command C12 (Kiko 07:50Z): one card, grouped findings, a tick per fix. Nothing changes until Approve.
-  function hsCardHtml(r) {
-    var H = r.hs, waiting = r.status === 'Needs you', sc = H.scanned || {}, n = 0;
-    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">HubSpot clean-up</div><b style="font-size:17px;color:var(--white)">' + esc(H.title) + '</b>'
-      + '<div class="small muted">Checked ' + esc(sc.companies || 0) + ' companies, ' + esc(sc.contacts || 0) + ' contacts and ' + esc(sc.deals || 0) + ' deals.' + (H.fixed ? ' ' + esc(H.fixed) + ' fixed so far.' : '') + '</div>'
-      + (H.summary ? '<div class="small" style="margin-top:6px">' + esc(H.summary) + '</div>' : '');
-    (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
-    if (!H.groups.length) h += '<div class="small" style="margin-top:8px">Nothing to fix.</div>';
-    H.groups.forEach(function (g) {
-      h += '<details' + (g.id !== 'flag' ? ' open' : '') + ' style="margin-top:10px"><summary class="label" style="display:inline">' + esc(g.label) + ' (' + g.items.length + ')</summary>';
-      g.items.forEach(function (x) {
-        var done = x.result && x.result.ok, can = waiting && x.can_fix && !done;
-        if (x.can_fix && !done) n++;
-        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (can ? '<input type="checkbox" data-hck="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (x.tick ? ' checked' : '') + '>' : '<span>' + (done ? '✓' : x.can_fix ? '•' : '–') + '</span>')
-          + '<span><b>' + esc(x.title) + '</b>' + (x.permanent ? ' <span class="tag flag">cannot be undone</span>' : '') + (x.unsure ? ' <span class="tag new">unsure</span>' : '')
-          + '<br><span class="small muted">' + esc(x.why) + '</span>' + (x.claude ? '<br><span class="small">' + esc(x.claude) + '</span>' : '')
-          + (x.fix_text ? '<br><span class="small">Fix: ' + esc(x.fix_text) + '</span>' : '') + '</span></label>';
-        h += '<ul class="small" style="margin:6px 0 0;padding-left:18px">' + x.recs.map(function (q) {
-          return '<li>' + (can && x.keep ? '<label><input type="radio" style="width:auto" name="keep-' + esc(r.id) + '-' + esc(x.key) + '" data-hkeep="' + esc(r.id) + '" data-k="' + esc(x.key) + '" value="' + esc(q.id) + '"' + (q.id === x.keep ? ' checked' : '') + '> keep </label>' : '')
-            + (q.url ? '<a href="' + esc(q.url) + '" target="_blank" rel="noopener">' + esc(q.name) + '</a>' : esc(q.name)) + ' <span class="muted">' + esc(q.type) + (q.sub ? ' · ' + esc(q.sub) : '') + '</span>'
-            + (q.canvas ? ' <span class="tag pref">Canvas</span>' : '') + '</li>'; }).join('') + '</ul>';
-        if (can && x.edit) h += '<input class="wide" style="margin-top:6px" data-hval="' + esc(r.id) + '" data-k="' + esc(x.key) + '" data-edit="' + esc(x.edit) + '" value="' + esc(x.value) + '" placeholder="' + (x.edit === 'domain' ? 'example.com' : 'First and last name') + '">';
-        if (x.source) h += '<div class="small muted">Seen at: ' + (/^https:\/\//.test(x.source) ? '<a href="' + esc(x.source) + '" target="_blank" rel="noopener">' + esc(x.source) + '</a>' : esc(x.source)) + '</div>';
-        if (x.result) h += x.result.ok ? '<div class="small" style="margin-top:4px">✓ Fixed' + (x.result.note ? '. ' + esc(x.result.note) : '') + '</div>' : '<div class="err">' + esc(x.result.error) + '</div>';
-        h += '</div>';
-      });
-      h += '</details>';
-    });
-    if (waiting) h += '<div class="small muted" style="margin-top:8px">Tick what to fix. Canvas applies only the ticked ones (up to 50 record changes at a time) and reads each one back. Archived records can be restored in HubSpot for 90 days; merges cannot be undone.</div>'
-      + '<div class="actions">' + (n ? '<button class="btn" data-act="hs-approve" data-id="' + esc(r.id) + '">Approve ticked fixes</button>' : '')
-      + (H.lookups && !H.looked ? '<button class="btn ghost" data-act="hs-lookup" data-id="' + esc(r.id) + '">Look up ' + esc(H.lookups) + ' missing website' + (H.lookups === 1 ? '' : 's') + '</button>' : '')
-      + '<button class="btn ghost" data-act="hs-close" data-id="' + esc(r.id) + '">Done for now</button></div>';
-    return h + metricLine(r) + '</div>';
-  }
   // Find and Screen Bid Opportunities (Kiko 19:04Z-19:10Z, specs/bid-opportunities.md). 1.27.10 (Kiko 24 Oct, specs/bid-card-v2.md): New and Still open,
   // the 7 fields Kiko named, each document's real state (Cue opened it or says why not), and Request more details / Start intake on each notice.
   function bidsCardHtml(r) {
@@ -655,7 +519,8 @@
       return hh == null ? t : t + ', ' + ((+hh % 12) || 12) + ':' + mm + ' ' + (+hh < 12 ? 'AM' : 'PM'); }); };
     // Field lines (Kiko 30 Oct 2026 06:15Z, a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value"):
     // the name in the accent colour in its own column, no colon, the value regular beside it. just = justify the value (06:15Z).
-    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
+    // lines = keep the value's own line breaks, left aligned (the old PhilGEPS Description, Kiko 3 Nov 2026 10:16Z).
+    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just === 'lines' ? ' style="white-space:pre-line;text-align:left"' : just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
     var row = function (k, v, flag, just) { return kv(k, v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : ''), just); };
     var doc = function (d) {
       var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
@@ -685,7 +550,7 @@
         + '<b>' + esc(x.project || x.reference) + '</b>'
         + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
         + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
-        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, true)
+        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, /\n/.test(x.summary || '') ? 'lines' : true)
         // From the notice page (Kiko 30 Oct 05:52Z "add more details"): the site's category and mode, the delivery period, and Cue's copy of the notice.
         + (x.details && (x.details.category || x.details.mode) ? row('Category', [x.details.category, x.details.mode].filter(Boolean).join(' · ')) : '')
         + (x.details && x.details.delivery ? row('Delivery period', x.details.delivery) : '')
@@ -702,14 +567,15 @@
         + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
       if (g === 'clarify' && (x.ask || []).length) h += kv('To ask the agency', esc(x.ask.join(', ')));
       if (g === 'clarify') h += draftHtml(x);
-      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decide later, Decline.
+      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decline. No Decide later (Kiko 1 Nov: "we can remove
+      // Decide Later. If we just scroll pass through it that means we dont want to decide yet"): an untouched bid stays until it closes.
       var b = [], end = [];
       if (x.key && !x.decision) {
-        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true)); }
+        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-decline', x, 'Decline', true)); }
         else if (g === 'clarify') {
           if (!(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Send email clarification'));
           if (x.documents.length && !x.from_docs) b.push(btn('bids-more', x, 'Request more details', true));
-          end.push(btn('bids-later', x, 'Decide later', true), btn('bids-decline', x, 'Decline', true));
+          end.push(btn('bids-decline', x, 'Decline', true));
         } else {
           b.push(x.added ? (x.ce_url ? '<a class="btn sm" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.ce_url) + '" target="_blank" rel="noopener">Create CE</a>' : '')
             : btn('bids-intake', x, 'Accept'));
@@ -741,6 +607,40 @@
       + (waiting ? '<button class="btn sm ghost" data-act="bids-close" data-id="' + esc(r.id) + '">Done for now</button>' : '') + '</div>';
     return h + metricLine(r) + '</div>';
   }
+  // CUE-K0-BIDS-CARD-2026-11-01 (Kiko 1 Nov: "New Opportunities / Bids need to be a card. Coz they need to show more details, links
+  // inside it and buttons"; mockup cue-8am-bids-card.png): today's new bids as one card right under the 8 AM message. Header "New
+  // opportunities", no subtitle. Each bid: title, source and status labels, Agency, Budget (ABC), Closes, Reference, What it needs (or
+  // Missing), the documents, then View opportunity, Ask the agency (to clarify), Decline, Start intake. Same server calls as the bid card.
+  function k0BidsHtml(r) {
+    var B = r.bids || {}, list = (B.items || []).filter(function (x) { return x.key; });
+    if (!list.length) return '';
+    var peso = function (n) { return n ? '\u20b1' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''; };
+    var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
+    var day = function (v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return String(v || '');
+      var D = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ', ' + (+m[3]) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1];
+      return m[4] == null ? t : t + ' \u00b7 ' + ((+m[4] % 12) || 12) + ':' + m[5] + ' ' + (+m[4] < 12 ? 'AM' : 'PM'); };
+    var kv = function (k, v) { return v ? '<div class="small kv"><span class="fk">' + esc(k) + '</span><span>' + esc(v) + '</span></div>' : ''; };
+    var btn = function (act, x, label, ghost) { return '<button class="btn sm' + (ghost ? ' ghost' : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">' + label + '</button>'; };
+    var DONE = { accepted: 'Intake started', declined: 'Declined' };
+    var one = function (x) {
+      var clar = (x.group || 'clarify') !== 'scoped', docs = (x.documents || []).filter(function (d) { return /^https:\/\//.test(d.url || d.page || ''); });
+      var h = '<div class="k0b"><div><b>' + esc(x.project || x.reference) + '</b> ' + (x.source ? '<span class="tag">' + esc(x.source) + '</span> ' : '')
+        + '<span class="tag ' + (clar ? 'new' : 'pref') + '">' + (clar ? 'For clarification' : 'Scoped') + '</span>'
+        + (x.decision ? ' <span class="tag pref">' + esc(DONE[x.decision] || x.decision) + '</span>' : '') + '</div>'
+        + kv('Agency', x.agency) + kv('Budget (ABC)', peso(x.abc)) + kv('Closes', day(x.deadline)) + kv('Reference', x.reference)
+        + (clar && (x.ask || []).length ? kv('Missing', x.ask.join(', ')) : kv('What it needs', x.summary));
+      if (docs.length) h += '<div class="small" style="margin-top:6px"><b>Documents:</b> ' + docs.map(function (d) { return link(d.url || d.page, d.name); }).join(' \u00b7 ') + '</div>';
+      if (x.more && x.more.draft && !x.more.draft.sent) h += '<div class="small muted" style="margin-top:4px">Your email to the agency is drafted in the Bid check thread.</div>';
+      var b = [];
+      if (/^https:\/\//.test(x.opp || x.url || '')) b.push('<a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp || x.url) + '" target="_blank" rel="noopener">View opportunity</a>');
+      if (!x.decision) {
+        if (clar && !(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Ask the agency', true));
+        b.push(btn('bids-decline', x, 'Decline', true), btn('bids-intake', x, 'Start intake'));
+      }
+      return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
+    };
+    return '<div class="card k0bids" data-k0bids="' + esc(r.id) + '"><div class="k0bh">New opportunities</div>' + list.map(one).join('') + '</div>';
+  }
   // ChatGPT scheduled tasks (CueGptTasks.gs, specs/lead-gen-tasks.md + cleanup-review-tasks.md). Only new findings; every tap is Kiko's.
   function gtCardHtml(r) {
     var G = r.gt || { checks: [], items: [], steps: [], groups: [] }, waiting = r.status === 'Needs you', passed = G.checks.filter(function (c) { return c.ok; }).length;
@@ -760,8 +660,7 @@
       if (f.error) h += '<div class="err">' + esc(f.error) + '</div>';
       var b = [];
       if (f.email && f.email.body) b.push(f.drafted ? '<span class="tag pref">Draft in Gmail</span>' : '<button class="btn ghost" data-act="gt-draft" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Draft email</button>');
-      if (f.hubspot && f.hubspot !== 'none') b.push(f.in_hubspot ? '<span class="tag pref">In HubSpot</span>' : '<button class="btn ghost" data-act="gt-hubspot" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Add ' + (f.hubspot === 'task' ? 'task' : 'note') + ' to HubSpot</button>');
-      // Kiko 24 Oct ("should we have a remove contact"): a contact fix happens in Canvas (HubSpot copies it), never a delete from Cue.
+      // Kiko 24 Oct ("should we have a remove contact"): a contact fix happens in Canvas, never a delete from Cue.
       var fixc = (f.group === 'Contact' || f.group === 'Correction') && /^Accounts/.test(f.canvas && f.canvas.title || '');
       if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">' + (fixc ? 'Fix contact in Canvas' : 'Open in Canvas') + '</a>');
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
@@ -1235,7 +1134,6 @@
     if (r.kind === 'tri') return triCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'relnotes' && r.rn) return rnCardHtml(r);   // CUE-RELNOTES-2026-10-27
-    if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
     if (r.kind === 'gtask') return gtCardHtml(r);
     if (r.kind === 'finance') return finHtml(r);
@@ -1247,7 +1145,6 @@
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
-    if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
     if (r.kind === 'status' && r.st) return stCardHtml(r);
     if (r.kind === 'funnel' && r.fn && r.fn.stages.length && r.status !== 'Failed') return funnelCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
@@ -1400,16 +1297,6 @@
         // Live 22 Oct 01:22Z: Go on a plan card started the run but nothing ran it, so it sat at its first step until cueResume (5 min). Run it now, as a send does.
         var started = function (r) { done(); if (!r || r.chat || !r.request_id) return; running[r.request_id] = 1;
           call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); }); };
-        if (act === 'hs-approve') {
-          var hx = { tick: [], keep: {}, values: {} }, hr = (state.requests.filter(function (q) { return q.id === id; })[0] || {}).hs || { groups: [] }, hm = 0;
-          scope.querySelectorAll('[data-hck="' + id + '"]').forEach(function (x) { if (x.checked) hx.tick.push(x.value); });
-          scope.querySelectorAll('[data-hkeep="' + id + '"]').forEach(function (x) { if (x.checked) hx.keep[x.getAttribute('data-k')] = x.value; });
-          scope.querySelectorAll('[data-hval="' + id + '"]').forEach(function (x) { var v = {}; v[x.getAttribute('data-edit')] = x.value.trim(); hx.values[x.getAttribute('data-k')] = v; });
-          if (!hx.tick.length) return addLocal('Cue', 'Tick at least one fix first.');
-          hr.groups.forEach(function (g) { g.items.forEach(function (it) { if (it.permanent && hx.tick.indexOf(it.key) >= 0) hm++; }); });
-          return ask('Apply ' + hx.tick.length + ' fix' + (hx.tick.length === 1 ? '' : 'es') + ' in HubSpot?', (hm ? hm + ' of them merge records, which cannot be undone. ' : '') + 'Archived records can be restored for 90 days.', null, 'Apply', function () {
-            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, hx], done, fail); });
-        }
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
         if (act === 'ph-cancel' || act === 'close-task') { var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, cvp = (rq.phased && rq.canvas && !rq.canvas.removed && rq.canvas.project_id) || '';
           if (cvp) return ask('Cancel intake and remove ' + cvp + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {
@@ -1429,6 +1316,11 @@
           var ta = scope.querySelector('[data-sb="' + id + '"][data-k="' + b.getAttribute('data-key') + '"]');
           b.disabled = true; return call('cueSweepSendOne', [id, b.getAttribute('data-key'), ta ? ta.value : ''], done, fail);
         }
+        if (act === 'sweep-tell') {   // CUE-THREE-TOUCH-2026-11-01 (Kiko 1 Nov): Tell Cue what to change in this one draft; nothing is sent
+          var what = window.prompt('What should Cue change in this email? For example: make it firmer, or mention we can move to Friday.', '');
+          if (!what || !what.trim()) return;
+          b.disabled = true; return call('cueSweepRewrite', [id, b.getAttribute('data-key'), what], done, fail);
+        }
         if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
         // New mail (CueNewMail.gs): Start intake and Draft reply start a task and run it now; the draft card shows in this same thread.
         if (/^nm-/.test(act)) { b.disabled = true; var nmw = { 'nm-done': 'done', 'nm-mute': 'mute', 'nm-noinq': 'no_inquiry', 'nm-intake': 'intake', 'nm-reply': 'reply' }[act];
@@ -1444,12 +1336,6 @@
           var h9 = new Date(Date.now() + 8 * 3600000).getUTCHours() < 9;
           return ask('Send ' + go.length + ' email' + (go.length === 1 ? '' : 's') + (h9 ? ' at 9:00?' : ' now?'), 'From your Gmail to: ' + go.map(function (it) { return it.who + ' (' + it.to + ')'; }).join(', ') + '. ' + (h9 ? 'You can cancel until 9:00.' : 'Sent emails cannot be called back.'), null, 'Send', function () {
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, ed2], done, fail); });
-        }
-        if (act === 'pipe-done') { b.disabled = true; return call('cuePipeDone', [id], done, fail); }
-        if (act === 'pipe-draft' || act === 'pipe-draft1') {
-          var keys = act === 'pipe-draft1' ? [b.getAttribute('data-k')] : Array.prototype.filter.call(scope.querySelectorAll('[data-pk="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
-          if (!keys.length) return addLocal('Cue', 'Tick at least one deal first.');
-          b.disabled = true; running[id] = 1; schedule(); return call('cuePipeFollowUps', [id, keys], done, fail);
         }
         if (act === 'fin-sheet') { b.disabled = true; return call('cueFinSheet', [id], function (o) { addLocal('Cue', 'Sheet saved in your Drive: ' + o.url); done(); }, fail); }
         if (act === 'fin-save') { var v = {}; scope.querySelectorAll('[data-fin="' + id + '"]').forEach(function (x) { v[x.getAttribute('data-k')] = x.value.trim() === '' ? null : x.value.trim(); });
@@ -1535,15 +1421,14 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, change(true)], done, fail);
           });
         }
-        if (act === 'send-change' || act === 'approve-send' || act === 'send-pipe') {
+        if (act === 'send-change' || act === 'approve-send') {
           var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, who = [];
-          if (act === 'send-pipe') { var ep = change(true); who = ((req.pipe || {}).drafts || []).filter(function (d) { return ep.skip.indexOf(d.k) < 0; }).map(function (d) { return d.deal + ' (' + d.to + ')'; }); }
-          else if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
+          if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
           else { var ex = collect(id, scope); who = ((req.proposal || {}).rfqs || []).filter(function (q, i) { return ex.skip_rfqs.indexOf(i) < 0; }).map(function (q) { var x = (q.suppliers || [])[0] || {}; return (x.name || 'Supplier') + (x.email ? ' (' + x.email + ')' : ' (no email: stays a draft)'); }); }
-          if (!who.length) return addLocal('Cue', act === 'send-pipe' ? 'Tick at least one follow-up first.' : 'Tick at least one supplier first.');
+          if (!who.length) return addLocal('Cue', 'Tick at least one supplier first.');
           return ask('Send ' + who.length + ' email' + (who.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
             b.disabled = true; running[id] = 1; schedule();
-            var x = act === 'send-change' || act === 'send-pipe' ? change(true) : collect(id, scope); x.send = true;
+            var x = act === 'send-change' ? change(true) : collect(id, scope); x.send = true;
             call('cueApprove', [id, x], done, fail);
           });
         }
@@ -1590,7 +1475,7 @@
           var te = {}; scope.querySelectorAll('[data-tri="' + id + '"]').forEach(function (x) { te[x.getAttribute('data-f')] = x.value; });
           return call('cueApprove', [id, te], done, fail);
         }
-        if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
+        if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'approve-personal') {
           var items = {};
           scope.querySelectorAll('[data-pi="' + id + '"]').forEach(function (x) { var i = x.getAttribute('data-i'), k = x.getAttribute('data-f');
@@ -1599,11 +1484,8 @@
           return call('cueApprove', [id, { items: items }], done, fail);
         }
         if (act === 'retry') return call('cueRetry', [id], done, fail);
-        if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
-        if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
         if (act === 'fn-done') { b.disabled = true; return call('cueFunnelDone', [id], done, fail); }
         if (act === 'ac-done') { b.disabled = true; return call('cueAcDone', [id], done, fail); }   // CueAccred.gs
-        if (act === 'fn-task') { b.disabled = true; return call('cueFunnelTaskDone', [id, b.getAttribute('data-t')], done, fail); }
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
         if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
           return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
@@ -1622,7 +1504,7 @@
           b.textContent = 'Sending…'; running[id] = 1;
           return call('cueBidsClarifySend', [id, bk, bf.to ? bf.to.value : '', bf.subject ? bf.subject.value : '', bf.body ? bf.body.value : ''], done, fail);
         }
-        if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
+        if (act === 'gt-draft') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), 'draft'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
         if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
         if (act === 'help-copy') { var ht = (scope.querySelector('[data-help-reply="' + id + '"]') || {}).textContent || '';

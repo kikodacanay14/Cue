@@ -37,6 +37,7 @@ function bidBox(o = {}, rows) {
   const f = sheetMock(); f.appendRow(['Reviewed on (PHT)']); (rows || [['2026-10-20', 'TPB', 'OLD-1', 'Travel fair booth', 'Open', 'Makati', 600000, 'PHP', '2026-10-27T17:00+08:00', '', '', '', 'https://tpb.gov.ph/x', '', '', '', '']]).forEach(r => f.appendRow(r));
   const l = sheetMock(); l.appendRow(['Check date (PHT)']);
   t.tabs['Web bid findings'] = f; t.tabs['Web source scan log'] = l;
+  if (!o.livePages) t.props.CUE_BID_PAGES = 'off';   // CUE-BID-PAGES-2026-11-01: these tests count document fetches; BP1 turns the pages on
   return t;
 }
 test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko\'s screen, single notices only, dedupe; Cue opens the documents; New and Still open; sheet rows; Needs you', () => {
@@ -44,7 +45,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   assert.strictEqual(t.log.gpt.length, 0, 'plain words, no chat call'); const v = t.ctx.cueRun(r.request_id);
   const search = t.log.gpt.filter(b => b.text.format.name === 'bids'), read = t.log.gpt.filter(b => b.text.format.name === 'bid_docs');
   assert.strictEqual(search.length, 3); assert.ok(search.every(b => b.tools && b.tools[0].type === 'web_search'), 'web search on');
-  assert.ok(/New PhilGEPS: https:\/\/philgeps\.gov\.ph/.test(search[0].input) && /OLD-1/.test(search[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(/Other PhilGEPS: https:\/\/notices\.philgeps\.gov\.ph/.test(search[0].input) && /OLD-1/.test(search[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(!/New PhilGEPS/.test(search.map(b => b.input).join('\n')), 'New PhilGEPS is read by code, never sent to ChatGPT (Kiko 1 Nov 2026, Cue 1.28.11)');
   assert.ok(/Never register, pay, submit/.test(search[0].instructions) && /Never send a listing page/.test(search[0].instructions));
   assert.strictEqual(read.length, 1, 'one reading call: only the CITEM notice had a PDF Cue could open'); assert.ok(!read[0].tools, 'reading has no web search');
   const file = read[0].input[0].content.filter(c => c.type === 'input_file'); assert.strictEqual(file.length, 1);
@@ -388,7 +390,7 @@ test('BD4 "do intake for <reference>": the notice becomes an intake and Intake??
 });
 test('BD5 daily 08:00 run happens once a Manila day and posts in its own thread', () => {
   const t = bidBox(); const a = t.ctx.cueBidsDaily(); assert.strictEqual(a.kind, 'bids'); assert.ok(/^Bid opportunities/.test(a.bids.title));
-  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^7:00 bid check/.test(r[2])));
+  assert.strictEqual(t.ctx.cueBidsDaily(), null); assert.ok(t.tabs.Chat.rows.some(r => /^Daily bid check/.test(r[2])));
   assert.ok(!t.tabs.Chat.rows.some(r => r[1] === 'Kiko'), 'no fake Kiko line for the daily run');
 });
 

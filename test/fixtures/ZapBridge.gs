@@ -11,7 +11,7 @@
  *   so the restriction to the actions below comes from this bridge (signature + ZB_ACTIONS_), not from the role. Keep
  *   the address a sheet row with no Google account behind it, so nobody can sign in as it.
  * - Only the actions in ZB_ACTIONS_ run, with strict arguments. Nothing sets project status, files a CE, changes the
- *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas (it drives HubSpot stages).
+ *   active CE, awards, books, pays, or deletes. Status stays a person's decision in Canvas.
  *   One exception (CUE-EXPENSE-2026-10-21): record_expense, for one expense Kiko approved on Cue's card, may add its supplier
  *   entry, award it when the scope has no award yet, and record the payment Kiko already made. It never moves an award.
   },
@@ -53,7 +53,7 @@ const ZB_PNO_RE_ = /^\d{3}$/;                   // Project Number Registry: 3 di
 
 const ZB_FORBIDDEN_ = {
   file_ce: 'Filing a CE needs Kiko\'s separate approval.', set_active_ce: 'Changing the active CE needs Kiko\'s separate approval.',
-  set_project_status: 'Project status is set by a person in Canvas; it drives HubSpot award stages.',
+  set_project_status: 'Project status is set by a person in Canvas.',
   delete_ce_lines: 'Deleting CE lines is not exposed.', save_entry: 'Supplier entries are not exposed yet.',
   award: 'Award needs approval.', book: 'Booking needs approval.', pay: 'Payment needs approval.'
 };
@@ -330,38 +330,6 @@ const ZB_ACTIONS_ = {
       if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
       return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
     }
-  },
-  /* CUE-HUBSPOT-2026-10-21 (Kiko 07:50Z approved specs/hubspot-cleanup.md). hubspot_scan reads HubSpot, the HubSpot Links tab and
-   * Client Desk contacts and returns findings (canvas-ai/AiHubspot.gs, fixed rules, no AI). hubspot_fix applies the fixes Kiko
-   * ticked on Cue's card, at most 50 record changes, each re-checked and read back. It never deletes for good (archive goes to
-   * HubSpot's recycle bin), never touches a Canvas deal, and edits Canvas fields only in Client Desk (P0 Contacts). */
-  hubspot_scan: {
-    kind: 'read', needsProject: false, schema: { old_days: { type: 'number', min: 90 } },
-    run: (r) => aiHsScan_(r.args)
-  },
-  hubspot_fix: {
-    kind: 'queue', needsProject: false,
-    schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ },
-      fixes: { type: 'array', required: true, minItems: 1, maxItems: 50, items: {
-        key: { type: 'string', required: true, re: /^H\d{1,4}$/ },
-        op: { type: 'string', required: true, oneOf: ['set', 'link', 'owner', 'archive', 'merge', 'canvas_contact'] },
-        type: { type: 'string', oneOf: ['companies', 'contacts', 'deals'] }, id: { type: 'string', re: /^\d{1,20}$/ },
-        keep: { type: 'string', re: /^\d{1,20}$/ }, merge: { type: 'array', maxItems: 5 },
-        company: { type: 'string', max: 200 }, owner: { type: 'string', re: /^\d{1,20}$/ }, ids: { type: 'array', maxItems: 50 },
-        props: { type: 'object', fields: { domain: { type: 'string', max: 200 }, industry: { type: 'string', max: 100 }, city: { type: 'string', max: 100 },
-          country: { type: 'string', max: 100 }, hubspot_owner_id: { type: 'string', re: /^\d{1,20}$/ }, name: { type: 'string', max: 200 },
-          firstname: { type: 'string', max: 100 }, lastname: { type: 'string', max: 100 }, jobtitle: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } },
-        email: { type: 'string', max: 200 }, field: { type: 'string', oneOf: ['name', 'title', 'phone'] }, from: { type: 'string', max: 300 }, to: { type: 'string', max: 300 } } } },
-    run: (r) => { const f = r.args.fixes, idRe = /^\d{1,20}$/;
-      for (const x of f) {
-        if (x.op === 'canvas_contact' ? !(x.email && x.company && x.field) : !x.type) return { ok: false, error: x.key + ': the fix is missing its record' };
-        if ((x.op === 'set' || x.op === 'link' || x.op === 'archive') && !x.id) return { ok: false, error: x.key + ': the fix is missing its record' };
-        if (x.op === 'link' && !idRe.test(String(x.company || ''))) return { ok: false, error: x.key + ': link needs a company ID' };
-        if (x.op === 'merge' && !(x.keep && (x.merge || []).length && x.merge.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': merge needs the record to keep and the ones to merge' };
-        if (x.op === 'owner' && !(x.owner && (x.ids || []).length && x.ids.every(m => typeof m === 'string' && idRe.test(m)))) return { ok: false, error: x.key + ': owner needs the owner and the records' };
-        if (x.op === 'set' && !(x.props && Object.keys(x.props).length)) return { ok: false, error: x.key + ': nothing to set' };
-      }
-      return aiHsApply_(f); }
   },
   accreditation_gaps: {
     // CUE-2026-10-21 (Kiko approved specs/accreditation-chasers.md 08:22Z). Supplier Accreditation rows that still miss
@@ -1097,8 +1065,10 @@ function zbCeLines_(pid) {
   Object.keys(ZB_CE_COLS_).forEach(k => { c[k] = col_(R, ZB_CE_COLS_[k]); });
   if (c.req_id < 0 || c.unit_cost < 0) throw new Error('The Requirements tab has no Requirement ID or Unit Cost column.');
   const seen = {}, lines = [];
+  const rmc = col_(R, 'removed from ce'); // REQ-CANCEL-2026-10-30
   R.rows.forEach(r => {
     if (!mine(r)) return;
+    if (rmc >= 0 && /requirement is never deleted/i.test(String(r[rmc] || ''))) return; // REQ-CANCEL-2026-10-30: kept as Cancelled, off the CE
     const id = String(r[c.req_id] || '').trim(); if (!id || seen[id]) return; seen[id] = 1;
     const v = k => c[k] >= 0 ? r[c[k]] : '';
     lines.push({ req_id: id, category: String(v('category') || '').trim().slice(0, 200), description: String(v('description') || '').trim().slice(0, 600),
@@ -1482,9 +1452,10 @@ function zbCsMail_(p, today) {
     p.tasks.forEach(x => text.push('- ' + x.item + (x.assigned ? ' (' + x.assigned + ')' : '') + (x.deadline ? ', due ' + D(x.deadline) : ''))); }
   text.push('');
   // Go to Canvas
-  h += '<div style="margin:24px 0 6px;padding:16px;background:#FAF8F3;border-radius:8px">' + P('Want to see more details about your event? Everything is on Canvas.') + bseMailBtn_('Go to Canvas', p.link) + '</div>';
-  h += P('If you have questions, reply to this email.', '#5C5866') + '<p style="margin:16px 0 0;font-size:15px">Thank you,<br>Blank Space Events</p></div></div>';
-  text.push('Want to see more details about your event? Go to Canvas: ' + p.link, '', 'If you have questions, reply to this email.', '', 'Thank you,', 'Blank Space Events');
+  // EMAIL-BUTTON-LAST-2026-10-31 (Kiko 31 Oct: "the button is at the very bottom. aligned left"): the box with the button closes the card.
+  h += P('If you have any questions or clarifications, feel free to hit reply.', '#5C5866') + '<p style="margin:16px 0 0;font-size:15px">Thank you,<br>Blank Space Events</p>';
+  h += '<div style="margin:20px 0 0;padding:16px;background:#FAF8F3;border-radius:8px">' + P('Want to see more details about your event? Everything is on Canvas.') + bseMailBtn_('Go to Canvas', p.link) + '</div></div></div>';
+  text.push('Want to see more details about your event? Go to Canvas: ' + p.link, '', 'If you have any questions or clarifications, feel free to hit reply.', '', 'Thank you,', 'Blank Space Events');
   return { subject, text: text.join('\n'), html: h };
 }
 
@@ -1939,7 +1910,9 @@ function zbArEmail_(r) {
     if (!arCovers_({ reqs: g('Request ID') }, p)) { out = { ok: false, error: p.name + ' was paid again since this receipt was made. Make it again first.' }; return; }
     if (/^Sent to /.test(g('Emailed'))) { out = { ok: true, existed: true, name: p.name, ar_id: g('AR ID'), emailed: g('Emailed') }; return; }
     if (!g('PDF ID')) { out = { ok: false, error: 'This receipt has no PDF. Make it again.' }; return; }
-    const sent = arEmail_(p, arEvent_(pid), DriveApp.getFileById(g('PDF ID')));
+    // AR-INTRO-LINK-2026-11-01 (bug: the intro Kiko edited in Cue was dropped and the link went to the crew Payments page): the
+    // receipt's own AR ID makes the one-document sign link, and the intro replaces the opening line.
+    const sent = arEmail_(p, Object.assign({}, arEvent_(pid), { arId: g('AR ID') }), DriveApp.getFileById(g('PDF ID')), String(((r.args || {}).intro) || '').trim().slice(0, 2000));
     sh.getRange(o.row, AR_C_['Emailed'] + 1).setValue(safe_(sent));
     out = /^Sent to /.test(sent) ? { ok: true, existed: false, name: p.name, ar_id: g('AR ID'), emailed: sent } : { ok: false, error: sent };
   });
@@ -3175,4 +3148,24 @@ ZB_ACTIONS_.contact_add = {
   schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, people: { type: 'array', required: true, minItems: 1, maxItems: 60, items: ZB_NEW_PERSON_ } },
   run: (r) => zbContactAdd_(r.args, r.task_id),
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : res && res.saved ? { ok: true } : { ok: false, error: 'not saved' }
+};
+
+/* MSGR-CREW-2026-11-02 (Kiko 2 Nov 2026; handoffs/messenger-crew-papers-spec.md): Messenger for crew papers. The work is in
+ * MessengerCrew.gs; the actions are registered here so ZB_ACTIONS_ exists first. fl_social_save and msgr_mark are queue
+ * actions (keyed by request_id) because Kiko approved them running with no tap (D11, A11). */
+ZB_ACTIONS_.fl_social_save = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, ref: { type: 'string', max: 400 },
+    email: { type: 'string', max: 200, re: /^[^@\s]+@[^@\s]+\.[^@\s]+$/ }, messenger_id: { type: 'string', max: 40, re: /^\d{1,40}$/ },
+    messenger_name: { type: 'string', max: 120 }, gender: { type: 'string', max: 20 }, linked_at: { type: 'string', max: 40 },
+    last_message: { type: 'string', max: 40 } },
+  run: (r) => zbFlSocialSave_(r.args)
+};
+ZB_ACTIONS_.msgr_due = { kind: 'read', needsProject: false, schema: {}, run: () => zbMsgrDue_() };
+ZB_ACTIONS_.msgr_mark = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, doc: { type: 'string', required: true, oneOf: ['FSA', 'AR'] },
+    id: { type: 'string', required: true, re: /^[A-Za-z0-9._-]{1,60}$/ }, email: { type: 'string', required: true, max: 200, re: /^[^@\s]+@[^@\s]+\.[^@\s]+$/ },
+    psid: { type: 'string', required: true, re: /^\d{1,40}$/ } },
+  run: (r) => zbMsgrMark_(r.args)
 };
