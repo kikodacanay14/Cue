@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 75 server files, 1468 top-level names, 34 task kinds, 35 word checks before the
+Counts: 75 server files, 1473 top-level names, 34 task kinds, 35 word checks before the
 chat call, 17 background jobs in the 5-minute trigger, 89 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -175,7 +175,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueLookup.gs` |  |  | 0 | 0 | 2 | 5 |
 | `CueMail.gs` | `subject` | Requests | 1 | 0 | 2 | 6 |
 | `CueMailAlerts.gs` | `subject` |  | 0 | 0 | 2 | 6 |
-| `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 2 | 8 |
+| `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 3 | 9 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
 | `CueMessenger.gs` |  | Requests | 0 | 0 | 4 | 4 |
 | `CueMorning.gs` | `client_status` | Requests | 0 | 0 | 9 | 11 |
@@ -185,7 +185,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueReady.gs` | `find_similar_projects`, `get_readiness`, `list_project_files`, `search_projects` | Requests | 1 | 1 | 5 | 7 |
 | `CueRelnotes.gs` |  | Release Notes, Requests | 0 | 1 | 6 | 6 |
 | `CueRfpSend.gs` | `rfp_outbox`, `rfp_sent` |  | 0 | 0 | 6 | 8 |
-| `CueRoute.gs` |  | Routing examples | 0 | 0 | 12 | 16 |
+| `CueRoute.gs` |  | Routing examples | 0 | 0 | 13 | 17 |
 | `CueSchedule.gs` |  | Requests, Schedule | 0 | 0 | 9 | 20 |
 | `CueStatus.gs` | `client_status`, `find_similar_projects`, `get_readiness`, `search_projects` | Requests | 0 | 0 | 5 | 7 |
 | `CueStyle.gs` |  | Requests, Style | 0 | 1 | 15 | 4 |
@@ -240,17 +240,17 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRows_` | `Cue.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
 | `cueGmailSend_` | `CueGmail.gs` | 11 |
+| `cueAskOpen_` | `CueRoute.gs` | 10 |
 | `cueKey_` | `CueAi.gs` | 10 |
 | `cueMe_` | `Cue.gs` | 10 |
 | `cueName_` | `CueText.gs` | 10 |
-| `cueAskOpen_` | `CueRoute.gs` | 9 |
+| `cueAskPick` | `CueRoute.gs` | 9 |
 | `cueBridgeParse_` | `CueBridge.gs` | 9 |
 | `cueBridgeReq_` | `CueBridge.gs` | 9 |
 | `cueMnlDay_` | `CueDates.gs` | 9 |
 | `cueOwnDomain_` | `CueGmail.gs` | 9 |
 | `CUE_DATE_RE_` | `CueText.gs` | 8 |
 | `cueAddDays_` | `CueDates.gs` | 8 |
-| `cueAskPick` | `CueRoute.gs` | 8 |
 | `cueGmailDraft_` | `CueGmail.gs` | 8 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
 | `cueBridgePlan_` | `CueBridge.gs` | 7 |

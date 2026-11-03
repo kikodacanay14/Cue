@@ -521,7 +521,7 @@
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time', usereply: 'Use this reply' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -608,11 +608,14 @@
     return richText1(t);
   }
   function richText1(t) {
-    var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
+    var plain = function (x) { return cueLabels(esc(x)).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
     var out = '', last = 0, m; CV_TOK.lastIndex = 0;
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
     return out + plain(t.slice(last));
   }
+  // CUE-ASSISTANT-2026-11-03: "Why you:", "My suggestion:" and "Proposed reply:" at the start of a line read as labels (bold text,
+  // never a button), so the reason and the proposed response stand out from what the message reports.
+  function cueLabels(h) { return h.replace(/(^|\n)(Why you:|My suggestion:|Proposed reply:)/g, '$1<b>$2</b>'); }
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
@@ -689,7 +692,7 @@
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
-        h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
+        h += msgHtml(m, pt ? to : '') + mailAskHtml(to) + (pt ? rowHtml(to, pt) : '');
         return;
       }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
@@ -697,6 +700,12 @@
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
+  }
+  // CUE-ASSISTANT-2026-11-03 (mockup approved by Kiko 3 Nov 14:57Z): a new email's post in the main chat carries the buttons of its
+  // proposed reply (Use this reply, Skip), from the open question in the email's own chat. Nothing shows once it is answered.
+  function mailAskHtml(to) {
+    var q = state.chat.filter(function (c) { var a = askOf(c); return a && a.open && a.where === to && a.choices.indexOf('usereply') >= 0; }).pop();
+    return q ? askHtml(q) : '';
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
   function rowHtml(root, t, head) {

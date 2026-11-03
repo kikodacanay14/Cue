@@ -114,9 +114,11 @@ function cueMtApply_(items, by, types, senders) {
   });
   return out;
 }
-/** The Main chat line for a One line email: type, sender, subject or summary. No AI. */
+/** The Main chat line for a One line email: type, sender, subject or summary, and why it is here (CUE-ASSISTANT-2026-11-03, Kiko
+ * 3 Nov 2026: "why it was sent to me"). No AI. */
 function cueMtLine_(x) {
-  return '[' + x.type + '] ' + cueStr_(x.who || x.sender, 80) + ': ' + cueStr_(x.summary || x.subject, 200) + (x.inbox === 'info' ? ' (info@)' : '');
+  return '[' + x.type + '] ' + cueStr_(x.who || x.sender, 80) + ': ' + cueStr_(x.summary || x.subject, 200) + (x.inbox === 'info' ? ' (info@)' : '')
+    + '\nWhy you: "' + x.type + '" emails show as one line here, for your information (change it in Cue Admin › Triage).';
 }
 /** The Main chat line for an email with a Canvas Project ID (R9): where it is, no AI, left unread. */
 function cueMtProjectLine_(l, pid) {

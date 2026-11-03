@@ -18,7 +18,7 @@ test('ACC3 email types: Bank (One line) gets its own line in Ask Cue and is mark
   deq([by('maria@acme.example').type, by('maria@acme.example').removed], ['Bank', 'oneline']);
   deq([by('ana@client.example').type, by('ana@client.example').removed || ''], ['Client', ''], 'Own chat: still waiting for Kiko');
   deq([by('leo@brightlights.example').type, by('leo@brightlights.example').removed], ['Gym memberships', 'oneline']);
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '' && /^\[Bank\] Maria Santos: BDO: statement for October is ready$/.test(r[2])), 'one line in the main chat');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '' && /^\[Bank\] Maria Santos: BDO: statement for October is ready\nWhy you: "Bank" emails show as one line here/.test(r[2])), 'one line in the main chat, with why it is there (CUE-ASSISTANT)');
   deq(t.log.markRead.map(x => [x.ids, x.remove, x.add || 'none']), [[['n1'], ['UNREAD'], 'none']], 'only Kiko\'s own One line email is marked read; info@ waits for Canvas; nothing else changes');
   const types = t.tabs['Triage types'].rows.slice(1).map(r => [r[0], r[1]]);
   assert.ok(types.some(r => r[0] === 'Gym memberships' && r[1] === 'One line') && types.some(r => r[0] === 'Bank' && r[1] === 'One line'));
