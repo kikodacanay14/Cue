@@ -768,7 +768,15 @@ function zbGptDoorRun_(raw, now, seen) {
   const cid = r.command_id == null || r.command_id === '' ? 'gpt-' + Utilities.getUuid() : String(r.command_id);
   // task_id is ChatGPT's own grouping and only labels the log row; each write gets its own plan under 'gpt:' + command_id.
   const q = { command_id: cid, task_id: 'gpt:' + cid, action: r.action, args: r.args == null ? {} : r.args };
-  if (r.project_id) q.project_id = r.project_id;
+  /* GPT-PID-2026-11-03 (bug fix): the @Canvas connector offers project_id as a top-level field on every read. An action that
+   * takes no project at that level (canvas_link, expense_evidence) refused it with "project_id not allowed for this action",
+   * and ChatGPT retried 2 or 3 times at 30 to 60 s each. On the ChatGPT door only, that project_id now goes into args when the
+   * action names one there (expense_evidence) and is left out otherwise (canvas_link). Cue's signed bridge is unchanged. */
+  const act = zbOwn_(ZB_ACTIONS_, r.action) ? ZB_ACTIONS_[r.action] : null;
+  if (r.project_id && act && !act.needsProject && typeof act.kindOf !== 'function') {
+    const a = q.args;
+    if (a && typeof a === 'object' && !Array.isArray(a) && act.schema && zbOwn_(act.schema, 'project_id') && !zbOwn_(a, 'project_id')) a.project_id = r.project_id;
+  } else if (r.project_id) q.project_id = r.project_id;
   if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
   seen.q = q; seen.task = r.task_id;
   return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
@@ -834,7 +842,7 @@ function zbGptLog_(q, out, task) {
     const ids = uniq(t.match(/\b(REQ\d{2}-[\w-]+|SCP\d{2}-[\w-]+|S-\d{3,12}[A-Z0-9]{2}|AP-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-\d{1,4}|ENT-\d{2,}-\d{2,}-\d{1,4})\b/g) || []);
     const links = uniq(t.match(/https:\/\/(drive|docs)\.google\.com\/[^"\s\\]+/g) || []);
     const cell = v => { const s = String(v == null ? '' : v).slice(0, 5000); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // never a formula
-    sh.appendRow([new Date(), q.action, q.project_id || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
+    sh.appendRow([new Date(), q.action, q.project_id || (q.args && q.args.project_id) || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
       ids.join(', '), links.join(' '), out.error || ''].map((v, i) => i === 0 ? v : cell(v)));
   } catch (e) { /* the log never fails the call */ }
 }

@@ -10,7 +10,7 @@ page ("yeah i made it") the same day (CanvasWorkspace `docs/specs/message-templa
 build of each piece for his approval ("make a new build for each one i will approve").
 
 - `src/CueMsgTemplates.gs` (new): `cueAdminTemplates` reads every template from the doc through Canvas (bridge read
-  `message_templates`, Canvas rel-v414) and joins it with what the doc does not hold, exactly as Kiko's approved mockup lists it: the
+  `message_templates`, Canvas rel-v415) and joins it with what the doc does not hold, exactly as Kiko's approved mockup lists it: the
   journey step, who sends it, the sending inbox and CC, the attachments and the status. The six team drafts carry Kiko's T codes (T1 to
   T6) and show as not in the doc yet. A template with a send in Canvas's Template Sends log shows In use, with Last sent. When Canvas or
   the doc cannot be read the page lists nothing and says why; Cue keeps no copy of any wording.
@@ -22,7 +22,7 @@ build of each piece for his approval ("make a new build for each one i will appr
 - Edit opens the template in the doc. Saving from the page is not in this build: Canvas cannot write to the doc yet (info@ has no edit
   right on it), so the page's editor waits for Kiko's call on how Canvas gets that right.
 - `src/CueCheck.gs`: the three page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
-- `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` (rel-v414, not live yet), which adds the three template actions.
+- `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` (rel-v415 on live V414, not live yet), which adds the three template actions.
   `test/fixtures/message-templates.json` is Canvas's `message_templates` answer for the real doc (48 templates).
 
 Tests: 630 (6 new, MT1 to MT6; AD4 lists the new section).
