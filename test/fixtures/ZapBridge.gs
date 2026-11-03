@@ -768,7 +768,15 @@ function zbGptDoorRun_(raw, now, seen) {
   const cid = r.command_id == null || r.command_id === '' ? 'gpt-' + Utilities.getUuid() : String(r.command_id);
   // task_id is ChatGPT's own grouping and only labels the log row; each write gets its own plan under 'gpt:' + command_id.
   const q = { command_id: cid, task_id: 'gpt:' + cid, action: r.action, args: r.args == null ? {} : r.args };
-  if (r.project_id) q.project_id = r.project_id;
+  /* GPT-PID-2026-11-03 (bug fix): the @Canvas connector offers project_id as a top-level field on every read. An action that
+   * takes no project at that level (canvas_link, expense_evidence) refused it with "project_id not allowed for this action",
+   * and ChatGPT retried 2 or 3 times at 30 to 60 s each. On the ChatGPT door only, that project_id now goes into args when the
+   * action names one there (expense_evidence) and is left out otherwise (canvas_link). Cue's signed bridge is unchanged. */
+  const act = zbOwn_(ZB_ACTIONS_, r.action) ? ZB_ACTIONS_[r.action] : null;
+  if (r.project_id && act && !act.needsProject && typeof act.kindOf !== 'function') {
+    const a = q.args;
+    if (a && typeof a === 'object' && !Array.isArray(a) && act.schema && zbOwn_(act.schema, 'project_id') && !zbOwn_(a, 'project_id')) a.project_id = r.project_id;
+  } else if (r.project_id) q.project_id = r.project_id;
   if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
   seen.q = q; seen.task = r.task_id;
   return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
@@ -834,7 +842,7 @@ function zbGptLog_(q, out, task) {
     const ids = uniq(t.match(/\b(REQ\d{2}-[\w-]+|SCP\d{2}-[\w-]+|S-\d{3,12}[A-Z0-9]{2}|AP-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-\d{1,4}|ENT-\d{2,}-\d{2,}-\d{1,4})\b/g) || []);
     const links = uniq(t.match(/https:\/\/(drive|docs)\.google\.com\/[^"\s\\]+/g) || []);
     const cell = v => { const s = String(v == null ? '' : v).slice(0, 5000); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // never a formula
-    sh.appendRow([new Date(), q.action, q.project_id || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
+    sh.appendRow([new Date(), q.action, q.project_id || (q.args && q.args.project_id) || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
       ids.join(', '), links.join(' '), out.error || ''].map((v, i) => i === 0 ? v : cell(v)));
   } catch (e) { /* the log never fails the call */ }
 }
@@ -3000,6 +3008,51 @@ ZB_ACTIONS_.sent_log = {
   kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 1 }, failed_only: { type: 'boolean' } },
   run: (r) => sentLogRead_(r.args)
 };
+
+/* MSG-TEMPLATES-2026-11-03 (spec docs/specs/message-templates-from-doc.md, approved by Kiko 1 Nov 2026, release 1: "Cue gets the
+ * templates from Canvas through the signed bridge (new read action message_templates), so both apps always use the same version").
+ * Cue builds every email from Kiko's doc through these three; MessageTemplates.gs does the work. A doc that cannot be read comes
+ * back Blocked with the reason, and Cue sends nothing (Kiko 1 Nov: "fix why its not sending it"). */
+ZB_ACTIONS_.message_templates = {
+  // Every template (code, name, receiver, channel, Use line, subject, blocks with {{fill_ins}}), the doc version and link, and
+  // each template's last send from Template Sends. No banners (they ride message_render). Read only.
+  kind: 'read', needsProject: false, schema: {},
+  run: () => mtBridgeList_()
+};
+ZB_ACTIONS_.message_render = {
+  // One template filled from Cue's record values: subject, plain text, HTML, banner (base64 PNG, cid:mtbanner), doc version and
+  // the fill-ins no value was given for. mode send drops lines with an empty fill-in; draft keeps them for Kiko to type. Read only.
+  kind: 'read', needsProject: false,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, data: { type: 'object' }, mode: { type: 'string', oneOf: ['send', 'draft'] } },
+  run: (r) => mtBridgeRender_({ key: r.args.key, data: zbMtData_(r.args.data), mode: r.args.mode })
+};
+ZB_ACTIONS_.message_log = {
+  // Cue reports one message it sent (or failed to send) from a template, so Template Sends holds every send (the Templates page's
+  // "Last sent"). Appends one row; changes nothing else.
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, rev: { type: 'string', max: 40 }, to: { type: 'string', required: true, max: 300 },
+    channel: { type: 'string', oneOf: ['Email', 'SMS', 'Social'] }, status: { type: 'string', oneOf: ['Sent', 'Failed'] },
+    ref: { type: 'string', max: 200 }, error: { type: 'string', max: 500 } },
+  run: (r) => mtBridgeLog_(r.args),
+  check: (r, res) => res && res.ok ? { ok: true } : { ok: false, error: 'not logged' }
+};
+ZB_ACTIONS_.message_template_save = {
+  // MSG-TEMPLATES-SAVE-2026-11-03: Kiko's Save on Cue Admin › Templates writes the template's subject and words back into the doc
+  // (spec item 7; Kiko 3 Nov: "Give info@ Editor on the doc"). Only that template's Subject and message and button paragraphs change.
+  // The result says when the template reads back differently from what was saved.
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, subject: { type: 'string', max: 300 },
+    blocks: { type: 'array', required: true, minItems: 1, maxItems: 60, items: { t: { type: 'string', required: true, oneOf: ['p', 'btn'] },
+      text: { type: 'string', required: true, nonBlank: true, max: 5000 }, url: { type: 'string', max: 500 } } } },
+  run: (r) => mtBridgeSave_(r.args),
+  check: (r, res) => res && res.ok ? { ok: true } : { ok: false, error: res && res.readBack || 'not saved' }
+};
+/** message_render's data: plain values only (text, number, yes/no), each as text of at most 2000 characters. */
+function zbMtData_(d) {
+  const out = {};
+  Object.keys(d || {}).forEach(k => { const v = d[k]; if (/^[a-z0-9_]{1,60}$/i.test(k) && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) out[k] = String(v).slice(0, 2000); });
+  return out;
+}
 
 
 /* ---------- CLIENT-DOOR-2026-10-29: Canvas Client's calls without the library ----------
