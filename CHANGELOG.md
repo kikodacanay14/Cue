@@ -4,29 +4,29 @@
 
 Kiko asked on 3 Nov 2026 at 14:30Z: "if you can work on queue having some context, like knowing where the message comes from, why it
 was sent to me, or why it was sent, and why is the message like that, and have a like a proposed response to it, not just blank sent
-this. It's like it's a notification. It's not an assistant." He approved the before/after mockup at 14:57Z ("yes"). Spec and mockup:
-project files `canvas-integration/specs/cue-assistant-messages/`. Built on 1.28.12 (Version 194, cbe4363).
+this. It's like it's a notification. It's not an assistant." He approved the before/after mockup at 14:57Z ("yes"). At 23:36Z he
+refined it: "it doesn't have to say that as a verbatim, but if there is context, if it understands what the message is about, then
+he would know, or it would know, if that needs to be added there." So there is no fixed "Why you" label: a reason shows only when the
+email read understands one worth adding. Spec and mockup: project files `canvas-integration/specs/cue-assistant-messages/`. Built on
+1.28.12 (Version 194, cbe4363).
 
-- New email: the main-chat post and the email's chat now end with "Why you:" (why the email needs Kiko) and, when the sender expects
-  an answer, "Proposed reply:" with a ready reply in Kiko's voice. Both come from the one email read that already runs (Claude Haiku,
-  two more fields in its answer, max tokens 800 to 1400), so there is no extra AI call. The reply never promises a price, date or
-  document that is not in the emails; it leaves a blank such as [time] for Kiko instead. When the read fails, "Why you" says what
-  Cue knows by code (which inbox, and that the type gets its own chat). Kiko's 10:15Z context lines (what they sent, what it is for,
-  what they expect, what to do next) stay.
+- New email: the main-chat post and the email's chat can end with one plain sentence on why it needs Kiko (only when the read finds
+  one worth adding; code never makes one up) and, when the sender expects an answer, "Proposed reply:" with a ready reply in Kiko's
+  voice. Both come from the one email read that already runs (Claude Haiku, two more fields in its answer, max tokens 800 to 1400),
+  so there is no extra AI call. The reply never promises a price, date or document that is not in the emails; it leaves a blank such
+  as [time] for Kiko instead. Kiko's 10:15Z context lines (what they sent, what it is for, what they expect, what to do next) stay.
 - Use this reply and Skip buttons sit under a proposed reply, in the email's chat and under its post in the main chat. Use this reply
   puts the reply on the usual email card as written (no GPT drafting call); Kiko edits it and taps Send or Save to Drafts there, so
   nothing is sent from the button. Skip closes the email's chat and makes nothing. Typing "draft a reply saying ...", "start intake"
   or "done" still works. The approved mockup shows buttons, which replaces the 2 Nov "no options in Ask Cue chat" choice for this
   message only.
-- Scheduled ChatGPT jobs with new findings (for example "Tuesday payment records review") now add ChatGPT's two-sentence summary,
-  "Why you:" (it runs on Kiko's schedule, or he asked for the run), and "My suggestion:" naming the finding to start with: the one
-  due soonest, else the first high-confidence one, else the first, with its next action. Built by code from the run, no AI call. A
-  run with nothing new keeps its one line.
-- One line emails (FYI types such as Platform notices) get a "Why you:" line saying that type shows as one line, and where to change
-  it (Cue Admin › Triage).
-- The page shows "Why you:", "My suggestion:" and "Proposed reply:" at the start of a line in bold, as labels, never as buttons.
+- Scheduled ChatGPT jobs with new findings (for example "Tuesday payment records review") now add ChatGPT's two-sentence summary and
+  "My suggestion:" naming the finding to start with: the one due soonest, else the first high-confidence one, else the first, with
+  its next action. Built by code from the run, no AI call. A run with nothing new keeps its one line.
+- One line emails (FYI types) are unchanged: their line is already the sort's own summary.
+- The page shows "My suggestion:" and "Proposed reply:" at the start of a line in bold, as labels, never as buttons.
 - Not changed: the status lines ("1 new email ...", "Sorted ...", "Started ...", "working on it"); the duplicates work owns them.
-- Tests: `test/features/84-assistant-messages.js` (AM1 to AM6); ML4 and ACC3 updated for the new lines. 638 of 638 pass.
+- Tests: `test/features/84-assistant-messages.js` (AM1, AM1b, AM2 to AM6); ML4 updated. 639 of 639 pass.
 - Needs the PC check on /dev (it changes new-mail intake): open a new client email's post, tap Use this reply, check the card, then
   close it without sending.
 

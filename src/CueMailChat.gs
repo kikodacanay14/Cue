@@ -27,7 +27,9 @@ const CUE_MC_SCHEMA_ = { type: 'object', additionalProperties: false, required: 
     // CUE-ASSISTANT-2026-11-03 (Kiko 3 Nov 2026 14:30Z: "knowing where the message comes from, why it was sent to me ... and have a
     // like a proposed response to it ... It's like it's a notification. It's not an assistant."; mockup approved 14:57Z "yes").
     // Both come from the same one read: no extra AI call.
-    why: { type: 'string', description: 'Why this email needs Kiko himself, one short sentence from the email (for example: a client on a live event asks for him by name; a decision only he can make; only for his information)' },
+    // Kiko 3 Nov 2026 23:36Z: "it doesn't have to say that as a verbatim, but if there is context, if it understands what the
+    // message is about, then ... it would know if that needs to be added there." So why is written only when it adds something.
+    why: { type: 'string', description: 'Only when the rest does not already make it clear: one short plain sentence on why this needs Kiko himself, written to him (for example "Johanne is asking for you by name, and King\'s Day is in 3 days."). "" when it adds nothing' },
     reply: { type: 'string', description: 'When the sender expects an answer from Kiko: a short, ready-to-send reply in his voice (warm but formal, plain English, signed "Kiko"). Never promise a price, date, availability or document that is not in the emails; put a blank like [time] for Kiko to fill instead. "" when no reply is needed' },
     phone: { type: 'string', description: 'The phone number in the sender\'s own signature in their newest message, or ""' },
     position: { type: 'string', description: 'The job title in the sender\'s own signature, or ""' },
@@ -101,13 +103,7 @@ function cueMcLeft_(it, read, again) {
     read.purpose || (it.known && it.known.project) ? 'What it is for: ' + (read.purpose || it.known.project + (it.known.pid ? ' (' + it.known.pid + ')' : '')) : '',
     read.expect ? 'What they expect: ' + read.expect : '',
     read.next ? 'What to do next: ' + read.next : '',
-    'Why you: ' + cueMcWhy_(it, read)].concat(cueMcProposed_(read)).filter(Boolean).join('\n');
-}
-
-/** CUE-ASSISTANT-2026-11-03: why this email reached Kiko. The read's own reason, or (when the read failed) what Cue knows by code. */
-function cueMcWhy_(it, read) {
-  return read.why || ('it came to ' + (it.inbox === 'info' ? 'info@' : 'your Gmail') + (it.known && it.known.project ? ' about ' + it.known.project : '')
-    + ', and "' + (it.type || 'Other') + '" emails get their own chat (change it in Cue Admin › Triage).');
+    read.why || ''].concat(cueMcProposed_(read)).filter(Boolean).join('\n');
 }
 /** CUE-ASSISTANT-2026-11-03: the proposed reply, as its own block. Empty when the read found no reply is needed. */
 const cueMcProposed_ = read => read.reply ? ['Proposed reply:', read.reply] : [];
@@ -120,7 +116,7 @@ function cueMcText_(it, read) {
     'What they want: ' + read.want,
     read.history ? 'From the thread and the project\'s emails: ' + read.history : '',
     read.next ? 'Suggested next step: ' + read.next : '',
-    'Why you: ' + cueMcWhy_(it, read)].concat(cueMcProposed_(read), [
+    read.why || ''].concat(cueMcProposed_(read), [
     'Reply here: "draft a reply saying …", "start intake" or "done".']).filter(Boolean).join('\n');
 }
 
