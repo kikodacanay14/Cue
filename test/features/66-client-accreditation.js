@@ -67,6 +67,6 @@ test('AC4 the 5-minute job runs it every 30 minutes, never in a cloud check; the
   assert.ok(t.ctx.cueJobs_().some(j => j.fn === 'cueAcTick_' && j.job === 'Client accreditation mail'));
   assert.strictEqual(t.ctx.cueAcTick_(), 0); assert.strictEqual(t.ctx.cueAcTick_(), null, 'not due again for 30 minutes');
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
-  assert.ok(/function acCardHtml\(r\)/.test(page) && /r\.kind === 'accred' && r\.acc\) h \+= acCardHtml\(r\)/.test(page));
+  assert.ok(/function acCardHtml\(r\)/.test(page) && /r\.kind === 'accred' && r\.acc\) return acCardHtml\(r\)/.test(page));
   assert.ok(/Open Accounts in Canvas/.test(page) && /data-act="ac-done"/.test(page) && /Open email/.test(page));
 });
