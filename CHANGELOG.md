@@ -1,13 +1,13 @@
 # Changelog
 
-## Cue 1.28.16: each 2 PM chaser is logged in its project's Team Cue thread (not deployed)
+## Cue 1.28.16: each 2 PM chaser is logged in its project's Team Cue thread (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
 
 Kiko answered "2" on 3 Nov 2026 23:40Z in the chasers thread, picking the option where Cue logs each 2 PM chaser to its project's
 Team Cue thread automatically, with no tap from him. Each chaser due at 2 PM that has a Canvas project now also gets one line in
 that project's thread in Team Cue (bridge project_log, kind Chaser, from "2 PM chasers"). Chasers with no Canvas project stay in
 Cue's chasers thread only, and a line changes no Canvas record. Built on 1.28.15.
 
-## Cue 1.28.15: threads read like a chat, Fold inside the card, no accreditation chasers for clients (not deployed)
+## Cue 1.28.15: threads read like a chat, Fold inside the card, no accreditation chasers for clients (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
 
 Kiko approved three proposals on 3 Nov 2026 at 14:59Z ("yes yes tes"), each with a mockup. Built on 1.28.12 (cbe4363), so
 everything live stays as it is.
@@ -41,7 +41,7 @@ everything live stays as it is.
   Only the names seen so far are listed; Stop chasing still covers any other.
 - No AI call added. Tests: 644 (5 new, `test/features/84-thread-chat.js`).
 
-## Cue 1.28.14: Cue messages act like an assistant (not deployed)
+## Cue 1.28.14: Cue messages act like an assistant (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
 
 Kiko asked on 3 Nov 2026 at 14:30Z: "if you can work on queue having some context, like knowing where the message comes from, why it
 was sent to me, or why it was sent, and why is the message like that, and have a like a proposed response to it, not just blank sent
@@ -71,7 +71,7 @@ email read understands one worth adding. Spec and mockup: project files `canvas-
 - Needs the PC check on /dev (it changes new-mail intake): open a new client email's post, tap Use this reply, check the card, then
   close it without sending.
 
-## Cue 1.28.13: the daily bid check fits in storage again (not deployed)
+## Cue 1.28.13: the daily bid check fits in storage again (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
 
 Kiko asked on 2 Nov 2026 at 07:29Z, in the thread "Find and fix what's broken in Cue": "find the problem, and fix it". The 3 Nov
 06:34 daily bid check stopped at 07:05 with "The bid check stopped: This request is too large to store (210412 characters)". A run's
