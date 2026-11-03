@@ -314,7 +314,7 @@ const CUE_NM_ABOUT_ = 'Reply to this email for Kiko. Answer what they asked only
 
 /** Draft reply: the usual "Draft an email" card (CueMail.gs), filed in the New mail thread, so Kiko edits and sends in the same window.
  * Kiko's inbox: a reply in its Gmail thread. info@: a new email from Kiko's own Gmail to the sender ("Re: <subject>"), never from info@. */
-function cueNmReply_(nm, it, ask) {   // ask: Kiko's own words from an email chat (ACC-6), used as the brief
+function cueNmReply_(nm, it, ask, ready) {   // ask: Kiko's own words from an email chat (ACC-6), used as the brief; ready: a reply already written (CUE-ASSISTANT-2026-11-03)
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   let T = null;
@@ -334,8 +334,14 @@ function cueNmReply_(nm, it, ask) {   // ask: Kiko's own words from an email cha
   const s = { id, version: CUE_VERSION_, kind: 'email', created: d.toISOString(), started: now,
     text: 'Reply to ' + (it.who || it.sender) + '\'s email "' + (it.subject || '') + '"' + (it.inbox === 'info' ? ' (to info@, sent from your Gmail)' : ''),
     files: [], status: 'Working', stage: 'GPT drafting', ref: nm.id, mail: M, metrics: { ai_calls: 0, calls: [] }, notes: [] };
+  const body = cueStr_(ready, 6000).trim();
+  if (body) {   // the proposed reply goes on the card as written: no GPT call, and nothing is sent before Kiko taps Send
+    M.draft = { to: M.to_addr || '', subject: T ? (/^re:/i.test(T.subject) ? T.subject : 'Re: ' + T.subject) : M.reply_subject || cueStr_(subject, 200), body };
+    s.status = 'Needs you'; s.stage = 'Needs you'; s.card_at = now;
+  }
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
-  cueChat_('Cue', 'Drafting a reply to ' + (it.who || it.sender) + (it.inbox === 'info' ? '. It goes from your Gmail, not info@' : '') + '. Nothing is sent before you tap.', id);
+  cueChat_('Cue', body ? 'Your reply to ' + (it.who || it.sender) + ' is on the card' + (it.inbox === 'info' ? ' and goes from your Gmail, not info@' : '') + '. Edit it if you like, then Send or Save to Drafts. Nothing is sent before you tap.'
+    : 'Drafting a reply to ' + (it.who || it.sender) + (it.inbox === 'info' ? '. It goes from your Gmail, not info@' : '') + '. Nothing is sent before you tap.', id);
   return { request_id: id, task: nm.id };
 }
 
