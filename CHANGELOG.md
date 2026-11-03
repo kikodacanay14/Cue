@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.13: the daily bid check fits in storage again (not deployed)
+
+Kiko asked on 2 Nov 2026 at 07:29Z, in the thread "Find and fix what's broken in Cue": "find the problem, and fix it". The 3 Nov
+06:34 daily bid check stopped at 07:05 with "The bid check stopped: This request is too large to store (210412 characters)". A run's
+saved state was split over 4 cells of 45,000 characters (180,000 in all). The 1 Nov fix only closed an oversized run once instead of
+every 10 minutes, so the check still failed whenever it found many notices (310,994 characters on 1 Nov).
+
+- `src/Cue.gs`: `CUE_CELLS_` goes from 4 to 10 (450,000 characters), and the Requests tab gains the headers Data 5 to Data 10. The
+  Requests tab already has 26 columns, so nothing has to be set up. Every reader uses `CUE_CELLS_`, so old rows read as before.
+- Tests: 631 (1 new, TL3: a 310,000-character run is stored and read back whole; TL1 now overfills 450,000).
+
 ## Cue 1.28.12: no repeated messages (BUG FIX, LIVE as Version 194, 3 Nov 2026 15:02Z; rollback Version 193)
 
 Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
