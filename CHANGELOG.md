@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue (number set by the deploys thread): new mail shows only in the main chat (not deployed)
+
+Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
+to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
+in the main chat and as a row under "Waiting on you" in the Threads list.
+
+- `src/IndexThreads.html` (`listShows`): an email's own chat (kind `mail`) and a new-kind-of-email question (kind `mailtype`) no longer
+  show in the Threads list or in its "Waiting on you" count. They stay in the main chat on the left, and their line there still opens
+  the chat.
+- A mail chat joins the Threads list once Kiko writes in it (anything except a plain "done") or another task joins it, such as the
+  reply draft or an intake. A "done" alone closes the chat without listing it.
+- Page only: no server change, no AI call, no Canvas change. New mail sorting, types and the daily New mail list are unchanged.
+- Tests: `test/features/72-mail-left-only.js` (3 tests); 500 tests pass. FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
 ## Cue 1.27.90: Messenger for crew: sign links, link-ups, crew chats and the relay (not deployed)
 
 Kiko asked on 2 Nov 2026, in a cloud chat, to use m.me so crew get their papers on Facebook Messenger and their social details sit

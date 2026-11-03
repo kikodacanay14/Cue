@@ -2,7 +2,7 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
     var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
     if (!it) {
-      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length;
+      var n = Object.keys(th).filter(function (k) { var b = byId()[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && listShows(th[k]) && threadState(th[k]).need; }).length;
       h = '<span class="pico">' + icon('threads') + '</span><span class="pname">Threads</span>' + (n ? '<span class="pcount" title="Waiting on you">' + n + '</span>' : '') + '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Settings') + x;
@@ -28,7 +28,7 @@
   function renderThreadList(th) {
     var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
-      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
       var lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
@@ -392,6 +392,16 @@
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };
   function isNeed(r) { return NEED[r.status] || (r.nudge && !CLOSED[r.status]); }
   var CLOSED = { Done: 1, Rejected: 1, Closed: 1 };
+  // Kiko 3 Nov 2026 06:30Z: "the new mails are redundant. only make them appear on the left. if i ask it to do an action that is the
+  // only time it will show in the threadss". An email's own chat (kind mail) and a new-kind-of-email question (mailtype) show only in
+  // the main chat, not in the Threads list or its count. A mail chat joins the list once Kiko asks Cue something in it (any message
+  // but a plain "done") or another task joins it (the reply draft, an intake). The chat itself still opens from its line on the left.
+  var MAIL_ONLY = { mail: 1, mailtype: 1 }, MAIL_DONE = /^(done|ok,? done|got it|mark (it |this )?(as )?done|close( it| this)?)[.!]?$/i;
+  function listShows(th) {
+    if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
+    return th.reqs.some(function (r) { return r.kind === 'mail'; })
+      && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
+  }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
