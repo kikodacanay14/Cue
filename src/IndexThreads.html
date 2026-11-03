@@ -617,16 +617,18 @@
 
   var lastChat = -1, lastThread = -1;
   function renderChat() {
-    var sc = $('scroller'), atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80, th = threads();
+    // Kiko 3 Nov 2026 06:29Z ("its so hard coz i have to scroll all the way... please change that"): newest message on top,
+    // in the chat and in each thread, so Cue keeps the view at the top instead of scrolling down to the end.
+    var sc = $('scroller'), atTop = sc.scrollTop < 80, th = threads();
     var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
     renderMain(th);
-    if (!$('page-chat').hidden && (atBottom || grew)) sc.scrollTop = sc.scrollHeight;
-    var ps = $('pscroll'), pBottom = ps.scrollHeight - ps.scrollTop - ps.clientHeight < 80;
+    if (!$('page-chat').hidden && (atTop || grew)) sc.scrollTop = 0;
+    var ps = $('pscroll'), pTop = ps.scrollTop < 80;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
       lastThread = tn; renderThread(t);
-      if (!toSpot() && (pBottom || tg)) ps.scrollTop = ps.scrollHeight;
+      if (!toSpot() && (pTop || tg)) ps.scrollTop = 0;
     }
     renderPaneTabs(th); renderThreadList(th);
   }
@@ -651,11 +653,13 @@
   }
   // The chat: Kiko's general messages, and each task's first message with "N replies" under it. Tap it to open the thread.
   function renderMain(th) {
-    var by = byId(), seen = {}, shown = {}, h = '', dayShown = {};
+    var by = byId(), seen = {}, shown = {}, out = [], h = '', dayShown = {};
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     var prev = null;
-    allLines().forEach(function (m) { one(m); prev = m; });
+    // Each message (with its thread row under it) is one block; the blocks show newest first (Kiko 3 Nov 06:29Z).
+    allLines().forEach(function (m) { h = ''; one(m); if (h) out.push(h); prev = m; });
+    h = out.reverse().join('');
     function one(m) {
       if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
@@ -700,7 +704,8 @@
     try { localStorage.setItem('cue.todayDone', b.getAttribute('data-today-done')); } catch (x) {}
     $('tmsgs')._h = null; lastThread = -1; renderChat();
   });
-  // A thread: its messages in order, then the card for each of its tasks (review, progress or result).
+  // A thread: the card for each of its tasks (review, progress or result) on top, then its messages newest first,
+  // then the request at the bottom (Kiko 3 Nov 2026 06:29Z: newest on top, no scrolling down).
   var cardMin = {}; try { cardMin = JSON.parse(localStorage.getItem('cue.cardmin') || '{}') || {}; } catch (e) {}
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-tmin]'); if (!b || !openThread) return;
@@ -737,8 +742,8 @@
     // Kiko 14:42Z: no Due / Priority / Remind row. ✓ in the header closes the task; ⋯ (closed threads only) offers Archive.
     var x0 = t.reqs[0], closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
     var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
-      + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('')
-      + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
+      + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('');
+    var older = t.lines.slice().reverse().map(msgHtml).join('') + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).slice().reverse().join('');
     var cardsAt = h.length;
     t.reqs.forEach(function (r) {
       if (r.kind === 'finance') h += finHtml(r);
@@ -757,7 +762,7 @@
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
     var cards = h.slice(cardsAt), min = !!cardMin[t.root] && cards.length > 0, st = threadState(t);
-    if (cards) h = h.slice(0, cardsAt) + (min ? '' : '<div class="tcards-bar">' + ib('data-tmin="1"', 'chev', 'Minimize the card') + '</div>' + cards);
+    h = h.slice(0, cardsAt) + (cards && !min ? '<div class="tcards-bar">' + ib('data-tmin="1"', 'chev', 'Minimize the card') + '</div>' + cards : '') + older;
     setHtml($('tdock'), min ? '<button class="tdock" data-tmin="0" aria-label="Open the card"><span class="tdt">' + esc(threadTitle(t)) + '</span>'
       + (st.need ? '<span class="need">Needs you</span>' : '<span class="st">' + esc(st.text) + '</span>') + '<span aria-hidden="true">⌃</span></button>' : '');
     setHtml($('tmsgs'), h);
