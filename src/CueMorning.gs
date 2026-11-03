@@ -271,27 +271,10 @@ function cueK0Run_(manual, mode) {
   cueChat_('Cue', K.text, id);
   cueChat_('Cue', mode === 'pm' ? '2 PM chasers: ' + (K.chasers ? K.chasers + ' for your OK (reply "1, 3" or "all").' : 'none due today.')
     : '8 AM update is ready.', '>' + id);
-  if (mode === 'pm') cueK0TeamCue_(day, K.sweep);
   // The bids card under the 8 AM message: a main-chat line "%<bid run id>" that the page draws as the New opportunities card.
   if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'New opportunities: ' + K.bids_new + ' new bid' + (K.bids_new === 1 ? '' : 's') + '.', '%' + K.bids);
   return { request_id: id, items: K.items.length };
 }
-/** CUE-JOB-THREADS-2026-11-03: each chaser due at 2 PM is one line in its project's thread in Team Cue (Canvas Projects log, bridge
- * project_log, kind Chaser). Chasers with no Canvas project stay in Cue's chasers thread only. A line changes no Canvas record. */
-function cueK0TeamCue_(day, sweepId) {
-  const L = sweepId ? cueLoad_(sweepId) : null; if (!L || !L.s.batch) return 0;
-  let n = 0;
-  (L.s.batch.items || []).filter(it => !it.removed && it.kind !== 'tasks' && !it.sent_id).forEach(it => {
-    const pid = String(it.project_id || '').trim(); if (!/^S-\d{3,12}[A-Z0-9]{2}$/.test(pid)) return;
-    const lab = it.label ? it.label.replace(/s$/, '') : 'Chaser';
-    cuePlogQ_({ key: 'due:' + String(it.key || '').replace(/[^A-Za-z0-9:_.@-]/g, '').slice(0, 80) + ':' + day, kind: 'Chaser',
-      title: 'Chaser due: ' + lab + (it.who ? ' to ' + it.who : ''), details: it.no_email ? 'Not emailed: needs you in Canvas' : 'Pick it in Cue\'s 2 PM chasers thread to draft it',
-      project_id: pid, from: '2 PM chasers', at: new Date(cueNow_()).toISOString() });
-    n++;
-  });
-  return n;
-}
-
 /** From cueResume: the 2 PM update that waited for the chaser batch goes out as soon as the batch is ready. */
 function cueK0Retry_() {
   const P = PropertiesService.getScriptProperties(), day = cuePh_(cueNow_()).day;
