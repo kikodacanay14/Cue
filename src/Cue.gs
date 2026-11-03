@@ -1079,7 +1079,7 @@ function cueView_(s) {
   // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
   const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
   return { id: s.id, kind: CUE_GONE_KINDS_.indexOf(s.kind) >= 0 ? 'removed' : s.kind || 'intake', ref,   // HUBSPOT-REMOVAL-2026-11-01: removed kinds show as 'removed'
-    created: s.created, status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
+    created: s.created, card_at: s.card_at ? new Date(s.card_at).toISOString() : '', status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
     same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,

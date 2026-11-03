@@ -49,10 +49,25 @@ function cueAccrThreads_(rows) {
   return out;
 }
 
+/* ACCR-CLIENTS-2026-11-03 (Kiko 30 Oct 10:52Z: "whats wrong is that this is a client. we are the supplier"; proposal approved 3 Nov
+ * 14:59Z): a row whose name is a client in Canvas Accounts (Client Desk) is a client's own accreditation of BSE, so the morning batch
+ * leaves it out; that client keeps its own Accreditation thread. Canvas answers client_check read only, one call per row, in parallel.
+ * When Canvas cannot say (an older Canvas, Client Desk off, a read error), the row stays in, as before. */
+function cueAccrClients_(s, rows) {
+  const names = rows.map(r => cueStr_(r.supplier, 200)), ask = names.map((n, i) => ({ n, i })).filter(x => String(x.n).trim());
+  if (!ask.length) return {};
+  let res = [];
+  try { res = UrlFetchApp.fetchAll(ask.map(x => cueBridgeReq_(s, 'client_check', { company: x.n, contacts: [] }))); } catch (e) { console.warn('Accreditation client check: ' + e); return {}; }
+  const out = {};
+  res.forEach((r, k) => { try { const o = cueBridgeParse_('client_check', r) || {}; if (o.client === 'existing') out[ask[k].i] = true; } catch (e) { /* Canvas cannot say: keep the row */ } });
+  return out;
+}
+
 /** The morning lines: one per supplier. */
 function cueAccrFind_(ctx) {
   const g = cueBridge_(ctx.s, 'accreditation_gaps', {}) || { rows: [] }, rule = ctx.rule('accreditation'), today = ctx.today;
-  const rows = (g.rows || []).map(r => Object.assign({}, r, { sent_to: (r.sent_to || []).map(e => String(e).toLowerCase()).filter(e => cueEmail_(e) && !cueNoReply_(e)) }));
+  const all = (g.rows || []).map(r => Object.assign({}, r, { sent_to: (r.sent_to || []).map(e => String(e).toLowerCase()).filter(e => cueEmail_(e) && !cueNoReply_(e)) }));
+  const isClient = cueAccrClients_(ctx.s, all), rows = all.filter((r, i) => !isClient[i]);
   const th = cueAccrThreads_(rows);
   return rows.map((r, i) => {
     const t = th[i] || null;

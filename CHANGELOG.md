@@ -1,5 +1,30 @@
 # Changelog
 
+## Cue (next, unnumbered): threads read like a chat, Fold inside the card, no accreditation chasers for clients (not deployed)
+
+Kiko approved three proposals on 3 Nov 2026 at 14:59Z ("yes yes tes"), each with a mockup. Built on 1.28.12 (cbe4363), so
+everything live stays as it is.
+
+- Chat format in threads (Kiko 30 Oct 10:14Z: "why is that responses from Cue in threads are not in a chat format box and format?
+  Actions i guess is okay if not in chat format but make it 2 fonts smaller"; mockup https://claude.ai/artifact/QVzi9sAaU1Mc6bjinwSGvS).
+  In a thread, Cue's replies sit in white bubbles on the left with a small "Cue" label; Kiko's stay lavender on the right. A status
+  or action line (one that starts with Registering, Starting, On it, Ready for you, Rejected, Closed, Saved, Sent and the like, the
+  list is `ACT_RE` in IndexThreads.html) stays out of the bubbles at 12px on one line, with the full text on hover. A Learned note is
+  its own pale yellow box (#FFF8D9) with a dashed BSE orange border (#F06A25), a Learned tag, "Applies from your next message." and
+  Keep and Undo at the bottom right. The main chat is unchanged.
+- Cards in the conversation (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; comment on the mockup:
+  "if rejected or done already. the card shouldnt stick anymore"). Each task's card now sits where it was posted (when it asked for
+  Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. The page gets each task's
+  `card_at` for this (`cueView_` in Cue.gs).
+- Fold inside the card (Kiko 30 Oct 09:55Z: "how do i fold this", 09:58Z: "i dont see thath"; mockup
+  https://claude.ai/artifact/5QSkffP7by1EcPjF82n9mR). The chevron above the card is replaced by a Fold button in each card's upper
+  right. Folded, the cards become one bar above the reply box; tapping the bar opens them again; each thread keeps its own fold.
+- Accreditation chasers leave out clients (Kiko 30 Oct 10:52Z: "whats wrong is that this is a client. we are the supplier"). The
+  morning batch skips any accreditation row whose name is a client in Canvas Accounts (Client Desk), asked through the existing
+  read-only bridge action `client_check`, one call per row in parallel (`cueAccrClients_` in CueSweepAccr.gs). Client accreditations
+  such as infor.com keep their own Accreditation thread. When Canvas cannot say, the row stays in, as before. No Canvas change.
+- No AI call added. Tests: 635 (3 new, `test/features/84-thread-chat.js`).
+
 ## Cue 1.28.12: no repeated messages (BUG FIX, not deployed)
 
 Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
