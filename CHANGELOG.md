@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.28.11: New PhilGEPS read by code, Cowork removed, bid range up to ₱1,000,000 (not deployed)
+
+Kiko on 3 Nov 2026 at 14:36Z, in the Canvas project: "We removed co-work because it uses a lot of usage and then we just used script
+or code. And then it was able to download it." The code reader is Cue PR #284 (merged to main on 1 Nov 2026, never live), rebuilt
+on 1.28.10. The bid rules are Kiko's answers in that thread on 1 Nov 2026 ("raise it to 1M"; Pampanga "1. Yes"; CALABARZON and
+Region IV-A "2. Yes"; Quezon province "3. No"; "QC or Quezon City is ok"), kept with his 29 Oct floor ("you can lower it to 50k").
+
+- `src/CueBidsPg.gs` (new): Cue's own code reads New PhilGEPS's public bulletin board (`/Indexes/index`, the latest 100 open notices),
+  each matching notice's page, its activity schedule and its document list, with plain HTTP. No AI call, no browser, no sign-in.
+  The constant is `CUE_NPG_` because the old PhilGEPS reader (`CueBidsPhilgeps.gs`) already uses `CUE_PG_`.
+- `src/CueJobs.gs`: new job "New PhilGEPS read", hourly from 7 AM to 7 PM Manila, because the board shows only the latest 100.
+- `src/CueBids.gs`: New PhilGEPS is no longer sent to ChatGPT; the 06:30 check takes the waiting notices from the code reader and
+  opens their files with the same document step as every other source. ABC ₱50,000 to ₱1,000,000. Area: Pampanga, CALABARZON and
+  Region IV-A in; Quezon province out (Quezon City and "QC" stay in).
+- `src/CueSchedule.gs`, `src/CueAdmin.gs`: the "New PhilGEPS (Cowork)" 10:30 row and its run are removed; a saved row leaves the
+  Schedule tab once (seed v15). The Cowork task on KKD is no longer read. The Cowork helper code in `CueBids.gs` is left in place
+  but nothing calls it any more.
+- Tests: `test/features/83-philgeps-code.js` (PGS1 to PGS6), BD1 and SC4 updated, harness answers philgeps.gov.ph; 630 tests pass.
+  FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
 ## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
 
 Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption

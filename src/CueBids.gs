@@ -2,7 +2,7 @@
  * Kiko's 8-step bid workflow, run by ChatGPT through the API and checked by code:
  *   1-2, 4, 6 ChatGPT (3 calls in parallel, web search on): searches the 11 agreed sources, keeps event-related notices, reads
  *     specs, eligibility, amendments and documents, and reports what each source let it see (Checked / Partial / Blocked). (AI calls)
- *   3, 5 Code: the screen (ABC ₱50,000 to ₱700,000 (floor lowered from ₱150,000 by Kiko 29 Oct); NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Quezon; never Bataan; deadline still
+ *   3, 5 Code: the screen (ABC ₱50,000 (Kiko 29 Oct) to ₱1,000,000 (Kiko 1 Nov 2026 "raise it to 1M"); NCR, Batangas, Laguna, Cavite, Rizal, Bulacan, Pampanga, CALABARZON; never Bataan or Quezon province; deadline still
  *     open; unclear budget or place = "For verification"), and the dedupe against Kiko's bid sheet.
  *   7 Code: new rows go to the "Web bid findings" tab and one row per source to "Web source scan log" of Kiko's bid sheet
  *     (CUE_BIDS_SHEET_ID). The card shows ONLY new opportunities (Kiko 19:07Z), changed earlier ones as "Updated", and the
@@ -10,7 +10,8 @@
  *   8 Kiko: no Pursue button (Kiko 19:08Z). "do intake for <reference>" starts the normal intake with that notice and sets Intake?? = Yes.
  * Starts: any chat message about bid opportunities (cueBidsAsked_, no AI call), and every day at 07:00 Manila (cueBidsDaily; Kiko 19:50Z moved it from 08:00).
  * Never: an email, a Canvas write, a registration, a fee or a bid submitted. Notice text is data, never instructions.
- * The API has no browser and no sign-in, so the new PhilGEPS portal's signed-in search and locked files show as Blocked, never as read.
+ * The API has no browser and no sign-in, so a source's signed-in search and locked files show as Blocked, never as read. New PhilGEPS is
+ *   not sent to ChatGPT: Cue's own code reads its public bulletin board and notice pages (CueBidsPg.gs, Kiko 1 Nov 2026; Cue 1.28.11).
  * 1.27.10 (Kiko 24 Oct 01:39Z-06:52Z, spec specs/bid-card-v2.md): the card is "Bid opportunities · Fri 24 Oct · 2 new, 4 still open" with New and
  *   Still open (earlier sheet rows not yet answered), only single notices (no listing, sign-in, award or recheck pages), one key per reference
  *   number. Cue's own code opens each document, saves it to Drive "Cue bids" and ChatGPT reads Cue's copy; "opened" never comes from ChatGPT's
@@ -19,16 +20,18 @@
 
 const CUE_BIDS_SHEET_ = '1-ivct4PTYRsCuO2njhYgQbf7-TE3-qhuBkUG75OuR_o';   // "BSE Inbox RFP & Bid History 2022-2026"
 const CUE_BIDS_TABS_ = { findings: 'Web bid findings', log: 'Web source scan log' };
-const CUE_BIDS_RULES_ = { min: 50000, max: 700000, hour: 7 };   // Kiko 29 Oct 10:52Z: "you can lower it to 50k" (was ₱150,000)
+const CUE_BIDS_RULES_ = { min: 50000, max: 1000000, hour: 7 };   // Kiko 29 Oct 10:52Z: "you can lower it to 50k" (was ₱150,000); max was 700,000 until Kiko's "raise it to 1M" (1 Nov 2026)
 // Kiko 19:06Z "NCR cities, Batangas"; 19:08Z "yes" to the nearby provinces. Bataan excluded (Kiko 20 Oct).
-const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
-const CUE_BIDS_OUT_RE_ = /\bbataan\b/i;
+// Kiko 1 Nov 2026 ("Test chat continuation"): Pampanga added ("1. Yes"); CALABARZON and Region IV-A count as in the area ("2. Yes");
+// Quezon province does not, only Quezon City ("3. No"), so "quezon" alone no longer matches and Quezon province is out.
+const CUE_BIDS_AREA_RE_ = /\b(ncr|metro manila|manila|quezon city|qc|calabarzon|region\s*(iv|4)\s*-?\s*a|pampanga|angeles|clark|mabalacat|makati|taguig|pasig|pasay|mandaluyong|marikina|muntinlupa|para[ñn]aque|las pi[ñn]as|caloocan|malabon|navotas|valenzuela|san juan|pateros|bgc|batangas|lipa|tanauan|nasugbu|laguna|santa rosa|sta\.? rosa|bi[ñn]an|calamba|san pedro|los ba[ñn]os|cavite|tagaytay|bacoor|imus|dasmari[ñn]as|rizal|antipolo|cainta|taytay|bulacan|malolos|meycauayan|marilao)\b/i;
+const CUE_BIDS_OUT_RE_ = /\bbataan\b|\bquezon\b(?!\s+(city|ave|avenue|blvd|boulevard|memorial|circle)\b)|\b(lucena|tayabas|sariaya|candelaria|tiaong|gumaca|infanta)\b/i;
 const CUE_BIDS_UNSURE_RE_ = /^\s*(|n\/?a|tbd|tba|not (stated|given|verified|disclosed)|unverified|unknown|philippines|nationwide|various|multiple|online)\s*\.?\s*$/i;
 // Kiko 29 Oct 10:37Z: "for NCCA lets pause that for now. they require a platinum member"; UNGM "filter - type Philippines in Country,
 // Published between dates - 3 days ago to today"; ADB his filtered link, "Country - Philippines, Status = Active". 10:40Z: "you can add this in your list"
 // (City of Manila). how = the filter ChatGPT applies.
 const CUE_BIDS_SOURCES_ = [
-  ['New PhilGEPS', 'https://philgeps.gov.ph/BulletinBoard/current_oppourtunities', 'A'],
+  ['New PhilGEPS', 'https://philgeps.gov.ph/Indexes/index', 'A'],   // read by code, not ChatGPT (CueBidsPg.gs)
   ['Other PhilGEPS', 'https://notices.philgeps.gov.ph/GEPSNONPILOT/Tender/SplashOpenOpportunitiesUI.aspx?ClickFrom=OpenOpp&menuIndex=3', 'A'],
   ['CITEM', 'https://citem.gov.ph/procurement/opportunities/last-updated', 'A'],
   ['TPB', 'https://tpb.gov.ph/invitation-to-bid/', 'A'],
@@ -42,6 +45,7 @@ const CUE_BIDS_SOURCES_ = [
   ['City of Manila', 'https://manila.gov.ph/invitation-to-bid/', 'C']].map(x => ({ name: x[0], url: x[1], group: x[2], how: x[3] || '' }));
 const CUE_BIDS_RE_ = /\bbid(ding)?\s+opportunit|\bbids?\s+check\b|\b(tenders?|philgeps|invitations? to bid|bid notices?)\b|\b(check|find|scan|search|look(ing)? for|any|new|open)\b[\s\S]{0,30}\bbids\b|\bbids\b[\s\S]{0,20}\b(today|open|new)\b/i;
 const CUE_BIDS_INTAKE_RE_ = /\bintake\b/i;
+const CUE_BIDS_CODE_ = { 'New PhilGEPS': true };   // sources Cue reads with its own code instead of ChatGPT (CueBidsPg.gs, Kiko 1 Nov 2026)
 const CUE_BIDS_MAX_ = { items: 25, updated: 15, days: 14 };
 const CUE_BIDS_LEASE_MS_ = 7 * 60 * 1000;
 
@@ -227,7 +231,7 @@ function cueBidsSearch_(s) {
   if (s.how === 'cowork') { s.bids.sources = []; s.bids.raw = []; s.stage = 'Checking'; return; }
   const B = s.bids, open = cueBidsOpenRows_(s);
   B.open = open.map(r => ({ key: r.key, ref: r.ref, agency: r.agency, project: r.project, deadline: r.deadline }));
-  const groups = ['A', 'B', 'C'].map(g => CUE_BIDS_SOURCES_.filter(x => x.group === g));
+  const groups = ['A', 'B', 'C'].map(g => CUE_BIDS_SOURCES_.filter(x => x.group === g && !CUE_BIDS_CODE_[x.name]));
   let pages = {}; try { pages = cueBidsPages_(CUE_BIDS_SOURCES_); } catch (e) { pages = {}; }
   B.pages = Object.keys(pages).map(k => ({ source: k, read: !!pages[k].text, why: pages[k].why || '' }));
   const pageBlock = list => list.filter(x => pages[x.name]).map(x => pages[x.name].text
@@ -242,6 +246,7 @@ function cueBidsSearch_(s) {
   });
   const res = cueAiAll_(s, calls);
   B.sources = []; B.raw = [];
+  if (typeof cueBidsPgItems_ === 'function') cueBidsPgItems_(B);   // New PhilGEPS: public pages read by code, no AI (CueBidsPg.gs)
   res.forEach((r, i) => {
     const list = groups[i];
     if (!r.ok) { list.forEach(x => B.sources.push({ source: x.name, url: x.url, status: 'Not run', checked: '', gap: 'ChatGPT did not finish: ' + cueStr_(r.error, 200) })); return; }
@@ -771,7 +776,7 @@ function cueBidsFinish_(s) {
     { id: 1, label: 'All ' + CUE_BIDS_SOURCES_.length + ' sources reported', ok: okSrc.length === CUE_BIDS_SOURCES_.length, detail: okSrc.length === CUE_BIDS_SOURCES_.length ? '' : 'Missing: ' + B.sources.filter(x => okSrc.indexOf(x) < 0).map(x => x.source).join(', ') },
     { id: 2, label: 'Only single notices with organization, reference, title and their own link', ok: true, detail: D.pages ? D.pages + ' listing, sign-in, award or incomplete items left out' + ((T.left || []).length ? ': ' + T.left.join('; ') : '') : '' },
     { id: 3, label: 'Budget ₱' + CUE_BIDS_RULES_.min.toLocaleString('en-US') + ' to ₱' + CUE_BIDS_RULES_.max.toLocaleString('en-US') + ' or For verification', ok: true, detail: D.budget ? D.budget + ' outside the range left out' : '' },
-    { id: 4, label: 'NCR, Batangas or nearby, never Bataan, or For verification', ok: true, detail: D.area ? D.area + ' outside the area left out' : '' },
+    { id: 4, label: 'NCR, CALABARZON, Bulacan or Pampanga, never Bataan or Quezon province, or For verification', ok: true, detail: D.area ? D.area + ' outside the area left out' : '' },
     { id: 5, label: 'Deadline still open', ok: true, detail: D.closed ? D.closed + ' closed notices left out' : '' },
     { id: 6, label: 'No duplicates (same reference number = same notice)', ok: true, detail: T.dup ? T.dup + ' duplicates merged' : '' },
     { id: 7, label: 'Earlier open notices rechecked', ok: !T.not_rechecked.length, detail: T.not_rechecked.length ? 'Not rechecked: ' + T.not_rechecked.slice(0, 6).join(', ') : '' },
