@@ -482,9 +482,9 @@ function cueGtSay_(s, D, G, fresh) {
   const due = fresh.filter(f => f.due).sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0)[0];
   const top = due || fresh.filter(f => f.confidence === 'high')[0] || fresh[0];
   const name = [top.title, top.company && top.title.indexOf(top.company) < 0 ? '(' + top.company + ')' : ''].filter(Boolean).join(' ');
+  // Kiko 3 Nov 23:36Z: no fixed reason line; ChatGPT's own summary says what it is about.
   return [D.title + ': ' + G.summary,
     G.summary_ai || '',
-    'Why you: ' + (s.how === 'chat' ? 'you asked for this run.' : 'it runs on your schedule (Settings › Scheduled tasks), and its findings wait for your tap.'),
     'My suggestion: start with ' + name + (top.due ? ', due ' + top.due : '') + (top.next_action ? '. ' + top.next_action.replace(/[.\s]*$/, '.') : '.')].filter(Boolean).join('\n');
 }
 /** Finding ids already shown for this task in the last 180 days ("ChatGPT findings" tab of the Cue sheet). */

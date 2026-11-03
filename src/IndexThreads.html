@@ -630,9 +630,9 @@
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
     return out + plain(t.slice(last));
   }
-  // CUE-ASSISTANT-2026-11-03: "Why you:", "My suggestion:" and "Proposed reply:" at the start of a line read as labels (bold text,
-  // never a button), so the reason and the proposed response stand out from what the message reports.
-  function cueLabels(h) { return h.replace(/(^|\n)(Why you:|My suggestion:|Proposed reply:)/g, '$1<b>$2</b>'); }
+  // CUE-ASSISTANT-2026-11-03: "My suggestion:" and "Proposed reply:" at the start of a line read as labels (bold text, never a
+  // button), so the proposed response stands out from what the message reports. No fixed "Why you" label (Kiko 3 Nov 23:36Z).
+  function cueLabels(h) { return h.replace(/(^|\n)(My suggestion:|Proposed reply:)/g, '$1<b>$2</b>'); }
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
