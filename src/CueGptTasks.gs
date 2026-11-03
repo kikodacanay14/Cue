@@ -472,7 +472,20 @@ function cueGtCheck_(s, a) {
     + '. Process check: ' + passed + ' of ' + G.checks.length + ' passed.';
   s.ready_at = cueNow_(); s.card_at = s.card_at || cueNow_();
   s.status = fresh.length || fails.length ? 'Needs you' : 'Done'; s.stage = s.status;
-  cueChat_('Cue', D.title + ': ' + G.summary, s.id);
+  cueChat_('Cue', cueGtSay_(s, D, G, fresh), s.id);
+}
+/** CUE-ASSISTANT-2026-11-03 (Kiko 3 Nov 2026 14:30Z: "why it was sent to me ... and have a like a proposed response to it"; mockup
+ * approved 14:57Z): a run with new findings says what it found, why it reached Kiko and where to start. Built from the run's own
+ * data: no extra AI call. A run with nothing new keeps its one line. */
+function cueGtSay_(s, D, G, fresh) {
+  if (!fresh.length) return D.title + ': ' + G.summary;
+  const due = fresh.filter(f => f.due).sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0)[0];
+  const top = due || fresh.filter(f => f.confidence === 'high')[0] || fresh[0];
+  const name = [top.title, top.company && top.title.indexOf(top.company) < 0 ? '(' + top.company + ')' : ''].filter(Boolean).join(' ');
+  return [D.title + ': ' + G.summary,
+    G.summary_ai || '',
+    'Why you: ' + (s.how === 'chat' ? 'you asked for this run.' : 'it runs on your schedule (Settings › Scheduled tasks), and its findings wait for your tap.'),
+    'My suggestion: start with ' + name + (top.due ? ', due ' + top.due : '') + (top.next_action ? '. ' + top.next_action.replace(/[.\s]*$/, '.') : '.')].filter(Boolean).join('\n');
 }
 /** Finding ids already shown for this task in the last 180 days ("ChatGPT findings" tab of the Cue sheet). */
 function cueGtSeen_(key) {
