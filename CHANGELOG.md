@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.12: no repeated messages (BUG FIX, not deployed)
+## Cue 1.28.12: no repeated messages (BUG FIX, LIVE as Version 194, 3 Nov 2026 15:02Z; rollback Version 193)
 
 Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
 thread, you see the message in the main chat, and then after a while, you see it again", with about 40 repeats in 60 morning
