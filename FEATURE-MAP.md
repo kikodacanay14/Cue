@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 75 server files, 1458 top-level names, 34 task kinds, 35 word checks before the
-chat call, 16 background jobs in the 5-minute trigger, 92 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
+Counts: 75 server files, 1461 top-level names, 34 task kinds, 35 word checks before the
+chat call, 16 background jobs in the 5-minute trigger, 93 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -239,20 +239,20 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRows_` | `Cue.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
 | `cueGmailSend_` | `CueGmail.gs` | 12 |
+| `cueBridgeParse_` | `CueBridge.gs` | 10 |
+| `cueBridgeReq_` | `CueBridge.gs` | 10 |
 | `cueKey_` | `CueAi.gs` | 10 |
 | `cueMe_` | `Cue.gs` | 10 |
 | `cueName_` | `CueText.gs` | 10 |
 | `cueAskOpen_` | `CueRoute.gs` | 9 |
-| `cueBridgeParse_` | `CueBridge.gs` | 9 |
-| `cueBridgeReq_` | `CueBridge.gs` | 9 |
 | `cueMnlDay_` | `CueDates.gs` | 9 |
 | `cueOwnDomain_` | `CueGmail.gs` | 9 |
 | `CUE_DATE_RE_` | `CueText.gs` | 8 |
 | `cueAddDays_` | `CueDates.gs` | 8 |
 | `cueAskPick` | `CueRoute.gs` | 8 |
+| `cueBridgePlan_` | `CueBridge.gs` | 8 |
 | `cueGmailDraft_` | `CueGmail.gs` | 8 |
 | `CUE_DRIVE_` | `CueFiles.gs` | 7 |
-| `cueBridgePlan_` | `CueBridge.gs` | 7 |
 | `cueCanvasFind_` | `CueCanvas.gs` | 7 |
 | `cueDrive_` | `CueFiles.gs` | 7 |
 | `cueKind_` | `CueSweep.gs` | 7 |
@@ -292,7 +292,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueHelp.gs`: `cueHelpAct`
 - `CueMailTypes.gs`: `cueAdminTypeSender`, `cueAdminTypes`, `cueAdminTypesSave`
 - `CueMessenger.gs`: `cueMsgrKey`, `cueMsgrSave`
-- `CueMsgTemplates.gs`: `cueAdminTemplatePreview`, `cueAdminTemplateTest`, `cueAdminTemplates`
+- `CueMsgTemplates.gs`: `cueAdminTemplatePreview`, `cueAdminTemplateSave`, `cueAdminTemplateTest`, `cueAdminTemplates`
 - `CueNewMail.gs`: `cueNmItem`
 - `CueReady.gs`: `cueReadyFollowups`, `cueReadyPick`, `cueReadyRecheck`
 - `CueRoute.gs`: `cueAskPick`, `cueWrongCommand`

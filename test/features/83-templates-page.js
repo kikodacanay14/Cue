@@ -10,6 +10,7 @@ const MT_RENDER = { key: 'C6 Cost estimate ready', code: 'C6', who: 'C', channel
 const mtBox = (o = {}) => sandbox({ web: req => o.fail && req.url.indexOf('script.google.com') >= 0 ? resp(200, { ok: false, status: 'Blocked', error: o.fail }) : null, bridgeFn: b => {
   if (b.action === 'message_templates') return JSON.parse(JSON.stringify(o.list || MT_LIST));
   if (b.action === 'message_render') return Object.assign({}, MT_RENDER, { key: b.args.key }, o.render || {});
+  if (b.action === 'message_template_save') return o.save || { ok: true, rev: '1762160000000', readBack: '' };
 } });
 
 test('MT1 every template in the doc is listed with its journey step, sender and status from the approved mockup; the team drafts show as not in the doc yet', () => {
@@ -67,17 +68,40 @@ test('MT5 Send me a test goes from Kiko\'s Gmail to Kiko only, marked [Test], wi
   assert.strictEqual(sms.log.gmail.length, 0);
 });
 
-test('MT6 Cue Admin has Templates under Rules, its calls are owner-only and never run by a cloud check, and the page reads only', () => {
+test('MT6 Cue Admin has Templates under Rules, its calls are owner-only and never run by a cloud check, and it never logs a send', () => {
   const page = cuePage();
   assert.ok(page.includes('<button data-s="templates">Templates</button>') && page.includes('<section data-sec="templates" hidden>'));
   assert.ok(page.includes("if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();"), 'loads when opened, and again after a failed read');
   assert.ok(page.includes('sandbox=""'), 'the email preview runs no script');
   assert.ok(!/conic-gradient/.test(page));
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueMsgTemplates.gs'), 'utf8'), chk = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8');
-  ['cueAdminTemplates', 'cueAdminTemplatePreview', 'cueAdminTemplateTest'].forEach(f => {
+  ['cueAdminTemplates', 'cueAdminTemplatePreview', 'cueAdminTemplateSave', 'cueAdminTemplateTest'].forEach(f => {
     assert.ok(new RegExp('function ' + f + '\\([^)]*\\) \\{\\n  cueOwner_\\(\\);').test(src), f + ' is owner-only');
     assert.ok(chk.includes("'" + f + "'"), f + ' is listed for the cloud check');
   });
   assert.ok(chk.includes("'message_templates', 'message_render'"), 'both bridge calls are reads');
-  assert.ok(!/message_template_save|message_log/.test(src), 'this build writes nothing to Canvas');
+  assert.ok(!/message_log/.test(src), 'a test or a save is never logged as a send');
+  assert.ok(page.includes('Save to doc') && page.includes("google.script.run.withSuccessHandler"), 'the editor saves through the server call');
+});
+
+test('MT7 Save to doc sends Canvas one claimed write with the subject and the message as paragraphs and buttons, then lists again; a bad read-back or an empty message is refused', () => {
+  const crypto = require('crypto');
+  const t = mtBox(), body = 'Hi {{first_name}},\r\n\r\nYour estimate is ready.\nSee you soon.\n\n\n[Take a look]({{ce_url}})\n\n';
+  const R = t.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'Your event | {{event}}\n', body });
+  assert.strictEqual(R.list.length, 54, 'returns the page list again');
+  deq(t.log.bridge.map(b => b.action), ['claim_plan', 'message_template_save', 'message_templates']);
+  const w = t.log.bridge[1], plan = t.log.bridge[0];
+  deq(JSON.parse(JSON.stringify(w.args)), { key: 'C6 Cost estimate ready', subject: 'Your event | {{event}}', blocks: [
+    { t: 'p', text: 'Hi {{first_name}},' }, { t: 'p', text: 'Your estimate is ready.\nSee you soon.' }, { t: 'btn', text: 'Take a look', url: '{{ce_url}}' }] });
+  assert.ok(!('from' in w.args) && !('cc' in w.args) && !('attachments' in w.args), 'inbox, CC and attachments are not sent');
+  const c = plan.args.commands.find(x => x.command_id === w.command_id);
+  assert.ok(c, 'the write is a command of the claimed plan');
+  assert.strictEqual(c.payload_hash, crypto.createHash('sha256').update(JSON.stringify(['message_template_save', w.project_id || '', w.expected_project_number || '', w.args])).digest('hex'));
+  assert.strictEqual(t.ctx.cueMtText_(w.args.blocks), 'Hi {{first_name}},\n\nYour estimate is ready.\nSee you soon.\n\n[Take a look]({{ce_url}})', 'the editor box reads back the same');
+  const bad = mtBox({ save: { ok: false, rev: '1', readBack: 'Subject: old' } });
+  assert.throws(() => bad.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: 'y' }), /reads differently from what you saved: Subject: old/);
+  const empty = mtBox();
+  assert.throws(() => empty.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: ' \n\n ' }), /message is empty/);
+  deq(empty.log.bridge, [], 'nothing reaches Canvas');
+  assert.throws(() => empty.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: 'a'.repeat(5001) }), /over 5,000/);
 });

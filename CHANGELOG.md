@@ -19,13 +19,17 @@ build of each piece for his approval ("make a new build for each one i will appr
   not logged as a send.
 - `src/Index.html`, `src/IndexPages.html`, `src/IndexStyle.html`: Cue Admin › Rules › Templates, the three columns of the mockup
   (filters by who receives it, channel and status; the list by journey step; the viewer) in Cue Admin's existing look.
-- Edit opens the template in the doc. Saving from the page is not in this build: Canvas cannot write to the doc yet (info@ has no edit
-  right on it), so the page's editor waits for Kiko's call on how Canvas gets that right.
-- `src/CueCheck.gs`: the three page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
-- `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` (rel-v415 on live V414, not live yet), which adds the three template actions.
+- Edit opens the editor in the viewer: the subject, the message (paragraphs split by a blank line; a line `[Words](link)` is a button)
+  and the template's fill-ins to insert. Save to doc (`cueAdminTemplateSave`) sends Canvas one claimed write, `message_template_save`,
+  which rewrites only that template's Subject, message and button paragraphs in the doc and reads them back; a read-back that differs is
+  shown as an error. Kiko chose this on 3 Nov 2026 ("Give info@ Editor on the doc"). The sending inbox, CC and attachments are shown, not
+  edited (Canvas does not take them). Open in doc stays for anything else.
+- `src/CueCheck.gs`: the four page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
+- `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` @ 4e375a4 (the Canvas templates release, not live yet), which
+  adds the four template actions.
   `test/fixtures/message-templates.json` is Canvas's `message_templates` answer for the real doc (48 templates).
 
-Tests: 630 (6 new, MT1 to MT6; AD4 lists the new section).
+Tests: 631 (7 new, MT1 to MT7; AD4 lists the new section).
 
 ## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
 

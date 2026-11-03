@@ -497,9 +497,9 @@
     var g = e.target.closest('[data-sn-go]'); if (g && !SNW.busy) snGo(g.getAttribute('data-sn-go') === 'test'); });
   /* CUE-MT-2026-11-03 (spec #391, Kiko 1 Nov: "Filter who receives it and theres a list of communications on the right. once clicked on
    * the type of comms - theres a template viewer on the right that allows editing. would also show there inbox that sends it and files
-   * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test and Edit in
-   * doc (saving from the page waits on Canvas being able to write to the doc). The words come only from the doc, through Canvas (CueMsgTemplates.gs). */
-  var MT = { d: null, err: '', f: { who: '', ch: 'Email', st: '' }, sel: '', prev: {}, perr: {}, busy: false, msg: '' };
+   * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test, Open in doc
+   * and Edit (Save to doc writes the subject and words back into the doc through Canvas). The words come only from the doc, through Canvas (CueMsgTemplates.gs). */
+  var MT = { d: null, err: '', f: { who: '', ch: 'Email', st: '' }, sel: '', edit: null, prev: {}, perr: {}, busy: false, msg: '' };
   var MT_COL = { C: '#559FEF', S: '#CD5023', R: '#B3107C', T: '#23006F' }, MT_WHO = [['', 'All'], ['C', 'Clients'], ['S', 'Suppliers'], ['R', 'Crew'], ['T', 'Team']];
   var MT_TAG = { 'In use': 'use', 'Old wording': 'old', 'New draft': 'new', 'Sent by hand': 'man' };
   function mtLoad() { MT.err = ''; call('cueAdminTemplates', [], function (r) { MT.d = r; if (!mtRow(MT.sel)) MT.sel = (mtShown()[0] || {}).key || ''; mtDraw(); mtPrev(); }, function (e) { MT.err = (e && e.message) || String(e); mtDraw(); }); }
@@ -507,6 +507,7 @@
   function mtShown() { return ((MT.d && MT.d.list) || []).filter(function (x) { return (!MT.f.who || x.who === MT.f.who) && (!MT.f.ch || x.channel === MT.f.ch) && (!MT.f.st || x.status === MT.f.st); }); }
   function mtVars(s) { return esc(s).replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, '<span class="mtvar">{{$1}}</span>'); }
   function mtRev(r) { return /^\d{12,}$/.test(String(r || '')) ? new Date(Number(r)).toLocaleString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : String(r || ''); }   // Canvas's doc version is the doc's last-saved time
+  function mtText(blocks) { return (blocks || []).map(function (b) { return b.t === 'btn' ? '[' + b.text + '](' + b.url + ')' : b.text; }).join('\n\n'); }
   function mtTag(st) { return '<span class="mttag ' + (MT_TAG[st] || '') + '">' + esc(st) + '</span>'; }
   function mtCode(x) { return '<span class="mtcode" style="background:' + (MT_COL[x.who] || '#23006F') + '">' + esc(x.code) + '</span>'; }
   function mtPrev() {   // the doc's own render of the picked email (Canvas message_render, draft mode), once per template
@@ -545,6 +546,7 @@
       + (x.button ? '<tr><td>Button opens</td><td>' + mtVars(x.button) + '</td></tr>' : '') + '<tr><td>Last sent</td><td>' + last + '</td></tr></table>';
     if (MT.msg) h += '<div class="card small">' + esc(MT.msg) + '</div>';
     if (!x.indoc) return h + '<div class="card small muted">Not in the doc yet. Its words go into the doc once you approve them.</div>';
+    if (MT.edit && MT.edit.key === x.key) return h + mtEditor(x);
     if (x.channel !== 'Email') h += '<div class="mtsms">' + mtVars(x.blocks.map(function (b) { return b.text; }).join('\n')) + '</div>';
     else { var p = MT.prev[x.key];
       h += MT.perr[x.key] ? '<div class="err">The preview could not be built: ' + esc(MT.perr[x.key]) + '</div>'
@@ -552,16 +554,35 @@
         : '<div class="mtprev"><div class="sj"><b class="muted">Subject</b> ' + mtVars(p.subject) + '</div>' + mtFrame(p.html) + '</div>'; }
     return h + '<div class="mtact">'
       + (x.channel === 'Email' ? '<button class="btn ghost" data-mt-go="test"' + (MT.busy ? ' disabled' : '') + '>Send me a test</button>' : '')
-      + '<a class="btn" href="' + esc(MT.d.doc) + '" target="_blank" rel="noopener" title="Saving from this page comes once Canvas can write to the doc">Edit in doc</a></div>';
+      + '<a class="btn ghost" href="' + esc(MT.d.doc) + '" target="_blank" rel="noopener">Open in doc</a><button class="btn" data-mt-go="edit">Edit</button></div>';
   }
+  function mtEditor(x) {
+    var E = MT.edit;
+    return '<div class="mted">' + (x.channel === 'Email' ? '<label for="mt-subj">Subject</label><input id="mt-subj" data-mt-e="subject" value="' + esc(E.subject) + '">' : '')
+      + '<label for="mt-body">Message</label><textarea id="mt-body" data-mt-e="body">' + esc(E.body) + '</textarea>'
+      + '<div class="adesc">Fill-ins Cue and Canvas supply from records. Click one to insert it. A paragraph written [Button words](link) is the yellow button.</div><div>'
+      + x.vars.map(function (v) { return '<button class="mtvar" data-mt-var="' + esc(v) + '">{{' + esc(v) + '}}</button>'; }).join('') + '</div>'
+      + '<div class="adesc" style="margin-top:8px">Saving writes this template back to the BSE Message Templates doc. The next ' + esc(x.code) + ' message uses it. The sending inbox and attachments are set in Canvas.</div>'
+      + '<div class="mtact"><button class="btn ghost" data-mt-go="cancel">Cancel</button><button class="btn" data-mt-go="save"' + (MT.busy ? ' disabled' : '') + '>' + (MT.busy ? 'Saving…' : 'Save to doc') + '</button></div></div>';
+  }
+  $('w-mt').addEventListener('input', function (e) { var k = e.target.getAttribute('data-mt-e'); if (k && MT.edit) MT.edit[k] = e.target.value; });
   $('w-mt').addEventListener('click', function (e) {
     var c = e.target.closest('[data-mt-who],[data-mt-ch],[data-mt-st]');
     if (c) { if (c.hasAttribute('data-mt-who')) MT.f.who = c.getAttribute('data-mt-who'); if (c.hasAttribute('data-mt-ch')) MT.f.ch = c.getAttribute('data-mt-ch'); if (c.hasAttribute('data-mt-st')) MT.f.st = c.getAttribute('data-mt-st');
-      if (!mtShown().some(function (x) { return x.key === MT.sel; })) MT.sel = (mtShown()[0] || {}).key || ''; MT.msg = ''; mtDraw(); mtPrev(); return; }
-    var it = e.target.closest('[data-mt-key]'); if (it) { MT.sel = it.getAttribute('data-mt-key'); MT.msg = ''; mtDraw(); mtPrev(); return; }
+      if (!mtShown().some(function (x) { return x.key === MT.sel; })) MT.sel = (mtShown()[0] || {}).key || ''; MT.edit = null; MT.msg = ''; mtDraw(); mtPrev(); return; }
+    var it = e.target.closest('[data-mt-key]'); if (it) { MT.sel = it.getAttribute('data-mt-key'); MT.edit = null; MT.msg = ''; mtDraw(); mtPrev(); return; }
+    var v = e.target.closest('[data-mt-var]'); if (v && MT.edit) { var ta = $('mt-body'), t = '{{' + v.getAttribute('data-mt-var') + '}}', p0 = ta.selectionStart || 0, p1 = ta.selectionEnd || 0;
+      ta.value = ta.value.slice(0, p0) + t + ta.value.slice(p1); MT.edit.body = ta.value; ta.focus(); ta.setSelectionRange(p0 + t.length, p0 + t.length); return; }
     var go = e.target.closest('[data-mt-go]'), x = mtRow(MT.sel); if (!go || !x || MT.busy) return;
-    if (go.getAttribute('data-mt-go') === 'test') { MT.busy = true; MT.msg = 'Sending you a test…'; mtDraw();
-      call('cueAdminTemplateTest', [x.key], function (r) { MT.busy = false; MT.msg = 'Test sent to ' + r.to + ': ' + r.subject; mtDraw(); }, function (er) { MT.busy = false; MT.msg = 'The test was not sent: ' + ((er && er.message) || er); mtDraw(); }); }
+    var k = go.getAttribute('data-mt-go');
+    if (k === 'edit') { MT.msg = ''; MT.edit = { key: x.key, subject: x.subject, body: mtText(x.blocks) }; mtDraw(); return; }
+    if (k === 'cancel') { MT.edit = null; mtDraw(); return; }
+    if (k === 'test') { MT.busy = true; MT.msg = 'Sending you a test…'; mtDraw();
+      call('cueAdminTemplateTest', [x.key], function (r) { MT.busy = false; MT.msg = 'Test sent to ' + r.to + ': ' + r.subject; mtDraw(); }, function (er) { MT.busy = false; MT.msg = 'The test was not sent: ' + ((er && er.message) || er); mtDraw(); }); return; }
+    if (k === 'save') { MT.busy = true; MT.msg = ''; mtDraw();
+      call('cueAdminTemplateSave', [x.key, { subject: MT.edit.subject, body: MT.edit.body }], function (r) { MT.busy = false; MT.d = r; MT.edit = null; delete MT.prev[x.key]; delete MT.perr[x.key];
+        MT.msg = r.error ? '' : 'Saved to the doc. The next ' + x.code + ' message uses it.'; mtDraw(); mtPrev(); },
+        function (er) { MT.busy = false; MT.msg = 'Not saved: ' + ((er && er.message) || er); mtDraw(); }); }
   });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */

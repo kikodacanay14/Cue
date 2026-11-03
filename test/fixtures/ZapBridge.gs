@@ -3036,6 +3036,17 @@ ZB_ACTIONS_.message_log = {
   run: (r) => mtBridgeLog_(r.args),
   check: (r, res) => res && res.ok ? { ok: true } : { ok: false, error: 'not logged' }
 };
+ZB_ACTIONS_.message_template_save = {
+  // MSG-TEMPLATES-SAVE-2026-11-03: Kiko's Save on Cue Admin › Templates writes the template's subject and words back into the doc
+  // (spec item 7; Kiko 3 Nov: "Give info@ Editor on the doc"). Only that template's Subject and message and button paragraphs change.
+  // The result says when the template reads back differently from what was saved.
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { key: { type: 'string', required: true, nonBlank: true, max: 120 }, subject: { type: 'string', max: 300 },
+    blocks: { type: 'array', required: true, minItems: 1, maxItems: 60, items: { t: { type: 'string', required: true, oneOf: ['p', 'btn'] },
+      text: { type: 'string', required: true, nonBlank: true, max: 5000 }, url: { type: 'string', max: 500 } } } },
+  run: (r) => mtBridgeSave_(r.args),
+  check: (r, res) => res && res.ok ? { ok: true } : { ok: false, error: res && res.readBack || 'not saved' }
+};
 /** message_render's data: plain values only (text, number, yes/no), each as text of at most 2000 characters. */
 function zbMtData_(d) {
   const out = {};

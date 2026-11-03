@@ -6,11 +6,10 @@
  * we have placed Codes in those templates based on the stakeholder experience journey".
  *
  * The doc "BSE Message Templates Revised" is the only source of the words. Canvas reads it (one reader, one renderer) and Cue gets it
- * through the signed bridge: message_templates (every template, the doc version, each one's last send) and message_render (one template
- * built, banner included). Cue keeps no copy of any wording.
- *
- * Edit opens the template in the doc for now. Saving from this page waits on Canvas: info@ has no edit right on the doc today
- * (Canvas thread, 3 Nov 2026), so Canvas has no write-back yet; Kiko decides how it gets one.
+ * through the signed bridge: message_templates (every template, the doc version, each one's last send), message_render (one template
+ * built, banner included) and message_template_save (Save writes the edited subject and words back into the doc; Kiko 3 Nov 2026,
+ * decision card: "Give info@ Editor on the doc"). Cue keeps no copy of any wording. The sending inbox, CC and attachments are shown,
+ * not edited: Canvas keeps them with Canvas Admin › Mailboxes, which is not built yet.
  *
  * CUE_MT_MAP_ holds what the doc does not: each message's journey step, who sends it, the sending inbox and CC, its fixed attachments
  * and its status, exactly as Kiko's approved mockup lists them (1 Nov 2026; "Cue 1.27.92" shows as In use now that it is live, and the
@@ -125,6 +124,37 @@ function cueAdminTemplatePreview(key) {
   const m = cueBridge_(cueAdminS_(), 'message_render', { key: cueStr_(key, 120), data: {}, mode: 'draft' }) || {};
   const html = String(m.html || '').replace(/cid:mtbanner/g, m.banner ? 'data:image/png;base64,' + String(m.banner) : '');
   return { key: String(m.key || key), subject: String(m.subject || ''), html, text: String(m.text || ''), missing: (m.missing || []).map(String), rev: String(m.rev || '') };
+}
+
+/** The editor's message box as the doc's blocks: paragraphs split on a blank line; a paragraph written "[Button words](link)" is the
+ *  yellow button. The inverse of cueMtText_. */
+function cueMtBlocks_(text) {
+  return String(text || '').replace(/\r/g, '').split(/\n{2,}/).map(s => s.trim()).filter(Boolean).map(s => {
+    const b = /^\[([^\]\n]+)\]\(([^)\s]*)\)$/.exec(s);
+    return b ? { t: 'btn', text: b[1].trim(), url: b[2].trim() } : { t: 'p', text: s };
+  });
+}
+/** A template's blocks as the editor's message box. */
+function cueMtText_(blocks) { return (blocks || []).map(b => b.t === 'btn' ? '[' + b.text + '](' + b.url + ')' : b.text).join('\n\n'); }
+
+/** Save on the Templates page: Canvas writes the subject and message back into the doc (only that template's Subject, message and
+ *  button paragraphs) and reads it back. Kiko's tap on Save is the approval; nothing is sent. ed = { subject, body }.
+ *  Returns the page's list after the save. */
+function cueAdminTemplateSave(key, ed) {
+  cueOwner_();
+  const e = ed || {}, k = cueStr_(key, 120);
+  if (!k) throw new Error('Pick a template first.');
+  const blocks = cueMtBlocks_(e.body);
+  if (!blocks.length) throw new Error('The message is empty; nothing was saved.');
+  if (blocks.length > 60) throw new Error('The message has more than 60 paragraphs; nothing was saved.');
+  if (blocks.some(b => b.text.length > 5000)) throw new Error('One paragraph is over 5,000 characters; nothing was saved.');
+  const args = { key: k, subject: cueStr_(String(e.subject || '').replace(/[\r\n]+/g, ' ').trim(), 300),
+    blocks: blocks.map(b => b.t === 'btn' ? { t: 'btn', text: cueStr_(b.text, 5000), url: cueStr_(b.url, 500) } : { t: 'p', text: cueStr_(b.text, 5000) }) };
+  const s = cueAdminS_(), cmd = { command_id: 'cue:' + s.id + ':message_template_save:0', action: 'message_template_save', args, pid: '' };
+  cueBridgePlan_(s, [cmd]);
+  const r = cueBridgeParse_('message_template_save', UrlFetchApp.fetchAll([cueBridgeReq_(s, 'message_template_save', args, '', cmd.command_id)])[0]) || {};
+  if (r.ok === false) throw new Error('The doc now reads differently from what you saved: ' + cueStr_(r.readBack || 'no detail', 300));
+  return cueAdminTemplates();
 }
 
 /** Send me a test: the template built by Canvas (fill-ins left as {{name}}) goes from Kiko's Gmail to Kiko only, subject "[Test] ...",
