@@ -20,7 +20,8 @@ const cfg = JSON.parse(fs.readFileSync('deploy.json', 'utf8'));
 const fail = m => { console.error('STOPPED: ' + m); process.exit(1); };
 if (/FILL_IN/.test(cfg.account + cfg.scriptId)) fail('fill in account and scriptId in deploy.json first');
 const md5 = f => crypto.createHash('md5').update(fs.readFileSync(f)).digest('hex');
-const sums = dir => Object.fromEntries(fs.readdirSync(dir).sort().map(f => [f, md5(path.join(dir, f))]));
+// Only the files clasp pushes (.gs, .html, .json) count; a note like src/AGENTS.md never reaches Apps Script.
+const sums = dir => Object.fromEntries(fs.readdirSync(dir).filter(f => /\.(gs|html|json)$/.test(f)).sort().map(f => [f, md5(path.join(dir, f))]));
 
 function project(name) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), name + '-'));
