@@ -564,6 +564,8 @@ function sandbox(o = {}) {
     // CUE-MSGR-2026-11-02: Meta's Graph API and the Messenger relay. o.fb / o.relay answer; defaults: sent / nothing held.
     if (u.indexOf('https://graph.facebook.com/') === 0) { (log.fb = log.fb || []).push({ url: u, req, body }); return o.fb ? o.fb(u, req, body) : resp(200, { message_id: 'm.' + log.fb.length }); }
     if (u.indexOf('https://relay.example.workers.dev/') === 0) { (log.relay = log.relay || []).push({ url: u, req, body }); return o.relay ? o.relay(u, req, body) : resp(200, { events: [] }); }
+    // CUE-BIDS-PG-2026-11-01: New PhilGEPS's public pages (CueBidsPg.gs). o.pg(url, req) answers; without it the site is down.
+    if (u.indexOf('https://philgeps.gov.ph/') === 0) { (log.pg = log.pg || []).push({ url: u, headers: req.headers || {} }); return o.pg ? o.pg(u, req) : resp(503, 'down'); }
     throw new Error('unexpected fetch ' + u);
   };
   const ctx = {
