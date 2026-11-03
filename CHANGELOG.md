@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue (number set by the deploys thread): newest message on top in the chat and in each thread (not deployed)
+## Cue 1.28.6: newest message on top in the chat and in each thread (not deployed)
 
 Kiko asked on 3 Nov 2026 06:29Z, after hearing that the newest chat line sits at the bottom: "whyich is wrong and its so hard coz
 i have to scroll all the way... please change that".
@@ -12,7 +12,7 @@ i have to scroll all the way... please change that".
   stay where they are.
 - Tests: `test/features/82-newest-on-top.js` (NT1 to NT3). 619 tests pass.
 
-## Cue (number set by the deploys thread): new mail shows only in the main chat (not deployed)
+## Cue 1.28.5: new mail shows only in the main chat (not deployed)
 
 Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
 to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
