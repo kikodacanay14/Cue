@@ -1,5 +1,7 @@
 # Cue business rules — source-based first pass
 
+**Version correction:** The original catalog below is an older main snapshot. See [Newer-release correction](#newer-release-correction-p-statuses-and-operating-processes) for updated P0–P9 behavior, C2/accreditation processes, HubSpot removal and unresolved coexistence/runtime differences.
+
 Snapshot: [main 3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20](https://github.com/kikodacanay14/Cue/tree/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20), inspected 2026-11-02. Includes changes described as not deployed; this is not a live-runtime certification.
 
 **Labels:** Implemented = inspected executable behavior; Documented = repository requirement/comment; Decision needed = discrepancy requiring review. Approval to save this documentation is not approval of every extracted behavior. Code is evidence, not authority to expand access or change business policy. Acceptance examples below are proposed checks, not claims that tests passed.
@@ -74,3 +76,71 @@ Inspected project instructions and feature map; relevant bridge/owner guards, ro
 Not exhaustive: every route, chaser plugin, CE-cost workflow, frontend/extension, full relay security, Canvas backend enforcement or every test. Not verified: deployed equivalence, Script Properties/Rules sheets, standing approvals, actual mailbox/CRM/ledger records, or runtime/end-to-end correctness. Acceptance examples are a proposed regression inventory, not an execution report.
 
 When changed code alters a rule: update its stable ID, source evidence, approval status, exception, regression example and coverage; add the decision history without deleting old reasoning. Do not assert behavior approved merely because it exists.
+
+## Newer-release correction: P statuses and operating processes
+
+Updated 2026-11-03 (Asia/Manila), after Kiko identified recent Cue changes. This section qualifies the older main-based CUE-025/CUE-028 descriptions; it does not silently replace their historical evidence. Inspected release branch `claude/project-thread-y5l4x9-rel12790` at [fe2987aaa1d604f9e621b1f3887f4889bd2116ef](https://github.com/kikodacanay14/Cue/tree/fe2987aaa1d604f9e621b1f3887f4889bd2116ef), separate from main 3080b1c and this documentation branch.
+
+The release [CHANGELOG.md](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/CHANGELOG.md) describes Cue 1.28.3 as LIVE Version 189, dated 2026-11-02 06:15Z. That is repository release documentation, not a live endpoint/deployment verification. Do not infer that main, preview, scheduled trigger code and live /exec are identical. No live settings, enabled schedules or actual production run were inspected for this correction.
+
+### CUE-031: Company priority is a status, not a universal action authorization
+
+The newer [src/CueFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueFunnel.gs#L28-L30) labels and [src/CueFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueFunnel.gs#L93-L135) processing distinguish these stages:
+
+| P status | Meaning / process in the inspected newer release | What it does not establish |
+|---|---|---|
+| P0 | Prospecting/validation. Read valid company rows from P0 master and count companies/contacts. | No automatic first-contact permission or P0-to-P1 transition inferred. |
+| P1 | Intro email sent. Count follow-up due when LastOutreachDate is valid and not future, no response marker is recognized, and at least three weekdays elapsed. | A due count is not an email, verified current conversation review or stage change. |
+| P2 | Following up every three business days. Same due calculation as P1. | This does not mean every P2 company enters the C2 quiet-inquiry chaser. |
+| P3 | Parking lot. Count/report the stage, exclude from the newer P1/P2 due count. | No automatic winback or automatic parking transition inferred. |
+| P4 | Accreditation in progress. Count open accreditations; the accreditation collector below can gather matching incoming mail. | Collection is not accreditation approval, automatic chasing or a P4-to-P5 transition. |
+| P5 | Accredited, waiting RFP. Count/report stage. | Do not relabel every P5 company dormant or assume inactivity. Legacy account-research behavior remains separate. |
+| P6 | Receiving RFPs. Count/report RFP-stage companies. | The funnel report itself does not register projects or set P6. |
+| P7 | Project won/active. Count/report won-stage companies. | Report does not award a project or move a company back after an event. |
+| P8 | Project at risk. Include company in risk reporting. | No issue creation, automatic escalation or inferred send authority. |
+| P9 | Escalated/has issues. Include company in risk reporting, distinct from P8. | No automatic clearance or overwrite of manual escalation. |
+
+Company Priority List meanings were cross-checked earlier in [Summary](https://docs.google.com/spreadsheets/d/1PBpIi7tu4Tziuhivpd7IYdC9tZyF_cls1Mn2H3RqTBE/edit#gid=1298602881), A4:C14. That earlier cross-source check is distinct from this fresh code inspection: P0 means found/not contacted, P1 intro sent, P2 three-business-day follow-up, P3 parking, P4 accreditation in progress, P5 accredited awaiting RFP, P6 receiving RFPs, P7 won/active, P8 risk, P9 escalation/issues. No spreadsheet edits were made.
+
+### CUE-032: Funnel reporting and movement detection
+
+Implemented: `cueFunnelP_` reads the P0 company master; P1/P2 due recognition uses LastOutreachDate and response text matching reply/response, with no/not-reply exclusions. `cueFunnelPmap_` / previous-map / moves helpers compare snapshots and describe new companies and changed stages. **Detecting a transition is not executing a transition.**
+
+Process: scheduled funnel run → company/contact counts and due checks → compare prior stage snapshot → add bounded Canvas deal checks → produce a plain-language update. [src/CueSchedule.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueSchedule.gs#L159-L187) defines `sys-funnel` weekdays 13:15 to feed the 2PM update; Monday funnel review is off by default. These are code defaults, not proof of enabled runtime settings.
+
+[src/CueFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueFunnel.gs#L136-L159) reports P1/P2 due, Canvas follow-ups due tomorrow, deals waiting on award/gone quiet and P8/P9 risks. Additional checks in [src/CueFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueFunnel.gs#L171) flag qualifying incoming mail waiting on Kiko for at least one weekday, events today/within fourteen days not won, and missing amount/date/contact or past event dates on open deals. Coverage is bounded (up to forty deals; newest three mail metadata records within 120 days, automated messages filtered), not exhaustive evidence review. These are deterministic checks, not an AI policy decision.
+
+Acceptance examples: P3 does not enter the newer P1/P2 due count; changing a fixture P1 to P2 produces a reported movement without a stage-write operation; a truncated deal review is explicitly limited.
+
+### CUE-033: C2 quiet-inquiry follow-up is not the P2 company status
+
+The newer chaser work in [PR271](https://github.com/kikodacanay14/Cue/pull/271) is Cue 1.27.92. [src/CueSweepFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueSweepFunnel.gs#L39-L76) selects a quiet **Inquiry with an email address**, not all P2 companies. Registered C2 timing is two follow-ups, three working days apart, with the C2 template and sendAllowed enabled. [src/CueSweep.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueSweep.gs) supplies the chase gates; enabling send capability is not itself approval to send.
+
+Process: eligible inquiry → due/mute/dedup/max gates → prepared chase presented in the 8AM update → Kiko approves that message → permitted send path. PR271 documents flagging the item for parking after the two follow-ups; automatic Canvas stage parking was deferred to a later part, not implemented by this registration. Winback was removed from registration even though old helper functions remain. C4 accreditation-status chasing was deferred; it is not the accreditation-mail collector.
+
+Acceptance examples: a P2 company without an eligible Inquiry is not a C2 item merely because of P2; no third C2 follow-up is assumed; flag-to-park does not write P3; preparation and actual contact remain distinct (CUE-D04).
+
+### CUE-034: Accreditation mail gathering is a separate workflow
+
+[src/CueAccred.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueAccred.gs) collects matching accreditation mail every thirty minutes within the five-minute tick. It considers P4 companies and accreditation/vendor-registration/supplier-registration/enrollment subject keywords; matching company identity uses company domain or exact personal email and excludes own/BSE addresses. The scan is bounded to three days and forty messages.
+
+Process: match new incoming evidence → deduplicate message identity → create/update one “Accreditation · company” Cue thread → mark Needs you; later new mail can reopen a Done thread. It writes Cue's internal thread state, not Gmail/Canvas records, and does not send email or approve accreditation. Acceptance: repeated message does not duplicate; genuinely new reply reopens; another company sharing no verified identity is not silently attached.
+
+### CUE-035: Canvas owns CRM transitions; Cue can trigger its tick
+
+[src/CueCrmTick.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueCrmTick.gs) calls the signed Canvas bridge `crm_tick` every fifteen minutes. Canvas owns the backend CRM transition logic. “The Cue funnel does not write stages” must not be misread as “Cue cannot trigger Canvas CRM work.”
+
+Earlier Canvas inspection reported Inquiry→P6, Won→P7, return to P6 two weeks after the event, Issue (not Risk alone)→P8 and preservation of manual P9. Those are earlier cross-source findings, not a fresh verification of the currently deployed Canvas backend. Verify the actual Canvas version, its contract, authorization and test evidence before treating these as live transition guarantees.
+
+### CUE-036: HubSpot removal and version-specific coverage
+
+[PR275](https://github.com/kikodacanay14/Cue/pull/275), Cue 1.27.96, removed HubSpot from the newer Cue release (cleanup, pipeline, task list and Add to HubSpot). CUE-028 above describes old main evidence only and is **not a statement that HubSpot remains a current newer-release workflow**. [PR277](https://github.com/kikodacanay14/Cue/pull/277), Cue 1.27.97, added the three funnel checks described above. Both belong to the newer release history, not the inspected old main snapshot.
+
+### Unresolved timing and runtime differences
+
+1. **Legacy follow-ups still coexist.** Newer-release [src/CueGptTasks.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueGptTasks.gs#L372-L374) still contains P1 last contact +15 calendar days, P2 first contact +one month or last contact +15 calendar days, and P4 last contact +two calendar days; recorded NextFollowup may override category timing. The old follow-up definition/route remains. The schedule off-migration does not include that follow-up task. Its actual enabled state and whether users still invoke it are unverified. Do not present either implementation as the sole global rule.
+2. **“Business days” is not implemented uniformly.** [src/CueDates.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueDates.gs#L13-L40) `cueAddWork_` excludes weekends, fixed Philippine holidays and configured CUE_HOLIDAYS for C2. `cuePipeWorkDays_`, used for P1/P2 funnel due counts, counts weekdays only. Holiday-adjacent results can differ.
+3. **Legacy account research is not a canonical P5 meaning.** CueGptTasks can select P5 or not-accredited companies and describe dormancy without proving inactivity. Keep that discrepancy separate from the P5 definition.
+4. **Approval and live state remain separate evidence.** This documentation update records observed code, release notes and unresolved conflicts; it approves no sends, stage changes, schedules or deployment. Feature Board mapping remains unsynced.
+
+Tests inspected, not executed for this correction: [test/features/63-funnel-p-stages.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/63-funnel-p-stages.js) (P1/P2 timing, P3 exclusion, read-only funnel, movement reporting); [test/features/66-client-accreditation.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/66-client-accreditation.js) (identity, dedup/no-send, reopen, thirty-minute gate); [test/features/74-chaser-templates.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/74-chaser-templates.js) (working-day/holiday helpers). Proposed next regression cases: same holiday-crossing dates across funnel and C2; simultaneous old follow-up/new funnel eligibility; stale/false response markers; P2 without Inquiry; two completed C2 follow-ups without an automatic P3 write. Passing documentation-branch CI would not establish newer-release or live behavior.

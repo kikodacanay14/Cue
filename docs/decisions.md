@@ -2,6 +2,8 @@
 
 This is the repository evidence/decision snapshot, not a second operational question queue. The existing Feature Board is the required operational register for its stories. No Google Sheet is planned unless Kiko explicitly requests one later. Board access and actual card mapping remain unverified; the findings below are unsynced proposals, not saved board records.
 
+**2026-11-03 correction:** The initial findings and proposed board mapping below refer to older main. Read the newer-release reconciliation at the end before acting, especially historical CUE-D10/028 (HubSpot removed in the newer release). No existing answers are overwritten and no Feature Board records were changed.
+
 ## Evidence conventions
 - User statement: quote or faithful paraphrase with supported date/source/scope.
 - Author-stated rationale: repository author/comment attribution, not independent approval verification.
@@ -77,3 +79,22 @@ Evidence: [source-pinned rule catalog](https://github.com/kikodacanay14/Cue/blob
 Import only through an authorized supported route: read current board/card version, reconcile exact questions, use existing q/a/s fields and if_version, leave unconfirmed a blank and s Open, then read back saved content/version. If blocked, retain this unsynced proposal and continue independent work; do not claim import, deduplication or synchronization succeeded.
 
 Match by application, story scope and source references, not title keywords alone. Read candidate qa and approved specs. No unique card match means unresolved mapping: do not create a card or invent IDs. For a genuinely unmatched question on a verified card, append only {q: clear question including the unconfirmed assumption, a: '', s: 'Open'} while preserving all existing qa. On version conflict reread and reconcile. Do not add fields, fabricated answers, deleted history, doer/handedAt/status changes or role handoffs in this mapping run.
+
+## Decision history — newer Cue release and P-status processes (2026-11-03)
+
+Kiko corrected that recent Cue versions updated these rules, then requested: “Add those details in the business rules and processes” (Sentinel_b2499833ea1c81918dab083369351df1). This authorizes the documentation correction, not selection of a preferred timing implementation, code changes, merges, deployments or Feature Board writes.
+
+[Business rules CUE-031–036](business-rules.md#newer-release-correction-p-statuses-and-operating-processes) now describe release fe2987aaa1d604f9e621b1f3887f4889bd2116ef, distinct from old main 3080b1c. Preserve the older findings as history. CUE-D10's old HubSpot mapping must not be imported as a current newer-release feature: PR275 removed it. Reconcile any real board story and current source first.
+
+| Extraction finding | Evidence and required reconciliation | Current state |
+|---|---|---|
+| CUE-D12 | CUE-031/032: newer funnel counts P1/P2 due at three weekdays; legacy CueGptTasks P1/P2/P4 timing remains and may use NextFollowup. Check actual active schedule/entry point and existing approved story before deciding whether old behavior should be retired. | Unresolved coexistence; no timing policy invented. |
+| CUE-D13 | CUE-033: C2 means quiet Inquiry with email, not P2. Two three-working-day follow-ups precede flag-to-park; automatic parking and C4 chasing were deferred. | Observed implementation/release scope recorded; no automatic transition approved. |
+| CUE-D14 | CUE-032/033: funnel weekday counter differs from C2 Philippine-holiday/configured-holiday-aware helper. Check approved business-day definition and align only under authorized implementation scope. | Unresolved holiday discrepancy, not silently normalized. |
+| CUE-D15 | CUE-035: reporting observes movements; Cue's fifteen-minute crm_tick can trigger Canvas-owned transition work. Verify both deployed versions/contract and standing authority. | Source ownership established; actual live transition behavior unverified. |
+| CUE-D16 | CUE-034: P4 incoming-mail collector is not accreditation approval/chasing. Preserve three-day/forty-message limits, domain/exact-personal identity and internal-only thread writes. | Process documented; runtime enablement unverified. |
+| CUE-D17 | Release CHANGELOG says 1.28.3 LIVE Version189; main, preview, trigger-head and live may differ. A release note alone cannot certify current deployment. | Live version/configuration unresolved; no remote test or deployment performed. |
+
+These D references are extraction references only, not invented Feature Board card/question IDs. Proposed feature areas to locate later are company-priority funnel, legacy follow-ups, C2 chasers, accreditation collection and Canvas CRM tick. Actual cards and qa were not read or mapped in this correction. Reuse any existing answered question; do not ask Kiko to reapprove settled P meanings. Leave unconfirmed answers blank and preserve manual statuses if an authorized later import is possible.
+
+No newer-release tests were run by this documentation correction. Source tests were inspected as listed in the rules. Documentation-branch CI cannot validate the release branch or deployed Apps Script. No code, live schedule, spreadsheet, Feature Board, external message or deployment changes are part of this update.
