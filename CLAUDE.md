@@ -87,6 +87,21 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
 
+## Task observer
+
+Kiko's task-observer log for cloud sessions lives in a separate repo, kikodacanay14/Canvas (default branch), not in this
+one. Never create `skill-observations/` or `skill-updates/` here: a second log would split the record.
+
+1. Before the first tool call of a session, attach kikodacanay14/Canvas (add_repo) and clone it to `/home/user/Canvas`. Then
+   invoke the task-observer skill and run its Session Start Protocol with the workspace root pinned to `/home/user/Canvas`.
+   Follow the "Task observer (cloud sessions)" section of `/home/user/Canvas/CLAUDE.md` for every path and command.
+2. If Canvas cannot be attached or cloned, say so in one line before the answer and carry observations in the final report.
+   Never write them into this repo instead.
+3. Commit and push each observation to the Canvas repo's default branch in the same turn. Observation commits never go into
+   this repo (Cue), and Canvas has no deploy, so logging never touches a release.
+4. On Kiko's PC the log stays at `C:\Users\kiko\Documents\Claude\skill-observations`; this section applies only to cloud
+   sessions.
+
 ## Rule documentation navigation
 
 Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
