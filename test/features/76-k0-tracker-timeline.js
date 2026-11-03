@@ -20,7 +20,7 @@ function k0wBox(o) {
     ['T-107', 'Shared Drive clean-up', 'Work', 'Low', 'Not Started', '', '', '10/01/2026']].forEach(r => sh.appendRow(r.concat(Array(8 - r.length).fill(''))));
   return t;
 }
-const k0wText = (t, o) => t.tabs.Chat.rows.filter(r => r[3] === '>' + o.request_id)[0][2];
+const k0wText = (t, o) => t.tabs.Chat.rows.filter(r => r[3] === o.request_id)[0][2];
 
 test('KW1 Today\'s focus reads the Tracker and the timelines: due today, overdue, assigned, blocked, nudge your team, key milestones, personal', () => {
   const t = k0wBox(); t.at('2026-10-21', 8, 0); const ai = t.log.gpt.length;
