@@ -140,6 +140,7 @@ function cueMtText_(blocks) { return (blocks || []).map(b => b.t === 'btn' ? '['
 /** Save on the Templates page: Canvas writes the subject and message back into the doc (only that template's Subject, message and
  *  button paragraphs) and reads it back. Kiko's tap on Save is the approval; nothing is sent. ed = { subject, body }.
  *  Returns the page's list after the save. */
+// CUE-042 (docs/business-rules.md); no revision check yet, see CUE-D22.
 function cueAdminTemplateSave(key, ed) {
   cueOwner_();
   const e = ed || {}, k = cueStr_(key, 120);
@@ -159,6 +160,7 @@ function cueAdminTemplateSave(key, ed) {
 
 /** Send me a test: the template built by Canvas (fill-ins left as {{name}}) goes from Kiko's Gmail to Kiko only, subject "[Test] ...",
  *  with the doc's banner inline. Not logged as a send (it is not one). Returns { to, subject }. */
+// CUE-042 item 3 (docs/business-rules.md).
 function cueAdminTemplateTest(key) {
   cueOwner_();
   const m = cueBridge_(cueAdminS_(), 'message_render', { key: cueStr_(key, 120), data: {}, mode: 'draft' }) || {};

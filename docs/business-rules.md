@@ -209,3 +209,35 @@ Evidence: [PR277 code](https://github.com/kikodacanay14/Cue/blob/db19062530b55fb
 - **Existing CUE-D12/D14/D17 remain open:** legacy timing coexistence, weekday-versus-holiday counting and unverified deployment/configuration are already recorded above. Do not duplicate them as newly answered policy or silently resolve them through this documentation edit.
 
 Verification: final PR metadata, diffs, discussions, selected source and test assertions were inspected. Tests were not executed in this documentation audit. No application code, test, schedule, Feature Board, merge or deployment changed.
+
+## Cue Admin › Templates (Cue 1.28.12, PR #308, 2026-11-03)
+
+### CUE-042: Templates come only from the doc; Save writes one template back after Kiko's tap
+
+Intended policy: spec #391 (CanvasWorkspace `docs/specs/message-templates-from-doc.md`, approved by Kiko 1 Nov 2026) makes the
+"BSE Message Templates Revised" doc the only source of message wording. On 3 Nov 2026 Kiko chose "Give info@ Editor on the doc" so edits
+save from the page (Feature Board card `cue-admin-templates-page`, qa entry 1).
+
+Implemented in `src/CueMsgTemplates.gs` and `src/IndexPages.html`:
+1. The page reads every template through Canvas (`message_templates`) and keeps no copy of any wording. If Canvas or the doc cannot be read,
+   the list is empty and the error is shown.
+2. The preview is Canvas's render in draft mode (`message_render`). Fill-ins stay as `{{name}}`.
+3. Send me a test goes from Kiko's Gmail to the signed-in user only, subject "[Test] …", Email channel only. It is not logged in Canvas's
+   Template Sends, because it is not a send to a recipient.
+4. Edit first re-reads the template from the doc, so the editor starts from the doc as it reads at that moment.
+5. Save to doc is Kiko's tap. It sends Canvas one claimed bridge write (`message_template_save`, plan plus payload hash) with the key, the
+   subject and the message as blocks: paragraphs split by a blank line, and a paragraph written `[Words](link)` becomes the button. The
+   inbox, CC and attachments are not sent (Canvas does not accept them). Canvas reads the template back, and a read-back that differs is
+   shown as an error. An empty message, more than 60 paragraphs, or a paragraph over 5,000 characters is refused before anything reaches
+   Canvas (the bridge's own limits).
+
+Evidence: `test/features/84-templates-page.js` (MT1 to MT7). Manual gap: the live check on /dev against the live Canvas release (list,
+preview, test email, one Save and its read-back) is still owed. Acceptance: no wording is shown when the doc cannot be read; a test email
+reaches only Kiko; a Save changes only that template's Subject, message and button paragraphs.
+
+- **CUE-D22, decision needed:** Save has no revision check. If the doc is changed after Edit re-reads it and before Save, the Save
+  overwrites that change (last save wins, as in Canvas `message_template_save`). Adding a refusal is a new rule and needs Kiko's yes; it is
+  asked on the Feature Board card.
+- **CUE-D23, decision needed:** spec #391 says "No AI writes any part" of a templated message, while the 2 PM chaser tailoring (CUE-038)
+  has AI adjust the middle sentences ("go with both", 1 Nov 2026). This build changes neither. It matters when Cue's emails switch to the doc.
+

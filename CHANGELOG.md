@@ -19,7 +19,7 @@ build of each piece for his approval ("make a new build for each one i will appr
   not logged as a send.
 - `src/Index.html`, `src/IndexPages.html`, `src/IndexStyle.html`: Cue Admin › Rules › Templates, the three columns of the mockup
   (filters by who receives it, channel and status; the list by journey step; the viewer) in Cue Admin's existing look.
-- Edit opens the editor in the viewer: the subject, the message (paragraphs split by a blank line; a line `[Words](link)` is a button)
+- Edit re-reads the template from the doc, then opens the editor in the viewer: the subject, the message (paragraphs split by a blank line; a line `[Words](link)` is a button)
   and the template's fill-ins to insert. Save to doc (`cueAdminTemplateSave`) sends Canvas one claimed write, `message_template_save`,
   which rewrites only that template's Subject, message and button paragraphs in the doc and reads them back; a read-back that differs is
   shown as an error. Kiko chose this on 3 Nov 2026 ("Give info@ Editor on the doc"). The sending inbox, CC and attachments are shown, not
@@ -28,6 +28,8 @@ build of each piece for his approval ("make a new build for each one i will appr
 - `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` @ 4e375a4 (the Canvas templates release, not live yet), which
   adds the four template actions.
   `test/fixtures/message-templates.json` is Canvas's `message_templates` answer for the real doc (48 templates).
+
+Business rule CUE-042 (with open decisions CUE-D22 and CUE-D23) is in `docs/business-rules.md`.
 
 Tests: 637 (7 new in test/features/84-templates-page.js, MT1 to MT7; AD4 lists the new section).
 

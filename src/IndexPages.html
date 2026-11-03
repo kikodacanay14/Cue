@@ -575,7 +575,12 @@
       ta.value = ta.value.slice(0, p0) + t + ta.value.slice(p1); MT.edit.body = ta.value; ta.focus(); ta.setSelectionRange(p0 + t.length, p0 + t.length); return; }
     var go = e.target.closest('[data-mt-go]'), x = mtRow(MT.sel); if (!go || !x || MT.busy) return;
     var k = go.getAttribute('data-mt-go');
-    if (k === 'edit') { MT.msg = ''; MT.edit = { key: x.key, subject: x.subject, body: mtText(x.blocks) }; mtDraw(); return; }
+    // CUE-042 (docs/business-rules.md): Edit starts from the doc as it reads now, not from the list loaded when the page opened.
+    if (k === 'edit') { MT.busy = true; MT.msg = 'Reading the latest from the doc…'; mtDraw();
+      call('cueAdminTemplates', [], function (r) { MT.busy = false; MT.d = r; var y = mtRow(x.key);
+        if (r.error || !y) { MT.msg = 'Could not read the latest from the doc: ' + (r.error || 'the template is no longer there'); mtDraw(); return; }
+        MT.msg = ''; MT.edit = { key: y.key, subject: y.subject, body: mtText(y.blocks) }; delete MT.prev[y.key]; mtDraw(); mtPrev(); },
+        function (er) { MT.busy = false; MT.msg = 'Could not read the latest from the doc: ' + ((er && er.message) || er); mtDraw(); }); return; }
     if (k === 'cancel') { MT.edit = null; mtDraw(); return; }
     if (k === 'test') { MT.busy = true; MT.msg = 'Sending you a test…'; mtDraw();
       call('cueAdminTemplateTest', [x.key], function (r) { MT.busy = false; MT.msg = 'Test sent to ' + r.to + ': ' + r.subject; mtDraw(); }, function (er) { MT.busy = false; MT.msg = 'The test was not sent: ' + ((er && er.message) || er); mtDraw(); }); return; }

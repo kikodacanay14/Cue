@@ -82,6 +82,7 @@ test('MT6 Cue Admin has Templates under Rules, its calls are owner-only and neve
   assert.ok(chk.includes("'message_templates', 'message_render'"), 'both bridge calls are reads');
   assert.ok(!/message_log/.test(src), 'a test or a save is never logged as a send');
   assert.ok(page.includes('Save to doc') && page.includes("google.script.run.withSuccessHandler"), 'the editor saves through the server call');
+  assert.ok(/if \(k === 'edit'\) \{[^\n]*\n\s*call\('cueAdminTemplates'/.test(page), 'Edit re-reads the doc before the editor opens (CUE-042 item 4)');
 });
 
 test('MT7 Save to doc sends Canvas one claimed write with the subject and the message as paragraphs and buttons, then lists again; a bad read-back or an empty message is refused', () => {
