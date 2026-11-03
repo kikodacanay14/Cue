@@ -24,6 +24,9 @@ build of each piece for his approval ("make a new build for each one i will appr
   which rewrites only that template's Subject, message and button paragraphs in the doc and reads them back; a read-back that differs is
   shown as an error. Kiko chose this on 3 Nov 2026 ("Give info@ Editor on the doc"). The sending inbox, CC and attachments are shown, not
   edited (Canvas does not take them). Open in doc stays for anything else.
+- After the /dev check on 3 Nov 2026 (a no-change Save of C6 came back Uncertain from Canvas and had in fact rewritten the button as
+  plain text; fixed on the Canvas side), a save Canvas cannot confirm no longer shows "Not saved": the page says the doc was written
+  but not confirmed, closes the editor and reloads the list (MT7).
 - `src/CueCheck.gs`: the four page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
 - `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` @ 4e375a4 (the Canvas templates release, not live yet), which
   adds the four template actions.

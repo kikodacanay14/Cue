@@ -101,6 +101,10 @@ test('MT7 Save to doc sends Canvas one claimed write with the subject and the me
   assert.strictEqual(t.ctx.cueMtText_(w.args.blocks), 'Hi {{first_name}},\n\nYour estimate is ready.\nSee you soon.\n\n[Take a look]({{ce_url}})', 'the editor box reads back the same');
   const bad = mtBox({ save: { ok: false, rev: '1', readBack: 'Subject: old' } });
   assert.throws(() => bad.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: 'y' }), /reads differently from what you saved: Subject: old/);
+  const unsure = mtBox(), fa = unsure.ctx.UrlFetchApp.fetchAll;
+  unsure.ctx.UrlFetchApp.fetchAll = reqs => /message_template_save/.test(String(reqs[0].payload)) && !/claim_plan/.test(String(reqs[0].payload))
+    ? [resp(200, { ok: false, status: 'Uncertain', error: 'The template reads back differently from what was saved. Saved: [...]' })] : fa(reqs);
+  assert.throws(() => unsure.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: 'y' }), /^Error: Canvas wrote to the doc but could not confirm it reads back the same\. Open Edit again.*reads back differently/);
   const empty = mtBox();
   assert.throws(() => empty.ctx.cueAdminTemplateSave('C6 Cost estimate ready', { subject: 'x', body: ' \n\n ' }), /message is empty/);
   deq(empty.log.bridge, [], 'nothing reaches Canvas');

@@ -587,7 +587,8 @@
     if (k === 'save') { MT.busy = true; MT.msg = ''; mtDraw();
       call('cueAdminTemplateSave', [x.key, { subject: MT.edit.subject, body: MT.edit.body }], function (r) { MT.busy = false; MT.d = r; MT.edit = null; delete MT.prev[x.key]; delete MT.perr[x.key];
         MT.msg = r.error ? '' : 'Saved to the doc. The next ' + x.code + ' message uses it.'; mtDraw(); mtPrev(); },
-        function (er) { MT.busy = false; MT.msg = 'Not saved: ' + ((er && er.message) || er); mtDraw(); }); }
+        function (er) { var m = String((er && er.message) || er); MT.busy = false; MT.edit = /could not confirm/.test(m) ? null : MT.edit;
+          MT.msg = (/could not confirm/.test(m) ? '' : 'Not saved: ') + m; delete MT.prev[x.key]; mtDraw(); if (!MT.edit) mtLoad(); }); }
   });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */
