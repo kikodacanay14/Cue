@@ -20,12 +20,15 @@ const CUE_PRIORITIES_ = ['High', 'Normal', 'Low'];
  * Kiko changes the timing on the Chaser rules card in the Threads pane. The values live in the Rules tab of Kiko's Cue sheet (Rule, Value,
  * Changed, Was), one row per changed setting; anything missing or broken falls back to these defaults. Code only, no AI. */
 const CUE_RULE_KINDS_ = {
-  rfq: { label: 'RFQ chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },
-  award: { label: 'CE award chasers', on: true, first: 3, every: 5, max: 3, unit: 'working' },
-  payment: { label: 'Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
-  accreditation: { label: 'Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },
-  signature: { label: 'FSA / AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' } };
-const CUE_RULE_GENERAL_ = { build: 7, send: 9, quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
+  // CUE-TEMPLATES-2026-10-31: every chaser Cue sends, named by its message-map ID; C2 They went quiet joins (2 follow-ups, then park).
+  inquiry: { label: 'C2 They went quiet', on: true, first: 3, every: 3, max: 2, unit: 'working' },
+  rfq: { label: 'S2 RFQ and RFP chasers', on: true, first: 3, every: 3, max: 2, unit: 'working', soon_first: 1, soon_every: 1 },
+  award: { label: 'C6 CE award chasers', on: true, first: 3, every: 5, max: 3, unit: 'working' },
+  payment: { label: 'C7 Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
+  accreditation: { label: 'S1 Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },
+  signature: { label: 'R5/R6 FSA and AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' } };
+const CUE_RULE_GENERAL_ = { build: 7, send: 9,   // CUE-THREE-TOUCH-2026-11-01: the chaser row runs at 13:00 by its own Schedule time; these stay for the old Approve and send path
+  quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
 const CUE_RULE_LIMITS_ = { first: [1, 60], every: [1, 60], max: [1, 10], soon_first: [1, 60], soon_every: [1, 60], build: [5, 10], send: [7, 20],
   quiet_from: [18, 23], quiet_to: [5, 9], per_kind: [1, 30], per_batch: [1, 60] };
 
@@ -59,7 +62,7 @@ function cueRuleFor_(rules, k) {
 }
 /** What the Chaser rules card shows. */
 function cueRules() { cueOwner_(); const r = cueRules_(); return { kinds: r.kinds, general: r.general, defaults: { kinds: CUE_RULE_KINDS_, general: CUE_RULE_GENERAL_ }, notes: r.notes,
-  about: CUE_ADMIN_CHASE_ }; }   // CUE-ADMIN-2-2026-10-29: one line per chaser (CueAdmin.gs)
+  about: Object.keys(r.kinds).reduce((o, k) => { if (CUE_ADMIN_CHASE_[k]) o[k] = CUE_ADMIN_CHASE_[k]; return o; }, {}) }; }   // one about line per chaser on the card (C3 has no timing, so it is on Jobs › Chasers only)   // CUE-ADMIN-2-2026-10-29: one line per chaser (CueAdmin.gs)
 /** Kiko saves the card: changes = { 'payment.every': 5, 'rfq.on': false, 'general.send': 10, ... }. Checked, saved, noted in the chat. */
 function cueRulesSave(changes) {
   cueOwner_();
@@ -99,7 +102,7 @@ const cueRuleName_ = f => ({ on: 'on', first: 'first chase after', every: 'then 
   build: 'build at', send: 'send at', quiet_from: 'quiet from', quiet_to: 'quiet until', per_kind: 'lines per chaser', per_batch: 'lines per batch' }[f] || f);
 const cueRuleShow_ = (f, v) => f === 'on' ? (v ? 'on' : 'off') : /^(build|send|quiet_from|quiet_to)$/.test(f) ? String(v).padStart(2, '0') + ':00' : String(v);
 /** Moves the morning sweep to a new hour: its row in the Schedule tab (CueSchedule.gs; it has no trigger of its own since the scheduler). */
-function cueSweepTrigger_(hour) { cueSchedSweepHour_(hour); }
+function cueSweepTrigger_(hour) { void hour; }   // CUE-THREE-TOUCH-2026-11-01: the chasers row has its own time now (no sync)
 /** The next day a line is due, by its kind's rule. */
 /** it.every (a whole number from 1 to 60) overrides the rule for that line, e.g. RFQ's event-soon interval. */
 function cueNextDue_(rule, today, it) {
@@ -149,6 +152,7 @@ function cueChaseLog_() {
 }
 /** Writes one log line (adds it when new). */
 function cueChaseWrite_(log, it, patch) {
+  if (globalThis.CUE_CHECK_ON_) return Object.assign({}, log[it.key] || {}, patch);   // CUE-CLOUD-CHECK: a check never changes the Chase log
   const sh = cueChaseSheet_(), was = log[it.key] || { kind: it.kind, project: it.project || '', who: it.who || '', last: '', times: 0, next: '', muted: false, note: '' };
   const x = Object.assign({}, was, patch);
   const row = [it.key, x.kind, x.project, x.who, x.last, x.times, x.next, !!x.muted, String(x.note || '').slice(0, 500)];
@@ -169,7 +173,9 @@ function cueSweep() {
 function cueSweepNow() {
   cueOwner_();
   const today = cuePh_(cueNow_()).day;
-  const open = cueRecent_(2).filter(x => x.kind === 'sweep' && x.day === today && (x.status === 'Needs you' || x.status === 'Working'))[0];
+  // CUE-CLOUD-CHECK: a check run never opens Kiko's own batch, and Kiko's page never opens a check's batch.
+  const mine = String(globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '');
+  const open = cueRecent_(2).filter(x => x.kind === 'sweep' && x.day === today && (x.status === 'Needs you' || x.status === 'Working') && String(x.check || '') === mine)[0];
   if (open) return cueView_(open);
   return cueView_(cueSweepStart_('manual'));
 }
@@ -179,10 +185,10 @@ function cueSweepStart_(how) {
   const s = { id, version: CUE_VERSION_, kind: 'sweep', how, created: new Date(now).toISOString(), started: now, day: ph.day,
     text: 'Morning batch for ' + ph.day, status: 'Working', stage: 'Finding', ref: '', metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => {
-    PropertiesService.getScriptProperties().setProperty('CUE_SWEEP_DAY', ph.day);
-    const sh = cueSheet_('Requests');
+    const sh = cueSheet_('Requests'), check = !!globalThis.CUE_CHECK_ON_;   // a check run leaves the 07:00 batch and Kiko's batches alone
+    if (!check) PropertiesService.getScriptProperties().setProperty('CUE_SWEEP_DAY', ph.day);
     // An older batch Kiko never approved is closed: its lines were not chased, so today's batch lists them again.
-    cueRows_(sh).forEach((r, i) => {
+    if (!check) cueRows_(sh).forEach((r, i) => {
       if (String(r[2]) !== 'Needs you') return;
       let x = null; try { x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
       if (x.kind === 'sweep' && x.day !== ph.day) { x.status = 'Closed'; x.closed_from = 'Needs you'; x.superseded = id; x.archived = true; x.archived_by = 'carry'; cueSave_(sh, i + 2, x); }   // ACC-2: archived too (assumption 11)
@@ -192,12 +198,74 @@ function cueSweepStart_(how) {
   return cueRunLeased_(id);
 }
 
+/* CUE-STATUS-FIT (Kiko 28 Oct 2026 04:46Z: "Cue - shouldnt ask or give tasks that should only be done for projects that are in a
+ * different status"). Each chaser kind lists the Canvas project phases it belongs to; a line whose project is in another phase is
+ * left out of the morning batch, with one note naming them. The phases are Canvas's own (Code.gs PROJECT_PHASES_); Canvas owns
+ * the status, so the phase Canvas sends wins and Cue only works it out when a row carries the status words alone. A blank or
+ * unknown status is kept (each kind's own checks still apply), and so is a line with no project. Payment has no list: money
+ * owed is chased whatever the status. Kinds with no project (inbox triage) are never filtered. */
+const CUE_PHASES_ = [
+  ['Initiation', ['For Admin Completion']],
+  ['Planning', ['For CE Creation', 'For Pitch Presentation', 'For Client Awarding']],
+  ['Execution', ['For Production Start', 'For Event Execution']],
+  ['Closure', ['For Service Invoicing', 'For Project Review', 'For Invoice Billing', 'For Payment Advice', 'Fore Service Invoicing']],
+  ['Complete', ['Completed', 'Complete']],
+  ['Other Status', ['On Hold', 'Cancelled', 'Canceled', 'Not Awarded']]];
+const CUE_FIT_ = {
+  rfq: ['Initiation', 'Planning', 'Execution'],             // supplier quotes: until the event is under way
+  award: ['Planning'],                                     // the kind itself keeps only For Client Awarding
+  accreditation: ['Initiation', 'Planning', 'Execution', 'Closure'],   // the supplier still has to be paid
+  signature: ['Initiation', 'Planning', 'Execution', 'Closure', 'Complete'] };   // crew papers: not On Hold, Cancelled or Not Awarded
+/** The Canvas phase of a project: Canvas's own when it sends one, else from PROJECT STATUS, else ADMIN STATUS (as on the board). */
+function cuePhaseOf_(p) {
+  const n = x => String(x || '').trim().toLowerCase().replace(/\s+/g, ' '), names = CUE_PHASES_.map(x => x[0]);
+  const of = v => { const hit = v && CUE_PHASES_.filter(x => x[1].some(y => n(y) === v))[0]; return hit ? hit[0] : ''; };
+  const s = n(p.status), a = n(p.admin), ph = String(p.phase || '').trim();
+  // Canvas files a status it does not know under Other Status; Cue keeps that line instead (unknown is kept, see above).
+  if (names.indexOf(ph) >= 0 && !(ph === 'Other Status' && s && of(s) !== 'Other Status')) return ph;
+  if (s) return of(s);
+  return of(a) || (names.filter(x => n(x) === a)[0] || '');
+}
+/** Does a chaser kind fit this project? p = { status, admin, phase }. True when the kind has no list or the phase is unknown. */
+function cueStatusFits_(kind, p) {
+  const list = CUE_FIT_[kind], ph = list ? cuePhaseOf_(p || {}) : '';
+  return !list || !ph || list.indexOf(ph) >= 0;
+}
+/** "RFQ chasers for Acme Party (For Service Invoicing)": one left-out line for the note. */
+const cueStatusLine_ = (label, project, p) => label + ' for ' + project + ' (' + (String(p.status || '').trim() || String(p.admin || '').trim() || p.phase) + ')';
+/** Takes the lines whose project status does not fit out of found (in place), with one note. Reads the Canvas board only for a
+ * line that has a project but no status of its own, through the engine's one cached read. */
+function cueStatusFilter_(ctx, found) {
+  let byId = null, failed = false;
+  const board = () => {
+    if (byId || failed) return byId;
+    try { byId = {}; ((ctx.board() || {}).projects || []).forEach(p => { byId[String(p.id)] = p; }); }
+    catch (e) { byId = null; failed = true; }
+    return byId;
+  };
+  const out = [];
+  for (let i = found.length - 1; i >= 0; i--) {
+    const it = found[i];
+    if (!CUE_FIT_[it.kind] || !it.project_id || it.status_checked) continue;   // status_checked: the kind checked each project itself
+    let p = null;
+    if (it.project_status != null || it.project_phase) p = { status: it.project_status, admin: it.admin_status, phase: it.project_phase };
+    else { const b = board(), q = b && b[String(it.project_id)]; if (q) p = { status: q.status, admin: q.adminStatus, phase: q.phase }; }
+    if (!p || cueStatusFits_(it.kind, p)) continue;
+    const k = cueKinds_().filter(x => x.kind === it.kind)[0] || {};
+    out.unshift(cueStatusLine_(k.label || it.kind, it.project || it.project_id, p));
+    found.splice(i, 1);
+  }
+  if (failed) ctx.s.notes.push('Project status could not be read from Canvas, so lines were not checked against it.');
+  out.unshift.apply(out, ctx.leftOut || []);
+  if (out.length) ctx.s.notes.push('Left out ' + out.length + (out.length === 1 ? ' line' : ' lines') + ' whose project status does not fit: ' + out.join(', ') + '.');
+}
+
 /** The sweep's pipeline (cueRunLeased_ runs it under the request lease). */
 function cueSweepRun_(s, save) {
   const now = cueNow_(), today = s.day || cuePh_(now).day, rules = cueRules_(), G = rules.general;
   rules.notes.forEach(n => s.notes.push(n));
   let board = null, boardErr = '';
-  const ctx = { now, today, s,
+  const ctx = { now, today, s, leftOut: [],   // leftOut: lines dropped for their project status (cueStatusFilter_ writes the note)
     board: () => {   // one Canvas read per sweep, only when a kind asks for it
       if (board) return board;
       if (boardErr) throw new Error(boardErr);
@@ -214,6 +282,7 @@ function cueSweepRun_(s, save) {
     catch (e) { s.notes.push(k.label + ': could not check (' + String((e && e.message) || e).slice(0, 200) + ')'); return; }
     list.forEach(it => found.push(Object.assign({}, it, { kind: k.kind, key: String(it.key).slice(0, 200) })));
   });
+  cueStatusFilter_(ctx, found);
   s.stage = 'Filtering'; save();
   // 2. Filter with the Chase log: muted, skipped today, chased inside its repeat window, chased the max times.
   const log = cueChaseLog_(), keep = [], stopped = [], seen = {};
@@ -242,23 +311,24 @@ function cueSweepRun_(s, save) {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     it.label = k.label; it.no_email = !!(k.noEmail || it.no_email || it.needs_draft === false);
     it.send_ok = !k.noEmail && k.sendAllowed !== false && (!!cueEmail_(it.to) || typeof k.send === 'function');
-    it.selected = !it.no_email;
+    it.selected = !it.no_email && !it.tap;   // a tap line (it.tap) is not in the 9:00 send: it goes only when Kiko taps its Send follow-up
   });
   stopped.forEach(it => { const k = cueKinds_().filter(x => x.kind === it.kind)[0]; it.label = k.label; });
   s.batch = { items, stopped, over, built: new Date(cueNow_()).toISOString() };
   s.card_at = s.ready_at = cueNow_();
   if (!items.length && !stopped.length) {
     s.status = 'Done'; s.stage = 'Done'; s.quiet = true;
-    cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
-    cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), '');
+    if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
+    cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), cueK0On_() ? s.id : '');   // CUE-K0-2026-10-31: the 8 AM update says it
     return;
   }
   s.status = 'Needs you'; s.stage = 'Needs you';
-  cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
+  if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
   const counts = {}; items.forEach(it => { counts[it.label] = (counts[it.label] || 0) + 1; });
   const what = Object.keys(counts).map(l => counts[l] + ' ' + l).concat(stopped.length ? [stopped.length + ' to decide on (chased the max times)'] : []).join(', ');
   const line = 'Morning batch is ready: ' + what + (over ? '. ' + over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.';
-  cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+  if (!cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): with the 8 AM update on, the batch is listed there
+  cueChat_('Cue', line, s.id);
 }
 
 const CUE_SW_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['drafts'], properties: { drafts: { type: 'array', items: {
@@ -289,6 +359,10 @@ function cueSweepDraft_(s, items) {
     // A kind's check (payments: every BI number and the balance, exactly) can turn down ChatGPT's words; its template is used.
     if (d && typeof k.check === 'function') { let ok = false; try { ok = !!k.check(Object.assign({}, it, { subject: d.subject, body: d.body })); } catch (e) { ok = false; }
       if (!ok) { d = null; it.check_failed = true; } }
+    if (typeof k.wrap === 'function') {   // CUE-TEMPLATES-2026-10-31: the AI wrote only the middle; the kind's template frames it
+      if (d && String(d.body || '').trim()) { const w = k.wrap(it, d.body); d = Object.assign({}, d, { subject: w.subject || d.subject, body: w.body }); it.html = w.html || ''; }
+      else if (it.needs_draft !== false && !it.body) { it.no_email = true; it.needs_draft = false; }
+    } else if (!d && t.html) { it.html = t.html; it.tpl_aud = t.aud || ''; it.tpl_btn = t.button || null; }   // a fixed template's designed email (Kiko 31 Oct: "Full design, in the same thread")
     it.subject = cueStr_((d && d.subject) || t.subject || it.subject || ('Following up: ' + (it.project || 'BSE')), 200).replace(/[\r\n]+/g, ' ');
     it.body = cueStr_((d && d.body) || t.body || it.body || '', 6000);
     it.drafted_by = d ? 'ChatGPT' : 'template';
@@ -325,9 +399,9 @@ function cueSweepApprove_(id, edits) {
   if (first) {
     b.send = !!(edits && edits.send); b.approved_at = new Date(cueNow_()).toISOString();
     b.items.forEach(it => {
-      if (it.no_email || it.removed) { it.selected = false; return; }
-      it.selected = skip.indexOf(it.key) < 0;
-      if (it.selected && typeof bodies[it.key] === 'string' && bodies[it.key].trim()) it.body = cueStr_(bodies[it.key], 6000);
+      if (it.no_email || it.removed || it.tap) { it.selected = false; return; }
+      it.selected = skip.indexOf(it.key) < 0 && (!(edits && edits.only) || edits.only.indexOf(it.key) >= 0);   // only: the 8 AM update's reply names exactly these
+      if (it.selected && typeof bodies[it.key] === 'string' && bodies[it.key].trim()) { it.body = cueStr_(bodies[it.key], 6000); it.html = ''; }   // Kiko's own words go as he typed them
     });
   }
   const log = cueChaseLog_(), today = cuePh_(cueNow_()).day, rules = cueRules_();
@@ -335,8 +409,8 @@ function cueSweepApprove_(id, edits) {
     const k = cueKinds_().filter(x => x.kind === it.kind)[0];
     try {
       if (typeof k.send === 'function' && b.send && it.send_ok) return;   // the kind sends through Canvas at send time; no Gmail draft
-      it.draft_id = typeof k.draft === 'function' ? String(k.draft(it, s) || '') : it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [])
-        : cueGmailDraft_(it.to, it.subject, it.body);
+      it.draft_id = typeof k.draft === 'function' ? String(k.draft(it, s) || '') : it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [], it.html)
+        : cueGmailDraft_(it.to, it.subject, it.body, it.html);
       it.error = '';
       if (!(b.send && it.send_ok)) cueChaseWrite_(log, it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(rules, k), today, it), note: 'draft' });
     } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
@@ -344,7 +418,7 @@ function cueSweepApprove_(id, edits) {
   const toSend = b.items.filter(it => it.selected && b.send && it.send_ok && !it.sent_id);
   const ph = cuePh_(cueNow_());
   const sendHour = rules.general.send;   // Kiko 07:28Z: 09:00 PH unless changed on the Chaser rules card
-  if (toSend.length && ph.hour < sendHour && !b.send_at) b.send_at = cuePhAt_(ph.day, sendHour);
+  if (toSend.length && ph.hour < sendHour && !b.send_at && !(edits && edits.now)) b.send_at = cuePhAt_(ph.day, sendHour);   // now: a reply to the 8 AM update sends at once (spec J2)
   if (toSend.length && b.send_at && cueNow_() < b.send_at) {
     s.status = 'Scheduled';
     cueChat_('Cue', 'Approved. ' + toSend.length + ' email' + (toSend.length === 1 ? '' : 's') + ' will go out at ' + String(sendHour).padStart(2, '0') + ':00. Nothing has gone out yet; tap Cancel on the batch to stop it.', s.id);
@@ -381,7 +455,8 @@ function cueSweepDoneLine_(s) {
   if (drafts.filter(hooked).length) out.push(drafts.filter(hooked).length + ' in info@\'s Drafts');
   if (bad.length) out.push(bad.length + ' did not go through (tap Retry)');
   const line = 'Morning batch: ' + (out.join(', ') || 'nothing sent') + '.';
-  cueChat_('Cue', line, '>' + s.id); cueChat_('Cue', line, s.id);
+  if (bad.length || !cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): only a failure reaches the main chat
+  cueChat_('Cue', line, s.id);
 }
 
 /** Before 09:00: Kiko changes plans. The emails stay in Gmail Drafts; nothing is sent. */
@@ -420,6 +495,39 @@ function cueSweepItem(id, key, what) {
     if (!b.items.concat(b.stopped).some(x => !x.removed)) L.s.status = 'Done';
     cueSave_(L.sh, L.row, L.s); return L.s;
   });
+  return cueView_(s);
+}
+
+/** Send follow-up (AWARD-TAP-2026-10-30, Kiko 30 Oct 2026 03:54Z, card "Yes, build all"): one tap line (it.tap) goes now, from Kiko's
+ * Gmail, as a reply in its thread, with the words Kiko sees in the box. The tap is Kiko's approval of that one email. A second tap
+ * on a line already sent sends nothing. */
+function cueSweepSendOne(id, key, body) {
+  cueOwner_();
+  const s = cueLocked_(() => {
+    const L = cueLoad_(id);
+    if (!L || L.s.kind !== 'sweep') throw new Error('No such batch.');
+    const it = (L.s.batch.items || []).filter(x => x.key === key)[0];
+    if (!it || !it.tap) throw new Error('That line has no Send follow-up.');
+    if (it.sent_id) return L.s;
+    if (!cueEmail_(it.to) && typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).send !== 'function') throw new Error('This line has no email address. Send it from Gmail instead.');
+    if (typeof body === 'string' && body.trim() && body.trim() !== String(it.body || '').trim()) { it.body = cueStr_(body, 6000); it.html = ''; }   // Kiko's own words go as he typed them
+    const k = cueKinds_().filter(x => x.kind === it.kind)[0], today = cuePh_(cueNow_()).day;
+    try {
+      // CUE-THREE-TOUCH-2026-11-01: a kind that sends through Canvas (payment, signature) or with its own checks (accreditation) uses its own send.
+      if (typeof k.send === 'function') it.sent_id = String(k.send(it, L.s) || 'sent');
+      else {
+        if (!it.draft_id) it.draft_id = it.thread_id ? cueGmailReply_({ to: it.to, subject: it.thread_subject || it.subject, message_id: it.message_id || '', thread_id: it.thread_id }, it.body, [], it.html)
+          : cueGmailDraft_(it.to, it.subject, it.body, it.html);
+        it.sent_id = cueGmailSend_(it.draft_id);
+      }
+      it.sent_at = new Date(cueNow_()).toISOString(); it.error = '';
+      try { cuePlogChaser_(it, L.s); } catch (e) { console.error('Project log (chaser): ' + e); }
+      cueChaseWrite_(cueChaseLog_(), it, { last: today, times: (it.times || 0) + 1, next: cueNextDue_(cueRuleFor_(cueRules_(), k), today, it), note: 'sent' });
+    } catch (e) { it.error = String((e && e.message) || e).slice(0, 300); }
+    cueSave_(L.sh, L.row, L.s); return L.s;
+  });
+  if (!s.batch.items.filter(x => x.key === key)[0].error) { const it = s.batch.items.filter(x => x.key === key)[0], k = cueKinds_().filter(x => x.kind === it.kind)[0] || {};
+    cueChat_('Cue', 'Sent the follow-up for ' + (it.project || 'that line') + (typeof k.send === 'function' ? '.' : ' from your Gmail.'), s.id); }
   return cueView_(s);
 }
 
@@ -485,6 +593,42 @@ function cueCloseAny_(L) {
   s.closed_from = s.status; s.status = 'Closed'; delete s.nudge;
   if (s.phased && s.canvas && s.canvas.project_id) return 'Closed. What this task already saved in Canvas stays there.';   // CUE-PHASED
   return 'Closed. Nothing was written or sent.';
+}
+/** Kiko 24 Oct: the ✓ in every thread. Closes every run in id's thread that is not running and not closed yet (same rules as
+ * cueCloseAny_), with one line in the thread. Nothing is sent or written. Returns { closed, running }. */
+function cueCloseThread(id) {
+  cueOwner_();
+  const out = cueLocked_(() => {
+    const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
+    rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
+    const root = k => { for (let i = 0; i < 8 && by[k] && by[k].ref; i++) k = by[k].ref; return k; }, home = root(id);
+    if (!by[home]) throw new Error('No such task.');
+    let closed = 0, running = 0, saved = false;
+    Object.keys(by).filter(k => root(k) === home).forEach(k => {
+      const L = { s: by[k] };
+      if (['Done', 'Rejected', 'Closed'].indexOf(L.s.status) >= 0) return;
+      try { cueCloseAny_(L); cueSave_(sh, at[k], L.s); closed++; if (L.s.phased && L.s.canvas && L.s.canvas.project_id) saved = true; }
+      catch (e) { running++; }
+    });
+    return { home, closed, running, saved };
+  });
+  if (out.closed || out.running) cueChat_('Cue', (out.closed ? 'Closed' + (out.closed > 1 ? ' ' + out.closed + ' runs' : '') + '. Nothing was written or sent.' + (out.saved ? ' What it already saved in Canvas stays there.' : '') : '')
+    + (out.running ? ' ' + out.running + ' still running or scheduled: close ' + (out.running === 1 ? 'it' : 'them') + ' when ' + (out.running === 1 ? 'it stops' : 'they stop') + '.' : ''), out.home);
+  return { closed: out.closed, running: out.running };
+}
+/** Scheduled and checking jobs whose old runs "Close older runs" may close. Intakes and other work Kiko started are never in it. */
+const CUE_OLD_KINDS_ = ['bids', 'gtask', 'funnel', 'status', 'skillobs'];   // plus CUE_GONE_KINDS_ (Cue.gs): runs of removed kinds close whatever their day
+/** Kiko 24 Oct: one tap in Waiting on you closes every run of those jobs that waits (or failed) from before today, Manila time.
+ * Nothing is sent or written. Returns { closed }. */
+function cueCloseOlder() {
+  cueOwner_();
+  const today = cueMnlDay_(cueNow_());
+  const old = x => (!!x.created && cueMnlDay_(Date.parse(x.created)) < today) || CUE_GONE_KINDS_.indexOf(x.kind) >= 0;
+  // CLOSE-OLDER-ONE-LINE-2026-10-31 (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines, each with an
+  // "Earlier task" row): no line in each closed thread, since each one surfaced in the main chat; one main-chat line says how many.
+  const ids = cueCloseSuperseded_(x => (CUE_OLD_KINDS_.indexOf(x.kind) >= 0 || CUE_GONE_KINDS_.indexOf(x.kind) >= 0) && !x.phased && old(x), '', true);
+  if (ids.length) cueChat_('Cue', 'Closed ' + ids.length + ' older run' + (ids.length === 1 ? '' : 's') + '. Nothing was written or sent.', '');
+  return { closed: ids.length };
 }
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */
 function cueArchive(id, on) {

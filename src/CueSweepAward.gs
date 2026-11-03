@@ -74,17 +74,30 @@ function cueAwardItem_(p, th, L, today, own, rule) {
   const kiko = after.filter(m => m.sent), ceDay = ce ? cuePh_(ce.ms).day : '';
   const since = cueAwardDay_(aw.since) || ceDay;
   facts.waiting_since = since; facts.ce_sent = ceDay;
-  if (ev && ev <= cueAddDays_(today, CUE_AWARD_.urgentDays)) {
+  // AWARD-TAP-2026-10-30 (Kiko 30 Oct 2026 03:54Z, card "Yes, build all"): a past event gets Open in Canvas to set the award status;
+  // an event within 7 days whose CE thread waits on the client gets an urgent draft that goes only when Kiko taps Send follow-up.
+  const soon = !!ev && ev <= cueAddDays_(today, CUE_AWARD_.urgentDays);
+  const urgent = () => {
     if (th) Object.assign(base, { thread_id: String(th.id || '') });
-    return flag(ev < today ? 'The event date (' + ev + ') has passed and there is still no award. Update the status in Canvas.'
-      : 'Event on ' + ev + ' and still no award. Call the client today.', 'urgent');
-  }
+    if (ev < today) { try { base.canvas_url = cueCanvasLink_({ what: 'project', project_id: pid, name: p.name }).url; } catch (e) { /* no link: the line still says what to do */ } }
+    return Object.assign(flag(ev < today ? 'The event date (' + ev + ') has passed and there is still no award. Update the status in Canvas.'
+      : 'Event on ' + ev + ' and still no award. Call the client today.', 'urgent'), { short: ev < today ? 'Event passed ' + ev : 'Event ' + ev });
+  };
+  if (soon && ev < today) return urgent();
+  if (soon && !ce) return urgent();
   if (!ce) return since && cueAwardGap_(rule, since, today) < rule.first ? null
     : flag('No CE email found in your Sent mail for this project. Chase the client by hand.');
   const addr = String(ce.h.to || '').split(',').map(a => ({ name: (a.match(/^\s*"?([^"<]*?)"?\s*</) || [])[1] || '', email: cueEmail_((a.match(/<([^>]+)>/) || [0, a])[1].trim()) }))
     .filter(a => a.email && (!own || a.email.toLowerCase().split('@')[1] !== own))[0];
   Object.assign(base, { thread_id: String(th.id || ''), message_id: cueStr_(last.h['message-id'], 300), thread_subject: cueStr_(ce.h.subject, 300),
     to: addr ? addr.email : '', who: addr ? cueStr_(addr.name || addr.email, 200) : '', due_since: since });
+  if (soon && (!addr || !last.sent)) return urgent();
+  if (soon) {
+    const times = Math.max(kiko.length, L ? L.times : 0);
+    facts.chaser_number = times + 1; facts.urgent = true;
+    return Object.assign(base, { priority: 'urgent', tap: true, short: 'Event ' + ev,
+      why: 'Event on ' + ev + ' and still no award. Send an urgent follow-up in the CE thread, or call the client' });
+  }
   if (!last.sent) return flag('The client replied on ' + cuePh_(last.ms).day + '. Have a look and answer them.');
   const times = Math.max(kiko.length, L ? L.times : 0);
   const lastChase = [kiko.length ? cuePh_(kiko[kiko.length - 1].ms).day : '', L ? L.last : ''].sort().pop();
@@ -100,13 +113,11 @@ function cueAwardItem_(p, th, L, today, own, rule) {
 /** The fallback draft when ChatGPT can't write one. */
 function cueAwardTemplate_(it) {
   const f = it.facts || {}, first = String(it.who || '').split(/[\s@]/)[0] || 'there', n = Number(f.chaser_number) || 1;
+  if (f.urgent) return { subject: 'Following up: cost estimate for ' + it.project, body: 'Hi ' + first + ',\n\nFollowing up on the cost estimate we sent for ' + it.project
+    + '. With the event on ' + f.event_date + ', could you let us know today if we can proceed? We are ready to move as soon as you confirm.\n\nThank you,\nKiko\nBlank Space Events' };
   const ask = n === 1 ? 'I\'m following up on the cost estimate we sent for ' + it.project + '. Have you had a chance to review it? If anything needs to change, we\'re happy to revise it.'
     : 'Checking in again on the cost estimate for ' + it.project + '. Could you let us know where your decision stands, or whether anything in it should change?'; // VOICE-2026-10-29
   return { subject: 'Following up: cost estimate for ' + it.project, body: 'Hi ' + first + ',\n\n' + ask + (f.event_date ? ' The event is on ' + f.event_date + '.' : '') + '\n\nThank you,\nKiko\nBlank Space Events' };
 }
 
-cueKind_({ kind: 'award', label: 'CE award chasers', every: CUE_AWARD_.every, max: CUE_AWARD_.max, unit: CUE_AWARD_.unit, sendAllowed: true, find: cueAwardFind_, template: cueAwardTemplate_,
-  draftBrief: 'The client received a cost estimate (CE) from BSE for this event and has not decided on the award. Reply in the CE thread: '
-    + 'ask politely whether they have reviewed it and have a decision, and offer to revise the CE if anything needs to change. Name the '
-    + 'project and the event date from facts. facts.chaser_number 1 is a gentle first follow-up; 2 and 3 are firmer but still warm. '
-    + 'Never mention prices, totals, discounts, deadlines or holds, and never promise anything.' });
+cueKind_({ kind: 'award', label: 'C6 CE award chasers', every: CUE_AWARD_.every, max: CUE_AWARD_.max, unit: CUE_AWARD_.unit, sendAllowed: true, find: cueAwardFind_, template: it => cueTplC6_(it) /* CUE-TEMPLATES-2026-10-31: Kiko's C6 wording, no AI */ });

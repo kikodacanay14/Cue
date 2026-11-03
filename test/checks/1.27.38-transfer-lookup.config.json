@@ -1,0 +1,8 @@
+{
+  "about": "Cloud check for the 1.27.38 transfer lookup (read only). Nothing in this check writes to Canvas or sends anything; the project below is only the write lock, so any write is refused. BSE Scopes and Transfers is opened through check mode's read-only view.",
+  "project_id": "S-25506500TR",
+  "project_name": "Trick or Treat - Manila",
+  "request_id": "AP-MAN-TRI-1",
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}

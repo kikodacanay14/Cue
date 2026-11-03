@@ -135,7 +135,7 @@ test('ACC12 a known contact\'s email whose signature has new details gets an edi
   let cur = nmAdded(['11aa000000000001']);
   const t = sandbox({ inbox: NM_BOX, info: [], history: () => cur, nmSort: TY_SORT, historyId: '500', edit: ED_PLAN,
     mcRead: { want: 'A quote.', history: 'Nothing earlier.', next: 'Reply.', phone: '0918 222 7781', position: '', company: '' },
-    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: 'Acme Party', pid: 'S-1' }] } });
+    waiting: { on: true, stale: false, checked: 1, items: [{ id: '11aa000000000001', from: 'Maria Santos', email: 'maria@acme.example', who: 'Client', name: 'Acme', project: '', pid: '' }] } });   // no project: a project's thread goes to Team Cue
   t.tabs['Triage rules'].appendRow(['maria@acme.example', 'type:Client', new Date(), 'set']);
   const id = nmRun(t), m = t.state(id).nm.items.filter(x => x.sender === 'maria@acme.example')[0];
   assert.ok(m.chat_id, 'Maria has a chat');

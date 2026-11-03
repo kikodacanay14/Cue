@@ -9,8 +9,6 @@
     ['Needs you', 'Kiko', 'Waiting for your approval']];
   var WRITE = [['Canvas re-checking', 'Canvas', 'Canvas re-checks the numbers'], ['Writing to Canvas', 'Canvas', 'Canvas writes and reads back'],
     ['Making Gmail drafts', 'Gmail', 'RFQs become Gmail drafts'], ['Done', 'Done', 'Done']];
-  var HSTEPS = [['Reading HubSpot', 'Canvas', 'Canvas reads HubSpot and Client Desk (changes nothing)'], ['Claude checking', 'Claude', 'Claude checks the look-alikes and names'],
-    ['GPT looking up', 'GPT', 'ChatGPT looks up missing websites'], ['Fixing', 'Canvas', 'Canvas applies the ticked fixes and reads them back'], ['Needs you', 'Kiko', 'Waiting for your approval']];
   var $ = function (id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
@@ -31,7 +29,7 @@
   var ACCESS_RE = /access yet|insufficient authentication scopes/i, accessNeeded = false, accessUrl = '';
   function accessHtml() {
     if (accessUrl) return '<div class="card need"><b>Google access reset</b><div class="small">Open Cue again and click <b>Allow</b> on every Google screen. Your keys and requests are kept.</div>'
-      + '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none;color:#0b1320" href="' + esc(accessUrl) + '" target="_top">Open Cue again</a></div></div>';
+      + '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none;color:#fff" href="' + esc(accessUrl) + '" target="_top">Open Cue again</a></div></div>';
     if (!accessNeeded) return '';
     return '<div class="card need"><b>Cue needs Google access</b><div class="small muted">Google has not given Cue all the access it needs (Gmail or Drive). This checks and fixes it.</div>'
       + '<div class="actions"><button class="btn" data-act="fix-access" data-id="">Fix Google access</button></div></div>';
@@ -68,9 +66,96 @@
     if (!FIXED[it.key] && !ptabs.some(function (k) { return k.key === it.key; })) { ptabs.push(it); if (ptabs.length > PTABS_MAX) ptabs.splice(0, 1); }
     pactive = it.key; paneOpen(true); paneShow();
   }
+  /* CUE-IN-CANVAS (Kiko 23 Oct 07:39Z / 08:48Z, specs/cue-in-canvas.md): Cue opens inside Canvas, in place of Quick actions.
+     Apps Script can't send CSP frame-ancestors, so doGet allows any frame and the page guards itself:
+     - every window above Cue must be Google's Apps Script (script.google.com or a *-script.googleusercontent.com sandbox);
+       anything else and Cue stays covered for good, so a trick page can't get a tap on Approve;
+     - deeper than Cue's own tab (so inside another app), Cue stays covered until a window above it sends {canvasWs:'cueHost'}.
+       Canvas sends that only after its server says the viewer is Kiko. Cue then answers that window only.
+     Without ancestorOrigins (not Chrome), depth alone decides: inside another app = covered. */
+  var CUE_HOST = cueFrameCheck(window);
+  function cueFrameCheck(w) {
+    var anc = w.location && w.location.ancestorOrigins, depth = 0, p = w;
+    try { while (p !== p.parent && depth < 12) { p = p.parent; depth++; } } catch (e) { depth = 12; }
+    // 1.27.7 (Kiko 13:44Z screenshot): Canvas's own short link canvas.blankspaceevent.com counts as Canvas too.
+    var ok = /^https:\/\/(script\.google\.com|[a-z0-9-]+[.-]script\.googleusercontent\.com|canvas\.blankspaceevent\.com)$/, foreign = '';
+    if (anc) { for (var i = 0; i < anc.length; i++) if (!ok.test(anc[i])) foreign = foreign || String(anc[i]).slice(0, 80); }
+    return { foreign: foreign, nested: depth > 2 || (!anc && depth > 2), canvas: null };
+  }
+  function cueAncestor(src) { var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; if (p === src) return true; } return false; }
+  function cueCover(text) {
+    var c = $('cue-cover'); if (!text) { if (c) c.remove(); return; }
+    if (!c) { c = document.createElement('div'); c.id = 'cue-cover'; c.setAttribute('role', 'status'); document.body.appendChild(c); }
+    c.textContent = text;
+  }
+  // The cover names why (1.27.7), so a screenshot tells a strange host from a Canvas that never answered.
+  if (CUE_HOST.foreign) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Blocked: ' + CUE_HOST.foreign + ')');
+  else if (CUE_HOST.nested) {
+    cueCover('Waiting for Canvas…');
+    setTimeout(function () { if (!CUE_HOST.canvas) cueCover('Cue only opens on its own or inside Canvas. Open Cue from Canvas. (Canvas did not answer)'); }, 15000);
+    window.addEventListener('message', function (e) {
+      var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
+      if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); teamCueBtn(); return; }
+      if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
+      if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows)) { canvasRowsSet(d.rows); canvasTodaySet(d.today); renderChat(); }
+      // RFQ-RFP-INTAKE (Kiko 29 Oct 15:13Z): Start intake on Canvas's Emails waiting card. Cue reads that email in Kiko's Gmail, opens the task and runs it.
+      if (d.canvasWs === 'cueIntake' && e.source === CUE_HOST.canvas && /^[0-9a-f]{6,32}$/i.test(String(d.thread_id || ''))) cueIntakeFrom(String(d.thread_id));
+    });
+    var p = window; for (var i = 0; i < 12 && p !== p.parent; i++) { p = p.parent; try { p.postMessage({ canvasWs: 'cueHello' }, '*'); } catch (e) {} }
+  }
+  /* TEAM-CUE-BACK-2026-10-29 (Kiko 15:59Z "can there be a button in Ask Cue that switches me back the other chat"): inside Canvas,
+     a header button asks Canvas to close Ask Cue and open the Team Cue panel ({canvasWs:'cueBack'}). Standalone Cue never shows it. */
+  /* ASK-CUE-ROWS-2026-10-29 (Kiko 15:56Z "actually CRMs, chasers and other CRM related can be in Ask Cue"; 15:58Z "the remaining
+     To Do other (other than project items) can be with Ask Cue"; his card pick 16:01Z "Inside Ask Cue's list"): inside Canvas,
+     Canvas sends its CRM and To do rows ({canvasWs:'cueRows'}); they list at the top of Threads, and a tap asks Canvas to show that
+     thread ({canvasWs:'cueTeam'}), with all its buttons. */
+  var canvasRows = [];
+  function canvasRowsSet(rows) {
+    canvasRows = rows.filter(function (r) { return r && (r.k === 'crm' || r.k === 'todo'); }).slice(0, 2).map(function (r) {
+      return { k: r.k, name: String(r.name || (r.k === 'crm' ? 'CRM' : 'To do')).slice(0, 60), sub: String(r.sub || '').slice(0, 200), n: Math.max(0, Math.min(999, +r.n || 0)) };
+    });
+  }
+  /* CARD-OVERHAUL-2026-10-30 (card review, Kiko approved 30 Oct 2026 07:59Z): Canvas also sends Kiko's task counts by place
+     ({canvasWs:'cueRows', today:[{k, name, overdue, today, assigned}]}) for the Today's tasks card in the Morning thread. */
+  var canvasToday = [];
+  function canvasTodaySet(rows) {
+    var n = function (v) { return Math.max(0, Math.min(999, +v || 0)); };
+    canvasToday = (Array.isArray(rows) ? rows : []).filter(function (r) { return r && /^(crm|todo|[ap]:.{1,120})$/.test(String(r.k || '')); }).slice(0, 30).map(function (r) {
+      return { k: String(r.k), name: String(r.name || r.k).slice(0, 80), overdue: n(r.overdue), today: n(r.today), assigned: n(r.assigned) };
+    });
+  }
+  function teamCueBtn() {
+    var b = document.getElementById('team-cue'); if (!b || !CUE_HOST.canvas) return;
+    b.hidden = false;
+    b.onclick = function () { try { CUE_HOST.canvas.postMessage({ canvasWs: 'cueBack' }, '*'); } catch (e) {} };
+  }
+  // 1.27.23 (PC check 24 Oct 14:29Z): a thread id may carry "#<spot>", such as the funnel card's top or its tasks, so a Canvas Home
+  // button opens the thread at that spot instead of the bottom. The spot waits for the next render when the thread isn't drawn yet.
+  var goSpot = '';
+  function cueIntakeFrom(tid) {
+    call('cueTriageIntake', [tid], function (r) { if (!r || !r.request_id) return refresh(); goThread(r.request_id);
+      call('cueRun', [r.request_id], function () { refresh(); }, function (e) { alertErr(e, r.request_id); refresh(); }); refresh(); }, function (e) { alertErr(e); });
+  }
   function goThread(id) {
-    openPane({ key: 't:' + id, type: 'thread', id: id });
-    $('pscroll').scrollTop = $('pscroll').scrollHeight; if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus();
+    var at = String(id).indexOf('#'), spot = at < 0 ? '' : String(id).slice(at + 1).replace(/[^\w-]/g, '');
+    if (at >= 0) id = String(id).slice(0, at);
+    // PC recheck 14:39Z: the spot is set after the pane's own render, so that render can't use it up before the bottom scroll below.
+    goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id });
+    $('pscroll').scrollTop = $('pscroll').scrollHeight; goSpot = spot; toSpot();
+    if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
+    // PC recheck 15:17Z: inside Canvas's slide-in the first scroll can land before the frame has its size again, so the tasks tab kept
+    // the funnel's scroll. The place is set again a few times in the first second, unless Kiko scrolls first.
+    var key = 't:' + id, mine = true, stop = function () { mine = false; };
+    $('pscroll').addEventListener('wheel', stop, { once: true }); $('pscroll').addEventListener('touchstart', stop, { once: true });
+    [120, 400, 1000].forEach(function (ms) { setTimeout(function () {
+      if (!mine || pactive !== key) return;
+      var ps = $('pscroll'), el = spot && document.getElementById(spot);
+      if (el) ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8;
+    }, ms); });
+  }
+  function toSpot() {
+    var el = goSpot && document.getElementById(goSpot); if (!el) return false;
+    var ps = $('pscroll'); ps.scrollTop += el.getBoundingClientRect().top - ps.getBoundingClientRect().top - 8; goSpot = ''; return true;
   }
   function closeTab(key) {
     var i = ptabs.map(function (k) { return k.key; }).indexOf(key); if (i < 0) return;
@@ -106,7 +191,7 @@
      offers a new tab instead. Links come as [[canvas|title|url]] in a chat line, or as a card's r.open. */
   var PHONE = !!(window.matchMedia && (matchMedia('(pointer:coarse)').matches || matchMedia('(max-width: 900px)').matches));
   // Mirrors cueCanvasParse_ (CueCanvas.gs): these go to the server as Canvas commands, never to the expense shortcut ("open Globe expenses").
-  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
+  var CV_SAY = /^\s*(?:(?:please|pls)[,\s]+)?(?:open|pull up|go to|bring up|(?:show|view)\b.*\b(?:in|on) canvas\s*[.!?]*$|(?:request|make|create|file|raise|prepare|do)\s+(?:a\s+)?payment(?:\s+request)?\s+(?:for|in|on|under)|(?:add|new|create)\s+(?:a\s+)?scope|(?:add|new|create|log|raise|put)\s+(?:an?\s+)?(?:new\s+)?(?:task|issue|risk)|(?:add|new|create|start)\s+(?:a\s+)?(?:new\s+)?project|tasks\s+(?:of|for|in)|(?:close|complete|finish|tick off|mark)\s+(?:the\s+)?task|price ?watch|past prices?|price history)\b/i;
   var CV_TOK = /\[\[canvas\|([^|\]]{1,200})\|(https:\/\/script\.google\.com\/[^\s|\]]+)\]\]/g, CV_URL = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec(\?|$)/;
   var cvWait = 0, cvGone = 0, cvReady = false;
   function noTok(t) { return String(t || '').replace(CV_TOK, function (_m, title) { return title; }); }
@@ -116,6 +201,7 @@
   }
   function canvasOpen(l) {
     if (!l || !CV_URL.test(l.url || '')) return;
+    if (CUE_HOST.canvas) return void CUE_HOST.canvas.postMessage({ canvasWs: 'cueOpen', url: l.url }, '*');   // CUE-IN-CANVAS: Canvas goes there itself
     if (PHONE) return void window.open(l.url, '_blank', 'noopener');
     viewOpen([{ canvas: true, url: l.url, preview: l.url, name: l.title || 'Canvas' }], 0);
   }

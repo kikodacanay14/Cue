@@ -12,9 +12,9 @@ Object.assign(globalThis, { require, __dirname });   // the parts read fixtures 
 for (const f of fs.readdirSync(DIR).filter(f => /^\d\d-.*\.js$/.test(f)).sort()) {
   vm.runInThisContext(fs.readFileSync(path.join(DIR, f), 'utf8'), { filename: path.join(DIR, f) });
 }
-const T = vm.runInThisContext('({ tests, sandbox, checkCode, CHECK_KEY, CHECK_PID })');
+const T = vm.runInThisContext('({ tests, sandbox, checkCode, CHECK_KEY, CHECK_PID, txBox, chaseBox, INBOX })');
 
-if (require.main !== module) module.exports = { sandbox: T.sandbox, checkCode: T.checkCode, CHECK_KEY: T.CHECK_KEY, CHECK_PID: T.CHECK_PID };   // test/checks/dry-run.mjs reuses the sandbox
+if (require.main !== module) module.exports = { sandbox: T.sandbox, checkCode: T.checkCode, CHECK_KEY: T.CHECK_KEY, CHECK_PID: T.CHECK_PID, txBox: T.txBox, chaseBox: T.chaseBox, INBOX: T.INBOX };   // test/checks/dry-run.mjs reuses the sandbox
 else {
   let pass = 0;
   for (const [n, f] of T.tests) { try { f(); pass++; console.log('ok   ' + n); } catch (e) { console.log('FAIL ' + n + '\n     ' + (e.stack || e).toString().split('\n').slice(0, +(process.env.LINES || 3)).join('\n     ')); } }

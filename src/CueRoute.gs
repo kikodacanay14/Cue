@@ -8,9 +8,9 @@
  * Answering deletes the property. cueAskTidy_ removes blank ones left by Cue before 1.26.6 and questions unanswered for 30 days. */
 
 const CUE_ROUTE_TAB_ = 'Routing examples', CUE_ROUTE_HEAD_ = ['Saved', 'Phrase', 'Command'];
-const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', pipeline: 'Pipeline review', ar: 'ARs', vendor: 'Supplier search',
+const CUE_ROUTE_CMDS_ = { intake: 'Project intake', readiness: 'Readiness check', ar: 'ARs', vendor: 'Supplier search',
   workflow: 'Workflow map', email: 'Email', money: 'Money question', chat: 'Just chat' };
-const CUE_ROUTE_TALK_ = ['intake', 'readiness', 'pipeline', 'ar', 'vendor', 'workflow', 'email'];   // the commands the chat call fills in
+const CUE_ROUTE_TALK_ = ['intake', 'readiness', 'ar', 'vendor', 'workflow', 'email'];   // the commands the chat call fills in
 // The command each task kind is (STRUCTURE-PHASE-2 item 2.2): the cmd field of its line in cueCommands_ (CueCommands.gs), not a second list here.
 const CUE_ROUTE_MAX_ = { examples: 5, phrase: 300, rows: 300 };
 
@@ -82,9 +82,9 @@ function cueAskTidy_() {
 
 /** The talk result for one command, from what the chat call filled in (cands), so a button needs no new AI call. */
 function cueRouteTalk_(cmd, cand, found) {
-  const t = { chat: true, reply: '', task: '', sweep: '', pipeline: null, suggest_intake: false, start_intake: '', readiness: '', start_ar: '', vendor: null, workflow: null, email: null, lookup: '' };
+  const t = { chat: true, reply: '', task: '', sweep: '', suggest_intake: false, start_intake: '', readiness: '', start_ar: '', vendor: null, workflow: null, email: null, lookup: '' };
   if (!cand) return null;
-  if (cmd === 'readiness') t.readiness = String(cand); else if (cmd === 'ar') t.start_ar = String(cand); else if (cmd === 'pipeline') t.pipeline = cand;
+  if (cmd === 'readiness') t.readiness = String(cand); else if (cmd === 'ar') t.start_ar = String(cand);
   else if (cmd === 'vendor') t.vendor = cand; else if (cmd === 'workflow') t.workflow = cand; else if (cmd === 'email') { t.email = cand; t.lookup = found || ''; }
   else return null;
   return t;
@@ -99,7 +99,7 @@ function cueRouteStart_(text, cmd, forced) {
   if (!cueRouteFilled_(talk, cmd)) { cueChat_('Cue', 'I could not start a ' + CUE_ROUTE_CMDS_[cmd].toLowerCase() + ' from that message. Say what you need and I will.', ''); return { chat: true }; }
   return cueSendWith_(text, [], '', '', talk);
 }
-const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, pipeline: t.pipeline, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];
+const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];
 
 /** Kiko taps a button under a question. pick is a command, or yes / no for "remember?". note = what Kiko typed for Change on a plan card. */
 function cueAskPick(id, pick, note) {
@@ -113,7 +113,7 @@ function cueAskPick(id, pick, note) {
   });
   if (!raw) throw new Error('That question was already answered, or is over 30 days old.');
   const o = JSON.parse(raw), done = '!' + id + (o.where ? '@' + o.where : '');
-  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'invline' || o.type === 'canvasedit' || o.type === 'allowset' || o.type === 'contactfill' ? ['approve', 'not'].indexOf(pick) < 0 : o.type === 'unsched' ? ['ok', 'mute'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' ? pick !== 'again' : o.type === 'route' && (o.choices || []).indexOf(pick) < 0;
+  const bad = o.type === 'schedule' ? ['save', 'not'].indexOf(pick) < 0 : o.type === 'invline' || o.type === 'canvasedit' || o.type === 'allowset' || o.type === 'contactfill' ? ['approve', 'not'].indexOf(pick) < 0 : o.type === 'contactnew' ? ['approve', 'skippage'].indexOf(pick) < 0 : o.type === 'unsched' ? ['ok', 'mute'].indexOf(pick) < 0 : o.type === 'plan' ? ['go', 'change', 'not'].indexOf(pick) < 0 || (pick === 'change' && !String(note || '').trim()) : o.type === 'demote' ? pick !== 'again' : o.type === 'route' && (o.choices || []).indexOf(pick) < 0;
   if (bad) { P.setProperty('CUE_ASK_' + id, raw); throw new Error(pick === 'change' ? 'Say what I should do instead.' : 'That is not one of the choices.'); }   // the question stays open
   if (o.type === 'plan' || o.type === 'demote') return cueTutorPick_(o, pick, note, done);
   if (o.type === 'schedule') return cueSchedPick_(o, pick, done);
@@ -121,6 +121,7 @@ function cueAskPick(id, pick, note) {
   if (o.type === 'canvasedit') return cueEditPick_(o, pick, done);   // generic Canvas edit (CueEdit.gs)
   if (o.type === 'allowset') return cueAllowPick_(o, pick, done);   // one allow-list row (CueEdit.gs)
   if (o.type === 'contactfill') return cueCsPick_(o, pick, done);   // old-email contact fill (CueContactScan.gs)
+  if (o.type === 'contactnew') return cueCnPick_(o, pick, done, note);   // new contacts from Kiko's Gmail (CueContactNew.gs)
   if (o.type === 'unsched') return cueUnschedPick_(o, pick, done);   // the unscheduled alarm (CueSchedule.gs)   // task scheduler (CueSchedule.gs)   // tutor mode (CueTutor.gs)
   if (o.type === 'learned') {
     if (pick === 'undo') cueLocked_(() => { const sh = cueTeachTab_(); if (o.row >= 2 && cueName_(sh.getRange(o.row, 3).getValues()[0][0]) === cueName_(o.text)) sh.getRange(o.row, 1).setValues([[false]]); });

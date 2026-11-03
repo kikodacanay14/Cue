@@ -1,0 +1,10 @@
+{
+  "about": "Cloud check for the 1.27.38 invoice line edit on Trick or Treat - Manila. approve stays false: the check reads the project's invoices (bi_list), checks the Approve card, then taps Not that, so nothing is written. Approve edits a real client invoice in Canvas, so set approve to true only after Kiko's yes for that one line. send stays false.",
+  "project_id": "S-25506500TR",
+  "project_name": "Trick or Treat - Manila",
+  "ask": "add REC-10307792 to the Telus trick or treat manila invoice",
+  "line": "REC-10307792",
+  "approve": false,
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}

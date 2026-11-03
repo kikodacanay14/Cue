@@ -13,7 +13,7 @@ test('R2 Kiko saves a change: checked, kept in the Rules tab, noted in the chat,
     find: ctx => [{ key: 'pay:1', project: 'P', who: 'Client', to: 'c@x.example', why: 'Unpaid ' + ctx.rule('payment').first + 'd' }] });
   const r = t.ctx.cueRulesSave({ 'payment.every': 5, 'payment.first': '10', 'rfq.on': false });
   assert.strictEqual(r.kinds.payment.every, 5); assert.strictEqual(r.kinds.payment.first, 10); assert.strictEqual(r.kinds.rfq.on, false);
-  assert.ok(t.tabs.Chat.rows.some(x => /Payment chasers: then every 7 → 5/.test(x[2]) && /RFQ chasers: paused/.test(x[2])));
+  assert.ok(t.tabs.Chat.rows.some(x => /C7 Payment chasers: then every 7 → 5/.test(x[2]) && /S2 RFQ and RFP chasers: paused/.test(x[2])));
   deq(t.tabs.Rules.rows.slice(1).map(x => [x[0], x[1]]), [['payment.every', 5], ['payment.first', 10], ['rfq.on', false]]);
   t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); const b = batchOf(t);
   assert.ok(b.batch.items.some(i => /Unpaid 10d/.test(i.why)), 'the kind reads rule.first');
@@ -44,7 +44,7 @@ test('R5b a line may set its own interval (it.every), e.g. RFQ event-soon every 
   t.at('2026-10-21', 10, 0); t.ctx.cueSweep(); t.ctx.cueApprove(batchOf(t).id, { send: true });
   assert.strictEqual(chase(t)[0][6], '2026-10-22');
 });
-test('R6 moving the build time moves the sweep\'s Schedule row (no trigger)', () => {
+test('R6 the chasers row keeps its own time (13:00, for the 2 PM update, 1 Nov): the build hour no longer moves it, and no trigger is made', () => {
   const t = sandbox(); t.ctx.cueState(); t.ctx.cueRulesSave({ 'general.build': 6, 'general.send': 9 });
-  assert.ok(!t.log.triggers.some(h => h === 'cueSweep')); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Daily 06:00');
+  assert.ok(!t.log.triggers.some(h => h === 'cueSweep')); assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-sweep')[0].when, 'Weekdays 13:00');
 });

@@ -47,7 +47,7 @@ function cueGptParse_(code, msg) {
 /** o = { step, system, user, schema, model?, effort?, maxTokens?, parts?, partsFirst? } -> a call for cueAiAll_. parts = Messages API content blocks
  * (documents, images): after the text by default (supplier registration), before it when partsFirst (personal expense second look). */
 function cueClaude_(o) {
-  const model = o.model || cueProp_('CUE_CLAUDE_MODEL', 'claude-sonnet-5-5');   // model: a cheap step names its own (Help rephrase: Haiku)
+  const model = o.model || cueProp_('CUE_CLAUDE_MODEL', 'claude-sonnet-5-5');   // model: a cheap step names its own (Help rephrase, New mail sort: Haiku)
   const body = { model, max_tokens: o.maxTokens || 8000, system: String(o.system) + cueTeachAdd_(o), messages: [{ role: 'user', content: o.parts && o.parts.length
     ? (o.partsFirst ? o.parts.concat([{ type: 'text', text: String(o.user) }]) : [{ type: 'text', text: String(o.user) }].concat(o.parts)) : String(o.user) }],
     output_config: { effort: o.effort || cueProp_('CUE_CLAUDE_EFFORT', 'medium'), format: { type: 'json_schema', schema: o.schema } } };

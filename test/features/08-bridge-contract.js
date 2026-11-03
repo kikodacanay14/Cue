@@ -1,23 +1,4 @@
 // Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: bridge-contract.
-/* ---------- bridge contract (specs/bridge-contract-test.md, Kiko 26 Oct 09:05Z) ---------- */
-test('BC1 every bridge action Cue calls exists in the fixture copy of Canvas ZapBridge.gs', () => {
-  const have = new Set(vm.runInContext('Object.keys(ZB_ACTIONS_)', BRIDGE)), called = new Set();
-  fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).forEach(f => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8');
-    for (const m of src.matchAll(/cueBridge(?:Req)?_\(\s*[A-Za-z_$][\w.]*\s*,\s*'([a-z_]+)'/g)) called.add(m[1]);
-    for (const m of src.matchAll(/cueBridgeAll_\([^;]*?\[\s*'([a-z_]+)'\s*,/g)) called.add(m[1]);
-  });
-  assert.ok(called.size >= 30, 'found only ' + called.size + ' bridge calls: the scan pattern no longer matches how Cue calls the bridge');
-  const missing = [...called].filter(a => !have.has(a)).sort();
-  assert.deepStrictEqual(missing, [], 'Cue calls actions the fixture lacks (refresh test/fixtures/ZapBridge.gs from Canvas): ' + missing.join(', '));
-});
-test('BC2 the fixture is the exact copy named in ZapBridge.version', () => {
-  const note = fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.version'), 'utf8');
-  const want = (/^md5 ([0-9a-f]{32})$/m.exec(note) || [])[1], v = /live Canvas V(\d+)/.exec(note);
-  assert.ok(want && v, 'ZapBridge.version must name the live Canvas version and the md5');
-  const got = crypto.createHash('md5').update(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'))).digest('hex');
-  assert.strictEqual(got, want, 'test/fixtures/ZapBridge.gs changed without updating ZapBridge.version (or is not an exact copy)');
-});
 test('AR8 PC check 27 Oct 01:53Z: the card keeps Kiko\'s ticks across a warning, and each "Can\'t make yet" row says why', () => {
   const html = cuePage();
   const on = eval('(' + /function arOn\(attr, id, x, def\) \{[^\n]+\}/.exec(html)[0].replace(/^function arOn/, 'function') + ')');

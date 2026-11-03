@@ -1,5 +1,4 @@
 // Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: intake.
-
 test('C1 bridge requests are signed like every other bridge caller and use only Cue\'s four actions', () => {
   const t = startToCard();
   deq(t.log.bridge.map(b => b.action), ['find_similar_projects', 'intake_evidence']);

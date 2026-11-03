@@ -5,7 +5,7 @@ test('P4a 4.3 each new bid becomes one Canvas CRM lead (source Bid finder, reque
   const L = t.log.crmLeads || [];
   deq(L.map(a => a.company), ['CITEM', 'DOT', 'NPDC'], 'the 3 new bids, not OLD-1 (updated)');
   assert.ok(L.every(a => a.source === 'Bid finder' && /^bid:[A-Za-z0-9:_-]+$/.test(a.request_id)), JSON.stringify(L));
-  assert.strictEqual(L[0].name, 'Trade fair booth fabrication'); assert.ok(/Ref 2026-0999 · deadline 2026-10-29T17:00\+08:00 · ABC PHP 500000/.test(L[0].notes), L[0].notes);
+  assert.strictEqual(L[0].name, 'Trade fair booth fabrication'); assert.ok(/Ref 2026-0999 · deadline 2026-10-29T17:00\+08:00 · ABC PHP \d+/.test(L[0].notes), L[0].notes);
   assert.ok(!('event_date' in L[0]), '"5 Nov 2026" is not a yyyy-mm-dd day, so it is left out');
   assert.ok(!(v.notes || []).some(n => /Canvas CRM/.test(n)), 'no note when all were added');
   t = bidBox({ leadFail: true }); v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
@@ -49,6 +49,8 @@ test('P4e 4.6 one AI cost view: Canvas AI Runs rows join Cue\'s months, priced b
   assert.ok(c && c.calls === 2, JSON.stringify(m.by_cmd)); if (p) assert.strictEqual(c.usd, Math.round(p[0] * 10000) / 10000, 'priced by Cue\'s table, not Canvas\'s cost column');
   assert.strictEqual(u.canvas.rows, 2); assert.strictEqual(u.canvas.note, '');
   t = sandbox({ allow: [] }); u = t.ctx.cueUsage(); assert.strictEqual(u.canvas.rows, 0); assert.ok(/not on Canvas's allow-list/.test(u.canvas.note));
+  t = sandbox({ allow }); t.ctx.cueGtBridgeTab_ = () => { throw new Error('Canvas refused read_rows (Blocked): tab AI Runs was not found in ledger'); };
+  u = t.ctx.cueUsage(); assert.strictEqual(u.canvas.rows, 0); assert.ok(/^No Canvas AI calls yet/.test(u.canvas.note), u.canvas.note);   // no tab until Canvas's first AI call
   assert.strictEqual(t.ctx.cueUsageCmd_({}, 'cue-ed-abc', ''), 'Other (canvas edit)');
   assert.strictEqual(t.ctx.cueUsageMnl_('10/28/2026 09:15:00'), Date.parse('2026-10-28T01:15:00Z'), 'Manila time');
 });

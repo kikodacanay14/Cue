@@ -118,3 +118,37 @@ test('S13 an older batch never approved is closed when the next one is built; Ap
   assert.strictEqual(t.state(old).status, 'Closed'); assert.throws(() => t.ctx.cueApprove(old, { send: true }), /closed/);
   assert.strictEqual(batchOf(t).batch.items.length, 3, 'its lines come back today');
 });
+
+// Moved from 06-pipeline-review.js (HUBSPOT-REMOVAL-2026-11-01): the thread ✓ and "Close older runs", on runs that are not pipeline reviews.
+const addRun = (C, k, kind, st, day, extra) => C.cueLocked_(() => { const sh = C.cueSheet_('Requests'); sh.appendRow([k]);
+  C.cueSave_(sh, sh.getLastRow(), Object.assign({ id: k, kind, ref: '', status: st, stage: st, created: day + 'T01:00:00.000Z', text: 'x', files: [], notes: [], metrics: {} }, extra || {})); });
+test('C39 the ✓ in every thread (Kiko 24 Oct): closes every open run in the thread, older ones too; a running run is left alone; nothing written', () => {
+  const t = sandbox(), C = t.ctx, id = 'cue-20261021110400-root';
+  addRun(C, id, 'bids', 'Needs you', '2026-10-21');
+  addRun(C, 'cue-20261021110500-aaaa', 'bids', 'Failed', '2026-10-21', { ref: id }); addRun(C, 'cue-20261021110600-bbbb', 'bids', 'Working', '2026-10-21', { ref: id });
+  assert.throws(() => C.cueCloseThread('cue-made-up-0000'), /No such task/);
+  deq(C.cueCloseThread('cue-20261021110500-aaaa'), { closed: 2, running: 1 }, 'any run of the thread finds its root');
+  deq([id, 'cue-20261021110500-aaaa', 'cue-20261021110600-bbbb'].map(k => C.cueLoad_(k).s.status), ['Closed', 'Closed', 'Working']);
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Closed 2 runs\. Nothing was written or sent\. 1 still running/.test(x[2])));
+  deq(C.cueCloseThread(id), { closed: 0, running: 1 }); assert.ok(!t.log.sent && !t.log.replies, 'nothing sent');
+  const html = cuePage();
+  assert.ok(/data-act="close-thread" data-id="' \+ esc\(it\.id\)/.test(html) && /return !CLOSED\[r\.status\]/.test(html), 'the header ✓ shows while any run is open');
+  assert.ok(/act === 'close-thread'[\s\S]{0,900}cueCancelIntake/.test(html), 'an intake saved in Canvas still asks to cancel and remove');
+});
+test('C40 "Close older runs" closes only scheduled jobs from before today, plus any run of a removed kind; one main-chat line', () => {
+  const t = sandbox(), C = t.ctx;
+  addRun(C, 'cue-20261020090000-b1d0', 'bids', 'Needs you', '2026-10-20'); addRun(C, 'cue-20261020090100-9700', 'gtask', 'Failed', '2026-10-20');
+  addRun(C, 'cue-20261020090200-1a7e', 'intake', 'Needs you', '2026-10-20'); addRun(C, 'cue-20261021090300-70da', 'bids', 'Needs you', '2026-10-21');
+  addRun(C, 'cue-20261021090400-0ld1', 'hubspot', 'Needs you', '2026-10-21'); addRun(C, 'cue-20261021090500-0ld2', 'pipeline', 'Needs you', '2026-10-21');
+  const before = t.tabs.Chat.rows.length;
+  deq(C.cueCloseOlder(), { closed: 4 });
+  deq(['cue-20261020090000-b1d0', 'cue-20261020090100-9700', 'cue-20261020090200-1a7e', 'cue-20261021090300-70da', 'cue-20261021090400-0ld1', 'cue-20261021090500-0ld2'].map(k => C.cueLoad_(k).s.status),
+    ['Closed', 'Closed', 'Needs you', 'Needs you', 'Closed', 'Closed'], 'Kiko\'s intake and today\'s runs stay; removed kinds close');
+  const said = t.tabs.Chat.rows.slice(before).filter(x => /older run/.test(x[2]));
+  assert.strictEqual(said.length, 1, 'one line for the tap'); assert.strictEqual(said[0][2], 'Closed 4 older runs. Nothing was written or sent.'); assert.strictEqual(String(said[0][3] || ''), '', 'in the main chat, not a thread');
+  const html = cuePage();
+  assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
+  const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);
+  assert.ok(html.indexOf('var OLDK = { ' + kinds.map(k => k + ': 1').join(', ') + ' }') > 0, 'the page and the server close the same kinds');
+  assert.ok(/'Fix contact in Canvas'/.test(html), 'a contact finding opens Canvas to fix it, no delete');
+});

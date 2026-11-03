@@ -16,7 +16,7 @@
   function supplierCardHtml(r, reopen) {
     var x = r.supplier, rec = x.record, cv = x.canvas || {}, waiting = r.status === 'Needs you', lock = !waiting, L = x.lists || {}, H = x.history || {};
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-scard="' + esc(r.id) + '"><div class="label" style="margin-top:0">Supplier registration</div>'
-      + '<b style="font-size:17px;color:#fff">' + esc(rec.Supplier || 'New supplier') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
+      + '<b style="font-size:17px;color:var(--white)">' + esc(rec.Supplier || 'New supplier') + '</b> <span class="muted small">' + esc(r.status) + '</span>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '');
     if (cv.supplier_id) {
       var v = cv.verify || {}, a = cv.accreditation || {}, m = x.email || {};
@@ -87,7 +87,7 @@
   // Change request card: one requote per supplier, each a reply in its original thread. Untick to leave a supplier out.
   function changeCardHtml(r) {
     var c = r.change, again = r.status === 'Done, drafts incomplete', waiting = r.status === 'Needs you', m = c.match;
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Change request</div><b style="font-size:17px;color:#fff">' + esc(c.project || 'Existing project') + '</b>'
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Change request</div><b style="font-size:17px;color:var(--white)">' + esc(c.project || 'Existing project') + '</b>'
       + (m ? '<div class="small muted">Canvas match: ' + esc(m.name) + (m.date ? ' · ' + esc(m.date) : '') + (m.status ? ' · ' + esc(m.status) : '') + ' (' + esc(m.why) + ')'
         + ((c.others || []).length ? '. Also close: ' + c.others.map(esc).join(', ') : '') + '</div>' : '<div class="small muted">Canvas found no matching project.</div>')
       + '<div class="small" style="margin-top:6px">' + esc(c.what_changed) + '</div>'
@@ -127,7 +127,7 @@
   function expenseCardHtml(r, reopen) {
     var x = r.expense || {}, p = x.plan, rd = x.read || {}, cv = x.canvas || r.canvas || {}, waiting = r.status === 'Needs you', pj = x.project;
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-xcard="' + esc(r.id) + '"><div class="label" style="margin-top:0">Expense</div>'
-      + '<b style="font-size:17px;color:#fff">' + peso((p && p.amount) || rd.amount) + ' · ' + esc((p && p.item) || rd.item || 'Expense') + '</b>'
+      + '<b style="font-size:17px;color:var(--white)">' + peso((p && p.amount) || rd.amount) + ' · ' + esc((p && p.item) || rd.item || 'Expense') + '</b>'
       + '<div class="small muted">' + (pj ? 'Canvas project: ' + esc(pj.name) + (pj.number ? ' (' + esc(pj.number) + ')' : '') + (x.guessed ? ' <span class="tag flag">best guess</span>' : '') : 'Project not found in Canvas')
       + ((x.candidates || []).length > 1 ? '. Also close: ' + x.candidates.slice(1).map(function (c) { return esc(c.name); }).join(', ') : '') + '</div>'
       + '<div class="small" style="margin-top:4px">Read: ' + esc([rd.supplier && 'from ' + rd.supplier, rd.payee && rd.payee !== rd.supplier && 'paid to ' + rd.payee, rd.date, rd.ref && rd.ref + ' (' + (rd.ref_type || '').replace('_', ' ') + ')'].filter(Boolean).join(' · ') || 'nothing clear') + '</div>'
@@ -201,9 +201,9 @@
   function cecCardHtml(r) {
     var c = r.cec || {}, waiting = r.status === 'Needs you' && (c.rows || []).length, done = !!c.result, pj = c.project || {}, em = c.email;
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-ccard="' + esc(r.id) + '"><div class="label" style="margin-top:0">CE costs</div>'
-      + '<b style="font-size:17px;color:#fff">' + esc(pj.name || c.ask || 'CE costs') + '</b>' + (c.ce_no ? ' <span class="small muted">' + esc(c.ce_no) + '</span>' : '')
+      + '<b style="font-size:17px;color:var(--white)">' + esc(pj.name || c.ask || 'CE costs') + '</b>' + (c.ce_no ? ' <span class="small muted">' + esc(c.ce_no) + '</span>' : '')
       + ((c.others || []).length && !done ? '<div class="small muted">Canvas also found: ' + c.others.map(function (o) { return esc(o.name); }).join(', ') + '. Not this project? Close this and say the right one.</div>' : '')
-      + (em ? '<div class="small" style="margin-top:4px">From ' + esc(em.from) + ' · ' + (em.url ? '<a href="' + esc(em.url) + '" target="_blank" rel="noopener">' + esc(em.subject) + '</a>' : esc(em.subject)) + ' · ' + esc(em.date)
+      + (em ? '<div class="small" style="margin-top:4px">From ' + esc(em.from) + ' · <a href="' + esc(em.url) + '" target="_blank" rel="noopener">' + esc(em.subject) + '</a> · ' + esc(em.date)
         + ((em.files || []).length ? ' · 📎 ' + em.files.map(esc).join(', ') : '') + '</div>' : '');
     if (r.error) h += '<div class="' + (waiting ? 'err' : 'warn') + '">' + esc(r.error) + '</div>';
     var rows = c.rows || [], shown = waiting ? rows : rows.filter(function (x) { return x.tick; });
@@ -271,7 +271,7 @@
   // Readiness check (Kiko 07:32Z, specs/project-readiness.md). The numbers are Canvas's own; Claude's lines are marked as Claude's.
   function readyCardHtml(r) {
     var R = r.ready || {}, C = R.canvas, P = R.project || {}, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete';
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Readiness check</div><b style="font-size:17px;color:#fff">' + esc(P.name || R.ask || 'Project') + '</b>';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Readiness check</div><b style="font-size:17px;color:var(--white)">' + esc(P.name || R.ask || 'Project') + '</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div></div>';
     if (!C) {   // Canvas found several projects: Kiko picks one
       return h + '<div class="small muted">Canvas found more than one project for "' + esc(R.ask) + '". Which one?</div><div class="actions" style="flex-wrap:wrap">'
@@ -322,122 +322,77 @@
     return h;   // live 01:29Z: without it a finished readiness thread was blank, and the error stopped the chat from updating
   }
 
-  // Status report (Kiko 15:56Z 22 Oct, CueStatus.gs): the digest worst first, then new tasks, issues and risks from emails, then client
-  // updates. Ticked items go to Canvas only on Add to Canvas; updates go only on Approve and send (or Save to Gmail drafts).
+  // Friday status updates (Kiko 29 Oct 12:57Z, CueStatus.gs): one client email per event, built by Canvas after a fresh readiness
+  // scan. Each email has its To, a Preview (the email as the client sees it) and its own Send (one confirm) or Skip.
+  // To (Kiko 29 Oct 13:42Z "it should be like a dropdown"): the event's contacts from Canvas, main contact first, then "Someone
+  // else" for a typed address. With no contact in Canvas it is the typed box alone.
+  function stToHtml(id, m) {
+    var ppl = m.people || [], other = !ppl.some(function (p) { return p.email === m.to; });
+    if (!ppl.length) return '<input data-stto="' + esc(id) + '" data-k="' + esc(m.k) + '" value="' + esc(m.to) + '" placeholder="Client email (none in Canvas)" aria-label="To" style="width:100%;margin-top:6px">';
+    return '<label class="small muted" style="display:block;margin-top:6px">To</label><select data-stsel="' + esc(id) + '" data-k="' + esc(m.k) + '" aria-label="To" style="width:100%">'
+      + ppl.map(function (p) { return '<option value="' + esc(p.email) + '"' + (!other && p.email === m.to ? ' selected' : '') + '>' + esc((p.name ? p.name + ' · ' : '') + p.email + (p.role ? ' (' + p.role + ')' : '')) + '</option>'; }).join('')
+      + '<option value=""' + (other ? ' selected' : '') + '>Someone else…</option></select>'
+      + '<input data-stto="' + esc(id) + '" data-k="' + esc(m.k) + '" value="' + esc(other ? m.to : '') + '" placeholder="Type their email" aria-label="Other email"' + (other ? '' : ' hidden') + ' style="width:100%;margin-top:6px">';
+  }
   function stCardHtml(r) {
-    var T = r.st, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', it = T.items || [], up = T.updates || [];
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Status report</div><b style="font-size:17px;color:#fff">' + esc(T.title) + '</b>';
+    var T = r.st, waiting = r.status === 'Needs you', ms = T.mails || [];
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Friday status updates</div><b style="font-size:17px">' + esc(T.title) + '</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div></div>';
-    if (T.empty) return h + '<div class="small muted" style="margin-top:6px">' + esc(T.empty) + '</div>' + (T.cost ? '<div class="small muted">' + esc(T.cost) + '</div>' : '') + metricLine(r) + '</div>';
+    if (T.empty) return h + '<div class="small muted" style="margin-top:6px">' + esc(T.empty) + '</div>' + metricLine(r) + '</div>';
+    if (r.status === 'Working') return h + '<div class="small muted" style="margin-top:6px">' + (T.stage === 'Readiness scan' ? 'Readiness scan: ' + esc(T.scanned) + ' of ' + esc(T.events) + ' events' : esc(T.stage || 'Working')) + '…</div></div>';
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
-    if ((T.top3 || []).length) h += '<div class="small" style="margin-top:8px"><b>Needs you this week</b><ol style="margin:4px 0 0;padding-left:18px">' + T.top3.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>';
-    h += '<div class="label">Projects (' + T.projects.length + (T.more ? ', ' + esc(T.more) + ' more not shown' : '') + '), worst first</div>';
-    T.projects.forEach(function (p, i) {
-      var M = p.money, when = p.days_to_event == null ? 'no event date' : p.days_to_event < 0 ? 'event ' + esc(-p.days_to_event) + ' day(s) ago' : p.days_to_event === 0 ? 'event today' : 'event in ' + esc(p.days_to_event) + ' day(s)';
-      var body = '<div class="small muted">' + esc(p.status) + ' · ' + when + (p.date ? ' (' + esc(p.date) + ')' : '') + ' · scopes ' + esc(p.scope.done) + ' of ' + esc(p.scope.total) + ' done'
-        + ' · ' + esc(p.tri.open) + ' open task(s), issue(s) and risk(s)</div>'
-        + (p.flags.length ? '<div>' + p.flags.map(function (f) { return '<span class="tag flag">' + esc(f) + '</span>'; }).join('') + '</div>' : '')
-        + (p.line ? '<div class="small" style="margin-top:4px">' + esc(p.line) + '</div>' : '')
-        + (p.tri.overdue.length ? '<ul class="small" style="margin:4px 0 0;padding-left:18px">' + p.tri.overdue.map(function (t) { return '<li><b>' + esc(t.id) + '</b> ' + esc(t.description) + ' <span class="muted">· ' + esc(t.type) + (t.assigned_to ? ' · ' + esc(t.assigned_to) : ' · no owner') + ' · due ' + esc(t.deadline) + '</span></li>'; }).join('') + '</ul>' : '')
-        + (M ? '<div class="small muted" style="margin-top:4px">CE cost ' + (M.ce_cost == null ? 'none' : peso(M.ce_cost)) + ' · requested ' + peso(M.requested) + ' · paid ' + peso(M.paid) + ' · billed ' + peso(M.billed) + ' · collected ' + peso(M.collected) + '</div>' : '')
-        + ((p.overdue_bills || []).length ? '<div class="small muted">Past due: ' + p.overdue_bills.map(function (b) { return 'BI ' + esc(b.no) + ' ' + peso(b.balance) + ' (' + esc(b.days_late) + ' days late)'; }).join(', ') + '</div>' : '')
-        + '<div class="small muted">Main contact: ' + (p.contact ? esc(p.contact.name || p.contact.email) + ' (' + esc(p.contact.email) + ')' : 'none in Canvas') + ' · ' + esc(p.mails) + ' email(s) this week</div>';
-      h += '<details' + (i < 3 && (p.flags.length || p.line) ? ' open' : '') + ' style="margin-top:8px"><summary><b>' + esc(p.name) + '</b> <span class="small muted">' + esc(p.account) + '</span>'
-        + (p.flags.length ? ' <span class="tag flag">' + esc(p.flags.length) + '</span>' : '') + '</summary>' + body + '</details>';
+    var left = ms.filter(function (m) { return !m.sent && !m.skipped; }).length;
+    h += '<div class="small muted" style="margin-top:6px">' + esc(ms.length) + ' email' + (ms.length === 1 ? '' : 's') + (T.more ? ' (' + esc(T.more) + ' more events not shown)' : '') + ', ' + esc(left) + ' still to send. Nothing goes out before you tap Send.</div>';
+    ms.forEach(function (m) {
+      var ed = waiting && !m.sent && !m.skipped, R = m.readiness, G = m.reqs || {}, L = m.timeline;
+      var facts = [R ? 'Readiness ' + R.pct + '%' + (m.scanned ? '' : ' (not rescanned)') : 'No readiness score', G.total ? 'Requirements ' + G.done + ' of ' + G.total + ' done' : 'No requirements listed',
+        L ? 'Timeline ' + L.done + ' of ' + L.total + (L.late ? ', ' + L.late + ' behind' : '') : 'No timeline', m.risks + ' risk' + (m.risks === 1 ? '' : 's') + ', ' + m.issues + ' issue' + (m.issues === 1 ? '' : 's') + ', ' + m.tasks + ' open task' + (m.tasks === 1 ? '' : 's')];
+      h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><b>' + esc(m.name) + '</b>'
+        + (m.sent ? ' <span class="tag pref">sent</span>' : m.skipped ? ' <span class="tag new">skipped</span>' : '')
+        + '<div class="small muted">' + facts.map(esc).join(' · ') + '</div>'
+        + (ed ? stToHtml(r.id, m)
+          : '<div class="small" style="margin-top:4px">To: ' + esc(m.to || 'nobody') + '</div>')
+        + '<div class="small muted" style="margin-top:4px">' + esc(m.subject) + '</div>'
+        + '<div data-stpv="' + esc(r.id) + '" data-k="' + esc(m.k) + '"></div>'
+        + (m.error ? '<div class="err">' + esc(m.error) + '</div>' : '')
+        + '<div class="actions"><button class="btn ghost" data-act="st-preview" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Preview</button>'
+        + (ed ? '<button class="btn" data-act="st-send" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Send</button><button class="btn ghost" data-act="st-skip" data-id="' + esc(r.id) + '" data-k="' + esc(m.k) + '">Skip</button>' : '')
+        + '</div></div>';
     });
-    if (T.cost) h += '<div class="small muted" style="margin-top:8px">' + esc(T.cost) + '</div>';
-    if (it.length) {
-      var editIt = waiting;
-      h += '<div class="label">New from emails: tasks, issues and risks' + (editIt ? '. Tick the ones to add to Canvas' : '') + '</div>';
-      it.forEach(function (x) {
-        var fixed = x.saved_id || x.dismissed || !editIt;
-        h += '<div class="card" style="margin:8px 0 0;background:var(--input)" data-stit="' + esc(r.id) + '" data-key="' + esc(x.key) + '"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (fixed ? '<span>' + (x.saved_id ? '✓' : '•') + '</span>' : '<input type="checkbox" data-sttick="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (x.selected ? ' checked' : '') + '>')
-          + '<span><b>' + esc(x.project) + '</b>' + (x.saved_id ? ' <span class="tag pref">' + (x.existed ? 'already in Canvas' : 'added') + ' ' + esc(x.saved_id) + '</span>' : x.dismissed ? ' <span class="tag new">not added</span>' : '')
-          + (x.from ? '<br><span class="small muted">From: ' + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.from) + '</a>' : esc(x.from)) + '</span>' : '') + '</span></label>'
-          + (fixed ? '<div class="small" style="margin-top:4px">' + esc(x.type) + ': ' + esc(x.description) + (x.assigned_to ? ' · ' + esc(x.assigned_to) : '') + (x.deadline ? ' · due ' + esc(x.deadline) : '') + '</div>'
-            : '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><select data-f="type" aria-label="Type">' + ['Task', 'Issue', 'Risk'].map(function (o) { return '<option' + (o === x.type ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>'
-              + '<input data-f="assigned_to" value="' + esc(x.assigned_to) + '" placeholder="Assigned to" aria-label="Assigned to"><input type="date" data-f="deadline" value="' + esc(x.deadline) + '" aria-label="Deadline"></div>'
-              + '<input data-f="description" value="' + esc(x.description) + '" aria-label="Description" style="width:100%;margin-top:6px">')
-          + (x.error ? '<div class="err">' + esc(x.error) + '</div>' : '') + '</div>';
-      });
-    }
-    if (up.length) {
-      var drafting = waiting && up.some(function (u) { return !u.made && !u.dropped; });
-      h += '<div class="label">Client updates' + (drafting ? '. Edit before sending. Nothing has gone out yet' : '') + '</div>'
-        + (T.drafts_only && drafting ? '<div class="small muted">First two Monday reports: drafts only. Approve and send comes after that.</div>' : '');
-      up.forEach(function (u) {
-        var ed = drafting && !u.made && !u.dropped;
-        h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (ed ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(u.k) + '"' + (u.selected ? ' checked' : '') + '>' : '<span>' + (u.made ? '✓' : '•') + '</span>')
-          + '<span><b>' + esc(u.project) + '</b> <span class="small muted">' + esc(u.to_name ? u.to_name + ' · ' : '') + esc(u.to) + '</span>' + (u.sent ? ' <span class="tag pref">sent</span>' : u.made ? ' <span class="tag new">in Drafts</span>' : u.dropped ? ' <span class="tag new">not sent</span>' : '') + '</span></label>'
-          + (ed ? '<input data-stto="' + esc(r.id) + '" data-k="' + esc(u.k) + '" value="' + esc(u.to) + '" aria-label="To" style="width:100%;margin-top:6px">'
-            + '<input data-stsubj="' + esc(r.id) + '" data-k="' + esc(u.k) + '" value="' + esc(u.subject) + '" aria-label="Subject" style="width:100%;margin-top:6px">'
-            + '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(u.k) + '" aria-label="Update to ' + esc(u.to) + '">' + esc(u.body) + '</textarea>'
-            : '<div class="small muted" style="margin-top:6px">' + esc(u.subject) + '</div><pre style="margin-top:8px">' + esc(u.body) + '</pre>')
-          + ((u.removed || []).length ? '<div class="small muted">Cue took out ' + u.removed.length + ' line(s) that looked internal: ' + u.removed.map(esc).join(' / ') + '</div>' : '')
-          + (u.error ? '<div class="err">' + esc(u.error) + '</div>' : '') + '</div>';
-      });
-    }
-    if ((T.skipped || []).length) h += '<div class="small muted" style="margin-top:6px">No update drafted (no main contact in Canvas): ' + T.skipped.map(esc).join(', ') + '</div>';
-    var tri = waiting && it.some(function (x) { return !x.saved_id && !x.dismissed; }), mail = waiting && up.some(function (u) { return !u.made && !u.dropped; });
-    h += '<div class="actions">'
-      + (tri ? '<button class="btn" data-act="st-tri" data-id="' + esc(r.id) + '">Add ticked to Canvas</button>' : '')
-      + (mail && !T.drafts_only ? '<button class="btn" data-act="send-st" data-id="' + esc(r.id) + '">Approve and send</button>' : '')
-      + (mail ? '<button class="btn' + (T.drafts_only ? '' : ' ghost') + '" data-act="approve-st" data-id="' + esc(r.id) + '">Save to Gmail drafts</button>' : '')
-      + (again ? '<button class="btn" data-act="approve-st" data-id="' + esc(r.id) + '">' + (T.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
-      + (waiting ? '<button class="btn ghost" data-act="st-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
-      + (waiting ? '<div class="small muted" style="margin-top:6px">Nothing is sent or written in Canvas until you tap. Added items show in Canvas on the project\'s Tasks, Issues and Risks.</div>' : '')
-      + metricLine(r) + '</div>';
+    h += '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="st-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
+      + (waiting ? '<div class="small muted" style="margin-top:6px">Done skips the emails not sent yet.</div>' : '') + metricLine(r) + '</div>';
     return h;
   }
 
-  // Pipeline review (command C11, Kiko 07:34Z): open deals grouped by what they need, each with why and the next step. Read only.
-  function pipeCardHtml(r) {
-    var P = r.pipe, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', dr = P.drafts || [], drafting = waiting && dr.length, k = P.counts || {};
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Pipeline review</div><b style="font-size:17px;color:#fff">' + esc(P.title) + '</b>'
-      + (P.summary ? '<div style="margin-top:6px">' + esc(P.summary) + '</div>' : '')
-      + (P.counts ? '<div class="small muted" style="margin-top:6px">' + esc(P.deals.length) + ' checked of ' + esc(P.open) + ' open: ' + esc(k.act) + ' act today · ' + esc(k.chase) + ' chase · ' + esc(k.data) + ' fix · ' + esc(k.ok) + ' on track</div>' : '');
+  // CUE-FUNNEL (Kiko 24 Oct 13:56Z, spec sales-funnel-tasks.md): the sales funnel, read only.
+  // HUBSPOT-REMOVAL-2026-11-01 (Kiko 1 Nov 2026: "Delete the Hubspot code"): Canvas only; the task list and its close button are gone.
+  function funnelCardHtml(r) {
+    var F = r.fn, waiting = r.status === 'Needs you', w = F.wait || {}, max = 1;
+    F.stages.forEach(function (x) { if (x.n > max) max = x.n; });
+    var COL = { open: 'var(--act)', won: 'var(--ok)', lost: 'var(--line2)' };
+    // CRM-UPDATES-2026-10-29 (Kiko 29 Oct 16:13Z "it has to be able to give updates not a dashboard. you cant fit a dashboard in a chat
+    // window"): a run with update lines shows them as plain sentences and a link to Accounts in Canvas, where the dashboard lives.
+    var L = F.lines || null;
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" id="fn-' + esc(r.id) + '"><div class="label" style="margin-top:0">' + (L ? 'Sales update · from Canvas Accounts' : 'Sales funnel · from Canvas') + '</div>'
+      + (L ? '<b style="font-size:16px;color:var(--white)">' + esc(L[0]) + '</b>'
+        : '<b style="font-size:20px;color:var(--white)">' + esc((w.n || 0) + ' deal(s) waiting for award') + '</b>'
+      + '<div class="small muted">Canvas\'s Sales funnel (Accounts › Deals)' + (F.read ? ', read at ' + esc(F.read) : '') + '. Amounts and the deals stay in Canvas.</div>');
     (r.notes || []).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
-    var row = function (d) {
-      var tick = waiting && !dr.length && d.can_draft ? '<input type="checkbox" data-pk="' + esc(r.id) + '" value="' + esc(d.k) + '">' : '<span class="muted">•</span>';
-      var m = d.mail, when = d.days == null ? 'no event date' : d.days < 0 ? 'event ' + esc(-d.days) + ' day(s) ago' : d.days === 0 ? 'event today' : 'event in ' + esc(d.days) + ' day(s)';
-      return '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">' + tick + '<span>'
-        + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener"><b>' + esc(d.name) + '</b></a>' : '<b>' + esc(d.name) + '</b>')
-        + '<br><span class="small muted">' + esc(d.stage) + (d.amount ? ' · ' + peso(d.amount) : '') + ' · ' + when + (d.event ? ' (' + esc(d.event) + ')' : '') + '</span><br>'
-        + d.flags.map(function (f) { return '<span class="tag flag">' + esc(f) + '</span>'; }).join('')
-        + (d.status ? '<div class="small" style="margin-top:4px">' + esc(d.status) + '</div>' : '')
-        + (d.next ? '<div class="small" style="margin-top:2px"><b>Next:</b> ' + esc(d.next) + '</div>' : '')
-        + (m ? '<div class="small muted" style="margin-top:4px">Last email ' + esc(m.date) + ', ' + (m.dir === 'in' ? 'from them' : m.dir === 'out' ? 'from you' : 'internal') + ': '
-          + (m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener">' + esc(m.subject || '(no subject)') + '</a>' : esc(m.subject)) + '</div>' : '<div class="small muted" style="margin-top:4px">No email found in your Gmail.</div>')
-        + '</span></label></div>';
-    };
-    if (!drafting && !again && !(r.status === 'Done' && dr.length)) [['act', 'Act today'], ['chase', 'Chase'], ['data', 'Fix the data (in Canvas)']].forEach(function (g) {
-      var l = P.deals.filter(function (d) { return d.group === g[0]; }); if (!l.length) return;
-      h += '<div class="label">' + g[1] + ' (' + l.length + ')</div>' + l.map(row).join('');
-    });
-    var ok = P.deals.filter(function (d) { return d.group === 'ok'; });
-    if (ok.length && !drafting) h += '<details style="margin-top:10px"><summary class="small">On track (' + ok.length + ')</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
-      + ok.map(function (d) { return '<li>' + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.name) + '</a>' : esc(d.name)) + ' <span class="muted">' + esc(d.stage) + '</span></li>'; }).join('') + '</ul></details>';
-    if (dr.length) {
-      h += '<div class="label">Follow-ups' + (drafting ? '. Edit before sending. Nothing has gone out yet' : '') + '</div>' + (P.note ? '<div class="small muted">' + esc(P.note) + '</div>' : '');
-      dr.forEach(function (d) {
-        h += '<div class="card" style="margin:10px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (drafting ? '<input type="checkbox" data-ck="' + esc(r.id) + '" value="' + esc(d.k) + '"' + (d.selected ? ' checked' : '') + '>' : '<span>' + (d.made ? '✓' : '•') + '</span>')
-          + '<span><b>' + esc(d.deal) + '</b> <span class="small muted">' + esc(d.to) + '</span>' + (d.sent ? ' <span class="tag pref">sent</span>' : d.made ? ' <span class="tag new">in Drafts</span>' : '')
-          + '<br><span class="small muted">Re: ' + esc(d.subject) + '</span></span></label>'
-          + (drafting ? '<textarea class="mail" data-body="' + esc(r.id) + '" data-k="' + esc(d.k) + '" aria-label="Email for ' + esc(d.deal) + '">' + esc(d.body) + '</textarea>' : '<pre style="margin-top:8px">' + esc(d.body) + '</pre>')
-          + (d.error ? '<div class="err">' + esc(d.error) + '</div>' : '') + '</div>';
-      });
+    if (L) {
+      h += (L.length > 1 ? '<ul style="margin:8px 0 0;padding-left:18px">' + L.slice(1).map(function (x) { return '<li style="margin:4px 0">' + esc(x) + '</li>'; }).join('') + '</ul>' : '')
+        + '<div class="small muted" style="margin-top:6px">Read at ' + esc(F.read || '') + '. The numbers and lists are on Canvas\'s Accounts dashboard.</div>'
+        + (F.accounts_url ? '<div class="actions"><a class="btn" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(F.accounts_url) + '" target="_blank" rel="noopener">Open Accounts in Canvas</a></div>' : '');
+    } else {
+      // Empty open stages fold into one grey line instead of empty bars.
+      var empty = F.stages.filter(function (x) { return !x.n && x.kind === 'open'; });
+      h += '<div style="margin-top:10px">' + F.stages.filter(function (x) { return x.n; }).map(function (x) {
+        return '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px"><span style="flex:0 0 38%">' + esc(x.label) + '</span>'
+          + '<span style="flex:1;display:flex;align-items:center;gap:6px"><span style="height:16px;border-radius:4px;background:' + (x.id === w.id ? 'var(--need)' : COL[x.kind]) + ';width:' + Math.max(3, Math.round(55 * x.n / max)) + '%"></span>'
+          + '<span>' + esc(x.n) + (x.stuck ? ' · ' + esc(x.stuck) + ' stuck' : '') + '</span></span></div>';
+      }).join('') + (empty.length ? '<div class="small muted">None right now: ' + esc(empty.map(function (x) { return x.label; }).join(', ')) + '</div>' : '') + '</div>';
     }
-    var can = P.deals.some(function (d) { return d.can_draft; });
-    h += '<div class="actions">'
-      + (waiting && !dr.length && can ? '<button class="btn" data-act="pipe-draft" data-id="' + esc(r.id) + '">Draft follow-ups for ticked</button>' : '')
-      + (drafting ? '<button class="btn" data-act="send-pipe" data-id="' + esc(r.id) + '">Approve and send</button><button class="btn ghost" data-act="approve-pipe" data-id="' + esc(r.id) + '">Drafts only</button>' : '')
-      + (again ? '<button class="btn" data-act="approve-pipe" data-id="' + esc(r.id) + '">' + (r.pipe.send ? 'Retry the ones not sent' : 'Make the missing drafts') + '</button>' : '')
-      + (waiting ? '<button class="btn ghost" data-act="pipe-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
-      + (waiting && !dr.length ? '<div class="small muted" style="margin-top:6px">Read only: HubSpot and Canvas are not changed. Tick deals with an email thread, then Draft follow-ups. Nothing is sent until you approve.</div>' : '')
-      + metricLine(r) + '</div>';
+    h += '<div class="actions">' + (waiting ? '<button class="btn ghost" data-act="fn-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>'
+      + '<div class="small muted" style="margin-top:6px">No AI. Deal stages and amounts are never changed here: Canvas owns them.</div>' + metricLine(r) + '</div>';
     return h;
   }
 
@@ -451,7 +406,7 @@
     var a = r.ar, waiting = r.status === 'Needs you', KIND = { Supplier: 'supplier', Talent: 'talent', Resource: 'crew' };
     var row = function (x, box, note) {
       return '<label style="display:flex;gap:8px;align-items:flex-start;padding:3px 0' + (x.off ? ';opacity:.5' : '') + '">' + (box || '<span>•</span>')
-        + '<span><b>' + esc(x.name) + '</b> <span class="tag" style="border:1px solid #34373f">' + esc(KIND[x.kind] || x.kind) + '</span> <span class="small muted">' + esc(x.role)
+        + '<span><b>' + esc(x.name) + '</b> <span class="tag" style="border:1px solid var(--line)">' + esc(KIND[x.kind] || x.kind) + '</span> <span class="small muted">' + esc(x.role)
         + (x.amount ? ' · ' + peso(x.amount) : '') + (x.paid_on ? ' · paid ' + esc(x.paid_on) : '') + '</span>'
         + (x.doc ? '<br><span class="small">' + (x.doc.url ? '<a href="' + esc(x.doc.url) + '" target="_blank" rel="noopener">' + esc(x.doc.id || a.doc_one) + '</a>' : esc(x.doc.id))
           + ' · ' + esc(x.doc.status) + (x.doc.sent ? ' · ' + esc(x.doc.sent) : '') + '</span>' : '')
@@ -466,7 +421,7 @@
         + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;' + (rows.length > 40 ? 'max-height:560px;overflow:auto;' : '') + 'border:1px solid var(--line);border-radius:10px;padding:4px 10px">' + rows.join('') + '</div>';
     };
     var ck = function (x, attr, on, off) { on = arOn(attr, r.id, x, on); return '<input type="checkbox" ' + attr + '="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (on && !off ? ' checked' : '') + (off ? ' disabled' : '') + '>'; };
-    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(a.doc === 'fsa' ? 'Freelancer service agreements' : 'Acknowledgement receipts') + '</div><b style="font-size:17px;color:#fff">' + esc(a.project) + '</b>'
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(a.doc === 'fsa' ? 'Freelancer service agreements' : 'Acknowledgement receipts') + '</div><b style="font-size:17px;color:var(--white)">' + esc(a.project) + '</b>'
       + (a.project_id && a.project_id !== a.project ? ' <span class="small muted">' + esc(a.project_id) + '</span>' : '')
       + ((a.others || []).length ? '<div class="small muted">Canvas also found: ' + a.others.map(esc).join(', ') + '. Not this project? Close this and send its id (S-...).</div>' : '');
     if (waiting && (r.stage === 'Ready to send' || r.stage === 'Send later')) {
@@ -480,7 +435,7 @@
       h += '<div style="margin-top:8px;font-size:15px"><b>' + esc(String(p.made)) + ' ' + (p.made === 1 ? 'file' : 'files') + ' done.</b> Do you want me to send these files?</div>'
         + '<div class="label">Send to</div>' + list('data-asd', can.map(function (x) { return row(x, ck(x, 'data-asd', true)); }), can.filter(function (x) { return arOn('data-asd', r.id, x, true); }).length)
         + (cant.length ? '<div class="label">Made, not emailed</div>' + cant.map(function (x) { return row(x, '<span>–</span>', x.send_why || 'Held until paid. Canvas sends it with the Payment received email.'); }).join('') : '');
-      h += '<div class="label">The email</div><div style="border:1px solid #34373f;border-radius:10px;padding:10px 12px;background:#14161b">'
+      h += '<div class="label">The email</div><div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel)">'
         + '<div class="small muted">From AccountsPayables@ · Subject</div><div style="margin-bottom:8px"><b>' + esc(d.subject) + '</b></div>'
         + '<div>Hi ' + esc(first) + '.</div>'
         + (arEdit[r.id] ? '<textarea data-say="ar-intro-' + esc(r.id) + '" rows="5" style="width:100%;margin-top:6px">' + esc(text) + '</textarea><div class="small muted">Each person gets their own name and their own sign link.</div>'
@@ -517,7 +472,7 @@
     if (!f) return '<div class="card need"><b>Money question stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">Nothing was changed. Ask again in this thread when Canvas is back.</div></div>';
     var T = f.tables || {}, t = T.totals || {}, st = f.settings || {}, h = '<div class="card"><div class="label" style="margin-top:0">CFO Advisor · read only</div>'
-      + '<b style="font-size:17px;color:#fff">' + esc(f.title) + '</b>';
+      + '<b style="font-size:17px;color:var(--white)">' + esc(f.title) + '</b>';
     h += f.answer ? '<div style="margin-top:8px">' + esc(f.answer) + '</div>' : '<div class="warn">' + esc(/^failed/.test(f.checked) ? 'Claude\'s explanation used numbers that are not in Canvas (' + f.checked.replace(/^failed: /, '') + '), so it is left out. The tables below are exact.' : 'No explanation this time (' + f.checked + '). The tables below are exact.') + '</div>';
     if ((f.points || []).length) h += '<ul class="small" style="margin:8px 0 0;padding-left:18px">' + f.points.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
     if ((f.flags || []).length) h += '<div class="warn">' + f.flags.map(esc).join('<br>') + '</div>';
@@ -546,118 +501,146 @@
     h += '<div class="actions">' + (f.sheet_url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.sheet_url) + '" target="_blank" rel="noopener">Open the sheet</a>' : '<button class="btn ghost" data-act="fin-sheet" data-id="' + esc(r.id) + '">Save as Sheet</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
-  // Command C12 (Kiko 07:50Z): one card, grouped findings, a tick per fix. Nothing changes until Approve.
-  function hsCardHtml(r) {
-    var H = r.hs, waiting = r.status === 'Needs you', sc = H.scanned || {}, n = 0;
-    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">HubSpot clean-up</div><b style="font-size:17px;color:#fff">' + esc(H.title) + '</b>'
-      + '<div class="small muted">Checked ' + esc(sc.companies || 0) + ' companies, ' + esc(sc.contacts || 0) + ' contacts and ' + esc(sc.deals || 0) + ' deals.' + (H.fixed ? ' ' + esc(H.fixed) + ' fixed so far.' : '') + '</div>'
-      + (H.summary ? '<div class="small" style="margin-top:6px">' + esc(H.summary) + '</div>' : '');
-    (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
-    if (!H.groups.length) h += '<div class="small" style="margin-top:8px">Nothing to fix.</div>';
-    H.groups.forEach(function (g) {
-      h += '<details' + (g.id !== 'flag' ? ' open' : '') + ' style="margin-top:10px"><summary class="label" style="display:inline">' + esc(g.label) + ' (' + g.items.length + ')</summary>';
-      g.items.forEach(function (x) {
-        var done = x.result && x.result.ok, can = waiting && x.can_fix && !done;
-        if (x.can_fix && !done) n++;
-        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (can ? '<input type="checkbox" data-hck="' + esc(r.id) + '" value="' + esc(x.key) + '"' + (x.tick ? ' checked' : '') + '>' : '<span>' + (done ? '✓' : x.can_fix ? '•' : '–') + '</span>')
-          + '<span><b>' + esc(x.title) + '</b>' + (x.permanent ? ' <span class="tag flag">cannot be undone</span>' : '') + (x.unsure ? ' <span class="tag new">unsure</span>' : '')
-          + '<br><span class="small muted">' + esc(x.why) + '</span>' + (x.claude ? '<br><span class="small">' + esc(x.claude) + '</span>' : '')
-          + (x.fix_text ? '<br><span class="small">Fix: ' + esc(x.fix_text) + '</span>' : '') + '</span></label>';
-        h += '<ul class="small" style="margin:6px 0 0;padding-left:18px">' + x.recs.map(function (q) {
-          return '<li>' + (can && x.keep ? '<label><input type="radio" style="width:auto" name="keep-' + esc(r.id) + '-' + esc(x.key) + '" data-hkeep="' + esc(r.id) + '" data-k="' + esc(x.key) + '" value="' + esc(q.id) + '"' + (q.id === x.keep ? ' checked' : '') + '> keep </label>' : '')
-            + (q.url ? '<a href="' + esc(q.url) + '" target="_blank" rel="noopener">' + esc(q.name) + '</a>' : esc(q.name)) + ' <span class="muted">' + esc(q.type) + (q.sub ? ' · ' + esc(q.sub) : '') + '</span>'
-            + (q.canvas ? ' <span class="tag pref">Canvas</span>' : '') + '</li>'; }).join('') + '</ul>';
-        if (can && x.edit) h += '<input class="wide" style="margin-top:6px" data-hval="' + esc(r.id) + '" data-k="' + esc(x.key) + '" data-edit="' + esc(x.edit) + '" value="' + esc(x.value) + '" placeholder="' + (x.edit === 'domain' ? 'example.com' : 'First and last name') + '">';
-        if (x.source) h += '<div class="small muted">Seen at: ' + (/^https:\/\//.test(x.source) ? '<a href="' + esc(x.source) + '" target="_blank" rel="noopener">' + esc(x.source) + '</a>' : esc(x.source)) + '</div>';
-        if (x.result) h += x.result.ok ? '<div class="small" style="margin-top:4px">✓ Fixed' + (x.result.note ? '. ' + esc(x.result.note) : '') + '</div>' : '<div class="err">' + esc(x.result.error) + '</div>';
-        h += '</div>';
-      });
-      h += '</details>';
-    });
-    if (waiting) h += '<div class="small muted" style="margin-top:8px">Tick what to fix. Canvas applies only the ticked ones (up to 50 record changes at a time) and reads each one back. Archived records can be restored in HubSpot for 90 days; merges cannot be undone.</div>'
-      + '<div class="actions">' + (n ? '<button class="btn" data-act="hs-approve" data-id="' + esc(r.id) + '">Approve ticked fixes</button>' : '')
-      + (H.lookups && !H.looked ? '<button class="btn ghost" data-act="hs-lookup" data-id="' + esc(r.id) + '">Look up ' + esc(H.lookups) + ' missing website' + (H.lookups === 1 ? '' : 's') + '</button>' : '')
-      + '<button class="btn ghost" data-act="hs-close" data-id="' + esc(r.id) + '">Done for now</button></div>';
-    return h + metricLine(r) + '</div>';
-  }
-  // Find and Screen Bid Opportunities (Kiko 19:04Z-19:10Z, specs/bid-opportunities.md). Only new notices; no Pursue button (Kiko asks for intake in chat).
+  // Find and Screen Bid Opportunities (Kiko 19:04Z-19:10Z, specs/bid-opportunities.md). 1.27.10 (Kiko 24 Oct, specs/bid-card-v2.md): New and Still open,
+  // the 7 fields Kiko named, each document's real state (Cue opened it or says why not), and Request more details / Start intake on each notice.
   function bidsCardHtml(r) {
-    var B = r.bids || { checks: [], items: [], updated: [], sources: [] }, waiting = r.status === 'Needs you', passed = B.checks.filter(function (c) { return c.ok; }).length;
+    var B = r.bids || { checks: [], items: [], still: [], updated: [], sources: [] }, waiting = r.status === 'Needs you', passed = B.checks.filter(function (c) { return c.ok; }).length;
+    var still = B.still || [], updated = B.updated || [];
     if (r.status === 'Failed') return '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b>Bid check stopped</b>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="small muted">Nothing was registered, sent or submitted.</div>'
-      + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div>' + metricLine(r) + '</div>';
-    var peso = function (n) { return n ? '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 2 }) : 'ABC not stated'; };
+      + '<div class="actions"><button class="btn sm" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div>' + metricLine(r) + '</div>';
+    if (r.status === 'Working') return '<div class="card" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b>' + esc(B.title) + '</b><div class="small muted">' + esc(r.stage === 'Reading' ? 'Opening and reading the bid documents' + (B.reading && B.reading.total ? ' (' + B.reading.done + ' of ' + B.reading.total + ' tried)' : '') : r.stage || 'Working') + '…</div></div>';
+    var peso = function (n) { return n ? '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 2 }) : ''; };
     var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
-    var item = function (x, upd) {
-      return '<div class="card" style="margin:8px 0 0;background:var(--input)"><b>' + link(x.url, x.project || x.reference) + '</b>'
-        + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
-        + '<div class="small muted">' + esc([x.agency, x.reference].filter(Boolean).join(' · ')) + '</div>'
-        + '<div class="small">' + esc([x.location || 'Location not stated', peso(x.abc), 'Due ' + (x.deadline || 'not stated')].join(' · ')) + (upd && x.was && x.was !== x.deadline ? ' <span class="muted">(was ' + esc(x.was) + ')</span>' : '') + '</div>'
-        + (x.scope ? '<div class="small" style="margin-top:4px">' + esc(x.scope) + '</div>' : '')
-        + (x.eligibility ? '<div class="small muted" style="margin-top:4px">Eligibility: ' + esc(x.eligibility) + '</div>' : '')
-        + (x.amendments && !/^none/i.test(x.amendments) ? '<div class="small" style="margin-top:4px">Amendments: ' + esc(x.amendments) + '</div>' : '')
-        + (x.documents.length ? '<div class="small" style="margin-top:4px">' + x.documents.map(function (d) { return link(d.url, d.name) + (d.status === 'read' ? '' : ' <span class="muted">(not opened)</span>'); }).join(' · ') + '</div>' : '')
-        + (x.limitations ? '<div class="small muted">' + esc(x.limitations) + '</div>' : '')
-        + (x.next_action ? '<div class="small" style="margin-top:4px">Next: ' + esc(x.next_action) + '</div>' : '') + '</div>';
+    // Dates as Kiko reads them: 2026-10-30T17:00+08:00 becomes Thu 30 Oct 2026, 5:00 PM (the time is already Manila time, so no time zone maths).
+    var day = function (v) { return String(v || '').replace(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)?/g, function (m, y, mo, d, hh, mm) {
+      var D = new Date(Date.UTC(+y, +mo - 1, +d)); if (isNaN(D)) return m;
+      var t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ' ' + (+d) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+mo - 1] + ' ' + y;
+      return hh == null ? t : t + ', ' + ((+hh % 12) || 12) + ':' + mm + ' ' + (+hh < 12 ? 'AM' : 'PM'); }); };
+    // Field lines (Kiko 30 Oct 2026 06:15Z, a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value"):
+    // the name in the accent colour in its own column, no colon, the value regular beside it. just = justify the value (06:15Z).
+    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
+    var row = function (k, v, flag, just) { return kv(k, v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : ''), just); };
+    var doc = function (d) {
+      var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
+        : d.state === 'failed' ? '<span class="tag flag">Could not open: ' + esc(d.why) + '</span>'
+        : '<span class="muted">' + (d.state === 'listed' ? '(listed, not opened by Cue)' : '(not opened yet)') + '</span>';
+      return '<li>' + link(d.url || d.page, d.name) + ' ' + st + (d.page && d.url && d.url !== d.page ? ' <span class="muted">(found on ' + link(d.page, 'the agency page') + ')</span>' : '') + '</li>';
     };
-    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b style="font-size:17px;color:#fff">' + esc(B.title) + '</b>'
-      + '<div class="small muted">' + esc(B.summary) + '</div>';
+    // CUE-BID-CARD-V3 (Kiko 29 Oct 10:47Z-10:52Z): Scoped projects, For clarification and Closing, each notice with its source.
+    // Small buttons and the standard label on each notice (Kiko 30 Oct 05:52Z: "make the buttons smaller... make labels not look like buttons").
+    var btn = function (act, x, label, ghost) { return '<button class="btn sm' + (ghost ? ' ghost' : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">' + label + '</button>'; };
+    var draftHtml = function (x) {
+      var d = x.more && x.more.draft; if (!d) return '';
+      var f = function (k) { return ' data-bd="' + esc(r.id) + '" data-k="' + esc(x.key) + '" data-x="' + k + '"'; };
+      if (d.sent) return '<div class="small" style="margin-top:6px"><span class="tag pref">Clarification sent</span> to ' + esc(d.to) + ' · ' + esc(day(d.sent.slice(0, 10))) + '</div>';
+      return '<div style="margin-top:8px;padding:10px;border:1px dashed var(--line2);border-radius:8px;background:var(--bg)"><div class="small muted">Draft · from your Gmail · nothing is sent until you tap Approve and send</div>'
+        + '<label class="small muted" style="display:block;margin-top:6px">To <input type="email" readonly' + f('to') + ' value="' + esc(d.to) + '" placeholder="BAC email" style="width:100%"></label>'
+        + '<label class="small muted" style="display:block;margin-top:6px">Subject <input type="text" readonly' + f('subject') + ' value="' + esc(d.subject) + '" style="width:100%"></label>'
+        + '<textarea readonly rows="7"' + f('body') + ' style="width:100%;margin-top:6px;font:inherit">' + esc(d.body) + '</textarea>'
+        + '<div class="actions">' + btn('bids-send', x, 'Approve and send') + btn('bids-edit', x, 'Edit', true) + btn('bids-cancel', x, 'Cancel', true) + '</div></div>';
+    };
+    var DONE = { accepted: 'Accepted: intake started', declined: 'Declined', later: 'Back in tomorrow\'s search' };
+    var item = function (x) {
+      var g = x.group || 'clarify';
+      var h = '<div class="card" style="margin:8px 0 0;background:var(--input)' + (g === 'closing' ? ';border-left:4px solid var(--need)' : '') + '">'
+        + '<div>' + (x.source ? '<span class="tag">' + esc(x.source) + '</span> ' : '')
+        + (x.added && g === 'closing' ? '<span class="tag pref">In Canvas</span> ' : '') + (x.decision ? '<span class="tag pref">' + esc(DONE[x.decision] || x.decision) + '</span>' : '') + '</div>'
+        + '<b>' + esc(x.project || x.reference) + '</b>'
+        + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
+        + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
+        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, true)
+        // From the notice page (Kiko 30 Oct 05:52Z "add more details"): the site's category and mode, the delivery period, and Cue's copy of the notice.
+        + (x.details && (x.details.category || x.details.mode) ? row('Category', [x.details.category, x.details.mode].filter(Boolean).join(' · ')) : '')
+        + (x.details && x.details.delivery ? row('Delivery period', x.details.delivery) : '')
+        + (x.copy ? kv('Notice', x.copy.drive ? link(x.copy.drive, 'Cue\'s copy (PDF)') : '<span class="muted">No copy: ' + esc(x.copy.why) + '</span>') : '')
+        // View details (Kiko 29 Oct 11:24Z): the rest of the notice opens under the summary, in the page only.
+        + '<div data-bv="' + esc(r.id + '|' + x.key) + '" style="display:none">'
+        + (x.contacts && x.contacts.length ? row('Contact', x.contacts.map(function (c) { return [c.name, c.role, c.email, c.phone].filter(Boolean).join(', '); }).join('; '))
+          : x.from_docs ? kv('Contact', '<span class="muted">No contact in the documents</span>') : '')
+        + row('Bid start date', day(x.posted))
+        + (x.details && x.details.solicitation ? row('Solicitation number', x.details.solicitation) : '')
+        + (x.details && x.details.doc_requests !== '' && x.details.doc_requests != null ? row('Document requests so far', String(x.details.doc_requests)) : '')
+        + (x.pages ? '<div class="small muted">From the documents: ' + esc(x.pages) + '</div>' : '')
+        + kv('Bid documents available', x.documents.length ? '<ul class="small" style="margin:0;padding-left:18px">' + x.documents.map(doc).join('') + '</ul>' : '<span class="muted">None listed</span>')
+        + (/^https:\/\//.test(x.url || '') ? '<div class="small" style="margin-top:2px">' + link(x.url, 'Official notice') + '</div>' : '') + '</div>';
+      if (g === 'clarify' && (x.ask || []).length) h += kv('To ask the agency', esc(x.ask.join(', ')));
+      if (g === 'clarify') h += draftHtml(x);
+      // Button order (Kiko 29 Oct 14:32Z): the action first, then View details, Decline. No Decide later (Kiko 1 Nov: "we can remove
+      // Decide Later. If we just scroll pass through it that means we dont want to decide yet"): an untouched bid stays until it closes.
+      var b = [], end = [];
+      if (x.key && !x.decision) {
+        if (g === 'scoped') { b.push(btn('bids-intake', x, 'Accept')); end.push(btn('bids-decline', x, 'Decline', true)); }
+        else if (g === 'clarify') {
+          if (!(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Send email clarification'));
+          if (x.documents.length && !x.from_docs) b.push(btn('bids-more', x, 'Request more details', true));
+          end.push(btn('bids-decline', x, 'Decline', true));
+        } else {
+          b.push(x.added ? (x.ce_url ? '<a class="btn sm" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.ce_url) + '" target="_blank" rel="noopener">Create CE</a>' : '')
+            : btn('bids-intake', x, 'Accept'));
+          end.push(btn('bids-decline', x, 'Decline', true));
+        }
+      }
+      b.push('<button class="btn sm ghost" data-act="bids-view" data-id="' + esc(r.id) + '" data-bk="' + esc(r.id + '|' + x.key) + '">View details</button>');
+      // View opportunity (Kiko 30 Oct 05:37Z): opens the bid's own page on the source website in a new tab. Official notice stays under View details.
+      // Kiko 06:21Z: "on load View Details > expands View Details becomes View Opportunity": hidden until View details opens, then it takes that button's place.
+      if (/^https:\/\//.test(x.opp || '')) b.push('<a class="btn sm ghost" data-vo="' + esc(r.id + '|' + x.key) + '" style="display:none;align-items:center;text-decoration:none" href="' + esc(x.opp) + '" target="_blank" rel="noopener">View opportunity</a>');
+      b = b.concat(end);
+      b = b.filter(Boolean);
+      return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
+    };
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Bid opportunities</div><b style="font-size:17px;color:var(--white)">' + esc(B.title) + '</b>'
+      + '<div class="small muted">' + esc(B.sub || B.summary) + '</div>';
     (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
-    h += '<details style="margin-top:8px"><summary class="small" style="display:inline">Process check: ' + passed + ' of ' + B.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
-      + B.checks.map(function (c) { return '<li>' + (c.ok ? '✓ ' : '✗ ') + esc(c.label) + (c.detail ? ' <span class="muted">' + esc(c.detail) + '</span>' : '') + '</li>'; }).join('') + '</ul></details>';
-    if (B.items.length) h += '<div class="label">New (' + B.items.length + ')</div>' + B.items.map(function (x) { return item(x, false); }).join('');
-    if (B.updated.length) h += '<div class="label">Updated (' + B.updated.length + ')</div>' + B.updated.map(function (x) { return item(x, true); }).join('');
-    h += '<details style="margin-top:10px"><summary class="small" style="display:inline">Sources checked (' + B.sources.length + ')</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
-      + B.sources.map(function (x) { return '<li>' + link(x.url, x.source) + ' <span class="tag' + (x.status === 'Checked' ? ' pref' : ' flag') + '">' + esc(x.status) + '</span>' + (x.gap ? ' <span class="muted">' + esc(x.gap) + '</span>' : '') + '</li>'; }).join('') + '</ul></details>';
-    if (waiting) h += '<div class="small muted" style="margin-top:8px">Say "do intake for" and a reference to start an intake. Nothing is registered, paid or submitted.</div>';
-    h += '<div class="actions"><a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(B.sheet_url) + '" target="_blank" rel="noopener">Open the bid sheet</a>'
-      + (waiting ? '<button class="btn ghost" data-act="bids-close" data-id="' + esc(r.id) + '">Done for now</button>' : '') + '</div>';
+    var part = function (name, hint, list, none) { return '<div class="label">' + name + ' (' + list.length + ')</div>' + (list.length ? '<div class="small muted">' + hint + '</div>' + list.map(item).join('') : (none ? '<div class="small muted">' + none + '</div>' : '')); };
+    var scoped = B.items.filter(function (x) { return x.group === 'scoped'; }), clarify = B.items.filter(function (x) { return x.group !== 'scoped'; });
+    h += part('New: Scoped projects', 'Cue downloaded the bid documents and the details are complete.', scoped, B.items.length ? '' : 'No new notices in this run.');
+    h += part('New: For clarification', 'Details are missing, so Cue drafts an email to the agency asking for them.', clarify);
+    if (still.length) h += part('Opportunities closing', 'Recorded before and not yet answered, soonest first.', still);
+    if (updated.length) h += '<div class="label">Updated (' + updated.length + ')</div>' + updated.map(item).join('');
+    h += '<details style="margin-top:10px"><summary class="small" style="display:inline">Sources checked (' + B.sources.length + ') · process check ' + passed + ' of ' + B.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
+      + B.sources.map(function (x) { return '<li>' + link(x.url, x.source) + ' <span class="tag' + (x.status === 'Checked' ? ' pref' : ' flag') + '">' + esc(x.status) + '</span>' + (x.gap ? ' <span class="muted">' + esc(x.gap) + '</span>' : '') + (x.pages ? ' <span class="muted">' + esc(x.pages) + ' listing or sign-in page' + (x.pages === 1 ? '' : 's') + ' seen, no notice opened</span>' : '') + '</li>'; }).join('') + '</ul>'
+      + '<ul class="small" style="margin:6px 0 0;padding-left:18px">' + B.checks.map(function (c) { return '<li>' + (c.ok ? '✓ ' : '✗ ') + esc(c.label) + (c.detail ? ' <span class="muted">' + esc(c.detail) + '</span>' : '') + '</li>'; }).join('') + '</ul></details>';
+    h += '<div class="small muted" style="margin-top:8px">Nothing is registered, paid, sent or submitted.</div>';
+    h += '<div class="actions"><a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(B.sheet_url) + '" target="_blank" rel="noopener">Open the bid sheet</a>'
+      + (waiting ? '<button class="btn sm ghost" data-act="bids-close" data-id="' + esc(r.id) + '">Done for now</button>' : '') + '</div>';
     return h + metricLine(r) + '</div>';
+  }
+  // CUE-K0-BIDS-CARD-2026-11-01 (Kiko 1 Nov: "New Opportunities / Bids need to be a card. Coz they need to show more details, links
+  // inside it and buttons"; mockup cue-8am-bids-card.png): today's new bids as one card right under the 8 AM message. Header "New
+  // opportunities", no subtitle. Each bid: title, source and status labels, Agency, Budget (ABC), Closes, Reference, What it needs (or
+  // Missing), the documents, then View opportunity, Ask the agency (to clarify), Decline, Start intake. Same server calls as the bid card.
+  function k0BidsHtml(r) {
+    var B = r.bids || {}, list = (B.items || []).filter(function (x) { return x.key; });
+    if (!list.length) return '';
+    var peso = function (n) { return n ? '\u20b1' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''; };
+    var link = function (u, t) { return /^https:\/\//.test(u || '') ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : esc(t); };
+    var day = function (v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return String(v || '');
+      var D = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), t = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][D.getUTCDay()] + ', ' + (+m[3]) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1];
+      return m[4] == null ? t : t + ' \u00b7 ' + ((+m[4] % 12) || 12) + ':' + m[5] + ' ' + (+m[4] < 12 ? 'AM' : 'PM'); };
+    var kv = function (k, v) { return v ? '<div class="small kv"><span class="fk">' + esc(k) + '</span><span>' + esc(v) + '</span></div>' : ''; };
+    var btn = function (act, x, label, ghost) { return '<button class="btn sm' + (ghost ? ' ghost' : '') + '" data-act="' + act + '" data-id="' + esc(r.id) + '" data-f="' + esc(x.key) + '">' + label + '</button>'; };
+    var DONE = { accepted: 'Intake started', declined: 'Declined' };
+    var one = function (x) {
+      var clar = (x.group || 'clarify') !== 'scoped', docs = (x.documents || []).filter(function (d) { return /^https:\/\//.test(d.url || d.page || ''); });
+      var h = '<div class="k0b"><div><b>' + esc(x.project || x.reference) + '</b> ' + (x.source ? '<span class="tag">' + esc(x.source) + '</span> ' : '')
+        + '<span class="tag ' + (clar ? 'new' : 'pref') + '">' + (clar ? 'For clarification' : 'Scoped') + '</span>'
+        + (x.decision ? ' <span class="tag pref">' + esc(DONE[x.decision] || x.decision) + '</span>' : '') + '</div>'
+        + kv('Agency', x.agency) + kv('Budget (ABC)', peso(x.abc)) + kv('Closes', day(x.deadline)) + kv('Reference', x.reference)
+        + (clar && (x.ask || []).length ? kv('Missing', x.ask.join(', ')) : kv('What it needs', x.summary));
+      if (docs.length) h += '<div class="small" style="margin-top:6px"><b>Documents:</b> ' + docs.map(function (d) { return link(d.url || d.page, d.name); }).join(' \u00b7 ') + '</div>';
+      if (x.more && x.more.draft && !x.more.draft.sent) h += '<div class="small muted" style="margin-top:4px">Your email to the agency is drafted in the Bid check thread.</div>';
+      var b = [];
+      if (/^https:\/\//.test(x.opp || x.url || '')) b.push('<a class="btn sm ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(x.opp || x.url) + '" target="_blank" rel="noopener">View opportunity</a>');
+      if (!x.decision) {
+        if (clar && !(x.more && x.more.draft)) b.push(btn('bids-ask', x, 'Ask the agency', true));
+        b.push(btn('bids-decline', x, 'Decline', true), btn('bids-intake', x, 'Start intake'));
+      }
+      return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
+    };
+    return '<div class="card k0bids" data-k0bids="' + esc(r.id) + '"><div class="k0bh">New opportunities</div>' + list.map(one).join('') + '</div>';
   }
   // ChatGPT scheduled tasks (CueGptTasks.gs, specs/lead-gen-tasks.md + cleanup-review-tasks.md). Only new findings; every tap is Kiko's.
-  // AI relay (CueRelay.gs, Kiko 23 Oct 03:47Z): the notes on one topic between ChatGPT and Claude. Waiting ones get Pass on / Drop.
-  function relayCardHtml(r) {
-    var R = r.relay || { notes: [] }, waiting = R.notes.filter(function (n) { return n.status === 'new'; }).length;
-    var tag = { 'new': 'Waiting for you', passed: 'Passed on', read: 'Read', dropped: 'Dropped', refused: 'Refused' };
-    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">AI relay</div><b style="font-size:17px;color:#fff">' + esc(R.topic) + '</b>'
-      + '<div class="small muted">' + (R.gate ? 'Notes wait for your Pass on.' : 'Notes pass on by themselves; you watch.') + ' Cue only carries them: nothing is sent or changed.</div>';
-    R.notes.forEach(function (n) {
-      h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><div class="small"><b>' + esc(n.from) + '</b> to <b>' + esc(n.to) + '</b> <span class="muted">· ' + esc(tag[n.status] || n.status) + '</span></div>'
-        + '<div class="small" style="white-space:pre-wrap;margin-top:4px">' + esc(n.body) + '</div>'
-        + (n.links.length ? '<div class="small muted" style="margin-top:4px">' + n.links.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u.replace(/^https:\/\//, '').slice(0, 60)) + '</a>'; }).join(' · ') + '</div>' : '')
-        + (n.note ? '<div class="warn">' + esc(n.note) + '</div>' : '')
-        + (n.status === 'new' ? '<div class="actions"><button class="btn" data-act="relay-pass" data-id="' + esc(r.id) + '" data-n="' + esc(n.id) + '">Pass on</button><button class="btn bad" data-act="relay-drop" data-id="' + esc(r.id) + '" data-n="' + esc(n.id) + '">Drop</button></div>' : '')
-        + '</div>';
-    });
-    if (!R.notes.length) h += '<div class="small muted" style="margin-top:6px">No notes yet.</div>';
-    return h + '<div class="small muted" style="margin-top:8px">Reply here with "tell Claude: …" or "tell ChatGPT: …".</div></div>';
-  }
-  // Help answers (CueHelp.gs, Kiko 27 Oct 02:34Z): the best row from Canvas's Help Q&A list for a pasted question, matched in code.
-  // Copy reply copies the answer (or its Taglish rephrase); nothing is sent. No match: Add as Draft puts the question on the list.
-  function helpCardHtml(r) {
-    var H = r.help, hit = H.hits[H.pick] || null, aud = H.audience ? H.audience + ' asked' : 'Someone asked';
-    var h = '<div class="card' + (r.status === 'Needs you' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Help answer</div>'
-      + '<div class="small muted">' + esc(aud) + '</div><b style="font-size:17px;color:#fff">' + esc(H.ask) + '</b>';
-    if (hit) {
-      h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><div class="small muted">' + esc(hit.id) + ' · ' + esc(hit.audience) + ' · ' + esc(hit.type) + ' · matched by code, no AI call</div>'
-        + '<div class="small" style="margin-top:4px"><b>' + esc(hit.question) + '</b></div>'
-        + '<div class="small" style="white-space:pre-wrap;margin-top:4px" data-help-reply="' + esc(r.id) + '">' + esc(H.reply || hit.answer) + '</div>'
-        + (H.reply ? '<div class="small muted" style="margin-top:4px">Rephrased in Taglish by Claude (1 AI call). The list\'s own answer is unchanged.</div>' : '')
-        + (hit.opens ? '<div class="small muted" style="margin-top:4px">Opens in Canvas: ' + esc(hit.opens) + '</div>' : '') + '</div>'
-        + '<div class="actions"><button class="btn" data-act="help-copy" data-id="' + esc(r.id) + '">Copy reply</button>'
-        + (H.reply ? '' : '<button class="btn ghost" data-act="help-rephrase" data-id="' + esc(r.id) + '">Rephrase</button>')
-        + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Edit answer in bank</a></div>';
-      var others = H.hits.map(function (x, i) { return i === H.pick ? '' : '<button class="btn ghost" data-act="help-pick" data-id="' + esc(r.id) + '" data-n="' + i + '">' + esc(x.question) + '</button>'; }).join('');
-      if (others) h += '<div class="small muted" style="margin-top:8px">Not this one? Close matches:</div><div class="actions">' + others + '</div>';
-    } else {
-      h += '<div class="small" style="margin-top:8px">The Help Q&amp;A list has no answer for this yet.</div>';
-    }
-    if (H.added) h += '<div class="small muted" style="margin-top:8px">' + (H.added.existed ? 'Already on the list as ' : 'On the list as ') + esc(H.added.id) + ' (' + esc(H.added.status) + '). Answer it in the tab and set Status to Live.</div>';
-    else if (!hit) h += '<div class="actions"><button class="btn" data-act="help-draft" data-id="' + esc(r.id) + '">Add as Draft</button>'
-      + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Open the list</a></div>';
-    return h + metricLine(r) + '</div>';
-  }
   function gtCardHtml(r) {
     var G = r.gt || { checks: [], items: [], steps: [], groups: [] }, waiting = r.status === 'Needs you', passed = G.checks.filter(function (c) { return c.ok; }).length;
     if (r.status === 'Failed') return '<div class="card need" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task</div><b>' + esc(G.task || 'ChatGPT task') + ' stopped</b>'
@@ -676,11 +659,12 @@
       if (f.error) h += '<div class="err">' + esc(f.error) + '</div>';
       var b = [];
       if (f.email && f.email.body) b.push(f.drafted ? '<span class="tag pref">Draft in Gmail</span>' : '<button class="btn ghost" data-act="gt-draft" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Draft email</button>');
-      if (f.hubspot && f.hubspot !== 'none') b.push(f.in_hubspot ? '<span class="tag pref">In HubSpot</span>' : '<button class="btn ghost" data-act="gt-hubspot" data-id="' + esc(r.id) + '" data-f="' + esc(f.id) + '">Add ' + (f.hubspot === 'task' ? 'task' : 'note') + ' to HubSpot</button>');
-      if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">Open in Canvas</a>');
+      // Kiko 24 Oct ("should we have a remove contact"): a contact fix happens in Canvas, never a delete from Cue.
+      var fixc = (f.group === 'Contact' || f.group === 'Correction') && /^Accounts/.test(f.canvas && f.canvas.title || '');
+      if (f.canvas && f.canvas.url) b.push('<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(f.canvas.url) + '" target="_blank" rel="noopener">' + (fixc ? 'Fix contact in Canvas' : 'Open in Canvas') + '</a>');
       return h + (b.length ? '<div class="actions">' + b.join('') + '</div>' : '') + '</div>';
     };
-    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task · ' + esc(G.when) + '</div><b style="font-size:17px;color:#fff">' + esc(G.title) + '</b>'
+    var h = '<div class="card' + (waiting ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">ChatGPT task · ' + esc(G.when) + '</div><b style="font-size:17px;color:var(--white)">' + esc(G.title) + '</b>'
       + '<div class="small muted">' + esc(G.summary) + '</div>' + (G.said ? '<div class="small" style="margin-top:4px">' + esc(G.said) + '</div>' : '');
     (r.notes || []).forEach(function (x) { h += '<div class="warn">' + esc(x) + '</div>'; });
     h += '<details style="margin-top:8px"><summary class="small" style="display:inline">Process check: ' + passed + ' of ' + G.checks.length + ' passed</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
@@ -699,7 +683,7 @@
   // Supplier search (Kiko 07:54Z, specs/vendor-management.md). Canvas's facts first; Claude's lines are marked as Claude's.
   function vendorCardHtml(r) {
     var V = r.vendor || {}, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', done = r.status === 'Done';
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Supplier search</div><b style="font-size:17px;color:#fff">' + esc(V.ask || 'Suppliers') + '</b>';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Supplier search</div><b style="font-size:17px;color:var(--white)">' + esc(V.ask || 'Suppliers') + '</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button></div></div>';
     var st = V.stats, range = function (q) { return q && q.count ? esc(q.count) + ' quote' + (q.count === 1 ? '' : 's') + ', median ' + peso(q.median) + (q.count > 1 ? ' (' + peso(q.low) + ' to ' + peso(q.high) + ')' : '') + (q.awarded ? ', awarded ' + esc(q.awarded) + '×' : '') : ''; };
     if (st && st.count) h += '<div class="small muted">Canvas history for ' + esc(V.item) + ': ' + range(st) + ' from ' + esc(st.suppliers) + ' supplier' + (st.suppliers === 1 ? '' : 's') + ', per unit</div>';
@@ -719,9 +703,9 @@
           + ((h2.latest || []).length ? '<span class="muted"> · latest: ' + h2.latest.map(function (x) { return esc(x.project) + ' ' + peso(x.amount); }).join(', ') + '</span>' : '') + '</div>' : '')
         + (c.about ? '<div class="small">' + esc(c.about) + '</div>' : '') + (c.source !== 'db' && (c.why || [])[0] && !c.about ? '<div class="small muted">' + esc(c.why[0]) + '</div>' : '')
         + ((c.links || []).length ? '<div class="small">' + c.links.map(function (u, i) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">source ' + (i + 1) + '</a>'; }).join(' · ') + '</div>' : '')
-        + (c.strengths ? '<div class="small"><span class="muted">Claude, strengths:</span> ' + esc(c.strengths) + '</div>' : '') + (c.risks ? '<div class="small"><span class="muted">Risks:</span> ' + esc(c.risks) + '</div>' : '')
-        + (c.k === pick.k && pick.why ? '<div class="small"><span class="muted">Why Claude picks it:</span> ' + esc(pick.why) + '</div>' : '')
-        + (c.k === pick.k && pick.reason ? '<div class="small"><span class="muted">Not a Preferred supplier because:</span> ' + esc(pick.reason) + '</div>' : '')
+        + (c.strengths ? '<div class="small"><span class="fk">Claude, strengths:</span> ' + esc(c.strengths) + '</div>' : '') + (c.risks ? '<div class="small"><span class="fk">Risks:</span> ' + esc(c.risks) + '</div>' : '')
+        + (c.k === pick.k && pick.why ? '<div class="small"><span class="fk">Why Claude picks it:</span> ' + esc(pick.why) + '</div>' : '')
+        + (c.k === pick.k && pick.reason ? '<div class="small"><span class="fk">Not a Preferred supplier because:</span> ' + esc(pick.reason) + '</div>' : '')
         + (c.k === pick.k && pick.switched ? '<div class="small muted">Claude picked ' + esc(pick.switched) + ' without saying why it skipped the Preferred suppliers, so Cue picked this Preferred one.</div>' : '') + '</div>';
     });
     if (!(V.cands || []).length) h += '<div class="small muted" style="margin-top:6px">No supplier fits yet.</div>';
@@ -749,9 +733,35 @@
   }
   // Workflow map (Kiko 08:07Z, specs/process-mapper.md): each step's block and owner, Cue's rule flags, then Approve to save it.
   var WHO_COLOR = { Claude: '#d97757', ChatGPT: '#10a37f', Code: 'var(--muted)', Canvas: '#559fef', Zapier: '#ff4f00', Kiko: '#b00c98' };
+  /* CUE-TRI-2026-10-24 (Kiko "add the tasks", specs/cue-add-tasks.md): one task, issue or risk for Canvas. Every field can be
+     changed here; Approve adds it once through the bridge (add_tri_items). */
+  function triCardHtml(r) {
+    var T = r.tri || {}, waiting = r.status === 'Needs you', id = esc(r.id), f = function (k) { return ' data-tri="' + id + '" data-f="' + k + '"'; };
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">' + esc(T.type || 'Task') + ' for Canvas</div>';
+    if (!waiting) {
+      h += '<b style="font-size:16px;color:var(--white)">' + esc(T.description) + '</b><div class="small muted" style="margin-top:4px">' + esc(T.project || T.asked_project)
+        + (T.due ? ' · due ' + esc(T.due) : '') + (T.assigned ? ' · for ' + esc(T.assigned) : '') + '</div>';
+      if (T.saved) h += '<div class="small" style="margin-top:6px"><span class="tag pref">' + (T.saved.dup ? 'already in Canvas' : 'added') + '</span> ' + esc(T.saved.id) + ' in ' + esc(T.project) + '</div>';
+      if (r.status === 'Closed' || r.status === 'Rejected') h += '<div class="small muted" style="margin-top:6px">Closed. Nothing was added to Canvas.</div>';
+      return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + metricLine(r) + '</div>';
+    }
+    var row = function (label, input) { return '<label class="small" style="display:grid;grid-template-columns:92px 1fr;align-items:center;gap:8px;margin-top:6px"><span class="muted">' + label + '</span><span>' + input + '</span></label>'; };
+    var proj = T.project_id && !(T.choices || []).length ? '<b>' + esc(T.project) + '</b> <span class="muted">' + esc(T.project_id) + '</span><input type="hidden"' + f('project_id') + ' value="' + esc(T.project_id) + '">'
+      : (T.choices || []).length ? '<select' + f('project_id') + '>' + T.choices.map(function (p) { return '<option value="' + esc(p.project_id) + '"' + (p.project_id === T.project_id ? ' selected' : '') + '>'
+          + esc(p.name + (p.account ? ' · ' + p.account : '') + (p.date ? ' · ' + p.date : '')) + '</option>'; }).join('') + '</select>'
+      : '<input type="text"' + f('project') + ' value="' + esc(T.asked_project) + '" placeholder="Project name or S- id">';
+    h += row('Project', proj)
+      + row('Type', '<select' + f('type') + '>' + (T.types || ['Task', 'Issue', 'Risk']).map(function (x) { return '<option' + (x === T.type ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>')
+      + row('Description', '<input type="text"' + f('description') + ' value="' + esc(T.description) + '" style="width:100%">')
+      + row('Due', '<input type="date"' + f('due') + ' value="' + esc(T.due) + '">' + (T.due_raw ? ' <span class="tag flag">couldn\'t read "' + esc(T.due_raw) + '"</span>' : ''))
+      + row('Assigned to', '<input type="text"' + f('assigned') + ' value="' + esc(T.assigned) + '" placeholder="Optional">');
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    return h + '<div class="actions"><button class="btn" data-act="approve-tri" data-id="' + id + '">Approve and add to Canvas</button><button class="btn bad" data-act="reject" data-id="' + id + '">Close</button></div>'
+      + '<div class="small muted">Nothing is added to Canvas until you approve. A row with the same description already in the project is not added twice.</div>' + metricLine(r) + '</div>';
+  }
   function workflowCardHtml(r) {
     var W = r.workflow || {}, m = W.map, waiting = r.status === 'Needs you';
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Workflow map</div><b style="font-size:17px;color:#fff">' + esc((m && m.name) || W.name || 'Workflow') + '</b>';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Workflow map</div><b style="font-size:17px;color:var(--white)">' + esc((m && m.name) || W.name || 'Workflow') + '</b>';
     if (r.status === 'Failed' || !m) return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
     var ai = m.steps.filter(function (x) { return x.who === 'Claude' || x.who === 'ChatGPT'; }).length, byStep = {};
@@ -813,7 +823,7 @@
   // Write Like Me (Kiko 08:21Z): the draft style guide. Edit or untick lines; Approve saves them to the Style tab of the Cue sheet.
   function styleCardHtml(r) {
     var G = r.style || {}, waiting = r.status === 'Needs you', AUD = { all: 'Everyone', supplier: 'Suppliers', client: 'Clients', team: 'Team' };
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Writing style</div><b style="font-size:17px;color:#fff">Your writing style guide</b>';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Writing style</div><b style="font-size:17px;color:var(--white)">Your writing style guide</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
     h += '<div class="small muted">From ' + esc(G.mails) + ' of your sent emails' + (G.notes ? ' and your old style notes' : '') + '. '
@@ -837,7 +847,7 @@
   // Teach Cue (Kiko 16:26Z, specs/teach-cue.md): facts or processes from what Kiko pasted. Tick, edit, approve; Reject is one tap.
   function teachCardHtml(r) {
     var T = r.teach || {}, mem = r.kind === 'memory', waiting = r.status === 'Needs you';
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Teach Cue</div><b style="font-size:17px;color:#fff">' + (mem ? 'Learn my memory' : 'Learn my process') + '</b>';
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Teach Cue</div><b style="font-size:17px;color:var(--white)">' + (mem ? 'Learn my memory' : 'Learn my process') + '</b>';
     if (r.status === 'Failed') return h + '<div class="err">' + esc(r.error) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div></div>';
     h += '<div class="small muted">' + (r.status === 'Done' ? (mem ? 'Saved. Change or switch off any of them under My rules in the Threads pane.' : 'Saved to the Workflows tab of your Cue sheet; edit the Steps cell or switch off Use in prompts there.')
@@ -878,7 +888,8 @@
   // Draft an email (write-like-me step 2): one email in Kiko's style. Edit To, subject and text; send or keep it in Drafts.
   function mailCardHtml(r) {
     var M = r.mail || {}, D = M.draft, T = M.thread, waiting = r.status === 'Needs you' && D && !D.made;
-    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Email</div><b style="font-size:17px;color:#fff">Email to ' + esc(M.to || (D && D.to) || 'someone') + '</b>';
+    var rp = M.job === 'reply';   // CARD-OVERHAUL-2026-10-30: a Draft reply from New mail is "Reply ready" with Send reply
+    var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">' + (rp && waiting ? 'Reply ready' : 'Email') + '</div><b style="font-size:17px;color:var(--white)">Email to ' + esc(M.to || (D && D.to) || 'someone') + '</b>';
     if (r.status === 'Failed' || !D) return h + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
       + '<button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button></div></div>';
     h += '<div class="small muted">' + (T ? 'Reply in your thread "' + esc(T.subject) + '" (' + esc(T.date) + ')' + (T.url ? ' · <a href="' + esc(T.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '') : 'New email')
@@ -889,7 +900,7 @@
       + '<div class="small" style="margin-top:6px">Subject <input data-mail-subject="' + esc(r.id) + '" value="' + esc(D.subject) + '" aria-label="Subject" style="width:100%"' + (T ? ' disabled' : '') + '></div>'
       + '<textarea class="mail" data-mail-body="' + esc(r.id) + '" aria-label="Email text">' + esc(D.body) + '</textarea>';
     else h += '<div class="small" style="margin-top:8px"><b>To</b> ' + esc(D.to || '(blank)') + ' · <b>Subject</b> ' + esc(D.subject) + '</div><pre style="margin-top:8px">' + esc(D.body) + '</pre>';
-    if (r.status === 'Needs you') h += '<div class="actions"><button class="btn" data-act="mail-send" data-id="' + esc(r.id) + '">' + (D.made ? 'Send it now' : 'Approve and send') + '</button>'
+    if (r.status === 'Needs you') h += '<div class="actions"><button class="btn" data-act="mail-send" data-id="' + esc(r.id) + '">' + (D.made ? 'Send it now' : rp ? 'Send reply' : 'Approve and send') + '</button>'
       + (D.made ? '' : '<button class="btn ghost" data-act="mail-draft" data-id="' + esc(r.id) + '">Save to Gmail drafts</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Close</button>') + '</div>';
     return h + metricLine(r) + '</div>';
   }
@@ -913,7 +924,7 @@
     var P = r.ph, x = P.x || { client: {}, event: {} }, c = x.client || {}, e = x.event || {}, cv = r.canvas || {}, ph = P.phase || 0, ed = !!editing[r.id];
     var waiting = r.status === 'Needs you', busy = WORK[r.status], end = CLOSED[r.status];
     var h = '<div class="card' + (waiting || r.status === 'Failed' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake'
-      + (end ? '' : ph ? ' · phase ' + ph + ' of 4' : '') + '</div><b style="font-size:17px;color:#fff">' + esc(c.company || 'New client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>'
+      + (end ? '' : ph ? ' · phase ' + ph + ' of 4' : '') + '</div><b style="font-size:17px;color:var(--white)">' + esc(c.company || 'New client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>'
       + '<div class="small muted" style="margin-top:4px">' + [1, 2, 3, 4].map(function (k) { return (k < ph || (end && r.status === 'Done') ? '✓ ' : k === ph && !end ? '● ' : '') + PHN[k]; }).join(' · ') + '</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     (r.notes || []).slice(-3).forEach(function (n) { h += '<div class="warn">' + esc(n) + '</div>'; });
@@ -1056,6 +1067,11 @@
   document.addEventListener('change', function (e) { var x = e.target; if (!x || !x.closest) return;
     ['data-amk', 'data-asd'].forEach(function (a) { if (x.hasAttribute(a)) arRecount(x.closest('.card'), a); }); });
   document.addEventListener('change', pickRecount); document.addEventListener('input', pickRecount);
+  document.addEventListener('change', function (e) {   // Friday status updates: "Someone else…" shows the typed To box
+    var x = e.target; if (!x || !x.hasAttribute || !x.hasAttribute('data-stsel')) return;
+    var tx = x.parentNode.querySelector('[data-stto="' + x.getAttribute('data-stsel') + '"][data-k="' + x.getAttribute('data-k') + '"]');
+    if (tx) { tx.hidden = !!x.value; if (!x.value) tx.focus(); }
+  });
   function collectPh(id, scope) {
     var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, rows: {}, add: [], lines: {}, suppliers: {} };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
@@ -1074,6 +1090,31 @@
     return { to: box.querySelector('[data-rq-to]').value, subject: box.querySelector('[data-rq-subj]').value, body: box.querySelector('[data-rq-body]').value };
   }
   // CUE-CANVAS: every card with a Canvas page gets "Open in Canvas" above its buttons. AR and supplier cards place their own.
+  // Help answers (CueHelp.gs, Kiko 27 Oct 02:34Z): the best row from Canvas's Help Q&A list for a pasted question, matched in code.
+  // Copy reply copies the answer (or its Taglish rephrase); nothing is sent. No match: Add as Draft puts the question on the list.
+  function helpCardHtml(r) {
+    var H = r.help, hit = H.hits[H.pick] || null, aud = H.audience ? H.audience + ' asked' : 'Someone asked';
+    var h = '<div class="card' + (r.status === 'Needs you' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Help answer</div>'
+      + '<div class="small muted">' + esc(aud) + '</div><b style="font-size:17px;color:var(--white)">' + esc(H.ask) + '</b>';
+    if (hit) {
+      h += '<div class="card" style="margin:8px 0 0;background:var(--input)"><div class="small muted">' + esc(hit.id) + ' · ' + esc(hit.audience) + ' · ' + esc(hit.type) + ' · matched by code, no AI call</div>'
+        + '<div class="small" style="margin-top:4px"><b>' + esc(hit.question) + '</b></div>'
+        + '<div class="small" style="white-space:pre-wrap;margin-top:4px" data-help-reply="' + esc(r.id) + '">' + esc(H.reply || hit.answer) + '</div>'
+        + (H.reply ? '<div class="small muted" style="margin-top:4px">Rephrased in Taglish by Claude (1 AI call). The list\'s own answer is unchanged.</div>' : '')
+        + (hit.opens ? '<div class="small muted" style="margin-top:4px">Opens in Canvas: ' + esc(hit.opens) + '</div>' : '') + '</div>'
+        + '<div class="actions"><button class="btn" data-act="help-copy" data-id="' + esc(r.id) + '">Copy reply</button>'
+        + (H.reply ? '' : '<button class="btn ghost" data-act="help-rephrase" data-id="' + esc(r.id) + '">Rephrase</button>')
+        + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Edit answer in bank</a></div>';
+      var others = H.hits.map(function (x, i) { return i === H.pick ? '' : '<button class="btn ghost" data-act="help-pick" data-id="' + esc(r.id) + '" data-n="' + i + '">' + esc(x.question) + '</button>'; }).join('');
+      if (others) h += '<div class="small muted" style="margin-top:8px">Not this one? Close matches:</div><div class="actions">' + others + '</div>';
+    } else {
+      h += '<div class="small" style="margin-top:8px">The Help Q&amp;A list has no answer for this yet.</div>';
+    }
+    if (H.added) h += '<div class="small muted" style="margin-top:8px">' + (H.added.existed ? 'Already on the list as ' : 'On the list as ') + esc(H.added.id) + ' (' + esc(H.added.status) + '). Answer it in the tab and set Status to Live.</div>';
+    else if (!hit) h += '<div class="actions"><button class="btn" data-act="help-draft" data-id="' + esc(r.id) + '">Add as Draft</button>'
+      + '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(H.sheet_url) + '" target="_blank" rel="noopener">Open the list</a></div>';
+    return h + metricLine(r) + '</div>';
+  }
   function cardHtml(r) {
     var h = cardBody(r) || '';   // a card that draws nothing must not stop the whole page drawing
     if (!r.open || r.kind === 'ar' || r.kind === 'supplier') return h;
@@ -1089,23 +1130,22 @@
     if (r.kind === 'memory' || r.kind === 'process') return teachCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
+    if (r.kind === 'tri') return triCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'relnotes' && r.rn) return rnCardHtml(r);   // CUE-RELNOTES-2026-10-27
-    if (r.kind === 'hubspot' && r.hs && r.status !== 'Failed') return hsCardHtml(r);
     if (r.kind === 'bids') return bidsCardHtml(r);   // never the intake card, even when it stopped (PC test 19:23Z)
     if (r.kind === 'gtask') return gtCardHtml(r);
-    if (r.kind === 'relay') return relayCardHtml(r);
-    if (r.kind === 'help' && r.help && r.status !== 'Failed') return helpCardHtml(r);
     if (r.kind === 'finance') return finHtml(r);
+    if (r.kind === 'help' && r.help && r.status !== 'Failed') return helpCardHtml(r);
     if (r.kind === 'readiness') return readyCardHtml(r);
-    if (r.kind === 'status' && r.st) return stCardHtml(r);
     if (r.kind === 'expense') return expenseCardHtml(r);
     if (r.kind === 'cecost' && r.cec) return cecCardHtml(r);
     if (r.same && r.same.length) return sameCardHtml(r);
     if (r.kind === 'change' && r.change && r.status !== 'Failed') return changeCardHtml(r);
     if (r.kind === 'personal' && r.personal && r.personal.items.length && r.status !== 'Failed') return personalCardHtml(r);
     if (r.kind === 'ar' && r.ar && r.status !== 'Failed') return arCardHtml(r);
-    if (r.kind === 'pipeline' && r.pipe && r.pipe.counts && r.status !== 'Failed') return pipeCardHtml(r);
+    if (r.kind === 'status' && r.st) return stCardHtml(r);
+    if (r.kind === 'funnel' && r.fn && r.fn.stages.length && r.status !== 'Failed') return funnelCardHtml(r);
     var p = r.proposal, ed = !!editing[r.id];
     if (!p) return '<div class="card need"><b>' + kindName(r) + ' stopped</b>' + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted">' + esc(r.text.slice(0, 160)) + '</div><div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button>'
@@ -1114,7 +1154,7 @@
     var sec = function (k, title, body, first) { return secHtml(r.id + '|' + k, title, body, first); };
     if (ed) secOpen[r.id + '|lines'] = true;   // Edit lines opens the Lines section
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake</div>'
-      + '<b style="font-size:17px;color:#fff">' + esc(c.company || 'Unknown client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>';
+      + '<b style="font-size:17px;color:var(--white)">' + esc(c.company || 'Unknown client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>';
     if ((r.files || []).length) h += '<div class="small muted">📎 ' + r.files.map(function (f) { return /^[\w-]{10,}$/.test(f.id || '') ? fileLink(f) : esc(f.name); }).join(', ') + '</div>';
     (r.similar || []).forEach(function (s) { h += '<div class="warn">Possible duplicate: ' + esc(s.name) + ', ' + esc(s.account) + ', ' + esc(s.date) + ' (' + esc(s.why) + ')</div>'; });
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
@@ -1256,24 +1296,30 @@
         // Live 22 Oct 01:22Z: Go on a plan card started the run but nothing ran it, so it sat at its first step until cueResume (5 min). Run it now, as a send does.
         var started = function (r) { done(); if (!r || r.chat || !r.request_id) return; running[r.request_id] = 1;
           call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); }); };
-        if (act === 'hs-approve') {
-          var hx = { tick: [], keep: {}, values: {} }, hr = (state.requests.filter(function (q) { return q.id === id; })[0] || {}).hs || { groups: [] }, hm = 0;
-          scope.querySelectorAll('[data-hck="' + id + '"]').forEach(function (x) { if (x.checked) hx.tick.push(x.value); });
-          scope.querySelectorAll('[data-hkeep="' + id + '"]').forEach(function (x) { if (x.checked) hx.keep[x.getAttribute('data-k')] = x.value; });
-          scope.querySelectorAll('[data-hval="' + id + '"]').forEach(function (x) { var v = {}; v[x.getAttribute('data-edit')] = x.value.trim(); hx.values[x.getAttribute('data-k')] = v; });
-          if (!hx.tick.length) return addLocal('Cue', 'Tick at least one fix first.');
-          hr.groups.forEach(function (g) { g.items.forEach(function (it) { if (it.permanent && hx.tick.indexOf(it.key) >= 0) hm++; }); });
-          return ask('Apply ' + hx.tick.length + ' fix' + (hx.tick.length === 1 ? '' : 'es') + ' in HubSpot?', (hm ? hm + ' of them merge records, which cannot be undone. ' : '') + 'Archived records can be restored for 90 days.', null, 'Apply', function () {
-            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, hx], done, fail); });
-        }
         if (act === 'reopen') { b.disabled = true; return call('cueReopen', [id], function () { done(); goThread(rootOf(id, byId())); }, fail); }
         if (act === 'ph-cancel' || act === 'close-task') { var rq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, cvp = (rq.phased && rq.canvas && !rq.canvas.removed && rq.canvas.project_id) || '';
           if (cvp) return ask('Cancel intake and remove ' + cvp + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {
             b.disabled = true; running[id] = 1; schedule(); call('cueCancelIntake', [id, ''], done, fail); });
           if (act === 'ph-cancel') return; }
         if (act === 'close-task') { b.disabled = true; return call('cueCloseTask', [id], done, fail); }
+        if (act === 'close-older') { b.disabled = true; return call('cueCloseOlder', [], done, fail); }
+        if (act === 'close-thread') {   // an intake that saved to Canvas keeps its cancel rule: closing it is cancelling it (Kiko 16:53Z)
+          var ix = state.requests.filter(function (x) { return rootOf(x.id, byId()) === id && !CLOSED[x.status] && x.phased && x.canvas && !x.canvas.removed && x.canvas.project_id; })[0];
+          if (ix) return ask('Cancel intake and remove ' + ix.canvas.project_id + ' from Canvas?', 'Canvas deletes the project, its requirement lines and contacts, and moves its folders to the Drive trash. Nothing from this intake stays in Canvas.', null, 'Cancel and remove', function () {
+            b.disabled = true; running[ix.id] = 1; schedule(); call('cueCancelIntake', [ix.id, ''], done, fail); });
+          b.disabled = true; return call('cueCloseThread', [id], done, fail);
+        }
         if (act === 'archive') { b.disabled = true; return call('cueArchive', [id, b.getAttribute('data-on') === '1'], done, fail); }
         if (act === 'sweep-skip' || act === 'sweep-mute') { b.disabled = true; return call('cueSweepItem', [id, b.getAttribute('data-key'), act === 'sweep-skip' ? 'skip' : 'mute'], done, fail); }
+        if (act === 'sweep-one') {   // AWARD-TAP-2026-10-30: Send follow-up sends this one line now, with the words in its box
+          var ta = scope.querySelector('[data-sb="' + id + '"][data-k="' + b.getAttribute('data-key') + '"]');
+          b.disabled = true; return call('cueSweepSendOne', [id, b.getAttribute('data-key'), ta ? ta.value : ''], done, fail);
+        }
+        if (act === 'sweep-tell') {   // CUE-THREE-TOUCH-2026-11-01 (Kiko 1 Nov): Tell Cue what to change in this one draft; nothing is sent
+          var what = window.prompt('What should Cue change in this email? For example: make it firmer, or mention we can move to Friday.', '');
+          if (!what || !what.trim()) return;
+          b.disabled = true; return call('cueSweepRewrite', [id, b.getAttribute('data-key'), what], done, fail);
+        }
         if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
         // New mail (CueNewMail.gs): Start intake and Draft reply start a task and run it now; the draft card shows in this same thread.
         if (/^nm-/.test(act)) { b.disabled = true; var nmw = { 'nm-done': 'done', 'nm-mute': 'mute', 'nm-noinq': 'no_inquiry', 'nm-intake': 'intake', 'nm-reply': 'reply' }[act];
@@ -1289,12 +1335,6 @@
           var h9 = new Date(Date.now() + 8 * 3600000).getUTCHours() < 9;
           return ask('Send ' + go.length + ' email' + (go.length === 1 ? '' : 's') + (h9 ? ' at 9:00?' : ' now?'), 'From your Gmail to: ' + go.map(function (it) { return it.who + ' (' + it.to + ')'; }).join(', ') + '. ' + (h9 ? 'You can cancel until 9:00.' : 'Sent emails cannot be called back.'), null, 'Send', function () {
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, ed2], done, fail); });
-        }
-        if (act === 'pipe-done') { b.disabled = true; return call('cuePipeDone', [id], done, fail); }
-        if (act === 'pipe-draft') {
-          var keys = Array.prototype.filter.call(scope.querySelectorAll('[data-pk="' + id + '"]'), function (x) { return x.checked; }).map(function (x) { return x.value; });
-          if (!keys.length) return addLocal('Cue', 'Tick at least one deal first.');
-          b.disabled = true; running[id] = 1; schedule(); return call('cuePipeFollowUps', [id, keys], done, fail);
         }
         if (act === 'fin-sheet') { b.disabled = true; return call('cueFinSheet', [id], function (o) { addLocal('Cue', 'Sheet saved in your Drive: ' + o.url); done(); }, fail); }
         if (act === 'fin-save') { var v = {}; scope.querySelectorAll('[data-fin="' + id + '"]').forEach(function (x) { v[x.getAttribute('data-k')] = x.value.trim() === '' ? null : x.value.trim(); });
@@ -1315,22 +1355,25 @@
         if (act === 'ready-followups') { b.disabled = true; running[id] = 1; schedule(); return call('cueReadyFollowups', [id], done, fail); }
         if (act === 'ready-recheck') { b.disabled = true; schedule(); return call('cueReadyRecheck', [id], done, fail); }
         if (act === 'st-done') { b.disabled = true; return call('cueStatusDone', [id], done, fail); }
-        if (act === 'st-tri') {
-          var sx = { tick: [], values: {} };
-          scope.querySelectorAll('[data-sttick="' + id + '"]').forEach(function (x) { if (x.checked) sx.tick.push(x.value); });
-          if (!sx.tick.length) return addLocal('Cue', 'Tick at least one task, issue or risk first.');
-          scope.querySelectorAll('[data-stit="' + id + '"]').forEach(function (c) { var v = {}; c.querySelectorAll('[data-f]').forEach(function (x) { v[x.getAttribute('data-f')] = x.value; }); sx.values[c.getAttribute('data-key')] = v; });
-          b.disabled = true; running[id] = 1; schedule(); return call('cueStatusTri', [id, sx], done, fail);
+        if (act === 'st-preview') {
+          var pk = b.getAttribute('data-k'), pv = scope.querySelector('[data-stpv="' + id + '"][data-k="' + pk + '"]');
+          if (!pv) return;
+          if (pv.innerHTML) { pv.innerHTML = ''; b.textContent = 'Preview'; return; }
+          b.disabled = true;
+          return call('cueStatusPreview', [id, pk], function (o) {
+            b.disabled = false; b.textContent = 'Hide preview';
+            pv.innerHTML = '<iframe sandbox title="Preview of ' + esc(o.subject) + '" style="width:100%;height:560px;border:1px solid var(--line);border-radius:8px;margin-top:8px;background:#fff"></iframe>';
+            pv.querySelector('iframe').srcdoc = o.html;
+          }, function (e) { b.disabled = false; alertErr(e); });
         }
-        if (act === 'approve-st' || act === 'send-st') {
-          var sc = change(act === 'send-st'); sc.subjects = {}; sc.to = {};
-          scope.querySelectorAll('[data-stsubj="' + id + '"]').forEach(function (x) { sc.subjects[x.getAttribute('data-k')] = x.value; });
-          scope.querySelectorAll('[data-stto="' + id + '"]').forEach(function (x) { sc.to[x.getAttribute('data-k')] = x.value; });
-          if (act === 'approve-st') { b.disabled = true; running[id] = 1; schedule(); return call('cueApprove', [id, sc], done, fail); }
-          var sq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, sw = (((sq.st || {}).updates) || []).filter(function (u) { return !u.made && !u.dropped && sc.skip.indexOf(u.k) < 0; }).map(function (u) { return u.project + ' (' + (sc.to[u.k] || u.to) + ')'; });
-          if (!sw.length) return addLocal('Cue', 'Tick at least one client update first.');
-          return ask('Send ' + sw.length + ' client update' + (sw.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + sw.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
-            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, sc], done, fail);
+        if (act === 'st-skip') { b.disabled = true; return call('cueApprove', [id, { skip: b.getAttribute('data-k') }], done, fail); }
+        if (act === 'st-send') {
+          var sk = b.getAttribute('data-k'), sel = scope.querySelector('[data-stsel="' + id + '"][data-k="' + sk + '"]'), tx = scope.querySelector('[data-stto="' + id + '"][data-k="' + sk + '"]');
+          var sto = sel && sel.value ? sel.value : tx ? tx.value.trim() : '';
+          var sq = state.requests.filter(function (x) { return x.id === id; })[0] || {}, sm = (((sq.st || {}).mails) || []).filter(function (m) { return m.k === sk; })[0] || {};
+          if (!sto) return addLocal('Cue', 'Type the client\'s email in To first.');
+          return ask('Send the Friday update for ' + (sm.name || 'this event') + '?', 'From your Gmail to: ' + sto + '. Sent emails cannot be called back.', null, 'Send', function () {
+            b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, { send: sk, to: sto }], done, fail);
           });
         }
         if (act === 'mail-send' || act === 'mail-draft') {
@@ -1345,6 +1388,9 @@
         if (act === 'ask-pick' && b.getAttribute('data-pick') === 'change')   // tutor mode: Change asks what to do instead, then Claude re-plans
           return ask('What should I do instead?', 'Cue plans again with your words. Nothing has started.', 'e.g. find LED wall suppliers instead', 'Re-plan',
             function (v) { if (!v) return; b.disabled = true; call('cueAskPick', [id, 'change', v], started, fail); });
+        if (act === 'ask-pick' && b.getAttribute('data-pick') === 'approve' && scope.querySelector('[data-tk="' + id + '"]')) {   // a card with ticks: send the unticked rows
+          var off = Array.prototype.filter.call(scope.querySelectorAll('[data-tk="' + id + '"]'), function (x) { return !x.checked; }).map(function (x) { return x.value; });
+          b.disabled = true; return call('cueAskPick', [id, 'approve', 'skip:' + off.join(',')], started, fail); }
         if (act === 'ask-pick') { b.disabled = true; return call('cueAskPick', [id, b.getAttribute('data-pick')], started, fail); }
         if (act === 'wrong-cmd') { var wc = scope.querySelector('[data-wc="' + id + '"]'); b.disabled = true; running[id] = 1; schedule();
           return call('cueWrongCommand', [id, wc ? wc.value : ''], done, fail); }
@@ -1374,15 +1420,14 @@
             b.disabled = true; running[id] = 1; schedule(); call('cueApprove', [id, change(true)], done, fail);
           });
         }
-        if (act === 'send-change' || act === 'approve-send' || act === 'send-pipe') {
+        if (act === 'send-change' || act === 'approve-send') {
           var req = state.requests.filter(function (x) { return x.id === id; })[0] || {}, who = [];
-          if (act === 'send-pipe') { var ep = change(true); who = ((req.pipe || {}).drafts || []).filter(function (d) { return ep.skip.indexOf(d.k) < 0; }).map(function (d) { return d.deal + ' (' + d.to + ')'; }); }
-          else if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
+          if (act === 'send-change') { var ed = change(true); who = ((req.change || {}).drafts || []).filter(function (d) { return ed.skip.indexOf(d.k) < 0; }).map(function (d) { return d.supplier + ' (' + d.to + ')'; }); }
           else { var ex = collect(id, scope); who = ((req.proposal || {}).rfqs || []).filter(function (q, i) { return ex.skip_rfqs.indexOf(i) < 0; }).map(function (q) { var x = (q.suppliers || [])[0] || {}; return (x.name || 'Supplier') + (x.email ? ' (' + x.email + ')' : ' (no email: stays a draft)'); }); }
-          if (!who.length) return addLocal('Cue', act === 'send-pipe' ? 'Tick at least one follow-up first.' : 'Tick at least one supplier first.');
+          if (!who.length) return addLocal('Cue', 'Tick at least one supplier first.');
           return ask('Send ' + who.length + ' email' + (who.length === 1 ? '' : 's') + ' now?', 'From your Gmail to: ' + who.join(', ') + '. Sent emails cannot be called back.', null, 'Send', function () {
             b.disabled = true; running[id] = 1; schedule();
-            var x = act === 'send-change' || act === 'send-pipe' ? change(true) : collect(id, scope); x.send = true;
+            var x = act === 'send-change' ? change(true) : collect(id, scope); x.send = true;
             call('cueApprove', [id, x], done, fail);
           });
         }
@@ -1425,7 +1470,11 @@
         if (act === 'rfq-send' || act === 'rfq-draft' || act === 'rfq-cancel') { var ri = Number(b.getAttribute('data-i'));
           return call('cueRfq', [id, ri, act.slice(4), rfqEditOf(id, ri, scope)], function () { delete rqEdit[id + '|' + ri]; done(); }, fail); }
         if (act === 'approve-workflow') return call('cueApprove', [id, {}], done, fail);
-        if (act === 'approve-change' || act === 'approve-pipe') return call('cueApprove', [id, change(false)], done, fail);
+        if (act === 'approve-tri') {   // CUE-TRI: the card's fields, as Kiko left them
+          var te = {}; scope.querySelectorAll('[data-tri="' + id + '"]').forEach(function (x) { te[x.getAttribute('data-f')] = x.value; });
+          return call('cueApprove', [id, te], done, fail);
+        }
+        if (act === 'approve-change') return call('cueApprove', [id, change(false)], done, fail);
         if (act === 'approve-personal') {
           var items = {};
           scope.querySelectorAll('[data-pi="' + id + '"]').forEach(function (x) { var i = x.getAttribute('data-i'), k = x.getAttribute('data-f');
@@ -1434,22 +1483,38 @@
           return call('cueApprove', [id, { items: items }], done, fail);
         }
         if (act === 'retry') return call('cueRetry', [id], done, fail);
-        if (act === 'hs-lookup') return call('cueHsLookup', [id], done, fail);
-        if (act === 'hs-close') return call('cueHsClose', [id], done, fail);
+        if (act === 'fn-done') { b.disabled = true; return call('cueFunnelDone', [id], done, fail); }
+        if (act === 'ac-done') { b.disabled = true; return call('cueAcDone', [id], done, fail); }   // CueAccred.gs
         if (act === 'bids-close') return call('cueBidsClose', [id], done, fail);
-        if (act === 'gt-draft' || act === 'gt-hubspot') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), act === 'gt-draft' ? 'draft' : 'hubspot'], done, fail); }
+        if (act === 'bids-more' || act === 'bids-ask') { b.disabled = true; b.textContent = act === 'bids-more' ? 'Opening the documents…' : 'Writing the draft…'; running[id] = 1;
+          return call(act === 'bids-more' ? 'cueBidsMore' : 'cueBidsAskAgency', [id, b.getAttribute('data-f')], done, fail); }
+        if (act === 'bids-intake') { b.disabled = true; return call('cueBidsStartIntake', [id, b.getAttribute('data-f')], started, fail); }
+        if (act === 'bids-view') { var vk = b.getAttribute('data-bk'), vo = null;
+          scope.querySelectorAll('[data-vo]').forEach(function (x) { if (x.getAttribute('data-vo') === vk) vo = x; });
+          if (vo) { scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) x.style.display = ''; }); b.style.display = 'none'; vo.style.display = 'inline-flex'; return; }
+          scope.querySelectorAll('[data-bv]').forEach(function (x) { if (x.getAttribute('data-bv') === vk) { var open = x.style.display === 'none'; x.style.display = open ? '' : 'none'; b.textContent = open ? 'Hide details' : 'View details'; } }); return; }
+        if (act === 'bids-later' || act === 'bids-decline') { b.disabled = true; return call('cueBidsDecide', [id, b.getAttribute('data-f'), act === 'bids-later' ? 'later' : 'declined'], done, fail); }
+        if (act === 'bids-edit' || act === 'bids-send' || act === 'bids-cancel') {
+          var bk = b.getAttribute('data-f'), bf = {};
+          scope.querySelectorAll('[data-bd="' + id + '"]').forEach(function (x) { if (x.getAttribute('data-k') === bk) { bf[x.getAttribute('data-x')] = x; } });
+          if (act === 'bids-edit') { Object.keys(bf).forEach(function (k) { bf[k].readOnly = false; }); if (bf.body) bf.body.focus(); return; }
+          b.disabled = true;
+          if (act === 'bids-cancel') return call('cueBidsClarifyCancel', [id, bk], done, fail);
+          b.textContent = 'Sending…'; running[id] = 1;
+          return call('cueBidsClarifySend', [id, bk, bf.to ? bf.to.value : '', bf.subject ? bf.subject.value : '', bf.body ? bf.body.value : ''], done, fail);
+        }
+        if (act === 'gt-draft') { b.disabled = true; return call('cueGtAct', [id, b.getAttribute('data-f'), 'draft'], done, fail); }
         if (act === 'gt-drafts') { b.disabled = true; return call('cueGtDraftAll', [id], done, fail); }
         if (act === 'gt-close') return call('cueGtClose', [id], done, fail);
-        if (act === 'rn-post') { var rt = scope.querySelector('[data-rn-title="' + id + '"]'), rm = scope.querySelector('[data-rn-msg="' + id + '"]'), rk = scope.querySelector('[data-rn-track="' + id + '"]');
-          return call('cueApprove', [id, { title: rt ? rt.value : null, message: rm ? rm.value : null, track: !!(rk && rk.checked) }], done, fail); }
-        if (act === 'rn-now') return call('cueApprove', [id, { now: true }], done, fail);
-        if (act === 'rn-skip') return call('cueReject', [id, ''], done, fail);
         if (act === 'help-copy') { var ht = (scope.querySelector('[data-help-reply="' + id + '"]') || {}).textContent || '';
           if (navigator.clipboard) navigator.clipboard.writeText(ht).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy reply'; }, 1500); }, function () { alertErr('Copy did not work. Select the text and copy it.'); });
           return; }
         if (act === 'help-pick' || act === 'help-rephrase' || act === 'help-draft') { b.disabled = true;
           return call('cueHelpAct', [id, act.slice(5), act === 'help-pick' ? Number(b.getAttribute('data-n')) : ''], done, fail); }
-        if (act === 'relay-pass' || act === 'relay-drop') { b.disabled = true; return call('cueRelayAct', [id, b.getAttribute('data-n'), act === 'relay-pass' ? 'pass' : 'drop'], done, fail); }
+        if (act === 'rn-post') { var rt = scope.querySelector('[data-rn-title="' + id + '"]'), rm = scope.querySelector('[data-rn-msg="' + id + '"]'), rk = scope.querySelector('[data-rn-track="' + id + '"]');
+          return call('cueApprove', [id, { title: rt ? rt.value : null, message: rm ? rm.value : null, track: !!(rk && rk.checked) }], done, fail); }
+        if (act === 'rn-now') return call('cueApprove', [id, { now: true }], done, fail);
+        if (act === 'rn-skip') return call('cueReject', [id, ''], done, fail);
         if (act === 'as-new') return call('cueAsNew', [id], done, fail);
         if (act === 'same-yes') return call('cueSameAnswer', [id, b.getAttribute('data-pid')], done, fail);
         if (act === 'same-new') return call('cueSameAnswer', [id, 'new'], done, fail);
@@ -1463,4 +1528,70 @@
   }
   paneShow();
   refresh(); loadRules(); loadMyRules();
+})();
+/* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z and 14:51Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
+   or blank counts as empty) is tagged whole, so its dashes line up too; outside such a column a lone number cell is tagged by itself.
+   A short column (every filled cell 12 characters or fewer, one line, no buttons or text boxes) is tagged whole too (Kiko 14:51Z).
+   Number boxes (type=number, inputmode=decimal/numeric) are centred wherever they sit in a table. */
+(function () {
+  if (window.bsTAlign) return;
+  var NUM = /^[(\-+−]?\s*(?:₱|PHP|\$|USD)?\s*[\-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|×|k|K|M)?\)?$/;
+  var EMPTY = /^(?:|—|–|-|n\/a|N\/A)$/, SHORT = 12;
+  function txt(td) { return (td.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function numBox(td) { return td.querySelector('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]'); }
+  function isNum(td) {
+    if (numBox(td)) return true;
+    if (td.querySelector('input,select,textarea,button,table')) return false;
+    return NUM.test(txt(td));
+  }
+  function rowsOf(table) {
+    var out = [], g = [table.tBodies, table.tFoot ? [table.tFoot] : []];
+    for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) for (var r = 0; r < g[a][b].rows.length; r++) out.push(g[a][b].rows[r]);
+    return out;
+  }
+  function tag(table) {
+    if (!table || !table.rows || table.classList.contains('win-kv') || table.classList.contains('facts')) return;
+    var rows = rowsOf(table), n = 0, head = table.tHead && table.tHead.rows[table.tHead.rows.length - 1];
+    if (!head && rows.length && rows[0].cells.length && [].every.call(rows[0].cells, function (x) { return x.tagName === 'TH'; })) head = rows.shift();
+    if (head) { var simple = true; for (var i = 0; i < head.cells.length; i++) if (head.cells[i].colSpan > 1) simple = false; if (simple) n = head.cells.length; }
+    var colNum = {}, colAny = {}, colShort = {}, colFill = {};
+    if (n) for (var c = 0; c < n; c++) { colNum[c] = true; colAny[c] = false; colShort[c] = true; colFill[c] = false; }
+    rows.forEach(function (row) {
+      for (var c = 0; c < row.cells.length; c++) {
+        var td = row.cells[c];
+        td.classList.remove('bs-num');
+        if (!n || row.cells.length !== n) continue;
+        if (isNum(td)) colAny[c] = true; else if (!EMPTY.test(txt(td))) colNum[c] = false;
+        if (!EMPTY.test(txt(td))) colFill[c] = true;
+        if (!isNum(td) && (txt(td).length > SHORT || td.querySelector('input,select,textarea,button,table,br,div,p,ul,ol'))) colShort[c] = false;
+      }
+    });
+    rows.forEach(function (row) {
+      var same = n && row.cells.length === n;
+      for (var c = 0; c < row.cells.length; c++) {
+        var td = row.cells[c];
+        if ((same && ((colNum[c] && colAny[c]) || (colShort[c] && colFill[c]))) || isNum(td)) td.classList.add('bs-num');
+      }
+    });
+    table.querySelectorAll('input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]').forEach(function (x) { x.classList.add('bs-num'); });
+  }
+  function all(root) { (root.querySelectorAll ? root.querySelectorAll('table') : []).forEach(tag); }
+  var pending = new Set(), queued = false;
+  function flush() { queued = false; var p = pending; pending = new Set(); p.forEach(tag); }
+  function want(t) { if (!t) return; pending.add(t); if (!queued) { queued = true; requestAnimationFrame(flush); } }
+  function watch() {
+    all(document);
+    new MutationObserver(function (list) {
+      list.forEach(function (m) {
+        var t = m.target && m.target.nodeType === 1 ? m.target : m.target && m.target.parentElement;
+        if (t && t.closest) want(t.closest('table'));
+        m.addedNodes.forEach(function (x) {
+          if (x.nodeType !== 1) return;
+          if (x.tagName === 'TABLE') want(x); else if (x.querySelectorAll) x.querySelectorAll('table').forEach(want);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  window.bsTAlign = { tag: tag, all: all, mark: 'TABLE-ALIGN-2026-10-29' };
+  if (document.body) watch(); else document.addEventListener('DOMContentLoaded', watch);
 })();

@@ -4,7 +4,7 @@
     fyi: ['FYI', 'For your information. Nothing to do: tap Got it.'] };
   // ---- New mail (Kiko 27 Oct 08:27-09:32Z, spec new-mail-check.md, CueNewMail.gs): new emails in Kiko's inbox and info@ within 5 minutes ----
   var NM_GROUP = { new: ['Not sorted yet', 'Claude sorts new mail every 30 minutes, 7 AM to 9 PM.'], inquiry: ['New inquiry', 'Someone wants a quote or event. Start intake to begin it.'],
-    reply: ['Needs your reply', 'Draft reply writes it here. Edit it, then Approve and send.'], fyi: ['FYI', 'Worth knowing. No reply needed.'], skip: ['Skipped', ''] };
+    reply: ['Needs your reply', 'Draft reply writes it. Edit it, then Send reply.'], fyi: ['FYI', 'Worth knowing. No reply needed.'], skip: ['Skipped', ''] };
   function nmOpenCount(r) { return ((r.nm || {}).items || []).filter(function (it) { return !it.removed && !it.task_id; }).length; }
   function nmCardHtml(r) {
     var N = r.nm, live = r.status !== 'Closed', rank = { inquiry: 0, reply: 1, new: 2, fyi: 3, skip: 4 };
@@ -24,17 +24,18 @@
         + '<div style="margin-top:4px"><b>' + esc(it.subject || '(no subject)') + '</b></div>'
         + (it.summary && it.summary !== it.subject ? '<div class="small">' + esc(it.summary) + '</div>' : '')
         + (it.why ? '<div class="small muted">' + esc(it.why) + '</div>' : '')
-        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply drafted below.' : 'Done.') + '</div>' : '');
+        + (done ? '<div class="small muted">' + (it.removed === 'mute' ? 'Sender muted.' : it.removed === 'skip' ? 'Skipped.' : it.removed === 'project' ? 'A project email: it is in the project\'s thread in Team Cue.' : it.acted === 'intake' ? 'Intake started.' : it.acted === 'reply' ? 'Reply ready: edit it and tap Send reply in its card.' : 'Done.') + '</div>' : '');
       if (it.task_id && it.acted === 'intake') h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open intake</button></div>';
+      if (it.task_id && it.acted === 'reply') h += '<div class="actions"><button class="btn" data-open-task="' + esc(it.task_id) + '">Open reply</button></div>';   // CARD-OVERHAUL-2026-10-30: the reply card has Send reply
       if (!done && live) {
         var k = ' data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '"';
+        // CARD-OVERHAUL-2026-10-30 (card review, Kiko approved 30 Oct 2026 07:59Z): inquiry = Start intake, Draft reply, Mark read;
+        // needs reply = Draft reply, Done; FYI = Got it, Open in Gmail. Mute sender and Not an inquiry are gone from the card.
         h += '<div class="actions">'
           + (it.group === 'inquiry' ? '<button class="btn"' + k + ' data-act="nm-intake">Start intake</button>' : '')
           + (it.group !== 'fyi' ? '<button class="btn' + (it.group === 'inquiry' ? ' ghost' : '') + '"' + k + ' data-act="nm-reply">Draft reply</button>' : '')
-          + (it.url ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(it.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '')
-          + '<button class="btn ghost"' + k + ' data-act="nm-done">' + (it.group === 'fyi' ? 'Got it' : 'Done') + '</button>'
-          + (it.group === 'inquiry' ? '<button class="btn ghost"' + k + ' data-act="nm-noinq">Not an inquiry</button>' : '')
-          + '<button class="btn bad"' + k + ' data-act="nm-mute">Mute sender</button></div>';
+          + (it.url && it.group === 'fyi' ? '<a class="btn ghost" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(it.url) + '" target="_blank" rel="noopener">Open in Gmail</a>' : '')
+          + '<button class="btn ghost"' + k + ' data-act="nm-done">' + (it.group === 'fyi' ? 'Got it' : it.group === 'inquiry' ? 'Mark read' : 'Done') + '</button></div>';
       }
       h += '</div>';
     });
@@ -42,41 +43,78 @@
       + N.skipped.map(function (x) { return '<li><b>' + esc(x.who) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + (x.inbox === 'info' ? ' · info@' : '') + '</span></li>'; }).join('') + '</ul></details>';
     return h + '</div>';
   }
+  // ---- Client accreditation (Kiko 29 Oct 16:14Z "accreditation threads", 17:24Z "P4 companies + accreditation words"; CueAccred.gs) ----
+  // One thread per company: each new reply is one short line with a link to the email, then Open Accounts in Canvas and Done.
+  function acCardHtml(r) {
+    var A = r.acc, waiting = r.status === 'Needs you', items = A.items || [], fresh = items.filter(function (x) { return x.fresh; }).length;
+    var h = '<div class="card' + (waiting ? ' need' : '') + '"><div class="label" style="margin-top:0">Accreditation · replies from Gmail</div>'
+      + '<b style="font-size:16px;color:var(--white)">' + esc(A.company) + '</b>' + (A.p ? ' <span class="tag">' + esc(A.p) + '</span>' : '')
+      + '<div class="small muted">' + (fresh ? fresh + ' new repl' + (fresh === 1 ? 'y' : 'ies') + ' since you last looked.' : 'No new replies since you last looked.') + ' Read only: nothing is sent or changed.</div>'
+      + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
+    h += '<ul class="small" style="margin:8px 0 0;padding-left:18px">' + items.slice(0, 8).map(function (x) {
+      return '<li style="margin-bottom:6px"' + (x.fresh ? '' : ' class="muted"') + '>' + (x.fresh ? '<span class="tag">New</span> ' : '') + '<b>' + esc(x.who) + '</b> · ' + esc(x.day) + ': ' + esc(x.subject)
+        + (x.gist ? '<div class="muted">' + esc(x.gist) + '</div>' : '')
+        + (x.url ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Open email</a>' : '') + '</li>';
+    }).join('') + '</ul>' + (items.length > 8 ? '<div class="small muted">' + (items.length - 8) + ' older repl' + (items.length - 8 === 1 ? 'y' : 'ies') + ' in Gmail.</div>' : '');
+    h += '<div class="actions">' + (A.accounts_url ? '<a class="btn' + (waiting ? ' ghost' : '') + '" style="display:inline-flex;align-items:center;text-decoration:none" href="' + esc(A.accounts_url) + '" target="_blank" rel="noopener">Open Accounts in Canvas</a>' : '')
+      + (waiting ? '<button class="btn" data-act="ac-done" data-id="' + esc(r.id) + '">Done</button>' : '') + '</div>';
+    return h + '</div>';
+  }
+  // AWARD-TAP-2026-10-30 (Kiko 30 Oct 2026 03:26Z "can you also make cards foldable and expandable?", card "Yes, build all" 03:54Z):
+  // each kind folds (the first starts open, as on the Project intake card) and each line folds to one row. What Kiko opens or
+  // closes stays that way when the page redraws (swOpen, by batch id and key).
+  var swOpen = {};
+  document.addEventListener('toggle', function (e) {
+    var d = e.target, k = d && d.getAttribute && d.getAttribute('data-swfold'); if (!k) return;
+    swOpen[k] = d.open;
+  }, true);
+  function swFold(k, dflt) { var v = swOpen[k]; return (v === undefined ? dflt : v) ? ' open' : ''; }
   function sweepCardHtml(r) {
     var b = r.batch, waiting = r.status === 'Needs you', again = r.status === 'Done, drafts incomplete', kinds = [], by = {};
-    b.items.forEach(function (it) { if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
-    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed; }).length;
-    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Morning batch</div><b style="font-size:17px;color:#fff">' + esc(r.day) + '</b>'
-      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.</div>'
+    // CARD-OVERHAUL-2026-10-30: "Your tasks due" lines show as counts in Today's tasks (the Morning thread), not here.
+    b.items.forEach(function (it) { if (it.kind === 'tasks') return; if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
+    var mail = b.items.filter(function (it) { return !it.no_email && !it.removed && !it.tap; }).length;
+    // Send follow-up (it.tap) works until the batch is closed, also after Approve and send.
+    var tapLive = waiting || again || r.status === 'Scheduled' || r.status === 'Done';
+    var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Chasers</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
+      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Pick in the 2 PM update; each email goes only when you press Send.</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
     if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
-    kinds.forEach(function (k) {
-      h += '<div class="label">' + esc(k) + ' (' + by[k].length + ')</div>';
+    kinds.forEach(function (k, ki) {
+      h += '<details class="sec" data-swfold="' + esc(r.id + '|' + k) + '"' + swFold(r.id + '|' + k, ki === 0) + '><summary>' + esc(k) + ' (' + by[k].length + ')</summary>';
       by[k].forEach(function (it) {
-        var dim = it.removed ? ' style="opacity:.5"' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
-        h += '<div class="card" style="margin:8px 0 0;background:var(--input)"' + dim + '><label style="display:flex;gap:8px;align-items:flex-start">'
-          + (waiting && !it.no_email && !it.removed ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + '>' : '<span>' + (it.removed ? '–' : it.no_email ? '•' : '✓') + '</span>')
-          + '<span><b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.who && it.project ? ' <span class="small muted">' + esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') + '</span>' : '')
-          + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + ' ' + state
+        var dim = it.removed ? ';opacity:.5' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
+        var fk = r.id + '|' + it.key, tick = waiting && !it.no_email && !it.removed && !it.tap;
+        // Folded: the line's name, its tags and a short note (the who for chasers without one). The tick stays on the row.
+        h += '<details class="card swl" style="margin:8px 0 0;background:var(--input)' + dim + '" data-swfold="' + esc(fk) + '"' + swFold(fk, false) + '><summary>'
+          + (tick ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + ' aria-label="Include ' + esc(it.project || it.who || 'this line') + ' in the send">' : it.removed ? '<span>–</span>' : it.sent || it.made ? '<span>✓</span>' : '')
+          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag flag">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
+          + '<span class="small muted swn">' + esc(it.short || (it.project ? it.who : '') || '') + '</span></summary>'
+          + '<div style="display:flex;gap:8px;align-items:flex-start"><span><span class="small muted">' + (it.who && it.project ? esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') : '') + '</span>'
           + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
           + (it.kind === 'inbox' && it.summary && it.who ? '<br><span class="small">' + esc(it.summary) + '</span>' : '')
           + (SWEEP_GROUP[it.group] && it.who ? '<br><span class="small muted">' + SWEEP_GROUP[it.group][1] + '</span>' : '')
           + '<br><span class="small muted">' + (esc(it.why) + (it.times ? ' · chased ' + it.times + ' time' + (it.times === 1 ? '' : 's') + ' before' : '') + (it.no_email ? '' : it.in_thread ? ' · reply in its thread' : it.to ? (it.send_ok === false ? ' · draft only: you send it from Gmail' : '') : ' · no email: stays a draft')
-          + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></label>';
+          + (it.removed ? ' · ' + (it.kind === 'inbox' ? (it.removed === 'mute' ? 'sender muted' : 'done') : it.removed === 'mute' ? 'stopped chasing' : 'skipped today') : '')).replace(/^ · /, '') + '</span></span></div>';
         if ((it.skipped || []).length) h += '<details><summary class="small">' + esc(it.summary || it.skipped.length + ' skipped') + '</summary><ul class="small" style="margin:6px 0 0;padding-left:18px">'
           + it.skipped.map(function (x) { return '<li><b>' + esc(x.who || x.sender) + '</b> ' + esc(x.subject) + ' <span class="muted">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></details>';
         if (it.task_id) h += '<div class="actions"><button class="btn ghost" data-open-task="' + esc(it.task_id) + '">Open task</button></div>';
-        else if (!it.no_email) h += waiting && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+        else if (!it.no_email) h += (it.tap ? tapLive && !it.sent : waiting) && !it.removed ? '<textarea class="mail" data-sb="' + esc(r.id) + '" data-k="' + esc(it.key) + '" aria-label="Email to ' + esc(it.who) + '">' + esc(it.body) + '</textarea>'
+            + (it.tap ? '<div class="small muted" style="margin-top:4px">' + (it.picked ? (it.tailored ? 'Tailored to their latest email. ' : '') + 'Goes only when you press Send.' : 'Sends from your Gmail, in the CE thread, only when you tap Send follow-up.') + '</div>' : '')
           : '<details><summary class="small">Email</summary><pre style="margin-top:8px">' + esc(it.body) + '</pre></details>';
+        var first = it.tap && tapLive && !it.sent && !it.removed ? (it.picked ? '<button class="btn ghost" data-act="sweep-tell" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Tell Cue</button>' : '') + '<button class="btn" data-act="sweep-one" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + (it.picked ? 'Send' : 'Send follow-up') + '</button>'
+          : it.canvas_url && !it.removed && (waiting || tapLive) ? '<a class="btn" data-canvas="1" data-name="' + esc(it.project) + '" href="' + esc(it.canvas_url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open in Canvas</a>' : '';
         if (it.action && it.action !== 'none' && !it.acted && waiting) h += '<div class="actions"><button class="btn ghost" data-act="sweep-act" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + esc(it.action === 'start_intake' ? 'Start intake' : it.action) + '</button></div>';
         // Inbox lines are not chasers: Done hides the email, Mute this sender stops Cue showing that sender again.
         if (waiting && !it.removed && !it.task_id && it.kind === 'inbox') h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">' + (it.group === 'fyi' || !it.who ? 'Got it' : 'Done') + '</button>'
           + (it.sender ? '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Mute this sender</button>' : '') + '</div>';
-        else if (waiting && !it.removed && !it.task_id) h += '<div class="actions"><button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
+        else if (waiting && !it.removed && !it.task_id) h += '<div class="actions">' + first + '<button class="btn ghost" data-act="sweep-skip" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Skip today</button>'
           + '<button class="btn bad" data-act="sweep-mute" data-id="' + esc(r.id) + '" data-key="' + esc(it.key) + '">Stop chasing</button></div>';
+        else if (first) h += '<div class="actions">' + first + '</div>';
         if (it.error) h += '<div class="err">' + esc(it.error) + '</div>';
-        h += '</div>';
+        h += '</details>';
       });
+      h += '</details>';
     });
     var st = (b.stopped || []).filter(function (x) { return !x.removed; });
     if (st.length) {
@@ -120,41 +158,25 @@
     var c = function (name, ok, how) { return '<div style="display:flex;gap:8px;align-items:baseline;margin-top:8px"><b style="min-width:110px">' + name + '</b><span class="' + (ok ? '' : 'muted') + '">' + (ok ? 'Connected' : 'Not connected') + '</span>' + (ok ? '' : '<span class="small muted">' + how + '</span>') + '</div>'; };
     setHtml($('w-tutor'), '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-tutor="on"' + (S.tutor !== false ? ' checked' : '') + '> <b>Show me the plan before Cue starts anything</b></label>'
       + '<div class="small muted" style="margin-top:6px">Claude plans each command and you tap Go, Change or Not that. A kind of request you approve 3 times in a row runs on its own (emails always ask). Learned patterns are under Memory, rules and personality. Off: Cue starts commands at once, as before.</div></div>');
-    var RL = S.relay || { keys: [] };
-    setHtml($('w-relay'), ''
-      + '<div class="card"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-relay-gate="on"' + (RL.gate !== false ? ' checked' : '') + '> <b>Notes wait for my Pass on</b></label>'
-      + '<div class="adesc" style="margin:2px 0 0 24px">On: a note from ChatGPT or Claude waits in Cue until you tap Pass on (or Drop). Off: notes pass on at once and you read them in the Relay thread.</div>'   // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z "what is Notes wait for my Pass on?")
-      + '<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-relay-writes="on"' + (RL.writes !== false ? ' checked' : '') + '> <b>I can confirm Canvas changes in ChatGPT</b></label>'
-      + '<div class="adesc" style="margin:2px 0 0 24px">On: when ChatGPT hands Cue a CE cost change, an expense or an intake, you can give the go in ChatGPT with a one-time code, and Cue writes to Canvas once. Off: you approve those in Cue only.</div>'
-      + '<div class="small muted" style="margin-top:6px">ChatGPT and Claude leave notes for each other in Cue. Each key opens the relay for one of them; paste it into that app yourself and never into a chat. New key stops the old one at once.</div>'
-      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay URL</b><input data-relay-url placeholder="From the deploy: https://script.google.com/macros/s/…/exec" value="' + esc(RL.url || '') + '" style="flex:1;min-width:180px"><button class="btn ghost" data-relay-save="1">Save</button></div>'
-      + RL.keys.map(function (k) { return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">' + esc(k.who) + '</b>'
-        + (k.key ? '<input readonly value="' + esc(k.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
-        + '<button class="btn ghost" data-relay-key="' + esc(k.slot) + '">' + (k.key ? 'New key' : 'Make key') + '</button></div>'; }).join('')
-      // CUE-MSGR-2026-11-02: the Messenger relay key and Facebook's Page token (saved, never shown again)
-      + '<div class="small muted" style="margin-top:14px">Messenger: the relay key goes into the Cloudflare relay (CUE_KEY). The Page token comes from the Meta app; paste it here only.</div>'
-      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Messenger relay</b>'
-      + ((RL.msgr || {}).key ? '<input readonly value="' + esc(RL.msgr.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
-      + '<button class="btn ghost" data-msgr-key="1">' + ((RL.msgr || {}).key ? 'New key' : 'Make key') + '</button></div>'
+    var MS = S.msgr || {};   // CUE-MSGR-2026-11-02: Messenger relay key, relay address and Facebook's Page token (saved, never shown again)
+    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.')
+      + '<div style="margin-top:14px"><b>Messenger</b> <span class="small muted">crew sign links and replies</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay key</b>'
+      + (MS.key ? '<input readonly value="' + esc(MS.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
+      + '<button class="btn ghost" data-msgr-key="1">' + (MS.key ? 'New key' : 'Make key') + '</button></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay address</b>'
+      + '<input data-msgr-url placeholder="https://bse-messenger-relay.….workers.dev" value="' + esc(MS.url || '') + '" style="flex:1;min-width:180px"></div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Page token</b>'
-      + '<span class="' + ((RL.msgr || {}).token ? '' : 'muted') + '">' + ((RL.msgr || {}).token ? 'Saved' : 'Not set') + '</span>'
-      + '<input type="password" data-msgr-token placeholder="Paste the Page access token" autocomplete="off" style="flex:1;min-width:180px"><button class="btn ghost" data-msgr-save="1">Save</button></div>'
+      + '<span class="' + (MS.token ? '' : 'muted') + '">' + (MS.token ? 'Saved' : 'Not set') + '</span>'
+      + '<input type="password" data-msgr-token placeholder="Paste the Page access token" autocomplete="off" style="flex:1;min-width:180px">'
+      + '<button class="btn ghost" data-msgr-save="1">Save</button></div>'
       + '</div>');
-    setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('HubSpot', S.hubspot, 'Add CUE_HUBSPOT_TOKEN in Script Properties.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.') + '</div>');
   }
-  $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-writes]'); if (!c) return; c.disabled = true;
-    call('cueRelayWrites', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
-  $('w-relay').addEventListener('change', function (e) { var c = e.target.closest('[data-relay-gate]'); if (!c) return; c.disabled = true;
-    call('cueRelayGate', [c.checked], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
-  $('w-relay').addEventListener('click', function (e) { var sv = e.target.closest('[data-relay-save]'); if (!sv) return; sv.disabled = true;
-    call('cueRelayUrlSet', [$('w-relay').querySelector('[data-relay-url]').value], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { sv.disabled = false; }); });
-  $('w-relay').addEventListener('click', function (e) { var b = e.target.closest('[data-relay-key]'); if (!b) return; b.disabled = true;
-    call('cueRelayKeys', [b.getAttribute('data-relay-key')], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
-  $('w-relay').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
-    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
-  $('w-relay').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
-    var f = $('w-relay').querySelector('[data-msgr-token]'), v = f.value; f.value = '';
-    call('cueMsgrTokenSet', [v], function (r) { settingsData = r; $('w-relay')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
+    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
+    var box = $('w-conn'), f = box.querySelector('[data-msgr-token]'), v = f.value; f.value = '';
+    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
@@ -167,7 +189,7 @@
     setHtml($('w-sched'), (schedErr ? '<div class="err">' + esc(schedErr) + '</div>' : '') + (schedList ? '' : '<div class="small muted">Loading…</div>')
       + L.map(function (x) {
         var A = x.about || null, op = !!schedOpen[x.id];
-        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b><span>' + esc(x.when) + '</span>'
+        return '<div class="card schd' + (op ? ' open' : '') + '" data-sc-x="' + esc(x.id) + '"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="flex:1;min-width:160px"><span class="schv">›</span> ' + esc(x.name) + '</b>' + (A && A.silent ? '<span class="tag" title="Posts nothing to the chat; what it finds is in the 8 AM update">Silent</span>' : '') + '<span>' + esc(x.when) + '</span>'
           + '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-sc-on="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + '> On</label></div>'
           + (A && A.about ? '<div class="adesc" style="margin-top:4px">' + esc(A.about) + '</div>' : '')
           + (A ? '<div class="atags">Follows: ' + (A.follows || []).map(function (f) { return '<span class="atag">' + esc(f[0]) + '</span>'; }).join('') + '</div>' : '')
@@ -179,12 +201,12 @@
             + '<div class="small muted" style="margin-top:8px">' + esc(x.runs) + (x.system ? ' · Cue\'s own' : '') + (x.on && x.next ? ' · Next: ' + esc(x.next) : x.on ? '' : ' · Off')
             + (x.last ? ' · Last: ' + esc(x.last) + ', ' + esc(x.result || '') : '') + '</div>'
             + '<div class="adesc" style="margin-top:6px">To change when it runs, press <b>Change time</b> and type the days and time, e.g. "weekdays 8am" or "every Tue 9am". The On box pauses it.</div>'
-            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button><button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>'
+            + '<div class="actions"><button class="btn ghost" data-sc-act="run" data-id="' + esc(x.id) + '">Run now</button>' + (x.when === 'In the background' || x.when === 'Every minute' ? '' : '<button class="btn ghost" data-sc-act="edit" data-id="' + esc(x.id) + '">Change time</button>')
             + (x.task ? '<button class="btn ghost" data-sc-act="open" data-id="' + esc(x.task) + '">Open last result</button>' : '')
             + (x.system ? '' : '<button class="btn bad" data-sc-act="del" data-id="' + esc(x.id) + '">Delete</button>') + '</div></div>' : '') + '</div>';
       }).join('')
       + '<div class="small muted" style="margin-top:10px">Times are Manila. A run starts within 5 minutes of its time and only prepares: emails wait as drafts and Canvas writes wait for your approval. '
-      + 'Add one in the chat, e.g. "Schedule every Monday 9am pipeline review" or "Schedule Friday 3pm remind me to send the invoice".</div>');
+      + 'Add one in the chat, e.g. "Schedule every Monday 9am sales funnel" or "Schedule Friday 3pm remind me to send the invoice".</div>');
   }
   function schedDone(r) { schedList = r; schedErr = ''; $('w-sched')._h = null; renderSched(); }
   function schedFail(e) { schedErr = (e && e.message) || String(e); $('w-sched')._h = null; renderSched(); }
@@ -532,10 +554,10 @@
     if (!usage) return;
     var U = usage, M = U.months || [], cur = M[0] && M[0].current ? M[0] : null, P = U.prices, h = '';
     if (U.error) h += '<div class="err">' + esc(U.error) + '</div>';
-    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:#fff;font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
-      + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:#fff">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
-      + '<tr><td>Cost so far</td><td><b style="color:#fff">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
-      + '<tr><td>Likely by month end</td><td><b style="color:#fff">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
+    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
+      + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:var(--white)">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
+      + '<tr><td>Cost so far</td><td><b style="color:var(--white)">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
+      + '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
       + usageDetail(cur) + '</div>';
     else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
     if (U.canvas) h += '<div class="small muted" style="margin:4px 0 8px">' + (U.canvas.note ? esc(U.canvas.note) : 'Includes Canvas AI calls (' + U.canvas.rows + ' logged), shown as "Canvas: …" in By command.') + '</div>';   // CUE-STRUCTURE-4.6

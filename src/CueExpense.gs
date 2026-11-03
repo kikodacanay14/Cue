@@ -264,7 +264,7 @@ function cueExpenseApprove_(id, edits) {
   const v = res.verify || {};
   s.status = v.ok ? 'Done' : 'Done, check Canvas'; s.stage = s.status;
   if (!v.ok) s.notes.push('Read back found: ' + (v.problems || []).join(' '));
-  // 1.31: the finished state is saved (it stayed "Writing to Canvas" in the sheet, so a reload showed it still writing).
+  // 1.27.7: the finished state is saved (it stayed "Writing to Canvas" in the sheet, so a reload showed it still writing).
   cueMetrics_(s); save();
   cueSummary_(s);
   return s;

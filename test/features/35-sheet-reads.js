@@ -65,7 +65,7 @@ test('SC9 PC test 01:41Z: a Time cell Sheets turned into a date reads back as HH
 test('TU21 PC test 01:41Z: a preview marks the pushed Cue.gs as the test build, and its Go taps never count toward graduation', () => {
   const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8'), cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(/^const CUE_DEV_ = false;$/m.test(cue), 'src keeps the live value');
-  assert.ok(/if \(mode === 'preview'\) \{[\s\S]{0,400}replace\(\/\^const CUE_DEV_ = false;\/m, 'const CUE_DEV_ = true;'\)[\s\S]{0,200}want\['Cue\.gs'\] = md5\(f\)/.test(tool), 'preview stamps only the pushed copy and checks head against it');
+  assert.ok(/if \(mode === 'preview'( \|\| mode === 'test')?\) \{[\s\S]{0,400}replace\(\/\^const CUE_DEV_ = false;\/m, 'const CUE_DEV_ = true;'\)[\s\S]{0,200}want\['Cue\.gs'\] = md5\(f\)/.test(tool), 'preview stamps only the pushed copy and checks head against it');
   const tut = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueTutor.gs'), 'utf8');
   assert.ok(/if \(!CUE_DEV_\) \{[^\n]*\n\s+try \{ const p = cuePatApprove_/.test(tut), 'graduation counted only off /dev');
 });

@@ -77,14 +77,19 @@ function cueMsgrRun_(now) {
 }
 
 /* ---------- the receiving half (CUE-MSGR-2026-11-02, plan Task 6) ----------
- * Meta posts each crew message to the Messenger relay (relay/messenger-worker.js), which checks Meta's signature and forwards
- * it to Cue's relay door as { action: 'msgr_event', key: MSGR_RELAY_KEY, event }. Cue then:
+ * Meta posts each crew message to the Messenger relay (relay/messenger-worker.js), which checks Meta's signature and holds
+ * the event. Every 5 minutes (Job Runs "Messenger inbox") Cue collects the held events with its key (MSGR_RELAY_KEY), so Cue
+ * needs no public address: live /exec stays Google sign-in only. Then, for each event:
  *   - a message carrying a crew member's sealed m.me ref: saves the link-up in Canvas (fl_social_save, no tap: D11), remembers
  *     the person in the "Messenger People" tab and says they are linked;
  *   - a message from a linked person: updates their last-message time in Canvas and adds it to their Cue chat
  *     "Messenger · <name>" (one chat per person, mockup MSG-5); Kiko answers there by typing;
  *   - anyone else: a polite reply, nothing saved, and one line in Ask Cue (R5).
  * Crew messages are untrusted data: Cue never follows instructions inside them and makes no AI call on them. */
+const cueMsgrId_ = () => 'cue-' + Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
+function cueMsgrClose_(id) {
+  return cueLocked_(() => { const L = cueLoad_(id); L.s.closed_from = L.s.status; L.s.status = 'Done'; L.s.stage = 'Done'; delete L.s.nudge; cueSave_(L.sh, L.row, L.s); return L.s; });
+}
 const CUE_MSGR_PEOPLE_ = { tab: 'Messenger People', head: ['PSID', 'Email', 'Name', 'Last message', 'Chat'] };
 const CUE_MSGR_SAY_ = {
   linked: n => 'Hi ' + n + '! You\'re linked to Blank Space Events. Your papers to sign will come here too. Reply anytime if you have a question.',
@@ -122,7 +127,7 @@ function cueMsgrProfile_(psid) {
 /** The person's Cue chat (one per crew member), made when missing. Returns its id. Call locked. */
 function cueMsgrChatFor_(p) {
   if (p.chat && cueLoad_(p.chat)) return p.chat;
-  const sh = cueSheet_('Requests'), id = cueMcId_();
+  const sh = cueSheet_('Requests'), id = cueMsgrId_();
   const s = { id, version: CUE_VERSION_, kind: 'msgr', created: new Date(cueNow_()).toISOString(), started: cueNow_(), ref: '',
     text: 'Messenger · ' + (p.name || p.email || 'crew member'), status: 'Needs you', stage: 'Needs you', card_at: cueNow_(),
     msgr: { psid: p.psid, email: p.email, name: p.name }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
@@ -183,7 +188,7 @@ function cueMsgrSaid_(c) {
   const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || { last: '' };
   cueChat_('Kiko', t, L.s.id);
   if (/^(done|close( it| this)?)[.!]?$/i.test(t)) {
-    const s = cueMcClose_(L.s.id, 'Done'); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);
+    const s = cueMsgrClose_(L.s.id); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);
   }
   if (!cueMsgrInWindow_(p.last, cueNow_())) {
     cueChat_('Cue', 'Messenger is closed for ' + M.name + ': their last message was over 24 hours ago, so Facebook will not deliver this. '
@@ -195,19 +200,42 @@ function cueMsgrSaid_(c) {
   return cueView_(L.s);
 }
 
-/* ---------- Settings › Messenger (owner only) ---------- */
-/** Makes or replaces the key the Messenger relay sends with (MSGR_RELAY_KEY); the old key stops at once. */
+/* ---------- collecting from the relay (Job Runs "Messenger inbox") ---------- */
+/** Collects held events from the relay, handles them, then tells the relay which to drop. Returns how many were handled. */
+function cueMsgrPull_() {
+  const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, ''), key = P.getProperty('MSGR_RELAY_KEY');
+  if (!/^https:\/\/[\w.-]+(\/[\w.-]*)*$/.test(url) || !key || !P.getProperty('MSGR_PAGE_TOKEN')) return 0;   // not set up yet
+  const auth = { Authorization: 'Bearer ' + key };
+  const res = UrlFetchApp.fetch(url + '/events', { muteHttpExceptions: true, headers: auth });
+  if (res.getResponseCode() !== 200) throw new Error('Messenger relay answered ' + res.getResponseCode());
+  const items = (JSON.parse(res.getContentText()).events || []).slice(0, 50), done = [];
+  let handled = 0;
+  items.forEach(it => {
+    try { handled += cueMsgrEvent_(it.event).handled; done.push(it.id); } catch (e) { console.error('Messenger inbox ' + it.id + ': ' + e); }
+  });
+  if (done.length) UrlFetchApp.fetch(url + '/ack', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: auth,
+    payload: JSON.stringify({ ids: done }) });
+  return handled;
+}
+
+/* ---------- Settings › Connections › Messenger (owner only) ---------- */
+function cueMsgrSettings_() {
+  const P = PropertiesService.getScriptProperties();
+  return { key: P.getProperty('MSGR_RELAY_KEY') || '', url: P.getProperty('MSGR_RELAY_URL') || '', token: !!P.getProperty('MSGR_PAGE_TOKEN') };
+}
+/** Makes or replaces the key the Messenger relay takes from Cue (MSGR_RELAY_KEY = the relay's CUE_KEY); the old key stops at once. */
 function cueMsgrKey() {
   cueOwner_();
   PropertiesService.getScriptProperties().setProperty('MSGR_RELAY_KEY', 'mr_' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
   return cueSettings();
 }
-/** Saves Facebook's Page access token (MSGR_PAGE_TOKEN). It is never shown again; empty clears it, which stops all Messenger sends. */
-function cueMsgrTokenSet(token) {
+/** Saves the relay address (https://…workers.dev) and/or Facebook's Page token. The token is never shown again; an empty token is kept as it was. */
+function cueMsgrSave(url, token) {
   cueOwner_();
-  const t = String(token || '').trim(), P = PropertiesService.getScriptProperties();
-  if (!t) P.deleteProperty('MSGR_PAGE_TOKEN');
-  else if (!/^[A-Za-z0-9_-]{60,}$/.test(t)) throw new Error('That does not look like a Page access token. Copy it again from the Meta app (Messenger API settings, Generate).');
-  else P.setProperty('MSGR_PAGE_TOKEN', t);
+  const P = PropertiesService.getScriptProperties(), u = String(url || '').trim().replace(/\/+$/, ''), t = String(token || '').trim();
+  if (u && !/^https:\/\/[\w.-]+\.[a-z]{2,}(\/[\w.-]*)*$/.test(u)) throw new Error('Paste the relay address, like https://bse-messenger-relay.<you>.workers.dev');
+  if (t && !/^[A-Za-z0-9_-]{60,}$/.test(t)) throw new Error('That does not look like a Page access token. Copy it again from the Meta app (Messenger API settings, Generate).');
+  if (u) P.setProperty('MSGR_RELAY_URL', u);
+  if (t) P.setProperty('MSGR_PAGE_TOKEN', t);
   return cueSettings();
 }
