@@ -28,7 +28,11 @@ everything live stays as it is.
   goes when Kiko presses its Send, and other ticked emails go only after he taps Approve and send (which still confirms each
   recipient by name and sends at 9:00, or right away after 9:00). The Cue Admin line for the 1 PM chaser job says the same. No
   change to what is sent or when.
-- No AI call added. Tests: 643 on this branch (4 new, `test/features/84-thread-chat.js`).
+- Shops and booking sites (PC check 3 Nov 2026: Booking.com and Shell were chased; Kiko 3 Nov 23:37Z "yes" to Cue skipping
+  shops and booking sites like these on its own). They are awarded payees in Canvas (hotel nights, fuel, toll RFID) that are never
+  accredited, so the morning batch leaves out names with Booking.com, Shell or Autosweep (`CUE_ACCR_SHOPS_` in CueSweepAccr.gs).
+  Only the names seen so far are listed; Stop chasing still covers any other.
+- No AI call added. Tests: 644 (5 new, `test/features/84-thread-chat.js`).
 
 ## Cue 1.28.12: no repeated messages (BUG FIX, not deployed)
 
