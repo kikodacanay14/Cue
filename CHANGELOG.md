@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue: bigger logo and simpler thread header (not deployed)
+
+Requested by Kiko on 31 Oct 2026; fresh PR requested and plan approved on 3 Nov 2026, replacing PR #268.
+
+- Increase the header logo from 30px to 40px and its chat-bubble mark from 19px to 25px.
+- Show only the open thread's name, without the duplicate "Threads ›" breadcrumb. The top Threads tab still opens the list.
+- No API, bridge, font or deployment changes. Validation: focused thread-render check; full suite runs in Test Cue on the PR.
+
 ## Cue 1.27.90: Messenger for crew: sign links, link-ups, crew chats and the relay (not deployed)
 
 Kiko asked on 2 Nov 2026, in a cloud chat, to use m.me so crew get their papers on Facebook Messenger and their social details sit

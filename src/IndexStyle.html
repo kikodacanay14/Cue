@@ -10,8 +10,8 @@
   #scroller { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
   header { z-index:5; background:var(--head); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:10px 16px; }
   /* Kiko 28 Oct 04:29Z chose the chat bubble: the old colour wheel read as a loading spinner. */
-  .logo { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%); flex:none; display:grid; place-items:center; }
-  .logo svg { width:19px; height:19px; }
+  .logo { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%); flex:none; display:grid; place-items:center; }
+  .logo svg { width:25px; height:25px; }
   /* BSE brand (Website look, Kiko 2026-10-11): DM Sans for text, Archivo Black for the title only. */
   header h1 { margin:0; font:400 20px/1.1 var(--display); letter-spacing:.01em; color:var(--white); }
   .card b { letter-spacing:-0.01em; }
@@ -31,7 +31,7 @@
   .col { min-width:0; }
   .pane { width:44%; min-width:380px; max-width:720px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:#17181c; }
   /* Kiko 14:38Z: the pane looks like Claude's Threads panel. A header bar (Threads + count + search, filter, more; or a
-     "Threads › name" breadcrumb with resolve, more, expand and close), a welcome line, grouped rows, and a thread read as a
+     thread name with resolve, more, expand and close), a welcome line, grouped rows, and a thread read as a
      conversation with a full-width reply box. */
   .phead { flex:none; display:flex; gap:6px; align-items:center; min-height:53px; padding:8px 10px 8px 14px; border-bottom:1px solid var(--line); background:var(--head); }
   .phead .pico svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
