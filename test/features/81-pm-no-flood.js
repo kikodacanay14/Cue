@@ -14,7 +14,7 @@ test('K81 2 PM: chasers that cannot be emailed show as one count line per type, 
   const who = live.who; assert.strictEqual(x.split('to ' + who + ' ').length - 1, 1, 'the duplicate is numbered once');
 });
 
-test('K82 job threads (Kiko 3 Nov "Own thread in Team Cue", mockup ok): each update sits in its own thread, the main chat gets one line each, the funnel has its own thread', () => {
+test('K82 job threads (Kiko 3 Nov "Own thread in Team Cue", mockup ok): each update sits in its own thread, the main chat gets one line each, the funnel has its own thread, chasers with a project go to Team Cue', () => {
   const t = k0Box(); t.at('2026-10-21', 13, 0); t.ctx.cueSweep(); t.at('2026-10-21', 14, 0);
   const id = batchOf(t).id; const s = t.state(id), items = s.batch.items;
   const live = items.filter(i => !i.no_email && i.kind !== 'tasks')[0]; live.project_id = 'S-25506500TR';
@@ -29,5 +29,7 @@ test('K82 job threads (Kiko 3 Nov "Own thread in Team Cue", mockup ok): each upd
   const fid = o.request_id + '-fn'; assert.strictEqual(t.state(fid).kind, 'k0fn');
   assert.ok(rows.some(r => r[3] === fid && /your 2 PM funnel follow-ups\n\n- Call Ana at Acme/.test(r[2])));
   assert.ok(!rows.some(r => r[3] === o.request_id && /Call Ana/.test(r[2])), 'funnel is not in the chasers thread');
+  const q = JSON.parse(t.props.CUE_PLOG_Q || '[]').filter(l => /^due:/.test(l.key));
+  deq(q.map(l => [l.kind, l.project_id, l.from]), [['Chaser', 'S-25506500TR', '2 PM chasers']]);
   assert.ok(t.ctx.cueK0Said_('1', '') , 'a "1" in the main chat still answers the chasers');
 });
