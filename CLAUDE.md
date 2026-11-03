@@ -35,9 +35,25 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
 - Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
 
+## Feature Board (Kiko, 3 Nov 2026)
+
+Kiko's words: "fix the Feature board - i expect every development will update the feature board".
+
+- The Feature Board is the artifact https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP (collection `features`, written with
+  the `ArtifactData` tool, `if_version` on every write to an existing card). Card fields and columns: CanvasWorkspace
+  `work-board.md`, "Feature Board fields".
+- Every piece of development work, bug fixes included, has a card, and the work is not done until the card shows where it
+  stands. Move it in the same turn its status changes. A release that goes live moves its card to **For Testing (live)**
+  with `liveAt` and `ref` (for example `Cue 1.28.3, Version 189`); no card yet means make one.
+- Every PR fills in the "Feature Board" line of `.github/pull_request_template.md`, or says why no card applies.
+
 ## Working style
 
 - Kiko approves a spec before any build. Specs live in the project files under `canvas-integration/specs/`.
+- While an approval about new access to people's data (mail, files, accounts) or a new standing job is pending, write
+  none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
+- Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
+  marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
 - Usage rule (Kiko, 2 Nov 2026: "Hold off any UI or UX improvements if Usage is lower than 30$"): no UI or UX improvement while
   Kiko's remaining Claude usage is under $30. Claude cannot see the balance, so it asks Kiko before starting UI or UX work; bug fixes
   and requested features are not held.
@@ -64,3 +80,9 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
   short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
   Mockups follow it too.
+
+## Always-on skills
+
+- Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
+- Code and build work: invoke superpowers:using-superpowers before the first step.
+- New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
