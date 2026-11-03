@@ -1,5 +1,70 @@
 # Changelog
 
+## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
+
+Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption
+because it has so much more details about the post". Cue has read that field (`lblAbstractText` under the page's "Description" label)
+since 1.27.85, but the card ran it into one line and cut it at 600 characters, so a list of inclusions became a wall of text. Kiko saw
+the before and after mockup (`canvas-integration/mockups/philgeps-description-card.png`) and said yes on 3 Nov 2026 at 10:16Z.
+
+- `src/CueBids.gs` (`cueBidsCopyFrom_`): "Summary of requirements" on an old PhilGEPS notice is now the whole Description with its own line
+  breaks, up to 2,000 characters.
+- `src/CueBidsPhilgeps.gs` (`cueBidsPgDetails_`): a Description over 2,000 characters ends with "…"; the full text stays in Cue's PDF copy.
+- `src/IndexCards.html` (bid card `kv`): a summary with line breaks shows line by line, left aligned. One-line summaries keep the
+  justified look. Nothing else on the card changes.
+- No new AI call, no new fetch, no Canvas change. Notices already copied get the full text from their saved record at the next check.
+- Tests: `test/features/82-philgeps-description.js` (2 tests), BO4 updated for the kept line breaks; 619 tests pass.
+
+## Cue 1.28.9: scheduled job reports in their own threads (not deployed)
+
+Kiko asked on 3 Nov 2026 06:40Z: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an
+update to me every step"; 10:13Z picked "Own thread in Team Cue"; 10:15Z "ok" on the mockup
+canvas-integration/mockups/job-threads/job-threads-before-after.png. The 8 AM and 2 PM updates now sit in their own threads and
+the main chat gets one short line that opens each ("8 AM update is ready.", "2 PM chasers: 4 for your OK"). The 2 PM funnel
+follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. A reply of "1, 3" works in the main chat or in the chasers thread. Built on live Version 191 (1.28.5). Tests: 615/615 (new K82).
+
+## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, not deployed)
+
+Kiko asked on 3 Nov 2026 06:29Z: "its so hard coz i have to scroll all the way... please change that", and on 10:14Z, when the
+newest line was moved to the top: "at top?\"???????? should be at the boottom!!". So the newest line stays at the bottom, and the
+fix is that Cue lands there.
+
+- Cause: Cue scrolled to the end once per render, then judged "not at the bottom" from the page as it was. When cards, pictures or
+  the Canvas slide-in grew the page after that scroll, the view stayed partway up and every later render left it there.
+- Fix (`pinBottom` in `src/IndexThreads.html`, `goThread` in `src/IndexChat.html`): the chat and an open thread remember whether they
+  are pinned to the end. Kiko scrolling up unpins; scrolling back to the end pins again; while pinned, any change of size or content
+  scrolls to the end. A link to a spot in a thread still jumps to that spot. The Threads list is never pinned.
+- Checked in a browser render: with 600 px of late content, the old code left the chat 612 px from the end and a thread 514 px;
+  the new code leaves both at 0, and a chat Kiko scrolled up stays where he left it.
+- Tests: `test/features/82-chat-stays-at-bottom.js` (SB1, SB2). The newest-on-top change (1.28.7 on rel1286) is dropped.
+
+## Cue 1.28.7: each new email's post in the main chat gives its context (not deployed)
+
+Kiko asked on 3 Nov 2026 at 10:15Z, in the Cue project: "when you post on the left give some context. like what did they send, what
+time, what is it for, what do they expect, what needs to be done after?" Built on 1.28.6 (new mail in the main chat only).
+
+- `src/CueMailChat.gs` (`cueMcLeft_`): the main chat's post for an email that has its own chat now reads: "New email: name <address> ·
+  type · day, time" (Manila), the subject, "What they sent", "What it is for", "What they expect" and "What to do next". A later email
+  in the same conversation posts the same way, starting "New in this conversation".
+- The same one Claude Haiku read per email gives the three new parts (`sent`, `purpose`, `expect` in its answer), so there is no extra AI
+  call. When the read fails, the post still gives the sender, time, subject and what the email says, and leaves out the rest.
+- The email's own chat still starts with Cue's full read. Emails whose type is set to One line keep their one line.
+- Tests: `test/features/81-mail-left-only.js` ML4 and ML5; ACC7 and ACC9 updated for the new post. 619 tests pass.
+
+## Cue 1.28.6: new mail shows only in the main chat (not deployed)
+
+Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
+to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
+in the main chat and as a row under "Waiting on you" in the Threads list.
+
+- `src/IndexThreads.html` (`listShows`): an email's own chat (kind `mail`) and a new-kind-of-email question (kind `mailtype`) no longer
+  show in the Threads list or in the ☰ Threads count (`needThreadsN`). They stay in the main chat on the left, and their line there still opens
+  the chat.
+- A mail chat joins the Threads list once Kiko writes in it (anything except a plain "done") or another task joins it, such as the
+  reply draft or an intake. A "done" alone closes the chat without listing it.
+- Page only: no server change, no AI call, no Canvas change. New mail sorting, types and the daily New mail list are unchanged.
+- Tests: `test/features/81-mail-left-only.js` (3 tests); 616 tests pass. FEATURE-MAP.md refreshed with `node tools/map.mjs`.
+
 ## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, LIVE as Version 191, 3 Nov 2026 10:17Z; rollback Version 190)
 
 Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the
@@ -7,7 +72,7 @@ duplicates, Do not Flood details that are not necessary." The screenshots were t
 address on file, client already replied, chased 3 times) were listed one by one under the Funnel heading. Now the 2 PM update shows one
 count line per chaser type under "Not emailed: need you in Canvas", and the details stay in the chaser batch's own thread. A chaser listed
 twice (same type, person and project) is numbered once, and chased-the-max lines become one count line. Built on live Version 190
-(1.28.4). Tests: 614/614 (new K81).
+(1.28.4).
 
 ## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay (live as Version 190, 2 Nov 2026 06:20Z; rollback 189)
 
