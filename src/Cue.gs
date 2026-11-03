@@ -171,7 +171,28 @@ function cueSave_(sh, row, s) {
     m.ai_calls || 0, m.seconds_to_card == null ? '' : m.seconds_to_card, m.seconds_total == null ? '' : m.seconds_total, m.flag || '',
     new Date(cueNow_())].concat(parts)]);
 }
+// CUE-NO-REPEAT-2026-11-03 (Kiko 3 Nov 2026: "The redundant messages. You see the message in the thread, you see the message in the main
+// chat, and then after a while, you see it again"; earlier "Remove the duplicates, Do not Flood details that are not necessary"): a Cue
+// line that is word for word the newest line already in the same place (same thread, pointer or main chat, within a day) is not posted
+// again. Seen live: a job run that posted every line twice (3 Nov 19:04), "The bid check stopped" every 10 minutes, and two identical
+// one-line emails. A line from Kiko in between makes the next Cue line new. Never throws: an unreadable tab means the line posts.
+const CUE_NO_REPEAT_ = { look: 40, ms: 24 * 3600 * 1000 };
+function cueChatRepeat_(sh, who, text, id) {
+  if (who !== 'Cue') return false;
+  try {
+    const n = sh.getLastRow() - 1; if (n < 1) return false;
+    const k = Math.min(n, CUE_NO_REPEAT_.look), tag = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';
+    const rows = sh.getRange(n + 2 - k, 1, k, 5).getValues();
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const r = rows[i]; if (String(r[3] || '') !== id || String(r[4] || '') !== tag) continue;
+      const at = r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || 0;
+      return String(r[1]) === 'Cue' && String(r[2]) === text && cueNow_() - at < CUE_NO_REPEAT_.ms;
+    }
+  } catch (e) { console.warn('Chat repeat check: ' + e); }
+  return false;
+}
 function cueChat_(who, text, id) {
+  try { const sh = cueSheet_('Chat'), t = String(text).slice(0, 9000); if (cueChatRepeat_(sh, who, t, String(id || ''))) return; } catch (e) { console.warn('Chat repeat check: ' + e); }
   try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || ''].concat(globalThis.CUE_CHECK_ON_ ? [cueCheckTag_()] : [])); } catch (e) { console.error('Chat log: ' + e); }
   if (/^>cue-/.test(String(id || ''))) try { cuePlogTask_(String(id).slice(1), text); } catch (e) { console.error('Project log (task): ' + e); }   // CUE-PROJECT-LOG-2026-10-27
 }
@@ -752,10 +773,18 @@ function cueRunLeased_(id) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (L.s.status !== 'Working' || L.s.lease_until > cueNow_()) return { s: L.s, busy: true };
+    // CUE-NO-REPEAT-2026-11-03: the lease also sits in a Script Property, read inside the same lock. On 3 Nov 19:00 two runs of one
+    // "Daily personal spending" passed the sheet lease seconds apart and every line posted twice; a property is never read stale.
+    const P = PropertiesService.getScriptProperties(), lk = 'CUE_RUN_' + id;
+    if (Number(P.getProperty(lk) || 0) > cueNow_()) return { s: L.s, busy: true };
+    P.setProperty(lk, String(cueNow_() + CUE_LEASE_MS_));
     L.s.lease_until = cueNow_() + CUE_LEASE_MS_; cueSave_(L.sh, L.row, L.s);
     return L;
   });
   if (got.busy) return got.s;
+  try { return cueRunLeasedGo_(got); } finally { try { PropertiesService.getScriptProperties().deleteProperty('CUE_RUN_' + id); } catch (e) { console.warn('Run lease: ' + e); } }
+}
+function cueRunLeasedGo_(got) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
