@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 74 server files, 1446 top-level names, 34 task kinds, 35 word checks before the
+Counts: 74 server files, 1447 top-level names, 34 task kinds, 35 word checks before the
 chat call, 16 background jobs in the 5-minute trigger, 89 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -176,10 +176,10 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 2 | 8 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
 | `CueMessenger.gs` |  | Requests | 0 | 0 | 4 | 4 |
-| `CueMorning.gs` | `client_status` | Requests | 0 | 0 | 9 | 11 |
+| `CueMorning.gs` | `client_status` | Requests | 0 | 0 | 9 | 12 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 7 | 8 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 5 | 5 |
-| `CueProjectLog.gs` | `subject` |  | 0 | 0 | 4 | 5 |
+| `CueProjectLog.gs` | `subject` |  | 0 | 0 | 5 | 5 |
 | `CueReady.gs` | `find_similar_projects`, `get_readiness`, `list_project_files`, `search_projects` | Requests | 1 | 1 | 5 | 7 |
 | `CueRelnotes.gs` |  | Release Notes, Requests | 0 | 1 | 6 | 6 |
 | `CueRfpSend.gs` | `rfp_outbox`, `rfp_sent` |  | 0 | 0 | 6 | 8 |

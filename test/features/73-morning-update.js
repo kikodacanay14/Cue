@@ -11,7 +11,7 @@ test('K1 8 AM (weekdays): Yesterday, Today\'s focus, New opportunities and New c
   assert.ok(!k0Main(t).some(r => /Morning batch is ready/.test(r[2])), 'R2: the batch line stays in its thread');
   const ai = t.log.gpt.length; t.at('2026-10-21', 8, 0);
   const o = t.ctx.cueK0Run_(false, 'am'); assert.ok(o.request_id); assert.strictEqual(t.log.gpt.length, ai, 'no AI call');
-  const x = t.tabs.Chat.rows.filter(r => r[3] === '>' + o.request_id)[0][2];
+  const x = t.tabs.Chat.rows.filter(r => r[3] === o.request_id)[0][2];
   assert.ok(/^Wednesday, 21 Oct · your 8 AM update/.test(x));
   assert.ok(!/RFQ chaser to/.test(x) && !/For your OK|Chasers for your OK/.test(x), 'chasers wait for 2 PM (Kiko 1 Nov)');
   assert.strictEqual(t.ctx.cueK0Run_(false, 'am').skip, 'Already sent today');
@@ -19,8 +19,8 @@ test('K1 8 AM (weekdays): Yesterday, Today\'s focus, New opportunities and New c
 
 test('K2 2 PM: chasers numbered; "1" drafts that one (tailored, nothing sent); Send on its card sends it; the one not picked stays unsent', () => {
   const t = k0Box({ gpt: { chasers_tailor: { drafts: [] } } }); t.at('2026-10-21', 13, 0); t.ctx.cueSweep(); t.at('2026-10-21', 14, 0);
-  const o = t.ctx.cueK0Run_(false, 'pm'); const x = t.tabs.Chat.rows.filter(r => r[3] === '>' + o.request_id)[0][2];
-  assert.ok(/· your 2 PM update/.test(x) && /Chasers for your OK \(reply "1, 3" or "all": Cue drafts them/.test(x), x);
+  const o = t.ctx.cueK0Run_(false, 'pm'); const x = t.tabs.Chat.rows.filter(r => r[3] === o.request_id)[0][2];
+  assert.ok(/· your 2 PM chasers/.test(x) && /Chasers for your OK \(reply "1, 3" or "all": Cue drafts them/.test(x), x);
   assert.ok(/\n1\. RFQ chaser to Mats Co \(Acme Party\): No quote after 4 days/.test(x) && /\n2\. RFQ chaser to Sonic Pro/.test(x));
   t.ctx.cueSend('1', [], '');
   const id = batchOf(t).id; let b = t.state(id).batch.items, mats = b.filter(i => i.who === 'Mats Co')[0], sonic = b.filter(i => i.who === 'Sonic Pro')[0];
@@ -57,7 +57,7 @@ test('K5 the 2 PM update waits while the 13:00 chasers are still drafting, then 
   assert.strictEqual(t.props.CUE_K0_RETRY, '2026-10-21');
   const L2 = t.ctx.cueLoad_(id); L2.s.status = 'Needs you'; t.ctx.cueSave_(L2.sh, L2.row, L2.s);
   t.at('2026-10-21', 14, 5); t.ctx.cueK0Retry_();
-  assert.ok(t.tabs.Chat.rows.some(r => /your 2 PM update/.test(r[2]))); assert.ok(!t.props.CUE_K0_RETRY);
+  assert.ok(t.tabs.Chat.rows.some(r => /your 2 PM chasers/.test(r[2]))); assert.ok(!t.props.CUE_K0_RETRY);
 });
 
 test('K6 Tell Cue rewrites one draft within the template (greeting and sign-off kept); a rewrite that breaks the template is refused', () => {
