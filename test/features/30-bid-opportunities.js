@@ -45,7 +45,8 @@ test('BD1 bid check: chat starts it with no chat call; 3 ChatGPT web calls; Kiko
   assert.strictEqual(t.log.gpt.length, 0, 'plain words, no chat call'); const v = t.ctx.cueRun(r.request_id);
   const search = t.log.gpt.filter(b => b.text.format.name === 'bids'), read = t.log.gpt.filter(b => b.text.format.name === 'bid_docs');
   assert.strictEqual(search.length, 3); assert.ok(search.every(b => b.tools && b.tools[0].type === 'web_search'), 'web search on');
-  assert.ok(/New PhilGEPS: https:\/\/philgeps\.gov\.ph/.test(search[0].input) && /OLD-1/.test(search[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(/Other PhilGEPS: https:\/\/notices\.philgeps\.gov\.ph/.test(search[0].input) && /OLD-1/.test(search[0].input), 'sources and the earlier notice to recheck go to ChatGPT');
+  assert.ok(!/New PhilGEPS/.test(search.map(b => b.input).join('\n')), 'New PhilGEPS is read by code, never sent to ChatGPT (Kiko 1 Nov 2026, Cue 1.28.11)');
   assert.ok(/Never register, pay, submit/.test(search[0].instructions) && /Never send a listing page/.test(search[0].instructions));
   assert.strictEqual(read.length, 1, 'one reading call: only the CITEM notice had a PDF Cue could open'); assert.ok(!read[0].tools, 'reading has no web search');
   const file = read[0].input[0].content.filter(c => c.type === 'input_file'); assert.strictEqual(file.length, 1);
