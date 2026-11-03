@@ -98,3 +98,21 @@ Kiko corrected that recent Cue versions updated these rules, then requested: “
 These D references are extraction references only, not invented Feature Board card/question IDs. Proposed feature areas to locate later are company-priority funnel, legacy follow-ups, C2 chasers, accreditation collection and Canvas CRM tick. Actual cards and qa were not read or mapped in this correction. Reuse any existing answered question; do not ask Kiko to reapprove settled P meanings. Leave unconfirmed answers blank and preserve manual statuses if an authorized later import is possible.
 
 No newer-release tests were run by this documentation correction. Source tests were inspected as listed in the rules. Documentation-branch CI cannot validate the release branch or deployed Apps Script. No code, live schedule, spreadsheet, Feature Board, external message or deployment changes are part of this update.
+
+
+## Decision history — requested PR270/274/277 extraction (2026-11-03)
+
+Kiko approved the proposal to add the missing rules and unresolved discrepancies to the existing draft documentation PRs: “Yes. Add and list the discrepancies.” (Sentinel_773aff21fa688191bc6335fb98dd8718). Scope is documentation only. This is not approval to resolve a disputed implementation, change application code, merge, deploy, edit schedules or import Feature Board records.
+
+The [requested PR audit](business-rules.md#requested-pr-audit-270-274-and-277-2026-11-03) adds CUE-037–041. It distinguishes final merged code from initial PR wording and repository author-attributed user answers. No inaccessible Claude conversation or missing Feature Board answer is claimed as independently reviewed.
+
+| Finding | Evidence / consequence | Status and next permitted treatment |
+|---|---|---|
+| CUE-D18 | CUE-033 previously placed chasers in 8AM. PR270's final 1.27.93/94 changes use 2PM and draft-only numbered selection with per-message Send. | Documentation corrected; old wording retained as superseded history. No application or schedule change. |
+| CUE-D19 | PR274 groups an assigned-to-Kiko task due tomorrow into Critical today. [Review](https://github.com/kikodacanay14/Cue/pull/274#discussion_r4434436237); [later inspected source](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueMorning.gs#L183-L193). | Unresolved code defect relative to the label. Proposed regression: tomorrow must not be Critical today; retain overdue/today/team behavior. Implementation approval remains separate. |
+| CUE-D20 | Upstream client_status TRI rows may be capped at twelve before urgency sorting. [Review](https://github.com/kikodacanay14/Cue/pull/274#discussion_r4434436234); [Cue fixture](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/fixtures/ZapBridge.gs#L1310-L1387). | Coverage risk; actual deployed Canvas contract unverified. Proposed regression: urgent thirteenth input is not silently omitted. Verify backend/version before selecting a fix. |
+| CUE-D21 | PR277 uses bounded project and mail metadata evidence; unknown priced is not flagged as explicitly missing, and a named contact is not necessarily a verified current recipient. [Code](https://github.com/kikodacanay14/Cue/blob/db19062530b55fb94bf1835b5f97070a5ae3e2e5/src/CueFunnel.gs#L160-L220). | Disclose coverage and uncertainty. Do not treat the report as exhaustive, a sending decision or proof of award. Any scope expansion needs its own decision. |
+
+Reused, not duplicated: CUE-D12 (legacy timing), CUE-D14 (holiday counting), CUE-D17 (release/runtime identity), CUE-D04 (draft versus actual-contact accounting). They remain unresolved. CUE-D10 remains an older HubSpot finding, not a current newer-release feature.
+
+The feature areas for later board reconciliation are consolidated daily updates, draft/send approval, bid/contact retention, tracker/timeline summary and Canvas funnel checks. These are search targets only, not verified card names or new IDs. No board import, synchronization, manual-status change or operational resolution is claimed. Source tests were read, not run; documentation-branch CI cannot verify release or deployed behavior.
