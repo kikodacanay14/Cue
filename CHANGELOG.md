@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, not deployed)
+## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, LIVE as Version 191, 3 Nov 2026 10:17Z; rollback Version 190)
 
 Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the
 duplicates, Do not Flood details that are not necessary." The screenshots were the 2 PM update. Chasers that cannot be emailed (no
