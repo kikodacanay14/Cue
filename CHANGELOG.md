@@ -6,9 +6,7 @@ Kiko asked on 3 Nov 2026 06:40Z: "Scheduled Jobs should have their own thread an
 update to me every step"; 10:13Z picked "Own thread in Team Cue"; 10:15Z "ok" on the mockup
 canvas-integration/mockups/job-threads/job-threads-before-after.png. The 8 AM and 2 PM updates now sit in their own threads and
 the main chat gets one short line that opens each ("8 AM update is ready.", "2 PM chasers: 4 for your OK"). The 2 PM funnel
-follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. Each chaser due at 2 PM that has a
-Canvas project also gets one line in that project's thread in Team Cue (bridge project_log, kind Chaser; no Canvas change needed).
-A reply of "1, 3" works in the main chat or in the chasers thread. Built on live Version 191 (1.28.5). Tests: 615/615 (new K82).
+follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. A reply of "1, 3" works in the main chat or in the chasers thread. Built on live Version 191 (1.28.5). Tests: 615/615 (new K82).
 
 ## Cue 1.28.8: the chat and an open thread stay at the newest line (bug fix, not deployed)
 
