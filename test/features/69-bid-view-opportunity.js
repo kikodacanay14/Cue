@@ -46,7 +46,7 @@ test('BO4 Cue saves a PDF copy of each old PhilGEPS notice once, and the card sh
   const v = t.ctx.cueRun(t.ctx.cueSend('run bid opportunity check', [], '').request_id);
   const x = v.bids.items.filter(i => i.reference === '13310846')[0];
   assert.ok(x, 'the notice is on the card');
-  assert.ok(/^Good day! Kindly refer to the attached RFQ Form/.test(x.summary), 'the agency\'s description, not the category and mode: ' + x.summary);
+  assert.ok(/^Good day!\n\nKindly refer to the attached RFQ Form/.test(x.summary), 'the agency\'s description, not the category and mode: ' + x.summary);
   deq(x.details, { category: 'Audio and Visual Equipment', mode: 'Negotiated Procurement - Small Value Procurement (Sec. 34)', delivery: '30 Day/s', solicitation: 'Goods 2026-150', doc_requests: 11 });
   deq(x.contacts.map(c => c.email), ['armmcquotations@gmail.com']);
   assert.ok(/^https:\/\/drive\.google\.com\/file\/d\/f\d+\/view$/.test(x.copy.drive), 'Cue\'s copy');
