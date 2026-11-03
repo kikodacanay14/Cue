@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue (number set by the deploys thread): new mail shows only in the main chat (not deployed)
+## Cue 1.28.6: new mail shows only in the main chat (not deployed)
 
 Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
 to do an action that is the only time it will show in the threadss". His screenshot (Version 190) showed each new email both as a line
