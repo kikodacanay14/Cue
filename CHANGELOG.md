@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.28.5.1: no repeated messages (BUG FIX, not deployed)
+
+Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
+thread, you see the message in the main chat, and then after a while, you see it again", with about 40 repeats in 60 morning
+messages; earlier that day: "Goal is not to make it confusing. Remove the duplicates, Do not Flood details that are not necessary."
+The Chat tab for 1 to 3 Nov showed three sources of word-for-word repeats. Built on 1.28.10 (branch claude/project-thread-st4gw7),
+so 1.28.6 (new mail only in the main chat) and 1.28.9 (job reports in their own threads) are kept.
+
+- One run at a time: on 3 Nov at 19:00 two runs of one "Daily personal spending" passed the sheet lease seconds apart, so every line
+  posted twice and ChatGPT was paid twice. The lease now also sits in a Script Property, checked inside the same lock, and is let go
+  when the run ends (`cueRunLeased_` in Cue.gs).
+- No word-for-word repeat: a Cue line that is exactly the newest line already in the same place (same thread, same pointer or the
+  main chat, within a day) is not posted again (`cueChatRepeat_` in Cue.gs). Seen live: "The bid check stopped" every 10 minutes,
+  two identical one-line DMARC emails. A line from Kiko in between makes the next Cue line new; Kiko's own lines always post.
+- Nothing changes in how anything looks. No AI call. Tests: 626 (2 new, `test/features/83-no-repeat.js`).
+
 ## Cue 1.28.5: the 2 PM update stops flooding (BUG FIX, LIVE as Version 191, 3 Nov 2026 10:17Z; rollback Version 190)
 
 Kiko asked on 3 Nov 2026 06:39Z why chasers still showed in his updates, and at 06:40Z: "Goal is not to make it confusing. Remove the
