@@ -23,7 +23,12 @@ everything live stays as it is.
   morning batch skips any accreditation row whose name is a client in Canvas Accounts (Client Desk), asked through the existing
   read-only bridge action `client_check`, one call per row in parallel (`cueAccrClients_` in CueSweepAccr.gs). Client accreditations
   such as infor.com keep their own Accreditation thread. When Canvas cannot say, the row stays in, as before. No Canvas change.
-- No AI call added. Tests: 635 (3 new, `test/features/84-thread-chat.js`).
+- Chasers card copy (PC check 3 Nov 2026: the header said "each email goes only when you press Send" while the footer said
+  Approve and send sends the ticked ones at 9:00). The header now names only the ways that card really sends: a picked 2 PM line
+  goes when Kiko presses its Send, and other ticked emails go only after he taps Approve and send (which still confirms each
+  recipient by name and sends at 9:00, or right away after 9:00). The Cue Admin line for the 1 PM chaser job says the same. No
+  change to what is sent or when.
+- No AI call added. Tests: 643 on this branch (4 new, `test/features/84-thread-chat.js`).
 
 ## Cue 1.28.14: Cue messages act like an assistant (not deployed)
 
