@@ -116,7 +116,7 @@ Acceptance examples: P3 does not enter the newer P1/P2 due count; changing a fix
 
 The newer chaser work in [PR271](https://github.com/kikodacanay14/Cue/pull/271) is Cue 1.27.92. [src/CueSweepFunnel.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueSweepFunnel.gs#L39-L76) selects a quiet **Inquiry with an email address**, not all P2 companies. Registered C2 timing is two follow-ups, three working days apart, with the C2 template and sendAllowed enabled. [src/CueSweep.gs](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueSweep.gs) supplies the chase gates; enabling send capability is not itself approval to send.
 
-Process: eligible inquiry → due/mute/dedup/max gates → prepared chase presented in the 8AM update → Kiko approves that message → permitted send path. PR271 documents flagging the item for parking after the two follow-ups; automatic Canvas stage parking was deferred to a later part, not implemented by this registration. Winback was removed from registration even though old helper functions remain. C4 accreditation-status chasing was deferred; it is not the accreditation-mail collector.
+Process (corrected 2026-11-03): eligible inquiry → due/mute/dedup/max gates → chase choices presented in the 2PM update → selection prepares a draft → Kiko approves that individual message → permitted send path. The earlier documentation said 8AM; PR270's final merged 1.27.93/94 changes moved chasers to 2PM and made numbered selection draft-only. That superseded wording is retained here as history, not current behavior (CUE-037/038, CUE-D18). PR271 documents flagging the item for parking after the two follow-ups; automatic Canvas stage parking was deferred to a later part, not implemented by this registration. Winback was removed from registration even though old helper functions remain. C4 accreditation-status chasing was deferred; it is not the accreditation-mail collector.
 
 Acceptance examples: a P2 company without an eligible Inquiry is not a C2 item merely because of P2; no third C2 follow-up is assumed; flag-to-park does not write P3; preparation and actual contact remain distinct (CUE-D04).
 
@@ -144,3 +144,63 @@ Earlier Canvas inspection reported Inquiry→P6, Won→P7, return to P6 two week
 4. **Approval and live state remain separate evidence.** This documentation update records observed code, release notes and unresolved conflicts; it approves no sends, stage changes, schedules or deployment. Feature Board mapping remains unsynced.
 
 Tests inspected, not executed for this correction: [test/features/63-funnel-p-stages.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/63-funnel-p-stages.js) (P1/P2 timing, P3 exclusion, read-only funnel, movement reporting); [test/features/66-client-accreditation.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/66-client-accreditation.js) (identity, dedup/no-send, reopen, thirty-minute gate); [test/features/74-chaser-templates.js](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/features/74-chaser-templates.js) (working-day/holiday helpers). Proposed next regression cases: same holiday-crossing dates across funnel and C2; simultaneous old follow-up/new funnel eligibility; stale/false response markers; P2 without Inquiry; two completed C2 follow-ups without an automatic P3 write. Passing documentation-branch CI would not establish newer-release or live behavior.
+
+
+## Requested PR audit: 270, 274 and 277 (2026-11-03)
+
+These are merged historical changes, not certification of a currently deployed app. PR titles, initial descriptions and author-attributed approval must be reconciled with final diffs. Documentation publication approval does not approve undocumented assumptions or implement fixes.
+
+| PR | Final inspected head / chronology | Scope and evidence status |
+|---|---|---|
+| [270](https://github.com/kikodacanay14/Cue/pull/270) | [78667a0b5ea52be83009b80005c6b8955e3015af](https://github.com/kikodacanay14/Cue/tree/78667a0b5ea52be83009b80005c6b8955e3015af); merged 2026-11-01 02:55Z into claude/cue-canvas-look | Title describes 1.27.91; final merged changes also contain 1.27.92–94. Initial immediate-send / morning-chaser wording is superseded within the PR. |
+| [274](https://github.com/kikodacanay14/Cue/pull/274) | [ec726aa0447aadb8240886d8f283025621724684](https://github.com/kikodacanay14/Cue/tree/ec726aa0447aadb8240886d8f283025621724684); merged 2026-11-01 04:47Z into claude/project-thread-y5l4x9-rel12790 | 1.27.95 tracker/timeline input. PR/code attribute answers to Kiko; attribution is not independent access to the original conversation. |
+| [277](https://github.com/kikodacanay14/Cue/pull/277) | [db19062530b55fb94bf1835b5f97070a5ae3e2e5](https://github.com/kikodacanay14/Cue/tree/db19062530b55fb94bf1835b5f97070a5ae3e2e5); merged 2026-11-01 07:30Z into claude/project-thread-y5l4x9-rel12790 | 1.27.97 deterministic three-check funnel addition after HubSpot removal; complements CUE-032/036 rather than reinstating HubSpot. |
+
+### CUE-037: Separate 8AM work summary from 2PM chasers
+
+Observed final PR270 behavior: weekday 8AM combines today's focus, opportunities and clients; chasers belong in the 2PM update. Omit empty sections. When the consolidated update is enabled, routine background-job posts are quiet in the main chat, but failures remain visible; disabling consolidation restores the old routine-post behavior. Configuration defaults do not prove enabled live jobs.
+
+Evidence: [CueMorning](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/src/CueMorning.gs), [schedule](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/src/CueSchedule.gs), [morning tests](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/test/features/73-morning-update.js). Acceptance: no chase selection in 8AM; quiet mode must not suppress a failure.
+
+### CUE-038: Numbered selections prepare drafts, not sends
+
+Observed final PR270 behavior: even a numbered instruction such as “send 1,3” selects and prepares drafts; each message still requires its own Send action. A reply to a specific update must use that update's choices, including on a later day, rather than reinterpret numbers against today's latest update. This documents Cue's implementation, not permission for this assistant to send.
+
+Template tailoring uses the latest email to adjust the middle while preserving the greeting and ending. Invalid AI tailoring falls back to the original template; an invalid requested rewrite is rejected. The inspected validator checks the greeting/ending; do not infer that every semantic or branding constraint is mechanically enforced.
+
+Evidence: [morning tests](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/test/features/73-morning-update.js), [reply tests](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/test/features/75-reply-bids-card.js), [templates](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/src/CueTemplates.gs). Acceptance: selection alone produces zero sends; a stale-card reply cannot target a different item.
+
+### CUE-039: Undecided opportunities and contacts are not silently declined
+
+Observed PR270 behavior: detailed bid cards expose source/agency, ABC, closing date, reference, requirements, missing information and document links, with View, Ask agency, Decline and Start intake actions. Scrolling past is not decline; an undecided bid remains until closing. The former Decide later action was removed. New contacts remain candidates until Add or Decline; failing to select them does not discard them.
+
+Evidence: [bid/reply regression cases](https://github.com/kikodacanay14/Cue/blob/78667a0b5ea52be83009b80005c6b8955e3015af/test/features/75-reply-bids-card.js). These actions retain their own approval/validation boundaries; a displayed link is not proof its document was read.
+
+### CUE-040: 8AM work groups come from the tracker and ongoing projects
+
+Observed PR274 behavior: read Shared Task Tracker Tasks plus Canvas client_status for ongoing projects' timeline/open TRI. The ongoing-project selection follows the Friday-status list. Produce separate Critical today, Overdue, Assigned to you, Needs review, Nudge team, Blocked, Key milestones (next three days), and Personal groups. Team nudges cover overdue, today and tomorrow items. Personal work stays separate.
+
+Completed is based on done status and the relevant updated period; Moved compares due dates with the previous 8AM snapshot. Missing or failed source reads must disclose the gap while retaining usable independent sections. This grouping is deterministic, not an AI judgment. The final inspected release limits each displayed group to eight entries plus a remaining-count line; upstream source bounds remain a separate limitation.
+
+Evidence: [PR274 work gathering/grouping](https://github.com/kikodacanay14/Cue/blob/ec726aa0447aadb8240886d8f283025621724684/src/CueMorning.gs#L121-L195), [regression cases](https://github.com/kikodacanay14/Cue/blob/ec726aa0447aadb8240886d8f283025621724684/test/features/76-k0-tracker-timeline.js), [later inspected grouping](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueMorning.gs#L145-L195). The tomorrow-as-critical and upstream TRI-cap discrepancies below mean the labels cannot be treated as fully verified scheduling guarantees.
+
+### CUE-041: Three bounded Canvas funnel checks, not sales decisions
+
+This supplements CUE-032/036 with PR277's exact boundaries. For open Inquiry or CE sent projects:
+1. Flag waiting for your reply when the latest qualifying incoming email is at least one working day old.
+2. Flag an event from today through fourteen days ahead as soon but not won.
+3. Flag a past event still open, or missing amount, event date or contact, for correction in Canvas.
+
+This is a deterministic report, not an email send, award, stage change or new permission. The implementation examines at most forty projects ordered by event date and up to three recent metadata messages per contact in a 120-day lookback, filtering automated messages. It does not establish full-thread/attachment coverage. Missing amount is flagged when priced is explicitly false; an unknown priced value is not equivalent to a confirmed missing amount. At least one available contact name/email satisfies the inspected contact check, not a guarantee the contact is current or verified.
+
+Evidence: [PR277 code](https://github.com/kikodacanay14/Cue/blob/db19062530b55fb94bf1835b5f97070a5ae3e2e5/src/CueFunnel.gs#L160-L220), [regression cases](https://github.com/kikodacanay14/Cue/blob/db19062530b55fb94bf1835b5f97070a5ae3e2e5/test/features/54-sales-funnel.js#L126-L151). Acceptance: do not label bounded coverage exhaustive, or interpret an event date as an award.
+
+### Discrepancy register for this PR audit
+
+- **CUE-D18, documentation corrected:** CUE-033 previously said 8AM. PR270 final merged behavior separates 8AM summary from 2PM draft-first chasers. The old PR title/body is not the final contract.
+- **CUE-D19, unresolved implementation defect:** tomorrow's assigned-to-Kiko task can enter Critical today. The inspected grouping uses overdue versus all other eligible dates, rather than a distinct tomorrow classification. [Review](https://github.com/kikodacanay14/Cue/pull/274#discussion_r4434436237); [still present in inspected later source](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/src/CueMorning.gs#L183-L193). No code fix made; deployed behavior unverified.
+- **CUE-D20, unresolved upstream coverage risk:** client_status can cap TRI rows at twelve before priority sorting, potentially omitting a later urgent item. [Review](https://github.com/kikodacanay14/Cue/pull/274#discussion_r4434436234); [inspected Cue bridge fixture](https://github.com/kikodacanay14/Cue/blob/fe2987aaa1d604f9e621b1f3887f4889bd2116ef/test/fixtures/ZapBridge.gs#L1310-L1387). The fixture is evidence of an expected contract, not verification of the deployed Canvas backend.
+- **CUE-D21, bounded funnel evidence:** PR277's forty-project / three-message metadata limits and explicit-false amount test can miss an actionable item or unresolved price. Report those limits rather than claiming exhaustive coverage; confirm current requirements before proposing implementation changes.
+- **Existing CUE-D12/D14/D17 remain open:** legacy timing coexistence, weekday-versus-holiday counting and unverified deployment/configuration are already recorded above. Do not duplicate them as newly answered policy or silently resolve them through this documentation edit.
+
+Verification: final PR metadata, diffs, discussions, selected source and test assertions were inspected. Tests were not executed in this documentation audit. No application code, test, schedule, Feature Board, merge or deployment changed.
