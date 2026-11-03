@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.10: the whole old PhilGEPS Description on bid cards (BUG FIX, not deployed)
+
+Kiko asked on 30 Oct 2026 at 10:49Z, in the Cue project: "for Philgeps Legacy bid opportunities make sure to read the Desciption
+because it has so much more details about the post". Cue has read that field (`lblAbstractText` under the page's "Description" label)
+since 1.27.85, but the card ran it into one line and cut it at 600 characters, so a list of inclusions became a wall of text. Kiko saw
+the before and after mockup (`canvas-integration/mockups/philgeps-description-card.png`) and said yes on 3 Nov 2026 at 10:16Z.
+
+- `src/CueBids.gs` (`cueBidsCopyFrom_`): "Summary of requirements" on an old PhilGEPS notice is now the whole Description with its own line
+  breaks, up to 2,000 characters.
+- `src/CueBidsPhilgeps.gs` (`cueBidsPgDetails_`): a Description over 2,000 characters ends with "…"; the full text stays in Cue's PDF copy.
+- `src/IndexCards.html` (bid card `kv`): a summary with line breaks shows line by line, left aligned. One-line summaries keep the
+  justified look. Nothing else on the card changes.
+- No new AI call, no new fetch, no Canvas change. Notices already copied get the full text from their saved record at the next check.
+- Tests: `test/features/82-philgeps-description.js` (2 tests), BO4 updated for the kept line breaks; 619 tests pass.
+
 ## Cue 1.28.9: scheduled job reports in their own threads (not deployed)
 
 Kiko asked on 3 Nov 2026 06:40Z: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an

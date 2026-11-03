@@ -519,7 +519,8 @@
       return hh == null ? t : t + ', ' + ((+hh % 12) || 12) + ':' + mm + ' ' + (+hh < 12 ? 'AM' : 'PM'); }); };
     // Field lines (Kiko 30 Oct 2026 06:15Z, a picture of Canvas's "Account  Manulife Philippines": "follow this for header and value"):
     // the name in the accent colour in its own column, no colon, the value regular beside it. just = justify the value (06:15Z).
-    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
+    // lines = keep the value's own line breaks, left aligned (the old PhilGEPS Description, Kiko 3 Nov 2026 10:16Z).
+    var kv = function (k, html, just) { return '<div class="small kv"><span class="fk">' + esc(k) + '</span><span' + (just === 'lines' ? ' style="white-space:pre-line;text-align:left"' : just ? ' style="text-align:justify"' : '') + '>' + html + '</span></div>'; };
     var row = function (k, v, flag, just) { return kv(k, v ? esc(v) : '<span class="muted">Not stated</span>' + (flag ? ' <span class="tag flag">For verification</span>' : ''), just); };
     var doc = function (d) {
       var st = d.state === 'saved' ? '<span class="tag pref">Opened · saved' + (d.read ? ' · read' : '') + '</span>' + (d.drive ? ' ' + link(d.drive, 'Cue\'s copy') : '')
@@ -549,7 +550,7 @@
         + '<b>' + esc(x.project || x.reference) + '</b>'
         + (x.tag ? ' <span class="tag flag">' + esc(day(x.tag)) + '</span>' : '') + (/^For verification/.test(x.status || '') ? ' <span class="tag flag">' + esc(x.status) + '</span>' : '')
         + row('Organization', [x.agency, x.reference].filter(Boolean).join(' · '))
-        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, true)
+        + row('Bid end date', day(x.deadline), true) + row('Budget', peso(x.abc), true) + row('Summary of requirements', x.summary || '', false, /\n/.test(x.summary || '') ? 'lines' : true)
         // From the notice page (Kiko 30 Oct 05:52Z "add more details"): the site's category and mode, the delivery period, and Cue's copy of the notice.
         + (x.details && (x.details.category || x.details.mode) ? row('Category', [x.details.category, x.details.mode].filter(Boolean).join(' · ')) : '')
         + (x.details && x.details.delivery ? row('Delivery period', x.details.delivery) : '')

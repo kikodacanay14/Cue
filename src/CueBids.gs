@@ -687,7 +687,9 @@ function cueBidsCopyFrom_(it, rec) {
   if (!rec) return;
   it.copy = rec.drive ? { drive: 'https://drive.google.com/file/d/' + rec.drive + '/view' } : { why: String(rec.result || '').replace(/^Could not open:\s*/, '') };
   const f = rec.facts; if (!f) return;
-  if (f.description && !it.from_docs) it.summary = cueStr_(f.description.replace(/\s*\n+\s*/g, ' '), 600);
+  // The whole Description with its own line breaks (Kiko 30 Oct 2026 10:49Z "make sure to read the Desciption because it has so much more
+  // details about the post"; yes to the mockup 3 Nov 10:16Z). It was run into one line and cut at 600 characters.
+  if (f.description && !it.from_docs) it.summary = cueStr_(f.description, 2000);
   it.details = { category: f.category || '', mode: f.mode || '', delivery: f.delivery || '', solicitation: f.solicitation || '', doc_requests: f.doc_requests === '' || f.doc_requests == null ? '' : f.doc_requests };
   if (f.contact && !(it.contacts || []).length) it.contacts = [f.contact];
 }
