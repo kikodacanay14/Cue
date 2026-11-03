@@ -7,7 +7,15 @@ duplicates, Do not Flood details that are not necessary." The screenshots were t
 address on file, client already replied, chased 3 times) were listed one by one under the Funnel heading. Now the 2 PM update shows one
 count line per chaser type under "Not emailed: need you in Canvas", and the details stay in the chaser batch's own thread. A chaser listed
 twice (same type, person and project) is numbered once, and chased-the-max lines become one count line. Built on live Version 190
-(1.28.4). Tests: 614/614 (new K81).
+(1.28.4).
+
+Same build, job threads (Kiko 3 Nov 06:40Z: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an
+update to me every step"; 10:13Z picked "Own thread in Team Cue"; 10:15Z "ok" on the mockup
+canvas-integration/mockups/job-threads/job-threads-before-after.png). The 8 AM and 2 PM updates now sit in their own threads and
+the main chat gets one short line that opens each ("8 AM update is ready.", "2 PM chasers: 4 for your OK"). The 2 PM funnel
+follow-ups get their own thread (Ask Cue, per the CRM/Funnel rule), apart from the chasers. Each chaser due at 2 PM that has a
+Canvas project also gets one line in that project's thread in Team Cue (bridge project_log, kind Chaser; no Canvas change needed).
+A reply of "1, 3" works in the main chat or in the chasers thread. Tests: 615/615 (new K81, K82).
 
 ## Cue 1.28.4: Messenger for crew: sign links, link-ups, crew chats and the relay (live as Version 190, 2 Nov 2026 06:20Z; rollback 189)
 

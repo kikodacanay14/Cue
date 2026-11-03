@@ -13,10 +13,10 @@ const K0_BIDS_ = [
 
 test('RB1 8 AM: new bids are one line "N new bids, in the card below" and a card line right under the update; no numbers for bids', () => {
   const t = k0Box(); t.at('2026-10-21', 6, 30); const bid = k0BidRun(t, K0_BIDS_); t.at('2026-10-21', 8, 0);
-  const o = t.ctx.cueK0Run_(false, 'am'), rows = t.tabs.Chat.rows, i = rows.findIndex(r => r[3] === '>' + o.request_id);
+  const o = t.ctx.cueK0Run_(false, 'am'), rows = t.tabs.Chat.rows, i = rows.findIndex(r => r[3] === o.request_id), j = rows.findIndex(r => r[3] === '>' + o.request_id);
   assert.ok(/\nNew opportunities\n- 2 new bids, in the card below/.test(rows[i][2]), rows[i][2]);
   assert.ok(!/reply "start/.test(rows[i][2]) && !t.state(o.request_id).k0.items.some(x => x.t === 'bid'), 'bids are not numbered');
-  assert.strictEqual(rows[i + 1][3], '%' + bid, 'the card line follows the update');
+  assert.strictEqual(rows[j + 1][3], '%' + bid, 'the card line follows the update\'s chat line');
 });
 
 test('RB2 page: the New opportunities card has no subtitle and no Decide later; View opportunity, Ask the agency, Decline, Start intake', () => {

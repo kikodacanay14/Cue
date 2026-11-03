@@ -121,13 +121,15 @@ function cueK0Build_(day, contacts, mode, work) {
     });
     stopped = (sweep.batch.stopped || []).length;
   }
-  sec('Funnel', funnelLines.map(l => '- ' + l));
+  // CUE-JOB-THREADS-2026-11-03: the funnel follow-ups go in their own thread (Ask Cue, Kiko's CRM/Funnel rule); this text holds the chasers.
   sec('Chasers for your OK (reply "1, 3" or "all": Cue drafts them for you to check; nothing is sent until you press Send)', chasers);
   const held = noMailOrder.map(lab => '- ' + noMail[lab] + ' ' + lab.replace(/ chaser$/i, '') + (noMail[lab] === 1 ? ' chaser' : ' chasers'));
   if (stopped) held.push('- ' + stopped + (stopped === 1 ? ' chaser' : ' chasers') + ' chased the max times with no reply');
   sec('Not emailed: need you in Canvas (details in the chasers thread)', held);
-  if (!out.length) out.push('', 'No follow-ups or chasers due this afternoon.');
-  return { title, text: title + '\n' + out.join('\n'), items, mode, sweep: sweep ? sweep.id : '' };
+  if (!out.length) out.push('', 'No chasers due this afternoon.');
+  const fnTitle = title.replace('your 2 PM update', 'your 2 PM funnel follow-ups');
+  return { title: title.replace('your 2 PM update', 'your 2 PM chasers'), text: title.replace('your 2 PM update', 'your 2 PM chasers') + '\n' + out.join('\n'), items, mode, sweep: sweep ? sweep.id : '',
+    chasers: chasers.length, funnel: funnelLines.length, fn_title: fnTitle, fn_text: funnelLines.length ? fnTitle + '\n\n' + funnelLines.map(l => '- ' + l).join('\n') : '' };
 }
 
 /* ---------- CUE-K0-WORK-2026-11-01: the Shared Task Tracker and the ongoing projects' timelines ----------
@@ -253,13 +255,43 @@ function cueK0Run_(manual, mode) {
     if (work.tasks.length) { const keep = {}; work.tasks.forEach(t => { if (t.id) keep[t.id] = t.due; }); P.setProperty('CUE_K0_TT_DUE', JSON.stringify(keep)); }
   }
   const K = cueK0Build_(day, contacts, mode, work);
+  // CUE-JOB-THREADS-2026-11-03 (Kiko 3 Nov: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an
+  // update to me every step"; picked "Own thread in Team Cue" at 10:13Z and "ok" on the mockup at 10:15Z): the 2 PM funnel follow-ups
+  // get their own thread, made before the chasers thread so a reply still answers the chasers (cueK0Today_ takes the newest 'k0').
+  if (mode === 'pm' && K.fn_text) {
+    const fid = id + '-fn', f = { id: fid, version: CUE_VERSION_, kind: 'k0fn', created: d.toISOString(), started: now, text: K.fn_title, files: [], status: 'Done', stage: 'Done', ref: '', day,
+      metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
+    cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([fid]); cueSave_(sh, sh.getLastRow(), f); });
+    cueChat_('Cue', K.fn_text, fid);
+    cueChat_('Cue', '2 PM funnel: ' + K.funnel + ' follow-up' + (K.funnel === 1 ? '' : 's') + '.', '>' + fid);
+  }
   s.k0 = { title: K.title, day, mode, items: K.items, sweep: K.sweep || '', bids: K.bids || '', ask: contacts.ask || '', done: {} };
   cueLocked_(() => { const L = cueLoad_(id); L.s.k0 = s.k0; L.s.notes = s.notes; cueSave_(L.sh, L.row, L.s); });
-  cueChat_('Cue', K.text, '>' + id);
+  // The whole update sits in its own thread; the main chat gets one line that opens it.
+  cueChat_('Cue', K.text, id);
+  cueChat_('Cue', mode === 'pm' ? '2 PM chasers: ' + (K.chasers ? K.chasers + ' for your OK (reply "1, 3" or "all").' : 'none due today.')
+    : '8 AM update is ready.', '>' + id);
+  if (mode === 'pm') cueK0TeamCue_(day, K.sweep);
   // The bids card under the 8 AM message: a main-chat line "%<bid run id>" that the page draws as the New opportunities card.
   if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'New opportunities: ' + K.bids_new + ' new bid' + (K.bids_new === 1 ? '' : 's') + '.', '%' + K.bids);
   return { request_id: id, items: K.items.length };
 }
+/** CUE-JOB-THREADS-2026-11-03: each chaser due at 2 PM is one line in its project's thread in Team Cue (Canvas Projects log, bridge
+ * project_log, kind Chaser). Chasers with no Canvas project stay in Cue's chasers thread only. A line changes no Canvas record. */
+function cueK0TeamCue_(day, sweepId) {
+  const L = sweepId ? cueLoad_(sweepId) : null; if (!L || !L.s.batch) return 0;
+  let n = 0;
+  (L.s.batch.items || []).filter(it => !it.removed && it.kind !== 'tasks' && !it.sent_id).forEach(it => {
+    const pid = String(it.project_id || '').trim(); if (!/^S-\d{3,12}[A-Z0-9]{2}$/.test(pid)) return;
+    const lab = it.label ? it.label.replace(/s$/, '') : 'Chaser';
+    cuePlogQ_({ key: 'due:' + String(it.key || '').replace(/[^A-Za-z0-9:_.@-]/g, '').slice(0, 80) + ':' + day, kind: 'Chaser',
+      title: 'Chaser due: ' + lab + (it.who ? ' to ' + it.who : ''), details: it.no_email ? 'Not emailed: needs you in Canvas' : 'Pick it in Cue\'s 2 PM chasers thread to draft it',
+      project_id: pid, from: '2 PM chasers', at: new Date(cueNow_()).toISOString() });
+    n++;
+  });
+  return n;
+}
+
 /** From cueResume: the 2 PM update that waited for the chaser batch goes out as soon as the batch is ready. */
 function cueK0Retry_() {
   const P = PropertiesService.getScriptProperties(), day = cuePh_(cueNow_()).day;
