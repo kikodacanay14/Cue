@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue (number set by the deploys thread): each new email's post in the main chat gives its context (not deployed)
+
+Kiko asked on 3 Nov 2026 at 10:15Z, in the Cue project: "when you post on the left give some context. like what did they send, what
+time, what is it for, what do they expect, what needs to be done after?" Built on 1.28.6 (new mail in the main chat only).
+
+- `src/CueMailChat.gs` (`cueMcLeft_`): the main chat's post for an email that has its own chat now reads: "New email: name <address> ·
+  type · day, time" (Manila), the subject, "What they sent", "What it is for", "What they expect" and "What to do next". A later email
+  in the same conversation posts the same way, starting "New in this conversation".
+- The same one Claude Haiku read per email gives the three new parts (`sent`, `purpose`, `expect` in its answer), so there is no extra AI
+  call. When the read fails, the post still gives the sender, time, subject and what the email says, and leaves out the rest.
+- The email's own chat still starts with Cue's full read. Emails whose type is set to One line keep their one line.
+- Tests: `test/features/81-mail-left-only.js` ML4 and ML5; ACC7 and ACC9 updated for the new post. 619 tests pass.
+
 ## Cue 1.28.6: new mail shows only in the main chat (not deployed)
 
 Kiko asked on 3 Nov 2026 at 06:30Z, in the Cue project: "the new mails are redundant. only make them appear on the left. if i ask it
