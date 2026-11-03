@@ -33,7 +33,7 @@
   function renderThreadList(th) {
     var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
-      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived) return;
+      var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
       var lastReq = t.reqs[t.reqs.length - 1], last = t.lines[t.lines.length - 1];
       if (tq && (title + ' ' + t.reqs.map(function (r) { return r.text; }).join(' ')).toLowerCase().indexOf(tq) < 0) return;
@@ -409,6 +409,16 @@
   function oldRun(th) {
     var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
     return !!th && th.reqs.some(function (r) { return OLDK[r.kind] && !r.phased && (r.status === 'Needs you' || r.status === 'Failed') && r.created && new Date(Date.parse(r.created) + 8 * 3600000).toISOString().slice(0, 10) < today; });
+  }
+  // Kiko 3 Nov 2026 06:30Z: "the new mails are redundant. only make them appear on the left. if i ask it to do an action that is the
+  // only time it will show in the threadss". An email's own chat (kind mail) and a new-kind-of-email question (mailtype) show only in
+  // the main chat, not in the Threads list or its count. A mail chat joins the list once Kiko asks Cue something in it (any message
+  // but a plain "done") or another task joins it (the reply draft, an intake). The chat itself still opens from its line on the left.
+  var MAIL_ONLY = { mail: 1, mailtype: 1 }, MAIL_DONE = /^(done|ok,? done|got it|mark (it |this )?(as )?done|close( it| this)?)[.!]?$/i;
+  function listShows(th) {
+    if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
+    return th.reqs.some(function (r) { return r.kind === 'mail'; })
+      && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
   }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
@@ -799,7 +809,7 @@
   // Kiko 14:03Z: no Widgets page. Needs you, Working on and Recent are the Threads list's groups; each task's card is in its thread.
   // CUE-ONE-THREADS-2026-11-01: the badge counts threads waiting on Kiko, the same as the list's "Waiting on you" group, not tasks
   // (a thread with two waiting tasks counted twice: 7 on the button, 6 in the list).
-  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && threadState(th[k]).need; }).length; }
+  function needThreadsN(th) { var by = byId(); return Object.keys(th).filter(function (k) { var b = by[k] || th[k].reqs[0]; return th[k].reqs.length && !(b && b.archived) && listShows(th[k]) && threadState(th[k]).need; }).length; }
   function renderWidgets() {
     var by = byId(), need = state.requests.filter(function (r) { return isNeed(r) && !(by[rootOf(r.id, by)] || r).archived; }), nn = needThreadsN(threads());
     $('needCount').hidden = !nn; $('needCount').textContent = nn;
