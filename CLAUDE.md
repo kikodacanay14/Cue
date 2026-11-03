@@ -35,6 +35,18 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
 - Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
 
+## Feature Board (Kiko, 3 Nov 2026)
+
+Kiko's words: "fix the Feature board - i expect every development will update the feature board".
+
+- The Feature Board is the artifact https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP (collection `features`, written with
+  the `ArtifactData` tool, `if_version` on every write to an existing card). Card fields and columns: CanvasWorkspace
+  `work-board.md`, "Feature Board fields".
+- Every piece of development work, bug fixes included, has a card, and the work is not done until the card shows where it
+  stands. Move it in the same turn its status changes. A release that goes live moves its card to **For Testing (live)**
+  with `liveAt` and `ref` (for example `Cue 1.28.3, Version 189`); no card yet means make one.
+- Every PR fills in the "Feature Board" line of `.github/pull_request_template.md`, or says why no card applies.
+
 ## Working style
 
 - Kiko approves a spec before any build. Specs live in the project files under `canvas-integration/specs/`.
