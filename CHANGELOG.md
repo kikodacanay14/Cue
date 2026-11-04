@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.18: the daily bid check stops storing every PhilGEPS notice (not deployed)
+## Cue 1.28.18: the daily bid check stops storing every PhilGEPS notice (BUG FIX, LIVE as Version 197, 4 Nov 2026 01:22Z; rollback Version 196)
 
 Kiko asked on 2 Nov 2026 at 07:29Z, in the thread "Find and fix what's broken in Cue": "find the problem, and fix it". Cue 1.28.13
 gave a run 450,000 characters, but the 4 Nov 06:35 daily bid check still stopped with "This run grew too large to store". The cause:
