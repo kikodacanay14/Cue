@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue (next version, set at release): Friday status emails keep a copy in Canvas (not deployed)
+
+Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")
+with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when it is sent; earlier emails are not
+back-filled.
+
+- `src/CueStatus.gs` `cueStCopy_`: after Gmail sends a Friday status email, Cue sends Canvas the copy (subject, To, time, HTML and text,
+  keyed by the Gmail message id) through the new bridge action `status_copy`. Canvas shows it under Reports › Weekly Reports. The email
+  has already gone, so a failed copy never blocks or undoes it: the sent line says the copy was not saved, and says nothing while live
+  Canvas does not have `status_copy` yet (it ships with Canvas PR #498).
+- `test/fixtures/ZapBridge.gs`: the `status_copy` schema added from CanvasWorkspace PR #498.
+- Tests: ST2b in `test/features/63-friday-status.js`. 655/655 pass.
+
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 
 Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,

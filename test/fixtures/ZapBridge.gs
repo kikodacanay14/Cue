@@ -3222,3 +3222,16 @@ ZB_ACTIONS_.msgr_mark = {
     psid: { type: 'string', required: true, re: /^\d{1,40}$/ } },
   run: (r) => zbMsgrMark_(r.args)
 };
+
+/* WEEKLY-REPORTS-2026-11-04 (Kiko 4 Nov 2026 16:22Z: "Reports > Weekly Reports - to see copies of it"; assumption A14, approved
+ * 16:28Z: "Cue saves a copy of each Friday email to Canvas through the bridge when it is sent. Earlier emails are not back-filled").
+ * After Kiko taps Send on a Friday status email, Cue sends Canvas a copy of exactly what went out. WeeklyReports.gs keeps it in
+ * the Activity book's "Weekly Reports" tab; the Projects page shows it under Reports › Weekly Reports. Keyed by the Gmail message
+ * id, so a repeat is a no-op. A copy changes no Canvas record and sends nothing. Cue only, not open to ChatGPT. */
+ZB_ACTIONS_.status_copy = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, project_id: { type: 'string', required: true, re: ZB_PID_RE_ },
+    message_id: { type: 'string', required: true, re: /^[A-Za-z0-9_-]{6,80}$/ }, subject: { type: 'string', required: true, nonBlank: true, max: 300 },
+    to: { type: 'string', max: 500 }, sent_at: { type: 'string', max: 40 }, html: { type: 'string', max: 60000 }, text: { type: 'string', max: 20000 } },
+  run: (r) => wrSave_(r.args)
+};

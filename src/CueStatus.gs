@@ -185,9 +185,28 @@ function cueStApprove_(id, edits) {
   cueLocked_(() => { const N = cueLoad_(id), cur = (N.s.st.mails || []).filter(x => x.k === k)[0];
     if (cur) { Object.assign(cur, { to: m.to, sent_id: m.sent_id || '', thread_id: m.thread_id || '', sent_at: m.sent_at || '', error: m.error }); delete cur.sending; }
     cueStSettle_(N.s); cueMetrics_(N.s); cueSave_(N.sh, N.row, N.s); Object.assign(s, N.s); });
-  cueChat_('Cue', m.sent_id ? 'Sent the Friday update for ' + m.name + ' to ' + m.to + ' from your Gmail.' : 'The update for ' + m.name + ' did not go out: ' + m.error + ' Tap Send again to retry.', s.id);
+  const kept = m.sent_id ? cueStCopy_(s, m) : '';
+  cueChat_('Cue', m.sent_id ? 'Sent the Friday update for ' + m.name + ' to ' + m.to + ' from your Gmail.' + kept : 'The update for ' + m.name + ' did not go out: ' + m.error + ' Tap Send again to retry.', s.id);
   if (s.status === 'Done') cueSummary_(s);
   return s;
+}
+
+/* WEEKLY-REPORTS-2026-11-04 (Kiko 4 Nov 2026 16:22Z, Canvas Projects page: "Reports > Weekly Reports - to see copies of it";
+ * approved 16:28Z with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when it is sent, and
+ * earlier emails are not back-filled). After Gmail sends one, Canvas gets exactly what went out (bridge action status_copy, keyed by
+ * the Gmail message id). The email has already gone, so a failed copy never undoes or blocks it: the sent line says the copy was
+ * not saved, and says nothing while Canvas does not have status_copy yet. Returns the words to add to the sent line. */
+function cueStCopy_(s, m) {
+  if (globalThis.CUE_CHECK_ON_) return '';
+  try {
+    const x = cueStUnzip_(m.z);
+    cueBridge_(s, 'status_copy', { request_id: 'stcopy:' + m.sent_id, project_id: m.id, message_id: m.sent_id, subject: m.subject,
+      to: cueStr_(m.to, 500), sent_at: m.sent_at, html: cueStr_(x.html, 60000), text: cueStr_(x.text, 20000) });
+    return ' A copy is in Canvas under Reports › Weekly Reports.';
+  } catch (e) {
+    const why = cueStr_((e && e.message) || e, 160);
+    return /unknown action/.test(why) ? '' : ' Canvas did not keep a copy (' + why + ').';
+  }
 }
 
 /** Done once every email is sent or skipped. */
