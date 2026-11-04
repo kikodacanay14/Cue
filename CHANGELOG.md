@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.19.1: a Messenger stranger no longer floods Ask Cue (BUG FIX, not deployed)
+
+Who asked and when: Kiko, 4 Nov 2026 14:58Z, "i feel this is gonna cause me some flooding....", and 14:59Z, "lets triage coz if its a customer inquiry... i want it".
+
+What changed:
+- Before, every message from someone not linked as crew posted "Messenger: a message from someone who is not linked as crew" in Ask Cue, and the "This chat is for our crew" reply went back on every message.
+- Now each such person gets the reply once and leaves one Ask Cue line, which shows their first words so a customer inquiry is not missed. Their later messages stay in the Page inbox only.
+- Built on live Cue 1.28.19 (Version 198). The three-button triage (crew, event inquiry, client) comes later with the crew Messenger build.
+
+Tests: 654 of 654 pass (MS10 rewritten).
+
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 
 Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,
