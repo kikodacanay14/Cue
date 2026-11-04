@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (not deployed)
+## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 
 Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,
 build it" on the card "Build a Connect Facebook button so you never paste keys?" at 02:35Z. The two pastes left for Messenger (Cue's
