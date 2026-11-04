@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.17: Cue Admin › Templates, every message from the BSE Message Templates doc (not deployed)
+## Cue 1.28.17: Cue Admin › Templates, every message from the BSE Message Templates doc (LIVE as Version 196, 4 Nov 2026 00:45Z; rollback Version 195)
 
 Kiko asked on 1 Nov 2026, in the CRM chat: "why is the template not being referenced in the admin? we want it there so we can be sure
 that its actually being used. we want it there so that if we want to edit them we can easily do so", and described the page: "Filter
