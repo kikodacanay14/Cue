@@ -27,3 +27,16 @@ test('TL3 a bid check of 310,000 characters (the size that stopped it on 1 and 3
   t.ctx.cueSave_(L.sh, L.row, L.s);
   assert.strictEqual(t.ctx.cueLoad_(r.request_id).s.notes[0].length, 310000);
 });
+test('TL4 the PhilGEPS read hands thousands of open notices to the screen without storing them (4 Nov: too large even at 450,000)', () => {
+  const t = bidBox(); const r = t.ctx.cueSend('run bid opportunity check', [], '');
+  const orig = t.ctx.cueBidsPg_;
+  t.ctx.cueBidsPg_ = s => {
+    s.bids.raw = (s.bids.raw || []).concat(Array.from({ length: 3000 }, (_, i) => ({ source: 'Other PhilGEPS', agency: 'Agency ' + i, reference: 'PG' + i,
+      project: 'Supply of office paper lot ' + i + ' '.repeat(150), location: 'Somewhere', abc: 5000, summary: 'Goods, '.repeat(40), relevant: true })));
+    delete s.bids.pg; s.stage = 'Checking';
+  };
+  try { t.ctx.cueRun(r.request_id); } finally { t.ctx.cueBidsPg_ = orig; }
+  const st = t.state(r.request_id);
+  assert.notStrictEqual(st.status, 'Failed', st.error);
+  assert.ok(!st.bids.raw, 'B.raw is never stored');
+});

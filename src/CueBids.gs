@@ -149,7 +149,10 @@ function cueBidsRun_(s, save) {
   if (s.stage === 'Searching') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); }
   if (s.stage === 'Searching') { cueBidsSearch_(s); save(); }
   // CUE-BIDS-PHILGEPS-2026-10-29: Cue's own read of the public PhilGEPS lists (CueBidsPhilgeps.gs); it carries on at the next resume when time runs out.
-  if (s.stage === 'Reading PhilGEPS') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); cueBidsPg_(s, save); save(); }
+  // BID-CHECK-SIZE-2026-11-04: when the PhilGEPS read finishes it puts every open PhilGEPS notice into B.raw (every open notice of the categories read), too
+  // large to store (the 4 Nov run failed even with 450,000 characters). So the screen runs straight after, in the same run, and B.raw is
+  // never saved. If the run is cut off in between, the resume starts again from the saved PhilGEPS state, which only rebuilds B.raw.
+  if (s.stage === 'Reading PhilGEPS') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); cueBidsPg_(s, save); if (s.stage !== 'Checking') save(); }
   if (s.stage === 'Checking') { cueBidsCheck_(s); save(); }
   if (s.stage === 'Reading') { s.lease_until = cueNow_() + CUE_BIDS_LEASE_MS_; save(); cueBidsRead_(s, save, t0); save(); }
   if (s.stage === 'Writing') { cueBidsFinish_(s); save(); }

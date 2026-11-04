@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue (unnumbered, the deploys thread numbers it): the daily bid check stops storing every PhilGEPS notice (not deployed)
+
+Kiko asked on 2 Nov 2026 at 07:29Z, in the thread "Find and fix what's broken in Cue": "find the problem, and fix it". Cue 1.28.13
+gave a run 450,000 characters, but the 4 Nov 06:35 daily bid check still stopped with "This run grew too large to store". The cause:
+when Cue's own read of the old PhilGEPS lists finishes, it puts every open notice of the categories it read into the run, and the run
+was saved with that list before the screen (`cueBidsCheck_`) cut it down.
+
+- `src/CueBids.gs`: when the PhilGEPS read finishes, the screen runs straight after it in the same run, so that list is never saved.
+  If the run is cut off between the two, the 5-minute resume starts from the saved PhilGEPS state and rebuilds the list.
+- Tests: 653 (1 new, TL4: 3,000 open PhilGEPS notices go to the screen without being stored; it fails without the fix).
+
 ## Cue 1.28.17: Cue Admin › Templates, every message from the BSE Message Templates doc (LIVE as Version 196, 4 Nov 2026 00:45Z; rollback Version 195)
 
 Kiko asked on 1 Nov 2026, in the CRM chat: "why is the template not being referenced in the admin? we want it there so we can be sure
