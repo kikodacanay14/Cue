@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page (not deployed)
+
+Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI
+usage and cost". At 13:10Z: "im upgrading to pro github".
+
+- Settings › AI usage and cost gets a GitHub Actions card under the month's AI card, in the same layout: used so far, included each
+  month (US$18, about 3,000 Linux minutes on GitHub Pro), plan fee (US$4), budget cap (US$10), billed so far above the included part,
+  and the likely month end at the same daily rate, with the day the cap runs out when it falls inside the month.
+- Cue cannot read GitHub's bill, so the five figures are typed in under Prices used (editable) and saved with the AI prices
+  (script property `CUE_AI_PRICES`, key `gh`). Defaults are what Kiko saw on 4 Nov 2026 (US$15.81 used). Figures from an earlier
+  month are flagged instead of projected. No AI call, no new access.
+- Included US$18 is from docs.github.com ("GitHub Actions billing", read 4 Nov 2026). The US$4 Pro fee is not on github.com/pricing,
+  so it is unverified and editable.
+- Tests: 658 (4 new, `test/features/32-usage-github.js`).
+
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 
 Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,

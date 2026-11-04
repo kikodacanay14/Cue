@@ -6,6 +6,13 @@
 
 // A function, not a top-level const: Apps Script may load CueAi.gs after this file.
 const cueUsageDefaults_ = () => ({ models: Object.assign({ 'gpt-5-mini': [0.25, 2] }, CUE_CLAUDE_PRICE_), web: 10, fx: 58 });
+/* GH-ACTIONS-COST (Kiko 4 Nov 2026 13:05Z: "can you add in the page where we compute possible AI usage and cost"; 13:10Z: "im upgrading
+ * to pro github"). GitHub Actions is billed apart from the AI. GitHub Pro includes US$18 of Actions a month (about 3,000 Linux minutes
+ * at US$0.006; docs.github.com "GitHub Actions billing" and "GitHub's plans", read 4 Nov 2026). The Pro fee of US$4 a month is not on
+ * github.com/pricing (read 4 Nov 2026), so it is unverified and editable. Kiko set an Actions budget of about US$10 on 4 Nov: use
+ * above the included part is billed to the card up to that cap, and jobs stop there. Cue cannot read GitHub's bill, so the figures
+ * are typed in from github.com/settings/billing/usage and saved with the prices. Defaults: what Kiko saw on 4 Nov 2026. */
+const cueUsageGhDefaults_ = () => ({ used: 15.81, asof: '2026-11-04', free: 18, cap: 10, plan: 4 });
 const CUE_USAGE_MANILA_ = 8 * 3600000;
 const CUE_USAGE_KINDS_ = { intake: 'Project intake', supplier: 'Supplier registration', email: 'Email', style: 'Writing style', memory: 'Teach Cue',
   process: 'Teach Cue', personal: 'Personal expense', workflow: 'Workflow map', vendor: 'Supplier search',
@@ -27,6 +34,7 @@ function cueUsagePrices_() {
     if (isFinite(saved.web) && saved.web >= 0) P.web = Number(saved.web);
     if (isFinite(saved.fx) && saved.fx > 0) P.fx = Number(saved.fx);
   }
+  P.gh = cueUsageGh_(saved && saved.gh);
   return P;
 }
 /** US$ for one call, or null when the model has no price. Web searches only count on GPT rows. */
@@ -38,6 +46,31 @@ function cueUsageCost_(P, provider, model, inTok, outTok, web) {
 const cueUsageWeb_ = note => Number((/(\d+) web searches?/.exec(String(note || '')) || [])[1]) || 0;
 const cueUsageMonth_ = ms => new Date(ms + CUE_USAGE_MANILA_).toISOString().slice(0, 7);
 const cueUsageR_ = n => Math.round(n * 10000) / 10000;
+
+/** The saved GitHub Actions figures over the defaults: { used, asof, free (included), cap, plan (monthly fee) } in US$, asof a yyyy-mm-dd day. */
+function cueUsageGh_(g) {
+  const D = cueUsageGhDefaults_(), out = Object.assign({}, D);
+  if (g && typeof g === 'object') {
+    ['used', 'free', 'cap', 'plan'].forEach(k => { const n = Number(g[k]); if (g[k] !== '' && g[k] != null && isFinite(n) && n >= 0) out[k] = n; });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(g.asof || ''))) out.asof = String(g.asof);
+  }
+  return out;
+}
+/** GitHub Actions this month: used so far, what is billed above the free part (never above the cap), and the likely month end at
+ * the same daily rate. A day of the "as of" date counts as a full day. Figures from another month are flagged, not projected. */
+function cueUsageGhView_(G, now) {
+  const [y, mo, d] = G.asof.split('-').map(Number), days = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const billed = u => cueUsageR_(Math.min(G.cap, Math.max(0, u - G.free)));
+  const v = { used: G.used, asof: G.asof, free: G.free, cap: G.cap, plan: G.plan, billed: billed(G.used), month: G.asof.slice(0, 7),
+    stale: G.asof.slice(0, 7) !== cueUsageMonth_(now) };
+  if (v.stale) return v;
+  const rate = G.used / Math.max(1, d);
+  v.likely = cueUsageR_(rate * days); v.likely_billed = billed(v.likely); v.likely_total = cueUsageR_(G.plan + v.likely_billed);
+  // The day the free part plus the cap runs out at this rate (jobs stop then until the 1st), or 0 when it lasts the month.
+  const stop = rate > 0 ? Math.ceil((G.free + G.cap) / rate) : 0;
+  v.stop_day = stop && stop <= days ? Math.max(d, stop) : 0;
+  return v;
+}
 
 /** Request id -> command name, from the kind saved in each request (Requests tab, Data 1). Chat calls have chat- ids. */
 function cueUsageKinds_() {
@@ -69,7 +102,7 @@ function cueUsage_() {
   const P = cueUsagePrices_(), now = cueNow_(), kinds = cueUsageKinds_(), months = {}, unpriced = {};
   let rows = [];
   try { const sh = cueSheet_('AI Runs'), n = sh.getLastRow() - 1; rows = n > 0 ? sh.getRange(2, 1, n, CUE_TABS_['AI Runs'].length).getValues() : []; }
-  catch (e) { return { prices: P, months: [], unpriced: [], error: String((e && e.message) || e) }; }
+  catch (e) { return { prices: P, months: [], unpriced: [], error: String((e && e.message) || e), github: cueUsageGhView_(P.gh, now) }; }
   const cv = cueUsageCanvas_(); rows = rows.concat(cv.rows);
   let first = 0;
   const daily = [];   // [ms, usd] for the projection
@@ -110,7 +143,8 @@ function cueUsage_() {
     list[0].rough = !first || now - first < 7 * 86400000;
     list[0].days = Math.ceil((now - monthStart) / 86400000);
   }
-  return { prices: P, months: list, unpriced: Object.keys(unpriced), first: first ? new Date(first).toISOString() : '', canvas: { rows: cv.rows.length, note: cv.note } };
+  return { prices: P, months: list, unpriced: Object.keys(unpriced), first: first ? new Date(first).toISOString() : '', canvas: { rows: cv.rows.length, note: cv.note },
+    github: cueUsageGhView_(P.gh, now) };   // GH-ACTIONS-COST
 }
 
 /* CUE-STRUCTURE-4.6 (Kiko 28 Oct 2026 07:42Z, Phase 4 "yes"; specs/cue-structure-review.md): one AI cost view. Canvas logs its own
@@ -146,7 +180,7 @@ function cueUsageMnl_(v) {
   return Date.parse(t);
 }
 
-/** Save prices from the Settings form: { models: { name: [in, out] }, web, fx }. Blank or bad values keep the old ones. */
+/** Save prices from the Settings form: { models: { name: [in, out] }, web, fx, ghused, ghasof, ghfree, ghcap, ghplan }. Blank or bad values keep the old ones. */
 function cueUsagePrices(p) {
   cueOwner_();
   p = p || {};
@@ -162,6 +196,11 @@ function cueUsagePrices(p) {
   const w = num(p.web, 0, 1000), f = num(p.fx, 1, 500);
   if (w !== null) out.web = w;
   if (f !== null) out.fx = f;
+  // GH-ACTIONS-COST: the GitHub Actions figures; blank or bad values keep the old ones.
+  const g = Object.assign({}, cur.gh), ga = { used: num(p.ghused, 0, 100000), free: num(p.ghfree, 0, 100000), cap: num(p.ghcap, 0, 100000), plan: num(p.ghplan, 0, 100000) };
+  Object.keys(ga).forEach(k => { if (ga[k] !== null) g[k] = ga[k]; });
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(p.ghasof || ''))) g.asof = String(p.ghasof);
+  out.gh = g;
   PropertiesService.getScriptProperties().setProperty('CUE_AI_PRICES', JSON.stringify(out));
   return cueUsage_();
 }
