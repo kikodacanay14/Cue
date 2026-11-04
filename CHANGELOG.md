@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.19.1: a Messenger stranger no longer floods Ask Cue (BUG FIX, not deployed)
+## Cue 1.28.19.1: a Messenger stranger no longer floods Ask Cue (BUG FIX, LIVE as Version 199, 4 Nov 2026 15:09Z; rollback Version 198)
 
 Who asked and when: Kiko, 4 Nov 2026 14:58Z, "i feel this is gonna cause me some flooding....", and 14:59Z, "lets triage coz if its a customer inquiry... i want it".
 
