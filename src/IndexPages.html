@@ -166,6 +166,9 @@
     var MS = S.msgr || {};   // CUE-MSGR-2026-11-02: Messenger relay key, relay address and Facebook's Page token (saved, never shown again)
     setHtml($('w-conn'), '<div class="card">' + c('TickTick', S.ticktick, 'Type "connect ticktick" in the chat.') + c('Google', S.google !== false, 'Tap Fix Google access in the Threads pane.')
       + '<div style="margin-top:14px"><b>Messenger</b> <span class="small muted">crew sign links and replies</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Facebook</b>'   // CUE-MSGR-CONNECT-2026-11-04
+      + '<span class="small muted" style="flex:1;min-width:180px">Sign in to Facebook as a Page admin, then press Finish. Sets the relay key and the Page token for you.</span>'
+      + '<button class="btn ghost" data-msgr-connect="1">Connect Facebook</button><button class="btn ghost" data-msgr-finish="1">Finish</button></div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Relay key</b>'
       + (MS.key ? '<input readonly value="' + esc(MS.key) + '" style="flex:1;min-width:180px" onfocus="this.select()">' : '<span class="muted">No key</span>')
       + '<button class="btn ghost" data-msgr-key="1">' + (MS.key ? 'New key' : 'Make key') + '</button></div>'
@@ -179,6 +182,11 @@
   }
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
     call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-connect]'); if (!b) return; b.disabled = true;   // CUE-MSGR-CONNECT-2026-11-04
+    var w = window.open('', '_blank');   // opened now, inside the tap, so the browser does not block it
+    call('cueMsgrConnect', [], function (r) { b.disabled = false; if (w) w.location = r.url; else window.open(r.url, '_blank'); }, function () { b.disabled = false; if (w) w.close(); }); });
+  $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-finish]'); if (!b) return; b.disabled = true;
+    call('cueMsgrFinish', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
     var box = $('w-conn'), f = box.querySelector('[data-msgr-token]'), v = f.value; f.value = '';
     call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });

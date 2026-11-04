@@ -229,6 +229,36 @@ function cueMsgrKey() {
   PropertiesService.getScriptProperties().setProperty('MSGR_RELAY_KEY', 'mr_' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
   return cueSettings();
 }
+/* CUE-MSGR-CONNECT-2026-11-04 (Kiko 4 Nov 2026 02:31Z "If there's a way for you to do it instead, please do so"; card "Yes, build it"
+ * 02:35Z): Connect Facebook replaces both pastes. Cue keeps a random proof and sends only its SHA-256 as the sign-in state; after
+ * Kiko signs in to Facebook, the relay holds a new relay key and the Page token for 10 minutes, and Finish collects them with the proof. */
+/** Starts Connect Facebook: returns the relay address to open in a new tab. Needs the relay address saved first. */
+function cueMsgrConnect() {
+  cueOwner_();
+  const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, '');
+  if (!/^https:\/\/[\w.-]+\.[a-z]{2,}(\/[\w.-]*)*$/.test(url)) throw new Error('Save the relay address first.');
+  const proof = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').toLowerCase();
+  P.setProperty('MSGR_CONNECT_PROOF', proof);
+  return { url: url + '/connect?state=' + cueMsgrSha_(proof) };
+}
+function cueMsgrSha_(t) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, t).map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
+}
+/** Finishes Connect Facebook: collects the relay key and the Page token from the relay (once) and saves both. Neither is shown. */
+function cueMsgrFinish() {
+  cueOwner_();
+  const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, ''), proof = P.getProperty('MSGR_CONNECT_PROOF');
+  if (!proof || !url) throw new Error('Press Connect Facebook first.');
+  const res = UrlFetchApp.fetch(url + '/claim?proof=' + proof, { muteHttpExceptions: true });
+  if (res.getResponseCode() === 404) throw new Error('Facebook sign-in is not finished yet (or took over 10 minutes). Finish it in the other tab, or press Connect Facebook again.');
+  if (res.getResponseCode() !== 200) throw new Error('The relay answered ' + res.getResponseCode() + '.');
+  const got = JSON.parse(res.getContentText());
+  if (!/^mr_[0-9a-f]{64}$/.test(String(got.key || '')) || !/^[A-Za-z0-9_-]{60,}$/.test(String(got.token || ''))) throw new Error('The relay sent something unexpected. Nothing was saved.');
+  P.setProperty('MSGR_RELAY_KEY', got.key);
+  P.setProperty('MSGR_PAGE_TOKEN', got.token);
+  P.deleteProperty('MSGR_CONNECT_PROOF');
+  return cueSettings();
+}
 /** Saves the relay address (https://…workers.dev) and/or Facebook's Page token. The token is never shown again; an empty token is kept as it was. */
 function cueMsgrSave(url, token) {
   cueOwner_();

@@ -3,7 +3,8 @@
 #   npx wrangler deploy
 #   npx wrangler secret put VERIFY_TOKEN   (any long random text; the same text goes in Meta's "Verify token" box)
 #   npx wrangler secret put APP_SECRET     (Meta app › App settings › Basic › App secret)
-#   npx wrangler secret put CUE_KEY        (Cue › Settings › Connections › Messenger relay key)
+#   npx wrangler secret put CUE_KEY        (optional since 4 Nov 2026: Cue › Settings › Connections › Messenger › Connect Facebook
+#                                           makes the key and hands it to Cue, with no paste)
 name = "bse-messenger-relay"
 main = "messenger-worker.js"
 compatibility_date = "2026-10-01"
@@ -11,3 +12,10 @@ compatibility_date = "2026-10-01"
 [[kv_namespaces]]
 binding = "MSGR_EVENTS"
 id = "3234517c9a894ae4a8d1a3c65d899850"   # made 2 Nov 2026 (bse-messenger-relay-MSGR_EVENTS)
+
+# CUE-MSGR-CONNECT-2026-11-04: not secret. The app "Spaces MNL" and the Page "Blank Space Events".
+# Facebook Login for Business: if the app needs a login configuration, put its id in LOGIN_CONFIG_ID; otherwise scopes are asked.
+[vars]
+APP_ID = "585331855684370"
+PAGE_ID = "110499580567237"
+LOGIN_CONFIG_ID = ""

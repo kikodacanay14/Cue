@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.28.18: Connect Facebook sets up Messenger with no pastes (not deployed)
+
+Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,
+build it" on the card "Build a Connect Facebook button so you never paste keys?" at 02:35Z. The two pastes left for Messenger (Cue's
+relay key into the relay, Facebook's Page token into Cue) are secrets, so this removes them instead of moving them by hand.
+
+- Settings › Connections › Messenger: new row "Facebook" with **Connect Facebook** and **Finish**. Connect opens Facebook sign-in for the
+  app Spaces MNL in a new tab; after Kiko signs in as a Page admin, Finish saves a new relay key and the Page token. Neither is shown.
+  The old key and token fields stay as they were.
+- `src/CueMessenger.gs`: `cueMsgrConnect` keeps a random proof and sends only its SHA-256 as the sign-in state; `cueMsgrFinish`
+  collects the key and token from the relay once with the proof. Owner only; both are on the check's never-call list.
+- `relay/`: new routes `/connect`, `/oauth` (swaps Facebook's code for the Page token with the app secret the relay already holds;
+  only a Page admin's sign-in changes anything) and `/claim` (once, by proof, within 10 minutes). The key it makes is kept in KV and
+  opens `/events` and `/ack` like the CUE_KEY secret. New vars APP_ID, PAGE_ID, LOGIN_CONFIG_ID in `wrangler.toml`.
+- Meta setup (no secret): add `https://bse-messenger-relay.kikodacanay14-17a.workers.dev/oauth` to the app's valid OAuth redirect URIs.
+- Tests: relay 8/8 (+4), MS15 (new). Full suite 653/653.
+
 ## Cue 1.28.17: Cue Admin › Templates, every message from the BSE Message Templates doc (LIVE as Version 196, 4 Nov 2026 00:45Z; rollback Version 195)
 
 Kiko asked on 1 Nov 2026, in the CRM chat: "why is the template not being referenced in the admin? we want it there so we can be sure

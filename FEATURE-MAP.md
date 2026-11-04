@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 76 server files, 1490 top-level names, 34 task kinds, 35 word checks before the
-chat call, 17 background jobs in the 5-minute trigger, 93 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
+Counts: 76 server files, 1493 top-level names, 34 task kinds, 35 word checks before the
+chat call, 17 background jobs in the 5-minute trigger, 95 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -293,7 +293,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueGptTasks.gs`: `cueGtAct`, `cueGtClose`, `cueGtDraftAll`
 - `CueHelp.gs`: `cueHelpAct`
 - `CueMailTypes.gs`: `cueAdminTypeSender`, `cueAdminTypes`, `cueAdminTypesSave`
-- `CueMessenger.gs`: `cueMsgrKey`, `cueMsgrSave`
+- `CueMessenger.gs`: `cueMsgrConnect`, `cueMsgrFinish`, `cueMsgrKey`, `cueMsgrSave`
 - `CueMsgTemplates.gs`: `cueAdminTemplatePreview`, `cueAdminTemplateSave`, `cueAdminTemplateTest`, `cueAdminTemplates`
 - `CueNewMail.gs`: `cueNmItem`
 - `CueReady.gs`: `cueReadyFollowups`, `cueReadyPick`, `cueReadyRecheck`
