@@ -174,3 +174,25 @@ test('MS14 Settings › Connections › Messenger: owner makes the relay key and
   assert.throws(() => t.ctx.cueMsgrSave('http://bad', ''), /relay address/);
   assert.throws(() => sandbox({ viewer: 'someone@example.com' }).ctx.cueMsgrKey(), /owner|Kiko|only/i);
 });
+test('MS15 Connect Facebook (CUE-MSGR-CONNECT-2026-11-04): only the proof\'s hash leaves as state; Finish saves key + token once, shows neither', () => {
+  const t = sandbox();
+  assert.throws(() => t.ctx.cueMsgrConnect(), /Save the relay address first/);
+  t.ctx.cueMsgrSave('https://bse-messenger-relay.kiko.workers.dev', '');
+  const c = t.ctx.cueMsgrConnect(), proof = t.props.MSGR_CONNECT_PROOF;
+  assert.ok(/^[0-9a-f]{64}$/.test(proof));
+  assert.strictEqual(c.url, 'https://bse-messenger-relay.kiko.workers.dev/connect?state=' + require('crypto').createHash('sha256').update(proof).digest('hex'));
+  assert.ok(c.url.indexOf(proof) < 0, 'the proof is not in the sign-in address');
+  const calls = [], key = 'mr_' + 'b'.repeat(64), token = 'EAAG' + 'y'.repeat(120);
+  let answer = { code: 404, body: '{"error":"Nothing to collect."}' };
+  t.ctx.UrlFetchApp = { fetch: (u, req) => { calls.push(u); return { getResponseCode: () => answer.code, getContentText: () => answer.body }; } };
+  assert.throws(() => t.ctx.cueMsgrFinish(), /not finished yet/);
+  assert.strictEqual(calls[0], 'https://bse-messenger-relay.kiko.workers.dev/claim?proof=' + proof);
+  answer = { code: 200, body: JSON.stringify({ key: 'nope', token }) };
+  assert.throws(() => t.ctx.cueMsgrFinish(), /unexpected. Nothing was saved/); assert.ok(!t.props.MSGR_PAGE_TOKEN);
+  answer = { code: 200, body: JSON.stringify({ key, token }) };
+  const S = t.ctx.cueMsgrFinish();
+  assert.strictEqual(t.props.MSGR_RELAY_KEY, key); assert.strictEqual(t.props.MSGR_PAGE_TOKEN, token); assert.ok(!('MSGR_CONNECT_PROOF' in t.props));
+  assert.strictEqual(S.msgr.token, true); assert.ok(JSON.stringify(S).indexOf('EAAG') < 0, 'the token is not in the settings answer');
+  assert.throws(() => t.ctx.cueMsgrFinish(), /Press Connect Facebook first/, 'the proof works once');
+  assert.throws(() => sandbox({ viewer: 'someone@example.com' }).ctx.cueMsgrConnect(), /owner|Kiko|only/i);
+});
