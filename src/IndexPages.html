@@ -74,10 +74,14 @@
     // CARD-OVERHAUL-2026-10-30: "Your tasks due" lines show as counts in Today's tasks (the Morning thread), not here.
     b.items.forEach(function (it) { if (it.kind === 'tasks') return; if (!by[it.label]) { by[it.label] = []; kinds.push(it.label); } by[it.label].push(it); });
     var mail = b.items.filter(function (it) { return !it.no_email && !it.removed && !it.tap; }).length;
+    var taps = b.items.filter(function (it) { return it.tap && !it.removed; }).length;
     // Send follow-up (it.tap) works until the batch is closed, also after Approve and send.
     var tapLive = waiting || again || r.status === 'Scheduled' || r.status === 'Done';
     var h = '<div class="card' + (waiting || again ? ' need' : '') + '"><div class="label" style="margin-top:0">Chasers</div><b style="font-size:17px;color:var(--white)">' + esc(r.day) + '</b>'
-      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '. Pick in the 2 PM update; each email goes only when you press Send.</div>'
+      + '<div class="small muted">' + b.items.length + ' line' + (b.items.length === 1 ? '' : 's') + (b.over ? ', ' + b.over + ' more wait for tomorrow' : '') + '.'
+        // SWEEP-COPY-2026-11-03 (PC check 3 Nov: the header said "each email goes only when you press Send" while the footer said
+        // Approve and send sends the ticked ones at 9:00). Each part now names only the way this card really sends.
+        + (taps ? ' Pick in the 2 PM update; a picked email goes only when you press Send.' : '') + (mail ? ' Ticked emails go only after you tap Approve and send.' : '') + '</div>'
       + (r.notes || []).map(function (n) { return '<div class="warn">' + esc(n) + '</div>'; }).join('');
     if (r.status === 'Scheduled') h += '<div class="small" style="margin-top:6px">Approved. Sending at <b>' + esc(r.batch.send_at ? new Date(new Date(r.batch.send_at).getTime() + 8 * 3600000).toISOString().slice(11, 16) : '9:00') + '</b>. Nothing has gone out yet; you can cancel until then.</div>';
     kinds.forEach(function (k, ki) {
@@ -587,7 +591,8 @@
     if (k === 'save') { MT.busy = true; MT.msg = ''; mtDraw();
       call('cueAdminTemplateSave', [x.key, { subject: MT.edit.subject, body: MT.edit.body }], function (r) { MT.busy = false; MT.d = r; MT.edit = null; delete MT.prev[x.key]; delete MT.perr[x.key];
         MT.msg = r.error ? '' : 'Saved to the doc. The next ' + x.code + ' message uses it.'; mtDraw(); mtPrev(); },
-        function (er) { MT.busy = false; MT.msg = 'Not saved: ' + ((er && er.message) || er); mtDraw(); }); }
+        function (er) { var m = String((er && er.message) || er); MT.busy = false; MT.edit = /could not confirm/.test(m) ? null : MT.edit;
+          MT.msg = (/could not confirm/.test(m) ? '' : 'Not saved: ') + m; delete MT.prev[x.key]; mtDraw(); if (!MT.edit) mtLoad(); }); }
   });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */

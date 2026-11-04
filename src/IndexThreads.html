@@ -485,15 +485,32 @@
     var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     return !iso || isNaN(m) ? '' : m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
   }
-  function msgHtml(m, thread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
+  /* THREAD-CHAT-2026-11-03 (Kiko 30 Oct 10:14Z: "why is that responses from Cue in threads are not in a chat format box and format?
+     Actions i guess is okay if not in chat format but make it 2 fonts smaller"; mockup approved 3 Nov 14:59Z). In a thread, Cue's
+     replies are bubbles; a status or action line (a task starting, ready, rejected, closed, saved, sent) stays outside the bubbles,
+     12px, on one line; a Learned note is its own box. The main chat is unchanged. */
+  var ACT_RE = /^(Registering|Starting|Started|On it|Running|Reading|Recording|Updating|Ready for you|Rejected|Closed|Approved|Saved|Done|Sent|Skipped|Reopened|Recorded|Added to|Prices saved|Phase \d|Canvas refused|Canvas did not|OK, (nobody|nothing|not))\b/;
+  function lineKind(m) {
+    if (m.who === 'Kiko') return '';
+    var t = String(m.text || ''), q = askOf(m);
+    if (q && /^Learned: "/.test(t)) return 'learn';
+    return !q && ACT_RE.test(t) ? 'act' : '';
+  }
+  function learnHtml(m) {
+    var t = String(m.text || '').replace(/^Learned: /, ''), x = t.match(/^([\s\S]*?)\s*(It applies from your next message\.)?\s*$/);
+    return '<span class="tag">Learned</span><span class="lt">' + richText(x ? x[1] : t) + '</span><span class="small muted">Applies from your next message.</span>';
+  }
+  function msgHtml(m, thread, inThread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
+    var lk = inThread === true ? lineKind(m) : '';
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
     // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
     var rid = m.who !== 'Kiko' && /^>cue-/.test(m.request_id || '') ? m.request_id.slice(1) : '';
     var qid = String(m.request_id || '').charAt(0) === '\u21a9' ? m.request_id.slice(1) : '';
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + tickText(m) + askHtml(m)
+    var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + body + askHtml(m)
       + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + '</div>';
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
@@ -521,7 +538,7 @@
   // Teach Cue add-on (Kiko 17:00Z, 17:03Z): Cue's questions with buttons. "?<id>:<choices>[@<thread>]" asks; "!<id>[@<thread>]" answers.
   var ASKL = { intake: 'Project intake', readiness: 'Readiness check', ar: 'ARs', vendor: 'Supplier search', workflow: 'Workflow map',
     email: 'Email', money: 'Money question', chat: 'Just chat', yes: 'Yes, remember', no: 'No', keep: 'Keep', undo: 'Undo', add: 'Add to TickTick', skip: 'Skip',
-    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time' };   // tutor mode plan cards (CueTutor.gs)
+    go: 'Go', change: 'Change', not: 'Not that', save: 'Save', approve: 'Approve', skippage: 'Skip page', ok: 'Got it', mute: 'Mute these', again: 'Ask me again next time', usereply: 'Use this reply' };   // tutor mode plan cards (CueTutor.gs)
   function askOf(m) {
     var x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?(?:@(.+))?$/);
     return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean), where: x[4] || '' } : null;
@@ -608,11 +625,14 @@
     return richText1(t);
   }
   function richText1(t) {
-    var plain = function (x) { return esc(x).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
+    var plain = function (x) { return cueLabels(esc(x)).replace(/https:\/\/ticktick\.com\/oauth\/authorize\?[^\s<"]+/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">Sign in to TickTick</a>'; }); };
     var out = '', last = 0, m; CV_TOK.lastIndex = 0;
     while ((m = CV_TOK.exec(t))) { out += plain(t.slice(last, m.index)) + cvLink({ title: m[1], url: m[2] }); last = CV_TOK.lastIndex; }
     return out + plain(t.slice(last));
   }
+  // CUE-ASSISTANT-2026-11-03: "My suggestion:" and "Proposed reply:" at the start of a line read as labels (bold text, never a
+  // button), so the proposed response stands out from what the message reports. No fixed "Why you" label (Kiko 3 Nov 23:36Z).
+  function cueLabels(h) { return h.replace(/(^|\n)(My suggestion:|Proposed reply:)/g, '$1<b>$2</b>'); }
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
@@ -689,7 +709,7 @@
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
-        h += msgHtml(m, pt ? to : '') + (pt ? rowHtml(to, pt) : '');
+        h += msgHtml(m, pt ? to : '') + mailAskHtml(to) + (pt ? rowHtml(to, pt) : '');
         return;
       }
       var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
@@ -697,6 +717,12 @@
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
+  }
+  // CUE-ASSISTANT-2026-11-03 (mockup approved by Kiko 3 Nov 14:57Z): a new email's post in the main chat carries the buttons of its
+  // proposed reply (Use this reply, Skip), from the open question in the email's own chat. Nothing shows once it is answered.
+  function mailAskHtml(to) {
+    var q = state.chat.filter(function (c) { var a = askOf(c); return a && a.open && a.where === to && a.choices.indexOf('usereply') >= 0; }).pop();
+    return q ? askHtml(q) : '';
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
   function rowHtml(root, t, head) {
@@ -743,6 +769,24 @@
         return '<tr><td>' + nm + '</td><td>' + r.overdue + '</td><td>' + r.today + '</td><td>' + r.assigned + '</td><td>' + (r.overdue + r.today + r.assigned) + '</td></tr>';
       }).join('') + '</tbody></table><div class="actions"><button class="btn ghost" data-today-done="' + day + '">Done for now</button></div></div>';
   }
+  // One task's card in a thread, or '' (a task still working shows its progress at the top instead).
+  function cardOf(r) {
+    if (r.kind === 'finance') return finHtml(r);
+    if (r.kind === 'sweep' && r.batch) return sweepCardHtml(r);
+    if (r.kind === 'newmail' && r.nm) return nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
+    if (r.kind === 'accred' && r.acc) return acCardHtml(r);   // CueAccred.gs: one card per company, in every state
+    if (r.same && r.same.length) return sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
+    if (r.phased && r.ph) return phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
+    if (NEED[r.status]) return r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
+    if (WORK[r.status]) return '';
+    if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) return cardHtml(r);
+    return doneHtml(r);
+  }
+  var FOLD_BTN = '<button class="tfold" data-tmin="1" aria-label="Fold the card">' + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>Fold</button>';
+  function foldIn(c) {   // the Fold button goes first inside the card's own box; anything else gets a box around it
+    var m = /^(<div class="card[^"]*"[^>]*>)/.exec(c);
+    return m ? m[1] + FOLD_BTN + c.slice(m[1].length) : '<div class="tcardw">' + FOLD_BTN + c + '</div>';
+  }
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
@@ -751,26 +795,25 @@
     var x0 = t.reqs[0], closed = t.reqs.every(function (r) { return CLOSED[r.status]; });
     var h = (tbOpen && closed && x0 && x0.kind !== 'sweep' ? '<div class="actions" style="margin:0 0 12px"><button class="btn ghost" data-act="archive" data-id="' + esc(x0.id) + '" data-on="' + (x0.archived ? '0' : '1') + '">' + (x0.archived ? 'Unarchive this thread' : 'Archive this thread') + '</button></div>' : '') + t.reqs.filter(function (r) { return WORK[r.status] && !(r.phased && r.ph); }).map(workHtmlOf).join('')
       + t.reqs.filter(function (r) { return r.can_redo; }).map(wrongHtml).join('')
-      + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('') + t.lines.map(msgHtml).join('');
-    var cardsAt = h.length;
+      + t.reqs.map(function (r, i) { return requestHtml(r, i, kiko); }).join('');
+    /* THREAD-CHAT-2026-11-03 (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; artifact comment: "if
+       rejected or done already. the card shouldnt stick anymore"): each task's card sits in the conversation where it was posted
+       (when it asked for Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. */
+    var cards = [];
     t.reqs.forEach(function (r) {
-      if (r.kind === 'finance') h += finHtml(r);
-      else if (r.kind === 'sweep' && r.batch) h += sweepCardHtml(r);
-      else if (r.kind === 'newmail' && r.nm) h += nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
-      else if (r.kind === 'accred' && r.acc) h += acCardHtml(r);   // CueAccred.gs: one card per company, in every state
-      else if (r.same && r.same.length) h += sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
-      else if (r.phased && r.ph) h += phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
-      else if (NEED[r.status]) h += r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
-      else if (WORK[r.status]) return;
-      else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h += cardHtml(r);
-      else h += doneHtml(r);
+      var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
     });
-    if (threadTitle(t) === 'Morning') h = h.slice(0, cardsAt) + todayTasksHtml(t) + h.slice(cardsAt);   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
+    if (threadTitle(t) === 'Morning') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
+    var min = !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
+    cards = cards.map(function (c, i) { c.i = i; return c; }).sort(function (a, b) { return a.at - b.at || a.i - b.i; });
+    var put = function (upTo) { var o = ''; for (; ci < cards.length && cards[ci].at <= upTo; ci++) if (!min) o += cards[ci].html; return o; };
+    t.lines.forEach(function (m) { h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
+    h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
-    var cards = h.slice(cardsAt), min = !!cardMin[t.root] && cards.length > 0, st = threadState(t);
-    if (cards) h = h.slice(0, cardsAt) + (min ? '' : '<div class="tcards-bar">' + ib('data-tmin="1"', 'chev', 'Minimize the card') + '</div>' + cards);
+    // CARD-FOLD-2026-11-03 (Kiko 30 Oct 09:55Z "how do i fold this", 09:58Z "i dont see thath"; mockup approved 3 Nov 14:59Z): the Fold
+    // button sits inside each card, upper right.
     setHtml($('tdock'), min ? '<button class="tdock" data-tmin="0" aria-label="Open the card"><span class="tdt">' + esc(threadTitle(t)) + '</span>'
       + (st.need ? '<span class="need">Needs you</span>' : '<span class="st">' + esc(st.text) + '</span>') + '<span aria-hidden="true">⌃</span></button>' : '');
     setHtml($('tmsgs'), h);

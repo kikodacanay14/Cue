@@ -230,6 +230,9 @@ Implemented in `src/CueMsgTemplates.gs` and `src/IndexPages.html`:
    inbox, CC and attachments are not sent (Canvas does not accept them). Canvas reads the template back, and a read-back that differs is
    shown as an error. An empty message, more than 60 paragraphs, or a paragraph over 5,000 characters is refused before anything reaches
    Canvas (the bridge's own limits).
+6. When Canvas answers a save with Uncertain (the write ran but did not read back the same, seen on /dev 3 Nov 2026 when a button
+   lost its format), the page never says "Not saved". It says the doc was written but not confirmed, closes the editor and reloads
+   the list, so Kiko sees what the doc holds now.
 
 Evidence: `test/features/84-templates-page.js` (MT1 to MT7). Manual gap: the live check on /dev against the live Canvas release (list,
 preview, test email, one Save and its read-back) is still owed. Acceptance: no wording is shown when the doc cannot be read; a test email

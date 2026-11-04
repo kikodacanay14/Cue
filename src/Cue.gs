@@ -9,11 +9,11 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.11';   // 1.28.10 + New PhilGEPS read by code hourly, Cowork row removed, ABC up to ₱1,000,000, Pampanga and CALABARZON in, Quezon province out (1.28.11). Before that: 1.28.9 + bid cards show the whole old PhilGEPS Description with its line breaks (1.28.10). Before that: 1.28.8 + the 8 AM and 2 PM updates in their own threads, one short line in the main chat (1.28.9). Before that: 1.28.7 + the chat and an open thread stay at the newest line (1.28.8). Before that: 1.28.6 + each new email's main-chat post gives its context (1.28.7). Before that: 1.28.5 + new mail shows only in the main chat until Kiko asks for an action (1.28.6). Before that: 1.28.4 + the 2 PM update counts no-email chasers and numbers duplicates once (1.28.5). Before that: 1.28.3 + Messenger for crew: sign links, link-ups, crew chats, collected from the Messenger relay (1.28.4). Before that: 1.28.2 + Ask Cue changes (carry-over, email types and chats, Canvas edits; 1.28.3). Before: 1.28.1 + a run too large to store closes once instead of failing every 10 minutes (1.28.2). Before that: 1.28.0 + Cowork's new PhilGEPS check moves to 10:00, read by Cue at 10:30 (1.28.1). Before that: 1.27.99 + Cue opens CITEM, TPB, NPDC, PCC and City of Manila itself for the bid check (1.28.0). Before that: 1.27.98 + Cowork downloads the new PhilGEPS bid documents to Drive; the bid card shows them as saved (1.27.99). Before that: 1.27.97 + new PhilGEPS notices from Claude Cowork on KKD, and a warning when it did not run (1.27.98). Before that: 1.27.96 + the 2 PM funnel adds the 3 checks kept from the pipeline review (1.27.97). Before that: 1.27.95 + HubSpot removed from Cue, bids are events only, schedule texts match the three updates (1.27.96). Before that: 1.27.94 + the 8 AM update reads the Shared Task Tracker and each ongoing project's timeline (1.27.95). Before that: 1.27.93 + Reply on chat bubbles and the New opportunities card under the 8 AM update; no Decide later (1.27.94). Before that: 1.27.92 + three weekday touchpoints: 8 AM update, 2 PM funnel and chasers (pick, tailored drafts, Tell Cue, Send each), weekdays only (1.27.93). Before that: 1.27.91 + Kiko's revised chaser templates in the designed email, C2 and C3, holidays skipped, Emails waiting off (1.27.92). Before that: 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
+const CUE_VERSION_ = 'Cue 1.28.17';   // 1.28.16 + Cue Admin › Templates lists every message from the BSE Message Templates doc, and a save Canvas cannot confirm no longer says Not saved (1.28.17). Before that: 1.28.15 + each 2 PM chaser is logged in its project's Team Cue thread (1.28.16). Before that: 1.28.14 + threads read like a chat, Fold inside the card, no accreditation chasers for clients (1.28.15). Before that: 1.28.13 + Cue messages act like an assistant: why you, proposed reply, job suggestions (1.28.14). Before that: 1.28.12 + the daily bid check fits in storage again, a run may use 10 cells (1.28.13). Before that: 1.28.11 + one run at a time and no word-for-word repeat in the same place (1.28.12). Before that: 1.28.10 + New PhilGEPS read by code hourly, Cowork row removed, ABC up to ₱1,000,000, Pampanga and CALABARZON in, Quezon province out (1.28.11). Before that: 1.28.9 + bid cards show the whole old PhilGEPS Description with its line breaks (1.28.10). Before that: 1.28.8 + the 8 AM and 2 PM updates in their own threads, one short line in the main chat (1.28.9). Before that: 1.28.7 + the chat and an open thread stay at the newest line (1.28.8). Before that: 1.28.6 + each new email's main-chat post gives its context (1.28.7). Before that: 1.28.5 + new mail shows only in the main chat until Kiko asks for an action (1.28.6). Before that: 1.28.4 + the 2 PM update counts no-email chasers and numbers duplicates once (1.28.5). Before that: 1.28.3 + Messenger for crew: sign links, link-ups, crew chats, collected from the Messenger relay (1.28.4). Before that: 1.28.2 + Ask Cue changes (carry-over, email types and chats, Canvas edits; 1.28.3). Before: 1.28.1 + a run too large to store closes once instead of failing every 10 minutes (1.28.2). Before that: 1.28.0 + Cowork's new PhilGEPS check moves to 10:00, read by Cue at 10:30 (1.28.1). Before that: 1.27.99 + Cue opens CITEM, TPB, NPDC, PCC and City of Manila itself for the bid check (1.28.0). Before that: 1.27.98 + Cowork downloads the new PhilGEPS bid documents to Drive; the bid card shows them as saved (1.27.99). Before that: 1.27.97 + new PhilGEPS notices from Claude Cowork on KKD, and a warning when it did not run (1.27.98). Before that: 1.27.96 + the 2 PM funnel adds the 3 checks kept from the pipeline review (1.27.97). Before that: 1.27.95 + HubSpot removed from Cue, bids are events only, schedule texts match the three updates (1.27.96). Before that: 1.27.94 + the 8 AM update reads the Shared Task Tracker and each ongoing project's timeline (1.27.95). Before that: 1.27.93 + Reply on chat bubbles and the New opportunities card under the 8 AM update; no Decide later (1.27.94). Before that: 1.27.92 + three weekday touchpoints: 8 AM update, 2 PM funnel and chasers (pick, tailored drafts, Tell Cue, Send each), weekdays only (1.27.93). Before that: 1.27.91 + Kiko's revised chaser templates in the designed email, C2 and C3, holidays skipped, Emails waiting off (1.27.92). Before that: 1.27.90 + the Canvas look (PR #269) + the 8 AM update: one morning message in Kiko's format, jobs quiet in the main chat, reply "send 1, 3" (1.27.91). Before that: 1.27.89 + Ask Cue works again: the Today's tasks card function no longer replaces the chat's own (1.27.90). Before that: 1.27.88 + card overhaul phase 2: jobs the review removed are off, Today's tasks counts card, New mail buttons (1.27.89). Before that: 1.27.87 + card overhaul phase 1, the look: brand fonts, purple main buttons and table headers (1.27.88). Before that: 1.27.86 + Kiko's UI rules on every card and table (1.27.87). Before that: 1.27.85 + project emails stay out of New mail and the Morning batch (1.27.86, built as 1.27.85). Before that: 1.27.84 + bid cards: small buttons, the standard source label, Cue's copy of each old PhilGEPS notice and its details on the card (1.27.85). Before that: 1.27.83 + View opportunity on bid cards opens the bid's own page by reference number (1.27.84). Before that: 1.27.82 + scheduled jobs close older waiting runs and share subject threads (1.27.83, built as 1.27.78). Before that: 1.27.81 + Claude answers Ask Cue chat and looks things up first (1.27.82, built as 1.27.81). Before that: 1.27.80 + Send follow-up and Open in Canvas on urgent CE award chasers, foldable Morning batch (1.27.81). Before that: 1.27.79 + Cue finds contacts' email addresses (1.27.80). Before that: 1.27.77 + client accreditation threads in Ask Cue (built as 1.27.78) and the Gmail contact scan skips no-reply senders like chrome-noreply@ (1.27.79, one release).
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
-  Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4'],
+  Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
@@ -28,7 +28,8 @@ const CUE_TABS_ = {
   'Accreditation Mail': ['Time', 'Message ID', 'Company', 'From', 'Subject', 'Thread'],           // CueAccred.gs: client accreditation replies already posted
   'Messenger People': ['PSID', 'Email', 'Name', 'Last message', 'Chat']                           // CUE-MSGR-2026-11-02: crew linked on Messenger, one chat each
 };
-const CUE_CELL_ = 45000, CUE_CELLS_ = 4;           // a request's JSON is split over up to 4 cells (a cell holds 50,000 chars)
+const CUE_CELL_ = 45000, CUE_CELLS_ = 10;          // a request's JSON is split over up to 10 cells (a cell holds 50,000 chars). BID-CHECK-SIZE-2026-11-03:
+                                                    // 4 cells (180,000 chars) were too few for the daily bid check (210,412 on 3 Nov, 310,994 on 1 Nov), so it stopped.
 const CUE_BUDGET_ = { calls: 5, seconds: 180 };
 const CUE_LEASE_MS_ = 5 * 60 * 1000;               // one run at a time per request; a stuck run is resumed after this
 
@@ -171,7 +172,28 @@ function cueSave_(sh, row, s) {
     m.ai_calls || 0, m.seconds_to_card == null ? '' : m.seconds_to_card, m.seconds_total == null ? '' : m.seconds_total, m.flag || '',
     new Date(cueNow_())].concat(parts)]);
 }
+// CUE-NO-REPEAT-2026-11-03 (Kiko 3 Nov 2026: "The redundant messages. You see the message in the thread, you see the message in the main
+// chat, and then after a while, you see it again"; earlier "Remove the duplicates, Do not Flood details that are not necessary"): a Cue
+// line that is word for word the newest line already in the same place (same thread, pointer or main chat, within a day) is not posted
+// again. Seen live: a job run that posted every line twice (3 Nov 19:04), "The bid check stopped" every 10 minutes, and two identical
+// one-line emails. A line from Kiko in between makes the next Cue line new. Never throws: an unreadable tab means the line posts.
+const CUE_NO_REPEAT_ = { look: 40, ms: 24 * 3600 * 1000 };
+function cueChatRepeat_(sh, who, text, id) {
+  if (who !== 'Cue') return false;
+  try {
+    const n = sh.getLastRow() - 1; if (n < 1) return false;
+    const k = Math.min(n, CUE_NO_REPEAT_.look), tag = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';
+    const rows = sh.getRange(n + 2 - k, 1, k, 5).getValues();
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const r = rows[i]; if (String(r[3] || '') !== id || String(r[4] || '') !== tag) continue;
+      const at = r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || 0;
+      return String(r[1]) === 'Cue' && String(r[2]) === text && cueNow_() - at < CUE_NO_REPEAT_.ms;
+    }
+  } catch (e) { console.warn('Chat repeat check: ' + e); }
+  return false;
+}
 function cueChat_(who, text, id) {
+  try { const sh = cueSheet_('Chat'), t = String(text).slice(0, 9000); if (cueChatRepeat_(sh, who, t, String(id || ''))) return; } catch (e) { console.warn('Chat repeat check: ' + e); }
   try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || ''].concat(globalThis.CUE_CHECK_ON_ ? [cueCheckTag_()] : [])); } catch (e) { console.error('Chat log: ' + e); }
   if (/^>cue-/.test(String(id || ''))) try { cuePlogTask_(String(id).slice(1), text); } catch (e) { console.error('Project log (task): ' + e); }   // CUE-PROJECT-LOG-2026-10-27
 }
@@ -752,10 +774,18 @@ function cueRunLeased_(id) {
     const L = cueLoad_(id);
     if (!L) throw new Error('No such request.');
     if (L.s.status !== 'Working' || L.s.lease_until > cueNow_()) return { s: L.s, busy: true };
+    // CUE-NO-REPEAT-2026-11-03: the lease also sits in a Script Property, read inside the same lock. On 3 Nov 19:00 two runs of one
+    // "Daily personal spending" passed the sheet lease seconds apart and every line posted twice; a property is never read stale.
+    const P = PropertiesService.getScriptProperties(), lk = 'CUE_RUN_' + id;
+    if (Number(P.getProperty(lk) || 0) > cueNow_()) return { s: L.s, busy: true };
+    P.setProperty(lk, String(cueNow_() + CUE_LEASE_MS_));
     L.s.lease_until = cueNow_() + CUE_LEASE_MS_; cueSave_(L.sh, L.row, L.s);
     return L;
   });
   if (got.busy) return got.s;
+  try { return cueRunLeasedGo_(got); } finally { try { PropertiesService.getScriptProperties().deleteProperty('CUE_RUN_' + id); } catch (e) { console.warn('Run lease: ' + e); } }
+}
+function cueRunLeasedGo_(got) {
   const s = got.s;
   // An expense reads in one call while its files are in the page (CueExpense.gs). If that call died, the files are gone from here.
   if (s.kind === 'expense') { s.status = 'Failed'; s.error = 'The page closed while Cue was reading this expense. Send it again with its files.'; delete s.lease_until; cueSave_(got.sh, got.row, s); return s; }
@@ -1050,7 +1080,7 @@ function cueView_(s) {
   // AMI/Unilever) renamed that thread. It shows in its own thread; the stored record is left as it is.
   const ref = s.ref_by === 'name' && /^New project intake from a bid notice/.test(String(s.text || '')) ? '' : s.ref || '';
   return { id: s.id, kind: CUE_GONE_KINDS_.indexOf(s.kind) >= 0 ? 'removed' : s.kind || 'intake', ref,   // HUBSPOT-REMOVAL-2026-11-01: removed kinds show as 'removed'
-    created: s.created, status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
+    created: s.created, card_at: s.card_at ? new Date(s.card_at).toISOString() : '', status: s.status, stage: s.stage, subject: s.subject ? { key: s.subject.key || '', title: s.subject.title || '' } : null,   // CUE-SUBJECTS-2026-10-30
     same: s.stage === 'Same project?' ? (s.ask_same || []).map(x => ({ project_id: x.project_id || '', name: x.name || '', account: x.account || '', date: x.date || '', status: x.status || '' })) : null, fn: s.kind === 'funnel' ? cueFunnelView_(s) : null, acc: s.kind === 'accred' ? cueAcView_(s) : null, bids: s.kind === 'bids' ? cueBidsView_(s) : null, gt: s.kind === 'gtask' ? cueGtView_(s) : null,
     due: s.due || '', priority: s.priority || 'Normal', remind_at: s.remind_at ? new Date(s.remind_at).toISOString() : '', nudge: !!s.nudge, archived: !!s.archived, day: s.day || '',
     batch: !b ? null : { send: !!b.send, send_at: b.send_at ? new Date(b.send_at).toISOString() : '', approved: !!b.approved_at, over: b.over || 0, cancelled: !!b.cancelled_at,

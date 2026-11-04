@@ -369,6 +369,7 @@ function sandbox(o = {}) {
       if (body.action === 'client_check') { (log.deskCheck = log.deskCheck || []).push(body.args);
         if (o.deskUnknown) return resp(200, { ok: false, status: 'Rejected', error: 'unknown action' });
         if (o.deskOff) return resp(200, { ok: true, status: 'Completed', result: { ok: false, error: 'Client Desk registration is off (Script Property CLIENT_DESK)' } });
+        if ((o.deskClients || []).indexOf(body.args.company) >= 0) return resp(200, { ok: true, status: 'Completed', result: { client: 'existing', company: body.args.company, contacts_new: 0, contacts_added: [], p0_row: 0 } });
         return resp(200, { ok: true, status: 'Completed', result: o.desk || { client: 'new', company: body.args.company, contacts_new: (body.args.contacts || []).length, contacts_added: [], p0_row: 0 } }); }
       // CUE-PHASED: the four phased steps, in the shapes Canvas's aiIntakePhase*_ answer.
       if (body.action === 'intake_add_project') { (log.phProject = log.phProject || []).push(body.args);

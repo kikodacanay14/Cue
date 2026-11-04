@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.12: Cue Admin › Templates, every message from the BSE Message Templates doc (not deployed)
+## Cue 1.28.17: Cue Admin › Templates, every message from the BSE Message Templates doc (LIVE as Version 196, 4 Nov 2026 00:45Z; rollback Version 195)
 
 Kiko asked on 1 Nov 2026, in the CRM chat: "why is the template not being referenced in the admin? we want it there so we can be sure
 that its actually being used. we want it there so that if we want to edit them we can easily do so", and described the page: "Filter
@@ -24,6 +24,9 @@ build of each piece for his approval ("make a new build for each one i will appr
   which rewrites only that template's Subject, message and button paragraphs in the doc and reads them back; a read-back that differs is
   shown as an error. Kiko chose this on 3 Nov 2026 ("Give info@ Editor on the doc"). The sending inbox, CC and attachments are shown, not
   edited (Canvas does not take them). Open in doc stays for anything else.
+- After the /dev check on 3 Nov 2026 (a no-change Save of C6 came back Uncertain from Canvas and had in fact rewritten the button as
+  plain text; fixed on the Canvas side), a save Canvas cannot confirm no longer shows "Not saved": the page says the doc was written
+  but not confirmed, closes the editor and reloads the list (MT7).
 - `src/CueCheck.gs`: the four page calls are never run by a cloud check; `message_templates` and `message_render` are reads.
 - `test/fixtures/ZapBridge.gs` is Canvas `claude/project-thread-ynsrk8` @ 4e375a4 (the Canvas templates release, not live yet), which
   adds the four template actions.
@@ -32,6 +35,103 @@ build of each piece for his approval ("make a new build for each one i will appr
 Business rule CUE-042 (with open decisions CUE-D22 and CUE-D23) is in `docs/business-rules.md`.
 
 Tests: 637 (7 new in test/features/84-templates-page.js, MT1 to MT7; AD4 lists the new section).
+## Cue 1.28.16: each 2 PM chaser is logged in its project's Team Cue thread (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
+
+Kiko answered "2" on 3 Nov 2026 23:40Z in the chasers thread, picking the option where Cue logs each 2 PM chaser to its project's
+Team Cue thread automatically, with no tap from him. Each chaser due at 2 PM that has a Canvas project now also gets one line in
+that project's thread in Team Cue (bridge project_log, kind Chaser, from "2 PM chasers"). Chasers with no Canvas project stay in
+Cue's chasers thread only, and a line changes no Canvas record. Built on 1.28.15.
+
+## Cue 1.28.15: threads read like a chat, Fold inside the card, no accreditation chasers for clients (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
+
+Kiko approved three proposals on 3 Nov 2026 at 14:59Z ("yes yes tes"), each with a mockup. Built on 1.28.12 (cbe4363), so
+everything live stays as it is.
+
+- Chat format in threads (Kiko 30 Oct 10:14Z: "why is that responses from Cue in threads are not in a chat format box and format?
+  Actions i guess is okay if not in chat format but make it 2 fonts smaller"; mockup https://claude.ai/artifact/QVzi9sAaU1Mc6bjinwSGvS).
+  In a thread, Cue's replies sit in white bubbles on the left with a small "Cue" label; Kiko's stay lavender on the right. A status
+  or action line (one that starts with Registering, Starting, On it, Ready for you, Rejected, Closed, Saved, Sent and the like, the
+  list is `ACT_RE` in IndexThreads.html) stays out of the bubbles at 12px on one line, with the full text on hover. A Learned note is
+  its own pale yellow box (#FFF8D9) with a dashed BSE orange border (#F06A25), a Learned tag, "Applies from your next message." and
+  Keep and Undo at the bottom right. The main chat is unchanged.
+- Cards in the conversation (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; comment on the mockup:
+  "if rejected or done already. the card shouldnt stick anymore"). Each task's card now sits where it was posted (when it asked for
+  Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. The page gets each task's
+  `card_at` for this (`cueView_` in Cue.gs).
+- Fold inside the card (Kiko 30 Oct 09:55Z: "how do i fold this", 09:58Z: "i dont see thath"; mockup
+  https://claude.ai/artifact/5QSkffP7by1EcPjF82n9mR). The chevron above the card is replaced by a Fold button in each card's upper
+  right. Folded, the cards become one bar above the reply box; tapping the bar opens them again; each thread keeps its own fold.
+- Accreditation chasers leave out clients (Kiko 30 Oct 10:52Z: "whats wrong is that this is a client. we are the supplier"). The
+  morning batch skips any accreditation row whose name is a client in Canvas Accounts (Client Desk), asked through the existing
+  read-only bridge action `client_check`, one call per row in parallel (`cueAccrClients_` in CueSweepAccr.gs). Client accreditations
+  such as infor.com keep their own Accreditation thread. When Canvas cannot say, the row stays in, as before. No Canvas change.
+- Chasers card copy (PC check 3 Nov 2026: the header said "each email goes only when you press Send" while the footer said
+  Approve and send sends the ticked ones at 9:00). The header now names only the ways that card really sends: a picked 2 PM line
+  goes when Kiko presses its Send, and other ticked emails go only after he taps Approve and send (which still confirms each
+  recipient by name and sends at 9:00, or right away after 9:00). The Cue Admin line for the 1 PM chaser job says the same. No
+  change to what is sent or when.
+- Shops and booking sites (PC check 3 Nov 2026: Booking.com and Shell were chased; Kiko 3 Nov 23:37Z "yes" to Cue skipping
+  shops and booking sites like these on its own). They are awarded payees in Canvas (hotel nights, fuel, toll RFID) that are never
+  accredited, so the morning batch leaves out names with Booking.com, Shell or Autosweep (`CUE_ACCR_SHOPS_` in CueSweepAccr.gs).
+  Only the names seen so far are listed; Stop chasing still covers any other.
+- No AI call added. Tests: 644 (5 new, `test/features/84-thread-chat.js`).
+
+## Cue 1.28.14: Cue messages act like an assistant (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
+
+Kiko asked on 3 Nov 2026 at 14:30Z: "if you can work on queue having some context, like knowing where the message comes from, why it
+was sent to me, or why it was sent, and why is the message like that, and have a like a proposed response to it, not just blank sent
+this. It's like it's a notification. It's not an assistant." He approved the before/after mockup at 14:57Z ("yes"). At 23:36Z he
+refined it: "it doesn't have to say that as a verbatim, but if there is context, if it understands what the message is about, then
+he would know, or it would know, if that needs to be added there." So there is no fixed "Why you" label: a reason shows only when the
+email read understands one worth adding. Spec and mockup: project files `canvas-integration/specs/cue-assistant-messages/`. Built on
+1.28.12 (Version 194, cbe4363).
+
+- New email: the main-chat post and the email's chat can end with one plain sentence on why it needs Kiko (only when the read finds
+  one worth adding; code never makes one up) and, when the sender expects an answer, "Proposed reply:" with a ready reply in Kiko's
+  voice. Both come from the one email read that already runs (Claude Haiku, two more fields in its answer, max tokens 800 to 1400),
+  so there is no extra AI call. The reply never promises a price, date or document that is not in the emails; it leaves a blank such
+  as [time] for Kiko instead. Kiko's 10:15Z context lines (what they sent, what it is for, what they expect, what to do next) stay.
+- Use this reply and Skip buttons sit under a proposed reply, in the email's chat and under its post in the main chat. Use this reply
+  puts the reply on the usual email card as written (no GPT drafting call); Kiko edits it and taps Send or Save to Drafts there, so
+  nothing is sent from the button. Skip closes the email's chat and makes nothing. Typing "draft a reply saying ...", "start intake"
+  or "done" still works. The approved mockup shows buttons, which replaces the 2 Nov "no options in Ask Cue chat" choice for this
+  message only.
+- Scheduled ChatGPT jobs with new findings (for example "Tuesday payment records review") now add ChatGPT's two-sentence summary and
+  "My suggestion:" naming the finding to start with: the one due soonest, else the first high-confidence one, else the first, with
+  its next action. Built by code from the run, no AI call. A run with nothing new keeps its one line.
+- One line emails (FYI types) are unchanged: their line is already the sort's own summary.
+- The page shows "My suggestion:" and "Proposed reply:" at the start of a line in bold, as labels, never as buttons.
+- Not changed: the status lines ("1 new email ...", "Sorted ...", "Started ...", "working on it"); the duplicates work owns them.
+- Tests: `test/features/84-assistant-messages.js` (AM1, AM1b, AM2 to AM6); ML4 updated. 639 of 639 pass.
+- Needs the PC check on /dev (it changes new-mail intake): open a new client email's post, tap Use this reply, check the card, then
+  close it without sending.
+
+## Cue 1.28.13: the daily bid check fits in storage again (LIVE as Version 195, 3 Nov 2026 23:45Z; rollback Version 194)
+
+Kiko asked on 2 Nov 2026 at 07:29Z, in the thread "Find and fix what's broken in Cue": "find the problem, and fix it". The 3 Nov
+06:34 daily bid check stopped at 07:05 with "The bid check stopped: This request is too large to store (210412 characters)". A run's
+saved state was split over 4 cells of 45,000 characters (180,000 in all). The 1 Nov fix only closed an oversized run once instead of
+every 10 minutes, so the check still failed whenever it found many notices (310,994 characters on 1 Nov).
+
+- `src/Cue.gs`: `CUE_CELLS_` goes from 4 to 10 (450,000 characters), and the Requests tab gains the headers Data 5 to Data 10. The
+  Requests tab already has 26 columns, so nothing has to be set up. Every reader uses `CUE_CELLS_`, so old rows read as before.
+- Tests: 631 (1 new, TL3: a 310,000-character run is stored and read back whole; TL1 now overfills 450,000).
+
+## Cue 1.28.12: no repeated messages (BUG FIX, LIVE as Version 194, 3 Nov 2026 15:02Z; rollback Version 193)
+
+Kiko said on 3 Nov 2026 that the three things that annoy him most in Cue are "The redundant messages. You see the message in the
+thread, you see the message in the main chat, and then after a while, you see it again", with about 40 repeats in 60 morning
+messages; earlier that day: "Goal is not to make it confusing. Remove the duplicates, Do not Flood details that are not necessary."
+The Chat tab for 1 to 3 Nov showed three sources of word-for-word repeats. Built on 1.28.10 (branch claude/project-thread-st4gw7),
+so 1.28.6 (new mail only in the main chat) and 1.28.9 (job reports in their own threads) are kept.
+
+- One run at a time: on 3 Nov at 19:00 two runs of one "Daily personal spending" passed the sheet lease seconds apart, so every line
+  posted twice and ChatGPT was paid twice. The lease now also sits in a Script Property, checked inside the same lock, and is let go
+  when the run ends (`cueRunLeased_` in Cue.gs).
+- No word-for-word repeat: a Cue line that is exactly the newest line already in the same place (same thread, same pointer or the
+  main chat, within a day) is not posted again (`cueChatRepeat_` in Cue.gs). Seen live: "The bid check stopped" every 10 minutes,
+  two identical one-line DMARC emails. A line from Kiko in between makes the next Cue line new; Kiko's own lines always post.
+- Nothing changes in how anything looks. No AI call. Tests: 626 (2 new, `test/features/83-no-repeat.js`).
 
 ## Cue 1.28.11: New PhilGEPS read by code, Cowork removed, bid range up to ₱1,000,000 (LIVE as Version 192, 3 Nov 2026 14:51Z; rollback Version 191)
 

@@ -153,7 +153,12 @@ function cueAdminTemplateSave(key, ed) {
     blocks: blocks.map(b => b.t === 'btn' ? { t: 'btn', text: cueStr_(b.text, 5000), url: cueStr_(b.url, 500) } : { t: 'p', text: cueStr_(b.text, 5000) }) };
   const s = cueAdminS_(), cmd = { command_id: 'cue:' + s.id + ':message_template_save:0', action: 'message_template_save', args, pid: '' };
   cueBridgePlan_(s, [cmd]);
-  const r = cueBridgeParse_('message_template_save', UrlFetchApp.fetchAll([cueBridgeReq_(s, 'message_template_save', args, '', cmd.command_id)])[0]) || {};
+  let r;
+  try { r = cueBridgeParse_('message_template_save', UrlFetchApp.fetchAll([cueBridgeReq_(s, 'message_template_save', args, '', cmd.command_id)])[0]) || {}; }
+  catch (e) {   // Canvas's Uncertain means the write ran but did not read back the same (seen on /dev 3 Nov 2026): say so, never "not saved"
+    if (/\(Uncertain\)/.test(String(e && e.message))) throw new Error('Canvas wrote to the doc but could not confirm it reads back the same. Open Edit again to see what the doc holds now. ' + String(e.message).replace(/^.*?\(Uncertain\):\s*/, ''));
+    throw e;
+  }
   if (r.ok === false) throw new Error('The doc now reads differently from what you saved: ' + cueStr_(r.readBack || 'no detail', 300));
   return cueAdminTemplates();
 }

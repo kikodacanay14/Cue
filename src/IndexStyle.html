@@ -114,7 +114,16 @@
   /* An open thread reads like Claude's: Kiko's messages in bubbles on the right, Cue's as plain text, files as cards. */
   #tmsgs { gap:14px; }
   #tmsgs .msg .who { display:none; }
-  #tmsgs .msg.cue { max-width:100%; background:none; border:0; padding:0 2px; line-height:1.5; }
+  /* THREAD-CHAT-2026-11-03 (mockup approved 3 Nov 14:59Z): Cue's replies in a thread are bubbles with a small "Cue" label; a status
+     line stays out of the bubbles, 12px, one line; a Learned note is a pale yellow box with a dashed BSE orange border. */
+  #tmsgs .msg.cue { max-width:88%; background:var(--panel); border:1px solid var(--line); border-radius:12px 12px 12px 2px; padding:8px 12px; line-height:1.5; }
+  #tmsgs .msg.cue:not(.act):not(.learn) .who { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:2px; }
+  #tmsgs .msg.cue.act { align-self:stretch; max-width:100%; min-width:0; background:none; border:0; border-radius:0; padding:0 2px; font-size:12px; color:var(--muted); }
+  #tmsgs .msg.act .actx { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tmsgs .msg.cue.learn { align-self:stretch; max-width:100%; background:#FFF8D9; border:1px dashed #F06A25; border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; font-size:13px; white-space:normal; }
+  #tmsgs .msg.learn .tag { align-self:flex-start; margin:0; }
+  #tmsgs .msg.learn .lt { white-space:pre-wrap; }
+  #tmsgs .msg.learn .actions { justify-content:flex-end; margin-top:2px !important; }
   #tmsgs .msg.me { border-radius:10px; }
   .fcards { display:flex; flex-wrap:wrap; gap:10px; }
   .fcard { display:flex; flex-direction:column; gap:8px; width:160px; padding:10px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); text-decoration:none; }
@@ -130,7 +139,11 @@
   .tdock:hover, .tdock:focus-visible { border-color:var(--muted); }
   .tdock .tdt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   .tdock .need { color:var(--need); font-size:12px; } .tdock .st { color:var(--muted); font-size:12px; }
-  .tcards-bar { display:flex; justify-content:flex-end; margin:4px 0 -4px; }
+  /* CARD-FOLD-2026-11-03 (mockup approved 3 Nov 14:59Z): the Fold button inside each thread card, upper right. */
+  .tfold { float:right; display:inline-flex; align-items:center; gap:4px; margin:0 0 6px 10px; padding:3px 8px; border:1px solid var(--line2); border-radius:6px; background:var(--panel); color:var(--text); font:600 12px var(--font); cursor:pointer; }
+  .tfold:hover, .tfold:focus-visible { border-color:var(--muted); }
+  .tfold svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; vertical-align:middle; }
+  .tcardw { position:relative; } .tcardw > .tfold { position:absolute; top:10px; right:12px; z-index:1; margin:0; }
   .rbox { display:flex; align-items:flex-end; gap:6px; padding:4px 6px 4px 14px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); }
   .rbox:focus-within { border-color:var(--act); }
   .rbox textarea { flex:1; min-height:40px; max-height:160px; border:0; background:none; padding:9px 0; resize:none; outline:none; }

@@ -37,7 +37,7 @@ test('ML4 the main chat post for a new email says who, when, what they sent, wha
   const lines = post.split('\n');
   assert.ok(/^New email: Ana Reyes <ana@client\.example> · Client · 2026-10-21$/.test(lines[0]), lines[0]);   // the test double prints the day; Apps Script prints "21 Oct, 11:40 AM" (d MMM, h:mm a, Manila)
   deq(lines.slice(1), ['Subject: Booth count', 'What they sent: A request to add 2 booths to the order.', 'What it is for: The booth order for their November launch.',
-    'What they expect: A revised quote by Friday.', 'What to do next: Send the revised quote.']);
+    'What they expect: A revised quote by Friday.', 'What to do next: Send the revised quote.']);   // CUE-ASSISTANT: no why and no reply from the read, so no extra lines
   assert.strictEqual(t.log.mcReads, 1, 'still one AI call per email');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === ana.chat_id && /^Ana Reyes · Client/.test(r[2])), 'the chat itself still starts with Cue\'s full read');
 });
