@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.x (number set by the deploys thread): one Messenger person is one line in the main chat (BUG FIX, not deployed)
+
+Kiko asked on 5 Nov 2026 at 13:07Z: "Also why am i still getting 1 notif per message? I raised this yesterday", then at 13:08Z
+"why do i get 1 notif per messatge", with screenshots of the main chat showing a new line for each Messenger step from the same
+person. Built on 1.28.30 (Version 211).
+
+- The first "Messenger: new message from someone not linked as crew" line becomes the pointer to the person's chat when they tap
+  I'm crew or Client or inquiry, so the main chat shows that one line with the chat's row (replies, Needs you) under it, updated in
+  place. The tap line now shows only inside the chat.
+- The later steps post in the person's chat, which turns Needs you, instead of as new main-chat lines: "sent their details", "has no
+  mobile or email on file" and "typed 3 wrong codes".
+- Nothing changes in how anything looks, and there is no AI call. Tests: 678 (MS21 is new; MS10j, MS10l and MS17 to MS19 now check the person's chat).
+
 ## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (LIVE as Version 211, 5 Nov 2026 12:46Z; rollback Version 210)
 
 Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project

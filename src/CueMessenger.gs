@@ -235,6 +235,20 @@ function cueMsgrTriChat_(psid, T, label) {
     return p.chat;
   });
 }
+/* CUE-MSGR-ONE-LINE-2026-11-05 (Kiko 5 Nov 2026 13:07Z: "Also why am i still getting 1 notif per message? I raised this yesterday";
+ * 13:08Z: "why do i get 1 notif per messatge"): one person on Messenger is one line in the main chat. The first "new message from
+ * someone not linked" line becomes the pointer to their chat once they tap, so the chat's row under it updates in place; the later
+ * steps (details sent, no mobile or email, 3 wrong codes) post in that chat, which turns Needs you, not as new main-chat lines. */
+function cueMsgrPointTold_(T, chat) {
+  if (!T || !T.told || !chat) return;
+  try {
+    const sh = cueSheet_('Chat'), n = sh.getLastRow() - 1; if (n < 1) return;
+    const k = Math.min(n, 500), rows = sh.getRange(n + 2 - k, 1, k, 4).getValues();
+    for (let i = rows.length - 1; i >= 0; i--) if (String(rows[i][1]) === 'Cue' && String(rows[i][2]) === T.told && !String(rows[i][3] || '')) {
+      sh.getRange(n + 2 - k + i, 4, 1, 1).setValues([['>' + chat]]); break; }
+    delete T.told;
+  } catch (e) { console.warn('Messenger line: ' + e); }
+}
 function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay already answered this tap (CUE-MSGR-INSTANT-2026-11-05)
   let T = cueMsgrTri_(psid);
   if (tap === CUE_MSGR_TRI_.client || tap === CUE_MSGR_TRI_.crew) {
@@ -243,6 +257,7 @@ function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay 
     T.st = crew ? 'crew' : 'ask_help'; T.last = at;
     if (!replied) cueMsgrSend_(psid, crew ? CUE_MSGR_SAY_.crew : CUE_MSGR_SAY_.help);
     const chat = cueMsgrTriChat_(psid, T, crew ? 'Crew, not linked yet' : 'Client or inquiry');
+    cueMsgrPointTold_(T, chat);
     cueMsgrTriSave_(psid, T);
     cueChat_('Cue', T.name + ' tapped "' + (crew ? 'I\'m crew' : 'Client or inquiry') + '" on Messenger.'
       + (T.first && T.first !== text ? ' First message: "' + cueStr_(T.first, 200) + '"' : ''), chat);
@@ -253,14 +268,16 @@ function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay 
      * the line, so a person 1.28.19.1 already noted, or whose greeting Facebook refused, gets no second line. */
     const P = PropertiesService.getScriptProperties(), told = 'MSGR_TOLD_' + psid, first = !P.getProperty(told);
     const r = cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    let line = '';
     if (first) {
       P.setProperty(told, at);
-      cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
+      line = 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
         + (r.ok ? '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.'
-          : '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.'), '');
+          : '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.');
+      cueChat_('Cue', line, '');
     }
     if (!r.ok) return true;   // 5 Nov 04:29Z: a refused greeting saves no triage state, so the next message tries again
-    cueMsgrTriSave_(psid, { st: 'asked', first: text, last: at });
+    cueMsgrTriSave_(psid, Object.assign({ st: 'asked', first: text, last: at }, line ? { told: line } : {}));
     return true;
   }
   T.last = at;
@@ -279,7 +296,7 @@ function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay 
   cueMsgrTriSave_(psid, T);
   cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');
   if (text) cueChat_(T.name + ' · Messenger', text, T.chat);
-  if (ack) cueChat_('Cue', T.name + ' (crew, not linked yet) sent their details on Messenger: "' + cueStr_(text, 200) + '". Reply in their chat.', '');
+  if (ack) cueChat_('Cue', T.name + ' (crew, not linked yet) sent their details on Messenger: "' + cueStr_(text, 200) + '". Reply in their chat.', T.chat);   // CUE-MSGR-ONE-LINE
   return true;
 }
 /* CUE-CREW-MATCH-2026-11-05: a crew member's details or code. T.m = 'code' (a code is waiting), 'wait' (no mobile and no email:
@@ -297,7 +314,7 @@ function cueMsgrCrewMatch_(psid, at, text, T) {
     if (r && r.status === 'wrong') { cueMsgrSend_(psid, CUE_MSGR_SAY_.wrong(r.left)); cueMsgrTriSave_(psid, T); log(); return true; }
     if (r && r.status === 'locked') {
       cueMsgrSend_(psid, CUE_MSGR_SAY_.notLinked); T.m = 'locked'; cueMsgrTriSave_(psid, T); log();
-      cueChat_('Cue', (r.name || T.name) + ' typed 3 wrong codes on Messenger. Nothing was linked.', '');
+      cueChat_('Cue', (r.name || T.name) + ' typed 3 wrong codes on Messenger. Nothing was linked.', T.chat);   // CUE-MSGR-ONE-LINE
       return true;
     }
     if (!r || r.status !== 'none') { cueMsgrTriSave_(psid, T); log(); return true; }   // Canvas busy: the code stays; they can type it again
@@ -316,7 +333,7 @@ function cueMsgrCrewMatch_(psid, at, text, T) {
   if (m.status === 'no_contact') {
     cueMsgrSend_(psid, CUE_MSGR_SAY_.noContact); T.m = 'wait'; cueMsgrTriSave_(psid, T); log();
     cueChat_('Cue', (m.person || T.name) + ' (crew, ' + m.project + ') messaged on Messenger but has no mobile or email on file, so Cue could not send a code. '
-      + 'Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.', '');
+      + 'Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.', T.chat);   // CUE-MSGR-ONE-LINE
     return true;
   }
   if (m.status === 'locked') { T.m = 'locked'; cueMsgrTriSave_(psid, T); log(); return true; }

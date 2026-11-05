@@ -190,11 +190,12 @@ test('MS10l crew details get one reply and one main-chat line, then quiet until 
   door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
   door(msgrIn('2002', { text: 'Kiko Dacanay\nKings Day' }));
   assert.strictEqual(sent().pop()[1], 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.');
-  const main = t.tabs.Chat.rows.filter(r => !r[3] && /sent their details on Messenger/.test(r[2]));
-  assert.strictEqual(main.length, 1, 'one main-chat line');
+  const chat0 = JSON.parse(t.props.MSGR_TRI_2002).chat;   // CUE-MSGR-ONE-LINE (Kiko 5 Nov 13:07Z): the step posts in their chat, not as a new main line
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === chat0 && /sent their details on Messenger/.test(r[2])).length, 1, 'one line in their chat');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => !r[3] && /sent their details/.test(r[2])).length, 0, 'no main-chat line');
   const n = sent().length; door(msgrIn('2002', { text: 'Hello?' }));
   assert.strictEqual(sent().length, n, 'no second reply');
-  assert.strictEqual(t.tabs.Chat.rows.filter(r => !r[3] && /sent their details/.test(r[2])).length, 1, 'no second main line');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => /sent their details/.test(r[2])).length, 1, 'no second line');
   const chat = JSON.parse(t.props.MSGR_TRI_2002).chat;
   t.ctx.cueSend('Hi, which role po?', [], 'chat', chat);
   door(msgrIn('2002', { text: 'Marshal po' }));
@@ -328,7 +329,7 @@ test('MS10j "start over" in a triage chat (Kiko 5 Nov 05:15Z) makes the person n
   assert.ok(!sent().some(x => x[1] === 'start over'), '"start over" is not sent to the person');
   door(msgrIn('2002', { text: 'Hello again' }));
   assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]));
-  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 2, 'one new Ask Cue line after the reset');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => (r[3] === '' || r[3] === '>' + chat) && /not linked as crew/.test(r[2])).length, 2, 'one new Ask Cue line after the reset (the first one now points at their chat)');
 });
 test('MS10k "start over" typed in Messenger by someone not linked resets them and gets the greeting (Kiko 5 Nov 05:21Z)', () => {
   const { t, door, sent } = msgrSandbox();
@@ -355,6 +356,7 @@ function crewBox(answers) {
   return box;
 }
 const MAIN = t => t.tabs.Chat.rows.filter(r => !r[3]).map(r => r[2]);
+const PCHAT = t => { const c = (JSON.parse(t.props.MSGR_TRI_2002 || '{}') || {}).chat; return t.tabs.Chat.rows.filter(r => c && r[3] === c).map(r => r[2]); };   // CUE-MSGR-ONE-LINE: the person's own chat
 test('MS16 match with a mobile: the code reply with the last 2 digits; the right code links them with the approved message', () => {
   let codes = 0;
   const b = crewBox({ crew_match: { status: 'code_sent', channel: 'mobile', hint: '12', project: 'Kings Day – Embassy of Belgium', first: 'Ana', person: 'Ana Cruz' },
@@ -383,7 +385,7 @@ test('MS17 match with email only says "sa email mo"; 1 try left; 3rd wrong locks
   assert.strictEqual(b.sent().pop()[1], 'Mali po ang code. May 1 try ka pa.');
   b.door(msgrIn('2002', { text: '000003' }));
   assert.strictEqual(b.sent().pop()[1], 'Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito.');
-  assert.ok(MAIN(b.t).includes('Carlito Santos typed 3 wrong codes on Messenger. Nothing was linked.'));
+  assert.ok(PCHAT(b.t).includes('Carlito Santos typed 3 wrong codes on Messenger. Nothing was linked.')); assert.ok(!MAIN(b.t).some(x => /wrong codes/.test(x)));
   const k = b.sent().length; b.door(msgrIn('2002', { text: '000004' }));
   assert.strictEqual(b.sent().length, k, 'locked: quiet'); assert.strictEqual(b.calls.filter(c => c[0] === 'crew_code_check').length, 3);
 });
@@ -391,7 +393,8 @@ test('MS18 matched but no mobile and no email: the confirm reply and one main-ch
   const b = crewBox({ crew_match: { status: 'no_contact', project: 'Kings Day – Embassy of Belgium', first: 'Juan', person: 'Juan Reyes' } });
   b.crew('Juan Reyes / Kings Day');
   assert.strictEqual(b.sent().pop()[1], 'Salamat po! Kailangan lang namin i-confirm ang details mo. Babalikan ka ng team namin dito.');
-  assert.ok(MAIN(b.t).includes('Juan Reyes (crew, Kings Day – Embassy of Belgium) messaged on Messenger but has no mobile or email on file, so Cue could not send a code. Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.'));
+  assert.ok(!MAIN(b.t).some(x => /no mobile or email/.test(x)));
+  assert.ok(PCHAT(b.t).includes('Juan Reyes (crew, Kings Day – Embassy of Belgium) messaged on Messenger but has no mobile or email on file, so Cue could not send a code. Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.'));
   const k = b.sent().length; b.door(msgrIn('2002', { text: 'Hello po?' })); assert.strictEqual(b.sent().length, k, 'then quiet');
 });
 test('MS19 not sure: the live crewAck reply and main line; later details are matched again quietly', () => {
@@ -399,7 +402,7 @@ test('MS19 not sure: the live crewAck reply and main line; later details are mat
   const b = crewBox({ crew_match: () => (++ask === 1 ? { status: 'unsure' } : { status: 'code_sent', channel: 'mobile', hint: '77', project: 'AMI Group\'s Christmas Party', first: 'Mark' }) });
   b.crew('Mark po');
   assert.strictEqual(b.sent().pop()[1], 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.');
-  assert.ok(MAIN(b.t).some(x => /sent their details on Messenger/.test(x)));
+  assert.ok(PCHAT(b.t).some(x => /sent their details on Messenger/.test(x)) && !MAIN(b.t).some(x => /sent their details/.test(x)));
   b.door(msgrIn('2002', { text: 'Mark Lim, AMI christmas party' }));
   assert.ok(/nagtatapos sa 77/.test(b.sent().pop()[1]), 'second try matched: code sent');
 });
@@ -439,4 +442,16 @@ test('MS22 instant taps (Kiko 5 Nov 12:00Z "Yes, ship it"): the relay keeps Cue\
   door(ev);
   assert.strictEqual(sent().length, n, 'the relay already answered the tap');
   assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'crew', 'Cue still records the tap and opens the chat');
+});
+
+test('MS21 one person on Messenger is one line in the main chat (Kiko 5 Nov 13:07Z "why am i still getting 1 notif per message"): the first line points at their chat after the tap', () => {
+  const { t, door } = msgrSandbox(), n0 = t.tabs.Chat.rows.length;
+  door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
+  door(msgrIn('2002', { text: 'Kiko Dacanay\nKings Day' })); door(msgrIn('2002', { text: 'Hello?' }));
+  const chat = JSON.parse(t.props.MSGR_TRI_2002).chat, rows = t.tabs.Chat.rows.slice(n0);
+  deq(rows.filter(r => !r[3]).map(r => r[2]), [], 'no plain main-chat line left');
+  const ptr = rows.filter(r => /^>/.test(String(r[3])));
+  assert.strictEqual(ptr.length, 1, 'one pointer: ' + JSON.stringify(ptr)); assert.strictEqual(ptr[0][3], '>' + chat);
+  assert.ok(/^Messenger: new message from someone not linked as crew: "Hi"/.test(ptr[0][2]));
+  assert.ok(!('told' in JSON.parse(t.props.MSGR_TRI_2002)), 'pointed once');
 });
