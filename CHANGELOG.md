@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.28.28: the Messenger "I'm crew" reply drops the email note (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026 05:49Z: "Also remove the note about the email".
+
+What changed: the reply to "I'm crew" is now "Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you." The sentences about the Messenger link in the email are removed; the rest is Kiko's approved wording. It stays until the crew registration form ships.
+
+Tests: MS10d checks the exact text.
+
 ## Cue 1.28.27: "start over" typed in Messenger resets the person (BUG FIX, LIVE as Version 208, 5 Nov 2026 05:26Z; rollback Version 207)
 
 Who asked and when: Kiko, 5 Nov 2026 05:21Z, sent a screenshot of his phone: he typed "Start over daw" in Messenger and got no reply, because 1.28.26 only reads "start over" in the Cue chat.

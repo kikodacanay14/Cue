@@ -110,8 +110,8 @@ const CUE_MSGR_SAY_ = {
   thanks: 'Salamat po sa pag-message. I have passed the details to Kiko and he will get back to you. You may also contact Kiko Dacanay at '
     + 'kikodacanay@blankspaceevent.com or 0976 494 2398.',
   // Until the crew registration form ships (plan T3), "I'm crew" points to the Messenger link in their email.
-  crew: 'Welcome to the crew po. Para ma-link ka, open mo lang ang Messenger link sa email namin. Wala ka pang email from us? '
-    + 'Reply ka lang dito with your full name and event, and our team will help you.'
+  // Kiko 5 Nov 05:49Z "Also remove the note about the email": the email-link sentences are gone, the rest is his approved wording.
+  crew: 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.'
 };
 const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', start: 'TRI_START', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
 

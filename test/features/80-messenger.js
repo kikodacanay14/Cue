@@ -178,7 +178,7 @@ test('MS10d "I\'m crew": the crew reply and a "Crew, not linked yet" chat; Kiko\
   const { t, door, sent } = msgrSandbox();
   door(msgrIn('2002', { text: 'Hi' }));
   door(msgrIn('2002', { text: 'I\'m crew', qr: 'TRI_CREW' }));
-  assert.ok(/^Welcome to the crew po\. Para ma-link ka, open mo lang ang Messenger link sa email namin\./.test(sent()[1][1]));
+  assert.strictEqual(sent()[1][1], 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.', 'no email note (Kiko 5 Nov 05:49Z)');
   const chat = JSON.parse(t.props.MSGR_TRI_2002).chat;
   assert.strictEqual(t.state(chat).text, 'Messenger · Ana Cruz · Crew, not linked yet');
   t.ctx.cueSend('Hi Ana, sending your link now.', [], 'chat', chat);
