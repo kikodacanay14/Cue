@@ -314,3 +314,11 @@ test('MS10j "start over" in a triage chat (Kiko 5 Nov 05:15Z) makes the person n
   assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]));
   assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 2, 'one new Ask Cue line after the reset');
 });
+test('MS10k "start over" typed in Messenger by someone not linked resets them and gets the greeting (Kiko 5 Nov 05:21Z)', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
+  const n = sent().length; door(msgrIn('2002', { text: 'Huy' })); assert.strictEqual(sent().length, n);
+  door(msgrIn('2002', { text: 'Start over daw' }));
+  assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]), 'the greeting with buttons again');
+  assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'asked');
+});

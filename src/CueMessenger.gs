@@ -183,6 +183,9 @@ function cueMsgrOne_(m) {
     if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
     return true;
   }
+  if (!p && /\bstart over\b/i.test(text)) {   // Kiko 5 Nov 05:21Z typed "Start over daw" in Messenger: the person can reset themselves too
+    const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + psid); P.deleteProperty('MSGR_TOLD_' + psid);
+  }
   if (!p) {
     const pb = m.postback || {}, typed = CUE_MSGR_TRI_.buttons.find(b => b[0].toLowerCase() === text.trim().toLowerCase().replace(/[\u2019]/g, "'"));
     const tap = String(pb.payload || (msg.quick_reply || {}).payload || (typed ? typed[1] : ''));

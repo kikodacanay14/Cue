@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.28.27: "start over" typed in Messenger resets the person (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026 05:21Z, sent a screenshot of his phone: he typed "Start over daw" in Messenger and got no reply, because 1.28.26 only reads "start over" in the Cue chat.
+
+What changed: a person not linked as crew who types a message containing "start over" in Messenger is made new again (triage state and Ask Cue mark dropped), and that same message gets the greeting with the two buttons. Linked crew are not affected.
+
+Tests: MS10k new.
+
 ## Cue 1.28.26: "start over" in a Messenger triage chat (BUG FIX, LIVE as Version 207, 5 Nov 2026 05:19Z; rollback Version 206)
 
 Who asked and when: Kiko, 5 Nov 2026, testing Version 206 from his own Facebook account. 05:05Z "Nothing happens......", 05:15Z "I didnt see those. What are you saying?".
