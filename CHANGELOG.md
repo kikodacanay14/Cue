@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (not deployed)
+## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (LIVE as Version 211, 5 Nov 2026 12:46Z; rollback Version 210)
 
 Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project
 if it's really there? And then if it's there, then it's automatically linked"; 09:10Z "A" (match, then a code); 09:47Z the Link in
