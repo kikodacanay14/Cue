@@ -144,15 +144,12 @@
   function settingsTab(sec) {
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
-    if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
     if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
-    if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
-    if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();   // a failed read is tried again each time the section opens
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -346,70 +343,6 @@
       }).join(''));
   }
   $('w-rn').addEventListener('click', function (e) { if (e.target.closest('[data-rn-sched]')) settingsTab('sched'); });
-  /* CUE-ADMIN-MOVE-2026-10-29 (Kiko 29 Oct 03:43Z "lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"):
-   * Canvas Admin's Run now (Chasers) and Send a notice, moved here as they were (Canvas Workspace.html openRunNow / openSendNotice).
-   * Canvas still sends; Kiko's press is the approval for those emails. Each press is sent once (no retry: Canvas keeps no ledger). */
-  var RNW = { d: null, res: {}, tick: {}, kind: 'ar', q: '', unsent: false, busy: false, err: '', msg: '' };
-  var RNW_KINDS = [['ar', 'AR chaser', 'Paid suppliers whose AR is made but not signed yet'], ['invoice', 'Invoice chaser', 'Paid suppliers who owe us their invoice'],
-    ['paid', 'Payment sent', 'Paid requests whose supplier has no payment notice yet'], ['final', 'Final reminder', 'Events today or later, to their suppliers and crew']];
-  function rnwLoad() { RNW.err = ''; RNW.msg = ''; call('cueAdminCanvasChasers', [], function (d) { RNW.d = d; rnwDraw(); }, function (e) { RNW.err = "Couldn't load the lists: " + ((e && e.message) || e); rnwDraw(); }); }
-  function rnwPeso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function rnwKey(x) { return x.kind + '|' + x.pid + '|' + (x.item || ''); }
-  function rnwTicked(x) { var k = rnwKey(x), r = RNW.res[k]; return k in RNW.tick ? RNW.tick[k] : r ? !r.ok : !!x.on; }
-  function rnwShown() {
-    var q = RNW.q.trim().toLowerCase();
-    return ((RNW.d && RNW.d[RNW.kind]) || []).filter(function (x) { return (!RNW.unsent || !x.last)
-      && (!q || [x.supplier, x.project, x.pid, x.item].concat(x.reqs || []).join(' ').toLowerCase().indexOf(q) >= 0); });
-  }
-  function rnwDraw() {
-    var d = RNW.d, box = $('w-rnw');
-    var J = (jc && jc.kinds) || [], ck = /^cue:/.test(RNW.kind) ? J.filter(function (x) { return 'cue:' + x.kind === RNW.kind; })[0] : null;
-    var chips = '<span class="stabs" role="tablist" aria-label="Chasers">' + RNW_KINDS.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="' + x[0] + '" aria-pressed="' + (x[0] === RNW.kind) + '">' + esc(x[1]) + (d ? ' <span class="n">' + (d[x[0]] || []).length + '</span>' : '') + '</button>'; }).join('')
-      + J.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="cue:' + esc(x.kind) + '" aria-pressed="' + ('cue:' + x.kind === RNW.kind) + '">' + esc(x.label.replace(/s$/, '')) + (x.on ? '' : ' <span class="n">Off</span>') + '</button>'; }).join('') + '</span>';
-    if (ck || /^cue:/.test(RNW.kind)) { setHtml(box, '<div class="logf">' + chips + '</div>' + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '') + (ck ? jcHtml(ck) : '<div class="small muted">Loading…</div>')); return; }
-    if (!d) { setHtml(box, (J.length ? '<div class="logf">' + chips + '</div>' : '') + (RNW.err ? '<div class="err">' + esc(RNW.err) + '</div>' : '<div class="small muted">Finding what to send…</div>')); return; }
-    var k = RNW_KINDS.filter(function (x) { return x[0] === RNW.kind; })[0], all = d[RNW.kind] || [], L = rnwShown(), fin = RNW.kind === 'final';
-    var on = L.filter(rnwTicked).length;
-    var row = function (x) { var r = RNW.res[rnwKey(x)];
-      return '<tr><td class="rnw-tick"><input type="checkbox" data-rnw-key="' + esc(rnwKey(x)) + '"' + (rnwTicked(x) ? ' checked' : '') + ' aria-label="Send to ' + esc(fin ? x.project : x.supplier) + '"></td>'
-        + (fin ? '<td><b>' + esc(x.project) + '</b><div class="adesc">' + esc(x.pid) + '</div></td><td>' + esc(x.supplier) + '</td>'
-          : '<td><b>' + esc(x.supplier || 'No supplier name') + '</b><div class="adesc">' + esc(x.project) + ' · ' + esc((x.reqs || []).join(', ')) + (RNW.kind === 'ar' ? ' · ' + esc(x.item) : '') + '</div></td><td>' + rnwPeso(x.amount) + '</td>')
-        + '<td class="adesc">' + (x.last ? 'Last sent ' + esc(String(x.last).slice(0, 16)) : 'Not sent yet') + '</td>'
-        + '<td class="rnw-go">' + (r ? (r.ok ? '<span class="ok">✓ Sent to ' + esc(r.to || '') + '</span>' : '<span class="bad">✕ ' + esc(r.error || 'Not sent') + '</span> ') : '')
-        + (r && r.ok ? '' : '<button type="button" class="btn ghost" data-rnw-edit="' + esc(RNW.kind) + '" data-rnw-item="' + esc(x.item || '') + '" data-rnw-pid="' + esc(x.pid) + '">Edit</button>') + '</td></tr>'; };
-    setHtml(box, '<div class="adesc" style="margin-bottom:8px">Send now instead of waiting. Tick what to send and press Send ticked: Canvas sends each one as in Send a notice, by email, and by text where there is a mobile. Edit opens it in Send a notice so you can type over the words first.</div>'
-      + '<div class="logf">' + chips + '</div><div class="logf">'
-      + '<input type="search" data-rnw-q="1" placeholder="Search supplier, project or ID" aria-label="Search supplier, project or ID" value="' + esc(RNW.q) + '">'
-      + '<label class="adesc" style="opacity:1"><input type="checkbox" data-rnw-unsent="1"' + (RNW.unsent ? ' checked' : '') + '> Not sent yet</label>'
-      + '<button type="button" class="btn ghost" data-rnw-refresh="1">Refresh</button></div>'
-      + '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1"><b>' + esc(k[1]) + '</b><div class="adesc">' + esc(k[2]) + '</div></div>'
-      + '<span class="adesc">' + (L.length === all.length ? L.length + ' lines' : L.length + ' of ' + all.length + ' shown') + ' · ' + on + ' ticked</span>'
-      + (L.length ? '<button type="button" class="btn" data-rnw-send="1"' + (RNW.busy ? ' disabled' : '') + '>' + (RNW.busy ? 'Sending…' : 'Send ticked') + '</button>' : '') + '</div>'
-      + (RNW.msg ? '<div class="adesc" style="opacity:1;margin-bottom:6px">' + esc(RNW.msg) + '</div>' : '')
-      + (L.length ? '<table class="rnw"><thead><tr><th class="rnw-tick"><input type="checkbox" data-rnw-all="1" aria-label="Tick all shown"' + (on === L.length ? ' checked' : '') + '></th><th>' + (fin ? 'Project' : 'Supplier') + '</th><th>' + (fin ? 'Event day' : 'Paid') + '</th><th>Sent</th><th></th></tr></thead><tbody>' + L.map(row).join('') + '</tbody></table>'
-        : '<div class="small muted">' + (all.length ? 'Nothing matches the filter.' : 'Nothing to send.') + '</div>') + '</div>');
-  }
-  $('w-rnw').addEventListener('change', function (e) { var c = e.target;
-    if (c.getAttribute('data-rnw-unsent')) { RNW.unsent = c.checked; rnwDraw(); }
-    else if (c.getAttribute('data-rnw-all')) { rnwShown().forEach(function (x) { RNW.tick[rnwKey(x)] = c.checked; }); rnwDraw(); }
-    else if (c.getAttribute('data-rnw-key')) { RNW.tick[c.getAttribute('data-rnw-key')] = c.checked; rnwDraw(); } });
-  $('w-rnw').addEventListener('input', function (e) { if (!e.target.getAttribute('data-rnw-q')) return; RNW.q = e.target.value; rnwDraw(); var i = $('w-rnw').querySelector('[data-rnw-q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
-  $('w-rnw').addEventListener('click', function (e) {
-    if (e.target.closest('[data-rnw-refresh]')) { RNW.res = {}; RNW.tick = {}; RNW.d = null; rnwDraw(); rnwLoad(); return; }
-    var kb = e.target.closest('[data-rnw-kind]'); if (kb) { RNW.kind = kb.getAttribute('data-rnw-kind'); RNW.msg = ''; rnwDraw(); return; }
-    var ed = e.target.closest('[data-rnw-edit]'); if (ed) { snOpen(ed.getAttribute('data-rnw-edit'), ed.getAttribute('data-rnw-pid'), ed.getAttribute('data-rnw-item')); return; }
-    if (!e.target.closest('[data-rnw-send]') || RNW.busy) return;
-    var kind = RNW.kind, label = RNW_KINDS.filter(function (x) { return x[0] === kind; })[0][1];
-    var lines = rnwShown().filter(rnwTicked).map(function (x) { return { kind: kind, pid: x.pid, item: x.item || '' }; });   // only the ticked lines the filter shows
-    if (!lines.length) { RNW.msg = 'Tick at least one line.'; rnwDraw(); return; }
-    ask('Send ' + lines.length + ' ' + label + (lines.length > 1 ? 's' : '') + ' now?', 'Canvas sends each one now as in Send a notice, by email, and by text where there is a mobile.', null, 'Send', function () {
-      RNW.busy = true; RNW.msg = ''; rnwDraw();
-      call('cueAdminCanvasChaseSend', [lines], function (r) { RNW.busy = false;
-        (r.results || []).forEach(function (x) { RNW.res[rnwKey(x)] = x; delete RNW.tick[rnwKey(x)]; }); if (r.list) RNW.d = r.list;
-        RNW.msg = (r.results || []).filter(function (x) { return x.ok; }).length + ' of ' + lines.length + ' sent.'; rnwDraw(); },
-        function (err) { RNW.busy = false; RNW.msg = 'Nothing was sent: ' + ((err && err.message) || err); rnwDraw(); });
-    });
-  });
 
   var SNW = { b: null, kind: '', pid: '', item: '', d: null, busy: false, q: '', err: '', items: null, out: '' };
   function snBoardLoad() { call('cueAdminSnBoard', [], function (b) { SNW.b = b; snDraw(); }, function (e) { SNW.err = "Couldn't load: " + ((e && e.message) || e); snDraw(); }); }
