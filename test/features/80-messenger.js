@@ -86,7 +86,7 @@ test('MS7 the job is on the Job Runs list', () => {
 const MSGR_KEY = 'mr_relay-key-not-real-0123456789abcdef';
 const msgrIn = (psid, o = {}) => ({ object: 'page', entry: [{ id: '110499580567237', messaging: [Object.assign({ sender: { id: psid }, recipient: { id: '110499580567237' },
   timestamp: o.ts || Date.parse('2026-11-02T06:06:00Z') }, o.ref ? { referral: { ref: o.ref, source: 'SHORTLINK', type: 'OPEN_THREAD' } } : {},
-  o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}, o.qr ? { quick_reply: { payload: o.qr } } : {}) } : {})] }] });
+  o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}, o.qr ? { quick_reply: { payload: o.qr } } : {}) } : {}, o.pb ? { postback: { title: o.pb[0], payload: o.pb[1], mid: 'mid.pb.' + psid } } : {})] }] });
 function msgrSandbox(o = {}) {
   const saves = [], held = [];
   const t = sandbox(Object.assign({
@@ -108,7 +108,7 @@ function msgrSandbox(o = {}) {
   let T = Date.parse('2026-11-02T06:40:00Z'); t.ctx.cueNow_ = () => T; t.at = iso => { T = Date.parse(iso); };
   let n = 0;
   const door = event => { held.push({ id: 'e:' + String(1e12 + (++n)) + ':0000000' + n, event }); const h = t.ctx.cueMsgrPull_(); return { ok: true, handled: h }; };
-  return { t, saves, door, held, sent: () => (t.log.fb || []).filter(x => /\/me\/messages$/.test(x.url)).map(x => [x.body.recipient.id, x.body.message.text]) };
+  return { t, saves, door, held, sent: () => (t.log.fb || []).filter(x => /\/me\/messages$/.test(x.url)).map(x => [x.body.recipient.id, x.body.message.text || ((x.body.message.attachment || {}).payload || {}).text]) };
 }
 test('MS8 a sealed m.me ref links the crew member in Canvas with Facebook name and gender, says so, and opens their Cue chat', () => {
   const { t, saves, door, sent } = msgrSandbox();
@@ -150,9 +150,10 @@ test('MS10 changed links save nothing and get a polite reply; a stranger gets th
 test('MS10b triage (Kiko 4 Nov 15:14Z, 15:50Z; 5 Nov 04:09Z): the first reply is the greeting with two buttons, in Kiko\'s words', () => {
   const { t, door } = msgrSandbox();
   door(msgrIn('2002', { text: 'Hello' }));
-  const body = t.log.fb.filter(x => /\/me\/messages$/.test(x.url))[0].body;
-  assert.strictEqual(body.message.text, 'Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba.');
-  deq(body.message.quick_replies, [{ content_type: 'text', title: 'I\'m crew', payload: 'TRI_CREW' }, { content_type: 'text', title: 'Client or inquiry', payload: 'TRI_CLIENT' }]);
+  const body = t.log.fb.filter(x => /\/me\/messages$/.test(x.url))[0].body, pl = body.message.attachment.payload;
+  assert.strictEqual(pl.text, 'Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba.');
+  assert.strictEqual(pl.template_type, 'button', 'buttons stay on the message (5 Nov 04:54Z "There are no buttons showing")');
+  deq(pl.buttons, [{ type: 'postback', title: 'I\'m crew', payload: 'TRI_CREW' }, { type: 'postback', title: 'Client or inquiry', payload: 'TRI_CLIENT' }]);
   assert.strictEqual(body.messaging_type, 'RESPONSE');
   assert.ok(!t.tabs.Chat.rows.some(r => /This chat is for our crew/.test(r[2])));
 });
@@ -274,4 +275,29 @@ test('MS10g one Ask Cue line per person in total (Kiko 5 Nov 04:33Z "its still s
   const u = msgrSandbox({ fb: (x) => /\/me\/messages$/.test(x) ? { getResponseCode: () => 400, getContentText: () => '{}' } : { getResponseCode: () => 200, getContentText: () => '{}' } });
   u.door(msgrIn('5005', { text: 'a' })); u.door(msgrIn('5005', { text: 'b' })); u.door(msgrIn('5005', { text: 'c' }));
   assert.strictEqual(u.t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 1, 'refused greetings retry without a line each time');
+});
+test('MS10h CUE-MSGR-WELCOME-2026-11-05 (Kiko 04:56Z "Yes"): welcome screen, ice breakers, Get Started and menu set once; taps come as postbacks', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hello' }));
+  const prof = t.log.fb.filter(x => /\/me\/messenger_profile$/.test(x.url)), sub = t.log.fb.filter(x => /\/me\/subscribed_apps$/.test(x.url));
+  assert.strictEqual(prof.length, 1); assert.strictEqual(sub.length, 1);
+  deq(sub[0].body.subscribed_fields, ['messages', 'messaging_postbacks', 'messaging_referrals']);
+  const b = prof[0].body;
+  deq(b.greeting, [{ locale: 'default', text: 'Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba.' }]);
+  deq(b.ice_breakers[0].call_to_actions, [{ question: 'I\'m crew', payload: 'TRI_CREW' }, { question: 'Client or inquiry', payload: 'TRI_CLIENT' }]);
+  deq(b.get_started, { payload: 'TRI_START' }); assert.strictEqual(b.persistent_menu[0].call_to_actions.length, 2);
+  door(msgrIn('2002', { text: 'again' })); assert.strictEqual(t.log.fb.filter(x => /messenger_profile$/.test(x.url)).length, 1, 'set once per version');
+  door(msgrIn('2002', { pb: ['Client or inquiry', 'TRI_CLIENT'] }));
+  assert.ok(/^Happy to help po/.test(sent().pop()[1]), 'an ice breaker or button tap (postback) starts the client path');
+  door(msgrIn('6006', { pb: ['Get Started', 'TRI_START'] })); assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]), 'Get Started gets the triage');
+  door(msgrIn('7007', { text: "I\u2019m crew" })); assert.ok(/^Welcome to the crew po/.test(sent().pop()[1]), 'typing the button words counts as the tap');
+});
+test('MS10i a welcome screen Meta refuses leaves one Ask Cue line and retries hourly, not every minute', () => {
+  const { t, door } = msgrSandbox({ fb: (u) => /messenger_profile$/.test(u) ? { getResponseCode: () => 400, getContentText: () => '{"error":{"message":"bad"}}' } : { getResponseCode: () => 200, getContentText: () => '{}' } });
+  door(msgrIn('2002', { text: 'a' })); door(msgrIn('2002', { text: 'b' }));
+  assert.strictEqual(t.log.fb.filter(x => /messenger_profile$/.test(x.url)).length, 1, 'no retry inside the hour');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => /welcome screen not set/.test(r[2])).length, 1);
+  t.at('2026-11-02T08:00:00Z'); door(msgrIn('2002', { text: 'c' }));
+  assert.strictEqual(t.log.fb.filter(x => /messenger_profile$/.test(x.url)).length, 2);
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => /welcome screen not set/.test(r[2])).length, 1, 'still one line');
 });

@@ -31,8 +31,12 @@ function cueMsgrText_(d) {
 function cueMsgrSend_(psid, text, buttons) {
   const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
   if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
-  const message = { text: String(text).slice(0, 2000) };
-  if (buttons) message.quick_replies = buttons.map(b => ({ content_type: 'text', title: b[0], payload: b[1] }));
+  /* Buttons go as a button template (Kiko 5 Nov 04:54Z "There are no buttons showing", 04:56Z "Yes"): they stay on the message,
+   * where quick replies vanished as soon as the person typed. A tap comes back as a postback. */
+  const message = buttons
+    ? { attachment: { type: 'template', payload: { template_type: 'button', text: String(text).slice(0, 640),
+        buttons: buttons.map(b => ({ type: 'postback', title: b[0], payload: b[1] })) } } }
+    : { text: String(text).slice(0, 2000) };
   const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'RESPONSE', message }) });
@@ -109,7 +113,7 @@ const CUE_MSGR_SAY_ = {
   crew: 'Welcome to the crew po. Para ma-link ka, open mo lang ang Messenger link sa email namin. Wala ka pang email from us? '
     + 'Reply ka lang dito with your full name and event, and our team will help you.'
 };
-const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
+const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', start: 'TRI_START', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
 
 function cueMsgrPeopleTab_() { return cueSheet_(CUE_MSGR_PEOPLE_.tab); }   // made on first use from CUE_TABS_
 /** { psid: { row, psid, email, name, last, chat } } */
@@ -179,7 +183,11 @@ function cueMsgrOne_(m) {
     if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
     return true;
   }
-  if (!p) return cueMsgrTriage_(psid, at, text, String((msg.quick_reply || {}).payload || ''));
+  if (!p) {
+    const pb = m.postback || {}, typed = CUE_MSGR_TRI_.buttons.find(b => b[0].toLowerCase() === text.trim().toLowerCase().replace(/[\u2019]/g, "'"));
+    const tap = String(pb.payload || (msg.quick_reply || {}).payload || (typed ? typed[1] : ''));
+    return cueMsgrTriage_(psid, at, text || cueStr_(pb.title || '', 200), tap);
+  }
   p.last = at;
   cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at });
   cueLocked_(() => {
@@ -293,6 +301,7 @@ function cueMsgrKick_() {
 function cueMsgrPullOnce_() {
   const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, ''), key = P.getProperty('MSGR_RELAY_KEY');
   if (!/^https:\/\/[\w.-]+(\/[\w.-]*)*$/.test(url) || !key || !P.getProperty('MSGR_PAGE_TOKEN')) return 0;   // not set up yet
+  if (P.getProperty('CUE_MSGR_PROFILE_V') !== CUE_MSGR_PROFILE_V_ && !(Number(P.getProperty('CUE_MSGR_PROFILE_TRY') || 0) > cueNow_() - 3600000)) { P.setProperty('CUE_MSGR_PROFILE_TRY', String(cueNow_())); try { cueMsgrProfileSet_(); } catch (e) { console.error('Messenger welcome screen: ' + e); } }
   const auth = { Authorization: 'Bearer ' + key };
   const res = UrlFetchApp.fetch(url + '/events', { muteHttpExceptions: true, headers: auth });
   if (res.getResponseCode() !== 200) throw new Error('Messenger relay answered ' + res.getResponseCode());
@@ -304,6 +313,42 @@ function cueMsgrPullOnce_() {
   if (done.length) UrlFetchApp.fetch(url + '/ack', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: auth,
     payload: JSON.stringify({ ids: done }) });
   return handled;
+}
+
+/* CUE-MSGR-WELCOME-2026-11-05 (Kiko 5 Nov 04:51Z "just by visiting the page you already get a message. Cant we do thst?",
+ * 04:54Z "Why not the greeting is the triage?", 04:56Z "Yes" to welcome screen, menu and buttons that stay): the Page's Messenger
+ * profile shows the approved greeting and the two triage options before anyone types (ice breakers), a Get Started button
+ * (needed for the menu), and a menu by the typing box with the same two options. Set once per version, then on every change
+ * of CUE_MSGR_PROFILE_V_. The app is also subscribed to postbacks, so taps reach the relay. */
+const CUE_MSGR_PROFILE_V_ = '1';
+function cueMsgrProfileBody_() {
+  const B = CUE_MSGR_TRI_.buttons;
+  return {
+    greeting: [{ locale: 'default', text: CUE_MSGR_SAY_.greet.slice(0, 160) }],
+    get_started: { payload: CUE_MSGR_TRI_.start },
+    ice_breakers: [{ locale: 'default', call_to_actions: B.map(b => ({ question: b[0], payload: b[1] })) }],
+    persistent_menu: [{ locale: 'default', composer_input_disabled: false, call_to_actions: B.map(b => ({ type: 'postback', title: b[0], payload: b[1] })) }]
+  };
+}
+/** Sets the welcome screen and menu, and subscribes the app to messages, postbacks and referrals. Returns { ok, error }. */
+function cueMsgrProfileSet_() {
+  const P = PropertiesService.getScriptProperties(), token = P.getProperty('MSGR_PAGE_TOKEN');
+  if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
+  const call = (u, body) => {
+    const r = UrlFetchApp.fetch(u, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + token }, payload: JSON.stringify(body) });
+    if (r.getResponseCode() === 200) return '';
+    let m = ''; try { m = (JSON.parse(r.getContentText()).error || {}).message || ''; } catch (e) { m = ''; }
+    return 'Meta ' + r.getResponseCode() + (m ? ': ' + String(m).slice(0, 160) : '');
+  };
+  const e1 = call('https://graph.facebook.com/v21.0/me/subscribed_apps', { subscribed_fields: ['messages', 'messaging_postbacks', 'messaging_referrals'] });
+  const e2 = call('https://graph.facebook.com/v21.0/me/messenger_profile', cueMsgrProfileBody_());
+  const err = [e1 && 'subscribe: ' + e1, e2 && 'welcome screen: ' + e2].filter(Boolean).join('; ');
+  if (!err) P.setProperty('CUE_MSGR_PROFILE_V', CUE_MSGR_PROFILE_V_);
+  else if (P.getProperty('CUE_MSGR_PROFILE_ERR') !== CUE_MSGR_PROFILE_V_) {   // one Ask Cue line per version, not one per hourly retry
+    P.setProperty('CUE_MSGR_PROFILE_ERR', CUE_MSGR_PROFILE_V_);
+    cueChat_('Cue', 'Messenger welcome screen not set (' + err + '). Cue tries again every hour.', '');
+  }
+  return { ok: !err, error: err };
 }
 
 /* ---------- Settings › Connections › Messenger (owner only) ---------- */
