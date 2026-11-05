@@ -3235,3 +3235,13 @@ ZB_ACTIONS_.status_copy = {
     to: { type: 'string', max: 500 }, sent_at: { type: 'string', max: 40 }, html: { type: 'string', max: 60000 }, text: { type: 'string', max: 20000 } },
   run: (r) => wrSave_(r.args)
 };
+
+/* CUE-FEEDBACK-2026-11-05: PROPOSED by Cue (spec canvas-integration/specs/client-feedback-cue/spec.md), not yet in Canvas. The Canvas thread
+ * "Send client feedback form from Canvas" builds client_feedback; replace this entry with Canvas's own when its release ships.
+ * Rows: { id, name, lastDay (YYYY-MM-DD), formUrl, client: { name, first, email } (the Direct Client, Resources > Client tab),
+ * submitted, submittedAt } for every project whose last event day is on or after since (id: that one project only). Read only. */
+ZB_ACTIONS_.client_feedback = {
+  kind: 'read', needsProject: false,
+  schema: { since: { type: 'string', required: true, re: /^\d{4}-\d{2}-\d{2}$/ }, id: { type: 'string', max: 60 } },
+  run: (r) => zbClientFeedback_(r.args)
+};

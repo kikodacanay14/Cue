@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue (next version, set at release): client feedback form, sent and chased from Kiko's Gmail (not deployed)
+
+Kiko, 5 Nov 2026 04:03Z: "Build the Cue half of the Client Feedback Form. Canvas builds the form page; Cue sends the email and the
+chaser from my Gmail." Spec `canvas-integration/specs/client-feedback-cue/spec.md` (project files), approved by Kiko 5 Nov 2026
+04:10Z ("approved"), with the recommended answer A on both questions. Feature Board card `canvas-client-feedback-form`.
+
+- New chaser kind C9 Client feedback (`src/CueSweepFeedback.gs`). The day after an event's last day, the chaser update shows one
+  "Send feedback form" line for that project, addressed to the Direct Client that Canvas has marked in Resources > Client tab.
+- Each email goes only when Kiko taps Send on its line: the first email and the two reminders alike (question 1, answer A). It goes
+  from Kiko's Gmail with the sender name "Blank Space Events".
+- The words and the look come from Kiko's doc through Canvas (`message_render`): templates "C9 Client Feedback Request" and
+  "C9 Client Feedback Chaser", in the approved client design with the cyan banner and the yellow "Give feedback" button. No AI call.
+- Reminders come 5 and 10 days after the first email, as replies in its Gmail thread, and stop after the second one. Timing is the
+  new "C9 Client feedback" row on the Chaser rules card (1 day, every 5 days, at most 3 emails), so Kiko can change or pause it.
+- Cue asks Canvas again just before every send. A client who has submitted gets nothing more, and Team Cue says "Feedback received"
+  once. Only events whose last day is on or after the first run's day get a line (question 2, answer A).
+- A project with no Direct Client email, or no form link yet, shows its line with what to fix in Canvas and no Send.
+- Needs Canvas: the new bridge read `client_feedback` (built by the Canvas thread "Send client feedback form from Canvas"). The test
+  fixture carries the shape the spec proposes; replace it with Canvas's own entry when that release ships. Needs the two C9
+  templates in the BSE Message Templates Revised doc before the first send.
+- Tests: 665 (7 new, `test/features/85-client-feedback.js`).
 ## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, LIVE as Version 204, 5 Nov 2026 04:45Z; rollback Version 203)
 
 Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".

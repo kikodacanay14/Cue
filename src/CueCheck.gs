@@ -34,7 +34,7 @@ const CUE_CHECK_SENDS_ = ['crew_docs_send', 'ar_email', 'send_payment_chasers', 
 const CUE_CHECK_READS_ = ['inbox_new', 'search_projects', 'find_similar_projects', 'get_project', 'get_project_board', 'list_project_files', 'canvas_link',
   'intake_evidence', 'expense_evidence', 'supplier_check', 'supplier_lookup', 'status_digest', 'overdue_billings', 'mail_waiting',
   'list_unsigned_docs', 'help_qa', 'client_check', 'get_readiness', 'finance_snapshot', 'crew_docs', 'crew_docs_job', 'ce_lines', 'accreditation_gaps', 'crm_funnel', 'crm_report',
-  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox', 'client_status', 'message_templates', 'message_render'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); client_status: the Friday status emails, read only (CueStatus.gs); write_rows and allow_list_set name no project, so a check stops them
+  'bi_list', 'allow_list', 'read_rows', 'rfp_outbox', 'client_status', 'message_templates', 'message_render', 'client_feedback'];   // generic bridge reads (CueEdit.gs); rfp_outbox: Kiko's queued RFPs (CueRfpSend.gs); client_status: the Friday status emails, read only (CueStatus.gs); write_rows and allow_list_set name no project, so a check stops them
 
 const cueCheckTag_ = () => String(CUE_CHECK_FP_).slice(0, 12);
 const cueCheckOn_ = () => !!globalThis.CUE_CHECK_ON_;

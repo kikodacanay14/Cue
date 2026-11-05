@@ -26,7 +26,8 @@ const CUE_RULE_KINDS_ = {
   award: { label: 'C6 CE award chasers', on: true, first: 3, every: 5, max: 3, unit: 'working' },
   payment: { label: 'C7 Payment chasers', on: true, first: 7, every: 7, max: 3, unit: 'days' },
   accreditation: { label: 'S1 Accreditation chasers', on: true, first: 3, every: 3, max: 3, unit: 'days' },
-  signature: { label: 'R5/R6 FSA and AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' } };
+  signature: { label: 'R5/R6 FSA and AR signatures', on: true, first: 1, every: 2, max: 3, unit: 'days' },
+  feedback: { label: 'C9 Client feedback', on: true, first: 1, every: 5, max: 3, unit: 'days' } };   // CUE-FEEDBACK-2026-11-05: max 3 = the first email and two reminders
 const CUE_RULE_GENERAL_ = { build: 7, send: 9,   // CUE-THREE-TOUCH-2026-11-01: the chaser row runs at 13:00 by its own Schedule time; these stay for the old Approve and send path
   quiet_from: 21, quiet_to: 7, per_kind: 15, per_batch: 40 };
 const CUE_RULE_LIMITS_ = { first: [1, 60], every: [1, 60], max: [1, 10], soon_first: [1, 60], soon_every: [1, 60], build: [5, 10], send: [7, 20],

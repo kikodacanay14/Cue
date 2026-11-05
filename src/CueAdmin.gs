@@ -66,7 +66,11 @@ const CUE_ADMIN_CHASE_ = {
   accreditation: { about: 'Asks a supplier to finish their accreditation.', from: 'your Gmail, suppliers@ in CC', to: 'the supplier\'s email on file in Canvas',
     sample: { who: '<Supplier name>', facts: { contact_name: '<Supplier name>', project: '<Event>', missing: ['<Missing items>'], form_url: '<Accreditation form link>' } } },
   signature: { about: 'Asks crew to sign an FSA or AR they haven\'t signed.', from: 'freelancers@ through Canvas', to: 'the crew member\'s email in Canvas',
-    sample: { who: '<Crew>', project: '<Event>', docs: [{ doc: '<FSA or AR>', project: '<Event>', role: '<Role>' }], sign_url: '<Sign link>' } } };
+    sample: { who: '<Crew>', project: '<Event>', docs: [{ doc: '<FSA or AR>', project: '<Event>', role: '<Role>' }], sign_url: '<Sign link>' } },
+  // CUE-FEEDBACK-2026-11-05 (spec client-feedback-cue/spec.md, Kiko approved 5 Nov 04:10Z). The words are the doc's C9 templates, built by Canvas.
+  feedback: { about: 'C9: the day after an event ends, asks the Direct Client to fill in the feedback form. The first email and two reminders, 5 days apart, each only when you tap Send; it stops when the client submits.',
+    from: 'your Gmail, as Blank Space Events; reminders in the same thread', to: 'the Direct Client marked in Resources > Client tab in Canvas',
+    sample: { who: '<Client>', project: '<Event>', subject: 'Thank you for <Event>', body: 'Built by Canvas from the doc: C9 Client Feedback Request, then C9 Client Feedback Chaser.' } } };
 
 /** Cue's own scheduled tasks: what each does, who asked for it and when, and what it follows ([name, what it means]). */
 const CUE_ADMIN_SCHED_ = {

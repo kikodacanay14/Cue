@@ -602,6 +602,7 @@ function sandbox(o = {}) {
   vm.createContext(ctx); vm.runInContext(o.code || CODE, ctx);   // o.code: the check version (CK tests)
   if (!o.rfq) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'rfq'); if (i >= 0) K.splice(i, 1); }
   if (!o.award) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'award'); if (i >= 0) K.splice(i, 1); }
+  if (!o.feedback) { const K = ctx.CUE_KINDS_LIST_, i = K.findIndex(k => k.kind === 'feedback'); if (i >= 0) K.splice(i, 1); }   // CUE-FEEDBACK-2026-11-05: only its own tests
   ctx.cueNow_ = () => now; ctx.__wait = ms => { now += ms; };
   return { ctx, opts: o, props, tabs, log, drive, state: id => JSON.parse(tabs.Requests.rows.find(r => r[0] === id).slice(10, 14).join('')) };
 }
