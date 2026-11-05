@@ -7,19 +7,20 @@ const FB_PH = (day, hh) => Date.parse(day + 'T' + String(hh).padStart(2, '0') + 
 const FB_ROW = { id: 'S-25110301SH', name: 'Smart Home Office Opening', lastDay: '2026-11-08', formUrl: 'https://canvas.example/feedback?t=abc',
   client: { name: 'Adi Salvatierra', first: 'Adi', email: 'adi@smarthome.example' }, submitted: false, submittedAt: '' };
 function fbBox(o = {}) {
-  const st = { rows: o.rows || [Object.assign({}, FB_ROW)] };
+  const st = { rows: o.rows || [Object.assign({}, FB_ROW)] }, t0 = {};
   const t = sandbox({ feedback: true, props: o.props, threads: { thr1abcdef: [{ id: 'sent1abcdef', payload: { headers: [{ name: 'Message-ID', value: '<first-feedback@mail>' }] } }] }, bridgeFn: b => {
     if (b.action === 'client_feedback') return { projects: JSON.parse(JSON.stringify(st.rows)) };
     if (b.action === 'message_render') {
-      const d = b.args.data || {}, chaser = /Chaser$/.test(b.args.key), miss = ['first_name', 'event', 'form_url'].filter(k => !d[k]);
-      return { key: b.args.key, code: 'C9', who: 'C', channel: 'Email', subject: chaser ? '' : 'Thank you for ' + d.event,
+      const d = b.args.data || {}, chaser = /Chaser$/.test(b.args.key), miss = ['first_name', 'event', 'form_url'].concat(chaser ? ['original_subject'] : []).filter(k => !d[k]);
+      (t0.renders = t0.renders || []).push(b.args);   // the doc's chaser subject is "Re: {{original_subject}}" (added 5 Nov 2026)
+      return { key: b.args.key, code: 'C9', who: 'C', channel: 'Email', subject: chaser ? 'Re: ' + d.original_subject : 'Thank you for ' + d.event,
         text: 'Hi ' + d.first_name + ',\n\n' + (chaser ? 'A quick reminder' : 'Thank you') + '\n\nGive feedback: ' + d.form_url,
         html: '<div><img src="cid:mtbanner" width="600"><p>Hi ' + d.first_name + ',</p><p><a href="' + d.form_url + '">Give feedback</a></p></div>',
         banner: 'iVBORw0KGgo=', rev: '1762300000000', missing: o.missing || miss };
     }
   } });
   let T = FB_PH(o.day || '2026-11-09', 14); t.at = (d, h) => { T = FB_PH(d, h || 14); }; t.ctx.cueNow_ = () => T;
-  t.st = st;
+  t.st = st; t.renders = () => t0.renders || [];
   t.run = day => { if (day) t.at(day); t.ctx.PropertiesService.getScriptProperties().deleteProperty('CUE_SWEEP_DAY'); t.ctx.cueSweepNow(); return t.last(); };
   t.last = () => t.ctx.cueState().requests.filter(r => r.kind === 'sweep').sort((a, b) => String(a.id).localeCompare(String(b.id))).pop();
   t.mime = () => t.log.gmail[t.log.gmail.length - 1];
@@ -70,7 +71,7 @@ test('FB4 reminders: none before day 5; at 5 and 10 days a tap line that replies
   assert.strictEqual(fbLines(t.run('2026-11-13')).length, 0, 'day 4: nothing');
   b = t.run('2026-11-14'); let L = fbLines(b);
   deq(L.map(i => [i.short, i.in_thread, i.tap]), [['Reminder 1 of 2', true, true]]);
-  assert.strictEqual(t.log.bridge.filter(x => x.action === 'message_render').pop().args.key, 'C9 Client Feedback Chaser');
+  deq(t.renders().pop(), { key: 'C9 Client Feedback Chaser', data: { first_name: 'Adi', event: 'Smart Home Office Opening', form_url: 'https://canvas.example/feedback?t=abc', original_subject: 'Thank you for Smart Home Office Opening' }, mode: 'send' });
   t.ctx.cueSweepSendOne(b.id, 'feedback:S-25110301SH', '');
   const m = t.mime();
   assert.ok(m.includes('In-Reply-To: <first-feedback@mail>') && t.log.draftThreads.pop() === 'thr1abcdef', 'a reply in the first email\'s thread');

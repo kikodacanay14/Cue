@@ -44,7 +44,8 @@ function cueFbRows_(s, args) {
 /** The email Canvas builds from the doc for this line: { key, subject, text, html, banner, missing }. */
 function cueFbRender_(s, it) {
   const f = it.facts || {}, key = f.step > 0 ? CUE_FB_.keys.chaser : CUE_FB_.keys.first;
-  const m = cueBridge_(s, 'message_render', { key, data: { first_name: f.first_name || '', event: it.project || '', form_url: f.form_url || '' }, mode: 'send' }) || {};
+  const m = cueBridge_(s, 'message_render', { key, data: Object.assign({ first_name: f.first_name || '', event: it.project || '', form_url: f.form_url || '' },
+    key === CUE_FB_.keys.chaser ? { original_subject: String(it.thread_subject || f.original_subject || '').replace(/^re:\s*/i, '') } : {}), mode: 'send' }) || {};
   return { key, subject: cueStr_(m.subject, 300), text: String(m.text || ''), html: String(m.html || ''), banner: String(m.banner || '').replace(/[^A-Za-z0-9+/=]/g, ''),
     missing: (m.missing || []).map(String) };
 }
@@ -90,8 +91,9 @@ function cueFbSend_(it, s) {
   if (row.submitted) throw new Error(row.client.name ? row.client.name + ' already sent the feedback form, so nothing was sent.' : 'The client already sent the feedback form, so nothing was sent.');
   const to = row.client.email || cueEmail_(it.to);
   if (!to) throw new Error('No Direct Client email in Canvas. Mark the Direct Client in Resources > Client tab.');
-  const f = Object.assign({}, it.facts, { first_name: row.client.first || (it.facts || {}).first_name, form_url: row.formUrl || (it.facts || {}).form_url });
-  const th = cueFbThreads_()[pid] || {}, step = Number(f.step) || 0, tid = step ? (it.thread_id || th.t || '') : '';
+  const th = cueFbThreads_()[pid] || {};
+  const f = Object.assign({}, it.facts, { first_name: row.client.first || (it.facts || {}).first_name, form_url: row.formUrl || (it.facts || {}).form_url, original_subject: th.s || '' });
+  const step = Number(f.step) || 0, tid = step ? (it.thread_id || th.t || '') : '';
   const edited = !!it.fb_html && !it.html && !!String(it.body || '').trim();   // Kiko changed the words in the box: they go as he typed them (cueSweepSendOne clears html)
   const m = cueFbRender_(s, Object.assign({}, it, { facts: f }));
   if (!edited && m.missing.length) throw new Error('The email is missing ' + m.missing.join(', ') + ', so nothing was sent.');

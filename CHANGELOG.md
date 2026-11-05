@@ -17,6 +17,8 @@ chaser from my Gmail." Spec `canvas-integration/specs/client-feedback-cue/spec.m
 - Cue asks Canvas again just before every send. A client who has submitted gets nothing more, and Team Cue says "Feedback received"
   once. Only events whose last day is on or after the first run's day get a line (question 2, answer A).
 - A project with no Direct Client email, or no form link yet, shows its line with what to fix in Canvas and no Send.
+- The two C9 templates were added to the BSE Message Templates Revised doc on 5 Nov 2026 (after "C8 Friday event update"), in the
+  words Kiko approved in the spec; the reminder subject is the doc's usual "Re: {{original_subject}}". Checked with Canvas's own parser.
 - Needs Canvas: the new bridge read `client_feedback` (built by the Canvas thread "Send client feedback form from Canvas"). The test
   fixture carries the shape the spec proposes; replace it with Canvas's own entry when that release ships. Needs the two C9
   templates in the BSE Message Templates Revised doc before the first send.
