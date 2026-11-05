@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.29: a crew member's Messenger details get one reply (not deployed; waits for Kiko's yes on the wording)
+## Cue 1.28.29: a crew member's Messenger details get one reply (LIVE as Version 210, 5 Nov 2026 09:51Z; rollback Version 209)
 
 Who asked and when: Kiko, 5 Nov 2026 07:22Z: "There was no response in my message earlier when it asked me for the event name
 and my name. So there." He tapped I'm crew, sent "Kiko Dacanay / Kings Day" at 14:33 PH and "Hello?" at 15:22, and got nothing
