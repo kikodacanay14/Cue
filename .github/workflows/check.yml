@@ -21,7 +21,7 @@ permissions:
 concurrency: deploy-cue
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kkd]
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4

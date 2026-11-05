@@ -28,7 +28,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
        vars.CUE_AUTO_PREVIEW != 'off')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kkd]
     steps:
       - uses: actions/checkout@v4
         with:
