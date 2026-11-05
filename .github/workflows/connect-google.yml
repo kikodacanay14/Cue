@@ -9,7 +9,7 @@ permissions: {}
 concurrency: deploy-cue
 jobs:
   connect:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, kkd]
     timeout-minutes: 45
     permissions:
       contents: write
