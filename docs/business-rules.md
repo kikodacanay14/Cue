@@ -288,3 +288,22 @@ no new line.
 
 Connect Facebook, Finish, Make key and Save in Settings › Connections now send a server error to the chat through `alertErr`. Before,
 they only re-enabled the button. No rule changed.
+
+## Cue 1.28.21 (PR #322, with Canvas V452)
+
+### CUE-045: A sent Friday status email keeps one copy in Canvas Weekly Reports
+
+Intended policy: on 4 Nov 2026 at 16:22Z Kiko asked for Reports › Weekly Reports on the Canvas Projects page, "to see copies of it". At
+16:28Z he approved it ("yup") together with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when the
+email is sent, and earlier emails are not back-filled. On 5 Nov 2026 at 03:54Z Kiko said "yes" to the deploy.
+
+Implemented in `src/CueStatus.gs` (`cueStCopy_`):
+1. After Gmail sends the email, Cue sends Canvas one bridge action, `status_copy`. It carries the subject, To, the send time, the HTML
+   and the text, keyed by the Gmail message id.
+2. The email has already gone, so a failed copy never blocks or undoes it. When Canvas refuses, the sent line says the copy was not
+   saved and gives the reason.
+3. When Canvas does not have `status_copy`, the sent line says nothing about a copy.
+4. A failed send keeps no copy. Earlier emails are not back-filled.
+
+Evidence: `test/features/63-friday-status.js`, ST2b, checked against the `test/fixtures/ZapBridge.gs` schema from CanvasWorkspace PR #498.
+Manual gap: the first real Friday send has not yet been checked under Weekly Reports on live Canvas V452.
