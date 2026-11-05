@@ -264,6 +264,14 @@ function cueMsgrSaid_(c) {
   const L = cueLoad_(c.ref); if (!L || L.s.kind !== 'msgr') return null;
   const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || cueMsgrTri_(M.psid) || { last: '' };
   cueChat_('Kiko', t, L.s.id);
+  /* "start over" (Kiko 5 Nov 05:15Z, testing from his own account: "I didnt see those"): someone not linked as crew is made new
+   * again (triage state and the Ask Cue mark dropped), so their next message gets the greeting and buttons as a first-timer. */
+  if (/^start over[.!]?$/i.test(t) && !cueMsgrPeople_()[M.psid]) {
+    const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + M.psid); P.deleteProperty('MSGR_TOLD_' + M.psid);
+    const s = cueMsgrClose_(L.s.id);
+    cueChat_('Cue', 'Started over. ' + M.name + '\'s next Messenger message gets the greeting and buttons as a new person.', L.s.id);
+    return cueView_(s);
+  }
   if (/^(done|close( it| this)?)[.!]?$/i.test(t)) {
     const s = cueMsgrClose_(L.s.id); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);
   }

@@ -301,3 +301,16 @@ test('MS10i a welcome screen Meta refuses leaves one Ask Cue line and retries ho
   assert.strictEqual(t.log.fb.filter(x => /messenger_profile$/.test(x.url)).length, 2);
   assert.strictEqual(t.tabs.Chat.rows.filter(r => /welcome screen not set/.test(r[2])).length, 1, 'still one line');
 });
+test('MS10j "start over" in a triage chat (Kiko 5 Nov 05:15Z) makes the person new: the next message gets the greeting and one Ask Cue line', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
+  const chat = JSON.parse(t.props.MSGR_TRI_2002).chat, n = sent().length;
+  door(msgrIn('2002', { text: 'Hello' })); assert.strictEqual(sent().length, n, 'after the tap Cue waits for a person');
+  t.ctx.cueSend('start over', [], 'chat', chat);
+  assert.ok(!('MSGR_TRI_2002' in t.props) && !('MSGR_TOLD_2002' in t.props));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /^Started over\./.test(r[2])));
+  assert.ok(!sent().some(x => x[1] === 'start over'), '"start over" is not sent to the person');
+  door(msgrIn('2002', { text: 'Hello again' }));
+  assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]));
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 2, 'one new Ask Cue line after the reset');
+});

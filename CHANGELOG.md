@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.26: "start over" in a Messenger triage chat (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026, testing Version 206 from his own Facebook account. 05:05Z "Nothing happens......", 05:15Z "I didnt see those. What are you saying?".
+
+What changed:
+- Cause: at 12:38 PH his account tapped "I'm crew", so Cue treated him as crew, not linked, and waited for a person to answer in the chat "Messenger · Kiko Dacanay · Crew, not linked yet". His later messages arrived there with no auto-reply. Deleting the chat on his phone does not reset this, and Facebook shows the welcome screen only to accounts that never messaged the Page.
+- Typing "start over" in a Messenger triage chat in Cue now makes that person new again: their triage state and Ask Cue mark are dropped, and the chat closes. Their next message gets the greeting and buttons as a first-timer. It does not apply to linked crew, and "start over" is never sent to the person.
+
+Tests: MS10j new. 668/668 pass.
+
 ## Cue 1.28.25: Messenger welcome screen is the triage, buttons that stay, a menu, and typed messages get the buttons again (LIVE as Version 206, 5 Nov 2026 05:03Z; rollback Version 205)
 
 Who asked and when: Kiko, 5 Nov 2026 04:51Z, testing 1.28.23 (Version 204): "Its not responding...".
