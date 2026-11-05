@@ -181,15 +181,15 @@
       + '</div>');
   }
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
-    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-connect]'); if (!b) return; b.disabled = true;   // CUE-MSGR-CONNECT-2026-11-04
     var w = window.open('', '_blank');   // opened now, inside the tap, so the browser does not block it
-    call('cueMsgrConnect', [], function (r) { b.disabled = false; if (w) w.location = r.url; else window.open(r.url, '_blank'); }, function () { b.disabled = false; if (w) w.close(); }); });
+    call('cueMsgrConnect', [], function (r) { b.disabled = false; if (w) w.location = r.url; else window.open(r.url, '_blank'); }, function (x) { b.disabled = false; if (w) w.close(); alertErr(x); }); });
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-finish]'); if (!b) return; b.disabled = true;
-    call('cueMsgrFinish', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrFinish', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });   // CUE-MSGR-FINISH-ERR-2026-11-04: show why, never fail silently
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
     var box = $('w-conn'), f = box.querySelector('[data-msgr-token]'), v = f.value; f.value = '';
-    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
