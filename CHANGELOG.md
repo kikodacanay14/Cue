@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.23: Messenger replies within a minute, and a refused greeting is tried again (BUG FIX, not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".
+
+What changed:
+- Cue collected Messenger messages from the relay only in the 5-minute run (cueResume), so a reply could take up to 5 minutes. The pull now also runs from the existing 1-minute trigger (cueRfpKick), so the triage reply goes out within about a minute. No new trigger is added. A short lease (script property CUE_MSGR_PULL_RUN) stops the 1-minute and 5-minute runs from collecting the same messages twice. The 1-minute run writes a Job Runs row ("Messenger inbox") only when it handled a message or failed.
+- Bug: when Facebook refused the greeting, Cue still saved the person as "asked", so it went quiet for them from then on. Now a refused greeting saves nothing; the Ask Cue line shows Facebook's error, and the person's next message tries the greeting again.
+
+Tests: MS10e (refused greeting retries), MS10f (1-minute collection, lease, quiet minutes leave no row). 663/663 pass.
+
 ## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 
 Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")
