@@ -244,3 +244,47 @@ reaches only Kiko; a Save changes only that template's Subject, message and butt
 - **CUE-D23, decision needed:** spec #391 says "No AI writes any part" of a templated message, while the 2 PM chaser tailoring (CUE-038)
   has AI adjust the middle sentences ("go with both", 1 Nov 2026). This build changes neither. It matters when Cue's emails switch to the doc.
 
+
+## Cue 1.28.19.1 and 1.28.20 (PRs #319, #320, #321, shipped together as Version 199 and Version 200)
+
+### CUE-043: GitHub Actions cost is typed in by hand and only displayed (code tag `GH-ACTIONS-COST`)
+
+Intended policy: Kiko asked on 4 Nov 2026 at 13:05Z: "can you add in the page where we compute possible AI usage and cost". At 13:10Z
+he added: "im upgrading to pro github". The release went live after Kiko said "ship" on 5 Nov 2026 at 03:42Z. This is a display. It is
+not a guard: it blocks nothing and calls nothing.
+
+Implemented in `src/CueUsage.gs` (`cueUsageGh_`, `cueUsageGhView_`) and `src/IndexPages.html`, under Settings › AI usage and cost:
+1. Cue reads nothing from GitHub. Five figures are typed in under Prices used (editable) and saved in script property `CUE_AI_PRICES`,
+   key `gh`: used so far, the "as of" date, included each month, budget cap and plan fee. A blank, negative or non-numeric value keeps
+   the old figure.
+2. Billed so far = used minus included, never below 0 and never above the cap. The likely month end uses the same daily rate. The day
+   the cap runs out is shown when it falls inside the month.
+3. When the "as of" date is in an earlier month, the card flags the figures as old and shows no projection.
+
+Verified versus assumed:
+- Verified: US$18 of Actions is included each month on GitHub Pro (docs.github.com, "GitHub Actions billing", read 4 Nov 2026).
+- Unverified: the US$4 Pro plan fee, which is not on github.com/pricing (read 4 Nov 2026). It is editable.
+- Kiko's own settings, not GitHub facts: the US$10 cap and the 4 Nov figure of US$15.81 used. Kiko set them on 4 Nov 2026.
+
+Evidence: `test/features/32-usage-github.js`, GA1 to GA4, which use synthetic figures. Manual gap: nobody has yet opened the card on
+live Version 200.
+
+### CUE-044: A Messenger sender who is not linked as crew gets one reply and leaves one Ask Cue line (code tag `CUE-MSGR-NO-FLOOD-2026-11-04`)
+
+Intended policy: Kiko wrote on 4 Nov 2026 at 14:58Z: "i feel this is gonna cause me some flooding....". At 14:59Z he added: "if its a
+customer inquiry... i want it". The fix went live as Version 199 on 4 Nov 2026 at 15:09Z.
+
+Implemented in `src/CueMessenger.gs`:
+1. When someone not linked as crew messages the Page, Cue sends the polite "for our crew" reply once.
+2. Cue also posts one Ask Cue line with their first 200 characters.
+3. Cue then sets script property `MSGR_TOLD_<psid>`. Their later messages stay only in the Page inbox. Each new person gets their own
+   line.
+4. The three-button triage (crew, event inquiry, client) is not built. It comes with the crew Messenger build.
+
+Evidence: `test/features/80-messenger.js`, MS10. Manual gap: no one has checked on live that a second message from the same sender adds
+no new line.
+
+### Messenger setting buttons show their error (PR #320, display only)
+
+Connect Facebook, Finish, Make key and Save in Settings › Connections now send a server error to the chat through `alertErr`. Before,
+they only re-enabled the button. No rule changed.
