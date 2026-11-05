@@ -25,3 +25,7 @@ test('AG4 the For Approval frame is Canvas\'s address, escaped, with an Open in 
   assert.match(AG_PAGE, /<iframe class="apfr" title="For Approval \(Canvas\)" src="' \+ esc\(u\) \+ '"><\/iframe>/);
   assert.match(AG_PAGE, /Canvas\\'s address is not set \(CUE_CANVAS_URL\)/);
 });
+test('AG5 a section opened alone for Canvas hides its own title, because Canvas shows it above the frame (brand check, 5 Nov)', () => {
+  const S = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
+  assert.match(S, /body\.admin-bare #settings \.smain > section > \.label:first-child \{ display:none; \}/);
+});
