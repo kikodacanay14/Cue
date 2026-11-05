@@ -43,9 +43,9 @@ test('AD4 the page groups the sections as in the approved mockup and has the two
  * "Processes and business rules", and Jobs › Chasers (chaser > lined-up chases with time and sender > draft). */
 
 test('AD5 Jobs › Chasers: each chaser kind with its sender, who it goes to and its email template, placeholders in angle brackets; read only', () => {
-  const t = sandbox({ rfq: true, award: true });
+  const t = sandbox({ rfq: true, award: true, feedback: true });
   const J = JSON.parse(JSON.stringify(t.ctx.cueAdminChasers()));
-  deq(J.kinds.map(k => k.kind), ['inquiry', 'inbox', 'rfq', 'award', 'payment', 'accreditation', 'signature']);   // C2 and C3 joined 31 Oct
+  deq(J.kinds.map(k => k.kind), ['inquiry', 'inbox', 'rfq', 'award', 'payment', 'accreditation', 'signature', 'feedback']);   // C2 and C3 joined 31 Oct; C9 client feedback 5 Nov
   assert.ok(J.kinds.every(k => k.about && k.from && k.to && k.body), 'every chaser has a template');
   const r = J.kinds[2];
   deq([r.label, r.subject, r.ai], ['S2 RFQ and RFP chasers', 'Re: RFQ: <RFQ title>', false]);   // Kiko's S2 template, no AI (31 Oct)
