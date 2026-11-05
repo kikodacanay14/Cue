@@ -10,7 +10,8 @@ Ships with the Canvas release of the same change (CanvasWorkspace PR on branch `
   (`?open=approvals&bare=1` on `CUE_CANVAS_URL`), so Canvas still checks Kiko's sign-in and does every Approve and Reject. Cue reads and
   writes nothing for it; `cueSettings` only adds the address (`canvas_approvals_url`, empty when `CUE_CANVAS_URL` is not a Canvas address).
 - `?view=admin&sec=<section>&bare=1` opens one Cue Admin section alone, with no title bar or section list. Canvas Admin uses it for
-  System Config › AI Usage and Cost (`sec=usage`) and API Keys › Connections (`sec=conn`). Only a section that exists can be opened.
+  System Config › AI Usage and Cost (`sec=usage`), API Keys › Connections (`sec=conn`), and Automation Setting › Chasers
+  (`jobchasers`), Chaser Rules (`chasers`), Auto-Send (`auto`) and Templates (`templates`) (Kiko 16:55Z). Those four stay in Cue Admin too. Only a section that exists can be opened.
 - The System group (Connections, AI usage and cost) is hidden from Cue Admin's own list because it now shows in Canvas Admin. The sections
   and their code are unchanged.
 - Tests: `test/features/85-admin-groups.js` (AG1 to AG4); AD4 and UG5 updated for the new list. 666 of 666 pass.
