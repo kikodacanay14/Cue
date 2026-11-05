@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page (not deployed)
+## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (not deployed)
 
 Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI
 usage and cost". At 13:10Z: "im upgrading to pro github".
@@ -13,6 +13,10 @@ usage and cost". At 13:10Z: "im upgrading to pro github".
   month are flagged instead of projected. No AI call, no new access.
 - Included US$18 is from docs.github.com ("GitHub Actions billing", read 4 Nov 2026). The US$4 Pro fee is not on github.com/pricing,
   so it is unverified and editable.
+- Settings › Connections (PR #320): Connect Facebook, Finish, Make key and Save no longer swallow a server error. Each failure
+  posts its message to the chat through `alertErr`, as other Cue buttons do. Kiko, 4 Nov 2026 14:35Z: "i pressed finish but nothing
+  happens". Display only, no rule change.
+- Kiko said "ship" for both on 5 Nov 2026 03:42Z.
 - Tests: 658 (4 new, `test/features/32-usage-github.js`).
 
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
