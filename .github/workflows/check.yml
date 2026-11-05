@@ -43,7 +43,7 @@ jobs:
       - name: Install the robot browser
         run: |
           npm install --no-save --no-package-lock playwright@1.48.2
-          npx playwright install --with-deps chromium
+          npx playwright install chromium  # browser libraries are pre-installed on the KKD runners
       - name: Load the saved Google sign-in
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
