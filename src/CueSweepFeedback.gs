@@ -2,19 +2,19 @@
  * Board card canvas-client-feedback-form; Kiko approved the spec 5 Nov 2026 04:10Z: "approved", with the recommended A on both
  * questions: each reminder waits for his tap, and only events ending on or after the release day get a line).
  * Kiko's ask (5 Nov 04:03Z): "The day after the event's last day, show me a 'Send feedback form' card for that project. Only I can send
- * it." The email goes from his Gmail signed as Blank Space Events, with a "Give feedback" button to the form link; reminders 5 and 10
+ * it." The email goes from his Gmail signed as Blank Space Events, with a "Give feedback" button to the form link; reminders 3 and 6
  * days after when the client has not submitted; "Stop as soon as Canvas says the client submitted"; "Approve = send, per message".
  * Rules Kiko approved on the card (5 Nov 03:34Z to 03:47Z): only Kiko sends; send unlocks Event Day + 1; it goes to the Direct Client
  * marked in Resources > Client tab; there is a chaser; Closeout "Client feedback collected" ticks itself in Canvas (not Cue).
  * - Who does what: Canvas lists the projects (bridge read client_feedback: form link, Direct Client, last day, submitted) and builds
  *   both emails from Kiko's doc (message_render, templates "C9 Client Feedback Request" and "C9 Client Feedback Chaser", in the
  *   approved client design with the banner). Code finds what is due, and each line goes only when Kiko taps its Send (it.tap). No AI.
- * - Timing is the Chaser rules card's "feedback" row: first line 1 day after the last event day, then every 5 days, at most 3 emails
+ * - Timing is the Chaser rules card's "feedback" row: first line 1 day after the last event day, then every 3 days, at most 3 emails
  *   (the first and two reminders). The engine applies every and max from the Chase log.
  * - Just before each send, Cue asks Canvas again: a client who has submitted gets nothing more. Reminders go as replies in the first
  *   email's Gmail thread. The file name sorts after CueSweep.gs on purpose: cueKind_ must exist before this file registers. */
 
-const CUE_FB_ = { first: 1, every: 5, max: 3, unit: 'days', keys: { first: 'C9 Client Feedback Request', chaser: 'C9 Client Feedback Chaser' },
+const CUE_FB_ = { first: 1, every: 3, max: 3, unit: 'days', keys: { first: 'C9 Client Feedback Request', chaser: 'C9 Client Feedback Chaser' },
   from: 'Blank Space Events', since: 'CUE_FB_SINCE', threads: 'CUE_FB_THREADS', projects: 40 };
 
 /** The release day: the first run stores today, so only events ending on or after it get a line (Kiko 5 Nov, question 2, answer A). */

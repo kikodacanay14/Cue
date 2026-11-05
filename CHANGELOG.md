@@ -12,8 +12,8 @@ chaser from my Gmail." Spec `canvas-integration/specs/client-feedback-cue/spec.m
   from Kiko's Gmail with the sender name "Blank Space Events".
 - The words and the look come from Kiko's doc through Canvas (`message_render`): templates "C9 Client Feedback Request" and
   "C9 Client Feedback Chaser", in the approved client design with the cyan banner and the yellow "Give feedback" button. No AI call.
-- Reminders come 5 and 10 days after the first email, as replies in its Gmail thread, and stop after the second one. Timing is the
-  new "C9 Client feedback" row on the Chaser rules card (1 day, every 5 days, at most 3 emails), so Kiko can change or pause it.
+- Reminders come 3 and 6 days after the first email, as replies in its Gmail thread, and stop after the second one. Timing is the
+  new "C9 Client feedback" row on the Chaser rules card (1 day, every 3 days, at most 3 emails), so Kiko can change or pause it.
 - Cue asks Canvas again just before every send. A client who has submitted gets nothing more, and Team Cue says "Feedback received"
   once. Only events whose last day is on or after the first run's day get a line (question 2, answer A).
 - A project with no Direct Client email, or no form link yet, shows its line with what to fix in Canvas and no Send.

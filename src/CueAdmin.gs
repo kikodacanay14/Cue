@@ -68,7 +68,7 @@ const CUE_ADMIN_CHASE_ = {
   signature: { about: 'Asks crew to sign an FSA or AR they haven\'t signed.', from: 'freelancers@ through Canvas', to: 'the crew member\'s email in Canvas',
     sample: { who: '<Crew>', project: '<Event>', docs: [{ doc: '<FSA or AR>', project: '<Event>', role: '<Role>' }], sign_url: '<Sign link>' } },
   // CUE-FEEDBACK-2026-11-05 (spec client-feedback-cue/spec.md, Kiko approved 5 Nov 04:10Z). The words are the doc's C9 templates, built by Canvas.
-  feedback: { about: 'C9: the day after an event ends, asks the Direct Client to fill in the feedback form. The first email and two reminders, 5 days apart, each only when you tap Send; it stops when the client submits.',
+  feedback: { about: 'C9: the day after an event ends, asks the Direct Client to fill in the feedback form. The first email and two reminders, 3 days apart, each only when you tap Send; it stops when the client submits.',
     from: 'your Gmail, as Blank Space Events; reminders in the same thread', to: 'the Direct Client marked in Resources > Client tab in Canvas',
     sample: { who: '<Client>', project: '<Event>', subject: 'Thank you for <Event>', body: 'Built by Canvas from the doc: C9 Client Feedback Request, then C9 Client Feedback Chaser.' } } };
 
