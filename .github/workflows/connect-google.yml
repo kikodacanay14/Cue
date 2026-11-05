@@ -27,15 +27,15 @@ jobs:
           [ -n "$DEPLOY_KEY" ] || { echo "Add the DEPLOY_KEY secret first"; exit 1; }
           ACCOUNT=$(jq -r .account deploy.json | tr A-Z a-z)
           case "$ACCOUNT" in *@*) ;; *) echo "Fill in account in deploy.json first"; exit 1;; esac
-          mkfifo /tmp/in; exec 3<>/tmp/in
-          script -qfec "clasp login --no-localhost" /dev/null <&3 > /tmp/out 2>&1 &
+          mkfifo "$RUNNER_TEMP/in"; exec 3<>"$RUNNER_TEMP/in"
+          script -qfec "clasp login --no-localhost" /dev/null <&3 > "$RUNNER_TEMP/out" 2>&1 &
           PID=$!
           URL=""
           for i in $(seq 60); do
-            URL=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' /tmp/out | grep -oE 'https://accounts\.google\.com/[^[:space:]]+' | head -1 || true)
+            URL=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$RUNNER_TEMP/out" | grep -oE 'https://accounts\.google\.com/[^[:space:]]+' | head -1 || true)
             [ -n "$URL" ] && break; sleep 2
           done
-          [ -n "$URL" ] || { cat /tmp/out; echo "clasp did not give a sign-in link"; exit 1; }
+          [ -n "$URL" ] || { cat "$RUNNER_TEMP/out"; echo "clasp did not give a sign-in link"; exit 1; }
           echo "Sign-in link: $URL"
           ISSUE=$(gh issue create -R "$REPO" --title "Google sign-in for cloud deploys" --body "1. Open this link and sign in as **$ACCOUNT**, then press Allow:
           $URL
@@ -53,7 +53,7 @@ jobs:
           C=$(printf %s "$C" | grep -oE 'https?://localhost[^[:space:]`]*' | head -1)
           echo "::add-mask::$C"
           printf '%s\r' "$C" >&3
-          wait $PID || { cat /tmp/out | grep -v localhost; gh issue close -R "$REPO" "$N" -c "Google did not accept the sign-in. Ask Claude to start it again."; exit 1; }
+          wait $PID || { cat "$RUNNER_TEMP/out" | grep -v localhost; gh issue close -R "$REPO" "$N" -c "Google did not accept the sign-in. Ask Claude to start it again."; exit 1; }
           EMAIL=$(clasp show-authorized-user --json | jq -r '.email // empty' | tr A-Z a-z)
           echo "Signed in as $EMAIL"
           if [ "$EMAIL" != "$ACCOUNT" ]; then
