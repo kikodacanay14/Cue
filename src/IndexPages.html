@@ -138,13 +138,22 @@
   var settingsData = null;
   function settingsOpen(sec) {
     $('settings').hidden = false; settingsTab(sec || 'rules'); loadMyRules(); loadRules();
-    call('cueSettings', [], function (r) { settingsData = r; renderSettings(); }, function () {});
+    call('cueSettings', [], function (r) { settingsData = r; renderSettings(); apprFrame(); }, function () {});
     var b = $('snav').querySelector('[aria-current="true"]'); if (b) b.focus();
+  }
+  // ADMIN-GROUPS-2026-11-05: Cue Admin › For Approval is Canvas's own page in a frame (Canvas checks Kiko's sign-in and does the Approve / Reject).
+  function apprFrame() {
+    var box = $('w-approvals'), sec = document.querySelector('#settings [data-sec="approvals"]');
+    if (!box || !sec || sec.hidden || !settingsData || box._u === settingsData.canvas_approvals_url) return;
+    var u = settingsData.canvas_approvals_url || ''; box._u = u;
+    if (!u) { setHtml(box, '<div class="err">Canvas\'s address is not set (CUE_CANVAS_URL), so the list can\'t show here.</div>'); return; }
+    setHtml(box, '<div style="margin:6px 0"><a class="btn ghost" href="' + esc(u.replace('&bare=1', '')) + '" target="_blank" rel="noopener">Open in Canvas ↗</a></div><iframe class="apfr" title="For Approval (Canvas)" src="' + esc(u) + '"></iframe>');
   }
   function settingsTab(sec) {
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
     if (sec === 'usage') loadUsage();
+    if (sec === 'approvals') apprFrame();   // ADMIN-GROUPS-2026-11-05
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
     if (sec === 'edits') loadEdits();
@@ -641,10 +650,14 @@
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
   function adminOpen() {
     adminView = true;
-    document.body.classList.add('admin-page'); $('settings-t').textContent = 'Cue Admin'; $('settings-x').hidden = true; settingsOpen();
+    document.body.classList.add('admin-page'); $('settings-t').textContent = 'Cue Admin'; $('settings-x').hidden = true; settingsOpen(adminSec || undefined);
+    if (adminBare) document.body.classList.add('admin-bare');   // ADMIN-GROUPS-2026-11-05: one section alone, inside Canvas Admin
     (function link() { if (appUrl()) { $('admin-chat').href = appUrl(); $('admin-chat').hidden = false; } else setTimeout(link, 1000); })();
   }
-  try { google.script.url.getLocation(function (l) { if (l && l.parameter && l.parameter.view === 'admin') adminOpen(); }); } catch (e) {}
+  var adminSec = '', adminBare = false;   // ADMIN-GROUPS-2026-11-05: ?view=admin&sec=<a section>&bare=1 opens that section alone
+  try { google.script.url.getLocation(function (l) { if (l && l.parameter && l.parameter.view === 'admin') {
+    var s = String(l.parameter.sec || ''); if (s && document.querySelector('#settings [data-sec="' + s.replace(/[^a-z]/g, '') + '"]')) adminSec = s.replace(/[^a-z]/g, '');
+    adminBare = !!adminSec && l.parameter.bare === '1'; adminOpen(); } }); } catch (e) {}
 
   // ---- AI usage and cost (Kiko 19:25Z, spec usage-cost.md): read from the AI Runs log, priced from an editable table. No AI call. ----
   var usage = null, usageMonth = '';

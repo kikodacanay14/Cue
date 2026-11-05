@@ -579,6 +579,9 @@ function cueSettings() {
   cueOwner_();
   const id = cueProp_('CUE_SHEET_ID', ''), out = { processes: [], ticktick: !!cueProp_('CUE_TICKTICK_TOKEN', ''), tutor: cueTutorOn_(), msgr: cueMsgrSettings_(),   // CUE-MSGR-2026-11-02
     sheet_url: /^[\w-]{10,}$/.test(id) ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : '' };
+  // ADMIN-GROUPS-2026-11-05 (Kiko's card pick 5 Nov 16:43Z "Show Canvas's list in Cue"): Cue Admin › For Approval shows Canvas's own list,
+  // which checks Kiko's Canvas sign-in itself. Cue reads and writes nothing here; this is only the address.
+  try { out.canvas_approvals_url = cueCanvasBase_() + '?open=approvals&bare=1'; } catch (e) { out.canvas_approvals_url = ''; }
   try {
     const wf = id ? SpreadsheetApp.openById(id).getSheetByName('Workflows') : null, n = wf ? wf.getLastRow() - 1 : 0, seen = {};
     if (n > 0) wf.getRange(2, 1, n, CUE_WF_TAB_.length).getValues().reverse().forEach(r => {

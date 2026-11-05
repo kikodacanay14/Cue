@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.23: For Approval moves into Cue Admin (not deployed)
+
+Kiko, 5 Nov 2026 16:40Z, "Reorganize Admin Page": "AI Usage and Cost to Admin > System Config, Connections to API Keys" and "The For
+Approval move the to Cue". On the decision card at 16:43Z he picked "Show Canvas's list in Cue" over moving it through the bridge.
+Ships with the Canvas release of the same change (CanvasWorkspace PR on branch `claude/project-thread-sg8h1y`).
+
+- Cue Admin has a new first group, Approvals › For Approval. It shows Canvas's own For Approval page in a frame
+  (`?open=approvals&bare=1` on `CUE_CANVAS_URL`), so Canvas still checks Kiko's sign-in and does every Approve and Reject. Cue reads and
+  writes nothing for it; `cueSettings` only adds the address (`canvas_approvals_url`, empty when `CUE_CANVAS_URL` is not a Canvas address).
+- `?view=admin&sec=<section>&bare=1` opens one Cue Admin section alone, with no title bar or section list. Canvas Admin uses it for
+  System Config › AI Usage and Cost (`sec=usage`) and API Keys › Connections (`sec=conn`). Only a section that exists can be opened.
+- The System group (Connections, AI usage and cost) is hidden from Cue Admin's own list because it now shows in Canvas Admin. The sections
+  and their code are unchanged.
+- Tests: `test/features/85-admin-groups.js` (AG1 to AG4); AD4 and UG5 updated for the new list. 666 of 666 pass.
+
 ## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 
 Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")

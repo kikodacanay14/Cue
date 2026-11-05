@@ -24,15 +24,20 @@
   <div class="sbody">
     <div class="snav" id="snav" role="navigation" aria-label="Settings sections">
       <!-- CUE-ADMIN-2026-10-29 (Epic Cue #193): grouped as in Kiko's approved mockup -->
+      <!-- ADMIN-GROUPS-2026-11-05 (Kiko 5 Nov 16:40Z "The For Approval move the to Cue"; "AI Usage and Cost to Admin > System Config, Connections to API Keys"):
+           For Approval is here now (Canvas's own list, shown in place). Connections and AI usage and cost show in Canvas Admin › System Config;
+           their sections stay in Cue (?view=admin&sec=conn|usage&bare=1), so their group is hidden from this list. -->
+      <div class="sgrp">Approvals</div><button data-s="approvals">For Approval</button>
       <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes and business rules</button><button data-s="tutor">Tutor mode</button>
       <div class="sgrp">Rules</div><button data-s="chasers">Chaser rules</button><button data-s="triage">Triage</button><button data-s="edits">Edit log</button><button data-s="auto">Auto-send</button><button data-s="templates">Templates</button>
       <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
-      <div class="sgrp">System</div><button data-s="conn">Connections</button><button data-s="usage">AI usage and cost</button>
+      <div class="sgrp" hidden>System</div><button data-s="conn" hidden>Connections</button><button data-s="usage" hidden>AI usage and cost</button>
     </div>
     <div class="smain">
       <section data-sec="rules"><div class="label" id="myrules-label" style="margin-top:0">Memory, rules and personality</div><div id="w-myrules"></div></section>
       <section data-sec="procs" hidden><div class="label" style="margin-top:0">Processes and business rules</div><div id="w-procs"></div></section>
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
+      <section data-sec="approvals" hidden><div class="label" style="margin-top:0">For Approval</div><div class="small muted">Canvas's list, shown here. Approve and Reject happen in Canvas, under your Canvas sign-in.</div><div id="w-approvals"><div class="small muted">Loading…</div></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
