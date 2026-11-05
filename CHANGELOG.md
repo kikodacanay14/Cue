@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.28: the Messenger "I'm crew" reply drops the email note (not deployed)
+## Cue 1.28.28: the Messenger "I'm crew" reply drops the email note (LIVE as Version 209, 5 Nov 2026 06:20Z; rollback Version 208)
 
 Who asked and when: Kiko, 5 Nov 2026 05:49Z: "Also remove the note about the email".
 
