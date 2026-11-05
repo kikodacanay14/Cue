@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.25: Messenger welcome screen is the triage, buttons that stay, a menu, and typed messages get the buttons again (not deployed)
+## Cue 1.28.25: Messenger welcome screen is the triage, buttons that stay, a menu, and typed messages get the buttons again (LIVE as Version 206, 5 Nov 2026 05:03Z; rollback Version 205)
 
 Who asked and when: Kiko, 5 Nov 2026 04:51Z, testing 1.28.23 (Version 204): "Its not responding...".
 
