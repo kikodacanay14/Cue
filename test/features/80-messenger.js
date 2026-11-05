@@ -86,7 +86,7 @@ test('MS7 the job is on the Job Runs list', () => {
 const MSGR_KEY = 'mr_relay-key-not-real-0123456789abcdef';
 const msgrIn = (psid, o = {}) => ({ object: 'page', entry: [{ id: '110499580567237', messaging: [Object.assign({ sender: { id: psid }, recipient: { id: '110499580567237' },
   timestamp: o.ts || Date.parse('2026-11-02T06:06:00Z') }, o.ref ? { referral: { ref: o.ref, source: 'SHORTLINK', type: 'OPEN_THREAD' } } : {},
-  o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}) } : {})] }] });
+  o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}, o.qr ? { quick_reply: { payload: o.qr } } : {}) } : {})] }] });
 function msgrSandbox(o = {}) {
   const saves = [], held = [];
   const t = sandbox(Object.assign({
@@ -132,19 +132,55 @@ test('MS9 a linked crew member\'s message updates the last-message time in Canva
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /Anong oras call time/.test(r[2])));
   deq(door(msgrIn('1001', { text: 'our own reply', echo: true })), { ok: true, handled: 0 });
 });
-test('MS10 strangers and changed links save nothing and get a polite reply; a stranger gets it once and leaves one Ask Cue line (no flood)', () => {
+test('MS10 changed links save nothing and get a polite reply; a stranger gets the triage once and leaves one Ask Cue line (no flood)', () => {
   const { t, saves, door, sent } = msgrSandbox();
   door(msgrIn('2002', { text: 'magkano po package?' }));
   door(msgrIn('3003', { ref: 'bad.ref', text: 'hi' }));
   assert.strictEqual(saves.filter(x => x.messenger_id === '2002').length, 0);
-  deq(sent().map(x => x[0]), ['2002', '3003']); assert.ok(/This chat is for our crew/.test(sent()[0][1])); assert.ok(/did not work/.test(sent()[1][1]));
+  deq(sent().map(x => x[0]), ['2002', '3003']); assert.ok(/did not work/.test(sent()[1][1]));
   assert.ok(!t.tabs['Messenger People'] || t.tabs['Messenger People'].rows.length <= 1);
   const line = () => t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2]));
   assert.strictEqual(line().length, 1); assert.ok(/magkano po package\?/.test(line()[0][2]), 'first words shown so an inquiry is not missed');
   door(msgrIn('2002', { text: 'hello po?' })); door(msgrIn('2002', { text: 'up' }));
-  assert.strictEqual(sent().filter(x => x[0] === '2002').length, 1, 'the polite reply goes once per person');
+  assert.strictEqual(sent().filter(x => x[0] === '2002').length, 1, 'the triage goes once per person');
   assert.strictEqual(line().length, 1, 'one Ask Cue line per person');
   door(msgrIn('4004', { text: 'event inquiry po' })); assert.strictEqual(line().length, 2, 'a new person gets their own line');
+});
+test('MS10b triage (Kiko 4 Nov 15:14Z, 15:50Z; 5 Nov 04:09Z): the first reply is the greeting with two buttons, in Kiko\'s words', () => {
+  const { t, door } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hello' }));
+  const body = t.log.fb.filter(x => /\/me\/messages$/.test(x.url))[0].body;
+  assert.strictEqual(body.message.text, 'Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba.');
+  deq(body.message.quick_replies, [{ content_type: 'text', title: 'I\'m crew', payload: 'TRI_CREW' }, { content_type: 'text', title: 'Client or inquiry', payload: 'TRI_CLIENT' }]);
+  assert.strictEqual(body.messaging_type, 'RESPONSE');
+  assert.ok(!t.tabs.Chat.rows.some(r => /This chat is for our crew/.test(r[2])));
+});
+test('MS10c "Client or inquiry": asks how to help, thanks them after their details, and keeps one Cue chat for the person', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hello' }));
+  door(msgrIn('2002', { text: 'Client or inquiry', qr: 'TRI_CLIENT' }));
+  assert.strictEqual(sent()[1][1], 'Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo.');
+  door(msgrIn('2002', { text: '18th birthday, Dec 12, 150 guests sa Tagaytay' }));
+  assert.strictEqual(sent()[2][1], 'Salamat po sa pag-message. I have passed the details to Kiko and he will get back to you. You may also contact Kiko Dacanay at kikodacanay@blankspaceevent.com or 0976 494 2398.');
+  door(msgrIn('2002', { text: 'budget po around 300k' }));
+  assert.strictEqual(sent().length, 3, 'no auto reply after the thanks');
+  const chat = JSON.parse(t.props.MSGR_TRI_2002).chat, s = t.state(chat);
+  deq([s.kind, s.text, s.status, s.msgr.psid], ['msgr', 'Messenger · Ana Cruz · Client or inquiry', 'Needs you', '2002']);
+  const rows = t.tabs.Chat.rows.filter(r => r[3] === chat).map(r => r[2]);
+  assert.ok(rows.some(x => /tapped "Client or inquiry"/.test(x) && /First message: "Hello"/.test(x)));
+  assert.ok(rows.includes('18th birthday, Dec 12, 150 guests sa Tagaytay') && rows.includes('budget po around 300k'));
+  const chats = new Set(t.tabs.Requests.rows.slice(1).map(r => r[0]).filter(id => { const x = t.state(id); return x && x.kind === 'msgr'; }));
+  assert.strictEqual(chats.size, 1, 'one chat per person');
+});
+test('MS10d "I\'m crew": the crew reply and a "Crew, not linked yet" chat; Kiko\'s typed answer goes back inside the window', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hi' }));
+  door(msgrIn('2002', { text: 'I\'m crew', qr: 'TRI_CREW' }));
+  assert.ok(/^Welcome to the crew po\. Para ma-link ka, open mo lang ang Messenger link sa email namin\./.test(sent()[1][1]));
+  const chat = JSON.parse(t.props.MSGR_TRI_2002).chat;
+  assert.strictEqual(t.state(chat).text, 'Messenger · Ana Cruz · Crew, not linked yet');
+  t.ctx.cueSend('Hi Ana, sending your link now.', [], 'chat', chat);
+  assert.ok(sent().some(x => x[0] === '2002' && x[1] === 'Hi Ana, sending your link now.'), 'Kiko answers from the chat');
 });
 test('MS11 Cue collects from the relay only with its key, acks what it handled, and does nothing until set up', () => {
   const { t, door, saves } = msgrSandbox();
