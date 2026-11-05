@@ -48,6 +48,23 @@ test('ST2 Send: one confirm on the card, then the styled email with the Canvas l
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + t.id && /Summary for Status updates .*: sent 1 client update from your Gmail; 1 skipped\./.test(r[2])));
 });
 
+test('ST2b Weekly Reports: after Gmail sends, Canvas keeps a copy of exactly what went out; a missing or failed copy never blocks the send', () => {
+  const t = stRun();
+  t.ctx.cueApprove(t.id, { send: 'M1', to: 'ana@acme.example' });
+  assert.strictEqual(t.log.stCopy.length, 1); const a = t.log.stCopy[0];
+  assert.strictEqual(bridgeCheck('status_copy', a), '', 'real bridge schema');
+  assert.strictEqual(a.project_id, 'S-10000001AA'); assert.strictEqual(a.subject, 'Acme Gala · Friday update, 23 Oct'); assert.strictEqual(a.to, 'ana@acme.example');
+  assert.strictEqual(a.html, ST_HTML, 'the html as sent'); assert.ok(a.message_id && a.request_id === 'stcopy:' + a.message_id && a.sent_at);
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === t.id && /Sent the Friday update for Acme Gala .*A copy is in Canvas under Reports › Weekly Reports\./.test(r[2])));
+  t.ctx.cueApprove(t.id, { send: 'M1', to: 'ana@acme.example' }); assert.strictEqual(t.log.stCopy.length, 1, 'no second copy without a second send');
+  const u = stRun({ noStatusCopy: true }); let v = u.ctx.cueApprove(u.id, { send: 'M1', to: 'ana@acme.example' });
+  assert.ok(v.st.mails[0].sent, 'Canvas without status_copy: still sent');
+  assert.ok(u.tabs.Chat.rows.some(r => r[3] === u.id && /Sent the Friday update for Acme Gala to ana@acme\.example from your Gmail\.$/.test(r[2])), 'and nothing said about a copy');
+  const w = stRun({ noStatusCopy: 'Canvas busy' }); v = w.ctx.cueApprove(w.id, { send: 'M1', to: 'ana@acme.example' });
+  assert.ok(v.st.mails[0].sent && w.tabs.Chat.rows.some(r => r[3] === w.id && /Canvas did not keep a copy \(Canvas refused status_copy \(Rejected\): Canvas busy\)\./.test(r[2])));
+  const f = stRun({ sendFail: true }); f.ctx.cueApprove(f.id, { send: 'M1', to: 'ana@acme.example' }); assert.ok(!(f.log.stCopy || []).length, 'a failed send keeps no copy');
+});
+
 test('ST3 To is checked before a send; a Gmail failure says why and Send can be tapped again', () => {
   const t = stRun({ sendFail: true });
   assert.throws(() => t.ctx.cueApprove(t.id, { send: 'M2' }), /Type the client's email in To first/);

@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.21: Friday status emails keep a copy in Canvas (not deployed)
+
+Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")
+with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when it is sent; earlier emails are not
+back-filled.
+
+- `src/CueStatus.gs` `cueStCopy_`: after Gmail sends a Friday status email, Cue sends Canvas the copy (subject, To, time, HTML and text,
+  keyed by the Gmail message id) through the new bridge action `status_copy`. Canvas shows it under Reports › Weekly Reports. The email
+  has already gone, so a failed copy never blocks or undoes it: the sent line says the copy was not saved, and says nothing while live
+  Canvas does not have `status_copy` yet (it ships with Canvas PR #498).
+- `test/fixtures/ZapBridge.gs`: the `status_copy` schema added from CanvasWorkspace PR #498.
+- Tests: ST2b in `test/features/63-friday-status.js`. 659/659 pass on the merged build.
+- Kiko said "yes" on 5 Nov 2026 03:54Z (deploy with the Canvas V452 menus release). Built on live Cue 1.28.20 (Version 200).
+
 ## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (LIVE as Version 200, 5 Nov 2026 03:46Z; rollback Version 199)
 
 Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI

@@ -319,6 +319,9 @@ function sandbox(o = {}) {
         if (body.args.ids_only) { cs.projects = cs.projects.map(p => ({ id: p.id, name: p.name, date: p.date })); delete cs.logo; }
         else if (!body.args.email) { delete cs.logo; cs.projects.forEach(p => { delete p.html; delete p.text; delete p.subject; }); }
         return resp(200, { ok: true, status: 'Completed', result: cs }); }
+      // Weekly Reports (CueStatus.gs cueStCopy_): a copy of each sent Friday email goes to Canvas.
+      if (body.action === 'status_copy') { (log.stCopy = log.stCopy || []).push(body.args); if (o.noStatusCopy) return resp(200, { ok: false, status: 'Rejected', error: o.noStatusCopy === true ? 'unknown action' : o.noStatusCopy });
+        return resp(200, { ok: true, status: 'Completed', result: { saved: true, message_id: body.args.message_id } }); }
       if (body.action === 'finance_snapshot') { log.snapArgs = body.args; return resp(200, { ok: true, status: 'Completed', result: o.snap || SNAP }); }
       if (body.action === 'supplier_lookup') { log.lookup = body.args; return o.noLookup ? resp(200, { ok: false, status: 'Rejected', error: 'unknown action' }) : resp(200, { ok: true, status: 'Completed', result: o.lookup || LOOKUP }); }
       if (body.action === 'supplier_check') { log.supCheck = body.args; log.supChecks = (log.supChecks || 0) + 1; return resp(200, { ok: true, status: 'Completed', result: (typeof o.supCheck === 'function' ? o.supCheck(log.supChecks, body.args) : o.supCheck) || SUP_CHECK }); }
