@@ -225,15 +225,18 @@ function cueMsgrTriage_(psid, at, text, tap) {
     return true;
   }
   if (!T) {
+    /* One Ask Cue line per person in total (Kiko 5 Nov 04:33Z "its still sending 1 notif per message"): MSGR_TOLD_<psid> marks
+     * the line, so a person 1.28.19.1 already noted, or whose greeting Facebook refused, gets no second line. */
+    const P = PropertiesService.getScriptProperties(), told = 'MSGR_TOLD_' + psid, first = !P.getProperty(told);
     const r = cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
-    if (!r.ok) {   // 5 Nov 04:29Z: a refused greeting saved nothing, so the next message tries again instead of going quiet
+    if (first) {
+      P.setProperty(told, at);
       cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
-        + '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.', '');
-      return true;
+        + (r.ok ? '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.'
+          : '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.'), '');
     }
+    if (!r.ok) return true;   // 5 Nov 04:29Z: a refused greeting saves no triage state, so the next message tries again
     cueMsgrTriSave_(psid, { st: 'asked', first: text, last: at });
-    cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
-      + '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.', '');
     return true;
   }
   T.last = at;

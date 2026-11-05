@@ -1,14 +1,15 @@
 # Changelog
 
-## Cue 1.28.23: Messenger replies within a minute, and a refused greeting is tried again (BUG FIX, not deployed)
+## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, not deployed)
 
 Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".
 
 What changed:
 - Cue collected Messenger messages from the relay only in the 5-minute run (cueResume), so a reply could take up to 5 minutes. The pull now also runs from the existing 1-minute trigger (cueRfpKick), so the triage reply goes out within about a minute. No new trigger is added. A short lease (script property CUE_MSGR_PULL_RUN) stops the 1-minute and 5-minute runs from collecting the same messages twice. The 1-minute run writes a Job Runs row ("Messenger inbox") only when it handled a message or failed.
 - Bug: when Facebook refused the greeting, Cue still saved the person as "asked", so it went quiet for them from then on. Now a refused greeting saves nothing; the Ask Cue line shows Facebook's error, and the person's next message tries the greeting again.
+- Bug (Kiko 04:33Z: "its still sending 1 notif per message"): the triage did not read the "already noted" mark that 1.28.19.1 set (script property MSGR_TOLD_<psid>), so someone noted before the triage shipped got a second Ask Cue line. The triage now uses the same mark: one Ask Cue line per person in total, including across greeting retries.
 
-Tests: MS10e (refused greeting retries), MS10f (1-minute collection, lease, quiet minutes leave no row). 663/663 pass.
+Tests: MS10e (refused greeting retries), MS10f (1-minute collection, lease, quiet minutes leave no row), MS10g (one line per person across versions and retries). 664/664 pass.
 
 ## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 
