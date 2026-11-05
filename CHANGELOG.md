@@ -20,8 +20,7 @@ chaser from my Gmail." Spec `canvas-integration/specs/client-feedback-cue/spec.m
 - The two C9 templates were added to the BSE Message Templates Revised doc on 5 Nov 2026 (after "C8 Friday event update"), in the
   words Kiko approved in the spec; the reminder subject is the doc's usual "Re: {{original_subject}}". Checked with Canvas's own parser.
 - Needs Canvas: the new bridge read `client_feedback` (built by the Canvas thread "Send client feedback form from Canvas"). The test
-  fixture carries the shape the spec proposes; replace it with Canvas's own entry when that release ships. Needs the two C9
-  templates in the BSE Message Templates Revised doc before the first send.
+  fixture carries the shape the spec proposes; replace it with Canvas's own entry when that release ships.
 - Tests: 665 (7 new, `test/features/85-client-feedback.js`).
 ## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, LIVE as Version 204, 5 Nov 2026 04:45Z; rollback Version 203)
 
