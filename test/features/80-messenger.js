@@ -440,3 +440,10 @@ test('MS22 instant taps (Kiko 5 Nov 12:00Z "Yes, ship it"): the relay keeps Cue\
   assert.strictEqual(sent().length, n, 'the relay already answered the tap');
   assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'crew', 'Cue still records the tap and opens the chat');
 });
+
+test('MS23 a Messenger chat is named by its text and never shows the Project intake card (Kiko 5 Nov 13:08Z "why are these in intake?")', () => {
+  const page = cuePage();
+  assert.ok(/\n {6}msgr: \{ name: function \(r\) \{ return r\.text \|\| 'Messenger'; \}, family: 'info', steps: null, card: null \}/.test(page), 'msgr has its own kind line');
+  assert.ok(/function cardOf\(r\) \{\n\s+if \(r\.kind === 'msgr'\) return '';/.test(page), 'thread card skips msgr');
+  assert.ok(/function cardBody\(r\) \{\n\s+if \(r\.kind === 'msgr'\) return '';/.test(page), 'card body skips msgr');
+});

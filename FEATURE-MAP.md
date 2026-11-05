@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 76 server files, 1511 top-level names, 34 task kinds, 35 word checks before the
+Counts: 76 server files, 1511 top-level names, 35 task kinds, 35 word checks before the
 chat call, 17 background jobs in the 5-minute trigger, 95 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -33,6 +33,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 0 |
 | `mail` | Page only (not in the command list) |  | Info | none | none | 1 |
 | `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
+| `msgr` | Page only (not in the command list) |  | Info | none | none | 2 |
 | `newmail` | Page only (not in the command list) |  | Question | none | none | 3 |
 | `open` | Page only (not in the command list) |  |  | none | none | 1 |
 | `own` | Page only (not in the command list) |  |  | none | none | 2 |

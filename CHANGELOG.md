@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.31: Messenger chats no longer show as "Project intake" (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026 13:08Z, "why are these in intake?", with screenshots of Messenger crew chats titled
+"Project intake" and showing "Project intake stopped" with Try again and Reject.
+
+What changed: the page had no entry for Messenger chats (kind `msgr`), so it fell back to the intake's name and its
+"stopped" card. A Messenger chat is now named by its own line ("Messenger · name · Crew, not linked yet") in the thread list
+and Waiting on you, and shows no card, only the conversation. Nothing ever ran intake on these chats: Try again only answered
+"Only a request that stopped before Canvas can be tried again here." The finished-task summary line names them the same way.
+The existing chats are fixed by the same change, since they already carry kind `msgr`. Bug fix.
+
+Tests: 678 of 678 (new MS23).
+
 ## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (LIVE as Version 211, 5 Nov 2026 12:46Z; rollback Version 210)
 
 Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project

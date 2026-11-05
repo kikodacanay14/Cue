@@ -1124,6 +1124,7 @@
     return at < 0 ? h + b : h.slice(0, at) + b + h.slice(at);
   }
   function cardBody(r) {
+    if (r.kind === 'msgr') return '';   // MSGR-NOT-INTAKE-2026-11-05: a Messenger chat is a conversation, never the intake "stopped" card
     if (r.same && r.same.length) return sameCardHtml(r);
     if (r.phased && r.ph) return phCardHtml(r);
     if (r.kind === 'email') return mailCardHtml(r);
