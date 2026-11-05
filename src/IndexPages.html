@@ -181,15 +181,15 @@
       + '</div>');
   }
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-key]'); if (!b) return; b.disabled = true;   // CUE-MSGR-2026-11-02
-    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrKey', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-connect]'); if (!b) return; b.disabled = true;   // CUE-MSGR-CONNECT-2026-11-04
     var w = window.open('', '_blank');   // opened now, inside the tap, so the browser does not block it
-    call('cueMsgrConnect', [], function (r) { b.disabled = false; if (w) w.location = r.url; else window.open(r.url, '_blank'); }, function () { b.disabled = false; if (w) w.close(); }); });
+    call('cueMsgrConnect', [], function (r) { b.disabled = false; if (w) w.location = r.url; else window.open(r.url, '_blank'); }, function (x) { b.disabled = false; if (w) w.close(); alertErr(x); }); });
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-finish]'); if (!b) return; b.disabled = true;
-    call('cueMsgrFinish', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrFinish', [], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });   // CUE-MSGR-FINISH-ERR-2026-11-04: show why, never fail silently
   $('w-conn').addEventListener('click', function (e) { var b = e.target.closest('[data-msgr-save]'); if (!b) return; b.disabled = true;
     var box = $('w-conn'), f = box.querySelector('[data-msgr-token]'), v = f.value; f.value = '';
-    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function () { b.disabled = false; }); });
+    call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
@@ -669,6 +669,17 @@
       + usageDetail(cur) + '</div>';
     else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
     if (U.canvas) h += '<div class="small muted" style="margin:4px 0 8px">' + (U.canvas.note ? esc(U.canvas.note) : 'Includes Canvas AI calls (' + U.canvas.rows + ' logged), shown as "Canvas: …" in By command.') + '</div>';   // CUE-STRUCTURE-4.6
+    var G = U.github;   // GH-ACTIONS-COST (Kiko 4 Nov 2026 13:05Z): GitHub Actions, billed apart from the AI, from figures typed in below.
+    if (G) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">GitHub Actions (as of ' + esc(G.asof) + ')</b><span class="tag new">ESTIMATE</span></div>'
+      + '<table class="facts" style="margin-top:8px"><tr><td>Used so far</td><td><b style="color:var(--white)">' + esc(php(G.used)) + '</b> <span class="small muted">' + esc(usd(G.used)) + '</span></td></tr>'
+      + '<tr><td>Included each month</td><td><b style="color:var(--white)">' + esc(php(G.free)) + '</b> <span class="small muted">' + esc(usd(G.free)) + ' · about ' + Math.round(G.free / 0.006).toLocaleString('en-US') + ' Linux minutes</span></td></tr>'
+      + '<tr><td>Plan fee</td><td><b style="color:var(--white)">' + esc(php(G.plan)) + '</b> <span class="small muted">' + esc(usd(G.plan)) + ' a month</span></td></tr>'
+      + '<tr><td>Budget cap</td><td><b style="color:var(--white)">' + esc(php(G.cap)) + '</b> <span class="small muted">' + esc(usd(G.cap)) + ' a month above the included part · jobs stop at the cap</span></td></tr>'
+      + '<tr><td>Billed so far</td><td><b style="color:var(--white)">' + esc(php(G.billed)) + '</b> <span class="small muted">' + esc(usd(G.billed)) + ' above the included part</span></td></tr>'
+      + (G.stale ? '<tr><td>Likely by month end</td><td><span class="small muted">These figures are from ' + esc(G.month) + '. Type this month\'s in below.</span></td></tr>'
+        : '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(G.likely_total)) + '</b> <span class="small muted">' + esc(usd(G.likely_total)) + ' with the plan fee · ' + esc(usd(G.likely)) + ' of use at this rate'
+          + (G.stop_day ? ' · cap reached about day ' + G.stop_day + ', then jobs stop until the 1st' : '') + '</span></td></tr>')
+      + '</table><div class="small muted" style="margin-top:6px">Typed in from github.com/settings/billing/usage. Change the figures under Prices used and save.</div></div>';
     if (M.length) h += '<div class="label">Monthly</div><div class="card"><div class="scroll"><table><tr><th>Month</th><th>Claude calls</th><th>ChatGPT calls</th><th>US$</th><th>₱</th><th></th></tr>'
       + M.map(function (m) { return '<tr><td><button class="link" data-um="' + esc(m.month) + '" aria-expanded="' + (usageMonth === m.month) + '">' + esc(m.label) + '</button>' + (m.current ? ' <span class="small muted">so far</span>' : '') + '</td><td>' + m.claude + '</td><td>' + m.gpt + '</td><td>' + esc(usd(m.usd).slice(4)) + '</td><td>' + esc(php(m.usd)) + '</td><td class="small muted">' + (m.current ? 'likely ' + esc(php(m.likely_usd)) : '') + '</td></tr>'
         + (usageMonth === m.month ? '<tr><td colspan="6">' + usageDetail(m) + '</td></tr>' : ''); }).join('')
@@ -677,7 +688,13 @@
     var n = function (k, v, w) { return '<input type="number" step="0.01" min="0" data-up="' + esc(k) + '" value="' + (v == null ? '' : esc(v)) + '" style="width:' + (w || 80) + 'px" aria-label="' + esc(k) + '">'; };
     h += '<div class="label">Prices used (editable)</div><div class="card"><div class="scroll"><table><tr><th>Model</th><th>US$ / 1M in</th><th>US$ / 1M out</th></tr>'
       + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
-      + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr></table></div>'
+      + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr>'
+      + (P.gh ? '<tr><td>GitHub Actions used so far, US$</td><td>' + n('ghused', P.gh.used) + '</td><td></td></tr>'   // GH-ACTIONS-COST
+        + '<tr><td>GitHub Actions figures as of</td><td><input type="date" data-up="ghasof" value="' + esc(P.gh.asof) + '" aria-label="ghasof"></td><td></td></tr>'
+        + '<tr><td>GitHub Actions included each month, US$</td><td>' + n('ghfree', P.gh.free) + '</td><td></td></tr>'
+        + '<tr><td>GitHub plan fee each month, US$</td><td>' + n('ghplan', P.gh.plan) + '</td><td></td></tr>'
+        + '<tr><td>GitHub Actions budget cap, US$</td><td>' + n('ghcap', P.gh.cap) + '</td><td></td></tr>' : '')
+      + '</table></div>'
       + '<div class="actions"><button class="btn" id="usage-save">Save prices</button></div>'
       + '<div class="small muted" style="margin-top:6px">An estimate from Cue\'s own AI Runs log. Your real bill is on platform.openai.com and console.anthropic.com. Saving recalculates every month.</div></div>';
     setHtml($('w-usage'), h);

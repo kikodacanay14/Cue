@@ -132,14 +132,19 @@ test('MS9 a linked crew member\'s message updates the last-message time in Canva
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /Anong oras call time/.test(r[2])));
   deq(door(msgrIn('1001', { text: 'our own reply', echo: true })), { ok: true, handled: 0 });
 });
-test('MS10 strangers and changed links save nothing, get a polite reply, and leave one line in Ask Cue (R5)', () => {
+test('MS10 strangers and changed links save nothing and get a polite reply; a stranger gets it once and leaves one Ask Cue line (no flood)', () => {
   const { t, saves, door, sent } = msgrSandbox();
   door(msgrIn('2002', { text: 'magkano po package?' }));
   door(msgrIn('3003', { ref: 'bad.ref', text: 'hi' }));
   assert.strictEqual(saves.filter(x => x.messenger_id === '2002').length, 0);
   deq(sent().map(x => x[0]), ['2002', '3003']); assert.ok(/This chat is for our crew/.test(sent()[0][1])); assert.ok(/did not work/.test(sent()[1][1]));
   assert.ok(!t.tabs['Messenger People'] || t.tabs['Messenger People'].rows.length <= 1);
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '' && /not linked as crew/.test(r[2])));
+  const line = () => t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2]));
+  assert.strictEqual(line().length, 1); assert.ok(/magkano po package\?/.test(line()[0][2]), 'first words shown so an inquiry is not missed');
+  door(msgrIn('2002', { text: 'hello po?' })); door(msgrIn('2002', { text: 'up' }));
+  assert.strictEqual(sent().filter(x => x[0] === '2002').length, 1, 'the polite reply goes once per person');
+  assert.strictEqual(line().length, 1, 'one Ask Cue line per person');
+  door(msgrIn('4004', { text: 'event inquiry po' })); assert.strictEqual(line().length, 2, 'a new person gets their own line');
 });
 test('MS11 Cue collects from the relay only with its key, acks what it handled, and does nothing until set up', () => {
   const { t, door, saves } = msgrSandbox();

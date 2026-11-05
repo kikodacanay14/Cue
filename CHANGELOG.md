@@ -1,5 +1,36 @@
 # Changelog
 
+## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (not deployed)
+
+Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI
+usage and cost". At 13:10Z: "im upgrading to pro github".
+
+- Settings › AI usage and cost gets a GitHub Actions card under the month's AI card, in the same layout: used so far, included each
+  month (US$18, about 3,000 Linux minutes on GitHub Pro), plan fee (US$4), budget cap (US$10), billed so far above the included part,
+  and the likely month end at the same daily rate, with the day the cap runs out when it falls inside the month.
+- Cue cannot read GitHub's bill, so the five figures are typed in under Prices used (editable) and saved with the AI prices
+  (script property `CUE_AI_PRICES`, key `gh`). Defaults are what Kiko saw on 4 Nov 2026 (US$15.81 used). Figures from an earlier
+  month are flagged instead of projected. No AI call, no new access.
+- Included US$18 is from docs.github.com ("GitHub Actions billing", read 4 Nov 2026). The US$4 Pro fee is not on github.com/pricing,
+  so it is unverified and editable.
+- Settings › Connections (PR #320): Connect Facebook, Finish, Make key and Save no longer swallow a server error. Each failure
+  posts its message to the chat through `alertErr`, as other Cue buttons do. Kiko, 4 Nov 2026 14:35Z: "i pressed finish but nothing
+  happens". Display only, no rule change.
+- Kiko said "ship" for both on 5 Nov 2026 03:42Z.
+- Built on live Cue 1.28.19.1 (Version 199).
+- Tests: 658 (4 new, `test/features/32-usage-github.js`).
+
+## Cue 1.28.19.1: a Messenger stranger no longer floods Ask Cue (BUG FIX, LIVE as Version 199, 4 Nov 2026 15:09Z; rollback Version 198)
+
+Who asked and when: Kiko, 4 Nov 2026 14:58Z, "i feel this is gonna cause me some flooding....", and 14:59Z, "lets triage coz if its a customer inquiry... i want it".
+
+What changed:
+- Before, every message from someone not linked as crew posted "Messenger: a message from someone who is not linked as crew" in Ask Cue, and the "This chat is for our crew" reply went back on every message.
+- Now each such person gets the reply once and leaves one Ask Cue line, which shows their first words so a customer inquiry is not missed. Their later messages stay in the Page inbox only.
+- Built on live Cue 1.28.19 (Version 198). The three-button triage (crew, event inquiry, client) comes later with the crew Messenger build.
+
+Tests: 654 of 654 pass (MS10 rewritten).
+
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 
 Kiko, 4 Nov 2026 02:31Z, while driving: "I can't do that. If there's a way for you to do it instead, please do so." He picked "Yes,
