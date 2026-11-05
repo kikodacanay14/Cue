@@ -225,7 +225,12 @@ function cueMsgrTriage_(psid, at, text, tap) {
     return true;
   }
   if (!T) {
-    cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    const r = cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    if (!r.ok) {   // 5 Nov 04:29Z: a refused greeting saved nothing, so the next message tries again instead of going quiet
+      cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
+        + '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.', '');
+      return true;
+    }
     cueMsgrTriSave_(psid, { st: 'asked', first: text, last: at });
     cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
       + '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.', '');
@@ -260,7 +265,26 @@ function cueMsgrSaid_(c) {
 
 /* ---------- collecting from the relay (Job Runs "Messenger inbox") ---------- */
 /** Collects held events from the relay, handles them, then tells the relay which to drop. Returns how many were handled. */
+/** CUE-MSGR-FAST-2026-11-05 (Kiko 5 Nov 04:30Z "5 minuites is not good"): the pull also runs from the 1-minute trigger
+ * (cueRfpKick), so a reply goes out within about a minute. A short lease (CUE_MSGR_PULL_RUN) keeps the 1-minute and 5-minute
+ * runs from collecting the same events twice. Returns how many were handled, or 0 while another run holds the lease. */
 function cueMsgrPull_() {
+  const P = PropertiesService.getScriptProperties(), l = LockService.getScriptLock(), now = cueNow_();
+  if (!l.tryLock(5000)) return 0;
+  try { if (Number(P.getProperty('CUE_MSGR_PULL_RUN') || 0) > now) return 0; P.setProperty('CUE_MSGR_PULL_RUN', String(now + 4 * 60 * 1000)); }
+  finally { l.releaseLock(); }
+  try { return cueMsgrPullOnce_(); } finally { P.deleteProperty('CUE_MSGR_PULL_RUN'); }
+}
+/** The 1-minute run (from cueRfpKick). Writes a Job Runs row only when it handled a message or failed, so quiet minutes leave none. */
+function cueMsgrKick_() {
+  if (globalThis.CUE_CHECK_ON_) return null;
+  const started = new Date(cueNow_()).toISOString();
+  let n = 0, err = '';
+  try { n = cueMsgrPull_() || 0; } catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error('Messenger inbox (1 min): ' + e); }
+  if (n || err) { try { cueJobLog_([[started, new Date(cueNow_()).toISOString(), 'Messenger inbox', err ? 'Failed' : 'OK', err, n]]); } catch (e) { console.error('Job Runs: ' + e); } }
+  return n;
+}
+function cueMsgrPullOnce_() {
   const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, ''), key = P.getProperty('MSGR_RELAY_KEY');
   if (!/^https:\/\/[\w.-]+(\/[\w.-]*)*$/.test(url) || !key || !P.getProperty('MSGR_PAGE_TOKEN')) return 0;   // not set up yet
   const auth = { Authorization: 'Bearer ' + key };

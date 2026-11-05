@@ -237,3 +237,30 @@ test('MS15 Connect Facebook (CUE-MSGR-CONNECT-2026-11-04): only the proof\'s has
   assert.throws(() => t.ctx.cueMsgrFinish(), /Press Connect Facebook first/, 'the proof works once');
   assert.throws(() => sandbox({ viewer: 'someone@example.com' }).ctx.cueMsgrConnect(), /owner|Kiko|only/i);
 });
+test('MS10e a greeting Facebook refuses saves nothing, so the next message tries again (5 Nov 04:29Z "nothing happens")', () => {
+  let refuse = true;
+  const { t, door, sent } = msgrSandbox({ fb: (u) => /\/me\/messages$/.test(u) && refuse
+    ? { getResponseCode: () => 400, getContentText: () => '{"error":{"message":"(#100) No matching user found"}}' }
+    : { getResponseCode: () => 200, getContentText: () => '{"message_id":"m1"}' } });
+  door(msgrIn('2002', { text: 'Hello' }));
+  const line = t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2]));
+  assert.strictEqual(line.length, 1); assert.ok(/greeting was not sent \(Meta 400: \(#100\) No matching user found\)/.test(line[0][2]));
+  assert.ok(!('MSGR_TRI_2002' in t.props), 'no triage state, so Cue does not go quiet for this person');
+  refuse = false; door(msgrIn('2002', { text: 'Hello again' }));
+  assert.ok(/^Hi! Thank you for reaching out/.test(sent().filter(x => x[0] === '2002').pop()[1]), 'the next message gets the greeting');
+  assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'asked');
+});
+test('MS10f CUE-MSGR-FAST-2026-11-05 (Kiko 04:30Z "5 minuites is not good"): the 1-minute trigger collects Messenger too, once', () => {
+  const { t, held, sent } = msgrSandbox();
+  held.push({ id: 'e:1', event: msgrIn('2002', { text: 'Hello' }) });
+  const runs = () => (t.tabs['Job Runs'] ? t.tabs['Job Runs'].rows : []).filter(r => r[2] === 'Messenger inbox');
+  t.ctx.cueRfpKick();
+  deq(sent().map(x => x[0]), ['2002'], 'the minute run sent the greeting');
+  assert.strictEqual(runs().length, 1); assert.strictEqual(runs()[0][3], 'OK'); assert.strictEqual(runs()[0][5], 1);
+  t.ctx.cueRfpKick(); assert.strictEqual(runs().length, 1, 'a quiet minute writes no row');
+  held.push({ id: 'e:2', event: msgrIn('4004', { text: 'Hi' }) });
+  t.props.CUE_MSGR_PULL_RUN = String(t.ctx.cueNow_() + 60000);
+  assert.strictEqual(t.ctx.cueMsgrPull_(), 0, 'while another run holds the lease, nothing is collected twice');
+  assert.strictEqual(sent().length, 1); assert.strictEqual(held.length, 1);
+  delete t.props.CUE_MSGR_PULL_RUN; assert.strictEqual(t.ctx.cueMsgrPull_(), 1); assert.ok(!('CUE_MSGR_PULL_RUN' in t.props), 'the lease is let go');
+});
