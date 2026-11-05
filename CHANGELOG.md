@@ -1,5 +1,36 @@
 # Changelog
 
+## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project
+if it's really there? And then if it's there, then it's automatically linked"; 09:10Z "A" (match, then a code); 09:47Z the Link in
+Communication Config and on the Freelancers page; 11:49Z "Ok deploy" on crew-match-flow.png. 11:53Z: "right after I click I'm crew,
+automatically there's a response that we don't have to wait for a minute or two"; 12:00Z "Yes, ship it" to the relay answering taps.
+
+What changed:
+- After I'm crew, the crew member's details go to Canvas (new bridge action crew_match). Canvas looks for one person on the team of a
+  live project whose name shares a word with what they wrote.
+- Found, with a mobile or email on file: Canvas sends a 6-digit code (SMS, else the crew email). Messenger says "Salamat po! Nakita ka
+  namin sa team ng <event>. Nag-send kami ng 6-digit code sa mobile mo na nagtatapos sa <last 2 digits>. I-type mo lang dito ang code
+  para ma-connect ka." ("sa email mo" when it went by email). Cue never sees the number or address, only the last 2 digits.
+- The right code (crew_code_check) links their Messenger on their Freelancers row. They get "Hi <first>! Naka-connect ka na sa Blank
+  Space Events dito sa Messenger. ..." and become linked crew in Messenger People. Wrong codes get "Mali po ang code. May 2 tries ka
+  pa." / "May 1 try ka pa."; the 3rd gets "Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito." and the main
+  chat gets "<name> typed 3 wrong codes on Messenger. Nothing was linked."
+- Found, but no mobile and no email: "Salamat po! Kailangan lang namin i-confirm ang details mo. Babalikan ka ng team namin dito."
+  and one main-chat line pointing to Link in Canvas (Communication Config or the Freelancers page).
+- Not sure (no one, or two people): the 1.28.29 reply and main-chat line, as before. Their next details are matched again quietly.
+- Staff Link or Not mine in Canvas: the next sign-link pass (msgr_due, every 15 minutes) tells the person once, with the linked
+  message or the "Hindi pa namin ma-connect" reply, then tells Canvas (msgr_told).
+- Instant taps: the relay (relay/messenger-worker.js) answers I'm crew and Client or inquiry itself, in about a second, with Cue's
+  exact words. Cue sends the relay the Page token and the list of linked crew (POST /sync) when either changes; Cue does not answer
+  a tap the relay already answered. Everything else still waits for the 1-minute collection. The relay must be redeployed
+  (npx wrangler deploy in relay/).
+- Canvas down or not yet updated: crew get the 1.28.29 reply, as before.
+- test/fixtures/ZapBridge.gs refreshed from CanvasWorkspace src/ZapBridge.gs (crew_match, crew_code_check, msgr_told).
+
+Tests: MS16 to MS22 new, MS11 updated; relay 10/10. 677/677 pass.
+
 ## Cue 1.28.29: a crew member's Messenger details get one reply (LIVE as Version 210, 5 Nov 2026 09:51Z; rollback Version 209)
 
 Who asked and when: Kiko, 5 Nov 2026 07:22Z: "There was no response in my message earlier when it asked me for the event name

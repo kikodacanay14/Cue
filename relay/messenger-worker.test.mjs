@@ -84,4 +84,37 @@ await t('claim: wrong proof gets nothing; the right proof gets key + token once;
   const no = await worker.fetch(new Request('https://relay.example/events', { headers: { Authorization: 'Bearer ' } }), cenv);
   assert.strictEqual(no.status, 403, 'an empty key never matches');
 });
+
+// CUE-MSGR-INSTANT-2026-11-05: the relay answers I'm crew and Client or inquiry taps at once.
+await t('instant taps: only Cue can sync; a tap from someone not linked is answered at once and marked; linked crew, other taps and typed words wait for Cue', async () => {
+  kv.clear();
+  assert.strictEqual((await worker.fetch(new Request('https://relay.example/sync', { method: 'POST', body: '{"token":"x"}' }), env)).status, 403);
+  const tok = 'EAAPageTokenNotReal0123456789';
+  assert.strictEqual((await cue('/sync', { method: 'POST', body: JSON.stringify({ token: tok, linked: ['1001', 'x'] }) })).status, 200);
+  assert.strictEqual(kv.get('page_token'), tok); assert.strictEqual(kv.get('linked'), '["1001"]');
+  const sent = [];
+  globalThis.fetch = async (u, init) => { sent.push([String(u), JSON.parse(init.body), init.headers.Authorization]); return new Response('{"message_id":"m"}', { status: 200 }); };
+  const body = JSON.stringify({ object: 'page', entry: [{ messaging: [
+    { sender: { id: '2002' }, postback: { title: "I'm crew", payload: 'TRI_CREW' } },
+    { sender: { id: '3003' }, postback: { title: 'Client or inquiry', payload: 'TRI_CLIENT' } },
+    { sender: { id: '1001' }, postback: { title: "I'm crew", payload: 'TRI_CREW' } },
+    { sender: { id: '4004' }, postback: { title: 'Get Started', payload: 'TRI_START' } },
+    { sender: { id: '5005' }, message: { text: "I'm crew" } }] }] });
+  assert.strictEqual((await post(body, { 'X-Hub-Signature-256': sig(body) })).status, 200);
+  assert.deepStrictEqual(sent.map(x => [x[0], x[1].recipient.id, x[1].message.text, x[2]]), [
+    ['https://graph.facebook.com/v21.0/me/messages', '2002', 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.', 'Bearer ' + tok],
+    ['https://graph.facebook.com/v21.0/me/messages', '3003', 'Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo.', 'Bearer ' + tok]]);
+  const held = JSON.parse([...kv.entries()].find(([k]) => k.startsWith('e:'))[1]).entry[0].messaging;
+  assert.deepStrictEqual(held.map(m => !!m.relay_replied), [true, true, false, false, false]);
+});
+await t('instant taps: Facebook refusing the send leaves the event unmarked, so Cue answers it', async () => {
+  kv.clear(); kv.set('page_token', 'EAAPageTokenNotReal0123456789');
+  globalThis.fetch = async () => new Response('{"error":{"message":"no"}}', { status: 400 });
+  const body = JSON.stringify({ object: 'page', entry: [{ messaging: [{ sender: { id: '2002' }, postback: { payload: 'TRI_CREW' } }] }] });
+  await post(body, { 'X-Hub-Signature-256': sig(body) });
+  assert.ok(!JSON.parse([...kv.entries()].find(([k]) => k.startsWith('e:'))[1]).entry[0].messaging[0].relay_replied);
+  kv.clear();
+  await post(body, { 'X-Hub-Signature-256': sig(body) });   // no token yet: nothing sent, held as before
+  assert.strictEqual([...kv.keys()].filter(k => k.startsWith('e:')).length, 1);
+});
 console.log(n + ' passed');

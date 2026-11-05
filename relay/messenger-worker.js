@@ -11,6 +11,11 @@
  *                 hands over the token of PAGE_ID, so only an admin of that Page can connect.
  *   GET  /claim?proof=…  Cue only, once: takes the held key and Page token. Cue keeps a random 64-hex proof and sends only its
  *                 SHA-256 as the sign-in's state (as PKCE does), so Facebook and the browser never see what /claim needs.
+ *   POST /sync    CUE-MSGR-INSTANT-2026-11-05, Cue only: { token?, linked?: [psid] } keeps the Page token and who is linked crew.
+ *   Instant taps (Kiko 5 Nov 11:53Z "right after I click I'm crew, automatically there's a response"; 12:00Z "Yes, ship it"): a tap
+ *                 on I'm crew or Client or inquiry from someone not linked is answered here at once, with Cue's own words
+ *                 (TAP_SAY_, kept equal to CUE_MSGR_SAY_ by Cue's test MS22); the held event is marked relay_replied so Cue does
+ *                 not answer it again. Everything else still waits for Cue's 1-minute collection.
  * Bindings: KV namespace MSGR_EVENTS. Vars: APP_ID, PAGE_ID, optional LOGIN_CONFIG_ID (Facebook Login for Business).
  * Secrets (wrangler secret put): VERIFY_TOKEN, APP_SECRET; CUE_KEY is optional now (a key made by /oauth is kept in KV). */
 const enc = new TextEncoder();
@@ -33,6 +38,27 @@ async function isCue(req, env) {   // the wrangler secret CUE_KEY, or the key ma
   return same(got, env.CUE_KEY) || same(got, kept);
 }
 const GRAPH = 'https://graph.facebook.com/v21.0/';
+// Cue's CUE_MSGR_SAY_.crew and .help, word for word (Kiko's approved texts).
+const TAP_SAY_ = {
+  TRI_CREW: 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.',
+  TRI_CLIENT: 'Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo.'
+};
+/** Answers each tap it can, at once. Marks what it answered on the event. Never throws: Cue answers whatever this misses. */
+async function answerTaps(env, event) {
+  let token = '', linked = [];
+  try { token = await env.MSGR_EVENTS.get('page_token') || ''; linked = JSON.parse(await env.MSGR_EVENTS.get('linked') || '[]'); } catch (e) { return; }
+  if (!token) return;
+  for (const en of event.entry || []) for (const m of (en && en.messaging) || []) {
+    const psid = String((m.sender || {}).id || ''), msg = m.message || {};
+    const say = TAP_SAY_[String((m.postback || {}).payload || (msg.quick_reply || {}).payload || '')];
+    if (!say || !/^\d{1,40}$/.test(psid) || msg.is_echo || linked.indexOf(psid) >= 0) continue;
+    try {
+      const r = await fetch(GRAPH + 'me/messages', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ recipient: { id: psid }, messaging_type: 'RESPONSE', message: { text: say } }) });
+      if (r.ok) m.relay_replied = true;
+    } catch (e) { /* Cue answers it */ }
+  }
+}
 const STATE = /^[0-9a-f]{64}$/;
 const sha = async t => hex(await crypto.subtle.digest('SHA-256', enc.encode(t)));
 const page = (title, text, status) => new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -88,6 +114,13 @@ const worker = {
       for (const k of list.keys) { const v = await env.MSGR_EVENTS.get(k.name); if (v) events.push({ id: k.name, event: JSON.parse(v) }); }
       return json({ events });
     }
+    if (path === '/sync' && req.method === 'POST') {
+      if (!(await isCue(req, env))) return json({ error: 'Not allowed.' }, 403);
+      let b = {}; try { b = await req.json(); } catch (e) { return json({ error: 'Bad JSON' }, 400); }
+      if (typeof b.token === 'string' && /^[A-Za-z0-9_.|-]{20,1000}$/.test(b.token)) await env.MSGR_EVENTS.put('page_token', b.token);
+      if (Array.isArray(b.linked)) await env.MSGR_EVENTS.put('linked', JSON.stringify(b.linked.map(String).filter(x => /^\d{1,40}$/.test(x)).slice(0, 5000)));
+      return json({ ok: true });
+    }
     if (path === '/ack' && req.method === 'POST') {
       if (!(await isCue(req, env))) return json({ error: 'Not allowed.' }, 403);
       let ids = []; try { ids = (await req.json()).ids || []; } catch (e) { return json({ error: 'Bad JSON' }, 400); }
@@ -106,8 +139,9 @@ const worker = {
     let event;
     try { event = JSON.parse(raw); } catch (e) { return new Response('Bad JSON', { status: 400 }); }
     if (!event || event.object !== 'page') return new Response('Ignored', { status: 200 });
+    await answerTaps(env, event);
     const id = 'e:' + String(Date.now()).padStart(13, '0') + ':' + hex(crypto.getRandomValues(new Uint8Array(4)));
-    await env.MSGR_EVENTS.put(id, raw, { expirationTtl: 7 * 24 * 3600 });
+    await env.MSGR_EVENTS.put(id, JSON.stringify(event), { expirationTtl: 7 * 24 * 3600 });
     return new Response('EVENT_RECEIVED', { status: 200 });
   }
 };

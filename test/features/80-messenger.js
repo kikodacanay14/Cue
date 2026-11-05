@@ -88,7 +88,7 @@ const msgrIn = (psid, o = {}) => ({ object: 'page', entry: [{ id: '1104995805672
   timestamp: o.ts || Date.parse('2026-11-02T06:06:00Z') }, o.ref ? { referral: { ref: o.ref, source: 'SHORTLINK', type: 'OPEN_THREAD' } } : {},
   o.text != null ? { message: Object.assign({ mid: 'mid.' + psid, text: o.text }, o.echo ? { is_echo: true } : {}, o.qr ? { quick_reply: { payload: o.qr } } : {}) } : {}, o.pb ? { postback: { title: o.pb[0], payload: o.pb[1], mid: 'mid.pb.' + psid } } : {})] }] });
 function msgrSandbox(o = {}) {
-  const saves = [], held = [];
+  const saves = [], held = [], box = {};
   const t = sandbox(Object.assign({
     bridgeFn: b => {
       if (b.action !== 'fl_social_save') return undefined;
@@ -101,6 +101,7 @@ function msgrSandbox(o = {}) {
     relay: (u, req, body) => {
       if ((req.headers || {}).Authorization !== 'Bearer ' + MSGR_KEY) return { getResponseCode: () => 403, getContentText: () => '{}' };
       if (/\/events$/.test(u)) return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ events: held.splice(0) }) };
+      if (/\/sync$/.test(u)) { (box.synced = box.synced || []).push(body); return { getResponseCode: () => 200, getContentText: () => '{"ok":true}' }; }
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ dropped: body.ids.length }) };
     }
   }, o));
@@ -108,7 +109,7 @@ function msgrSandbox(o = {}) {
   let T = Date.parse('2026-11-02T06:40:00Z'); t.ctx.cueNow_ = () => T; t.at = iso => { T = Date.parse(iso); };
   let n = 0;
   const door = event => { held.push({ id: 'e:' + String(1e12 + (++n)) + ':0000000' + n, event }); const h = t.ctx.cueMsgrPull_(); return { ok: true, handled: h }; };
-  return { t, saves, door, held, sent: () => (t.log.fb || []).filter(x => /\/me\/messages$/.test(x.url)).map(x => [x.body.recipient.id, x.body.message.text || ((x.body.message.attachment || {}).payload || {}).text]) };
+  return { t, saves, door, held, box, sent: () => (t.log.fb || []).filter(x => /\/me\/messages$/.test(x.url)).map(x => [x.body.recipient.id, x.body.message.text || ((x.body.message.attachment || {}).payload || {}).text]) };
 }
 test('MS8 a sealed m.me ref links the crew member in Canvas with Facebook name and gender, says so, and opens their Cue chat', () => {
   const { t, saves, door, sent } = msgrSandbox();
@@ -203,7 +204,7 @@ test('MS11 Cue collects from the relay only with its key, acks what it handled, 
   const { t, door, saves } = msgrSandbox();
   door(msgrIn('1001', { ref: 'sealed.ref' }));
   const calls = t.log.relay.map(x => [x.url.replace('https://relay.example.workers.dev', ''), x.req.headers.Authorization === 'Bearer ' + MSGR_KEY]);
-  deq(calls, [['/events', true], ['/ack', true]]); deq(t.log.relay[1].body.ids, ['e:1000000000001:00000001']);
+  deq(calls, [['/sync', true], ['/events', true], ['/ack', true]]); deq(t.log.relay[2].body.ids, ['e:1000000000001:00000001']);
   assert.strictEqual(saves.length, 1);
   const u = msgrSandbox(); delete u.t.props.MSGR_RELAY_URL; assert.strictEqual(u.t.ctx.cueMsgrPull_(), 0); assert.ok(!u.t.log.relay, 'no call without the relay address');
 });
@@ -336,4 +337,106 @@ test('MS10k "start over" typed in Messenger by someone not linked resets them an
   door(msgrIn('2002', { text: 'Start over daw' }));
   assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]), 'the greeting with buttons again');
   assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'asked');
+});
+
+/* CUE-CREW-MATCH-2026-11-05 (Kiko 5 Nov 11:49Z "Ok deploy" on crew-match-flow.png): Canvas matches the name and event and sends a
+ * 6-digit code; Cue sends Kiko's approved replies. The bridge answers are faked here; every call is checked against the schema. */
+function crewBox(answers) {
+  const calls = [];
+  const box = msgrSandbox({ bridgeFn: b => {
+    if (b.action === 'fl_social_save') { calls.push([b.action, b.args]); return { ok: true, email: b.args.email, written: [] }; }
+    if (!/^(crew_match|crew_code_check|msgr_told)$/.test(b.action)) return undefined;
+    assert.strictEqual(bridgeCheck(b.action, b.args), '', b.action + ' args fit the Canvas schema');
+    calls.push([b.action, b.args]);
+    const a = answers[b.action]; return typeof a === 'function' ? a(b.args) : a;
+  } });
+  box.calls = calls;
+  box.crew = text => { box.door(msgrIn('2002', { text: 'Hi' })); box.door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] })); box.door(msgrIn('2002', { text })); };
+  return box;
+}
+const MAIN = t => t.tabs.Chat.rows.filter(r => !r[3]).map(r => r[2]);
+test('MS16 match with a mobile: the code reply with the last 2 digits; the right code links them with the approved message', () => {
+  let codes = 0;
+  const b = crewBox({ crew_match: { status: 'code_sent', channel: 'mobile', hint: '12', project: 'Kings Day – Embassy of Belgium', first: 'Ana', person: 'Ana Cruz' },
+    crew_code_check: a => (codes++, a.code === '482913' ? { status: 'linked', first: 'Ana', project: 'Kings Day – Embassy of Belgium', key: 'ana@example.test' } : { status: 'wrong', left: 2 }) });
+  b.crew('Ana Cruz / Kings Day');
+  deq(b.calls[0][1].text, 'Ana Cruz / Kings Day'); assert.strictEqual(b.calls[0][1].psid, '2002');
+  assert.strictEqual(b.sent().pop()[1], 'Salamat po! Nakita ka namin sa team ng Kings Day – Embassy of Belgium. Nag-send kami ng 6-digit code sa mobile mo na nagtatapos sa 12. I-type mo lang dito ang code para ma-connect ka.');
+  b.door(msgrIn('2002', { text: 'ok po wait' })); assert.strictEqual(codes, 0, 'words while a code waits are not a code');
+  b.door(msgrIn('2002', { text: '111 111' }));
+  assert.strictEqual(b.sent().pop()[1], 'Mali po ang code. May 2 tries ka pa.');
+  b.door(msgrIn('2002', { text: '482913' }));
+  assert.strictEqual(b.sent().pop()[1], 'Hi Ana! Naka-connect ka na sa Blank Space Events dito sa Messenger. Dito na rin namin ipapadala ang papers mo to sign (FSA and AR) at updates for your events. Reply ka lang anytime kung may tanong ka.');
+  const ppl = b.t.tabs['Messenger People'].rows; deq(ppl[1].slice(0, 2), ['2002', 'ana@example.test']);
+  assert.ok(!b.t.props.MSGR_TRI_2002, 'now linked crew, out of the triage');
+  assert.ok(!MAIN(b.t).some(x => /sent their details/.test(x)), 'a match needs no main-chat line');
+  b.door(msgrIn('2002', { text: 'Salamat!' }));
+  assert.ok(b.calls.some(c => c[0] === 'fl_social_save' && c[1].email === 'ana@example.test' && c[1].last_message), 'their last message is kept in Canvas from now on');
+});
+test('MS17 match with email only says "sa email mo"; 1 try left; 3rd wrong locks with Kiko\'s note', () => {
+  let n = 0;
+  const b = crewBox({ crew_match: { status: 'code_sent', channel: 'email', hint: '', project: 'Globe Product Launch', first: 'Lito' },
+    crew_code_check: () => (++n < 3 ? { status: 'wrong', left: 3 - n } : { status: 'locked', name: 'Carlito Santos' }) });
+  b.crew('Lito Santos usher globe launch');
+  assert.strictEqual(b.sent().pop()[1], 'Salamat po! Nakita ka namin sa team ng Globe Product Launch. Nag-send kami ng 6-digit code sa email mo. I-type mo lang dito ang code para ma-connect ka.');
+  b.door(msgrIn('2002', { text: '000001' })); b.door(msgrIn('2002', { text: '000002' }));
+  assert.strictEqual(b.sent().pop()[1], 'Mali po ang code. May 1 try ka pa.');
+  b.door(msgrIn('2002', { text: '000003' }));
+  assert.strictEqual(b.sent().pop()[1], 'Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito.');
+  assert.ok(MAIN(b.t).includes('Carlito Santos typed 3 wrong codes on Messenger. Nothing was linked.'));
+  const k = b.sent().length; b.door(msgrIn('2002', { text: '000004' }));
+  assert.strictEqual(b.sent().length, k, 'locked: quiet'); assert.strictEqual(b.calls.filter(c => c[0] === 'crew_code_check').length, 3);
+});
+test('MS18 matched but no mobile and no email: the confirm reply and one main-chat line pointing to Link in Canvas', () => {
+  const b = crewBox({ crew_match: { status: 'no_contact', project: 'Kings Day – Embassy of Belgium', first: 'Juan', person: 'Juan Reyes' } });
+  b.crew('Juan Reyes / Kings Day');
+  assert.strictEqual(b.sent().pop()[1], 'Salamat po! Kailangan lang namin i-confirm ang details mo. Babalikan ka ng team namin dito.');
+  assert.ok(MAIN(b.t).includes('Juan Reyes (crew, Kings Day – Embassy of Belgium) messaged on Messenger but has no mobile or email on file, so Cue could not send a code. Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.'));
+  const k = b.sent().length; b.door(msgrIn('2002', { text: 'Hello po?' })); assert.strictEqual(b.sent().length, k, 'then quiet');
+});
+test('MS19 not sure: the live crewAck reply and main line; later details are matched again quietly', () => {
+  let ask = 0;
+  const b = crewBox({ crew_match: () => (++ask === 1 ? { status: 'unsure' } : { status: 'code_sent', channel: 'mobile', hint: '77', project: 'AMI Group\'s Christmas Party', first: 'Mark' }) });
+  b.crew('Mark po');
+  assert.strictEqual(b.sent().pop()[1], 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.');
+  assert.ok(MAIN(b.t).some(x => /sent their details on Messenger/.test(x)));
+  b.door(msgrIn('2002', { text: 'Mark Lim, AMI christmas party' }));
+  assert.ok(/nagtatapos sa 77/.test(b.sent().pop()[1]), 'second try matched: code sent');
+});
+test('MS20 staff Link or Not mine in Canvas: msgr_due tells Cue, the person gets the approved message once, Canvas is told', () => {
+  const b = crewBox({ crew_match: { status: 'no_contact', project: 'Kings Day', first: 'Juan', person: 'Juan Reyes' }, msgr_told: { ok: true, marked: 1 } });
+  b.crew('Juan Reyes / Kings Day');
+  b.t.ctx.cueBridge_ = ((orig) => (s, action, args) => action === 'msgr_due'
+    ? { docs: [], tell: [{ psid: '2002', status: 'linked', first: 'Juan', project: 'Kings Day', key: '' }, { psid: '3003', status: 'not_mine', first: 'Lito', project: 'Globe', key: '' }] }
+    : orig(s, action, args))(b.t.ctx.cueBridge_);
+  b.t.ctx.cueMsgrRun_(Date.parse('2026-11-02T06:45:00Z'));
+  const out = b.sent().slice(-2);
+  deq(out[0], ['2002', 'Hi Juan! Naka-connect ka na sa Blank Space Events dito sa Messenger. Dito na rin namin ipapadala ang papers mo to sign (FSA and AR) at updates for your events. Reply ka lang anytime kung may tanong ka.']);
+  deq(out[1], ['3003', 'Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito.']);
+  deq(b.calls.filter(c => c[0] === 'msgr_told').map(c => [c[1].psid, c[1].status]), [['2002', 'linked'], ['3003', 'not_mine']]);
+  assert.ok(b.t.tabs['Messenger People'].rows.some(r => r[0] === '2002'), 'Juan is linked crew now');
+  b.door(msgrIn('2002', { text: 'Thanks po' }));
+  assert.ok(!b.calls.some(c => c[0] === 'fl_social_save'), 'no Freelancers key: no last-message save (and no error)');
+});
+test('MS21 Canvas down: the crew still get the "not sure" reply, as before', () => {
+  const b = crewBox({ crew_match: () => { throw new Error('Canvas busy'); } });
+  b.crew('Ana Cruz / Kings Day');
+  assert.strictEqual(b.sent().pop()[1].slice(0, 40), 'Salamat po! Natanggap na namin ang detai');
+});
+
+test('MS22 instant taps (Kiko 5 Nov 12:00Z "Yes, ship it"): the relay keeps Cue\'s exact words, gets the token and linked crew when they change, and Cue does not answer a tap twice', () => {
+  const R = fs.readFileSync(path.join(__dirname, '..', 'relay', 'messenger-worker.js'), 'utf8');
+  const SAY = vm.runInContext('CUE_MSGR_SAY_', msgrBox().ctx);
+  assert.ok(R.includes("TRI_CREW: '" + SAY.crew.replace(/'/g, "\\'") + "'"), 'crew words match');
+  assert.ok(R.includes("TRI_CLIENT: '" + SAY.help.replace(/'/g, "\\'") + "'"), 'client words match');
+  const { t, door, sent, box } = msgrSandbox();
+  door(msgrIn('1001', { ref: 'sealed.ref' }));
+  deq(box.synced[0], { token: 'page-token', linked: [] });
+  door(msgrIn('2002', { text: 'Hi' }));
+  deq(box.synced.length, 2); deq(box.synced[1].linked, ['1001']);
+  door(msgrIn('2003', { text: 'Hello' })); deq(box.synced.length, 2, 'nothing changed: no second sync');
+  const n = sent().length, ev = msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }); ev.entry[0].messaging[0].relay_replied = true;
+  door(ev);
+  assert.strictEqual(sent().length, n, 'the relay already answered the tap');
+  assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'crew', 'Cue still records the tap and opens the chat');
 });
