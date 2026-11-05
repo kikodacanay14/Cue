@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (not deployed)
+## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (LIVE as Version 200, 5 Nov 2026 03:46Z; rollback Version 199)
 
 Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI
 usage and cost". At 13:10Z: "im upgrading to pro github".
