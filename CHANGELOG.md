@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.29: a crew member's Messenger details get one reply (not deployed; waits for Kiko's yes on the wording)
+
+Who asked and when: Kiko, 5 Nov 2026 07:22Z: "There was no response in my message earlier when it asked me for the event name
+and my name. So there." He tapped I'm crew, sent "Kiko Dacanay / Kings Day" at 14:33 PH and "Hello?" at 15:22, and got nothing
+back; both reached his Cue chat, but nothing showed in the main chat.
+
+What changed:
+- After a crew member (not linked yet) sends their first message after tapping I'm crew, Messenger replies once: "Salamat po!
+  Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible." (wording sent to Kiko for
+  his yes).
+- The same message puts one line in the main chat: "<name> (crew, not linked yet) sent their details on Messenger: ...".
+- Later messages stay quiet. Once the team answers from the person's Cue chat, the next details get the reply again.
+- Tests: MS10l new; MS10j and MS10k updated. 670/670.
+
 ## Cue 1.28.28: the Messenger "I'm crew" reply drops the email note (LIVE as Version 209, 5 Nov 2026 06:20Z; rollback Version 208)
 
 Who asked and when: Kiko, 5 Nov 2026 05:49Z: "Also remove the note about the email".

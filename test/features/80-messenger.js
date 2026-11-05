@@ -184,6 +184,21 @@ test('MS10d "I\'m crew": the crew reply and a "Crew, not linked yet" chat; Kiko\
   t.ctx.cueSend('Hi Ana, sending your link now.', [], 'chat', chat);
   assert.ok(sent().some(x => x[0] === '2002' && x[1] === 'Hi Ana, sending your link now.'), 'Kiko answers from the chat');
 });
+test('MS10l crew details get one reply and one main-chat line, then quiet until the team answers (Kiko 5 Nov 07:22Z)', () => {
+  const { t, door, sent } = msgrSandbox();
+  door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
+  door(msgrIn('2002', { text: 'Kiko Dacanay\nKings Day' }));
+  assert.strictEqual(sent().pop()[1], 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.');
+  const main = t.tabs.Chat.rows.filter(r => !r[3] && /sent their details on Messenger/.test(r[2]));
+  assert.strictEqual(main.length, 1, 'one main-chat line');
+  const n = sent().length; door(msgrIn('2002', { text: 'Hello?' }));
+  assert.strictEqual(sent().length, n, 'no second reply');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => !r[3] && /sent their details/.test(r[2])).length, 1, 'no second main line');
+  const chat = JSON.parse(t.props.MSGR_TRI_2002).chat;
+  t.ctx.cueSend('Hi, which role po?', [], 'chat', chat);
+  door(msgrIn('2002', { text: 'Marshal po' }));
+  assert.strictEqual(sent().pop()[1].slice(0, 9), 'Salamat p', 'after the team answers, new details get the reply again');
+});
 test('MS11 Cue collects from the relay only with its key, acks what it handled, and does nothing until set up', () => {
   const { t, door, saves } = msgrSandbox();
   door(msgrIn('1001', { ref: 'sealed.ref' }));
@@ -305,7 +320,7 @@ test('MS10j "start over" in a triage chat (Kiko 5 Nov 05:15Z) makes the person n
   const { t, door, sent } = msgrSandbox();
   door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
   const chat = JSON.parse(t.props.MSGR_TRI_2002).chat, n = sent().length;
-  door(msgrIn('2002', { text: 'Hello' })); assert.strictEqual(sent().length, n, 'after the tap Cue waits for a person');
+  door(msgrIn('2002', { text: 'Hello' })); assert.strictEqual(sent().length, n + 1, 'after the tap, one reply to their details (MS10l), then Cue waits for a person');
   t.ctx.cueSend('start over', [], 'chat', chat);
   assert.ok(!('MSGR_TRI_2002' in t.props) && !('MSGR_TOLD_2002' in t.props));
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === chat && /^Started over\./.test(r[2])));
@@ -317,7 +332,7 @@ test('MS10j "start over" in a triage chat (Kiko 5 Nov 05:15Z) makes the person n
 test('MS10k "start over" typed in Messenger by someone not linked resets them and gets the greeting (Kiko 5 Nov 05:21Z)', () => {
   const { t, door, sent } = msgrSandbox();
   door(msgrIn('2002', { text: 'Hi' })); door(msgrIn('2002', { pb: ['I\'m crew', 'TRI_CREW'] }));
-  const n = sent().length; door(msgrIn('2002', { text: 'Huy' })); assert.strictEqual(sent().length, n);
+  door(msgrIn('2002', { text: 'Huy' })); const n = sent().length; door(msgrIn('2002', { text: 'Huy ulit' })); assert.strictEqual(sent().length, n);
   door(msgrIn('2002', { text: 'Start over daw' }));
   assert.ok(/^Hi! Thank you for reaching out/.test(sent().pop()[1]), 'the greeting with buttons again');
   assert.strictEqual(JSON.parse(t.props.MSGR_TRI_2002).st, 'asked');

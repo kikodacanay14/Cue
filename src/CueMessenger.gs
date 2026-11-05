@@ -111,7 +111,10 @@ const CUE_MSGR_SAY_ = {
     + 'kikodacanay@blankspaceevent.com or 0976 494 2398.',
   // Until the crew registration form ships (plan T3), "I'm crew" points to the Messenger link in their email.
   // Kiko 5 Nov 05:49Z "Also remove the note about the email": the email-link sentences are gone, the rest is his approved wording.
-  crew: 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.'
+  crew: 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.',
+  /* CUE-MSGR-CREW-ACK-2026-11-05 (Kiko 5 Nov 07:22Z: "There was no response in my message earlier when it asked me for the
+   * event name and my name"): one reply right after a crew member sends their details, then quiet until the team answers. */
+  crewAck: 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.'
 };
 const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', start: 'TRI_START', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
 
@@ -256,9 +259,14 @@ function cueMsgrTriage_(psid, at, text, tap) {
     cueMsgrTriSave_(psid, T); return true;
   }
   if (T.st === 'ask_help' && text) { cueMsgrSend_(psid, CUE_MSGR_SAY_.thanks); T.st = 'client'; }
+  /* A crew member's details get one reply and one line in the main chat; later messages stay quiet until the team answers
+   * from the Cue chat (cueMsgrSaid_ clears T.acked). */
+  const ack = T.st === 'crew' && text && !T.acked;
+  if (ack && cueMsgrSend_(psid, CUE_MSGR_SAY_.crewAck).ok) T.acked = at;
   cueMsgrTriSave_(psid, T);
   cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');
   if (text) cueChat_(T.name + ' · Messenger', text, T.chat);
+  if (ack) cueChat_('Cue', T.name + ' (crew, not linked yet) sent their details on Messenger: "' + cueStr_(text, 200) + '". Reply in their chat.', '');
   return true;
 }
 /** Kiko's words in a Messenger chat: "done" closes it; anything else goes to the crew member on Messenger, inside the window (R10). */
@@ -284,6 +292,7 @@ function cueMsgrSaid_(c) {
     return cueView_(L.s);
   }
   const r = cueMsgrSend_(M.psid, t);
+  const T = r.ok && cueMsgrTri_(M.psid); if (T && T.acked) { delete T.acked; cueMsgrTriSave_(M.psid, T); }   // the team answered: the next details get a reply again
   cueChat_('Cue', r.ok ? 'Sent on Messenger.' : 'Not sent: ' + r.error + '.', L.s.id);
   return cueView_(L.s);
 }
