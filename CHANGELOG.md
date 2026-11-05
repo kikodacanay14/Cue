@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, not deployed)
+## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, LIVE as Version 204, 5 Nov 2026 04:45Z; rollback Version 203)
 
 Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".
 
