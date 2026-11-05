@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.27: "start over" typed in Messenger resets the person (not deployed)
+## Cue 1.28.27: "start over" typed in Messenger resets the person (BUG FIX, LIVE as Version 208, 5 Nov 2026 05:26Z; rollback Version 207)
 
 Who asked and when: Kiko, 5 Nov 2026 05:21Z, sent a screenshot of his phone: he typed "Start over daw" in Messenger and got no reply, because 1.28.26 only reads "start over" in the Cue chat.
 
