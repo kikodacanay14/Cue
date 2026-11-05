@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.22: Friday status emails keep a copy in Canvas (not deployed)
+## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 
 Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")
 with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when it is sent; earlier emails are not
