@@ -17,7 +17,19 @@ usage and cost". At 13:10Z: "im upgrading to pro github".
   posts its message to the chat through `alertErr`, as other Cue buttons do. Kiko, 4 Nov 2026 14:35Z: "i pressed finish but nothing
   happens". Display only, no rule change.
 - Kiko said "ship" for both on 5 Nov 2026 03:42Z.
+- Built on live Cue 1.28.19.1 (Version 199).
 - Tests: 658 (4 new, `test/features/32-usage-github.js`).
+
+## Cue 1.28.19.1: a Messenger stranger no longer floods Ask Cue (BUG FIX, LIVE as Version 199, 4 Nov 2026 15:09Z; rollback Version 198)
+
+Who asked and when: Kiko, 4 Nov 2026 14:58Z, "i feel this is gonna cause me some flooding....", and 14:59Z, "lets triage coz if its a customer inquiry... i want it".
+
+What changed:
+- Before, every message from someone not linked as crew posted "Messenger: a message from someone who is not linked as crew" in Ask Cue, and the "This chat is for our crew" reply went back on every message.
+- Now each such person gets the reply once and leaves one Ask Cue line, which shows their first words so a customer inquiry is not missed. Their later messages stay in the Page inbox only.
+- Built on live Cue 1.28.19 (Version 198). The three-button triage (crew, event inquiry, client) comes later with the crew Messenger build.
+
+Tests: 654 of 654 pass (MS10 rewritten).
 
 ## Cue 1.28.19: Connect Facebook sets up Messenger with no pastes (LIVE as Version 198, 4 Nov 2026 03:25Z; rollback Version 197)
 

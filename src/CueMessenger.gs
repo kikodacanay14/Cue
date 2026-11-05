@@ -167,8 +167,15 @@ function cueMsgrOne_(m) {
     return true;
   }
   if (!p) {
+    /* CUE-MSGR-NO-FLOOD-2026-11-04 (Kiko 4 Nov 2026 14:58Z "i feel this is gonna cause me some flooding....", 14:59Z "if its a
+     * customer inquiry... i want it"): someone not linked as crew gets the polite reply and leaves one Ask Cue line, with their
+     * first words, once per person; their later messages stay in the Page inbox only. */
+    const P = PropertiesService.getScriptProperties(), k = 'MSGR_TOLD_' + psid;
+    if (P.getProperty(k)) return true;
+    P.setProperty(k, at);
     cueMsgrSend_(psid, CUE_MSGR_SAY_.stranger);
-    cueChat_('Cue', 'Messenger: a message from someone who is not linked as crew. Nothing was saved. Read it in the Page inbox.', '');
+    cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
+      + '. Reply in the Page inbox. Their next messages show only there.', '');
     return true;
   }
   p.last = at;
