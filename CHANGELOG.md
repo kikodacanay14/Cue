@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.28.21: Messenger triage is the first reply (not deployed)
+
+Who asked and when: Kiko. The triage was approved on 4 Nov 2026 at 14:59Z ("lets triage coz if its a customer inquiry... i want it"). He chose two buttons and warm wording at 15:14Z, and gave the exact words at 15:50Z. On 5 Nov 2026 at 04:09Z, after testing on his phone, he wrote: "any initial message should provide triage already".
+
+What changed:
+- Anyone not linked as crew who messages the Page now gets, as the first reply, "Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba." with two tap buttons: I'm crew, and Client or inquiry. This replaces "This chat is for our crew".
+- **Client or inquiry:**
+  - Cue asks "Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo."
+  - Their next message gets Kiko's thanks, with his email and mobile.
+  - The person gets one Cue chat, "Messenger · <name> · Client or inquiry", set to Needs you. Kiko reads everything they send there and can answer by typing (inside Meta's 24-hour window).
+- **I'm crew:**
+  - A crew reply points to the Messenger link in their email, until the registration form ships.
+  - The person gets one Cue chat, "Messenger · <name> · Crew, not linked yet".
+- **No tap:** one Ask Cue line with their first words, as in 1.28.19.1. Their later untapped messages stay in the Page inbox.
+
+Not in this release: the INQ-0042 number and Team Cue placement, which need Canvas (plan T1b), and the crew registration form (plan T3).
+
+Tests: 661 of 661 pass (MS10 updated; MS10b, MS10c and MS10d new).
+
 ## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (LIVE as Version 200, 5 Nov 2026 03:46Z; rollback Version 199)
 
 Kiko, 4 Nov 2026 13:05Z, after adding a card and an Actions budget on GitHub: "can you add in the page where we compute possible AI
