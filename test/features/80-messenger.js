@@ -264,3 +264,13 @@ test('MS10f CUE-MSGR-FAST-2026-11-05 (Kiko 04:30Z "5 minuites is not good"): the
   assert.strictEqual(sent().length, 1); assert.strictEqual(held.length, 1);
   delete t.props.CUE_MSGR_PULL_RUN; assert.strictEqual(t.ctx.cueMsgrPull_(), 1); assert.ok(!('CUE_MSGR_PULL_RUN' in t.props), 'the lease is let go');
 });
+test('MS10g one Ask Cue line per person in total (Kiko 5 Nov 04:33Z "its still sending 1 notif per message"), across versions and retries', () => {
+  const { t, door, sent } = msgrSandbox();
+  t.props.MSGR_TOLD_2002 = '2026-11-05T04:08:00.000Z';   // noted by 1.28.19.1 before the triage shipped
+  door(msgrIn('2002', { text: 'Luh' }));
+  assert.ok(/^Hi! Thank you for reaching out/.test(sent()[0][1]), 'the person still gets the triage greeting');
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 0, 'no second line for someone already noted');
+  const u = msgrSandbox({ fb: (x) => /\/me\/messages$/.test(x) ? { getResponseCode: () => 400, getContentText: () => '{}' } : { getResponseCode: () => 200, getContentText: () => '{}' } });
+  u.door(msgrIn('5005', { text: 'a' })); u.door(msgrIn('5005', { text: 'b' })); u.door(msgrIn('5005', { text: 'c' }));
+  assert.strictEqual(u.t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2])).length, 1, 'refused greetings retry without a line each time');
+});
