@@ -240,7 +240,10 @@ function cueMsgrTriage_(psid, at, text, tap) {
     return true;
   }
   T.last = at;
-  if (!T.chat) { cueMsgrTriSave_(psid, T); return true; }   // no tap yet: stays in the Page inbox
+  if (!T.chat) {   // no tap yet (Kiko 5 Nov 04:51Z "Its not responding..."): a typed message gets the greeting and buttons again, no new Ask Cue line
+    if (cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons).ok) T.asked = at;
+    cueMsgrTriSave_(psid, T); return true;
+  }
   if (T.st === 'ask_help' && text) { cueMsgrSend_(psid, CUE_MSGR_SAY_.thanks); T.st = 'client'; }
   cueMsgrTriSave_(psid, T);
   cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');

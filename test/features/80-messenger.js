@@ -142,7 +142,8 @@ test('MS10 changed links save nothing and get a polite reply; a stranger gets th
   const line = () => t.tabs.Chat.rows.filter(r => r[3] === '' && /not linked as crew/.test(r[2]));
   assert.strictEqual(line().length, 1); assert.ok(/magkano po package\?/.test(line()[0][2]), 'first words shown so an inquiry is not missed');
   door(msgrIn('2002', { text: 'hello po?' })); door(msgrIn('2002', { text: 'up' }));
-  assert.strictEqual(sent().filter(x => x[0] === '2002').length, 1, 'the triage goes once per person');
+  assert.strictEqual(sent().filter(x => x[0] === '2002').length, 3, 'each typed message before a tap gets the greeting and buttons again (5 Nov 04:51Z)');
+  assert.ok(sent().filter(x => x[0] === '2002').every(x => /^Hi! Thank you for reaching out/.test(x[1])));
   assert.strictEqual(line().length, 1, 'one Ask Cue line per person');
   door(msgrIn('4004', { text: 'event inquiry po' })); assert.strictEqual(line().length, 2, 'a new person gets their own line');
 });

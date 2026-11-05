@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.24: a Messenger stranger who types instead of tapping gets the buttons again (BUG FIX, not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026 04:51Z, testing 1.28.23 (Version 204): "Its not responding...".
+
+What changed:
+- Cause: after the greeting, a person who typed instead of tapping I'm crew or Client or inquiry got no answer. Cue stored the message quietly, and Messenger hides the buttons once a new message is sent, so the person was stuck.
+- Now each typed message before a tap gets the same approved greeting with the two buttons again. Cue's Ask Cue line stays one per person.
+
+Tests: MS10 updated (three typed messages, three greetings, one Ask Cue line). 665/665 pass.
+
 ## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, LIVE as Version 204, 5 Nov 2026 04:45Z; rollback Version 203)
 
 Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".
