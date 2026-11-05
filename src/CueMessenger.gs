@@ -28,12 +28,14 @@ function cueMsgrText_(d) {
     + d.sign_link + '\nThe link works for 30 days. It\'s also in your email.';
 }
 /** One Messenger text to one person (Send API, RESPONSE type: inside the 24-hour window only). */
-function cueMsgrSend_(psid, text) {
+function cueMsgrSend_(psid, text, buttons) {
   const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
   if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
+  const message = { text: String(text).slice(0, 2000) };
+  if (buttons) message.quick_replies = buttons.map(b => ({ content_type: 'text', title: b[0], payload: b[1] }));
   const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'RESPONSE', message: { text: String(text).slice(0, 2000) } }) });
+    payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'RESPONSE', message }) });
   const code = res.getResponseCode();
   if (code === 200) return { ok: true };
   let msg = ''; try { msg = (JSON.parse(res.getContentText()).error || {}).message || ''; } catch (e) { msg = ''; }
@@ -84,7 +86,7 @@ function cueMsgrRun_(now) {
  *     the person in the "Messenger People" tab and says they are linked;
  *   - a message from a linked person: updates their last-message time in Canvas and adds it to their Cue chat
  *     "Messenger · <name>" (one chat per person, mockup MSG-5); Kiko answers there by typing;
- *   - anyone else: a polite reply, nothing saved, and one line in Ask Cue (R5).
+ *   - anyone else: the triage (CUE-MSGR-TRIAGE-2026-11-05, cueMsgrTriage_ below); nothing is saved in Canvas.
  * Crew messages are untrusted data: Cue never follows instructions inside them and makes no AI call on them. */
 const cueMsgrId_ = () => 'cue-' + Utilities.formatDate(new Date(cueNow_()), 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
 function cueMsgrClose_(id) {
@@ -95,8 +97,19 @@ const CUE_MSGR_SAY_ = {
   linked: n => 'Hi ' + n + '! You\'re linked to Blank Space Events. Your papers to sign will come here too. Reply anytime if you have a question.',
   stranger: 'Thanks for messaging Blank Space Events! This chat is for our crew. If you are crew, open the Messenger link in your email from us. '
     + 'For anything else, email info@blankspaceevent.com.',
-  badLink: 'Thanks for messaging Blank Space Events! That link did not work. Please open the Messenger link in your newest email from us.'
+  badLink: 'Thanks for messaging Blank Space Events! That link did not work. Please open the Messenger link in your newest email from us.',
+  /* CUE-MSGR-TRIAGE-2026-11-05 (Kiko 4 Nov 2026 14:59Z "lets triage coz if its a customer inquiry... i want it"; 15:14Z two
+   * buttons, "make the response warm"; 15:50Z the wording; 5 Nov 04:09Z "any initial message should provide triage already").
+   * Mockup: CanvasWorkspace docs/mockups/crew-msgr-channels/messenger-triage.png. Kiko's words, kept as he wrote them. */
+  greet: 'Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba.',
+  help: 'Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo.',
+  thanks: 'Salamat po sa pag-message. I have passed the details to Kiko and he will get back to you. You may also contact Kiko Dacanay at '
+    + 'kikodacanay@blankspaceevent.com or 0976 494 2398.',
+  // Until the crew registration form ships (plan T3), "I'm crew" points to the Messenger link in their email.
+  crew: 'Welcome to the crew po. Para ma-link ka, open mo lang ang Messenger link sa email namin. Wala ka pang email from us? '
+    + 'Reply ka lang dito with your full name and event, and our team will help you.'
 };
+const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
 
 function cueMsgrPeopleTab_() { return cueSheet_(CUE_MSGR_PEOPLE_.tab); }   // made on first use from CUE_TABS_
 /** { psid: { row, psid, email, name, last, chat } } */
@@ -166,18 +179,7 @@ function cueMsgrOne_(m) {
     if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
     return true;
   }
-  if (!p) {
-    /* CUE-MSGR-NO-FLOOD-2026-11-04 (Kiko 4 Nov 2026 14:58Z "i feel this is gonna cause me some flooding....", 14:59Z "if its a
-     * customer inquiry... i want it"): someone not linked as crew gets the polite reply and leaves one Ask Cue line, with their
-     * first words, once per person; their later messages stay in the Page inbox only. */
-    const P = PropertiesService.getScriptProperties(), k = 'MSGR_TOLD_' + psid;
-    if (P.getProperty(k)) return true;
-    P.setProperty(k, at);
-    cueMsgrSend_(psid, CUE_MSGR_SAY_.stranger);
-    cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
-      + '. Reply in the Page inbox. Their next messages show only there.', '');
-    return true;
-  }
+  if (!p) return cueMsgrTriage_(psid, at, text, String((msg.quick_reply || {}).payload || ''));
   p.last = at;
   cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at });
   cueLocked_(() => {
@@ -188,11 +190,60 @@ function cueMsgrOne_(m) {
   if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
   return true;
 }
+/* CUE-MSGR-TRIAGE-2026-11-05: someone not linked as crew. Their first message gets the greeting with two tap buttons, once.
+ * "Client or inquiry": Cue asks how it can help; their next message gets the thanks, and the person gets one Cue chat
+ * ("Messenger · <name> · Client or inquiry", Needs you) where Kiko reads everything they send and can answer by typing.
+ * "I'm crew": the crew reply, and one Cue chat ("· Crew, not linked yet") so staff can send the link.
+ * No tap: one line in Ask Cue with their first words (as 1.28.19.1); later untapped messages stay in the Page inbox.
+ * State per person in script property MSGR_TRI_<psid>: { st: asked | crew | ask_help | client, chat, name, last }. No AI call. */
+function cueMsgrTri_(psid) { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('MSGR_TRI_' + psid) || 'null'); } catch (e) { return null; } }
+function cueMsgrTriSave_(psid, T) { PropertiesService.getScriptProperties().setProperty('MSGR_TRI_' + psid, JSON.stringify(T)); return T; }
+/** The person's one Cue chat, made when missing, and set to Needs you. Returns its id. */
+function cueMsgrTriChat_(psid, T, label) {
+  if (!T.name) T.name = cueMsgrProfile_(psid).name || 'Messenger guest';
+  return cueLocked_(() => {
+    const p = { psid, email: '', name: T.name, chat: T.chat };
+    cueMsgrChatFor_(p);
+    const L = cueLoad_(p.chat);
+    if (L) { L.s.text = 'Messenger · ' + T.name + ' · ' + label; L.s.msgr.lead = label; L.s.status = 'Needs you'; L.s.stage = 'Needs you';
+      L.s.card_at = cueNow_(); delete L.s.archived; cueSave_(L.sh, L.row, L.s); }
+    T.chat = p.chat;
+    return p.chat;
+  });
+}
+function cueMsgrTriage_(psid, at, text, tap) {
+  let T = cueMsgrTri_(psid);
+  if (tap === CUE_MSGR_TRI_.client || tap === CUE_MSGR_TRI_.crew) {
+    const crew = tap === CUE_MSGR_TRI_.crew;
+    T = T || { first: text };
+    T.st = crew ? 'crew' : 'ask_help'; T.last = at;
+    cueMsgrSend_(psid, crew ? CUE_MSGR_SAY_.crew : CUE_MSGR_SAY_.help);
+    const chat = cueMsgrTriChat_(psid, T, crew ? 'Crew, not linked yet' : 'Client or inquiry');
+    cueMsgrTriSave_(psid, T);
+    cueChat_('Cue', T.name + ' tapped "' + (crew ? 'I\'m crew' : 'Client or inquiry') + '" on Messenger.'
+      + (T.first && T.first !== text ? ' First message: "' + cueStr_(T.first, 200) + '"' : ''), chat);
+    return true;
+  }
+  if (!T) {
+    cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    cueMsgrTriSave_(psid, { st: 'asked', first: text, last: at });
+    cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
+      + '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.', '');
+    return true;
+  }
+  T.last = at;
+  if (!T.chat) { cueMsgrTriSave_(psid, T); return true; }   // no tap yet: stays in the Page inbox
+  if (T.st === 'ask_help' && text) { cueMsgrSend_(psid, CUE_MSGR_SAY_.thanks); T.st = 'client'; }
+  cueMsgrTriSave_(psid, T);
+  cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');
+  if (text) cueChat_(T.name + ' · Messenger', text, T.chat);
+  return true;
+}
 /** Kiko's words in a Messenger chat: "done" closes it; anything else goes to the crew member on Messenger, inside the window (R10). */
 function cueMsgrSaid_(c) {
   if (!c.ref || c.has || c.mode === 'intake') return null;
   const L = cueLoad_(c.ref); if (!L || L.s.kind !== 'msgr') return null;
-  const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || { last: '' };
+  const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || cueMsgrTri_(M.psid) || { last: '' };
   cueChat_('Kiko', t, L.s.id);
   if (/^(done|close( it| this)?)[.!]?$/i.test(t)) {
     const s = cueMsgrClose_(L.s.id); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);

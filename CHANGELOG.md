@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.21: Friday status emails keep a copy in Canvas (not deployed)
+## Cue 1.28.22: Friday status emails keep a copy in Canvas (not deployed)
 
 Kiko, 4 Nov 2026 16:22Z, on the Canvas Projects page menus: "Reports > Weekly Reports - to see copies of it". Approved 16:28Z ("yup")
 with assumption A14: Cue saves a copy of each Friday email to Canvas through the bridge when it is sent; earlier emails are not
@@ -11,8 +11,27 @@ back-filled.
   has already gone, so a failed copy never blocks or undoes it: the sent line says the copy was not saved, and says nothing while live
   Canvas does not have `status_copy` yet (it ships with Canvas PR #498).
 - `test/fixtures/ZapBridge.gs`: the `status_copy` schema added from CanvasWorkspace PR #498.
-- Tests: ST2b in `test/features/63-friday-status.js`. 659/659 pass on the merged build.
-- Kiko said "yes" on 5 Nov 2026 03:54Z (deploy with the Canvas V452 menus release). Built on live Cue 1.28.20 (Version 200).
+- Tests: ST2b in `test/features/63-friday-status.js`. 662/662 pass on the build with 1.28.21.
+- Kiko said "yes" on 5 Nov 2026 03:54Z (deploy with the Canvas V452 menus release). Built on live Cue 1.28.21 (Version 201). It first went live by mistake as Version 202 on 5 Nov 2026 04:29Z, built on V200, which left out the 1.28.21 Messenger triage until this rebuild.
+
+## Cue 1.28.21: Messenger triage is the first reply (BUG FIX, LIVE as Version 201, 5 Nov 2026 04:26Z; rollback Version 200)
+
+Who asked and when: Kiko. The triage was approved on 4 Nov 2026 at 14:59Z ("lets triage coz if its a customer inquiry... i want it"). He chose two buttons and warm wording at 15:14Z, and gave the exact words at 15:50Z. On 5 Nov 2026 at 04:09Z, after testing on his phone, he wrote: "any initial message should provide triage already".
+
+What changed:
+- Anyone not linked as crew who messages the Page now gets, as the first reply, "Hi! Thank you for reaching out to Blank Space Events. Para ma-assist ka namin agad, pili ka lang po sa baba." with two tap buttons: I'm crew, and Client or inquiry. This replaces "This chat is for our crew".
+- **Client or inquiry:**
+  - Cue asks "Happy to help po. Ano pong maitutulong namin? Share mo lang kung para saan ang message mo."
+  - Their next message gets Kiko's thanks, with his email and mobile.
+  - The person gets one Cue chat, "Messenger · <name> · Client or inquiry", set to Needs you. Kiko reads everything they send there and can answer by typing (inside Meta's 24-hour window).
+- **I'm crew:**
+  - A crew reply points to the Messenger link in their email, until the registration form ships.
+  - The person gets one Cue chat, "Messenger · <name> · Crew, not linked yet".
+- **No tap:** one Ask Cue line with their first words, as in 1.28.19.1. Their later untapped messages stay in the Page inbox.
+
+Not in this release: the INQ-0042 number and Team Cue placement, which need Canvas (plan T1b), and the crew registration form (plan T3).
+
+Tests: 661 of 661 pass (MS10 updated; MS10b, MS10c and MS10d new).
 
 ## Cue 1.28.20: GitHub Actions cost on the AI usage and cost page, Messenger button errors shown (LIVE as Version 200, 5 Nov 2026 03:46Z; rollback Version 199)
 
