@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.26: "start over" in a Messenger triage chat (not deployed)
+## Cue 1.28.26: "start over" in a Messenger triage chat (BUG FIX, LIVE as Version 207, 5 Nov 2026 05:19Z; rollback Version 206)
 
 Who asked and when: Kiko, 5 Nov 2026, testing Version 206 from his own Facebook account. 05:05Z "Nothing happens......", 05:15Z "I didnt see those. What are you saying?".
 
