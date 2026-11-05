@@ -11,10 +11,17 @@ Ships with the Canvas release of the same change (CanvasWorkspace PR on branch `
   writes nothing for it; `cueSettings` only adds the address (`canvas_approvals_url`, empty when `CUE_CANVAS_URL` is not a Canvas address).
 - `?view=admin&sec=<section>&bare=1` opens one Cue Admin section alone, with no title bar or section list. Canvas Admin uses it for
   System Config › AI Usage and Cost (`sec=usage`), API Keys › Connections (`sec=conn`), and Automation Setting › Chasers
-  (`jobchasers`), Chaser Rules (`chasers`), Auto-Send (`auto`) and Templates (`templates`) (Kiko 16:55Z). Those four stay in Cue Admin too. Only a section that exists can be opened.
+  (`jobchasers`), Auto-Send (`auto`) and Templates (`templates`) (Kiko 16:55Z). Those three stay in Cue Admin too. Only a section that exists can be opened.
 - The System group (Connections, AI usage and cost) is hidden from Cue Admin's own list because it now shows in Canvas Admin. The sections
   and their code are unchanged.
-- Tests: `test/features/85-admin-groups.js` (AG1 to AG4); AD4 and UG5 updated for the new list. 666 of 666 pass.
+- Chasers and Chaser rules are one page, Jobs › Chasers (Kiko 17:06Z "Can we merge Chasers and Chaser Rules? Group them first based
+  on target receiver"; mockup approved 17:19Z "approved"). Every chaser, Cue's and Canvas's, is grouped under Clients, Suppliers or Crew,
+  with its timing (first after, then every, stop after, on) on its row and the settings for all chasers, with Save rules, at the bottom.
+  A Cue chaser opens to its template; a Canvas chaser opens to its send-now list. Final reminder goes to suppliers and crew, so it is
+  listed under both. The timing boxes are the same ones Chaser rules had and save the same way; no chaser, rule or send changes. The
+  Chaser rules item is gone from the list, and an old `sec=chasers` link opens Chasers.
+- A section opened alone for Canvas hides its own title, because Canvas shows the title above the frame (brand check, 5 Nov).
+- Tests: `test/features/85-admin-groups.js` (AG1 to AG6); AD4 and UG5 updated for the new list. 668 of 668 pass.
 
 ## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 

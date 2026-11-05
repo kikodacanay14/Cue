@@ -150,6 +150,7 @@
     setHtml(box, '<div style="margin:6px 0"><a class="btn ghost" href="' + esc(u.replace('&bare=1', '')) + '" target="_blank" rel="noopener">Open in Canvas ↗</a></div><iframe class="apfr" title="For Approval (Canvas)" src="' + esc(u) + '"></iframe>');
   }
   function settingsTab(sec) {
+    if (sec === 'chasers') sec = 'jobchasers';   // ADMIN-GROUPS-2026-11-05: Chaser rules is part of Chasers now
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
     if (sec === 'usage') loadUsage();
@@ -158,7 +159,7 @@
     if (sec === 'triage') loadTriage();
     if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
-    if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
+    if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); chDraw(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
     if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();   // a failed read is tried again each time the section opens
@@ -255,7 +256,7 @@
     sms: '<svg class="ic" viewBox="0 0 24 24" aria-label="Text" role="img"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
     app: '<svg class="ic" viewBox="0 0 24 24" aria-label="App notice" role="img"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
   var jc = null, jcErr = '';
-  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; rnwDraw(); }, function (e) { jcErr = (e && e.message) || String(e); rnwDraw(); }); }
+  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; rnwDraw(); chDraw(); }, function (e) { jcErr = (e && e.message) || String(e); rnwDraw(); chDraw(); }); }
   // CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "the specific resource we're chasing are gonna be prompted to me in Cue ... Have here the generic templates
   // for each chaser"): each chaser opens to its email template; the chases themselves wait in the morning batch.
   function tvar(h) { return h.replace(/&lt;([^&]{1,60}?)&gt;/g, '<span class="tvar">&lt;$1&gt;</span>'); }   // Kiko 03:38Z: highlight the variables
@@ -361,7 +362,7 @@
   var RNW = { d: null, res: {}, tick: {}, kind: 'ar', q: '', unsent: false, busy: false, err: '', msg: '' };
   var RNW_KINDS = [['ar', 'AR chaser', 'Paid suppliers whose AR is made but not signed yet'], ['invoice', 'Invoice chaser', 'Paid suppliers who owe us their invoice'],
     ['paid', 'Payment sent', 'Paid requests whose supplier has no payment notice yet'], ['final', 'Final reminder', 'Events today or later, to their suppliers and crew']];
-  function rnwLoad() { RNW.err = ''; RNW.msg = ''; call('cueAdminCanvasChasers', [], function (d) { RNW.d = d; rnwDraw(); }, function (e) { RNW.err = "Couldn't load the lists: " + ((e && e.message) || e); rnwDraw(); }); }
+  function rnwLoad() { RNW.err = ''; RNW.msg = ''; call('cueAdminCanvasChasers', [], function (d) { RNW.d = d; rnwDraw(); chDraw(); }, function (e) { RNW.err = "Couldn't load the lists: " + ((e && e.message) || e); rnwDraw(); }); }
   function rnwPeso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function rnwKey(x) { return x.kind + '|' + x.pid + '|' + (x.item || ''); }
   function rnwTicked(x) { var k = rnwKey(x), r = RNW.res[k]; return k in RNW.tick ? RNW.tick[k] : r ? !r.ok : !!x.on; }
@@ -418,6 +419,61 @@
         RNW.msg = (r.results || []).filter(function (x) { return x.ok; }).length + ' of ' + lines.length + ' sent.'; rnwDraw(); },
         function (err) { RNW.busy = false; RNW.msg = 'Nothing was sent: ' + ((err && err.message) || err); rnwDraw(); });
     });
+  });
+
+  // ---- ADMIN-GROUPS-2026-11-05 (Kiko 5 Nov 17:06Z "Can we merge Chasers and Chaser Rules? * Group them first based on target receiver";
+  // mockup approved 17:19Z "approved"): one Chasers page. Every chaser, Cue's and Canvas's, grouped by who gets it, with its timing on
+  // the same row (the same data-rule inputs and Save rules as Chaser rules had). A row opens to its template (Cue) or its send-now list
+  // (Canvas, the list above, moved into the row). The grouping is only how the page is laid out; no chaser changes. ----
+  var CHM_GRP = [['clients', 'Clients', ['cue:inquiry', 'cue:inbox', 'cue:award', 'cue:payment']],
+    ['suppliers', 'Suppliers', ['cue:accreditation', 'cue:rfq', 'ar', 'invoice', 'paid', 'final']],
+    ['crew', 'Crew', ['cue:signature', 'final']]];
+  var CHM = { open: '' };
+  function chmRow(key) {
+    var cue = /^cue:/.test(key), k = cue ? ((jc && jc.kinds) || []).filter(function (x) { return 'cue:' + x.kind === key; })[0] : RNW_KINDS.filter(function (x) { return x[0] === key; })[0];
+    if (!k) return '';
+    var R = cue && rules && rules.kinds ? rules.kinds[k.kind] : null, open = CHM.open === key, d = RNW.d;
+    var n = function (f, v, lo, hi, lab) { return '<input type="number" data-rule="' + esc(k.kind + '.' + f) + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" aria-label="' + esc(lab) + '">'; };
+    var unit = R ? '<span class="chm-u">' + (R.unit === 'working' ? 'working days' : 'days') + '</span>' : '';
+    var head = '<tr class="chm-r' + (open ? ' open' : '') + '"><td data-l="Chaser"><button type="button" class="chm-name" data-chm-open="' + esc(key) + '" aria-expanded="' + open + '">' + esc(cue ? k.label : k[1]) + '</button><span class="adesc">' + esc(cue ? k.about : k[2]) + (cue ? ' To ' + esc(k.to) + '.' : '') + '</span></td>'
+      + '<td data-l="Sent from">' + esc(cue ? k.from : 'Canvas') + '</td><td class="c" data-l="How">' + IC.mail + (cue ? '' : IC.sms) + '</td>';
+    if (R) head += '<td class="c" data-l="First after">' + n('first', R.first, 1, 60, 'First after') + unit + '</td><td class="c" data-l="Then every">' + n('every', R.every, 1, 60, 'Then every') + unit + '</td><td class="c" data-l="Stop after">' + n('max', R.max, 1, 10, 'Stop after') + '<span class="chm-u">chases</span></td>'
+      + '<td class="c" data-l="On"><input type="checkbox" data-rule="' + esc(k.kind) + '.on"' + (R.on ? ' checked' : '') + ' aria-label="On"></td><td class="c" data-l="Lined up">In the morning batch</td>';
+    else head += '<td colspan="3" class="c chm-span" data-l="Timing">' + (cue ? 'Each morning, in the 8 AM update' : 'Canvas\'s own timing') + '</td><td class="c" data-l="On">' + (cue ? (k.on ? '<span class="tag pref">On</span>' : '<span class="tag">Off</span>') : '<span class="tag pref">On</span>') + '</td><td class="c" data-l="Lined up">' + (cue ? 'In the morning batch' : (d ? (d[key] || []).length : '…')) + '</td>';
+    head += '</tr>';
+    if (R && R.soon_first != null) head += '<tr class="chm-sub"><td data-l="Chaser" class="adesc">↳ Event within 7 days</td><td></td><td></td><td class="c" data-l="First after">' + n('soon_first', R.soon_first, 1, 60, 'First after, event within 7 days') + '</td><td class="c" data-l="Then every">' + n('soon_every', R.soon_every, 1, 60, 'Then every, event within 7 days') + '</td><td></td><td></td><td></td></tr>';
+    if (open) head += '<tr class="chm-x"><td colspan="8">' + (cue ? jcHtml(k) : '<div class="chm-slot"></div>') + '</td></tr>';
+    return head;
+  }
+  function chDraw() {
+    var box = $('w-chm'); if (!box) return;
+    var G = rules && rules.general, num = function (f, v, lo, hi, lab) { return '<input type="number" data-rule="general.' + f + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" aria-label="' + esc(lab) + '">'; };
+    var head = '<thead><tr><th>Chaser</th><th>Sent from</th><th>How</th><th>First after</th><th>Then every</th><th>Stop after</th><th>On</th><th>Lined up</th></tr></thead>';
+    var h = '<div class="adesc" style="margin-bottom:8px">Every chaser, Cue\'s and Canvas\'s, grouped by who gets it. Timing sits on the same row. Nothing goes out until you tap Approve. Open a chaser to see its template or who is lined up.</div>'
+      + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '')
+      + '<div class="chm-jump">' + CHM_GRP.map(function (g) { return '<a href="#chm-' + g[0] + '">' + g[1] + ' · ' + g[2].length + '</a>'; }).join('') + '<a href="#chm-general">All chasers</a></div>';
+    CHM_GRP.forEach(function (g) {
+      h += '<div class="card chm-g" id="chm-' + g[0] + '"><div class="arow chm-h"><b>' + g[1] + '</b><span class="adesc">' + g[2].length + ' chasers</span></div><div class="scroll"><table class="chm">' + head + '<tbody>' + g[2].map(chmRow).join('') + '</tbody></table></div></div>';
+    });
+    if (G) h += '<div class="card chm-g" id="chm-general"><div class="arow chm-h"><b>All chasers</b></div><table class="facts">'
+      + '<tr><td>Build the batch at</td><td>' + num('build', G.build, 5, 10, 'Build the batch at') + ' :00</td></tr>'
+      + '<tr><td>Send approved emails at</td><td>' + num('send', G.send, 7, 20, 'Send approved emails at') + ' :00</td></tr>'
+      + '<tr><td>Quiet hours (no reminders)</td><td>' + num('quiet_from', G.quiet_from, 18, 23, 'Quiet from') + ' :00 to ' + num('quiet_to', G.quiet_to, 5, 9, 'Quiet until') + ' :00</td></tr>'
+      + '<tr><td>Most lines per chaser / per batch</td><td>' + num('per_kind', G.per_kind, 1, 30, 'Most lines per chaser') + ' / ' + num('per_batch', G.per_batch, 1, 60, 'Most lines per batch') + '</td></tr></table>'
+      + (rules.notes || []).map(function (x) { return '<div class="warn">' + esc(x) + '</div>'; }).join('')
+      + '<div class="actions"><button class="btn" data-act="rules-save" data-id="">Save rules</button></div>'
+      + '<div class="small muted">Changes apply from the next morning batch. Who an email comes from, and your approval, never change here.</div></div>';
+    else h += '<div class="small muted">Loading the timing…</div>';
+    var rnw = $('w-rnw'); setHtml(box, h);
+    var slot = box.querySelector('.chm-slot');
+    if (slot) { slot.appendChild(rnw); rnw.hidden = false; } else { rnw.hidden = true; box.parentNode.appendChild(rnw); }
+    bind();
+  }
+  $('w-chm').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-chm-open]'); if (!b) return;
+    var key = b.getAttribute('data-chm-open'); CHM.open = CHM.open === key ? '' : key;
+    if (CHM.open && !/^cue:/.test(CHM.open)) { RNW.kind = CHM.open; RNW.msg = ''; rnwDraw(); }
+    chDraw();
   });
 
   var SNW = { b: null, kind: '', pid: '', item: '', d: null, busy: false, q: '', err: '', items: null, out: '' };
@@ -824,7 +880,7 @@
       + '<div class="small muted">Changes apply from the next morning batch. Who an email comes from, and your approval, never change here.</div></details>';
     setHtml($('w-rules'), h);
     $('rules-card').ontoggle = function () { rulesOpen = $('rules-card').open || 0; };   // Cue Admin shows it open until it is closed
-    bind();
+    bind(); chDraw();   // ADMIN-GROUPS-2026-11-05: the merged Chasers page shows the same timing
   }
 
   // Task basics (Kiko 07:31Z) had a Due / Priority / Remind row; Kiko 14:42Z removed it. Close is ✓ in the pane header, Archive its ⋯.

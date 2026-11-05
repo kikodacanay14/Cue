@@ -29,3 +29,15 @@ test('AG5 a section opened alone for Canvas hides its own title, because Canvas 
   const S = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.match(S, /body\.admin-bare #settings \.smain > section > \.label:first-child \{ display:none; \}/);
 });
+test('AG6 Chasers and Chaser Rules are one page, grouped by who gets each chaser (Kiko 17:06Z, "approved" 17:19Z)', () => {
+  const H = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), P = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.match(H, /<button data-s="chasers" hidden>Chaser rules<\/button>/, 'no separate Chaser rules item in the list');
+  assert.match(H, /<section data-sec="jobchasers" hidden><div class="label" style="margin-top:0">Chasers<\/div><div id="w-chm">/);
+  assert.match(P, /if \(sec === 'chasers'\) sec = 'jobchasers';/, 'an old Chaser rules link opens Chasers');
+  const grp = P.match(/var CHM_GRP = (\[[\s\S]*?\]\]\]);/)[1], G = Function('return ' + grp)();
+  assert.deepStrictEqual(G.map(g => g[1]), ['Clients', 'Suppliers', 'Crew']);
+  const all = [].concat.apply([], G.map(g => g[2]));
+  ['cue:inquiry', 'cue:inbox', 'cue:award', 'cue:payment', 'cue:accreditation', 'cue:rfq', 'cue:signature', 'ar', 'invoice', 'paid', 'final'].forEach(k => assert.ok(all.indexOf(k) >= 0, k + ' is on the page'));
+  assert.match(P, /data-rule="' \+ esc\(k\.kind \+ '\.' \+ f\) \+ '"/, 'the timing boxes are the same data-rule boxes Save rules reads');
+  assert.match(P, /data-act="rules-save" data-id="">Save rules<\/button>/);
+});
