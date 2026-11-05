@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.21: Messenger triage is the first reply (not deployed)
+## Cue 1.28.21: Messenger triage is the first reply (BUG FIX, LIVE as Version 201, 5 Nov 2026 04:26Z; rollback Version 200)
 
 Who asked and when: Kiko. The triage was approved on 4 Nov 2026 at 14:59Z ("lets triage coz if its a customer inquiry... i want it"). He chose two buttons and warm wording at 15:14Z, and gave the exact words at 15:50Z. On 5 Nov 2026 at 04:09Z, after testing on his phone, he wrote: "any initial message should provide triage already".
 
