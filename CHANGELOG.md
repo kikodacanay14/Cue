@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, LIVE Version 218, 6 Nov 2026 01:56Z, rollback Version 217)
+
+Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.36 (Version 217, main e0a241d).
+
+- With Canvas busy for its full 20-second lock wait on every call, 20 leads over 3 tries could run past Apps Script's 6-minute limit, and
+  the run would end before saving which leads were still open. `cueBridgeWaves_` now starts no new wave after 150 seconds; the leads not
+  sent stay open and the next bid check sends them.
+- The one-time recovery of the three old bid checks starts no new old run after 2 minutes. A resume at least 10 minutes later sends the
+  rest, and when nothing is left it marks itself done (`CUE_BIDS_LEAD_BACKLOG_DONE`).
+- Rule written up as CUE-046 in `docs/business-rules.md`.
+- Tests: LR8 and LR9 new in `test/features/86-bid-lead-retry.js` (LR8 fails on 1.28.35). 703 of 703 pass.
+
 ## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (LIVE Version 217, 6 Nov 2026 01:26Z, rollback 216)
 
 Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z

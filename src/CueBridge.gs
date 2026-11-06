@@ -34,16 +34,21 @@ function cueBridge_(s, action, args, pid) { return cueBridgeAll_(s, [[action, ar
  * progress" once a dozen queued (15 bid leads lost, 4 to 6 Nov). Commands of a claimed plan now go CUE_WAVES_.size at a time; a busy
  * answer is sent again with the same command_id after a pause (Canvas reruns a Rejected or never-claimed command and replays a finished
  * one, so a repeat never writes twice). Returns one { r } (the parsed result) or { err } per command, in order. */
-const CUE_WAVES_ = { size: 3, tries: 3, pause: 5000 };
+const CUE_WAVES_ = { size: 3, tries: 3, pause: 5000, budget: 150000 };
+// Codex review on #336 (6 Nov 2026): with Canvas busy for its full 20 s lock wait, 20 commands over 3 tries could pass Apps Script's
+// 6-minute limit and the run would end before saving which leads are still open. No new wave starts after CUE_WAVES_.budget ms; the
+// commands not sent come back as a busy error, so callers keep them open and the next run sends them.
 const cueBridgeBusy_ = m => /Another save is in progress|busy, retry later|\(Blocked\): in progress|did not answer|timed out|Address unavailable/i.test(String(m || ''));
-function cueBridgeWaves_(t, cmds) {
-  const out = cmds.map(() => null);
+function cueBridgeWaves_(t, cmds, budget) {
+  const out = cmds.map(() => null), end = cueNow_() + (budget || CUE_WAVES_.budget);
+  const late = ns => ns.forEach(n => { out[n] = out[n] || { err: 'Canvas busy, retry later: not sent before Cue\'s time limit' }; });
   let todo = cmds.map((c, n) => n);
   for (let k = 0; k < CUE_WAVES_.tries && todo.length; k++) {
-    if (k) Utilities.sleep(CUE_WAVES_.pause);
+    if (k) { if (cueNow_() + CUE_WAVES_.pause >= end) break; Utilities.sleep(CUE_WAVES_.pause); }
     const again = [];
     for (let i = 0; i < todo.length; i += CUE_WAVES_.size) {
       const wave = todo.slice(i, i + CUE_WAVES_.size);
+      if (cueNow_() >= end) { late(todo.slice(i)); again.length = 0; todo = []; break; }
       let res = null, err = '';
       try { res = UrlFetchApp.fetchAll(wave.map(n => cueBridgeReq_(t, cmds[n].action, cmds[n].args, cmds[n].pid || '', cmds[n].command_id))); }
       catch (e) { err = String((e && e.message) || e); }
