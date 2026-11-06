@@ -649,8 +649,9 @@ function cueTaskName_(x) {
   if (x.kind === 'workflow') return 'the ' + ((x.workflow && ((x.workflow.map && x.workflow.map.name) || x.workflow.name)) || 'workflow') + ' map';
   if (x.kind === 'supplier') return (x.sup && x.sup.record && x.sup.record['Supplier']) || 'the supplier registration';
   if (x.kind === 'personal') return 'Personal expense' + ((x.items || [])[0] && x.items[0].payee ? ': ' + x.items[0].payee + (x.items.length > 1 ? ' and ' + (x.items.length - 1) + ' more' : '') : '');
-  if (x.kind === 'intake') { if (x.label) return x.label; }
-  return x.kind === 'change' ? ((c.match && c.match.name) || c.project || 'the change request') : (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
+  if (x.kind === 'change') return (c.match && c.match.name) || c.project || 'the change request';
+  if (x.kind === 'intake') return x.label || (cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake');
+  return cl.company ? cl.company + (e.name ? ', ' + e.name : '') : 'the project intake';
 }
 
 /** Requests created in the last `days` days, newest first. */
