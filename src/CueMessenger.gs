@@ -110,14 +110,37 @@ function cueMsgrRun_(now) {
   try { cueMsgrTell_(s, o.tell, now); } catch (e) { console.error('Messenger tell: ' + e); }   // CUE-CREW-MATCH-2026-11-05
   // A send Meta accepted is remembered here first, so a failed msgr_mark is retried on the next tick without a second message.
   const P = PropertiesService.getScriptProperties(), held = k => P.getProperty('CUE_MSGR_SENT_' + k);
+  /* BUGFIX-MSGR-LAST-2026-11-06 (Kiko 6 Nov 03:30Z, linked by "I'm crew" and the code at 00:28 Manila, yet their FSA never came;
+   * 03:31Z "Please check if this would happen to others too"): the code link and staff Link never wrote "Last Messenger message"
+   * in Canvas, so every linked crew member looked outside the 24-hour window. When Canvas has no time, Cue uses the last time
+   * in its own Messenger People tab and copies it to Canvas once. That time can be Cue's own "you're linked" message (staff Link
+   * before this fix), so a Meta "outside of allowed window" answer for it is a skip, not a failure, and is not tried again
+   * until the time changes. */
+  let people = null;
+  const lastOf = d => {
+    if (String(d.last_message || '').trim() || !d.messenger_id) return { at: d.last_message, cue: false };
+    try { people = people || cueMsgrPeople_(); } catch (e) { people = {}; }
+    const p = people[String(d.messenger_id)] || {};
+    return { at: p.last || '', cue: !!p.last, email: p.email || d.email || '' };
+  };
+  const synced = {};
   (o.docs || []).forEach(d => {
     const k = d.doc + ':' + d.id;
     if (d.sent) { if (held(k)) P.deleteProperty('CUE_MSGR_SENT_' + k); return; }
     if (held(k)) { cueMsgrMark_(s, d, k, P); return; }
     if (!d.messenger_id || !d.sign_link) { out.skipped.push({ id: d.id, why: 'not linked' }); return; }
-    if (!cueMsgrInWindow_(d.last_message, now)) { out.skipped.push({ id: d.id, why: 'last message over 24 hours ago' }); return; }
+    const L = lastOf(d);
+    if (!cueMsgrInWindow_(L.at, now)) { out.skipped.push({ id: d.id, why: 'last message over 24 hours ago' }); return; }
+    if (L.cue && P.getProperty('CUE_MSGR_OUT_' + k) === L.at) { out.skipped.push({ id: d.id, why: 'outside Meta\'s window' }); return; }
     const r = cueMsgrSend_(d.messenger_id, cueMsgrText_(d));
+    if (!r.ok && L.cue && /outside of allowed window/i.test(r.error)) { P.setProperty('CUE_MSGR_OUT_' + k, String(L.at)); out.skipped.push({ id: d.id, why: 'outside Meta\'s window' }); return; }
     if (!r.ok) { out.failed.push({ id: d.id, why: r.error }); return; }
+    // Meta took it, so the window is open: Canvas gets the time too (once per person), for payment notices and later papers.
+    if (L.cue && L.email && !synced[d.messenger_id]) {
+      synced[d.messenger_id] = 1;
+      try { cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + d.messenger_id + ':' + String(L.at).replace(/[^0-9A-Za-z]/g, ''), email: L.email, last_message: L.at }); }
+      catch (e) { console.error('Messenger last-message copy: ' + e); }
+    }
     P.setProperty('CUE_MSGR_SENT_' + k, String(cueNow_()));
     out.sent++;
     cueMsgrMark_(s, d, k, P);
@@ -388,6 +411,9 @@ function cueMsgrCrewLinked_(psid, at, T, r, text) {
   cueMsgrSend_(psid, CUE_MSGR_SAY_.crewLinked(r.first || String(T.name || '').split(/\s+/)[0] || 'there'));
   const p = { psid, email: r.key || '', name: T.name, last: at, chat: T.chat };
   cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); });
+  // BUGFIX-MSGR-LAST-2026-11-06: the code they just typed is their last message; Canvas needs it for the 24-hour window.
+  if (p.email) try { cueBridge_({ id: 'msgr' }, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at }); }
+  catch (e) { console.error('Messenger last-message save: ' + e); }
   const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + psid);
   cueChat_(T.name + ' · Messenger', text, p.chat);
   cueChat_('Cue', 'Linked on Messenger: ' + T.name + (r.project ? ' (crew, ' + r.project + ')' : '') + '.', p.chat);
@@ -433,8 +459,13 @@ function cueMsgrTell_(s, tell, now) {
       const r = cueMsgrSend_(x.psid, linked ? CUE_MSGR_SAY_.crewLinked(x.first || String(T.name || '').split(/\s+/)[0] || 'there') : CUE_MSGR_SAY_.notLinked);
       if (!r.ok) { console.error('Messenger tell ' + x.psid + ': ' + r.error); return; }
       at = String(now); P.setProperty(k, at);
-      if (linked) { const p = { psid: x.psid, email: x.key || '', name: T.name || x.first, last: new Date(now).toISOString(), chat: T.chat };
-        cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); }); P.deleteProperty('MSGR_TRI_' + x.psid); }
+      /* BUGFIX-MSGR-LAST-2026-11-06: their last message is the one they sent (T.last), not this "you're linked" message from us.
+       * Canvas gets it too, so their papers and payment notices see the right 24-hour window. */
+      const tl = Date.parse(String(T.last || '')), inb = !isNaN(tl) && tl <= now ? String(T.last) : '';
+      if (linked) { const p = { psid: x.psid, email: x.key || '', name: T.name || x.first, last: inb || new Date(now).toISOString(), chat: T.chat };
+        cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); }); P.deleteProperty('MSGR_TRI_' + x.psid);
+        if (inb && p.email) try { cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + x.psid + ':' + inb.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: inb }); }
+        catch (e) { console.error('Messenger last-message save: ' + e); } }
       else if (T.chat) { T.m = 'locked'; cueMsgrTriSave_(x.psid, T); }
     }
     try { const m = cueBridge_(s, 'msgr_told', { request_id: 'msgrtold:' + x.psid + ':' + x.status + ':' + at, psid: String(x.psid), status: x.status });
