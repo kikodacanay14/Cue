@@ -393,6 +393,31 @@ function cueMsgrCrewLinked_(psid, at, T, r, text) {
   cueChat_('Cue', 'Linked on Messenger: ' + T.name + (r.project ? ' (crew, ' + r.project + ')' : '') + '.', p.chat);
   return true;
 }
+/* CREW-RESTORE-2026-11-06 (Kiko 6 Nov 2026 02:04Z, with screenshots of the King's Day crew Messenger lines: "these people messaged
+ * this what i want you to rtestore"; 02:05Z "i cant find whjere to approve or link them"; 02:05Z picked "Add to Canvas list, you tap
+ * Link: Cue sends each saved first message to Canvas. They appear under Freelancers and King's Day Communication Config with a Link
+ * button. Nobody is messaged."). Once: everyone who wrote to the Page but never tapped "I'm crew" (or tapped and was never matched)
+ * goes to Canvas's crew_wait with their first message, which lists them for Link and sends no code. Run from cueResume until every
+ * call has gone through, then never again (CUE_CREW_RESTORE_DONE). Nothing is sent on Messenger. */
+function cueMsgrCrewRestore_() {
+  const P = PropertiesService.getScriptProperties();
+  if (globalThis.CUE_CHECK_ON_ || P.getProperty('CUE_CREW_RESTORE_DONE') === '1') return null;
+  const all = P.getProperties(), out = { listed: [], skipped: 0, failed: 0 };
+  Object.keys(all).filter(k => /^MSGR_TRI_\d+$/.test(k)).sort().forEach(k => {
+    const psid = k.slice(9); let T = null; try { T = JSON.parse(all[k]); } catch (e) { return; }
+    if (!T || T.restored || !(T.st === 'asked' || (T.st === 'crew' && !T.m))) return;
+    const text = cueStr_(T.details || T.first || '', 1000); if (!text) return;
+    let r = null;
+    try { r = cueBridge_({ id: 'msgr' }, 'crew_wait', { request_id: 'crewwait:' + psid, psid, messenger_name: cueStr_(T.name && T.name !== 'Messenger guest' ? T.name : '', 120), text }) || {}; }
+    catch (e) { out.failed++; console.error('crew_wait ' + psid + ': ' + e); return; }
+    T.restored = String(r.status || 'done'); cueMsgrTriSave_(psid, T);
+    if (r.status === 'to_link' || r.status === 'no_match') out.listed.push(r.person || cueStr_(text.split('\n')[0], 40)); else out.skipped++;
+  });
+  if (!out.failed) P.setProperty('CUE_CREW_RESTORE_DONE', '1');
+  if (out.listed.length) cueChat_('Cue', 'Put ' + out.listed.length + ' Messenger crew on Canvas\'s Link list (they wrote before tapping "I\'m crew"): '
+    + out.listed.join(', ') + '. Link them on the Freelancers page or the project\'s Communication Config. Nobody was messaged.', '');
+  return out;
+}
 /** People staff linked (Link) or turned down (Not mine) in Canvas, from msgr_due: told once, then msgr_told. */
 // MSGR-TOLD-ONCE-2026-11-06 (Codex review of 1.28.30): a told person is remembered locally (CUE_MSGR_TOLD_<psid>:<status>) right after
 // Meta accepts the message and Cue saves them, so a failed msgr_told is retried alone on the next tick: no second message, no second

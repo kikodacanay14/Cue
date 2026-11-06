@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.39: King's Day crew who messaged before tapping "I'm crew" go on Canvas's Link list (not deployed)
+
+Kiko, 6 Nov 2026 02:04Z, with screenshots of the King's Day crew Messenger lines: "these people messaged this what i want you to
+rtestore"; 02:05Z "i cant find whjere to approve or link them"; 02:05Z picked "Add to Canvas list, you tap Link" (nobody is messaged).
+Needs Canvas V483 (bridge action `crew_wait`). Built on live 1.28.38 (Version 219).
+
+- Canvas's Link list (Freelancers page, the project's Communication Config) only showed people who tapped "I'm crew" and then typed
+  their details. Of the 11 King's Day crew who wrote on 6 Nov, 9 never tapped, so there was nothing to link.
+- Once, from the background resume, Cue sends each such person's saved first message to Canvas's `crew_wait`. Canvas lists them
+  ("To link" with Link ready, or "No match" to pick the person) and sends no code. People who name no live event are not listed.
+  Cue posts one line in the main chat with the names. Nothing is sent on Messenger. A refusal (Canvas V483 not live yet) is tried
+  again on the next resume; when every call has gone through it never runs again (`CUE_CREW_RESTORE_DONE`).
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas V483. Tests: `test/features/87-crew-restore.js` (CRW1, CRW2). 709 of 709 pass.
+
 ## Cue 1.28.38: Admin › Auto-Send shows each journey and the messages sent at each step (LIVE Version 219, 6 Nov 2026 01:57Z, rollback 218)
 
 Kiko, 5 Nov 2026 16:55Z: "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should

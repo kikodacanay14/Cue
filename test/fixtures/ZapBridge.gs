@@ -242,7 +242,7 @@ const ZB_ACTIONS_ = {
   },
   get_project: {
     kind: 'read', needsProject: true, schema: { parts: { type: 'array', maxItems: 10 } },
-    run: (r) => getProject(r.project_id, r.args.parts || ['admin'])
+    run: (r) => { ZB_KEEP_CE_ = true; try { return getProject(r.project_id, r.args.parts || ['admin']); } finally { ZB_KEEP_CE_ = false; } } // CE-VALUE-KIKO-2026-11-05: Kiko's own tools keep the CE prices
   },
   list_project_files: {
     // CUE-2026-10-21 (Kiko 04:48Z: "i want to see the files in the project folders"). The matched project's folder and its
@@ -960,6 +960,7 @@ function zbHandle_(raw, sig, now, gpt) {
   const auth = gpt ? '' : zbAuth_(raw, sig, r, now, props.getProperty('ZAD_SECRET'));   // a ChatGPT call was checked by its key
   if (auth) return zbOut_('Rejected', r, { error: auth });
   try { guestGate_('zapBridge', []); } catch (e) { return zbOut_('Blocked', r, { error: zbErr_(e) }); }
+  if (SW_.fn === 'zapBridge') SW_.fn = 'zapBridge ' + String(r.action || '').slice(0, 60); // PAY-SAVE-LAPS-2026-11-06: Save Timings names the action
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);   // no 'constructor', '__proto__'
   if (own(ZB_FORBIDDEN_, r.action)) return zbOut_('Rejected', r, { error: ZB_FORBIDDEN_[r.action] });
   const a = own(ZB_ACTIONS_, r.action) ? ZB_ACTIONS_[r.action] : null;
@@ -3343,6 +3344,12 @@ ZB_ACTIONS_.crew_match = {
   kind: 'queue', needsProject: false,
   schema: { request_id: ZB_RID_, psid: ZB_PSID_, messenger_name: { type: 'string', max: 120 }, text: { type: 'string', required: true, max: 1000 } },
   run: (r) => zbCrewMatch_(r.args)
+};
+// CREW-RESTORE-2026-11-06: Cue only. Puts one Messenger guest who never tapped "I'm crew" on the Link list; sends no code (MessengerMatch.gs).
+ZB_ACTIONS_.crew_wait = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: ZB_RID_, psid: ZB_PSID_, messenger_name: { type: 'string', max: 120 }, text: { type: 'string', required: true, max: 1000 } },
+  run: (r) => zbCrewWait_(r.args)
 };
 ZB_ACTIONS_.crew_code_check = {
   kind: 'queue', needsProject: false,

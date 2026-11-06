@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.38';
+const CUE_VERSION_ = 'Cue 1.28.39';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -732,6 +732,7 @@ function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueBidsLeadsBacklogNow_(); } catch (e) { console.error('Bid lead recovery: ' + e); }   // once after 1.28.35: the 15 lost bid leads (CueBids.gs)
+  try { cueMsgrCrewRestore_(); } catch (e) { console.error('Crew restore: ' + e); }   // once after 1.28.39: King's Day crew who never tapped I'm crew (CueMessenger.gs)
   const jobs = cueJobs_(), rows = [];   // STRUCTURE-PHASE-3: the job list and its Job Runs rows (CueJobs.gs)
   jobs.filter(j => !j.last).forEach(j => cueJobRun_(j, rows));
   cueRows_(cueSheet_('Requests')).forEach(r => {
