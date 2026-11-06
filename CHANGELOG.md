@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (not deployed)
+## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (LIVE as Version 214, 6 Nov 2026 01:07Z; rollback Version 213)
 
 Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.32 (branch claude/project-thread-lda4e2, cd77399) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). A first 1.28.33 deploy on 1.28.30 (01:03Z) was replaced a minute later by the 1.28.32 deploy, so this one carries both.
 
