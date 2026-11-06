@@ -985,22 +985,97 @@ const cueBidsLeadArgs_ = it => {
   if (ev) a.event_date = ev;
   return a;
 };
+/* LEAD-RETRY-2026-11-06 (coordinator 6 Nov 00:55Z; ledger 4 Nov 23:01Z and 5 Nov 22:51Z): Cue sent every lead at once, so 13
+ * requests queued on Canvas's one save lock (it waits 20 s) and the later ones failed with "Another save is in progress": 15 leads
+ * of the 30 Oct, 5 Nov and 6 Nov checks never reached the CRM. Leads now go 3 at a time (cueBridgeWaves_), and a busy answer is sent
+ * again with the same command_id (Canvas reruns a Rejected or never-claimed command; crmLead_ returns the deal a request_id already
+ * made, so a repeat never makes a second lead). What still fails stays on the run (leads.open) and the next bid check sends it as a
+ * recovery task (<task>-recovery-1 with recovers <task>). That claim supersedes the old plan, which also closes its stuck Claimed
+ * rows. One earlier run per check, at most CUE_BIDS_LEAD_.recoveries times. */
+const CUE_BIDS_LEAD_ = { recoveries: 3, catchupAfterMs: 120000 };   // waves and retries: cueBridgeWaves_ (CueBridge.gs)
+const cueBidsLeadList_ = s => ((s.bids && s.bids.items) || []).filter(it => it.key && (it.project || it.reference)).slice(0, 20);
+/** Claims the plan (a recovery plan when recovers is given) and sends it: { task, sent: [{ id } | { err }], claimed, error }. */
+function cueBidsLeadPush_(taskId, list, recovers) {
+  const t = { id: taskId };
+  const part = list.map((it, n) => ({ command_id: 'cue:' + t.id + ':crm_lead:' + n, action: 'crm_lead', args: cueBidsLeadArgs_(it) }));
+  try { cueBridgePlan_(t, part, recovers); }
+  catch (e) { const m = String((e && e.message) || e); return { task: t.id, claimed: false, error: m, sent: part.map(() => ({ err: m })) }; }
+  return { task: t.id, claimed: true, sent: cueBridgeWaves_(t, part).map(x => x.err ? x : { id: String(x.r.ID || ''), created: String(x.r.Created || '') }) };
+}
 function cueBidsLeads_(s) {
-  const B = s.bids, list = (B.items || []).filter(it => it.key && (it.project || it.reference));
+  const B = s.bids, list = cueBidsLeadList_(s), t0 = cueNow_();
   B.leads = { added: 0, failed: 0 };
-  if (!list.length || globalThis.CUE_CHECK_ON_) return;
-  const t = { id: 'bidlead-' + cueNow_().toString(36) };
-  const part = list.slice(0, 20).map((it, n) => ({ command_id: 'cue:' + t.id + ':crm_lead:' + n, action: 'crm_lead', args: cueBidsLeadArgs_(it) }));
-  let res = null, err = '';
-  try { cueBridgePlan_(t, part); res = UrlFetchApp.fetchAll(part.map(c => cueBridgeReq_(t, c.action, c.args, '', c.command_id))); }
-  catch (e) { err = String((e && e.message) || e); }
-  part.forEach((c, n) => {
-    try { if (err) throw new Error(err);
-      const r = cueBridgeParse_('crm_lead', res[n]) || {};
-      if (r.refused) throw new Error(r.refused);
-      B.leads.added++; }
-    catch (e) { B.leads.failed++; if (B.leads.failed === 1) s.notes.push('Not added to Canvas CRM: ' + cueStr_((e && e.message) || e, 200)); }
+  if (globalThis.CUE_CHECK_ON_) return;
+  if (list.length) {
+    const P = cueBidsLeadPush_('bidlead-' + cueNow_().toString(36), list), open = [];
+    if (P.claimed) B.leads.task = P.task;
+    P.sent.forEach((r, n) => {
+      if (!r.err) { B.leads.added++; return; }
+      B.leads.failed++; open.push(list[n].key);
+      if (B.leads.failed === 1) { const m = cueStr_(r.err, 200).replace(/[.\s]*$/, '.'); s.notes.push('Not added to Canvas CRM: ' + m + (P.claimed ? ' The next bid check sends it again.' : '')); }
+    });
+    if (open.length && P.claimed) B.leads.open = open;
+  }
+  if (cueNow_() - t0 > CUE_BIDS_LEAD_.catchupAfterMs) return;   // a slow day: the next check catches up
+  try { cueBidsLeadsCatchUp_(s); } catch (e) { console.warn('Bid lead catch-up: ' + e); }
+}
+/** Once after Cue 1.28.35 ships: the three bid checks that lost leads before the fix, with the task each claimed (from the ledger,
+ * 6 Nov 2026). They kept no list of what failed, so every lead of the run is sent again; crmLead_ returns the deals already made. */
+const CUE_BIDS_LEAD_BACKLOG_ = [['cue-20261030071051-53ca', 'bidlead-mvu5wz5e'], ['cue-20261105063345-6770', 'bidlead-mw2q0m92'],
+  ['cue-20261106063350-36e7', 'bidlead-mw453v1z']];
+function cueBidsLeadBacklog_() {
+  if (cueProp_('CUE_BIDS_LEAD_BACKLOG', '') === '1') return;
+  cueLocked_(() => CUE_BIDS_LEAD_BACKLOG_.forEach(([id, task]) => {
+    let x = null; try { x = cueLoad_(id); } catch (e) { return; }
+    const L = x && x.s.bids && x.s.bids.leads;
+    if (!L || !L.failed || L.open || L.task) return;
+    L.task = task; L.open = cueBidsLeadList_(x.s).map(it => it.key);
+    cueSave_(x.sh, x.row, x.s);
+  }));
+  PropertiesService.getScriptProperties().setProperty('CUE_BIDS_LEAD_BACKLOG', '1');
+}
+/** Kiko 6 Nov 01:07Z ("Recover those coz i cant ask them to do it again"): the first resume after 1.28.35 ships recovers the three old
+ * runs at once instead of one per daily check. Each old run's thread gets one line saying what was added. Later runs use the daily path. */
+function cueBidsLeadsBacklogNow_() {
+  if (globalThis.CUE_CHECK_ON_ || cueProp_('CUE_BIDS_LEAD_BACKLOG', '') === '1') return;
+  // Two resume triggers can overlap; only the one that takes this mark sends (crmLead_'s look-up is not under Canvas's lock).
+  const mine = cueLocked_(() => { const P = PropertiesService.getScriptProperties();
+    if (P.getProperty('CUE_BIDS_LEAD_BACKLOG') === '1' || Number(P.getProperty('CUE_BIDS_LEAD_BACKLOG_AT') || 0) > cueNow_() - 30 * 60 * 1000) return false;
+    P.setProperty('CUE_BIDS_LEAD_BACKLOG_AT', String(cueNow_())); return true; });
+  if (!mine) return;
+  cueBidsLeadBacklog_();
+  for (let k = 0; k < CUE_BIDS_LEAD_BACKLOG_.length; k++) {
+    const me = { id: '', notes: [] }, before = cueBidsRuns_(cueSheet_('Requests')).filter(x => CUE_BIDS_LEAD_BACKLOG_.some(b => b[0] === x.s.id) && x.s.bids && x.s.bids.leads
+      && (x.s.bids.leads.open || []).length && !x.s.bids.leads.tries)[0];
+    if (!before) break;
+    cueBidsLeadsCatchUp_(me, before.s.id);
+    me.notes.forEach(n => cueChat_('Cue', n, before.s.ref || before.s.id));
+  }
+}
+/** The oldest earlier bid check with leads still open gets one recovery task. Notes on this check's card say what it added. */
+function cueBidsLeadsCatchUp_(s, only) {
+  cueBidsLeadBacklog_();
+  const R = cueBidsRuns_(cueSheet_('Requests')).filter(x => x.s.id !== s.id && (!only || x.s.id === only) && x.s.bids && x.s.bids.leads && (x.s.bids.leads.open || []).length
+    && x.s.bids.leads.task && (x.s.bids.leads.tries || 0) < CUE_BIDS_LEAD_.recoveries)[0];
+  if (!R) return;
+  const L0 = R.s.bids.leads, items = cueBidsLeadList_(R.s), want = L0.open.map(k => items.filter(it => it.key === k)[0]).filter(Boolean);
+  const t0 = cueNow_() - 2000;   // a deal Created before this push (Canvas writes whole seconds) was already in the CRM
+  const P = want.length ? cueBidsLeadPush_(L0.task + '-recovery-1', want, L0.task) : { claimed: false, error: 'nothing to recover', sent: [] };
+  const done = /nothing to recover/.test(P.error || ''), left = done ? [] : want.filter((it, n) => P.sent[n].err).map(it => it.key);
+  // crmLead_ answers a request_id it already saved with that deal, so only a deal created just now counts as added (Created is Manila time).
+  const fresh = r => !r.created || Date.parse(r.created.replace(' ', 'T') + '+08:00') >= t0;
+  const added = done ? 0 : P.sent.filter(r => !r.err && fresh(r)).length;
+  cueLocked_(() => {
+    const x = cueLoad_(R.s.id); if (!x) return;
+    const L = x.s.bids.leads;
+    L.tries = (L.tries || 0) + 1; L.recovered = (L.recovered || 0) + added; L.checked = want.length; L.recovered_at = new Date(cueNow_()).toISOString();
+    if (P.claimed) L.task = P.task;
+    if (left.length) L.open = left; else delete L.open;
+    cueSave_(x.sh, x.row, x.s);
   });
+  const day = R.day || String(R.s.created || '').slice(0, 10);
+  if (added) s.notes.push('Added to Canvas CRM: ' + added + ' lead' + (added === 1 ? '' : 's') + ' the ' + day + ' bid check could not save (Canvas was busy).');
+  if (left.length && !done) s.notes.push('Still not in Canvas CRM from the ' + day + ' bid check: ' + left.length + ' lead' + (left.length === 1 ? '' : 's') + '. ' + cueStr_(P.error || (P.sent.filter(r => r.err)[0] || {}).err || '', 200));
 }
 
 /** Check mode only (test/checks/1.27.56-into-canvas.check.mjs): the crm_lead requests the newest bid check of the last 14 days would

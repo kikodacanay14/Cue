@@ -247,6 +247,9 @@ function sandbox(o = {}) {
         const again = (log.annSeen = log.annSeen || {})[body.args.request_id]; log.annSeen[body.args.request_id] = log.annSeen[body.args.request_id] || 'ANN-00' + (10 + log.annPost.length);
         return resp(200, { ok: true, status: 'Completed', result: { id: log.annSeen[body.args.request_id], again: !!again, groups: body.args.groups } }); }
       if (body.action === 'claim_plan') { const pl = (log.plans_ = log.plans_ || {}), had = pl[body.task_id];
+        if (body.args.recovers != null) { (log.recoveries = log.recoveries || []).push({ task: body.task_id, recovers: body.args.recovers, n: body.args.commands.length });
+          if (!new RegExp('^' + body.args.recovers + '-recovery-[1-9]$').test(body.task_id)) return resp(200, { ok: false, status: 'Rejected', error: 'a recovery task must be named <recovered task>-recovery-<1..9>' });
+          if (o.nothingToRecover) return resp(200, { ok: false, status: 'Rejected', error: 'every command of ' + body.args.recovers + ' completed; nothing to recover' }); }
         if (had && had !== JSON.stringify(body.args)) return resp(200, { ok: false, status: 'Rejected', error: 'this task already has a different plan' });
         pl[body.task_id] = JSON.stringify(body.args); return resp(200, { ok: true, status: 'Completed', result: { plan_hash: body.args.plan_hash, commands: body.args.commands } }); }
       if (body.action === 'crm_log') { const pl = (log.plans_ || {})[body.task_id], cmds = pl ? JSON.parse(pl).commands : null;
@@ -254,6 +257,8 @@ function sandbox(o = {}) {
         const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
         if (!c) return resp(200, { ok: false, status: 'Rejected', error: 'command is not in the claimed plan for this task' });
         if (c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command payload differs from the claimed plan' });
+        log.logCalls = (log.logCalls || 0) + 1;   // LEAD-RETRY-2026-11-06: o.logBusy = how many crm_log calls answer like Canvas's lock timeout
+        if (log.logCalls <= (o.logBusy || 0)) return resp(200, { ok: false, status: 'Rejected', error: 'Another save is in progress. Try again in a moment. Nothing was saved.' });
         (log.crmLog = log.crmLog || []).push(body.args);
         if ((o.crmRefused || []).indexOf(body.args.email) >= 0) return resp(200, { ok: true, status: 'Completed', result: { refused: 'No account matches. Nothing was saved.' } });
         if ((o.crmFail || []).indexOf(body.args.email) >= 0) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
@@ -265,8 +270,13 @@ function sandbox(o = {}) {
         const c = cmds.find(x => x.command_id === body.command_id), h = crypto.createHash('sha256').update(JSON.stringify([body.action, body.project_id || '', body.expected_project_number || '', body.args])).digest('hex');
         if (!c || c.payload_hash !== h) return resp(200, { ok: false, status: 'Rejected', error: 'command is not the claimed one' });
         if (o.leadFail) return resp(200, { ok: false, status: 'Rejected', error: 'Canvas busy' });
+        // LEAD-RETRY-2026-11-06: o.leadBusy = how many crm_lead calls answer like Canvas's lock timeout (crmDoor_ refuses, ledger Rejected).
+        log.leadCalls = (log.leadCalls || 0) + 1; (log.leadTasks = log.leadTasks || []).push(body.task_id);
+        if (log.leadCalls <= (o.leadBusy || 0)) return resp(200, { ok: false, status: 'Rejected', error: 'Another save is in progress. Try again in a moment. Nothing was saved.' });
         (log.crmLeads = log.crmLeads || []).push(body.args);
-        return resp(200, { ok: true, status: 'Completed', result: { ID: 'D-' + log.crmLeads.length, Stage: 'Inquiry' } }); }
+        const deals = (log.crmDeals = log.crmDeals || {});   // crmLead_: a request_id that already made a deal returns that deal
+        if (!deals[body.args.request_id]) deals[body.args.request_id] = { id: 'D-' + (Object.keys(deals).length + 1), created: new Date(now + 8 * 3600e3).toISOString().slice(0, 19) };   // Created: Manila time
+        return resp(200, { ok: true, status: 'Completed', result: { ID: deals[body.args.request_id].id, Created: deals[body.args.request_id].created, Stage: 'Inquiry' } }); }
       // CUE-EDIT-2026-10-27: the generic bridge (allow_list, read_rows; write_rows and allow_list_set as claimed plans' commands).
       if (body.action === 'allow_list') return resp(200, { ok: true, status: 'Completed', result: { tabs: (o.allow || ED_ALLOW).map(x => ({ book: x.book, tab: x.tab, key: x.key, mode: x.mode })), functions: [], hash: 'h', protected: true } });
       if (body.action === 'read_rows') { (log.readRows = log.readRows || []).push(body.args);
