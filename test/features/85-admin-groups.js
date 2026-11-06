@@ -49,3 +49,9 @@ test('AG7 Codex review on #333: Final reminder opens under the group tapped, and
   assert.match(P, /var dirty = \[\]\.map\.call\(box\.querySelectorAll\('\[data-rule\]'\)/, 'unsaved data-rule values are read before the redraw');
   assert.match(P, /dirty\.forEach\(function \(x\) \{ var i = box\.querySelector\('\[data-rule="' \+ x\[0\] \+ '"\]'\)/, 'and put back after it');
 });
+test('AG-JUMP the Chasers group tabs scroll in place and never follow the link out of the frame (Kiko 6 Nov 04:44Z, blank window)', () => {
+  const P = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.match(P, /'<a href="#chm-' \+ g\[0\] \+ '" data-chm-jump="chm-' \+ g\[0\] \+ '">/);
+  assert.match(P, /<a href="#chm-general" data-chm-jump="chm-general">All chasers<\/a>/);
+  assert.match(P, /var j = e\.target\.closest\('\[data-chm-jump\]'\);\s*if \(j\) \{ e\.preventDefault\(\);/);
+});
