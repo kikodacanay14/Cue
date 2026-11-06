@@ -396,6 +396,25 @@
   body.admin-page #settings .shead h2 { font:700 20px/1.1 var(--font); color:#23006F; }
   body.admin-page #settings .snav button[aria-current="true"] { background:#fff; box-shadow:inset 3px 0 0 #F000AA; }
   body.admin-page #settings .card { border-radius:10px; }
+  /* ADMIN-GROUPS-2026-11-05: For Approval frame; bare = one section alone inside Canvas Admin (no title bar, no section list) */
+  #settings iframe.apfr { width:100%; height:calc(100vh - 190px); min-height:420px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  /* ADMIN-GROUPS-2026-11-05: merged Chasers page, grouped by who gets each chaser */
+  #w-chm .chm-jump { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; } #w-chm .chm-jump a { font-weight:700; font-size:13px; padding:6px 14px; border-radius:9999px; border:1px solid var(--line); background:#fff; color:inherit; text-decoration:none; }
+  #w-chm .chm-g { padding:0; overflow:hidden; margin-bottom:14px; } #w-chm .chm-h { padding:12px 14px; gap:10px; border-bottom:1px solid var(--line); } #w-chm .chm-h b { flex:1; font-size:16px; }
+  #w-chm table.chm { width:100%; min-width:760px; border-collapse:collapse; } #w-chm table.chm td[data-l="Lined up"] { white-space:normal; font-size:12px; } #w-chm table.chm th { text-align:center; vertical-align:middle; }
+  #w-chm table.chm td { vertical-align:middle; border-top:1px solid var(--line); } #w-chm table.chm td.c { text-align:center; white-space:nowrap; }
+  #w-chm .chm-name { all:unset; cursor:pointer; font-weight:700; display:block; } #w-chm .chm-name:focus-visible { outline:2px solid var(--accent, #2810dc); outline-offset:2px; }
+  #w-chm .chm-name:after { content:" ▸"; font-weight:400; } #w-chm tr.open .chm-name:after { content:" ▾"; }
+  #w-chm .chm-u { display:block; font-size:12px; opacity:.75; } #w-chm .chm-span { font-size:12px; opacity:.8; } #w-chm input[type=number] { width:56px; text-align:center; }
+  #w-chm tr.chm-sub td { border-top:0; } #w-chm tr.chm-x > td { background:#fbfaff; } #w-chm .chm-g > .facts, #w-chm .chm-g > .actions, #w-chm .chm-g > .small, #w-chm .chm-g > .warn { margin:10px 14px; }
+  #w-chm .chm-slot .stabs { display:none; }
+  @media (max-width:700px) { #w-chm table.chm, #w-chm table.chm > tbody { display:block; min-width:0; } #w-chm table.chm > thead { display:none; }
+    #w-chm table.chm > tbody > tr { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px 8px; padding:10px 12px; border-top:1px solid var(--line); }
+    #w-chm table.chm > tbody > tr > td { border:0; padding:0; text-align:left; } #w-chm table.chm > tbody > tr > td[data-l="Chaser"], #w-chm table.chm > tbody > tr > td[data-l="Sent from"], #w-chm table.chm > tbody > tr > td[data-l="Timing"], #w-chm table.chm > tbody > tr > td[colspan="8"] { grid-column:1/-1; }
+    #w-chm table.chm > tbody > tr > td[data-l]:not([data-l="Chaser"]):before { content:attr(data-l); display:block; font-weight:700; font-size:12px; }
+    #w-chm table.chm > tbody > tr > td:empty { display:none; } #w-chm tr.chm-x { display:block !important; } #w-chm .chm-slot .scroll, #w-chm .chm-slot table { overflow-x:auto; } }
+  body.admin-bare #settings .shead, body.admin-bare #settings .snav { display:none; } body.admin-bare #settings { border-top:0; } body.admin-bare #settings .smain > section > .label:first-child { display:none; }
+  body.admin-bare #settings iframe.apfr { height:calc(100vh - 110px); }
   body.admin-page .btn { background:#F000AA; color:#fff; } body.admin-page .btn.ghost { background:#fff; color:var(--text); }
   body.admin-page .btn.bad { background:#fff; color:#C2410C; border-color:#F0C7B4; }
   body.admin-page .err { background:#FCEEE7; color:#7A2E0E; }

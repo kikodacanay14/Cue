@@ -751,7 +751,7 @@ const ZB_GPT_LOG_TAB_ = '_ChatGPT Door Log';
 const ZB_GPT_LOG_HEAD_ = ['Time', 'Action', 'Project ID', 'Command ID', 'Status', 'OK', 'Record IDs', 'Drive links', 'Error'];
 function zbGptDoor_(raw, now) {   // every call is logged, refusals too (a bad key is logged without the key)
   const seen = {}, out = zbGptDoorRun_(raw, now, seen);
-  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, seen.task);
+  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, seen.task, seen.pid);
   return out;
 }
 function zbGptDoorRun_(raw, now, seen) {
@@ -779,6 +779,7 @@ function zbGptDoorRun_(raw, now, seen) {
   } else if (r.project_id) q.project_id = r.project_id;
   if (r.expected_project_number) q.expected_project_number = r.expected_project_number;
   seen.q = q; seen.task = r.task_id;
+  seen.pid = r.project_id ? String(r.project_id).slice(0, 60) : '';   // GPT-PID-LOG-2026-11-03: the log shows the project ChatGPT sent, even when the envelope drops it
   return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
 }
 
@@ -833,7 +834,7 @@ function zbGptMaskAll_(v, f, depth) {
   return f(v);
 }
 // One row per ChatGPT call in the ledger book (tab _ChatGPT Door Log), for the read-only write check. Never blocks the answer.
-function zbGptLog_(q, out, task) {
+function zbGptLog_(q, out, task, pid) {
   try {
     const id = PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID'); if (!id) return;
     const ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(ZB_GPT_LOG_TAB_) || ss.insertSheet(ZB_GPT_LOG_TAB_);
@@ -842,7 +843,7 @@ function zbGptLog_(q, out, task) {
     const ids = uniq(t.match(/\b(REQ\d{2}-[\w-]+|SCP\d{2}-[\w-]+|S-\d{3,12}[A-Z0-9]{2}|AP-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-\d{1,4}|ENT-\d{2,}-\d{2,}-\d{1,4})\b/g) || []);
     const links = uniq(t.match(/https:\/\/(drive|docs)\.google\.com\/[^"\s\\]+/g) || []);
     const cell = v => { const s = String(v == null ? '' : v).slice(0, 5000); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // never a formula
-    sh.appendRow([new Date(), q.action, q.project_id || (q.args && q.args.project_id) || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
+    sh.appendRow([new Date(), q.action, q.project_id || (q.args && q.args.project_id) || pid || '', q.command_id + (task ? ' (' + task + ')' : ''), out.status, out.ok ? 'yes' : 'no',
       ids.join(', '), links.join(' '), out.error || ''].map((v, i) => i === 0 ? v : cell(v)));
   } catch (e) { /* the log never fails the call */ }
 }
@@ -2441,6 +2442,109 @@ ZB_ACTIONS_.ann_post = {
   run: (r) => annBridgePost_(r.args)
 };
 
+/* GPT-TIMES-2026-11-04 (Kiko 4 Nov 2026 02:34Z "You decide"): ChatGPT reads and sets times on the project's Timeline tab, each in
+ * its own table under Kiko's 3 Nov rule (B55/B56): Call Time is for Manpower and Talent only; Equipment Rental and Supplies and
+ * Materials go in the Delivery Schedule. The saves are the page's own: saveCallTimes (Call Time) and saveTimelineRow (Delivery
+ * Schedule). A line names a person (Call Time) or an item (Delivery Schedule): one row with that name is updated (date, time,
+ * comment only), no row adds one, two or more refuse that line. Safe to repeat: the same values write again, and an added row is
+ * found by its name the next time. */
+const ZB_TT_TABLES_ = { 'Call Time': { title: 'Call Time', key: 'name' }, 'Delivery Schedule': { title: 'Delivery Schedule', key: 'item' } };
+function zbTtTable_(sh, title) {
+  const t = timelineTables_(sh.getDataRange().getDisplayValues()).find(x => norm_(x.title) === norm_(title));
+  if (!t) return null;
+  t.keys = t.columns.map(norm_);
+  t.rows = t.rows.filter(x => !x._group);
+  return t;
+}
+function zbTtRow_(t, x) {
+  const k = ZB_TT_TABLES_[t.title] ? ZB_TT_TABLES_[t.title].key : t.keys[0];
+  const o = { row: x._r, name: x[k] || x[t.keys[0]] || '', date: x.date || '', time: x.time || '' };
+  if ('comment' in x) o.comment = x.comment || '';
+  return o;
+}
+function zbTtRead_(pid) {
+  const sh = tlSheet_(pid), out = { project_id: pid };
+  Object.keys(ZB_TT_TABLES_).forEach(name => {
+    const t = zbTtTable_(sh, name);
+    out[name === 'Call Time' ? 'call_time' : 'delivery_schedule'] = t ? t.rows.map(x => zbTtRow_(t, x)) : [];
+  });
+  out.note = 'Call Time is for Manpower and Talent only. Equipment Rental and Supplies and Materials go in the Delivery Schedule.';
+  return out;
+}
+// GPT-TIMES-READBACK (Codex review of #486): a typed value and the sheet's display of it can differ in format ("10am" shows as
+// "10:00 AM"), so both sides are compared as a key: times as minutes after midnight, anything else as lowercase letters and digits.
+function zbTtKey_(field, v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  if (field === 'TIME') {
+    const m = s.replace(/\s+/g, '').replace(/\./g, '').match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?(am|pm|a|p)?$/);
+    if (m) { let h = +m[1] % 24; const ap = m[3] ? m[3][0] : ''; if (ap === 'p' && h < 12) h += 12; if (ap === 'a' && h === 12) h = 0; return 't' + (h * 60 + (+m[2] || 0)); }
+  }
+  return s.replace(/[^\p{L}\p{N}]+/gu, '');
+}
+/** True when the sheet now shows the requested value: the same key, or (for a format the key cannot read) a filled cell that
+ *  changed. A cell that still shows its old value when that is not what was asked was not saved (for example a formula cell
+ *  tlWrite_ keeps). */
+function zbTtSaved_(field, want, was, now) {
+  const k = field.toLowerCase(), n = String((now && now[k]) || '').trim();
+  if (!n) return false;
+  if (zbTtKey_(field, n) === zbTtKey_(field, want)) return true;
+  return !was || String(was[k] || '').trim() !== n;
+}
+function zbTtSave_(pid, lines) {
+  projectDoneLock_(pid);
+  const out = [];
+  // GPT-TIMES-PREFLIGHT (Codex review of #486): a refusal must mean nothing was saved, so a missing Delivery Schedule is found
+  // before any line is written.
+  if (lines.some(l => l.table === 'Delivery Schedule') && !zbTtTable_(tlSheet_(pid), 'Delivery Schedule'))
+    throw new Error('The project has no Delivery Schedule on its Timeline tab. Nothing was saved.');
+  lines.forEach(l => {
+    const name = String(l.name).replace(/\s+/g, ' ').trim(), tb = ZB_TT_TABLES_[l.table];
+    const vals = {}; ['date', 'time'].forEach(k => { if (l[k] != null && String(l[k]).trim()) vals[k.toUpperCase()] = String(l[k]).trim(); });
+    if (l.comment != null && String(l.comment).trim()) {
+      if (l.table !== 'Delivery Schedule') { out.push({ table: l.table, name, result: 'skipped', why: 'Call Time has no COMMENT column' }); return; }
+      vals.COMMENT = String(l.comment).trim();
+    }
+    if (!Object.keys(vals).length) { out.push({ table: l.table, name, result: 'skipped', why: 'no date, time or comment to save' }); return; }
+    const sh = tlSheet_(pid), t = zbTtTable_(sh, tb.title);
+    const hits = t ? t.rows.filter(x => norm_(x[tb.key] || x[t.keys[0]]) === norm_(name)) : [];
+    if (hits.length > 1) { out.push({ table: l.table, name, result: 'skipped', why: hits.length + ' rows have this name; change it in Canvas' }); return; }
+    const was = hits.length ? zbTtRow_(t, hits[0]) : null;
+    if (l.table === 'Call Time') {
+      saveCallTimes(pid, [hits.length ? { _r: hits[0]._r, before: { name: hits[0][tb.key] }, values: vals } : { name, values: vals }]);
+    } else {
+      if (!t) throw new Error('The project has no Delivery Schedule on its Timeline tab. Nothing was saved.');
+      const v = Object.assign({}, vals); if (!hits.length) v.ITEM = name;
+      saveTimelineRow(pid, hits.length ? { title: t.title, _r: hits[0]._r, before: { item: hits[0][tb.key] }, values: v } : { title: t.title, values: v });
+    }
+    const t2 = zbTtTable_(tlSheet_(pid), tb.title), h2 = t2 ? t2.rows.filter(x => norm_(x[tb.key] || x[t2.keys[0]]) === norm_(name)) : [];
+    const now = h2.length === 1 ? zbTtRow_(t2, h2[0]) : null;
+    // The read back compares each field with what was asked (zbTtSaved_) and returns what the sheet now shows, for ChatGPT to show Kiko.
+    const readback = !!now && Object.keys(vals).every(k => zbTtSaved_(k, vals[k], was, now));
+    out.push({ table: l.table, name, result: was ? 'updated' : 'added', was, now, readback });
+  });
+  const done = out.filter(x => x.result === 'updated' || x.result === 'added').map(x => x.name);
+  if (done.length) try { logEvent('Timeline times saved', 'Projects', pid + ': ' + done.join(', ') + ' (from ChatGPT)'); } catch (e) { /* logging never blocks */ }
+  return { project_id: pid, saved: out };
+}
+ZB_ACTIONS_.timeline_times = {
+  kind: 'read', needsProject: true, schema: {},
+  run: (r) => zbTtRead_(r.project_id)
+};
+ZB_ACTIONS_.timeline_time_save = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { lines: { type: 'array', required: true, minItems: 1, maxItems: 40, items: {
+    table: { type: 'string', required: true, oneOf: ['Call Time', 'Delivery Schedule'] }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
+    date: { type: 'string', max: 40 }, time: { type: 'string', max: 20 }, comment: { type: 'string', max: 500 } } } },
+  run: (r) => { try { return zbTtSave_(r.project_id, r.args.lines); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const off = ((res && res.saved) || []).filter(x => (x.result === 'updated' || x.result === 'added') && !x.readback).map(x => x.name);
+    return off.length ? { ok: false, error: 'read back differs for: ' + off.join(', ') }
+      : { ok: true, evidence: { saved: ((res && res.saved) || []).map(x => x.table + ' / ' + x.name + ': ' + x.result) } };
+  }
+};
+ZB_GPT_ACTIONS_.push('timeline_times', 'timeline_time_save');
+
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
  * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for
  * crew, clients and suppliers. help_qa reads the Live rows (Cue matches a pasted question against them, in code). help_qa_add
@@ -3222,6 +3326,26 @@ ZB_ACTIONS_.msgr_mark = {
     psid: { type: 'string', required: true, re: /^\d{1,40}$/ } },
   run: (r) => zbMsgrMark_(r.args)
 };
+/* CREW-MATCH-2026-11-05 (Kiko 5 Nov 2026 11:49Z "Ok deploy" on crew-match-flow.png): Messenger crew matched by name and event,
+ * then linked by a 6-digit code, or by staff when Canvas has no mobile and no email (MessengerMatch.gs). Queue actions with no
+ * tap, as fl_social_save: Kiko approved the flow running by itself. */
+const ZB_PSID_ = { type: 'string', required: true, re: /^\d{1,40}$/ }, ZB_RID_ = { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ };
+ZB_ACTIONS_.crew_match = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: ZB_RID_, psid: ZB_PSID_, messenger_name: { type: 'string', max: 120 }, text: { type: 'string', required: true, max: 1000 } },
+  run: (r) => zbCrewMatch_(r.args)
+};
+ZB_ACTIONS_.crew_code_check = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: ZB_RID_, psid: ZB_PSID_, code: { type: 'string', required: true, re: /^\d{6}$/ } },
+  run: (r) => zbCrewCodeCheck_(r.args)
+};
+ZB_ACTIONS_.msgr_told = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: ZB_RID_, psid: ZB_PSID_, status: { type: 'string', required: true, oneOf: ['linked', 'not_mine'] } },
+  run: (r) => zbMsgrTold_(r.args)
+};
+
 
 /* WEEKLY-REPORTS-2026-11-04 (Kiko 4 Nov 2026 16:22Z: "Reports > Weekly Reports - to see copies of it"; assumption A14, approved
  * 16:28Z: "Cue saves a copy of each Friday email to Canvas through the bridge when it is sent. Earlier emails are not back-filled").

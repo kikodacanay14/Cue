@@ -33,8 +33,10 @@ test('AD3 the admin calls are owner-only, never run by a cloud check, and the pa
 
 test('AD4 the page groups the sections as in the approved mockup and has the two new ones', () => {
   const page = cuePage(), nav = page.slice(page.indexOf('id="snav"'), page.indexOf('<div class="smain">'));
-  deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['How Cue thinks', 'Rules', 'Jobs', 'System']);
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'templates', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'usage']);   // release line: AI relay is not live yet, so it has no button here
+  // ADMIN-GROUPS-2026-11-05 (Kiko 5 Nov 16:40Z): For Approval first; System (Connections, AI usage and cost) is shown in Canvas Admin, so its group is hidden here
+  deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['Approvals', 'How Cue thinks', 'Rules', 'Jobs']);
+  assert.ok(nav.includes('<div class="sgrp" hidden>System</div>'), 'System group kept, hidden');
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['approvals', 'rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'templates', 'jobchasers', 'sendnotice', 'sched', 'rn', 'log', 'conn', 'usage']);   // release line: AI relay is not live yet, so it has no button here
   ['triage', 'edits', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });

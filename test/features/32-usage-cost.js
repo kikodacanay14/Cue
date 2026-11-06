@@ -58,7 +58,7 @@ test('UG4 the AI Runs Cost column now fills for ChatGPT, web searches included',
 });
 test('UG5 Settings page: AI usage and cost section loads only when opened, shows ESTIMATE, ₱ and US$, and the bill links', () => {
   const html = cuePage();
-  assert.ok(html.indexOf('<button data-s="usage">AI usage and cost</button>') > 0 && html.indexOf('data-sec="usage"') > 0);
+  assert.ok(html.indexOf('<button data-s="usage" hidden>AI usage and cost</button>') > 0 && html.indexOf('data-sec="usage"') > 0);
   assert.ok(/if \(sec === 'usage'\) loadUsage\(\);/.test(html) && /call\('cueUsage', \[\]/.test(html) && /call\('cueUsagePrices', \[p\]/.test(html));
   ['ESTIMATE', 'Likely by month end', 'platform.openai.com', 'console.anthropic.com', 'rough: under 7 days of data'].forEach(x => assert.ok(html.indexOf(x) > 0, x));
 });
