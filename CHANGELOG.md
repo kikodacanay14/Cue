@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.40: crew linked on Messenger get their papers (last-message time fixed) (live as Version 221, 6 Nov 2026 04:34Z, rollback 220)
+
+Kiko, 6 Nov 2026 03:30Z, with a screenshot of their own BSE chat: linked through "I'm crew" and the code at 00:28 Manila, yet their
+waiting King's Day FSA never came on Messenger. 03:31Z: "Please check if this would happen to others too". Built on live 1.28.39
+(Version 220). No Canvas release needed.
+
+- Cause: the code link and staff Link wrote the Messenger ID in Canvas but never "Last Messenger message". Cue sends papers only
+  inside Meta's 24-hour window from that time, so every crew member linked that way was skipped, and Canvas sent their payment
+  notices by SMS. On 6 Nov all 10 linked crew had no time, with about 13 FSAs waiting among 9 of them.
+- The code link now saves the time of the code they typed. Staff Link saves the time of the person's own last message, not Cue's
+  "you're linked" message (Messenger People tab too).
+- When Canvas has no time, Cue uses its Messenger People time. If Meta takes the message, Cue copies that time to Canvas once. If Meta
+  says it is outside its window, the document is skipped (not a failure) and not tried again until the person messages again.
+- Tests: `test/features/88-msgr-last.js` (ML1 to ML5). 714 of 714 pass.
+
 ## Cue 1.28.39: King's Day crew who messaged before tapping "I'm crew" go on Canvas's Link list (live as Version 220, 6 Nov 2026 02:45Z, rollback 219)
 
 Kiko, 6 Nov 2026 02:04Z, with screenshots of the King's Day crew Messenger lines: "these people messaged this what i want you to
