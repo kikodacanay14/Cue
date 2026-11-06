@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.34: Chasers page keeps unsaved timing, and Final reminder opens where you tap it (BUG FIX, not deployed)
+
+Who found it: Codex review on PR #333, 6 Nov 2026 01:10Z, after 1.28.33 went live. Both faults are in the merged Chasers page
+Kiko approved on 5 Nov ("approved" 17:19Z); this release ships under the same deploy yes (6 Nov 2026 01:00Z "Yea").
+
+- Timing typed or an On box changed and not yet saved is no longer wiped when you open a chaser to read its template, or
+  when the send-now list finishes loading. Save rules still sends only what changed.
+- Final reminder sits under Suppliers and under Crew. Tapping it under Crew now opens the send-now list under Crew, not
+  under Suppliers.
+- Checked in a browser against stub data: before the fix the typed values went back (3, on, 9) and the list opened under
+  Suppliers; after it they stay (9, off, 10) and the list opens under Crew.
+- Tests: AG7 new in `test/features/85-admin-groups.js`. 686 of 686 pass.
+
 ## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (LIVE as Version 214, 6 Nov 2026 01:07Z; rollback Version 213)
 
 Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.32 (branch claude/project-thread-lda4e2, cd77399) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). A first 1.28.33 deploy on 1.28.30 (01:03Z) was replaced a minute later by the 1.28.32 deploy, so this one carries both.

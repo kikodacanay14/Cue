@@ -429,13 +429,13 @@
     ['suppliers', 'Suppliers', ['cue:accreditation', 'cue:rfq', 'ar', 'invoice', 'paid', 'final']],
     ['crew', 'Crew', ['cue:signature', 'final']]];
   var CHM = { open: '' };
-  function chmRow(key) {
+  function chmRow(key, grp) {
     var cue = /^cue:/.test(key), k = cue ? ((jc && jc.kinds) || []).filter(function (x) { return 'cue:' + x.kind === key; })[0] : RNW_KINDS.filter(function (x) { return x[0] === key; })[0];
     if (!k) return '';
-    var R = cue && rules && rules.kinds ? rules.kinds[k.kind] : null, open = CHM.open === key, d = RNW.d;
+    var R = cue && rules && rules.kinds ? rules.kinds[k.kind] : null, open = CHM.open === grp + '|' + key, d = RNW.d; // the open key carries the group: Final reminder sits under Suppliers and Crew
     var n = function (f, v, lo, hi, lab) { return '<input type="number" data-rule="' + esc(k.kind + '.' + f) + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" aria-label="' + esc(lab) + '">'; };
     var unit = R ? '<span class="chm-u">' + (R.unit === 'working' ? 'working days' : 'days') + '</span>' : '';
-    var head = '<tr class="chm-r' + (open ? ' open' : '') + '"><td data-l="Chaser"><button type="button" class="chm-name" data-chm-open="' + esc(key) + '" aria-expanded="' + open + '">' + esc(cue ? k.label : k[1]) + '</button><span class="adesc">' + esc(cue ? k.about : k[2]) + (cue ? ' To ' + esc(k.to) + '.' : '') + '</span></td>'
+    var head = '<tr class="chm-r' + (open ? ' open' : '') + '"><td data-l="Chaser"><button type="button" class="chm-name" data-chm-open="' + esc(grp + '|' + key) + '" aria-expanded="' + open + '">' + esc(cue ? k.label : k[1]) + '</button><span class="adesc">' + esc(cue ? k.about : k[2]) + (cue ? ' To ' + esc(k.to) + '.' : '') + '</span></td>'
       + '<td data-l="Sent from">' + esc(cue ? k.from : 'Canvas') + '</td><td class="c" data-l="How">' + IC.mail + (cue ? '' : IC.sms) + '</td>';
     if (R) head += '<td class="c" data-l="First after">' + n('first', R.first, 1, 60, 'First after') + unit + '</td><td class="c" data-l="Then every">' + n('every', R.every, 1, 60, 'Then every') + unit + '</td><td class="c" data-l="Stop after">' + n('max', R.max, 1, 10, 'Stop after') + '<span class="chm-u">chases</span></td>'
       + '<td class="c" data-l="On"><input type="checkbox" data-rule="' + esc(k.kind) + '.on"' + (R.on ? ' checked' : '') + ' aria-label="On"></td><td class="c" data-l="Lined up">In the morning batch</td>';
@@ -453,7 +453,7 @@
       + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '')
       + '<div class="chm-jump">' + CHM_GRP.map(function (g) { return '<a href="#chm-' + g[0] + '">' + g[1] + ' · ' + g[2].length + '</a>'; }).join('') + '<a href="#chm-general">All chasers</a></div>';
     CHM_GRP.forEach(function (g) {
-      h += '<div class="card chm-g" id="chm-' + g[0] + '"><div class="arow chm-h"><b>' + g[1] + '</b><span class="adesc">' + g[2].length + ' chasers</span></div><div class="scroll"><table class="chm">' + head + '<tbody>' + g[2].map(chmRow).join('') + '</tbody></table></div></div>';
+      h += '<div class="card chm-g" id="chm-' + g[0] + '"><div class="arow chm-h"><b>' + g[1] + '</b><span class="adesc">' + g[2].length + ' chasers</span></div><div class="scroll"><table class="chm">' + head + '<tbody>' + g[2].map(function (key) { return chmRow(key, g[0]); }).join('') + '</tbody></table></div></div>';
     });
     if (G) h += '<div class="card chm-g" id="chm-general"><div class="arow chm-h"><b>All chasers</b></div><table class="facts">'
       + '<tr><td>Build the batch at</td><td>' + num('build', G.build, 5, 10, 'Build the batch at') + ' :00</td></tr>'
@@ -464,7 +464,12 @@
       + '<div class="actions"><button class="btn" data-act="rules-save" data-id="">Save rules</button></div>'
       + '<div class="small muted">Changes apply from the next morning batch. Who an email comes from, and your approval, never change here.</div></div>';
     else h += '<div class="small muted">Loading the timing…</div>';
+    // Timing typed but not saved yet survives a redraw (opening a chaser, a list loading): keep each data-rule value that differs from the saved rules.
+    var saved = function (p) { var a = p.split('.'), o = a[0] === 'general' ? (rules && rules.general) : (rules && rules.kinds && rules.kinds[a[0]]); return o ? o[a[1]] : undefined; };
+    var dirty = [].map.call(box.querySelectorAll('[data-rule]'), function (i) { return [i.getAttribute('data-rule'), i.type === 'checkbox' ? i.checked : i.value]; })
+      .filter(function (x) { var v = saved(x[0]); return typeof x[1] === 'boolean' ? x[1] !== !!v : String(x[1]) !== String(v); });
     var rnw = $('w-rnw'); setHtml(box, h);
+    dirty.forEach(function (x) { var i = box.querySelector('[data-rule="' + x[0] + '"]'); if (!i) return; if (typeof x[1] === 'boolean') i.checked = x[1]; else i.value = x[1]; });
     var slot = box.querySelector('.chm-slot');
     if (slot) { slot.appendChild(rnw); rnw.hidden = false; } else { rnw.hidden = true; box.parentNode.appendChild(rnw); }
     bind();
@@ -472,7 +477,8 @@
   $('w-chm').addEventListener('click', function (e) {
     var b = e.target.closest('[data-chm-open]'); if (!b) return;
     var key = b.getAttribute('data-chm-open'); CHM.open = CHM.open === key ? '' : key;
-    if (CHM.open && !/^cue:/.test(CHM.open)) { RNW.kind = CHM.open; RNW.msg = ''; rnwDraw(); }
+    var kind = CHM.open.split('|')[1] || '';
+    if (kind && !/^cue:/.test(kind)) { RNW.kind = kind; RNW.msg = ''; rnwDraw(); }
     chDraw();
   });
 

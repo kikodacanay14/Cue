@@ -41,3 +41,11 @@ test('AG6 Chasers and Chaser Rules are one page, grouped by who gets each chaser
   assert.match(P, /data-rule="' \+ esc\(k\.kind \+ '\.' \+ f\) \+ '"/, 'the timing boxes are the same data-rule boxes Save rules reads');
   assert.match(P, /data-act="rules-save" data-id="">Save rules<\/button>/);
 });
+test('AG7 Codex review on #333: Final reminder opens under the group tapped, and timing typed before opening a chaser is kept', () => {
+  const P = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.match(P, /open = CHM\.open === grp \+ '\|' \+ key/, 'the open row is group plus chaser, so Suppliers and Crew Final reminder open apart');
+  assert.match(P, /data-chm-open="' \+ esc\(grp \+ '\|' \+ key\) \+ '"/);
+  assert.match(P, /var kind = CHM\.open\.split\('\|'\)\[1\] \|\| '';/, 'the send-now list still gets the plain chaser kind');
+  assert.match(P, /var dirty = \[\]\.map\.call\(box\.querySelectorAll\('\[data-rule\]'\)/, 'unsaved data-rule values are read before the redraw');
+  assert.match(P, /dirty\.forEach\(function \(x\) \{ var i = box\.querySelector\('\[data-rule="' \+ x\[0\] \+ '"\]'\)/, 'and put back after it');
+});
