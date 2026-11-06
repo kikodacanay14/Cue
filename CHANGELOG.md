@@ -4,7 +4,7 @@
 
 Kiko, 5 Nov 2026 16:55Z: "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should
 show the customer journey and show communication per stage". Mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq; Kiko "yes"
-6 Nov 2026 01:28Z. Built on 1.28.36 (live Version 217); rebuilt on whatever is live if CRM 1.28.37 (#337) ships first.
+6 Nov 2026 01:28Z. Built on 1.28.37 (live Version 218, CRM #337 head 0ba4f7a).
 
 - Cue Admin › Auto-Send (also shown in Canvas Admin › Automation Setting › Auto-Send) now has four journeys: Clients, Crew,
   Suppliers and Team, each with a count. A journey shows its steps in order (the Templates codes, for example R1 to R8) and, per step,
@@ -15,7 +15,18 @@ show the customer journey and show communication per stage". Mockup https://clau
 - Crew papers and payment texts show Messenger, because Cue sends them there when the person is linked (1.28.36), with SMS as backup.
 - Removed: the old Auto-send cards with Canvas's built-in wording and the "Off for every kind of email" note. The words are in
   Templates, which reads the BSE Message Templates doc.
-- Read only. No AI call, no server call. Tests: 705 pass (4 new: `test/features/86-auto-send.js`; AD7 updated).
+- Read only. No AI call, no server call. Tests: 707 pass (4 new: `test/features/86-auto-send.js`; AD7 updated).
+## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, LIVE Version 218, 6 Nov 2026 01:56Z, rollback Version 217)
+
+Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.36 (Version 217, main e0a241d).
+
+- With Canvas busy for its full 20-second lock wait on every call, 20 leads over 3 tries could run past Apps Script's 6-minute limit, and
+  the run would end before saving which leads were still open. `cueBridgeWaves_` now starts no new wave after 150 seconds; the leads not
+  sent stay open and the next bid check sends them.
+- The one-time recovery of the three old bid checks starts no new old run after 2 minutes. A resume at least 10 minutes later sends the
+  rest, and when nothing is left it marks itself done (`CUE_BIDS_LEAD_BACKLOG_DONE`).
+- Rule written up as CUE-046 in `docs/business-rules.md`.
+- Tests: LR8 and LR9 new in `test/features/86-bid-lead-retry.js` (LR8 fails on 1.28.35). 703 of 703 pass.
 
 ## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (LIVE Version 217, 6 Nov 2026 01:26Z, rollback 216)
 
