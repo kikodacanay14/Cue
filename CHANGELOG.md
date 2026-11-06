@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.39: King's Day crew who messaged before tapping "I'm crew" go on Canvas's Link list (not deployed)
+## Cue 1.28.39: King's Day crew who messaged before tapping "I'm crew" go on Canvas's Link list (live as Version 220, 6 Nov 2026 02:45Z, rollback 219)
 
 Kiko, 6 Nov 2026 02:04Z, with screenshots of the King's Day crew Messenger lines: "these people messaged this what i want you to
 rtestore"; 02:05Z "i cant find whjere to approve or link them"; 02:05Z picked "Add to Canvas list, you tap Link" (nobody is messaged).
