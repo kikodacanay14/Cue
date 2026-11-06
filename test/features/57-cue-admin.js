@@ -74,8 +74,10 @@ test('AD6 Chaser rules and Scheduled tasks carry what each one is about; a task 
 test('AD7 the page shows the Auto-send rules with each message, the channel icons, the AI relay ? and "Processes and business rules"', () => {
   // release line: AI relay is not live yet, so its ? help and Pass on words are not on this page
   const page = cuePage();
-  ['Processes and business rules', 'Canvas sends these by itself', '3 days before the crew member', 'made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
-    'Payment received: &lt;Amount&gt;', 'class="adesc"', 'type="checkbox" disabled checked', 'Please sign your Freelancer Service Agreement', 'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
+  // AUTO-SEND-JOURNEY-2026-11-06: the Auto-send cards became the journey view (Kiko "yes" 6 Nov 01:28Z); their words are in Templates (86-auto-send.js)
+  ['Processes and business rules', '3 days before the first working day', 'Made 2 days before Payment Date Required', 'Support Desk › Freelancers › Waiting for approval',
+    'class="adesc"', "'Email', '<path", "['Text', '<path", "['App notice', '<path",
+    'aria-label="Email"', 'aria-label="Text"', 'aria-label="App notice"',
     'data-sc-x', 'press <b>Change time</b>'].forEach(w => assert.ok(page.includes(w), w));
 });
 

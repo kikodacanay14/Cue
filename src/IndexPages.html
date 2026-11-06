@@ -162,7 +162,8 @@
     if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); chDraw(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
-    if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();   // a failed read is tried again each time the section opens
+    if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();
+    if (sec === 'auto') asDraw();   // AUTO-SEND-JOURNEY-2026-11-06   // a failed read is tried again each time the section opens
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -578,6 +579,69 @@
     if (e.target.closest('[data-sn-em]') && SNW.kind === 'own') { SNW.d.email = !SNW.d.email; snPeople(); snMsg(); return; }
     if (e.target.closest('[data-sn-tx]')) { SNW.d.textOn = !SNW.d.textOn; snPeople(); snMsg(); return; }
     var g = e.target.closest('[data-sn-go]'); if (g && !SNW.busy) snGo(g.getAttribute('data-sn-go') === 'test'); });
+  /* AUTO-SEND-JOURNEY-2026-11-06 (Kiko 5 Nov 16:55Z: "Auto-Send - should contain all the communications that are automatically sent
+   * either mail, sms, fb - should show the customer journey and show communication per stage"; mockup
+   * https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq, Kiko "yes" 6 Nov 01:28Z). Every message Canvas or Cue sends with no tap, by who
+   * gets it (the Templates journey letters C, S, R, T) and journey step. Read only; the words live in Templates, which each Template
+   * button opens on that message. Steps are the Templates codes (CUE_MT_MAP_ in CueMsgTemplates.gs). Channels [Email, Text, Messenger, App notice]. */
+  var AS_LANES = [['C', 'Clients'], ['R', 'Crew'], ['S', 'Suppliers'], ['T', 'Team']], AS = { lane: 'R' };
+  var AS_J = {
+    C: { steps: [], none: 'No client message goes out by itself. Client emails always wait for your tap (Templates C1 to C8).' },
+    R: { steps: [
+      ['R1', 'Welcome', 'Welcome to Canvas', [['Your Canvas access', 'Staff approve a sign-up in Support Desk › Freelancers › Waiting for approval. Approve also starts their FSA.', [1, 1, 0, 0], 'Canvas', 'R1 Welcome to Canvas']]],
+      ['R2', 'Role', 'Crew role assignment', [['Role assigned', 'A name is added on Resources', [1, 1, 0, 1], 'Canvas', 'R2 Crew role assignment']]],
+      ['R3', 'Item assigned', 'Item assigned', [['Assigned to you', 'A name is added in Assigned To', [1, 1, 0, 1], 'Canvas', 'R3 Item assigned']]],
+      ['R5', 'Service agreement', 'Freelancer service agreement', [['Please sign your FSA', '3 days before the first working day; booked later, on the next save. A paid payee with no FSA gets one first.', [1, 1, 1, 0], 'Canvas · Cue on Messenger', 'R5 Freelancer service agreement']]],
+      ['R6', 'Payment and receipt', 'Payment and acknowledgement receipt', [
+        ['Payment received', 'A payment to the crew member is recorded (Record transfer). Linked on Messenger: the text goes there, SMS if Messenger fails.', [1, 1, 1, 0], 'Canvas · Cue on Messenger', ''],
+        ['Payment sent (text only)', 'The same, with a mobile number and no email', [0, 1, 1, 0], 'Canvas · Cue on Messenger', 'R6 SMS'],
+        ['Please sign your AR', 'Made 2 days before Payment Date Required (7 AM run), held until paid, sent once marked Paid', [1, 1, 1, 0], 'Canvas · Cue on Messenger', 'R6 Crew acknowledgement receipt']]],
+      ['R7', 'Liquidation', 'Liquidation', [['Action needed: pay the supplier', 'A payment is recorded to someone who pays a supplier for BSE', [1, 1, 1, 0], 'Canvas · Cue on Messenger', 'R7 Liquidation request']]],
+      ['R8', 'Final reminder', 'Crew final event reminder', []]] },
+    S: { steps: [
+      ['S1', 'Onboard', 'Supplier accreditation', []], ['S2', 'Quote', 'Request for proposal', []], ['S3', 'Award', 'Notice of award', []],
+      ['S4', 'Payment', 'Payment notice', [['Payment received', 'A payment to the supplier is recorded (Record transfer)', [1, 1, 0, 0], 'Canvas', '']]],
+      ['S5', 'Event day', 'Supplier final event reminder', []], ['S6', 'Invoice', 'Supplier invoice request', []], ['S7', 'Receipt', 'Supplier acknowledgement receipt', []]] },
+    T: { steps: [
+      ['T1', 'Approval needed', 'Approval needed', [['Payment request · Approval needed: unplanned cost · Payment uploaded', 'A payment request is submitted, an unplanned cost is asked for or recorded, or proof is attached', [1, 1, 0, 1], 'Canvas', 'T1 Approval needed']]],
+      ['T2', 'Approved or rejected', 'Approved or rejected', []],
+      ['T3', 'Status changed', 'Status changed', [['Status changed', 'A status moves', [1, 1, 0, 1], 'Canvas', 'T3 Status changed']]],
+      ['T4', 'Supplier awarded', 'Supplier awarded', [['Supplier awarded', 'A quote is awarded', [1, 1, 0, 1], 'Canvas', 'T4 Supplier awarded']]],
+      ['T5', 'Your day', 'Your day', [['Your day (7 AM digest)', '07:00 Manila every day, to staff who turned it on in My profile', [1, 0, 0, 0], 'Canvas', 'T5 Your day']]],
+      ['T6', 'Announcement', 'Announcement', []]] }
+  };
+  var AS_IC = [['Email', '<path d="M3 6h18v12H3z"/><path d="M3 7l9 6 9-6"/>'], ['Text', '<path d="M7 3h10v18H7z"/><path d="M11 18h2"/>'],
+    ['Messenger', '<path d="M12 3C7 3 3 6.6 3 11c0 2.5 1.3 4.7 3.3 6.1V21l3.1-1.7c.8.2 1.7.3 2.6.3 5 0 9-3.6 9-8s-4-8.6-9-8.6z"/>'],
+    ['App notice', '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/>']];
+  function asIc(i, on) { return on ? '<span class="asi" title="' + AS_IC[i][0] + '"><svg viewBox="0 0 24 24" role="img" aria-label="' + AS_IC[i][0] + '">' + AS_IC[i][1] + '</svg></span>'
+    : '<span class="asi off" title="Not used"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg></span>'; }
+  function asCount(l) { return AS_J[l].steps.reduce(function (n, s) { return n + s[3].length; }, 0); }
+  function asDraw() {
+    var J = AS_J[AS.lane], h = '<div class="adesc" style="margin:-2px 0 10px">Every message Canvas and Cue send by themselves, in the order of each journey. Messages that wait for your tap are in Templates.</div>';
+    h += '<div class="aswho" role="group" aria-label="Journey">' + AS_LANES.map(function (l) { return '<button type="button" data-as-lane="' + l[0] + '" aria-pressed="' + (AS.lane === l[0]) + '">' + esc(l[1]) + ' <span class="tag">' + asCount(l[0]) + '</span></button>'; }).join('') + '</div>';
+    h += '<div class="aslegend">' + AS_IC.map(function (x, i) { return '<span>' + asIc(i, 1) + ' ' + (i === 1 ? 'Text (SMS)' : x[0]) + '</span>'; }).join('') + '<span>' + asIc(0, 0) + ' not used</span></div>';
+    if (!J.steps.length) return setHtml($('w-as'), h + '<div class="card asnone">' + esc(J.none) + '</div>');
+    h += '<div class="assteps">' + J.steps.map(function (s) { var n = s[3].length; return '<div class="asstep' + (n ? ' has' : '') + '"><div class="asdot">' + esc(s[0]) + '</div><b>' + esc(s[1]) + '</b><span>' + (n ? n + (n === 1 ? ' message' : ' messages') : 'no messages') + '</span></div>'; }).join('') + '</div>';
+    J.steps.forEach(function (s) {
+      h += '<div class="card asstage"><div class="ash"><span class="ascode">' + esc(s[0]) + '</span><b>' + esc(s[2]) + '</b><span class="small muted">' + s[3].length + ' automatic</span></div>';
+      if (!s[3].length) { h += '<div class="asnone">Nothing goes out by itself at this step.</div></div>'; return; }
+      h += '<table class="astbl"><thead><tr><th>Message</th><th>Sends by</th><th>From</th><th aria-label="Template"></th></tr></thead><tbody>' + s[3].map(function (m) {
+        return '<tr><td><span class="asmsg">' + esc(m[0]) + '</span><span class="aswhen">When: ' + esc(m[1]) + '</span></td><td class="c asvia">' + m[2].map(function (on, i) { return asIc(i, on); }).join(' ')
+          + '</td><td class="c asby">' + esc(m[3]) + '</td><td class="c"><button type="button" class="btn ghost" data-as-tpl="' + esc(m[4]) + '" data-as-who="' + AS.lane + '">Template</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+    });
+    setHtml($('w-as'), h);
+  }
+  $('w-as').addEventListener('click', function (e) {
+    var l = e.target.closest('[data-as-lane]'); if (l) { AS.lane = l.getAttribute('data-as-lane'); asDraw(); return; }
+    var t = e.target.closest('[data-as-tpl]'); if (!t) return;
+    var k = t.getAttribute('data-as-tpl');   // '' = Canvas's own wording, not in the doc yet: open Templates on that journey
+    MT.f = { who: t.getAttribute('data-as-who'), ch: / SMS$/.test(k) ? 'SMS' : 'Email', st: '' }; MT.edit = null; MT.msg = '';
+    if (k) MT.sel = k;
+    settingsTab('templates');
+    if (MT.d && !MT.d.error) { if (!mtShown().some(function (x) { return x.key === MT.sel; })) MT.sel = (mtShown()[0] || {}).key || ''; mtDraw(); mtPrev(); }
+  });
+  asDraw();
   /* CUE-MT-2026-11-03 (spec #391, Kiko 1 Nov: "Filter who receives it and theres a list of communications on the right. once clicked on
    * the type of comms - theres a template viewer on the right that allows editing. would also show there inbox that sends it and files
    * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test, Open in doc
