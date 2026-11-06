@@ -18,7 +18,7 @@ branch `claude/project-thread-uzsang`, `src/PayMessenger.gs`). Built on 1.28.35 
   (`CUE_MSGR_TOLD_<psid>:<status>`) and retries only `msgr_told`, with the same request id.
 - No AI call. `test/fixtures/ZapBridge.gs` gains `msgr_pay_due` and `msgr_pay_mark`. Tests: 693 pass (8 new: `test/features/85-pay-messenger.js`, MS20b).
 
-## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, not deployed)
+## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, LIVE Version 216, 6 Nov 2026 01:23Z, rollback Version 215)
 
 Coordinator, 6 Nov 2026 00:55Z: Cue's bid-lead scans lost crm_lead saves to "Another save is in progress" (ledger 4 Nov 23:01Z and 5 Nov
 22:51Z). Kiko, 01:07Z: "See why is it so slow. Recover those coz i cant ask them to do it again!!@!", and at 01:07Z: "We cant produce
