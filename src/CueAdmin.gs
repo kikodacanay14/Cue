@@ -50,23 +50,6 @@ function cueAdminRelnotes() {
  * 03:21Z "Job Chasers if it can show What Job Chaser it is > (expand) Jobs that are scheduled to run and on which platform > (expand)
  * draft of email"). Epic Cue #193. The words below describe what the code already does; they change nothing it does. */
 
-/** One line per chaser kind: what it chases, and who the email comes from. */
-const CUE_ADMIN_CHASE_ = {
-  // CUE-TEMPLATES-2026-10-31: C2 and C3 join the page (spec part 2).
-  inquiry: { about: 'C2: follows up a client who went quiet after their inquiry. First follow-up, then the final one, 3 business days apart; then it asks you to park them.',
-    from: 'your Gmail', to: 'the inquiry\'s contact in Canvas', sample: { who: '<Contact>', project: '<Client>', times: 0, facts: { contact: '<Contact>', client: '<Client>', inquiry: '<Inquiry>' } } },
-  inbox: { about: 'C3: a client replied and is waiting on you. ChatGPT writes only the answer and next step; the rest is your template. Listed in the 8 AM update.',
-    from: 'your Gmail, as a reply in their thread', to: 'the person who wrote to you', sample: { who: '<Name>', subject: '<Their subject>' }, middle: '<The direct answer to their question.> <The confirmed next step, with who and when.>' },
-  rfq: { about: 'Nudges a supplier who hasn\'t answered your RFQ.', from: 'your Gmail, as a reply in the RFQ thread', to: 'the supplier you sent the RFQ to',
-    sample: { who: '<Supplier name>', to: '<supplier email>', thread_subject: 'RFQ: <RFQ title>', project: '<Event>', facts: { rfq_subject: 'RFQ: <RFQ title>', rfq_sent: '<RFQ date>', reply_by: '<Reply-by date>' } } },
-  award: { about: 'Asks a client if they have decided on a CE marked "For client awarding".', from: 'your Gmail, in the CE thread', to: 'the client contact on the CE email thread',
-    sample: { who: '<Client>', project: '<Event>', facts: { chaser_number: 1, event_date: '<Event date>' } } },
-  payment: { about: 'Reminds a client whose billing invoice is past due.', from: 'info@ through Canvas, you in CC', to: 'the client\'s billing contact in Client Desk',
-    sample: { project: '<Event>', times: 0, facts: { contact: '<Billing contact>', bis: [{ no: '<BI number>', project: '<Event>', balance_text: '<Balance>', due: '<Due date>' }] } } },
-  accreditation: { about: 'Asks a supplier to finish their accreditation.', from: 'your Gmail, suppliers@ in CC', to: 'the supplier\'s email on file in Canvas',
-    sample: { who: '<Supplier name>', facts: { contact_name: '<Supplier name>', project: '<Event>', missing: ['<Missing items>'], form_url: '<Accreditation form link>' } } },
-  signature: { about: 'Asks crew to sign an FSA or AR they haven\'t signed.', from: 'freelancers@ through Canvas', to: 'the crew member\'s email in Canvas',
-    sample: { who: '<Crew>', project: '<Event>', docs: [{ doc: '<FSA or AR>', project: '<Event>', role: '<Role>' }], sign_url: '<Sign link>' } } };
 
 /** Cue's own scheduled tasks: what each does, who asked for it and when, and what it follows ([name, what it means]). */
 const CUE_ADMIN_SCHED_ = {
@@ -111,20 +94,6 @@ function cueAdminSchedAbout_(x) {
     follows: [[x.run === 'remind' ? 'Reminder' : 'Runs as if you typed it', x.run === 'remind' ? 'Cue reminds you at that time.' : 'It starts the same task as typing the command.'], ['Nothing sends without your Approve', 'Emails stay drafts and Canvas writes wait for you.']] };
 }
 
-/** Jobs › Chasers: each chaser kind with its rule and its email template, the placeholders in <angle brackets> (Kiko 29 Oct 03:35Z:
- *  the specific chases come to Kiko in Cue's morning batch, so this page shows "the generic templates for each chaser"). Read only. */
-function cueAdminChasers() {
-  cueOwner_();
-  const rules = cueRules_(), G = rules.general, at = h => String(h).padStart(2, '0') + ':00';
-  return { build: at(G.build), send: at(G.send),
-    kinds: Object.keys(CUE_ADMIN_CHASE_).map(kind => {
-      const R = rules.kinds[kind] || {}, A = CUE_ADMIN_CHASE_[kind], k = cueKinds_().filter(x => x.kind === kind)[0];
-      let tpl = { subject: '', body: '' };
-      try { if (k && typeof k.wrap === 'function' && A.middle) tpl = k.wrap(JSON.parse(JSON.stringify(A.sample)), A.middle) || tpl; else if (k && typeof k.template === 'function') tpl = k.template(JSON.parse(JSON.stringify(A.sample))) || tpl; } catch (e) { console.warn('Cue Admin chasers: ' + kind + ' template: ' + e); }
-      return { kind, label: R.label || kind, on: R.on !== false, about: A.about, from: A.from, to: A.to,
-        ai: !!(k && k.draftBrief), subject: String(tpl.subject || ''), body: String(tpl.body || '') };
-    }) };
-}
 
 /* CUE-ADMIN-LOG-2026-10-29 (Kiko 29 Oct 03:43Z "Reporting ... It has to be all not split"; 03:46Z "Maybe we can do a Historical or Log
  * page? filtered by the different Jobs. and Status"). Epic Cue #193. Cue Admin › Log, one list for both systems, newest first:
