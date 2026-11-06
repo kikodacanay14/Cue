@@ -1,10 +1,10 @@
 # Changelog
 
-## Cue 1.28.37: Admin › Auto-Send shows each journey and the messages sent at each step (not deployed)
+## Cue 1.28.38: Admin › Auto-Send shows each journey and the messages sent at each step (not deployed)
 
 Kiko, 5 Nov 2026 16:55Z: "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should
 show the customer journey and show communication per stage". Mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq; Kiko "yes"
-6 Nov 2026 01:28Z. Built on 1.28.36 (live Version 217).
+6 Nov 2026 01:28Z. Built on 1.28.36 (live Version 217); rebuilt on whatever is live if CRM 1.28.37 (#337) ships first.
 
 - Cue Admin › Auto-Send (also shown in Canvas Admin › Automation Setting › Auto-Send) now has four journeys: Clients, Crew,
   Suppliers and Team, each with a count. A journey shows its steps in order (the Templates codes, for example R1 to R8) and, per step,
