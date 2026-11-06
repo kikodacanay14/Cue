@@ -452,7 +452,7 @@
     var head = '<thead><tr><th>Chaser</th><th>Sent from</th><th>How</th><th>First after</th><th>Then every</th><th>Stop after</th><th>On</th><th>Lined up</th></tr></thead>';
     var h = '<div class="adesc" style="margin-bottom:8px">Every chaser, Cue\'s and Canvas\'s, grouped by who gets it. Timing sits on the same row. Nothing goes out until you tap Approve. Open a chaser to see its template or who is lined up.</div>'
       + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '')
-      + '<div class="chm-jump">' + CHM_GRP.map(function (g) { return '<a href="#chm-' + g[0] + '">' + g[1] + ' · ' + g[2].length + '</a>'; }).join('') + '<a href="#chm-general">All chasers</a></div>';
+      + '<div class="chm-jump">' + CHM_GRP.map(function (g) { return '<a href="#chm-' + g[0] + '" data-chm-jump="chm-' + g[0] + '">' + g[1] + ' · ' + g[2].length + '</a>'; }).join('') + '<a href="#chm-general" data-chm-jump="chm-general">All chasers</a></div>';
     CHM_GRP.forEach(function (g) {
       h += '<div class="card chm-g" id="chm-' + g[0] + '"><div class="arow chm-h"><b>' + g[1] + '</b><span class="adesc">' + g[2].length + ' chasers</span></div><div class="scroll"><table class="chm">' + head + '<tbody>' + g[2].map(function (key) { return chmRow(key, g[0]); }).join('') + '</tbody></table></div></div>';
     });
@@ -476,6 +476,10 @@
     bind();
   }
   $('w-chm').addEventListener('click', function (e) {
+    // CHM-JUMP-FIX-2026-11-06 (Kiko 6 Nov 04:44Z: tapping a Chasers tab opened a blank window). The page has <base target="_top">, so a plain
+    // #chm-… link left the Apps Script frame for the bare sandbox address. Scroll to the group in place instead.
+    var j = e.target.closest('[data-chm-jump]');
+    if (j) { e.preventDefault(); var to = document.getElementById(j.getAttribute('data-chm-jump')); if (to) to.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     var b = e.target.closest('[data-chm-open]'); if (!b) return;
     var key = b.getAttribute('data-chm-open'); CHM.open = CHM.open === key ? '' : key;
     var kind = CHM.open.split('|')[1] || '';

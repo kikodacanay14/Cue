@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.41: Chasers group tabs stay on the page (not deployed)
+
+Kiko, 6 Nov 2026 04:44Z, with a screenshot: tapping a tab under Admin, Automation Settings, Chasers opened a blank window at the
+Apps Script sandbox address (userCodeAppPanel?createOAuthDialog=true#chm-suppliers). Built on live 1.28.40 (Version 221). No Canvas
+release needed: Canvas Admin shows this Cue page in a frame.
+
+- Cause: the Clients, Suppliers, Crew and All chasers tabs were plain #chm-... links, and the Cue page sets <base target="_top">, so
+  each tap sent the whole window to the frame's own sandbox address instead of scrolling.
+- Fix: the tabs carry data-chm-jump; the Chasers click handler stops the link and scrolls to that group in place.
+- Checked the other in-page links in Cue and Canvas (#-links in IndexCards, IndexPages, Canvas.html, BusinessInfo.html): each
+  already stops the link or sets target="_self". Only the Chasers tabs were broken.
+- Tests: AG-JUMP added; 715/715 pass. A Playwright check of a framed page with <base target="_top"> reproduced the blank-window
+  jump with the old link and showed the fixed tab scrolling in place.
+
 ## Cue 1.28.40: crew linked on Messenger get their papers (last-message time fixed) (live as Version 221, 6 Nov 2026 04:34Z, rollback 220)
 
 Kiko, 6 Nov 2026 03:30Z, with a screenshot of their own BSE chat: linked through "I'm crew" and the code at 00:28 Manila, yet their
