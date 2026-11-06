@@ -2,7 +2,7 @@
 
 ## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (not deployed)
 
-Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.30 (branch claude/project-thread-lda4e2) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). 1.28.31 and 1.28.32 are claimed by the Messenger thread and are not in this release.
+Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.32 (branch claude/project-thread-lda4e2, cd77399) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). A first 1.28.33 deploy on 1.28.30 (01:03Z) was replaced a minute later by the 1.28.32 deploy, so this one carries both.
 
 Kiko, 5 Nov 2026 16:40Z, "Reorganize Admin Page": "AI Usage and Cost to Admin > System Config, Connections to API Keys" and "The For
 Approval move the to Cue". On the decision card at 16:43Z he picked "Show Canvas's list in Cue" over moving it through the bridge.
@@ -23,9 +23,35 @@ Ships with the Canvas release of the same change (CanvasWorkspace PR on branch `
   listed under both. The timing boxes are the same ones Chaser rules had and save the same way; no chaser, rule or send changes. The
   Chaser rules item is gone from the list, and an old `sec=chasers` link opens Chasers.
 - A section opened alone for Canvas hides its own title, because Canvas shows the title above the frame (brand check, 5 Nov).
-- Tests: `test/features/85-admin-groups.js` (AG1 to AG6); AD4 and UG5 updated for the new list. 683 of 683 pass.
+- Tests: `test/features/85-admin-groups.js` (AG1 to AG6); AD4 and UG5 updated for the new list. 685 of 685 pass.
 
-## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (not deployed)
+## Cue 1.28.32: one Messenger person is one line in the main chat (BUG FIX, not deployed)
+
+Kiko asked on 5 Nov 2026 at 13:07Z: "Also why am i still getting 1 notif per message? I raised this yesterday", then at 13:08Z
+"why do i get 1 notif per messatge", with screenshots of the main chat showing a new line for each Messenger step from the same
+person. Built on 1.28.30 (Version 211); shipped stacked on 1.28.31.
+
+- The first "Messenger: new message from someone not linked as crew" line becomes the pointer to the person's chat when they tap
+  I'm crew or Client or inquiry, so the main chat shows that one line with the chat's row (replies, Needs you) under it, updated in
+  place. The tap line now shows only inside the chat.
+- The later steps post in the person's chat, which turns Needs you, instead of as new main-chat lines: "sent their details", "has no
+  mobile or email on file" and "typed 3 wrong codes".
+- Nothing changes in how anything looks, and there is no AI call. Tests: 679 with 1.28.31 (MS21 is new; MS10j, MS10l and MS17 to MS19 now check the person's chat).
+
+## Cue 1.28.31: Messenger chats no longer show as "Project intake" (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026 13:08Z, "why are these in intake?", with screenshots of Messenger crew chats titled
+"Project intake" and showing "Project intake stopped" with Try again and Reject.
+
+What changed: the page had no entry for Messenger chats (kind `msgr`), so it fell back to the intake's name and its
+"stopped" card. A Messenger chat is now named by its own line ("Messenger · name · Crew, not linked yet") in the thread list
+and Waiting on you, and shows no card, only the conversation. Nothing ever ran intake on these chats: Try again only answered
+"Only a request that stopped before Canvas can be tried again here." The finished-task summary line names them the same way.
+The existing chats are fixed by the same change, since they already carry kind `msgr`. Bug fix.
+
+Tests: 678 of 678 (new MS23).
+
+## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (LIVE as Version 211, 5 Nov 2026 12:46Z; rollback Version 210)
 
 Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project
 if it's really there? And then if it's there, then it's automatically linked"; 09:10Z "A" (match, then a code); 09:47Z the Link in

@@ -473,6 +473,7 @@
       finance: { name: 'Money', family: 'info', steps: null, card: null },
       help: { name: 'Help answer', family: 'info', steps: null, card: function (r) { return !!r.help; } },
       inbox: { name: '', family: 'info', steps: null, card: null },
+      msgr: { name: function (r) { return r.text || 'Messenger'; }, family: 'info', steps: null, card: null },   // MSGR-NOT-INTAKE-2026-11-05: a Messenger chat, never 'Project intake'
       removed: { name: 'Removed task', family: 'info', steps: null, card: null }   // HUBSPOT-REMOVAL-2026-11-01: a saved run of a kind Cue no longer has
     };
     return Object.prototype.hasOwnProperty.call(kindsMemo, r.kind) ? kindsMemo[r.kind] : kindsMemo.intake;
@@ -771,6 +772,7 @@
   }
   // One task's card in a thread, or '' (a task still working shows its progress at the top instead).
   function cardOf(r) {
+    if (r.kind === 'msgr') return '';   // MSGR-NOT-INTAKE-2026-11-05 (Kiko 13:08Z "why are these in intake?"): a Messenger chat has no card
     if (r.kind === 'finance') return finHtml(r);
     if (r.kind === 'sweep' && r.batch) return sweepCardHtml(r);
     if (r.kind === 'newmail' && r.nm) return nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
