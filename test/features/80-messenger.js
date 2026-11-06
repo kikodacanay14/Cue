@@ -17,6 +17,7 @@ function msgrBox(o = {}) {
   const ctx = { console, JSON, Date, Number, String, Math, Object, Array, isNaN,
     cueNow_: () => o.now || MSGR_NOW,
     cueBridge_: (s, action, args) => { log.bridge.push([action, args, s && s.id]); if (action === 'msgr_due') return { docs: o.docs || MSGR_DUE };
+      if (action === 'msgr_pay_due') return { items: o.pay || [] };   // PAY-MSGR-2026-11-06 (85-pay-messenger.js)
       if (o.markFail && o.markFail()) throw new Error('Canvas busy'); return { ok: true, existed: false }; },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] == null ? null : props[k], setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
     UrlFetchApp: { fetch: (url, req) => { log.fetch.push([url, req]); const code = o.code ? o.code(req) : 200;

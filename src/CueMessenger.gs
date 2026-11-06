@@ -59,7 +59,50 @@ function cueMsgrTick_() {
   if (now - Number(P.getProperty('CUE_MSGR_LAST') || 0) < CUE_MSGR_.everyMs) return 0;
   P.setProperty('CUE_MSGR_LAST', String(now));
   if (!P.getProperty('MSGR_PAGE_TOKEN')) return 0;   // not set up yet (Meta app approval pending)
-  return cueMsgrRun_(now).sent;
+  const paid = cueMsgrPayRun_();   // PAY-MSGR-2026-11-06: before the sign links, which may throw
+  return cueMsgrRun_(now).sent + paid;
+}
+
+/* PAY-MSGR-2026-11-06 (Kiko 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead
+ * rather than sms"; 01:00Z "Yes, SMS backup", rule R-PMN-1). Canvas holds each payment text for a person Messenger can reach
+ * (CanvasWorkspace src/PayMessenger.gs). Each tick Cue collects them (msgr_pay_due), sends each on Messenger and reports back
+ * (msgr_pay_mark): ok = sent; not ok = Canvas texts it by SMS now. Without a Page token Cue never asks, and Canvas holds
+ * nothing while Cue has not asked in the last 40 minutes (pmnCueOn_), so every payment text goes by SMS. With MSGR_PAY_TEMPLATE set (an approved Meta utility template, one body variable) the text goes as
+ * a utility message, which Meta delivers outside the 24-hour window; otherwise as a normal reply (inside the window only).
+ * No AI call. The text is Canvas's SMS wording; it carries no bank details (R6). */
+function cueMsgrPayRun_() {
+  const s = { id: 'msgr-pay' }, P = PropertiesService.getScriptProperties();
+  let items = [];
+  try { items = (cueBridge_(s, 'msgr_pay_due', {}) || {}).items || []; } catch (e) { console.warn('Messenger payments: ' + e); return 0; }
+  let sent = 0;
+  items.forEach(x => {
+    const k = 'CUE_MSGR_PAY_' + x.id;
+    let r = P.getProperty(k) ? { ok: true } : null;   // Meta took it on an earlier tick; only the report is retried
+    if (!r) r = cueMsgrPaySend_(x.psid, x.text);
+    if (r.ok && !P.getProperty(k)) { P.setProperty(k, String(cueNow_())); sent++; }
+    try {
+      const a = { request_id: 'msgrpay:' + x.id, id: x.id, ok: !!r.ok };
+      if (!r.ok) a.why = String(r.error || 'not sent').slice(0, 300);
+      const m = cueBridge_(s, 'msgr_pay_mark', a) || {};
+      if (m.ok) P.deleteProperty(k);
+    } catch (e) { console.warn('Messenger payment mark ' + x.id + ': ' + e); }
+  });
+  return sent;
+}
+/** One payment text: a utility message when MSGR_PAY_TEMPLATE is set, else a normal reply (24-hour window only). */
+function cueMsgrPaySend_(psid, text) {
+  const P = PropertiesService.getScriptProperties(), tpl = String(P.getProperty('MSGR_PAY_TEMPLATE') || '').trim();
+  if (!tpl) return cueMsgrSend_(psid, text);
+  const token = P.getProperty('MSGR_PAGE_TOKEN');
+  const body = String(text).replace(/^Blank Space Events:\s*/, '').slice(0, 900);
+  const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'UTILITY',
+      message: { template: { name: tpl, language: { code: 'en' }, components: [{ type: 'body', parameters: [{ type: 'text', text: body }] }] } } }) });
+  const code = res.getResponseCode();
+  if (code === 200) return { ok: true };
+  let msg = ''; try { msg = (JSON.parse(res.getContentText()).error || {}).message || ''; } catch (e) { msg = ''; }
+  return { ok: false, error: 'Meta ' + code + (msg ? ': ' + String(msg).slice(0, 160) : '') };
 }
 /** One pass: { sent, skipped: [{ id, why }], failed: [{ id, why }] }. */
 function cueMsgrRun_(now) {

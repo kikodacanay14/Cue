@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.x (number from the coordinator): payment notices by Messenger, SMS backup (not deployed)
+
+Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z
+he chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
+branch `claude/project-thread-uzsang`, `src/PayMessenger.gs`). Built on 1.28.33 (`claude/project-thread-sg8h1y`, 478272b).
+
+- Every Messenger tick (Job Runs "Messenger sign links", every 15 minutes, only with `MSGR_PAGE_TOKEN` set) Cue first collects the payment
+  texts Canvas held for people linked on Messenger (bridge `msgr_pay_due`), sends each on Messenger and reports it back
+  (`msgr_pay_mark`). A message Meta refuses is reported with Meta's reason, and Canvas texts it by SMS at once.
+- With the Script Property `MSGR_PAY_TEMPLATE` set to an approved Meta utility template (one body variable), the text goes as a utility
+  message, which Meta delivers outside the 24-hour window. Without it the text goes as a normal reply, which Meta accepts only within 24
+  hours of the person's last message.
+- A message Meta took whose report did not reach Canvas is remembered, and only the report is retried: nobody gets it twice.
+- No AI call. `test/fixtures/ZapBridge.gs` gains `msgr_pay_due` and `msgr_pay_mark`. Tests: 692 pass (7 new, `test/features/85-pay-messenger.js`).
+
 ## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (LIVE as Version 214, 6 Nov 2026 01:07Z; rollback Version 213)
 
 Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.32 (branch claude/project-thread-lda4e2, cd77399) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). A first 1.28.33 deploy on 1.28.30 (01:03Z) was replaced a minute later by the 1.28.32 deploy, so this one carries both.
