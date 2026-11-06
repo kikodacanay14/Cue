@@ -394,16 +394,26 @@ function cueMsgrCrewLinked_(psid, at, T, r, text) {
   return true;
 }
 /** People staff linked (Link) or turned down (Not mine) in Canvas, from msgr_due: told once, then msgr_told. */
+// MSGR-TOLD-ONCE-2026-11-06 (Codex review of 1.28.30): a told person is remembered locally (CUE_MSGR_TOLD_<psid>:<status>) right after
+// Meta accepts the message and Cue saves them, so a failed msgr_told is retried alone on the next tick: no second message, no second
+// Messenger People row or chat. The note is dropped once Canvas records it.
 function cueMsgrTell_(s, tell, now) {
+  const P = PropertiesService.getScriptProperties();
   (tell || []).forEach(x => {
     if (!/^\d{1,40}$/.test(String(x.psid || ''))) return;
-    const T = cueMsgrTri_(x.psid) || { name: '' }, linked = x.status === 'linked';
-    const r = cueMsgrSend_(x.psid, linked ? CUE_MSGR_SAY_.crewLinked(x.first || String(T.name || '').split(/\s+/)[0] || 'there') : CUE_MSGR_SAY_.notLinked);
-    if (!r.ok) { console.error('Messenger tell ' + x.psid + ': ' + r.error); return; }
-    if (linked) { const p = { psid: x.psid, email: x.key || '', name: T.name || x.first, last: new Date(now).toISOString(), chat: T.chat };
-      cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); }); PropertiesService.getScriptProperties().deleteProperty('MSGR_TRI_' + x.psid); }
-    else if (T.chat) { T.m = 'locked'; cueMsgrTriSave_(x.psid, T); }
-    try { cueBridge_(s, 'msgr_told', { request_id: 'msgrtold:' + x.psid + ':' + x.status + ':' + now, psid: String(x.psid), status: x.status }); }
+    const k = 'CUE_MSGR_TOLD_' + x.psid + ':' + x.status;
+    let at = P.getProperty(k);
+    if (!at) {
+      const T = cueMsgrTri_(x.psid) || { name: '' }, linked = x.status === 'linked';
+      const r = cueMsgrSend_(x.psid, linked ? CUE_MSGR_SAY_.crewLinked(x.first || String(T.name || '').split(/\s+/)[0] || 'there') : CUE_MSGR_SAY_.notLinked);
+      if (!r.ok) { console.error('Messenger tell ' + x.psid + ': ' + r.error); return; }
+      at = String(now); P.setProperty(k, at);
+      if (linked) { const p = { psid: x.psid, email: x.key || '', name: T.name || x.first, last: new Date(now).toISOString(), chat: T.chat };
+        cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); }); P.deleteProperty('MSGR_TRI_' + x.psid); }
+      else if (T.chat) { T.m = 'locked'; cueMsgrTriSave_(x.psid, T); }
+    }
+    try { const m = cueBridge_(s, 'msgr_told', { request_id: 'msgrtold:' + x.psid + ':' + x.status + ':' + at, psid: String(x.psid), status: x.status });
+      if (m && m.ok) P.deleteProperty(k); }
     catch (e) { console.error('msgr_told: ' + e); }
   });
 }

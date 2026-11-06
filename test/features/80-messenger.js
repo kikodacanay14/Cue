@@ -422,6 +422,24 @@ test('MS20 staff Link or Not mine in Canvas: msgr_due tells Cue, the person gets
   b.door(msgrIn('2002', { text: 'Thanks po' }));
   assert.ok(!b.calls.some(c => c[0] === 'fl_social_save'), 'no Freelancers key: no last-message save (and no error)');
 });
+test('MS20b msgr_told fails after Meta took the message: the next tick retries only msgr_told (no second message, row or chat; Codex review)', () => {
+  let told = 0;
+  const b = crewBox({ crew_match: { status: 'no_contact', project: 'Kings Day', first: 'Juan', person: 'Juan Reyes' },
+    msgr_told: () => { told++; if (told === 1) throw new Error('Canvas busy'); return { ok: true, marked: 1 }; } });
+  b.crew('Juan Reyes / Kings Day');
+  b.t.ctx.cueBridge_ = ((orig) => (s, action, args) => action === 'msgr_due'
+    ? { docs: [], tell: [{ psid: '2002', status: 'linked', first: 'Juan', project: 'Kings Day', key: '' }] } : orig(s, action, args))(b.t.ctx.cueBridge_);
+  const before = b.sent().length;
+  b.t.ctx.cueMsgrRun_(Date.parse('2026-11-02T06:45:00Z'));
+  assert.strictEqual(b.sent().length, before + 1, 'told once');
+  assert.ok(b.t.props['CUE_MSGR_TOLD_2002:linked'], 'remembered while Canvas has not recorded it');
+  b.t.ctx.cueMsgrRun_(Date.parse('2026-11-02T07:00:00Z'));
+  assert.strictEqual(b.sent().length, before + 1, 'no second message');
+  assert.strictEqual(b.t.tabs['Messenger People'].rows.filter(r => r[0] === '2002').length, 1, 'one Messenger People row');
+  const ids = b.calls.filter(c => c[0] === 'msgr_told').map(c => c[1].request_id);
+  assert.strictEqual(ids.length, 2); assert.strictEqual(ids[0], ids[1], 'the retry reuses the request id');
+  assert.ok(!b.t.props['CUE_MSGR_TOLD_2002:linked'], 'dropped once Canvas recorded it');
+});
 test('MS21 Canvas down: the crew still get the "not sure" reply, as before', () => {
   const b = crewBox({ crew_match: () => { throw new Error('Canvas busy'); } });
   b.crew('Ana Cruz / Kings Day');
