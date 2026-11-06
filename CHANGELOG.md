@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, not deployed)
+## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, LIVE Version 218, 6 Nov 2026 01:56Z, rollback Version 217)
 
 Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.36 (Version 217, main e0a241d).
 
