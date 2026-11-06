@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, not deployed)
+
+Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.35 (main 3203d2c). The version
+number skips 1.28.36, which the Messenger thread is building.
+
+- With Canvas busy for its full 20-second lock wait on every call, 20 leads over 3 tries could run past Apps Script's 6-minute limit, and
+  the run would end before saving which leads were still open. `cueBridgeWaves_` now starts no new wave after 150 seconds; the leads not
+  sent stay open and the next bid check sends them.
+- The one-time recovery of the three old bid checks starts no new old run after 2 minutes. A resume at least 10 minutes later sends the
+  rest, and when nothing is left it marks itself done (`CUE_BIDS_LEAD_BACKLOG_DONE`).
+- Rule written up as CUE-046 in `docs/business-rules.md`.
+- Tests: LR8 and LR9 new in `test/features/86-bid-lead-retry.js` (LR8 fails on 1.28.35). 695 of 695 pass.
+
 ## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, LIVE Version 216, 6 Nov 2026 01:23Z, rollback Version 215)
 
 Coordinator, 6 Nov 2026 00:55Z: Cue's bid-lead scans lost crm_lead saves to "Another save is in progress" (ledger 4 Nov 23:01Z and 5 Nov

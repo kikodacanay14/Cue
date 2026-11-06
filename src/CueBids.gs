@@ -1037,17 +1037,21 @@ function cueBidsLeadBacklog_() {
 /** Kiko 6 Nov 01:07Z ("Recover those coz i cant ask them to do it again"): the first resume after 1.28.35 ships recovers the three old
  * runs at once instead of one per daily check. Each old run's thread gets one line saying what was added. Later runs use the daily path. */
 function cueBidsLeadsBacklogNow_() {
-  if (globalThis.CUE_CHECK_ON_ || cueProp_('CUE_BIDS_LEAD_BACKLOG', '') === '1') return;
+  if (globalThis.CUE_CHECK_ON_ || cueProp_('CUE_BIDS_LEAD_BACKLOG_DONE', '') === '1') return;
   // Two resume triggers can overlap; only the one that takes this mark sends (crmLead_'s look-up is not under Canvas's lock).
+  // The mark lasts 10 minutes, longer than one Apps Script run (6 minutes), so a run cut short is picked up by a later resume.
   const mine = cueLocked_(() => { const P = PropertiesService.getScriptProperties();
-    if (P.getProperty('CUE_BIDS_LEAD_BACKLOG') === '1' || Number(P.getProperty('CUE_BIDS_LEAD_BACKLOG_AT') || 0) > cueNow_() - 30 * 60 * 1000) return false;
+    if (P.getProperty('CUE_BIDS_LEAD_BACKLOG_DONE') === '1' || Number(P.getProperty('CUE_BIDS_LEAD_BACKLOG_AT') || 0) > cueNow_() - 10 * 60 * 1000) return false;
     P.setProperty('CUE_BIDS_LEAD_BACKLOG_AT', String(cueNow_())); return true; });
   if (!mine) return;
   cueBidsLeadBacklog_();
-  for (let k = 0; k < CUE_BIDS_LEAD_BACKLOG_.length; k++) {
+  const t0 = cueNow_();
+  for (let k = 0; k <= CUE_BIDS_LEAD_BACKLOG_.length; k++) {
+    // Codex review on #336: one old run per pass once two minutes have gone, so this resume ends well inside its 6 minutes.
+    if (k && cueNow_() - t0 > CUE_BIDS_LEAD_.catchupAfterMs) { PropertiesService.getScriptProperties().deleteProperty('CUE_BIDS_LEAD_BACKLOG_AT'); return; }
     const me = { id: '', notes: [] }, before = cueBidsRuns_(cueSheet_('Requests')).filter(x => CUE_BIDS_LEAD_BACKLOG_.some(b => b[0] === x.s.id) && x.s.bids && x.s.bids.leads
       && (x.s.bids.leads.open || []).length && !x.s.bids.leads.tries)[0];
-    if (!before) break;
+    if (!before) { PropertiesService.getScriptProperties().setProperty('CUE_BIDS_LEAD_BACKLOG_DONE', '1'); return; }
     cueBidsLeadsCatchUp_(me, before.s.id);
     me.notes.forEach(n => cueChat_('Cue', n, before.s.ref || before.s.id));
   }

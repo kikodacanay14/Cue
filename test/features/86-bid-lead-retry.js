@@ -77,5 +77,27 @@ test('LR7 the first resume after 1.28.35 ships recovers every old run at once (K
   assert.strictEqual(t.tabs.Chat.rows.filter(r => /^Added to Canvas CRM: 3 leads the /.test(r[2])).length, 2, 'one line in each run\'s thread');
   assert.strictEqual(Object.keys(t.log.crmDeals).length, 6, 'one deal per notice');
   t.ctx.cueBidsLeadsBacklogNow_(); assert.strictEqual(t.log.recoveries.length, 2, 'never again');
-  delete t.props.CUE_BIDS_LEAD_BACKLOG; t.ctx.cueBidsLeadsBacklogNow_(); assert.strictEqual(t.log.recoveries.length, 2, 'a second trigger within 30 minutes sends nothing');
+  assert.strictEqual(t.props.CUE_BIDS_LEAD_BACKLOG_DONE, '1');
+  delete t.props.CUE_BIDS_LEAD_BACKLOG_DONE; t.ctx.__wait(11 * 60 * 1000); t.ctx.cueBidsLeadsBacklogNow_(); assert.strictEqual(t.log.recoveries.length, 2, 'nothing left to send');
+});
+test('LR8 Canvas busy for its whole 20 s lock wait: 20 leads stop starting waves after 150 s, so the run ends well inside 6 minutes and keeps all 20 open', () => {
+  const t = bidBox({ leadBusy: 999, batchStep: 20000 });
+  const s = { id: 'cue-y', notes: [], bids: { items: Array.from({ length: 20 }, (x, n) => ({ key: 'c:2000' + n, project: 'P' + n, agency: 'A' })) } };
+  const t0 = t.ctx.cueNow_(); t.ctx.cueBidsLeads_(s);
+  assert.ok(t.ctx.cueNow_() - t0 <= 200000, 'took ' + (t.ctx.cueNow_() - t0) + ' ms');
+  deq([s.bids.leads.added, s.bids.leads.failed, s.bids.leads.open.length], [0, 20, 20]);
+  assert.ok(/^bidlead-/.test(s.bids.leads.task));
+});
+test('LR9 the one-time recovery stops starting old runs after 2 minutes; a resume 10 minutes later sends the rest', () => {
+  const t = bidBox({ leadBusy: 99, batchStep: 4000 }); const a = lrRun(t); t.ctx.__wait(864e5); const b = lrRun(t);
+  [[a.id, 'cue-20261105063345-6770'], [b.id, 'cue-20261106063350-36e7']].forEach(([from, to]) => t.ctx.cueLocked_(() => {
+    const x = t.ctx.cueLoad_(from); x.s.id = to; x.s.ref = ''; x.s.bids.items = from === b.id ? a.bids.items.map(it => Object.assign({}, it, { key: it.key + '-6nov' })) : x.s.bids.items;
+    x.s.bids.leads = { added: 0, failed: 3 }; t.ctx.cueSave_(x.sh, x.row, x.s); }));
+  delete t.props.CUE_BIDS_LEAD_BACKLOG; t.opts.leadBusy = 0; t.opts.batchStep = 130000; t.log.recoveries = [];
+  t.ctx.cueBidsLeadsBacklogNow_();
+  deq(t.log.recoveries.map(r => r.recovers), ['bidlead-mw2q0m92'], 'one old run, then the 2 minutes are up');
+  assert.ok(!t.props.CUE_BIDS_LEAD_BACKLOG_DONE);
+  t.opts.batchStep = 4000; t.ctx.cueBidsLeadsBacklogNow_();
+  deq(t.log.recoveries.map(r => r.recovers), ['bidlead-mw2q0m92', 'bidlead-mw453v1z'], 'the next resume sends the other run');
+  assert.strictEqual(Object.keys(t.log.crmDeals).length, 6);
 });

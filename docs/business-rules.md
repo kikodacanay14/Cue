@@ -1,6 +1,6 @@
 # Cue business rules — source-based first pass
 
-Status on main (checked 3 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
+Status on main (checked 3 Nov 2026; CUE-046 added 6 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
 Cue main and the live line have split: branch `claude/project-thread-y5l4x9-rel1285fix` (live, Version 191) has 256 commits main lacks,
 so a rule here can differ from what is live until main is reconciled with that line. The Canvas catalog is
 CanvasWorkspace `docs/business-rules.md`.
@@ -307,3 +307,30 @@ Implemented in `src/CueStatus.gs` (`cueStCopy_`):
 
 Evidence: `test/features/63-friday-status.js`, ST2b, checked against the `test/fixtures/ZapBridge.gs` schema from CanvasWorkspace PR #498.
 Manual gap: the first real Friday send has not yet been checked under Weekly Reports on live Canvas V452.
+
+## Cue 1.28.35 (PR #336) and its time-limit follow-up
+
+### CUE-046: A bid lead Canvas is too busy to save is sent again until it is in the CRM (code tag `LEAD-RETRY-2026-11-06`)
+
+Intended policy: on 6 Nov 2026 at 01:07Z Kiko asked for the bid leads lost to Canvas save clashes to be recovered ("Recover those coz i
+cant ask them to do it again!!@!") and asked "What if those are clients lost?". At 01:17Z Kiko said "Yes to deploy". No new business rule
+was asked for or approved: this is a retry and recovery of what the bid check already sends (each new bid notice becomes one Canvas CRM
+lead, source Bid finder, request_id `bid:<key>`).
+
+Implemented in `src/CueBridge.gs` (`cueBridgeWaves_`) and `src/CueBids.gs` (`cueBidsLeads_`, `cueBidsLeadsCatchUp_`,
+`cueBidsLeadsBacklogNow_`):
+1. The commands of a claimed plan go to Canvas 3 at a time. An answer that says Canvas is busy is sent again after 5 seconds with the same
+   command_id, up to 3 tries. Canvas's crm_lead returns the deal it already made for a request_id, so a repeat never makes a second deal.
+2. No new wave starts once 150 seconds have gone. The leads not sent stay open on the run, so an Apps Script run never ends before it
+   records what is left (added after the Codex review on PR #336).
+3. Leads still open are sent by a later bid check as a Canvas recovery task (`<task>-recovery-1`, `recovers: <task>`). Canvas marks the
+   old plan Superseded, which closes its stuck Claimed ledger rows. Only deals created by that push count as added.
+4. Once, after 1.28.35 shipped, the background resume recovers the three bid checks that lost leads before the fix (30 Oct, 5 Nov, 6 Nov)
+   and posts one line in each run's thread. It starts no new old run after 2 minutes; a resume at least 10 minutes later sends the rest.
+   When none is left it sets `CUE_BIDS_LEAD_BACKLOG_DONE` and never runs again.
+
+Technical limits chosen by Claude, not Kiko-approved policy: 3 at a time, 3 tries, the 150-second and 2-minute budgets, and at most 3
+recovery attempts per run. They change no business outcome; a lead that still fails after 3 recoveries stays listed on its run.
+
+Evidence: `test/features/86-bid-lead-retry.js`, LR1 to LR9. A dry run on the real stored runs and ledger (6 Nov) gave 21 Bid finder deals
+before and 36 after, 15 new, no duplicate. Manual gap: live CRM Deals is being checked after Version 216 went live (6 Nov 01:23Z).
