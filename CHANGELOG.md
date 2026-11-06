@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (not deployed)
+## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA
 viewer?" Kiko saw the mockup (https://claude.ai/artifact/GUJFRMhFhL2HvjPZ8nuNcB) and picked "Picture of page 1 + button",
