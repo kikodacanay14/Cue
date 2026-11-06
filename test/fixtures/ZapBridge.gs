@@ -3326,6 +3326,15 @@ ZB_ACTIONS_.msgr_mark = {
     psid: { type: 'string', required: true, re: /^\d{1,40}$/ } },
   run: (r) => zbMsgrMark_(r.args)
 };
+/* PAY-MSGR-2026-11-06 (Kiko 6 Nov 2026: payment notices by Messenger, SMS backup R-PMN-1; PayMessenger.gs): Cue collects the
+ * held payment texts and reports each one back; a refused one is texted by Canvas. Queue action with no tap, as msgr_mark. */
+ZB_ACTIONS_.msgr_pay_due = { kind: 'read', needsProject: false, schema: {}, run: () => zbMsgrPayDue_() };
+ZB_ACTIONS_.msgr_pay_mark = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, id: { type: 'string', required: true, re: /^PM-[A-Z0-9-]{3,40}$/ },
+    ok: { type: 'boolean', required: true }, why: { type: 'string', max: 300 } },
+  run: (r) => zbMsgrPayMark_(r.args)
+};
 /* CREW-MATCH-2026-11-05 (Kiko 5 Nov 2026 11:49Z "Ok deploy" on crew-match-flow.png): Messenger crew matched by name and event,
  * then linked by a 6-digit code, or by staff when Canvas has no mobile and no email (MessengerMatch.gs). Queue actions with no
  * tap, as fl_social_save: Kiko approved the flow running by itself. */
