@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (not deployed)
+
+Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z
+Kiko chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
+branch `claude/project-thread-uzsang`, `src/PayMessenger.gs`). Built on 1.28.35 (`claude/project-thread-tqdh8x`, 5948a17).
+
+- Every Messenger tick (Job Runs "Messenger sign links", every 15 minutes, only with `MSGR_PAGE_TOKEN` set) Cue first collects the payment
+  texts Canvas held for people linked on Messenger (bridge `msgr_pay_due`), sends each on Messenger and reports it back
+  (`msgr_pay_mark`). A message Meta refuses is reported with Meta's reason, and Canvas texts it by SMS at once.
+- With the Script Property `MSGR_PAY_TEMPLATE` set to an approved Meta utility template (one body variable), the text goes as a utility
+  message, which Meta delivers outside the 24-hour window. Without it the text goes as a normal reply, which Meta accepts only within 24
+  hours of the person's last message.
+- A message Meta took whose report did not reach Canvas is remembered, and only the report is retried: nobody gets it twice.
+- Fix (Codex review of 1.28.30): when Meta accepted the "linked" or "not linked" message after a staff Link or Not mine but `msgr_told`
+  failed, the next tick sent it again and added a second Messenger People row and chat. Cue now remembers the told person
+  (`CUE_MSGR_TOLD_<psid>:<status>`) and retries only `msgr_told`, with the same request id.
+- No AI call. `test/fixtures/ZapBridge.gs` gains `msgr_pay_due` and `msgr_pay_mark`. Tests: 693 pass (8 new: `test/features/85-pay-messenger.js`, MS20b).
+
 ## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, not deployed)
 
 Coordinator, 6 Nov 2026 00:55Z: Cue's bid-lead scans lost crm_lead saves to "Another save is in progress" (ledger 4 Nov 23:01Z and 5 Nov
