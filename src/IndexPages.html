@@ -144,15 +144,12 @@
   function settingsTab(sec) {
     $('snav').querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-current', String(b.getAttribute('data-s') === sec)); });
     document.querySelectorAll('#settings [data-sec]').forEach(function (x) { x.hidden = x.getAttribute('data-sec') !== sec; });
-    if (sec === 'usage') loadUsage();
     if (sec === 'sched') loadSched();
     if (sec === 'triage') loadTriage();
     if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
-    if (sec === 'jobchasers') { loadJc(); if (!RNW.d) rnwLoad(); }
     if (sec === 'sendnotice' && !SNW.b) snBoardLoad();
     if (sec === 'log') loadLog();
-    if (sec === 'templates' && (!MT.d || MT.d.error)) mtLoad();   // a failed read is tried again each time the section opens
   }
   function renderSettings() {
     var S = settingsData || {}, P = S.processes || [];
@@ -245,20 +242,6 @@
   var IC = { mail: '<svg class="ic" viewBox="0 0 24 24" aria-label="Email" role="img"><path d="M3 6h18v12H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     sms: '<svg class="ic" viewBox="0 0 24 24" aria-label="Text" role="img"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
     app: '<svg class="ic" viewBox="0 0 24 24" aria-label="App notice" role="img"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
-  var jc = null, jcErr = '';
-  function loadJc() { call('cueAdminChasers', [], function (r) { jc = r; jcErr = ''; rnwDraw(); }, function (e) { jcErr = (e && e.message) || String(e); rnwDraw(); }); }
-  // CUE-ADMIN-4-2026-10-29 (Kiko 03:35Z "the specific resource we're chasing are gonna be prompted to me in Cue ... Have here the generic templates
-  // for each chaser"): each chaser opens to its email template; the chases themselves wait in the morning batch.
-  function tvar(h) { return h.replace(/&lt;([^&]{1,60}?)&gt;/g, '<span class="tvar">&lt;$1&gt;</span>'); }   // Kiko 03:38Z: highlight the variables
-  // CUE-ADMIN-ONE-LIST-2026-10-29 (Kiko 04:33Z "honestly i dont care if its a Canvas or Cue chaser just put it all there"): one Chasers list.
-  // A chaser Cue runs opens to its email template; its chases still come in the morning batch.
-  function jcHtml(k) {
-    var J = jc || {};
-    return '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1">' + IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>') + '<div class="adesc">' + esc(k.about) + '</div></div></div>'
-      + '<div class="adesc">From ' + esc(k.from) + ' · To ' + esc(k.to) + '</div>'
-      + '<div class="adesc">These come to you in the morning batch (made at ' + esc(J.build || '') + '; the emails you approve go at ' + esc(J.send || '') + '). ' + (k.ai ? 'ChatGPT writes each email from this template\'s brief; this exact wording is used when ChatGPT can\'t.' : 'Sent in this exact wording.') + ' You can edit every one on the batch card before you approve.</div>'
-      + '<div class="jdraft">' + (k.subject ? '<b>' + tvar(esc(k.subject)) + '</b>\n\n' : '') + tvar(esc(k.body)) + '</div></div>';
-  }
   // ---- Cue Admin (CUE-ADMIN-2026-10-29, Kiko 29 Oct 02:13Z-02:42Z, Epic Cue #193): ?view=admin shows these sections as one full page
   // in Canvas's look. The chat's Settings button opens it in a new tab (story #197); without the page address it opens the sections here. ----
   var adminView = false;
@@ -346,70 +329,6 @@
       }).join(''));
   }
   $('w-rn').addEventListener('click', function (e) { if (e.target.closest('[data-rn-sched]')) settingsTab('sched'); });
-  /* CUE-ADMIN-MOVE-2026-10-29 (Kiko 29 Oct 03:43Z "lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue Admin"):
-   * Canvas Admin's Run now (Chasers) and Send a notice, moved here as they were (Canvas Workspace.html openRunNow / openSendNotice).
-   * Canvas still sends; Kiko's press is the approval for those emails. Each press is sent once (no retry: Canvas keeps no ledger). */
-  var RNW = { d: null, res: {}, tick: {}, kind: 'ar', q: '', unsent: false, busy: false, err: '', msg: '' };
-  var RNW_KINDS = [['ar', 'AR chaser', 'Paid suppliers whose AR is made but not signed yet'], ['invoice', 'Invoice chaser', 'Paid suppliers who owe us their invoice'],
-    ['paid', 'Payment sent', 'Paid requests whose supplier has no payment notice yet'], ['final', 'Final reminder', 'Events today or later, to their suppliers and crew']];
-  function rnwLoad() { RNW.err = ''; RNW.msg = ''; call('cueAdminCanvasChasers', [], function (d) { RNW.d = d; rnwDraw(); }, function (e) { RNW.err = "Couldn't load the lists: " + ((e && e.message) || e); rnwDraw(); }); }
-  function rnwPeso(n) { return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function rnwKey(x) { return x.kind + '|' + x.pid + '|' + (x.item || ''); }
-  function rnwTicked(x) { var k = rnwKey(x), r = RNW.res[k]; return k in RNW.tick ? RNW.tick[k] : r ? !r.ok : !!x.on; }
-  function rnwShown() {
-    var q = RNW.q.trim().toLowerCase();
-    return ((RNW.d && RNW.d[RNW.kind]) || []).filter(function (x) { return (!RNW.unsent || !x.last)
-      && (!q || [x.supplier, x.project, x.pid, x.item].concat(x.reqs || []).join(' ').toLowerCase().indexOf(q) >= 0); });
-  }
-  function rnwDraw() {
-    var d = RNW.d, box = $('w-rnw');
-    var J = (jc && jc.kinds) || [], ck = /^cue:/.test(RNW.kind) ? J.filter(function (x) { return 'cue:' + x.kind === RNW.kind; })[0] : null;
-    var chips = '<span class="stabs" role="tablist" aria-label="Chasers">' + RNW_KINDS.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="' + x[0] + '" aria-pressed="' + (x[0] === RNW.kind) + '">' + esc(x[1]) + (d ? ' <span class="n">' + (d[x[0]] || []).length + '</span>' : '') + '</button>'; }).join('')
-      + J.map(function (x) { return '<button type="button" role="tab" data-rnw-kind="cue:' + esc(x.kind) + '" aria-pressed="' + ('cue:' + x.kind === RNW.kind) + '">' + esc(x.label.replace(/s$/, '')) + (x.on ? '' : ' <span class="n">Off</span>') + '</button>'; }).join('') + '</span>';
-    if (ck || /^cue:/.test(RNW.kind)) { setHtml(box, '<div class="logf">' + chips + '</div>' + (jcErr ? '<div class="err">' + esc(jcErr) + '</div>' : '') + (ck ? jcHtml(ck) : '<div class="small muted">Loading…</div>')); return; }
-    if (!d) { setHtml(box, (J.length ? '<div class="logf">' + chips + '</div>' : '') + (RNW.err ? '<div class="err">' + esc(RNW.err) + '</div>' : '<div class="small muted">Finding what to send…</div>')); return; }
-    var k = RNW_KINDS.filter(function (x) { return x[0] === RNW.kind; })[0], all = d[RNW.kind] || [], L = rnwShown(), fin = RNW.kind === 'final';
-    var on = L.filter(rnwTicked).length;
-    var row = function (x) { var r = RNW.res[rnwKey(x)];
-      return '<tr><td class="rnw-tick"><input type="checkbox" data-rnw-key="' + esc(rnwKey(x)) + '"' + (rnwTicked(x) ? ' checked' : '') + ' aria-label="Send to ' + esc(fin ? x.project : x.supplier) + '"></td>'
-        + (fin ? '<td><b>' + esc(x.project) + '</b><div class="adesc">' + esc(x.pid) + '</div></td><td>' + esc(x.supplier) + '</td>'
-          : '<td><b>' + esc(x.supplier || 'No supplier name') + '</b><div class="adesc">' + esc(x.project) + ' · ' + esc((x.reqs || []).join(', ')) + (RNW.kind === 'ar' ? ' · ' + esc(x.item) : '') + '</div></td><td>' + rnwPeso(x.amount) + '</td>')
-        + '<td class="adesc">' + (x.last ? 'Last sent ' + esc(String(x.last).slice(0, 16)) : 'Not sent yet') + '</td>'
-        + '<td class="rnw-go">' + (r ? (r.ok ? '<span class="ok">✓ Sent to ' + esc(r.to || '') + '</span>' : '<span class="bad">✕ ' + esc(r.error || 'Not sent') + '</span> ') : '')
-        + (r && r.ok ? '' : '<button type="button" class="btn ghost" data-rnw-edit="' + esc(RNW.kind) + '" data-rnw-item="' + esc(x.item || '') + '" data-rnw-pid="' + esc(x.pid) + '">Edit</button>') + '</td></tr>'; };
-    setHtml(box, '<div class="adesc" style="margin-bottom:8px">Send now instead of waiting. Tick what to send and press Send ticked: Canvas sends each one as in Send a notice, by email, and by text where there is a mobile. Edit opens it in Send a notice so you can type over the words first.</div>'
-      + '<div class="logf">' + chips + '</div><div class="logf">'
-      + '<input type="search" data-rnw-q="1" placeholder="Search supplier, project or ID" aria-label="Search supplier, project or ID" value="' + esc(RNW.q) + '">'
-      + '<label class="adesc" style="opacity:1"><input type="checkbox" data-rnw-unsent="1"' + (RNW.unsent ? ' checked' : '') + '> Not sent yet</label>'
-      + '<button type="button" class="btn ghost" data-rnw-refresh="1">Refresh</button></div>'
-      + '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1"><b>' + esc(k[1]) + '</b><div class="adesc">' + esc(k[2]) + '</div></div>'
-      + '<span class="adesc">' + (L.length === all.length ? L.length + ' lines' : L.length + ' of ' + all.length + ' shown') + ' · ' + on + ' ticked</span>'
-      + (L.length ? '<button type="button" class="btn" data-rnw-send="1"' + (RNW.busy ? ' disabled' : '') + '>' + (RNW.busy ? 'Sending…' : 'Send ticked') + '</button>' : '') + '</div>'
-      + (RNW.msg ? '<div class="adesc" style="opacity:1;margin-bottom:6px">' + esc(RNW.msg) + '</div>' : '')
-      + (L.length ? '<table class="rnw"><thead><tr><th class="rnw-tick"><input type="checkbox" data-rnw-all="1" aria-label="Tick all shown"' + (on === L.length ? ' checked' : '') + '></th><th>' + (fin ? 'Project' : 'Supplier') + '</th><th>' + (fin ? 'Event day' : 'Paid') + '</th><th>Sent</th><th></th></tr></thead><tbody>' + L.map(row).join('') + '</tbody></table>'
-        : '<div class="small muted">' + (all.length ? 'Nothing matches the filter.' : 'Nothing to send.') + '</div>') + '</div>');
-  }
-  $('w-rnw').addEventListener('change', function (e) { var c = e.target;
-    if (c.getAttribute('data-rnw-unsent')) { RNW.unsent = c.checked; rnwDraw(); }
-    else if (c.getAttribute('data-rnw-all')) { rnwShown().forEach(function (x) { RNW.tick[rnwKey(x)] = c.checked; }); rnwDraw(); }
-    else if (c.getAttribute('data-rnw-key')) { RNW.tick[c.getAttribute('data-rnw-key')] = c.checked; rnwDraw(); } });
-  $('w-rnw').addEventListener('input', function (e) { if (!e.target.getAttribute('data-rnw-q')) return; RNW.q = e.target.value; rnwDraw(); var i = $('w-rnw').querySelector('[data-rnw-q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
-  $('w-rnw').addEventListener('click', function (e) {
-    if (e.target.closest('[data-rnw-refresh]')) { RNW.res = {}; RNW.tick = {}; RNW.d = null; rnwDraw(); rnwLoad(); return; }
-    var kb = e.target.closest('[data-rnw-kind]'); if (kb) { RNW.kind = kb.getAttribute('data-rnw-kind'); RNW.msg = ''; rnwDraw(); return; }
-    var ed = e.target.closest('[data-rnw-edit]'); if (ed) { snOpen(ed.getAttribute('data-rnw-edit'), ed.getAttribute('data-rnw-pid'), ed.getAttribute('data-rnw-item')); return; }
-    if (!e.target.closest('[data-rnw-send]') || RNW.busy) return;
-    var kind = RNW.kind, label = RNW_KINDS.filter(function (x) { return x[0] === kind; })[0][1];
-    var lines = rnwShown().filter(rnwTicked).map(function (x) { return { kind: kind, pid: x.pid, item: x.item || '' }; });   // only the ticked lines the filter shows
-    if (!lines.length) { RNW.msg = 'Tick at least one line.'; rnwDraw(); return; }
-    ask('Send ' + lines.length + ' ' + label + (lines.length > 1 ? 's' : '') + ' now?', 'Canvas sends each one now as in Send a notice, by email, and by text where there is a mobile.', null, 'Send', function () {
-      RNW.busy = true; RNW.msg = ''; rnwDraw();
-      call('cueAdminCanvasChaseSend', [lines], function (r) { RNW.busy = false;
-        (r.results || []).forEach(function (x) { RNW.res[rnwKey(x)] = x; delete RNW.tick[rnwKey(x)]; }); if (r.list) RNW.d = r.list;
-        RNW.msg = (r.results || []).filter(function (x) { return x.ok; }).length + ' of ' + lines.length + ' sent.'; rnwDraw(); },
-        function (err) { RNW.busy = false; RNW.msg = 'Nothing was sent: ' + ((err && err.message) || err); rnwDraw(); });
-    });
-  });
 
   var SNW = { b: null, kind: '', pid: '', item: '', d: null, busy: false, q: '', err: '', items: null, out: '' };
   function snBoardLoad() { call('cueAdminSnBoard', [], function (b) { SNW.b = b; snDraw(); }, function (e) { SNW.err = "Couldn't load: " + ((e && e.message) || e); snDraw(); }); }
@@ -511,97 +430,6 @@
    * the type of comms - theres a template viewer on the right that allows editing. would also show there inbox that sends it and files
    * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test, Open in doc
    * and Edit (Save to doc writes the subject and words back into the doc through Canvas). The words come only from the doc, through Canvas (CueMsgTemplates.gs). */
-  var MT = { d: null, err: '', f: { who: '', ch: 'Email', st: '' }, sel: '', edit: null, prev: {}, perr: {}, busy: false, msg: '' };
-  var MT_COL = { C: '#559FEF', S: '#CD5023', R: '#B3107C', T: '#23006F' }, MT_WHO = [['', 'All'], ['C', 'Clients'], ['S', 'Suppliers'], ['R', 'Crew'], ['T', 'Team']];
-  var MT_TAG = { 'In use': 'use', 'Old wording': 'old', 'New draft': 'new', 'Sent by hand': 'man' };
-  function mtLoad() { MT.err = ''; call('cueAdminTemplates', [], function (r) { MT.d = r; if (!mtRow(MT.sel)) MT.sel = (mtShown()[0] || {}).key || ''; mtDraw(); mtPrev(); }, function (e) { MT.err = (e && e.message) || String(e); mtDraw(); }); }
-  function mtRow(k) { return ((MT.d && MT.d.list) || []).filter(function (x) { return x.key === k; })[0] || null; }
-  function mtShown() { return ((MT.d && MT.d.list) || []).filter(function (x) { return (!MT.f.who || x.who === MT.f.who) && (!MT.f.ch || x.channel === MT.f.ch) && (!MT.f.st || x.status === MT.f.st); }); }
-  function mtVars(s) { return esc(s).replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, '<span class="mtvar">{{$1}}</span>'); }
-  function mtRev(r) { return /^\d{12,}$/.test(String(r || '')) ? new Date(Number(r)).toLocaleString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : String(r || ''); }   // Canvas's doc version is the doc's last-saved time
-  function mtText(blocks) { return (blocks || []).map(function (b) { return b.t === 'btn' ? '[' + b.text + '](' + b.url + ')' : b.text; }).join('\n\n'); }
-  function mtTag(st) { return '<span class="mttag ' + (MT_TAG[st] || '') + '">' + esc(st) + '</span>'; }
-  function mtCode(x) { return '<span class="mtcode" style="background:' + (MT_COL[x.who] || '#23006F') + '">' + esc(x.code) + '</span>'; }
-  function mtPrev() {   // the doc's own render of the picked email (Canvas message_render, draft mode), once per template
-    var x = mtRow(MT.sel); if (!x || !x.indoc || x.channel !== 'Email' || MT.prev[x.key] || MT.perr[x.key]) return;
-    MT.prev[x.key] = 'loading';
-    call('cueAdminTemplatePreview', [x.key], function (r) { MT.prev[x.key] = r; mtDraw(); }, function (e) { delete MT.prev[x.key]; MT.perr[x.key] = (e && e.message) || String(e); mtDraw(); });
-  }
-  function mtFrame(html) {   // fill-ins highlighted in the text only, never inside a link
-    var h = String(html || '').replace(/>([^<]+)</g, function (m, t) { return '>' + t.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, '<span style="background:#ECEAFD;color:#2810DC;border-radius:3px;padding:0 3px">{{$1}}</span>') + '<'; });
-    return '<iframe sandbox="" title="Email preview" srcdoc="' + esc('<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">' + h + '</body>') + '"></iframe>';
-  }
-  function mtDraw() {
-    var D = MT.d || { list: [], statuses: [] }, L = D.list || [], q = function (a) { return L.filter(a).length; };
-    var h = '<div class="adesc mtsrc">Source: <a href="' + esc(D.doc || '#') + '" target="_blank" rel="noopener"><b>BSE Message Templates Revised</b></a> · every email Cue and Canvas send uses one of these' + (D.rev ? ' · doc saved ' + esc(mtRev(D.rev)) : '') + '</div>';
-    if (MT.err) h += '<div class="err">' + esc(MT.err) + '</div>';
-    if (!MT.d) return setHtml($('w-mt'), h + (MT.err ? '' : '<div class="small muted">Loading…</div>'));
-    if (D.error) h += '<div class="err">The templates could not be read, so none are shown: ' + esc(D.error) + '</div>';
-    var F = '<h4>Who receives it</h4>' + MT_WHO.map(function (w) {
-      return '<button class="mtchip" data-mt-who="' + w[0] + '" aria-pressed="' + (MT.f.who === w[0]) + '"><span class="mtdot" style="background:' + (w[0] ? MT_COL[w[0]] : 'linear-gradient(90deg,#559FEF 0 25%,#CD5023 25% 50%,#B3107C 50% 75%,#23006F 75%)') + '"></span>' + esc(w[1])
-        + '<span class="n">' + q(function (x) { return (!w[0] || x.who === w[0]) && (!MT.f.ch || x.channel === MT.f.ch); }) + '</span></button>'; }).join('')
-      + '<h4>Channel</h4>' + ['Email', 'SMS', 'Social'].map(function (c) { return '<button class="mtchip" data-mt-ch="' + c + '" aria-pressed="' + (MT.f.ch === c) + '">' + c + '<span class="n">' + q(function (x) { return x.channel === c && (!MT.f.who || x.who === MT.f.who); }) + '</span></button>'; }).join('')
-      + '<h4>Status</h4>' + [''].concat(D.statuses || []).map(function (st) { return '<button class="mtchip" data-mt-st="' + esc(st) + '" aria-pressed="' + (MT.f.st === st) + '">' + esc(st || 'Any') + '</button>'; }).join('');
-    var S = mtShown(), g = null, Li = '';
-    S.forEach(function (x) { var gg = (MT.f.who ? '' : x.whoName + ' · ') + String(x.stage || '').replace(/^\d+ /, ''); if (gg !== g) { g = gg; Li += '<div class="mtgrp">' + esc(g) + '</div>'; }
-      Li += '<button class="mtit" data-mt-key="' + esc(x.key) + '" aria-current="' + (MT.sel === x.key) + '">' + mtCode(x) + '<span><b style="font-weight:600">' + esc(x.name) + '</b><div class="adesc">' + esc(x.sentBy) + '</div></span>' + mtTag(x.status) + '</button>'; });
-    h += '<div class="mtw"><div class="mtcol mtf">' + F + '</div><div class="mtcol">' + (Li || '<div class="mtv small muted">Nothing matches these filters.</div>') + '</div><div class="mtcol mtv">' + mtView() + '</div></div>';
-    setHtml($('w-mt'), h);
-  }
-  function mtView() {
-    var x = mtRow(MT.sel); if (!x) return '<div class="small muted">Pick a message.</div>';
-    var h = '<div class="mthd">' + mtCode(x) + '<h3>' + esc(x.name) + '</h3>' + mtTag(x.status) + '</div>' + (x.use ? '<div class="adesc" style="margin-top:4px">' + mtVars(x.use) + '</div>' : '');
-    var att = x.attachments.length ? x.attachments.map(function (a) { return '<span class="mtatt">📎 ' + mtVars(a.name || a.id) + '</span>'; }).join('') : '<span class="muted">None</span>';
-    var last = x.last ? esc(x.last.at) + ' · to ' + esc(x.last.to) + (x.last.rev ? ' · doc saved ' + esc(mtRev(x.last.rev)) : '') : '<span class="muted">No send logged yet</span>';
-    h += '<table class="mtfacts"><tr><td>Receives it</td><td>' + esc(x.whoName) + (/^\d/.test(x.stage) ? ' · journey step ' + esc(x.stage) : '') + '</td></tr><tr><td>Sent by</td><td>' + esc(x.sentBy || '?') + ' · ' + esc(x.channel) + '</td></tr>'
-      + '<tr><td>Sends from</td><td>' + esc(x.from || '?') + (x.cc ? ' · CC ' + esc(x.cc) : '') + '</td></tr><tr><td>Attachments</td><td>' + att + '</td></tr>'
-      + (x.button ? '<tr><td>Button opens</td><td>' + mtVars(x.button) + '</td></tr>' : '') + '<tr><td>Last sent</td><td>' + last + '</td></tr></table>';
-    if (MT.msg) h += '<div class="card small">' + esc(MT.msg) + '</div>';
-    if (!x.indoc) return h + '<div class="card small muted">Not in the doc yet. Its words go into the doc once you approve them.</div>';
-    if (MT.edit && MT.edit.key === x.key) return h + mtEditor(x);
-    if (x.channel !== 'Email') h += '<div class="mtsms">' + mtVars(x.blocks.map(function (b) { return b.text; }).join('\n')) + '</div>';
-    else { var p = MT.prev[x.key];
-      h += MT.perr[x.key] ? '<div class="err">The preview could not be built: ' + esc(MT.perr[x.key]) + '</div>'
-        : !p || p === 'loading' ? '<div class="small muted">Building the preview from the doc…</div>'
-        : '<div class="mtprev"><div class="sj"><b class="muted">Subject</b> ' + mtVars(p.subject) + '</div>' + mtFrame(p.html) + '</div>'; }
-    return h + '<div class="mtact">'
-      + (x.channel === 'Email' ? '<button class="btn ghost" data-mt-go="test"' + (MT.busy ? ' disabled' : '') + '>Send me a test</button>' : '')
-      + '<a class="btn ghost" href="' + esc(MT.d.doc) + '" target="_blank" rel="noopener">Open in doc</a><button class="btn" data-mt-go="edit">Edit</button></div>';
-  }
-  function mtEditor(x) {
-    var E = MT.edit;
-    return '<div class="mted">' + (x.channel === 'Email' ? '<label for="mt-subj">Subject</label><input id="mt-subj" data-mt-e="subject" value="' + esc(E.subject) + '">' : '')
-      + '<label for="mt-body">Message</label><textarea id="mt-body" data-mt-e="body">' + esc(E.body) + '</textarea>'
-      + '<div class="adesc">Fill-ins Cue and Canvas supply from records. Click one to insert it. A paragraph written [Button words](link) is the yellow button.</div><div>'
-      + x.vars.map(function (v) { return '<button class="mtvar" data-mt-var="' + esc(v) + '">{{' + esc(v) + '}}</button>'; }).join('') + '</div>'
-      + '<div class="adesc" style="margin-top:8px">Saving writes this template back to the BSE Message Templates doc. The next ' + esc(x.code) + ' message uses it. The sending inbox and attachments are set in Canvas.</div>'
-      + '<div class="mtact"><button class="btn ghost" data-mt-go="cancel">Cancel</button><button class="btn" data-mt-go="save"' + (MT.busy ? ' disabled' : '') + '>' + (MT.busy ? 'Saving…' : 'Save to doc') + '</button></div></div>';
-  }
-  $('w-mt').addEventListener('input', function (e) { var k = e.target.getAttribute('data-mt-e'); if (k && MT.edit) MT.edit[k] = e.target.value; });
-  $('w-mt').addEventListener('click', function (e) {
-    var c = e.target.closest('[data-mt-who],[data-mt-ch],[data-mt-st]');
-    if (c) { if (c.hasAttribute('data-mt-who')) MT.f.who = c.getAttribute('data-mt-who'); if (c.hasAttribute('data-mt-ch')) MT.f.ch = c.getAttribute('data-mt-ch'); if (c.hasAttribute('data-mt-st')) MT.f.st = c.getAttribute('data-mt-st');
-      if (!mtShown().some(function (x) { return x.key === MT.sel; })) MT.sel = (mtShown()[0] || {}).key || ''; MT.edit = null; MT.msg = ''; mtDraw(); mtPrev(); return; }
-    var it = e.target.closest('[data-mt-key]'); if (it) { MT.sel = it.getAttribute('data-mt-key'); MT.edit = null; MT.msg = ''; mtDraw(); mtPrev(); return; }
-    var v = e.target.closest('[data-mt-var]'); if (v && MT.edit) { var ta = $('mt-body'), t = '{{' + v.getAttribute('data-mt-var') + '}}', p0 = ta.selectionStart || 0, p1 = ta.selectionEnd || 0;
-      ta.value = ta.value.slice(0, p0) + t + ta.value.slice(p1); MT.edit.body = ta.value; ta.focus(); ta.setSelectionRange(p0 + t.length, p0 + t.length); return; }
-    var go = e.target.closest('[data-mt-go]'), x = mtRow(MT.sel); if (!go || !x || MT.busy) return;
-    var k = go.getAttribute('data-mt-go');
-    // CUE-042 (docs/business-rules.md): Edit starts from the doc as it reads now, not from the list loaded when the page opened.
-    if (k === 'edit') { MT.busy = true; MT.msg = 'Reading the latest from the doc…'; mtDraw();
-      call('cueAdminTemplates', [], function (r) { MT.busy = false; MT.d = r; var y = mtRow(x.key);
-        if (r.error || !y) { MT.msg = 'Could not read the latest from the doc: ' + (r.error || 'the template is no longer there'); mtDraw(); return; }
-        MT.msg = ''; MT.edit = { key: y.key, subject: y.subject, body: mtText(y.blocks) }; delete MT.prev[y.key]; mtDraw(); mtPrev(); },
-        function (er) { MT.busy = false; MT.msg = 'Could not read the latest from the doc: ' + ((er && er.message) || er); mtDraw(); }); return; }
-    if (k === 'cancel') { MT.edit = null; mtDraw(); return; }
-    if (k === 'test') { MT.busy = true; MT.msg = 'Sending you a test…'; mtDraw();
-      call('cueAdminTemplateTest', [x.key], function (r) { MT.busy = false; MT.msg = 'Test sent to ' + r.to + ': ' + r.subject; mtDraw(); }, function (er) { MT.busy = false; MT.msg = 'The test was not sent: ' + ((er && er.message) || er); mtDraw(); }); return; }
-    if (k === 'save') { MT.busy = true; MT.msg = ''; mtDraw();
-      call('cueAdminTemplateSave', [x.key, { subject: MT.edit.subject, body: MT.edit.body }], function (r) { MT.busy = false; MT.d = r; MT.edit = null; delete MT.prev[x.key]; delete MT.perr[x.key];
-        MT.msg = r.error ? '' : 'Saved to the doc. The next ' + x.code + ' message uses it.'; mtDraw(); mtPrev(); },
-        function (er) { var m = String((er && er.message) || er); MT.busy = false; MT.edit = /could not confirm/.test(m) ? null : MT.edit;
-          MT.msg = (/could not confirm/.test(m) ? '' : 'Not saved: ') + m; delete MT.prev[x.key]; mtDraw(); if (!MT.edit) mtLoad(); }); }
-  });
   /* CUE-ADMIN-LOG-2026-10-29 (Kiko 03:46Z "a Historical or Log page? filtered by the different Jobs. and Status"): every job run, newest
    * first, filtered by job, status and words. Read only. */
   var logData = null, logErr = '', logF = { job: '', status: '', q: '' };
@@ -646,70 +474,6 @@
   }
   try { google.script.url.getLocation(function (l) { if (l && l.parameter && l.parameter.view === 'admin') adminOpen(); }); } catch (e) {}
 
-  // ---- AI usage and cost (Kiko 19:25Z, spec usage-cost.md): read from the AI Runs log, priced from an editable table. No AI call. ----
-  var usage = null, usageMonth = '';
-  function loadUsage() { call('cueUsage', [], function (r) { usage = r; renderUsage(); }, function () { setHtml($('w-usage'), '<div class="err">Could not read the AI Runs log. Try again.</div>'); }); }
-  function usd(n) { return 'US$ ' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function php(n) { return '₱' + Math.round((Number(n) || 0) * ((usage && usage.prices.fx) || 0)).toLocaleString('en-US'); }
-  function tok(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n); }
-  function usageDetail(m) {
-    return '<div class="label">By AI</div><div class="scroll"><table><tr><th>AI</th><th>Model</th><th>Calls</th><th>Tokens in / out</th><th>Web searches</th><th>US$</th><th>₱</th></tr>'
-      + m.by_ai.map(function (a) { return '<tr><td>' + esc(a.provider === 'GPT' ? 'ChatGPT' : a.provider) + '</td><td>' + esc(a.model) + (a.priced ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + a.calls + (a.failed ? ' <span class="small muted">(' + a.failed + ' failed)</span>' : '') + '</td><td>' + tok(a.in) + ' / ' + tok(a.out) + '</td><td>' + (a.provider === 'GPT' ? a.web : '–') + '</td><td>' + esc(usd(a.usd).slice(4)) + '</td><td>' + esc(php(a.usd)) + '</td></tr>'; }).join('')
-      + '</table></div><div class="label">By command</div><div class="scroll"><table><tr><th>Command</th><th>Calls</th><th>US$</th><th>₱</th><th>Share</th></tr>'
-      + m.by_cmd.map(function (c) { return '<tr><td>' + esc(c.name) + '</td><td>' + c.calls + '</td><td>' + esc(usd(c.usd).slice(4)) + '</td><td>' + esc(php(c.usd)) + '</td><td>' + c.share + '%</td></tr>'; }).join('') + '</table></div>';
-  }
-  function renderUsage() {
-    if (!usage) return;
-    var U = usage, M = U.months || [], cur = M[0] && M[0].current ? M[0] : null, P = U.prices, h = '';
-    if (U.error) h += '<div class="err">' + esc(U.error) + '</div>';
-    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
-      + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:var(--white)">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
-      + '<tr><td>Cost so far</td><td><b style="color:var(--white)">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
-      + '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
-      + usageDetail(cur) + '</div>';
-    else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
-    if (U.canvas) h += '<div class="small muted" style="margin:4px 0 8px">' + (U.canvas.note ? esc(U.canvas.note) : 'Includes Canvas AI calls (' + U.canvas.rows + ' logged), shown as "Canvas: …" in By command.') + '</div>';   // CUE-STRUCTURE-4.6
-    var G = U.github;   // GH-ACTIONS-COST (Kiko 4 Nov 2026 13:05Z): GitHub Actions, billed apart from the AI, from figures typed in below.
-    if (G) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">GitHub Actions (as of ' + esc(G.asof) + ')</b><span class="tag new">ESTIMATE</span></div>'
-      + '<table class="facts" style="margin-top:8px"><tr><td>Used so far</td><td><b style="color:var(--white)">' + esc(php(G.used)) + '</b> <span class="small muted">' + esc(usd(G.used)) + '</span></td></tr>'
-      + '<tr><td>Included each month</td><td><b style="color:var(--white)">' + esc(php(G.free)) + '</b> <span class="small muted">' + esc(usd(G.free)) + ' · about ' + Math.round(G.free / 0.006).toLocaleString('en-US') + ' Linux minutes</span></td></tr>'
-      + '<tr><td>Plan fee</td><td><b style="color:var(--white)">' + esc(php(G.plan)) + '</b> <span class="small muted">' + esc(usd(G.plan)) + ' a month</span></td></tr>'
-      + '<tr><td>Budget cap</td><td><b style="color:var(--white)">' + esc(php(G.cap)) + '</b> <span class="small muted">' + esc(usd(G.cap)) + ' a month above the included part · jobs stop at the cap</span></td></tr>'
-      + '<tr><td>Billed so far</td><td><b style="color:var(--white)">' + esc(php(G.billed)) + '</b> <span class="small muted">' + esc(usd(G.billed)) + ' above the included part</span></td></tr>'
-      + (G.stale ? '<tr><td>Likely by month end</td><td><span class="small muted">These figures are from ' + esc(G.month) + '. Type this month\'s in below.</span></td></tr>'
-        : '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(G.likely_total)) + '</b> <span class="small muted">' + esc(usd(G.likely_total)) + ' with the plan fee · ' + esc(usd(G.likely)) + ' of use at this rate'
-          + (G.stop_day ? ' · cap reached about day ' + G.stop_day + ', then jobs stop until the 1st' : '') + '</span></td></tr>')
-      + '</table><div class="small muted" style="margin-top:6px">Typed in from github.com/settings/billing/usage. Change the figures under Prices used and save.</div></div>';
-    if (M.length) h += '<div class="label">Monthly</div><div class="card"><div class="scroll"><table><tr><th>Month</th><th>Claude calls</th><th>ChatGPT calls</th><th>US$</th><th>₱</th><th></th></tr>'
-      + M.map(function (m) { return '<tr><td><button class="link" data-um="' + esc(m.month) + '" aria-expanded="' + (usageMonth === m.month) + '">' + esc(m.label) + '</button>' + (m.current ? ' <span class="small muted">so far</span>' : '') + '</td><td>' + m.claude + '</td><td>' + m.gpt + '</td><td>' + esc(usd(m.usd).slice(4)) + '</td><td>' + esc(php(m.usd)) + '</td><td class="small muted">' + (m.current ? 'likely ' + esc(php(m.likely_usd)) : '') + '</td></tr>'
-        + (usageMonth === m.month ? '<tr><td colspan="6">' + usageDetail(m) + '</td></tr>' : ''); }).join('')
-      + '</table></div><div class="small muted" style="margin-top:6px">Tap a month to see its By AI and By command tables.</div></div>';
-    var names = Object.keys(P.models).concat(U.unpriced || []).filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
-    var n = function (k, v, w) { return '<input type="number" step="0.01" min="0" data-up="' + esc(k) + '" value="' + (v == null ? '' : esc(v)) + '" style="width:' + (w || 80) + 'px" aria-label="' + esc(k) + '">'; };
-    h += '<div class="label">Prices used (editable)</div><div class="card"><div class="scroll"><table><tr><th>Model</th><th>US$ / 1M in</th><th>US$ / 1M out</th></tr>'
-      + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
-      + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr>'
-      + (P.gh ? '<tr><td>GitHub Actions used so far, US$</td><td>' + n('ghused', P.gh.used) + '</td><td></td></tr>'   // GH-ACTIONS-COST
-        + '<tr><td>GitHub Actions figures as of</td><td><input type="date" data-up="ghasof" value="' + esc(P.gh.asof) + '" aria-label="ghasof"></td><td></td></tr>'
-        + '<tr><td>GitHub Actions included each month, US$</td><td>' + n('ghfree', P.gh.free) + '</td><td></td></tr>'
-        + '<tr><td>GitHub plan fee each month, US$</td><td>' + n('ghplan', P.gh.plan) + '</td><td></td></tr>'
-        + '<tr><td>GitHub Actions budget cap, US$</td><td>' + n('ghcap', P.gh.cap) + '</td><td></td></tr>' : '')
-      + '</table></div>'
-      + '<div class="actions"><button class="btn" id="usage-save">Save prices</button></div>'
-      + '<div class="small muted" style="margin-top:6px">An estimate from Cue\'s own AI Runs log. Your real bill is on platform.openai.com and console.anthropic.com. Saving recalculates every month.</div></div>';
-    setHtml($('w-usage'), h);
-    $('usage-save').onclick = function () {
-      var b = this, p = { models: {}, web: '', fx: '' };
-      $('w-usage').querySelectorAll('[data-up]').forEach(function (x) {
-        var k = x.getAttribute('data-up'), i = k.indexOf(':'), m = i > 0 ? k.slice(i + 1) : '';
-        if (!m) { p[k] = x.value; return; }
-        (p.models[m] = p.models[m] || ['', ''])[k.slice(0, i) === 'in' ? 0 : 1] = x.value;
-      });
-      b.disabled = true; b.textContent = 'Saving…';
-      call('cueUsagePrices', [p], function (r) { usage = r; $('w-usage')._h = null; renderUsage(); }, function () { b.disabled = false; b.textContent = 'Save prices'; });
-    };
-  }
-  $('w-usage').addEventListener('click', function (e) { var b = e.target.closest('[data-um]'); if (!b) return; var m = b.getAttribute('data-um'); usageMonth = usageMonth === m ? '' : m; renderUsage(); });
 
   // ---- My rules (Kiko 17:12Z): the Memory tab in the Threads pane. Rules first, then the other facts. A rule Cue learns shows here
   // as soon as it is saved: the list reloads when a "Learned" question or a memory task shows up in the chat. ----

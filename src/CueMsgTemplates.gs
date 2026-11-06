@@ -109,22 +109,6 @@ function cueMtJoin_(res) {
   return { rev: String(R.rev || ''), doc: String(R.doc || CUE_MT_DOC_URL_), list, statuses: CUE_MT_STATUS_.slice() };
 }
 
-/** Cue Admin › Templates: every message, from the doc through Canvas. When Canvas or the doc cannot be read, the page says why and lists
- *  nothing from memory (Kiko 1 Nov: "No. fix why its not sending it": no copy of old wording). Read only. */
-function cueAdminTemplates() {
-  cueOwner_();
-  try { return cueMtJoin_(cueBridge_(cueAdminS_(), 'message_templates', {}) || {}); }
-  catch (e) { return { rev: '', doc: CUE_MT_DOC_URL_, list: [], statuses: CUE_MT_STATUS_.slice(), error: cueStr_((e && e.message) || e, 400) }; }
-}
-
-/** One template built by Canvas with its fill-ins left as {{name}} (draft mode), for the preview: { subject, html, text, missing, rev }.
- *  The banner travels as base64 and is put into the html as a data URL here, so the page shows the doc's own banner. */
-function cueAdminTemplatePreview(key) {
-  cueOwner_();
-  const m = cueBridge_(cueAdminS_(), 'message_render', { key: cueStr_(key, 120), data: {}, mode: 'draft' }) || {};
-  const html = String(m.html || '').replace(/cid:mtbanner/g, m.banner ? 'data:image/png;base64,' + String(m.banner) : '');
-  return { key: String(m.key || key), subject: String(m.subject || ''), html, text: String(m.text || ''), missing: (m.missing || []).map(String), rev: String(m.rev || '') };
-}
 
 /** The editor's message box as the doc's blocks: paragraphs split on a blank line; a paragraph written "[Button words](link)" is the
  *  yellow button. The inverse of cueMtText_. */
@@ -137,45 +121,6 @@ function cueMtBlocks_(text) {
 /** A template's blocks as the editor's message box. */
 function cueMtText_(blocks) { return (blocks || []).map(b => b.t === 'btn' ? '[' + b.text + '](' + b.url + ')' : b.text).join('\n\n'); }
 
-/** Save on the Templates page: Canvas writes the subject and message back into the doc (only that template's Subject, message and
- *  button paragraphs) and reads it back. Kiko's tap on Save is the approval; nothing is sent. ed = { subject, body }.
- *  Returns the page's list after the save. */
-// CUE-042 (docs/business-rules.md); no revision check yet, see CUE-D22.
-function cueAdminTemplateSave(key, ed) {
-  cueOwner_();
-  const e = ed || {}, k = cueStr_(key, 120);
-  if (!k) throw new Error('Pick a template first.');
-  const blocks = cueMtBlocks_(e.body);
-  if (!blocks.length) throw new Error('The message is empty; nothing was saved.');
-  if (blocks.length > 60) throw new Error('The message has more than 60 paragraphs; nothing was saved.');
-  if (blocks.some(b => b.text.length > 5000)) throw new Error('One paragraph is over 5,000 characters; nothing was saved.');
-  const args = { key: k, subject: cueStr_(String(e.subject || '').replace(/[\r\n]+/g, ' ').trim(), 300),
-    blocks: blocks.map(b => b.t === 'btn' ? { t: 'btn', text: cueStr_(b.text, 5000), url: cueStr_(b.url, 500) } : { t: 'p', text: cueStr_(b.text, 5000) }) };
-  const s = cueAdminS_(), cmd = { command_id: 'cue:' + s.id + ':message_template_save:0', action: 'message_template_save', args, pid: '' };
-  cueBridgePlan_(s, [cmd]);
-  let r;
-  try { r = cueBridgeParse_('message_template_save', UrlFetchApp.fetchAll([cueBridgeReq_(s, 'message_template_save', args, '', cmd.command_id)])[0]) || {}; }
-  catch (e) {   // Canvas's Uncertain means the write ran but did not read back the same (seen on /dev 3 Nov 2026): say so, never "not saved"
-    if (/\(Uncertain\)/.test(String(e && e.message))) throw new Error('Canvas wrote to the doc but could not confirm it reads back the same. Open Edit again to see what the doc holds now. ' + String(e.message).replace(/^.*?\(Uncertain\):\s*/, ''));
-    throw e;
-  }
-  if (r.ok === false) throw new Error('The doc now reads differently from what you saved: ' + cueStr_(r.readBack || 'no detail', 300));
-  return cueAdminTemplates();
-}
-
-/** Send me a test: the template built by Canvas (fill-ins left as {{name}}) goes from Kiko's Gmail to Kiko only, subject "[Test] ...",
- *  with the doc's banner inline. Not logged as a send (it is not one). Returns { to, subject }. */
-// CUE-042 item 3 (docs/business-rules.md).
-function cueAdminTemplateTest(key) {
-  cueOwner_();
-  const m = cueBridge_(cueAdminS_(), 'message_render', { key: cueStr_(key, 120), data: {}, mode: 'draft' }) || {};
-  if (String(m.channel || 'Email') !== 'Email') throw new Error('Only emails can be sent as a test.');
-  const me = String(Session.getEffectiveUser().getEmail() || '');
-  if (!cueEmail_(me)) throw new Error('Cue could not tell your email address.');
-  const subject = '[Test] ' + String(m.subject || key);
-  cueGmailSend_(cueMtDraft_(me, subject, String(m.text || ''), String(m.html || ''), String(m.banner || '')));
-  return { to: me, subject };
-}
 
 /** One Gmail draft with text, html and the banner as an inline image (cid:mtbanner). Returns the draft id. */
 function cueMtDraft_(to, subject, text, html, banner) {

@@ -11,29 +11,6 @@
 
 const cueAdminS_ = () => ({ id: 'admin-' + cueNow_().toString(36) });
 
-/** Canvas chasers: { ar, invoice, paid, final }, each a list of { kind, item, pid, project, supplier, reqs, amount, last, on }. */
-function cueAdminCanvasChasers() {
-  cueOwner_();
-  return cueBridge_(cueAdminS_(), 'run_now_list', {});
-}
-
-/** Sends the lines Kiko ticked (one Send a notice send each, on Canvas). The bridge takes 50 lines a call, so more go in turns.
- * Returns { results: [{ kind, pid, item, ok, to?, error? }], list }. */
-function cueAdminCanvasChaseSend(lines) {
-  cueOwner_();
-  const L = (Array.isArray(lines) ? lines : []).map(x => Object.assign({ kind: String((x && x.kind) || ''), pid: String((x && x.pid) || '').trim() },
-    x && x.item ? { item: String(x.item).trim() } : {}));
-  if (!L.length) throw new Error('Tick at least one line.');
-  const results = [];
-  let list = null;
-  for (let i = 0; i < L.length; i += 50) {
-    const part = L.slice(i, i + 50);
-    try { const r = cueBridge_(cueAdminS_(), 'run_now_send', { lines: part }) || {}; (r.results || []).forEach(x => results.push(x)); list = r.list || list; }
-    catch (e) { const err = cueStr_((e && e.message) || e, 300); part.forEach(x => results.push(Object.assign({ item: '', ok: false, error: err }, x))); }
-  }
-  return { results, list };
-}
-
 /** Send a notice: what can be sent and the projects. { kinds: [{ k, label, who, item?, noProject?, typeIn?, page? }], projects }. */
 function cueAdminSnBoard() {
   cueOwner_();
