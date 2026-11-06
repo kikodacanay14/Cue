@@ -17,10 +17,13 @@ function msgrBox(o = {}) {
   const ctx = { console, JSON, Date, Number, String, Math, Object, Array, isNaN,
     cueNow_: () => o.now || MSGR_NOW,
     cueBridge_: (s, action, args) => { log.bridge.push([action, args, s && s.id]); if (action === 'msgr_due') return { docs: o.docs || MSGR_DUE };
+      if (action === 'msgr_doc_image') { if (o.img instanceof Error) throw o.img; return o.img || { ok: false, why: 'no picture in this test' }; }
       if (action === 'msgr_pay_due') return { items: o.pay || [] };   // PAY-MSGR-2026-11-06 (85-pay-messenger.js)
       if (o.markFail && o.markFail()) throw new Error('Canvas busy'); return { ok: true, existed: false }; },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] == null ? null : props[k], setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
-    UrlFetchApp: { fetch: (url, req) => { log.fetch.push([url, req]); const code = o.code ? o.code(req) : 200;
+    Utilities: { base64Decode: b => Buffer.from(b, 'base64'), newBlob: (bytes, mime, name) => ({ bytes, mime, name }) },
+    UrlFetchApp: { fetch: (url, req) => { log.fetch.push([url, req]); const code = o.code ? o.code(req, url) : 200;
+      if (/message_attachments$/.test(url) && code === 200) return { getResponseCode: () => 200, getContentText: () => '{"attachment_id":"att-77"}' };
       return { getResponseCode: () => code, getContentText: () => code === 200 ? '{"message_id":"m1"}' : '{"error":{"message":"(#10) This message is sent outside of allowed window."}}' }; } } };
   vm.createContext(ctx); vm.runInContext(MSGR_SRC, ctx);
   return { ctx, log, props };
@@ -37,13 +40,16 @@ test('MS2 one pass: sends only inside the window, skips sent docs, marks each se
   const { ctx, log } = msgrBox(), r = ctx.cueMsgrRun_(MSGR_NOW);
   assert.strictEqual(r.sent, 1);
   deq(r.skipped.map(x => [x.id, x.why]), [['AR-0202', 'last message over 24 hours ago'], ['FSA-0404', 'last message over 24 hours ago']]);
-  assert.strictEqual(log.fetch.length, 1);
+  assert.strictEqual(log.fetch.length, 1, 'no picture from Canvas: one button card');
   const [url, req] = log.fetch[0], body = JSON.parse(req.payload);
   assert.strictEqual(url, 'https://graph.facebook.com/v21.0/me/messages');
   assert.strictEqual(req.headers.Authorization, 'Bearer page-token'); assert.ok(url.indexOf('page-token') < 0, 'the token is never in the URL');
   deq(body.recipient, { id: '1001' }); assert.strictEqual(body.messaging_type, 'RESPONSE'); assert.ok(!body.tag, 'no message tag');
-  assert.strictEqual(body.message.text, 'Ana, your Freelancer Service Agreement for Synthetic Year-End Party is ready to sign: '
-    + 'https://canvas.blankspaceevent.com/crew?v=sign&t=aaa.bbb\nThe link works for 30 days. It\'s also in your email.');
+  deq(body.message.attachment.payload, { template_type: 'button',
+    text: 'Freelancer Service Agreement\nAna, your FSA for Synthetic Year-End Party is ready to sign. The link works for 30 days. It\'s also in your email.',
+    buttons: [{ type: 'web_url', url: 'https://canvas.blankspaceevent.com/crew?v=sign&t=aaa.bbb', title: 'View and sign FSA' }] });
+  deq(log.bridge.filter(b => b[0] === 'msgr_doc_image').map(b => b[1]), [{ doc: 'FSA', id: 'FSA-0101' }]);
+  assert.strictEqual(bridgeCheck('msgr_doc_image', { doc: 'FSA', id: 'FSA-0101' }), '');
   const marks = log.bridge.filter(b => b[0] === 'msgr_mark');
   deq(marks.map(b => b[1]), [{ request_id: 'msgr:FSA:FSA-0101', doc: 'FSA', id: 'FSA-0101', email: 'ana@example.test', psid: '1001' }]);
   const m = marks[0][1];
@@ -53,7 +59,8 @@ test('MS3 a document skipped today goes out when the crew member messages again 
   const later = MSGR_DUE.map(d => d.id === 'AR-0202' ? Object.assign({}, d, { last_message: '2026-11-04T01:00:00Z' }) : Object.assign({}, d, { sent: true }));
   const { ctx, log } = msgrBox({ docs: later }); const r = ctx.cueMsgrRun_(Date.parse('2026-11-04T02:00:00Z'));
   assert.strictEqual(r.sent, 1); assert.strictEqual(JSON.parse(log.fetch[0][1].payload).recipient.id, '1002');
-  assert.ok(/Acknowledgement Receipt/.test(JSON.parse(log.fetch[0][1].payload).message.text));
+  const p = JSON.parse(log.fetch[0][1].payload).message.attachment.payload;
+  assert.ok(/^Acknowledgement Receipt\n/.test(p.text)); assert.strictEqual(p.buttons[0].title, 'View and sign AR');
 });
 test('MS3b Meta accepted but Canvas did not record it: the next tick retries only the record, never a second message (Codex review)', () => {
   let fail = true; const b = msgrBox({ markFail: () => fail });
@@ -64,8 +71,10 @@ test('MS3b Meta accepted but Canvas did not record it: the next tick retries onl
   assert.strictEqual(b.log.bridge.filter(x => x[0] === 'msgr_mark').length, 2); assert.ok(!b.props['CUE_MSGR_SENT_FSA:FSA-0101'], 'dropped once Canvas has it');
 });
 test('MS4 the text carries only the sign link: no account numbers or other people', () => {
-  const { ctx } = msgrBox(), t = ctx.cueMsgrText_(MSGR_DUE[0]);
-  assert.ok(!/\d{6,}/.test(t.replace(MSGR_DUE[0].sign_link, '')), t); assert.ok(t.indexOf('Ben') < 0);
+  const { ctx, log } = msgrBox(), t = ctx.cueMsgrDocLine_(MSGR_DUE[0]);
+  assert.ok(!/\d{6,}/.test(t), t); assert.ok(t.indexOf('Ben') < 0); assert.ok(t.indexOf('http') < 0, 'the link is only on the button');
+  ctx.cueMsgrRun_(MSGR_NOW);
+  assert.ok(!/\d{6,}/.test(log.fetch[0][1].payload.replace(MSGR_DUE[0].sign_link, '')), 'nothing but the sign link carries numbers');
 });
 test('MS5 a Meta refusal is not marked, so it is tried again; the job reports it as Failed in Job Runs', () => {
   const { ctx, log } = msgrBox({ code: () => 400 });
@@ -81,6 +90,44 @@ test('MS6 the job runs every 15 minutes at most, and does nothing without the pa
 test('MS7 the job is on the Job Runs list', () => {
   const jobs = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueJobs.gs'), 'utf8');
   assert.ok(/\{ job: 'Messenger sign links', fn: 'cueMsgrTick_' \}/.test(jobs));
+});
+// MSGR-DOC-IMAGE-2026-11-06 (Kiko 6 Nov 08:31Z picked "Picture of page 1 + button"; fallback: the button card).
+const PIC = { ok: true, mime: 'image/png', b64: Buffer.from('png-bytes').toString('base64') };
+test('MS7b picture of page 1: Cue uploads it, sends the line, then the picture with a View and sign button; marked once', () => {
+  const { ctx, log } = msgrBox({ img: PIC }), r = ctx.cueMsgrRun_(MSGR_NOW);
+  assert.strictEqual(r.sent, 1);
+  deq(log.fetch.map(f => f[0]), ['https://graph.facebook.com/v21.0/me/message_attachments', 'https://graph.facebook.com/v21.0/me/messages', 'https://graph.facebook.com/v21.0/me/messages']);
+  const up = log.fetch[0][1];
+  assert.strictEqual(up.headers.Authorization, 'Bearer page-token'); assert.strictEqual(up.payload.filedata.mime, 'image/png');
+  assert.strictEqual(up.payload.filedata.bytes.toString(), 'png-bytes'); assert.strictEqual(up.payload.filedata.name, 'FSA-FSA-0101.png');
+  deq(JSON.parse(up.payload.message), { attachment: { type: 'image', payload: { is_reusable: true } } });
+  assert.strictEqual(JSON.parse(log.fetch[1][1].payload).message.text,
+    'Ana, your FSA for Synthetic Year-End Party is ready to sign. The link works for 30 days. It\'s also in your email.');
+  deq(JSON.parse(log.fetch[2][1].payload).message, { attachment: { type: 'template', payload: { template_type: 'media',
+    elements: [{ media_type: 'image', attachment_id: 'att-77', buttons: [{ type: 'web_url', url: 'https://canvas.blankspaceevent.com/crew?v=sign&t=aaa.bbb', title: 'View and sign FSA' }] }] } } });
+  assert.strictEqual(log.bridge.filter(b => b[0] === 'msgr_mark').length, 1);
+});
+test('MS7c no picture (Canvas says no, Canvas fails, a bad type, or Meta refuses the upload): the button card goes, so the paper still goes out', () => {
+  [{ img: { ok: false, why: 'no PDF' } }, { img: new Error('Canvas busy') }, { img: { ok: true, mime: 'application/pdf', b64: 'eA==' } },
+   { img: PIC, code: (req, url) => /message_attachments$/.test(url) ? 400 : 200 }].forEach((o, i) => {
+    const { ctx, log } = msgrBox(o); assert.strictEqual(ctx.cueMsgrRun_(MSGR_NOW).sent, 1, 'case ' + i);
+    const last = JSON.parse(log.fetch[log.fetch.length - 1][1].payload).message.attachment.payload;
+    assert.strictEqual(last.template_type, 'button', 'case ' + i); assert.strictEqual(last.buttons[0].title, 'View and sign FSA');
+    assert.strictEqual(log.fetch.filter(f => /me\/messages$/.test(f[0])).length, 1, 'one message, case ' + i);
+  });
+});
+test('MS7d the line went but Meta refused the picture card: the button card follows, and the paper counts as sent once', () => {
+  let n = 0; const { ctx, log } = msgrBox({ img: PIC, code: (req, url) => (/me\/messages$/.test(url) && ++n === 2) ? 400 : 200 });
+  assert.strictEqual(ctx.cueMsgrRun_(MSGR_NOW).sent, 1);
+  const msgs = log.fetch.filter(f => /me\/messages$/.test(f[0])).map(f => JSON.parse(f[1].payload).message);
+  assert.strictEqual(msgs.length, 3); assert.strictEqual(msgs[2].attachment.payload.template_type, 'button');
+  assert.strictEqual(log.bridge.filter(b => b[0] === 'msgr_mark').length, 1);
+});
+test('MS7e Meta refuses the first line (window closed): nothing else is sent and the paper is not marked', () => {
+  const { ctx, log } = msgrBox({ img: PIC, code: (req, url) => /me\/messages$/.test(url) ? 400 : 200 });
+  assert.throws(() => ctx.cueMsgrRun_(MSGR_NOW), /Messenger: 1 not sent/);
+  assert.strictEqual(log.fetch.filter(f => /me\/messages$/.test(f[0])).length, 1);
+  assert.ok(!log.bridge.some(b => b[0] === 'msgr_mark'));
 });
 
 // ---------- the receiving half (relay door msgr_event, Messenger chats) ----------

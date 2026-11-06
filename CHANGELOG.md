@@ -1,5 +1,27 @@
 # Changelog
 
+## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
+
+Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA
+viewer?" Kiko saw the mockup (https://claude.ai/artifact/GUJFRMhFhL2HvjPZ8nuNcB) and picked "Picture of page 1 + button",
+which came with its fallback: when Cue can't make the picture, it sends the button card so the paper still goes out. Then,
+08:33Z: "Can we do that kind of button all the time?"
+
+- Each unsigned FSA or AR on Messenger is now a short line ("Ana, your FSA for ... is ready to sign. The link works for 30
+  days. It's also in your email."), then a picture of page 1 with a "View and sign FSA" (or AR) button that opens the paper's
+  own sign link. The picture comes from Canvas (new bridge read msgr_doc_image, Canvas V489) and is uploaded to Meta once
+  per send.
+- No picture (Canvas says no, Canvas is busy, the type is wrong, or Meta refuses the upload or the picture card): one card
+  with the paper's name, the same line and the same button. The paper is marked sent once either way.
+- Payment notices sent as a normal reply: a notice that ends with a link now goes as the words plus a "View details" button;
+  one without a link stays plain text. Utility-template sends are unchanged.
+- Any Messenger button whose target is an https link opens that page; other buttons stay taps (postbacks) as before.
+- Removed the unused cueMsgrText_ (the old one-line text with the link in it).
+- test/fixtures/ZapBridge.gs refreshed from Canvas (msgr_doc_image). The version string also moves past 1.28.41, which
+  shipped without bumping it.
+
+Tests: 720/720 (`node test/cue.test.js`); new MS7b to MS7e and PM7, MS2 to MS4 and PM1 updated.
+
 ## Cue 1.28.41: Chasers group tabs stay on the page (live as Version 222, 6 Nov 2026 05:09Z, rollback 221)
 
 Kiko, 6 Nov 2026 04:44Z, with a screenshot: tapping a tab under Admin, Automation Settings, Chasers opened a blank window at the
