@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.41: Chasers group tabs stay on the page (not deployed)
+## Cue 1.28.41: Chasers group tabs stay on the page (live as Version 222, 6 Nov 2026 05:09Z, rollback 221)
 
 Kiko, 6 Nov 2026 04:44Z, with a screenshot: tapping a tab under Admin, Automation Settings, Chasers opened a blank window at the
 Apps Script sandbox address (userCodeAppPanel?createOAuthDialog=true#chm-suppliers). Built on live 1.28.40 (Version 221). No Canvas
