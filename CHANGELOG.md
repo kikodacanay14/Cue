@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.40: crew linked on Messenger get their papers (last-message time fixed) (not deployed)
+## Cue 1.28.40: crew linked on Messenger get their papers (last-message time fixed) (live as Version 221, 6 Nov 2026 04:34Z, rollback 220)
 
 Kiko, 6 Nov 2026 03:30Z, with a screenshot of their own BSE chat: linked through "I'm crew" and the code at 00:28 Manila, yet their
 waiting King's Day FSA never came on Messenger. 03:31Z: "Please check if this would happen to others too". Built on live 1.28.39
