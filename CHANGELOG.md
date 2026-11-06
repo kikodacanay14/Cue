@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (not deployed)
+## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (LIVE Version 217, 6 Nov 2026 01:26Z, rollback 216)
 
 Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z
 Kiko chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
