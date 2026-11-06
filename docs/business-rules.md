@@ -350,7 +350,7 @@ Implemented in `src/CueMessenger.gs` (`cueMsgrCrewRestore_`), called from `cueRe
 4. When nothing failed it sets `CUE_CREW_RESTORE_DONE` and never runs again; a failure is tried again on a later resume.
 
 Left out on purpose: chats with a match state (code, wait, locked, unsure). Those people typed details and went through `crew_match`, which
-already put them on Messenger Waiting ("To link" equivalent "No contact", or "No match" when not matched).
+already handled them: a code was sent (code, locked), a "No contact" row waits for Link (wait), or a "No match" row waits for staff (unsure).
 
 Claude's reading, not Kiko's words: which saved states count as "messaged but never listed", and the one-time boundary.
 
