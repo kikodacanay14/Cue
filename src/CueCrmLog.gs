@@ -58,23 +58,22 @@ function cueCrmLogRun_() {
     would: args.map((a, n) => Object.assign({ who: String(list[n].who), project: list[n].project || '' }, a)) };
   if (!list.length) return { logged: 0, failed: 0, skipped: todo.length, note: '' };
   // CUE-CRMLOG-PLAN-2026-10-27: crm_log is a bridge write, so each batch of up to 20 is its own task with a claimed plan first
-  // (Canvas refuses a write with "no claimed plan for this task"). Then one request per email, all at once; one refusal never
+  // (Canvas refuses a write with "no claimed plan for this task"). Then the emails go 3 at a time (cueBridgeWaves_); one refusal never
   // stops the others (cueBridgeAll_ would throw on the first).
   const run = 'crmlog-' + cueNow_().toString(36), out = [];
   for (let b = 0; b < list.length; b += 20) {
     const t = { id: run + '-' + (b / 20) }, part = args.slice(b, b + 20).map((a, n) => ({ command_id: 'cue:' + t.id + ':crm_log:' + n, action: 'crm_log', args: a }));
-    let res = null, err = '';
-    try { cueBridgePlan_(t, part); res = UrlFetchApp.fetchAll(part.map(c => cueBridgeReq_(t, c.action, c.args, '', c.command_id))); }
+    let sent = null, err = '';   // LEAD-RETRY-2026-11-06: 3 at a time, a busy answer sent again (cueBridgeWaves_)
+    try { cueBridgePlan_(t, part); sent = cueBridgeWaves_(t, part); }
     catch (e) { err = String((e && e.message) || e); }
-    part.forEach((c, n) => out.push(err ? { err } : { res: res[n] }));
+    part.forEach((c, n) => out.push(err ? { err } : sent[n]));
   }
   const now = new Date(cueNow_()).toISOString(), rows = [];
   let logged = 0, failed = 0;
   list.forEach((i, n) => {
     let id = '', result = '';
     try { if (out[n].err) throw new Error(out[n].err);
-      const r = cueBridgeParse_('crm_log', out[n].res) || {};
-      if (r.refused) throw new Error('Canvas refused crm_log: ' + r.refused);   // the CRM door answers a refusal instead of throwing
+      const r = out[n].r || {};
       id = String((r.act && r.act.ID) || r.ID || ''); result = r.again ? 'Already logged' : 'Logged'; logged++; }
     catch (e) { result = 'Failed: ' + String((e && e.message) || e).slice(0, 200); failed++; }
     rows.push([now, i.key, i.name || '', i.email, cueStr_(i.subject || '', 200), i.project || '', id, result]);

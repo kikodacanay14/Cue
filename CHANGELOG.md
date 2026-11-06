@@ -1,5 +1,29 @@
 # Changelog
 
+## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, LIVE Version 216, 6 Nov 2026 01:23Z, rollback Version 215)
+
+Coordinator, 6 Nov 2026 00:55Z: Cue's bid-lead scans lost crm_lead saves to "Another save is in progress" (ledger 4 Nov 23:01Z and 5 Nov
+22:51Z). Kiko, 01:07Z: "See why is it so slow. Recover those coz i cant ask them to do it again!!@!", and at 01:07Z: "We cant produce
+poor codes like this! What if those are clients lost?" Built on live Cue 1.28.34 (Version 215, branch claude/project-thread-sg8h1y, 16ee7a3).
+
+What happened: Cue sent every new bid lead to Canvas at once (13 on 5 and 6 Nov). Canvas saves one thing at a time and each request waits
+at most 20 s for its turn, so the later ones failed. Checked against the ledger and the CRM Deals tab: 15 leads never reached the CRM
+(2 from the 30 Oct check, when the CRM Deals tab was being created, 6 from 5 Nov, 7 from 6 Nov). The 2 ledger rows stuck at Claimed
+(5 Nov :1 and :2) did save their deals (D-MW2Q19MWVA4, D-MW2Q1BTCZ5S); only their outcome was not written. No client contact was lost:
+the leads are public PhilGEPS and CITEM notices, and every one is still in Cue's stored run.
+
+- Bridge writes of a claimed plan now go 3 at a time (`cueBridgeWaves_`, CueBridge.gs), and a busy answer ("Another save is in
+  progress", "busy, retry later", "in progress", no answer) is sent again with the same command_id after 5 s, up to 3 tries. Canvas
+  reruns a Rejected or never-claimed command and replays a finished one, and crmLead_ returns the deal a request_id already made, so a
+  repeat never makes a second lead. Bid leads and the hourly client email log both use it.
+- A lead still not saved stays on its run (`bids.leads.open`, with the task in `bids.leads.task`). The next bid check sends it as a
+  Canvas recovery task (`<task>-recovery-1`, `recovers: <task>`), which supersedes the old plan, so its stuck Claimed rows can never
+  write again. One earlier run per check, at most 3 times per run. The card says how many leads were added.
+- Once, on the first background run after this ships, the 30 Oct, 5 Nov and 6 Nov checks are recovered under their ledger tasks
+  (`bidlead-mvu5wz5e`, `bidlead-mw2q0m92`, `bidlead-mw453v1z`). Every lead of each run is sent again; the ones already in the CRM come
+  back as the same deal and are not counted. Each run's thread gets one line ("Added to Canvas CRM: N leads ..."). A dry run on the real
+  stored runs and ledger adds exactly 15 deals (2, 6, 7) and no duplicate.
+- Tests: `test/features/86-bid-lead-retry.js` (LR1 to LR7). 693 of 693 pass.
 ## Cue 1.28.34: Chasers page keeps unsaved timing, and Final reminder opens where you tap it (BUG FIX, LIVE as Version 215, 6 Nov 2026 01:16Z; rollback Version 214)
 
 Who found it: Codex review on PR #333, 6 Nov 2026 01:10Z, after 1.28.33 went live. Both faults are in the merged Chasers page

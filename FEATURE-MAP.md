@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 76 server files, 1512 top-level names, 35 task kinds, 35 word checks before the
+Counts: 76 server files, 1522 top-level names, 35 task kinds, 35 word checks before the
 chat call, 17 background jobs in the 5-minute trigger, 95 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -242,13 +242,13 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRows_` | `Cue.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
 | `cueGmailSend_` | `CueGmail.gs` | 12 |
-| `cueBridgeParse_` | `CueBridge.gs` | 11 |
-| `cueBridgeReq_` | `CueBridge.gs` | 11 |
 | `cueAskOpen_` | `CueRoute.gs` | 10 |
 | `cueKey_` | `CueAi.gs` | 10 |
 | `cueMe_` | `Cue.gs` | 10 |
 | `cueName_` | `CueText.gs` | 10 |
 | `cueAskPick` | `CueRoute.gs` | 9 |
+| `cueBridgeParse_` | `CueBridge.gs` | 9 |
+| `cueBridgeReq_` | `CueBridge.gs` | 9 |
 | `cueMnlDay_` | `CueDates.gs` | 9 |
 | `cueOwnDomain_` | `CueGmail.gs` | 9 |
 | `CUE_DATE_RE_` | `CueText.gs` | 8 |
