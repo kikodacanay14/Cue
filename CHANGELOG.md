@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.34: Chasers page keeps unsaved timing, and Final reminder opens where you tap it (BUG FIX, not deployed)
+## Cue 1.28.34: Chasers page keeps unsaved timing, and Final reminder opens where you tap it (BUG FIX, LIVE as Version 215, 6 Nov 2026 01:16Z; rollback Version 214)
 
 Who found it: Codex review on PR #333, 6 Nov 2026 01:10Z, after 1.28.33 went live. Both faults are in the merged Chasers page
 Kiko approved on 5 Nov ("approved" 17:19Z); this release ships under the same deploy yes (6 Nov 2026 01:00Z "Yea").
