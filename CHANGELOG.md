@@ -2,8 +2,7 @@
 
 ## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, not deployed)
 
-Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.35 (main 3203d2c). The version
-number skips 1.28.36, which the Messenger thread is building.
+Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.36 (Version 217, main e0a241d).
 
 - With Canvas busy for its full 20-second lock wait on every call, 20 leads over 3 tries could run past Apps Script's 6-minute limit, and
   the run would end before saving which leads were still open. `cueBridgeWaves_` now starts no new wave after 150 seconds; the leads not
@@ -11,7 +10,25 @@ number skips 1.28.36, which the Messenger thread is building.
 - The one-time recovery of the three old bid checks starts no new old run after 2 minutes. A resume at least 10 minutes later sends the
   rest, and when nothing is left it marks itself done (`CUE_BIDS_LEAD_BACKLOG_DONE`).
 - Rule written up as CUE-046 in `docs/business-rules.md`.
-- Tests: LR8 and LR9 new in `test/features/86-bid-lead-retry.js` (LR8 fails on 1.28.35). 695 of 695 pass.
+- Tests: LR8 and LR9 new in `test/features/86-bid-lead-retry.js` (LR8 fails on 1.28.35). 703 of 703 pass.
+
+## Cue 1.28.36: payment notices by Messenger, SMS backup; staff-link message sent once (LIVE Version 217, 6 Nov 2026 01:26Z, rollback 216)
+
+Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z
+Kiko chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
+branch `claude/project-thread-uzsang`, `src/PayMessenger.gs`). Built on 1.28.35 (`claude/project-thread-tqdh8x`, 5948a17).
+
+- Every Messenger tick (Job Runs "Messenger sign links", every 15 minutes, only with `MSGR_PAGE_TOKEN` set) Cue first collects the payment
+  texts Canvas held for people linked on Messenger (bridge `msgr_pay_due`), sends each on Messenger and reports it back
+  (`msgr_pay_mark`). A message Meta refuses is reported with Meta's reason, and Canvas texts it by SMS at once.
+- With the Script Property `MSGR_PAY_TEMPLATE` set to an approved Meta utility template (one body variable), the text goes as a utility
+  message, which Meta delivers outside the 24-hour window. Without it the text goes as a normal reply, which Meta accepts only within 24
+  hours of the person's last message.
+- A message Meta took whose report did not reach Canvas is remembered, and only the report is retried: nobody gets it twice.
+- Fix (Codex review of 1.28.30): when Meta accepted the "linked" or "not linked" message after a staff Link or Not mine but `msgr_told`
+  failed, the next tick sent it again and added a second Messenger People row and chat. Cue now remembers the told person
+  (`CUE_MSGR_TOLD_<psid>:<status>`) and retries only `msgr_told`, with the same request id.
+- No AI call. `test/fixtures/ZapBridge.gs` gains `msgr_pay_due` and `msgr_pay_mark`. Tests: 693 pass (8 new: `test/features/85-pay-messenger.js`, MS20b).
 
 ## Cue 1.28.35: bid leads that Canvas was too busy to save are sent again, and the 15 lost leads are recovered (BUG FIX, LIVE Version 216, 6 Nov 2026 01:23Z, rollback Version 215)
 
