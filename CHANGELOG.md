@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.28.38: Admin › Auto-Send shows each journey and the messages sent at each step (LIVE Version 219, 6 Nov 2026 01:57Z, rollback 218)
+
+Kiko, 5 Nov 2026 16:55Z: "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should
+show the customer journey and show communication per stage". Mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq; Kiko "yes"
+6 Nov 2026 01:28Z. Built on 1.28.37 (live Version 218, CRM #337 head 0ba4f7a).
+
+- Cue Admin › Auto-Send (also shown in Canvas Admin › Automation Setting › Auto-Send) now has four journeys: Clients, Crew,
+  Suppliers and Team, each with a count. A journey shows its steps in order (the Templates codes, for example R1 to R8) and, per step,
+  each message that goes out with no tap: what it is, when it goes, the channels (Email, Text, Messenger, App notice), who sends it,
+  and a Template button that opens Templates on that message.
+- Counts: Clients 0 (client emails always wait for a tap), Crew 8, Suppliers 1, Team 4. The mockup showed Team 3; Status changed and
+  Supplier awarded are two templates (T3, T4), so they are two rows.
+- Crew papers and payment texts show Messenger, because Cue sends them there when the person is linked (1.28.36), with SMS as backup.
+- Removed: the old Auto-send cards with Canvas's built-in wording and the "Off for every kind of email" note. The words are in
+  Templates, which reads the BSE Message Templates doc.
+- Read only. No AI call, no server call. Tests: 707 pass (4 new: `test/features/86-auto-send.js`; AD7 updated).
 ## Cue 1.28.37: bid-lead resends stop in time, so a busy Canvas can never cut a run short (BUG FIX, LIVE Version 218, 6 Nov 2026 01:56Z, rollback Version 217)
 
 Codex review on PR #336 (6 Nov 2026 01:26Z), after 1.28.35 went live as Version 216. Built on live 1.28.36 (Version 217, main e0a241d).

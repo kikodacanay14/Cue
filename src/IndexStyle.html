@@ -415,6 +415,30 @@
     #w-chm table.chm > tbody > tr > td:empty { display:none; } #w-chm tr.chm-x { display:block !important; } #w-chm .chm-slot .scroll, #w-chm .chm-slot table { overflow-x:auto; } }
   body.admin-bare #settings .shead, body.admin-bare #settings .snav { display:none; } body.admin-bare #settings { border-top:0; } body.admin-bare #settings .smain > section > .label:first-child { display:none; }
   body.admin-bare #settings iframe.apfr { height:calc(100vh - 110px); }
+  /* AUTO-SEND-JOURNEY-2026-11-06: Admin › Auto-Send by journey (mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq, Kiko "yes" 6 Nov 01:28Z) */
+  #w-as .aswho { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 6px; }
+  #w-as .aswho button { font:700 13px var(--font); padding:7px 14px; border-radius:9999px; border:1px solid var(--line); background:#fff; color:var(--text); cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  #w-as .aswho button[aria-pressed="true"] { background:#23006F; color:#fff; border-color:#23006F; }
+  #w-as .aslegend { display:flex; gap:14px; flex-wrap:wrap; align-items:center; color:var(--muted); font-size:12px; margin:8px 0 16px; } #w-as .aslegend > span { display:inline-flex; align-items:center; gap:4px; }
+  #w-as .asi { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; background:#EFEAFB; color:#23006F; vertical-align:middle; }
+  #w-as .asi svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; } #w-as .asi.off { background:transparent; color:var(--line2); }
+  #w-as .assteps { display:flex; overflow-x:auto; margin:0 0 14px; padding-bottom:4px; scrollbar-width:none; }
+  #w-as .asstep { flex:none; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:96px; position:relative; padding:0 4px; }
+  #w-as .asstep:before { content:""; position:absolute; top:13px; left:0; right:0; height:2px; background:var(--line); }
+  #w-as .asstep:first-child:before { left:50%; } #w-as .asstep:last-child:before { right:50%; }
+  #w-as .asdot { position:relative; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font:700 12px var(--font); background:#fff; border:2px solid var(--line); color:var(--muted); }
+  #w-as .asstep.has .asdot { background:#F000AA; border-color:#F000AA; color:#fff; }
+  #w-as .asstep b { font-size:12px; text-align:center; } #w-as .asstep span { font-size:12px; color:var(--muted); }
+  #w-as .asstage { padding:0; overflow:hidden; margin-bottom:12px; } #w-as .ash { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line); }
+  #w-as .ash b { flex:1; font-size:14px; } #w-as .ascode { font:700 12px var(--font); color:#fff; background:#23006F; border-radius:4px; padding:2px 8px; }
+  #w-as .asnone { padding:10px 14px; color:var(--muted); font-size:13px; } #w-as .card.asnone { padding:12px 14px; }
+  #w-as table.astbl { width:100%; border-collapse:collapse; table-layout:fixed; } #w-as table.astbl th { text-align:center; vertical-align:middle; padding:8px 10px; }
+  #w-as table.astbl th:nth-child(2) { width:150px; } #w-as table.astbl th:nth-child(3) { width:190px; } #w-as table.astbl th:nth-child(4) { width:136px; }
+  #w-as table.astbl td { font-size:13px; padding:9px 10px; border-top:1px solid var(--line); vertical-align:middle; } #w-as table.astbl td.c { text-align:center; }
+  #w-as .asmsg { display:block; } #w-as .aswhen { display:block; color:var(--muted); font-size:12px; }
+  @media (max-width:700px) { #w-as table.astbl, #w-as table.astbl tbody, #w-as table.astbl tr, #w-as table.astbl td { display:block; width:auto; } #w-as table.astbl thead { display:none; }
+    #w-as table.astbl tr { border-top:1px solid var(--line); padding:8px 14px; } #w-as table.astbl td { border:0; padding:2px 0; } #w-as table.astbl td.c { text-align:left !important; }
+    #w-as td.asvia:before { content:"Sends by: "; color:var(--muted); font-size:12px; } #w-as td.asby:before { content:"From: "; color:var(--muted); font-size:12px; } }
   body.admin-page .btn { background:#F000AA; color:#fff; } body.admin-page .btn.ghost { background:#fff; color:var(--text); }
   body.admin-page .btn.bad { background:#fff; color:#C2410C; border-color:#F0C7B4; }
   body.admin-page .err { background:#FCEEE7; color:#7A2E0E; }
