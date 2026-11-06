@@ -3320,6 +3320,12 @@ ZB_ACTIONS_.fl_social_save = {
   run: (r) => zbFlSocialSave_(r.args)
 };
 ZB_ACTIONS_.msgr_due = { kind: 'read', needsProject: false, schema: {}, run: () => zbMsgrDue_() };
+// MSGR-DOC-IMAGE-2026-11-06: a picture of page 1 of one unsigned paper, just before Cue sends it (MessengerCrew.gs).
+ZB_ACTIONS_.msgr_doc_image = {
+  kind: 'read', needsProject: false,
+  schema: { doc: { type: 'string', required: true, oneOf: ['FSA', 'AR'] }, id: { type: 'string', required: true, re: /^[A-Za-z0-9._-]{1,60}$/ } },
+  run: (r) => zbMsgrDocImage_(r.args)
+};
 ZB_ACTIONS_.msgr_mark = {
   kind: 'queue', needsProject: false,
   schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{8,120}$/ }, doc: { type: 'string', required: true, oneOf: ['FSA', 'AR'] },

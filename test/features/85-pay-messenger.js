@@ -10,7 +10,10 @@ test('PM1 each held payment text goes on Messenger as a normal reply and is repo
   assert.strictEqual(ctx.cueMsgrPayRun_(), 2);
   assert.strictEqual(log.fetch.length, 2);
   const body = JSON.parse(log.fetch[0][1].payload);
-  deq(body.recipient, { id: '1001' }); assert.strictEqual(body.messaging_type, 'RESPONSE'); assert.strictEqual(body.message.text, PAY_HELD[0].text);
+  deq(body.recipient, { id: '1001' }); assert.strictEqual(body.messaging_type, 'RESPONSE');
+  deq(body.message.attachment.payload, { template_type: 'button', text: 'Blank Space Events: Payment sent: P5,000.00 (Synthetic Year-End Party).',
+    buttons: [{ type: 'web_url', url: 'https://canvas.blankspaceevent.com/crew', title: 'View details' }] });
+  assert.strictEqual(JSON.parse(log.fetch[1][1].payload).message.text, PAY_HELD[1].text, 'no link: plain text');
   deq(payMarks(log), [{ request_id: 'msgrpay:PM-MH6A1B2C-1A', id: 'PM-MH6A1B2C-1A', ok: true }, { request_id: 'msgrpay:PM-MH6A1B2D-2B', id: 'PM-MH6A1B2D-2B', ok: true }]);
   payMarks(log).forEach(m => assert.strictEqual(bridgeCheck('msgr_pay_mark', m), ''));
   assert.strictEqual(bridgeCheck('msgr_pay_due', {}), '');
@@ -52,4 +55,13 @@ test('PM6 a Canvas that cannot be read sends nothing and does not stop the sign 
   const b = msgrBox(); b.ctx.cueBridge_ = (s, a) => { if (a === 'msgr_pay_due') throw new Error('Canvas busy'); return a === 'msgr_due' ? { docs: [] } : { ok: true }; };
   assert.strictEqual(b.ctx.cueMsgrPayRun_(), 0);
   assert.strictEqual(b.ctx.cueMsgrTick_(), 0);
+});
+test('PM7 MSGR-BUTTONS (Kiko 6 Nov 08:33Z "that kind of button all the time"): a trailing link becomes the button; the words keep their own ending', () => {
+  const { ctx } = msgrBox();
+  const s = x => JSON.parse(JSON.stringify(ctx.cueMsgrLinkSplit_(x)));
+  deq(s('Payment sent: P500.00. Details: canvas.blankspaceevent.com/crew'), { text: 'Payment sent: P500.00.', url: 'https://canvas.blankspaceevent.com/crew' });
+  deq(s('Proof is in: https://canvas.blankspaceevent.com/x?id=1'), { text: 'Proof is in.', url: 'https://canvas.blankspaceevent.com/x?id=1' });
+  assert.strictEqual(ctx.cueMsgrLinkSplit_('Payment received: P1,200.00'), null, 'no link: plain text');
+  assert.strictEqual(ctx.cueMsgrLinkSplit_('canvas.blankspaceevent.com/crew'), null, 'a link alone has no words for the card');
+  assert.strictEqual(ctx.cueMsgrLinkSplit_('Pay P1,200.00 today'), null, 'an amount is not a link');
 });

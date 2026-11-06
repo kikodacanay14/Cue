@@ -21,11 +21,50 @@ function cueMsgrInWindow_(last, now) {
   const age = new Date(now).getTime() - t;
   return age >= 0 && age < CUE_MSGR_.windowMs;
 }
-/** The message: first name, the document, the project and its sign link. */
-function cueMsgrText_(d) {
+/* MSGR-DOC-IMAGE-2026-11-06 (Kiko 6 Nov 2026 08:27Z "Can it show an image instead of a link? Or the FSA viewer?"; 08:31Z picked
+ * "Picture of page 1 + button" on the mockup https://claude.ai/artifact/GUJFRMhFhL2HvjPZ8nuNcB, which came with the rule: when
+ * Cue can't make the picture, it sends the button card so the paper still goes out). One paper: a short line, then the picture
+ * of page 1 (from Canvas, msgr_doc_image) with a "View and sign" button. Without a picture: one card with the same line and
+ * button. The button opens the paper's own sign link (the FSA viewer on the crew site). Returns the first send's answer. */
+function cueMsgrDocLine_(d) {
   const first = String(d.name || '').trim().split(/\s+/)[0] || 'Hi';
-  return first + ', your ' + (CUE_MSGR_.doc[d.doc] || d.doc) + ' for ' + String(d.project || 'your event').trim() + ' is ready to sign: '
-    + d.sign_link + '\nThe link works for 30 days. It\'s also in your email.';
+  return first + ', your ' + d.doc + ' for ' + String(d.project || 'your event').trim() + ' is ready to sign. The link works for 30 days. It\'s also in your email.';
+}
+function cueMsgrDocSend_(s, d) {
+  const btn = [['View and sign ' + d.doc, d.sign_link]];
+  const card = () => cueMsgrSend_(d.messenger_id, (CUE_MSGR_.doc[d.doc] || d.doc) + '\n' + cueMsgrDocLine_(d), btn);
+  let id = '';
+  try {
+    const img = cueBridge_(s, 'msgr_doc_image', { doc: d.doc, id: d.id }) || {};
+    if (img.ok && img.b64 && /^image\/(png|jpeg)$/.test(String(img.mime))) id = cueMsgrUpload_(img.b64, img.mime, d.doc + '-' + d.id);
+  } catch (e) { console.warn('Messenger picture ' + d.id + ': ' + e); }
+  if (!id) return card();
+  const r = cueMsgrSend_(d.messenger_id, cueMsgrDocLine_(d));
+  if (!r.ok) return r;
+  const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
+  const m = cueMsgrPost_(token, d.messenger_id, { attachment: { type: 'template', payload: { template_type: 'media',
+    elements: [{ media_type: 'image', attachment_id: id, buttons: [{ type: 'web_url', url: d.sign_link, title: btn[0][0] }] }] } } });
+  if (!m.ok) { console.warn('Messenger picture card ' + d.id + ': ' + m.error); return Object.assign(card(), { ok: true }); }   // the line went; the button must too
+  return r;
+}
+/** Uploads one picture to Meta for a message; returns its attachment id, or '' when Meta did not take it. */
+function cueMsgrUpload_(b64, mime, name) {
+  const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
+  if (!token) return '';
+  const blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, String(name).replace(/[^\w.-]/g, '') + (mime === 'image/png' ? '.png' : '.jpg'));
+  const res = UrlFetchApp.fetch('https://graph.facebook.com/v21.0/me/message_attachments', { method: 'post', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + token },
+    payload: { message: JSON.stringify({ attachment: { type: 'image', payload: { is_reusable: true } } }), filedata: blob } });
+  if (res.getResponseCode() !== 200) return '';
+  try { return String(JSON.parse(res.getContentText()).attachment_id || ''); } catch (e) { return ''; }
+}
+/* MSGR-BUTTONS-2026-11-06 (Kiko 08:33Z): a payment notice ends with its item link (Canvas writes it without https://). On
+ * Messenger the link becomes a "View details" button under the words; a notice with no link goes as plain text. */
+function cueMsgrLinkSplit_(text) {
+  const m = String(text).match(/^([\s\S]*?)[\s.:]*\s((?:https:\/\/)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\/\S*)\s*$/i);
+  const words = m ? m[1].replace(/\s*(?:Details|Link|View)\s*$/i, '').trim() : '';
+  if (!words) return null;
+  return { text: /[.!?)]$/.test(words) ? words : words + '.', url: /^https:\/\//i.test(m[2]) ? m[2] : 'https://' + m[2] };
 }
 /** One Messenger text to one person (Send API, RESPONSE type: inside the 24-hour window only). */
 function cueMsgrSend_(psid, text, buttons) {
@@ -33,10 +72,16 @@ function cueMsgrSend_(psid, text, buttons) {
   if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
   /* Buttons go as a button template (Kiko 5 Nov 04:54Z "There are no buttons showing", 04:56Z "Yes"): they stay on the message,
    * where quick replies vanished as soon as the person typed. A tap comes back as a postback. */
+  /* MSGR-BUTTONS-2026-11-06 (Kiko 6 Nov 08:33Z "Can we do that kind of button all the time?"): a button whose second part is
+   * an https link opens that page (web_url); any other is a tap that comes back as a postback. */
   const message = buttons
     ? { attachment: { type: 'template', payload: { template_type: 'button', text: String(text).slice(0, 640),
-        buttons: buttons.map(b => ({ type: 'postback', title: b[0], payload: b[1] })) } } }
+        buttons: buttons.map(b => /^https:\/\//.test(b[1]) ? { type: 'web_url', url: b[1], title: b[0] } : { type: 'postback', title: b[0], payload: b[1] }) } } }
     : { text: String(text).slice(0, 2000) };
+  return cueMsgrPost_(token, psid, message);
+}
+/** Posts one message (RESPONSE type) to Meta. */
+function cueMsgrPost_(token, psid, message) {
   const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'RESPONSE', message }) });
@@ -92,7 +137,7 @@ function cueMsgrPayRun_() {
 /** One payment text: a utility message when MSGR_PAY_TEMPLATE is set, else a normal reply (24-hour window only). */
 function cueMsgrPaySend_(psid, text) {
   const P = PropertiesService.getScriptProperties(), tpl = String(P.getProperty('MSGR_PAY_TEMPLATE') || '').trim();
-  if (!tpl) return cueMsgrSend_(psid, text);
+  if (!tpl) { const l = cueMsgrLinkSplit_(text); return l ? cueMsgrSend_(psid, l.text, [['View details', l.url]]) : cueMsgrSend_(psid, text); }
   const token = P.getProperty('MSGR_PAGE_TOKEN');
   const body = String(text).replace(/^Blank Space Events:\s*/, '').slice(0, 900);
   const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -132,7 +177,7 @@ function cueMsgrRun_(now) {
     const L = lastOf(d);
     if (!cueMsgrInWindow_(L.at, now)) { out.skipped.push({ id: d.id, why: 'last message over 24 hours ago' }); return; }
     if (L.cue && P.getProperty('CUE_MSGR_OUT_' + k) === L.at) { out.skipped.push({ id: d.id, why: 'outside Meta\'s window' }); return; }
-    const r = cueMsgrSend_(d.messenger_id, cueMsgrText_(d));
+    const r = cueMsgrDocSend_(s, d);
     if (!r.ok && L.cue && /outside of allowed window/i.test(r.error)) { P.setProperty('CUE_MSGR_OUT_' + k, String(L.at)); out.skipped.push({ id: d.id, why: 'outside Meta\'s window' }); return; }
     if (!r.ok) { out.failed.push({ id: d.id, why: r.error }); return; }
     // Meta took it, so the window is open: Canvas gets the time too (once per person), for payment notices and later papers.
