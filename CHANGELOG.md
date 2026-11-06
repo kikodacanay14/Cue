@@ -1,9 +1,9 @@
 # Changelog
 
-## Cue 1.28.x (number from the coordinator): payment notices by Messenger, SMS backup (not deployed)
+## Cue 1.28.35: payment notices by Messenger, SMS backup (not deployed)
 
 Kiko, 6 Nov 2026 00:49Z: "Can you switch all payments related notifications to facebook messenger instead rather than sms". At 01:00Z
-he chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
+Kiko chose "Yes, SMS backup" on the decision card (rule R-PMN-1). Ships with the Canvas release of the same change (CanvasWorkspace
 branch `claude/project-thread-uzsang`, `src/PayMessenger.gs`). Built on 1.28.33 (`claude/project-thread-sg8h1y`, 478272b).
 
 - Every Messenger tick (Job Runs "Messenger sign links", every 15 minutes, only with `MSGR_PAGE_TOKEN` set) Cue first collects the payment
