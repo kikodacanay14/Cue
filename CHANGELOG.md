@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.38: Admin › Auto-Send shows each journey and the messages sent at each step (not deployed)
+## Cue 1.28.38: Admin › Auto-Send shows each journey and the messages sent at each step (LIVE Version 219, 6 Nov 2026 01:57Z, rollback 218)
 
 Kiko, 5 Nov 2026 16:55Z: "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should
 show the customer journey and show communication per stage". Mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq; Kiko "yes"
