@@ -257,7 +257,8 @@ function cueSendWith_(text, files, mode, ref, forced, reply) {
   const now = cueNow_(), d = new Date(now);
   const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
   const saved = cueFilesSave_(files, id);
-  const s = { id, version: CUE_VERSION_, kind: sup ? 'supplier' : 'intake', created: d.toISOString(), started: now, text: t, files: saved, status: 'Working', stage: 'Received', ref,
+  const label = t.split('\n')[0].slice(0, 100) || 'Project intake';
+  const s = { id, version: CUE_VERSION_, kind: sup ? 'supplier' : 'intake', created: d.toISOString(), started: now, text: t, label: label, files: saved, status: 'Working', stage: 'Received', ref,
     metrics: { ai_calls: 0, calls: [] }, notes: [] };
   // CUE-PHASED: every new intake runs in four approved phases. Script Property CUE_PHASED=off goes back to the one-card intake.
   if (!sup && cueProp_('CUE_PHASED', 'on') !== 'off') s.phased = true;
