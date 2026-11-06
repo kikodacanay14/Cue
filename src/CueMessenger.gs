@@ -31,8 +31,12 @@ function cueMsgrText_(d) {
 function cueMsgrSend_(psid, text, buttons) {
   const token = PropertiesService.getScriptProperties().getProperty('MSGR_PAGE_TOKEN');
   if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
-  const message = { text: String(text).slice(0, 2000) };
-  if (buttons) message.quick_replies = buttons.map(b => ({ content_type: 'text', title: b[0], payload: b[1] }));
+  /* Buttons go as a button template (Kiko 5 Nov 04:54Z "There are no buttons showing", 04:56Z "Yes"): they stay on the message,
+   * where quick replies vanished as soon as the person typed. A tap comes back as a postback. */
+  const message = buttons
+    ? { attachment: { type: 'template', payload: { template_type: 'button', text: String(text).slice(0, 640),
+        buttons: buttons.map(b => ({ type: 'postback', title: b[0], payload: b[1] })) } } }
+    : { text: String(text).slice(0, 2000) };
   const res = UrlFetchApp.fetch(CUE_MSGR_.api, { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ recipient: { id: String(psid) }, messaging_type: 'RESPONSE', message }) });
@@ -60,6 +64,7 @@ function cueMsgrTick_() {
 /** One pass: { sent, skipped: [{ id, why }], failed: [{ id, why }] }. */
 function cueMsgrRun_(now) {
   const s = { id: 'msgr' }, o = cueBridge_(s, 'msgr_due', {}) || {}, out = { sent: 0, skipped: [], failed: [] };
+  try { cueMsgrTell_(s, o.tell, now); } catch (e) { console.error('Messenger tell: ' + e); }   // CUE-CREW-MATCH-2026-11-05
   // A send Meta accepted is remembered here first, so a failed msgr_mark is retried on the next tick without a second message.
   const P = PropertiesService.getScriptProperties(), held = k => P.getProperty('CUE_MSGR_SENT_' + k);
   (o.docs || []).forEach(d => {
@@ -106,10 +111,22 @@ const CUE_MSGR_SAY_ = {
   thanks: 'Salamat po sa pag-message. I have passed the details to Kiko and he will get back to you. You may also contact Kiko Dacanay at '
     + 'kikodacanay@blankspaceevent.com or 0976 494 2398.',
   // Until the crew registration form ships (plan T3), "I'm crew" points to the Messenger link in their email.
-  crew: 'Welcome to the crew po. Para ma-link ka, open mo lang ang Messenger link sa email namin. Wala ka pang email from us? '
-    + 'Reply ka lang dito with your full name and event, and our team will help you.'
+  // Kiko 5 Nov 05:49Z "Also remove the note about the email": the email-link sentences are gone, the rest is his approved wording.
+  crew: 'Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you.',
+  /* CUE-MSGR-CREW-ACK-2026-11-05 (Kiko 5 Nov 07:22Z: "There was no response in my message earlier when it asked me for the
+   * event name and my name"): one reply right after a crew member sends their details, then quiet until the team answers. */
+  crewAck: 'Salamat po! Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible.',
+  /* CUE-CREW-MATCH-2026-11-05 (Kiko 5 Nov 2026 11:49Z "Ok deploy" on CanvasWorkspace canvas-integration/specs/crew-messenger-channels/
+   * crew-match-flow.png): Canvas matches the name and event (crew_match) and sends a 6-digit code. Kiko's words, as approved. */
+  code: (ev, last2) => 'Salamat po! Nakita ka namin sa team ng ' + ev + '. Nag-send kami ng 6-digit code sa '
+    + (last2 ? 'mobile mo na nagtatapos sa ' + last2 : 'email mo') + '. I-type mo lang dito ang code para ma-connect ka.',
+  crewLinked: n => 'Hi ' + n + '! Naka-connect ka na sa Blank Space Events dito sa Messenger. Dito na rin namin ipapadala ang papers mo '
+    + 'to sign (FSA and AR) at updates for your events. Reply ka lang anytime kung may tanong ka.',
+  wrong: left => 'Mali po ang code. May ' + left + ' ' + (left === 1 ? 'try' : 'tries') + ' ka pa.',
+  notLinked: 'Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito.',
+  noContact: 'Salamat po! Kailangan lang namin i-confirm ang details mo. Babalikan ka ng team namin dito.'
 };
-const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
+const CUE_MSGR_TRI_ = { crew: 'TRI_CREW', client: 'TRI_CLIENT', start: 'TRI_START', buttons: [['I\'m crew', 'TRI_CREW'], ['Client or inquiry', 'TRI_CLIENT']] };
 
 function cueMsgrPeopleTab_() { return cueSheet_(CUE_MSGR_PEOPLE_.tab); }   // made on first use from CUE_TABS_
 /** { psid: { row, psid, email, name, last, chat } } */
@@ -179,9 +196,16 @@ function cueMsgrOne_(m) {
     if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
     return true;
   }
-  if (!p) return cueMsgrTriage_(psid, at, text, String((msg.quick_reply || {}).payload || ''));
+  if (!p && /\bstart over\b/i.test(text)) {   // Kiko 5 Nov 05:21Z typed "Start over daw" in Messenger: the person can reset themselves too
+    const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + psid); P.deleteProperty('MSGR_TOLD_' + psid);
+  }
+  if (!p) {
+    const pb = m.postback || {}, typed = CUE_MSGR_TRI_.buttons.find(b => b[0].toLowerCase() === text.trim().toLowerCase().replace(/[\u2019]/g, "'"));
+    const tap = String(pb.payload || (msg.quick_reply || {}).payload || (typed ? typed[1] : ''));
+    return cueMsgrTriage_(psid, at, text || cueStr_(pb.title || '', 200), tap, !!m.relay_replied);
+  }
   p.last = at;
-  cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at });
+  if (p.email) cueBridge_(s, 'fl_social_save', { request_id: 'msgrlast:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), email: p.email, last_message: at });   // CUE-CREW-MATCH: staff-linked crew may have no key
   cueLocked_(() => {
     cueMsgrChatFor_(p); cueMsgrPersonSave_(p);
     const L = cueLoad_(p.chat);
@@ -211,13 +235,13 @@ function cueMsgrTriChat_(psid, T, label) {
     return p.chat;
   });
 }
-function cueMsgrTriage_(psid, at, text, tap) {
+function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay already answered this tap (CUE-MSGR-INSTANT-2026-11-05)
   let T = cueMsgrTri_(psid);
   if (tap === CUE_MSGR_TRI_.client || tap === CUE_MSGR_TRI_.crew) {
     const crew = tap === CUE_MSGR_TRI_.crew;
     T = T || { first: text };
     T.st = crew ? 'crew' : 'ask_help'; T.last = at;
-    cueMsgrSend_(psid, crew ? CUE_MSGR_SAY_.crew : CUE_MSGR_SAY_.help);
+    if (!replied) cueMsgrSend_(psid, crew ? CUE_MSGR_SAY_.crew : CUE_MSGR_SAY_.help);
     const chat = cueMsgrTriChat_(psid, T, crew ? 'Crew, not linked yet' : 'Client or inquiry');
     cueMsgrTriSave_(psid, T);
     cueChat_('Cue', T.name + ' tapped "' + (crew ? 'I\'m crew' : 'Client or inquiry') + '" on Messenger.'
@@ -225,19 +249,103 @@ function cueMsgrTriage_(psid, at, text, tap) {
     return true;
   }
   if (!T) {
-    cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    /* One Ask Cue line per person in total (Kiko 5 Nov 04:33Z "its still sending 1 notif per message"): MSGR_TOLD_<psid> marks
+     * the line, so a person 1.28.19.1 already noted, or whose greeting Facebook refused, gets no second line. */
+    const P = PropertiesService.getScriptProperties(), told = 'MSGR_TOLD_' + psid, first = !P.getProperty(told);
+    const r = cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons);
+    if (first) {
+      P.setProperty(told, at);
+      cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
+        + (r.ok ? '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.'
+          : '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.'), '');
+    }
+    if (!r.ok) return true;   // 5 Nov 04:29Z: a refused greeting saves no triage state, so the next message tries again
     cueMsgrTriSave_(psid, { st: 'asked', first: text, last: at });
-    cueChat_('Cue', 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
-      + '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.', '');
     return true;
   }
   T.last = at;
-  if (!T.chat) { cueMsgrTriSave_(psid, T); return true; }   // no tap yet: stays in the Page inbox
+  if (!T.chat) {   // no tap yet (Kiko 5 Nov 04:51Z "Its not responding..."): a typed message gets the greeting and buttons again, no new Ask Cue line
+    if (cueMsgrSend_(psid, CUE_MSGR_SAY_.greet, CUE_MSGR_TRI_.buttons).ok) T.asked = at;
+    cueMsgrTriSave_(psid, T); return true;
+  }
   if (T.st === 'ask_help' && text) { cueMsgrSend_(psid, CUE_MSGR_SAY_.thanks); T.st = 'client'; }
+  if (T.st === 'crew' && text) { const done = cueMsgrCrewMatch_(psid, at, text, T); if (done) return true; }
+  /* A crew member's details get one reply and one line in the main chat; later messages stay quiet until the team answers
+   * from the Cue chat (cueMsgrSaid_ clears T.acked). Since CUE-CREW-MATCH-2026-11-05 this is the "not sure" reply: Canvas found
+   * no one person on a live team for what they wrote. */
+  const ack = T.st === 'crew' && text && !T.acked && !T.m;
+  if (ack && cueMsgrSend_(psid, CUE_MSGR_SAY_.crewAck).ok) T.acked = at;
+  if (ack) T.m = 'unsure';
   cueMsgrTriSave_(psid, T);
   cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');
   if (text) cueChat_(T.name + ' · Messenger', text, T.chat);
+  if (ack) cueChat_('Cue', T.name + ' (crew, not linked yet) sent their details on Messenger: "' + cueStr_(text, 200) + '". Reply in their chat.', '');
   return true;
+}
+/* CUE-CREW-MATCH-2026-11-05: a crew member's details or code. T.m = 'code' (a code is waiting), 'wait' (no mobile and no email:
+ * staff tap Link in Canvas), 'locked' (3 wrong codes), 'unsure' (not matched; later details are tried again quietly).
+ * Returns true when it handled the message (reply sent, chat updated), false to fall back to the "not sure" reply. */
+function cueMsgrCrewMatch_(psid, at, text, T) {
+  const s = { id: 'msgr' }, rid = k => k + ':' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, '');
+  const log = () => { cueMsgrTriChat_(psid, T, 'Crew, not linked yet'); cueChat_(T.name + ' · Messenger', text, T.chat); };
+  const call = (action, args) => { try { return cueBridge_(s, action, args) || null; } catch (e) { console.error('Messenger ' + action + ': ' + e); return null; } };
+  if (T.m === 'wait' || T.m === 'locked') { cueMsgrTriSave_(psid, T); log(); return true; }
+  const code = String(text).replace(/\s+/g, '');
+  if (T.m === 'code' && /^\d{6}$/.test(code)) {
+    const r = call('crew_code_check', { request_id: rid('crewcode'), psid, code });
+    if (r && r.status === 'linked') return cueMsgrCrewLinked_(psid, at, T, r, text);
+    if (r && r.status === 'wrong') { cueMsgrSend_(psid, CUE_MSGR_SAY_.wrong(r.left)); cueMsgrTriSave_(psid, T); log(); return true; }
+    if (r && r.status === 'locked') {
+      cueMsgrSend_(psid, CUE_MSGR_SAY_.notLinked); T.m = 'locked'; cueMsgrTriSave_(psid, T); log();
+      cueChat_('Cue', (r.name || T.name) + ' typed 3 wrong codes on Messenger. Nothing was linked.', '');
+      return true;
+    }
+    if (!r || r.status !== 'none') { cueMsgrTriSave_(psid, T); log(); return true; }   // Canvas busy: the code stays; they can type it again
+    text = T.details || text;   // the code ran out: send a new one for the same details
+  }
+  if (T.m === 'code' && !/^\d{6}$/.test(code)) { cueMsgrTriSave_(psid, T); log(); return true; }   // words while a code waits: chat only
+  const m = call('crew_match', { request_id: rid('crewmatch'), psid, messenger_name: cueStr_(T.name || '', 120), text: cueStr_(text, 1000) });
+  if (!m) return false;
+  if (m.status === 'already') return cueMsgrCrewLinked_(psid, at, T, m, text);
+  if (m.status === 'code_sent') {
+    cueMsgrSend_(psid, CUE_MSGR_SAY_.code(m.project, m.channel === 'mobile' ? m.hint : ''));
+    T.m = 'code'; T.details = cueStr_(text, 1000); cueMsgrTriSave_(psid, T); log();
+    cueChat_('Cue', 'Matched to ' + (m.person || T.name) + ' on ' + m.project + '. Cue sent them a 6-digit code by ' + (m.channel === 'mobile' ? 'SMS' : 'email') + '.', T.chat);
+    return true;
+  }
+  if (m.status === 'no_contact') {
+    cueMsgrSend_(psid, CUE_MSGR_SAY_.noContact); T.m = 'wait'; cueMsgrTriSave_(psid, T); log();
+    cueChat_('Cue', (m.person || T.name) + ' (crew, ' + m.project + ') messaged on Messenger but has no mobile or email on file, so Cue could not send a code. '
+      + 'Check who they are, then tap Link in the project\'s Communication Config or on the Freelancers page.', '');
+    return true;
+  }
+  if (m.status === 'locked') { T.m = 'locked'; cueMsgrTriSave_(psid, T); log(); return true; }
+  if (T.m === 'unsure') { cueMsgrTriSave_(psid, T); log(); return true; }   // still not sure: already told once, stay quiet
+  return false;   // not sure: the crewAck reply and main-chat line
+}
+/** Linked (right code, or already on their row): the approved reply, their Messenger People row and their crew chat. */
+function cueMsgrCrewLinked_(psid, at, T, r, text) {
+  cueMsgrSend_(psid, CUE_MSGR_SAY_.crewLinked(r.first || String(T.name || '').split(/\s+/)[0] || 'there'));
+  const p = { psid, email: r.key || '', name: T.name, last: at, chat: T.chat };
+  cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); });
+  const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + psid);
+  cueChat_(T.name + ' · Messenger', text, p.chat);
+  cueChat_('Cue', 'Linked on Messenger: ' + T.name + (r.project ? ' (crew, ' + r.project + ')' : '') + '.', p.chat);
+  return true;
+}
+/** People staff linked (Link) or turned down (Not mine) in Canvas, from msgr_due: told once, then msgr_told. */
+function cueMsgrTell_(s, tell, now) {
+  (tell || []).forEach(x => {
+    if (!/^\d{1,40}$/.test(String(x.psid || ''))) return;
+    const T = cueMsgrTri_(x.psid) || { name: '' }, linked = x.status === 'linked';
+    const r = cueMsgrSend_(x.psid, linked ? CUE_MSGR_SAY_.crewLinked(x.first || String(T.name || '').split(/\s+/)[0] || 'there') : CUE_MSGR_SAY_.notLinked);
+    if (!r.ok) { console.error('Messenger tell ' + x.psid + ': ' + r.error); return; }
+    if (linked) { const p = { psid: x.psid, email: x.key || '', name: T.name || x.first, last: new Date(now).toISOString(), chat: T.chat };
+      cueLocked_(() => { cueMsgrChatFor_(p); cueMsgrPersonSave_(p); }); PropertiesService.getScriptProperties().deleteProperty('MSGR_TRI_' + x.psid); }
+    else if (T.chat) { T.m = 'locked'; cueMsgrTriSave_(x.psid, T); }
+    try { cueBridge_(s, 'msgr_told', { request_id: 'msgrtold:' + x.psid + ':' + x.status + ':' + now, psid: String(x.psid), status: x.status }); }
+    catch (e) { console.error('msgr_told: ' + e); }
+  });
 }
 /** Kiko's words in a Messenger chat: "done" closes it; anything else goes to the crew member on Messenger, inside the window (R10). */
 function cueMsgrSaid_(c) {
@@ -245,6 +353,14 @@ function cueMsgrSaid_(c) {
   const L = cueLoad_(c.ref); if (!L || L.s.kind !== 'msgr') return null;
   const t = String(c.text || '').trim(), M = L.s.msgr, p = cueMsgrPeople_()[M.psid] || cueMsgrTri_(M.psid) || { last: '' };
   cueChat_('Kiko', t, L.s.id);
+  /* "start over" (Kiko 5 Nov 05:15Z, testing from his own account: "I didnt see those"): someone not linked as crew is made new
+   * again (triage state and the Ask Cue mark dropped), so their next message gets the greeting and buttons as a first-timer. */
+  if (/^start over[.!]?$/i.test(t) && !cueMsgrPeople_()[M.psid]) {
+    const P = PropertiesService.getScriptProperties(); P.deleteProperty('MSGR_TRI_' + M.psid); P.deleteProperty('MSGR_TOLD_' + M.psid);
+    const s = cueMsgrClose_(L.s.id);
+    cueChat_('Cue', 'Started over. ' + M.name + '\'s next Messenger message gets the greeting and buttons as a new person.', L.s.id);
+    return cueView_(s);
+  }
   if (/^(done|close( it| this)?)[.!]?$/i.test(t)) {
     const s = cueMsgrClose_(L.s.id); cueChat_('Cue', 'Closed. A new message from ' + M.name + ' opens it again.', L.s.id); return cueView_(s);
   }
@@ -254,16 +370,51 @@ function cueMsgrSaid_(c) {
     return cueView_(L.s);
   }
   const r = cueMsgrSend_(M.psid, t);
+  const T = r.ok && cueMsgrTri_(M.psid); if (T && (T.acked || T.m === 'unsure')) { delete T.acked; if (T.m === 'unsure') delete T.m; cueMsgrTriSave_(M.psid, T); }   // the team answered: the next details get a reply again
   cueChat_('Cue', r.ok ? 'Sent on Messenger.' : 'Not sent: ' + r.error + '.', L.s.id);
   return cueView_(L.s);
 }
 
 /* ---------- collecting from the relay (Job Runs "Messenger inbox") ---------- */
 /** Collects held events from the relay, handles them, then tells the relay which to drop. Returns how many were handled. */
+/** CUE-MSGR-FAST-2026-11-05 (Kiko 5 Nov 04:30Z "5 minuites is not good"): the pull also runs from the 1-minute trigger
+ * (cueRfpKick), so a reply goes out within about a minute. A short lease (CUE_MSGR_PULL_RUN) keeps the 1-minute and 5-minute
+ * runs from collecting the same events twice. Returns how many were handled, or 0 while another run holds the lease. */
 function cueMsgrPull_() {
+  const P = PropertiesService.getScriptProperties(), l = LockService.getScriptLock(), now = cueNow_();
+  if (!l.tryLock(5000)) return 0;
+  try { if (Number(P.getProperty('CUE_MSGR_PULL_RUN') || 0) > now) return 0; P.setProperty('CUE_MSGR_PULL_RUN', String(now + 4 * 60 * 1000)); }
+  finally { l.releaseLock(); }
+  try { return cueMsgrPullOnce_(); } finally { P.deleteProperty('CUE_MSGR_PULL_RUN'); }
+}
+/** The 1-minute run (from cueRfpKick). Writes a Job Runs row only when it handled a message or failed, so quiet minutes leave none. */
+function cueMsgrKick_() {
+  if (globalThis.CUE_CHECK_ON_) return null;
+  const started = new Date(cueNow_()).toISOString();
+  let n = 0, err = '';
+  try { n = cueMsgrPull_() || 0; } catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error('Messenger inbox (1 min): ' + e); }
+  if (n || err) { try { cueJobLog_([[started, new Date(cueNow_()).toISOString(), 'Messenger inbox', err ? 'Failed' : 'OK', err, n]]); } catch (e) { console.error('Job Runs: ' + e); } }
+  return n;
+}
+/* CUE-MSGR-INSTANT-2026-11-05 (Kiko 5 Nov 11:53Z "right after I click I'm crew, automatically there's a response"; 12:00Z "Yes,
+ * ship it"): the relay answers I'm crew and Client or inquiry taps itself, at once, so it keeps the Page token and the list of
+ * linked crew (who get no triage reply). Cue sends both when either changes; only a hash of them is kept here. */
+function cueMsgrRelaySync_(url, auth, P) {
+  try {
+    const token = P.getProperty('MSGR_PAGE_TOKEN') || '', linked = Object.keys(cueMsgrPeople_()).sort();
+    const h = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token + '|' + linked.join(',')));
+    if (P.getProperty('CUE_MSGR_RELAY_SYNC') === h) return;
+    const r = UrlFetchApp.fetch(url + '/sync', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: auth,
+      payload: JSON.stringify({ token, linked }) });
+    if (r.getResponseCode() === 200) P.setProperty('CUE_MSGR_RELAY_SYNC', h);
+  } catch (e) { console.error('Messenger relay sync: ' + e); }
+}
+function cueMsgrPullOnce_() {
   const P = PropertiesService.getScriptProperties(), url = String(P.getProperty('MSGR_RELAY_URL') || '').replace(/\/+$/, ''), key = P.getProperty('MSGR_RELAY_KEY');
   if (!/^https:\/\/[\w.-]+(\/[\w.-]*)*$/.test(url) || !key || !P.getProperty('MSGR_PAGE_TOKEN')) return 0;   // not set up yet
+  if (P.getProperty('CUE_MSGR_PROFILE_V') !== CUE_MSGR_PROFILE_V_ && !(Number(P.getProperty('CUE_MSGR_PROFILE_TRY') || 0) > cueNow_() - 3600000)) { P.setProperty('CUE_MSGR_PROFILE_TRY', String(cueNow_())); try { cueMsgrProfileSet_(); } catch (e) { console.error('Messenger welcome screen: ' + e); } }
   const auth = { Authorization: 'Bearer ' + key };
+  cueMsgrRelaySync_(url, auth, P);
   const res = UrlFetchApp.fetch(url + '/events', { muteHttpExceptions: true, headers: auth });
   if (res.getResponseCode() !== 200) throw new Error('Messenger relay answered ' + res.getResponseCode());
   const items = (JSON.parse(res.getContentText()).events || []).slice(0, 50), done = [];
@@ -274,6 +425,42 @@ function cueMsgrPull_() {
   if (done.length) UrlFetchApp.fetch(url + '/ack', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: auth,
     payload: JSON.stringify({ ids: done }) });
   return handled;
+}
+
+/* CUE-MSGR-WELCOME-2026-11-05 (Kiko 5 Nov 04:51Z "just by visiting the page you already get a message. Cant we do thst?",
+ * 04:54Z "Why not the greeting is the triage?", 04:56Z "Yes" to welcome screen, menu and buttons that stay): the Page's Messenger
+ * profile shows the approved greeting and the two triage options before anyone types (ice breakers), a Get Started button
+ * (needed for the menu), and a menu by the typing box with the same two options. Set once per version, then on every change
+ * of CUE_MSGR_PROFILE_V_. The app is also subscribed to postbacks, so taps reach the relay. */
+const CUE_MSGR_PROFILE_V_ = '1';
+function cueMsgrProfileBody_() {
+  const B = CUE_MSGR_TRI_.buttons;
+  return {
+    greeting: [{ locale: 'default', text: CUE_MSGR_SAY_.greet.slice(0, 160) }],
+    get_started: { payload: CUE_MSGR_TRI_.start },
+    ice_breakers: [{ locale: 'default', call_to_actions: B.map(b => ({ question: b[0], payload: b[1] })) }],
+    persistent_menu: [{ locale: 'default', composer_input_disabled: false, call_to_actions: B.map(b => ({ type: 'postback', title: b[0], payload: b[1] })) }]
+  };
+}
+/** Sets the welcome screen and menu, and subscribes the app to messages, postbacks and referrals. Returns { ok, error }. */
+function cueMsgrProfileSet_() {
+  const P = PropertiesService.getScriptProperties(), token = P.getProperty('MSGR_PAGE_TOKEN');
+  if (!token) return { ok: false, error: 'no MSGR_PAGE_TOKEN' };
+  const call = (u, body) => {
+    const r = UrlFetchApp.fetch(u, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + token }, payload: JSON.stringify(body) });
+    if (r.getResponseCode() === 200) return '';
+    let m = ''; try { m = (JSON.parse(r.getContentText()).error || {}).message || ''; } catch (e) { m = ''; }
+    return 'Meta ' + r.getResponseCode() + (m ? ': ' + String(m).slice(0, 160) : '');
+  };
+  const e1 = call('https://graph.facebook.com/v21.0/me/subscribed_apps', { subscribed_fields: ['messages', 'messaging_postbacks', 'messaging_referrals'] });
+  const e2 = call('https://graph.facebook.com/v21.0/me/messenger_profile', cueMsgrProfileBody_());
+  const err = [e1 && 'subscribe: ' + e1, e2 && 'welcome screen: ' + e2].filter(Boolean).join('; ');
+  if (!err) P.setProperty('CUE_MSGR_PROFILE_V', CUE_MSGR_PROFILE_V_);
+  else if (P.getProperty('CUE_MSGR_PROFILE_ERR') !== CUE_MSGR_PROFILE_V_) {   // one Ask Cue line per version, not one per hourly retry
+    P.setProperty('CUE_MSGR_PROFILE_ERR', CUE_MSGR_PROFILE_V_);
+    cueChat_('Cue', 'Messenger welcome screen not set (' + err + '). Cue tries again every hour.', '');
+  }
+  return { ok: !err, error: err };
 }
 
 /* ---------- Settings › Connections › Messenger (owner only) ---------- */

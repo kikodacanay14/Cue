@@ -1,6 +1,8 @@
 # Changelog
 
-## Cue 1.28.23: For Approval moves into Cue Admin (not deployed)
+## Cue 1.28.33: For Approval moves into Cue Admin; Chasers and Chaser rules are one page (not deployed)
+
+Built as 1.28.23 on 5 Nov; rebuilt on live 1.28.30 (branch claude/project-thread-lda4e2) on 6 Nov 2026 after Kiko's deploy yes ("Yea", 01:00Z). 1.28.31 and 1.28.32 are claimed by the Messenger thread and are not in this release.
 
 Kiko, 5 Nov 2026 16:40Z, "Reorganize Admin Page": "AI Usage and Cost to Admin > System Config, Connections to API Keys" and "The For
 Approval move the to Cue". On the decision card at 16:43Z he picked "Show Canvas's list in Cue" over moving it through the bridge.
@@ -21,7 +23,112 @@ Ships with the Canvas release of the same change (CanvasWorkspace PR on branch `
   listed under both. The timing boxes are the same ones Chaser rules had and save the same way; no chaser, rule or send changes. The
   Chaser rules item is gone from the list, and an old `sec=chasers` link opens Chasers.
 - A section opened alone for Canvas hides its own title, because Canvas shows the title above the frame (brand check, 5 Nov).
-- Tests: `test/features/85-admin-groups.js` (AG1 to AG6); AD4 and UG5 updated for the new list. 668 of 668 pass.
+- Tests: `test/features/85-admin-groups.js` (AG1 to AG6); AD4 and UG5 updated for the new list. 683 of 683 pass.
+
+## Cue 1.28.30: Messenger crew are matched and linked by code; taps are answered at once (not deployed)
+
+Who asked and when: Kiko, 5 Nov 2026. 07:42Z: "is it possible for a logic to be applied to match the messenger's name to the project
+if it's really there? And then if it's there, then it's automatically linked"; 09:10Z "A" (match, then a code); 09:47Z the Link in
+Communication Config and on the Freelancers page; 11:49Z "Ok deploy" on crew-match-flow.png. 11:53Z: "right after I click I'm crew,
+automatically there's a response that we don't have to wait for a minute or two"; 12:00Z "Yes, ship it" to the relay answering taps.
+
+What changed:
+- After I'm crew, the crew member's details go to Canvas (new bridge action crew_match). Canvas looks for one person on the team of a
+  live project whose name shares a word with what they wrote.
+- Found, with a mobile or email on file: Canvas sends a 6-digit code (SMS, else the crew email). Messenger says "Salamat po! Nakita ka
+  namin sa team ng <event>. Nag-send kami ng 6-digit code sa mobile mo na nagtatapos sa <last 2 digits>. I-type mo lang dito ang code
+  para ma-connect ka." ("sa email mo" when it went by email). Cue never sees the number or address, only the last 2 digits.
+- The right code (crew_code_check) links their Messenger on their Freelancers row. They get "Hi <first>! Naka-connect ka na sa Blank
+  Space Events dito sa Messenger. ..." and become linked crew in Messenger People. Wrong codes get "Mali po ang code. May 2 tries ka
+  pa." / "May 1 try ka pa."; the 3rd gets "Hindi pa namin ma-connect ang Messenger mo. Babalikan ka ng team namin dito." and the main
+  chat gets "<name> typed 3 wrong codes on Messenger. Nothing was linked."
+- Found, but no mobile and no email: "Salamat po! Kailangan lang namin i-confirm ang details mo. Babalikan ka ng team namin dito."
+  and one main-chat line pointing to Link in Canvas (Communication Config or the Freelancers page).
+- Not sure (no one, or two people): the 1.28.29 reply and main-chat line, as before. Their next details are matched again quietly.
+- Staff Link or Not mine in Canvas: the next sign-link pass (msgr_due, every 15 minutes) tells the person once, with the linked
+  message or the "Hindi pa namin ma-connect" reply, then tells Canvas (msgr_told).
+- Instant taps: the relay (relay/messenger-worker.js) answers I'm crew and Client or inquiry itself, in about a second, with Cue's
+  exact words. Cue sends the relay the Page token and the list of linked crew (POST /sync) when either changes; Cue does not answer
+  a tap the relay already answered. Everything else still waits for the 1-minute collection. The relay must be redeployed
+  (npx wrangler deploy in relay/).
+- Canvas down or not yet updated: crew get the 1.28.29 reply, as before.
+- test/fixtures/ZapBridge.gs refreshed from CanvasWorkspace src/ZapBridge.gs (crew_match, crew_code_check, msgr_told).
+
+Tests: MS16 to MS22 new, MS11 updated; relay 10/10. 677/677 pass.
+
+## Cue 1.28.29: a crew member's Messenger details get one reply (LIVE as Version 210, 5 Nov 2026 09:51Z; rollback Version 209)
+
+Who asked and when: Kiko, 5 Nov 2026 07:22Z: "There was no response in my message earlier when it asked me for the event name
+and my name. So there." He tapped I'm crew, sent "Kiko Dacanay / Kings Day" at 14:33 PH and "Hello?" at 15:22, and got nothing
+back; both reached his Cue chat, but nothing showed in the main chat.
+
+What changed:
+- After a crew member (not linked yet) sends their first message after tapping I'm crew, Messenger replies once: "Salamat po!
+  Natanggap na namin ang details mo. Babalikan ka ng team namin dito sa Messenger as soon as possible." (wording sent to Kiko for
+  his yes).
+- The same message puts one line in the main chat: "<name> (crew, not linked yet) sent their details on Messenger: ...".
+- Later messages stay quiet. Once the team answers from the person's Cue chat, the next details get the reply again.
+- Tests: MS10l new; MS10j and MS10k updated. 670/670.
+
+## Cue 1.28.28: the Messenger "I'm crew" reply drops the email note (LIVE as Version 209, 5 Nov 2026 06:20Z; rollback Version 208)
+
+Who asked and when: Kiko, 5 Nov 2026 05:49Z: "Also remove the note about the email".
+
+What changed: the reply to "I'm crew" is now "Welcome to the crew po. Reply ka lang dito with your full name and event, and our team will help you." The sentences about the Messenger link in the email are removed; the rest is Kiko's approved wording. It stays until the crew registration form ships.
+
+Tests: MS10d checks the exact text.
+
+## Cue 1.28.27: "start over" typed in Messenger resets the person (BUG FIX, LIVE as Version 208, 5 Nov 2026 05:26Z; rollback Version 207)
+
+Who asked and when: Kiko, 5 Nov 2026 05:21Z, sent a screenshot of his phone: he typed "Start over daw" in Messenger and got no reply, because 1.28.26 only reads "start over" in the Cue chat.
+
+What changed: a person not linked as crew who types a message containing "start over" in Messenger is made new again (triage state and Ask Cue mark dropped), and that same message gets the greeting with the two buttons. Linked crew are not affected.
+
+Tests: MS10k new.
+
+## Cue 1.28.26: "start over" in a Messenger triage chat (BUG FIX, LIVE as Version 207, 5 Nov 2026 05:19Z; rollback Version 206)
+
+Who asked and when: Kiko, 5 Nov 2026, testing Version 206 from his own Facebook account. 05:05Z "Nothing happens......", 05:15Z "I didnt see those. What are you saying?".
+
+What changed:
+- Cause: at 12:38 PH his account tapped "I'm crew", so Cue treated him as crew, not linked, and waited for a person to answer in the chat "Messenger · Kiko Dacanay · Crew, not linked yet". His later messages arrived there with no auto-reply. Deleting the chat on his phone does not reset this, and Facebook shows the welcome screen only to accounts that never messaged the Page.
+- Typing "start over" in a Messenger triage chat in Cue now makes that person new again: their triage state and Ask Cue mark are dropped, and the chat closes. Their next message gets the greeting and buttons as a first-timer. It does not apply to linked crew, and "start over" is never sent to the person.
+
+Tests: MS10j new. 668/668 pass.
+
+## Cue 1.28.25: Messenger welcome screen is the triage, buttons that stay, a menu, and typed messages get the buttons again (LIVE as Version 206, 5 Nov 2026 05:03Z; rollback Version 205)
+
+Who asked and when: Kiko, 5 Nov 2026 04:51Z, testing 1.28.23 (Version 204): "Its not responding...".
+
+What changed:
+- Cause: after the greeting, a person who typed instead of tapping I'm crew or Client or inquiry got no answer. Cue stored the message quietly, and Messenger hides the buttons once a new message is sent, so the person was stuck.
+- Now each typed message before a tap gets the same approved greeting with the two buttons again. Cue's Ask Cue line stays one per person.
+
+- Welcome screen (Kiko 04:51Z "I have seen pages where just by visiting the page you already get a message. Cant we do thst?", 04:54Z "Why not the greeting is the triage?", 04:56Z "Yes"): Cue sets the Page's Messenger profile once (CUE_MSGR_PROFILE_V_ = 1). Before anyone types, the chat shows the approved greeting with "I'm crew" and "Client or inquiry" as tap options (ice breakers). A Get Started button and a menu by the typing box with the same two options are set too. Cue also subscribes the app to postbacks, so taps reach the relay. If Meta refuses, Ask Cue gets one line and Cue retries hourly. A Page cannot message people who only visit the Page without opening the chat.
+- Buttons that stay (Kiko 04:54Z "There are no buttons showing"): Cue's greeting now carries its two buttons as a button template, which stays on the message, instead of quick replies, which vanished once the person typed. Taps arrive as postbacks. Typing the button words ("I'm crew", "Client or inquiry") counts as the tap.
+
+Tests: MS10 and MS10b updated; MS10h (welcome screen, menu, postback taps) and MS10i (refused welcome screen, hourly retry, one line) new. 667/667 pass.
+
+## Cue 1.28.24: a Messenger stranger who types instead of tapping gets the buttons again (BUG FIX, LIVE as Version 205, 5 Nov 2026 04:57Z; rollback Version 204)
+
+Who asked and when: Kiko, 5 Nov 2026 04:51Z, testing 1.28.23 (Version 204): "Its not responding...".
+
+What changed:
+- Cause: after the greeting, a person who typed instead of tapping I'm crew or Client or inquiry got no answer. Cue stored the message quietly, and Messenger hides the buttons once a new message is sent, so the person was stuck.
+- Now each typed message before a tap gets the same approved greeting with the two buttons again. Cue's Ask Cue line stays one per person.
+
+Tests: MS10 updated (three typed messages, three greetings, one Ask Cue line). 665/665 pass.
+
+## Cue 1.28.23: Messenger replies within a minute, one Ask Cue line per person, a refused greeting is tried again (BUG FIX, LIVE as Version 204, 5 Nov 2026 04:45Z; rollback Version 203)
+
+Who asked and when: Kiko, 5 Nov 2026, testing 1.28.21 from his phone. 04:29Z: "i messged nothing happens". 04:30Z: "5 minuites is not good" and "when someone messages the triage isnt auitomatic?".
+
+What changed:
+- Cue collected Messenger messages from the relay only in the 5-minute run (cueResume), so a reply could take up to 5 minutes. The pull now also runs from the existing 1-minute trigger (cueRfpKick), so the triage reply goes out within about a minute. No new trigger is added. A short lease (script property CUE_MSGR_PULL_RUN) stops the 1-minute and 5-minute runs from collecting the same messages twice. The 1-minute run writes a Job Runs row ("Messenger inbox") only when it handled a message or failed.
+- Bug: when Facebook refused the greeting, Cue still saved the person as "asked", so it went quiet for them from then on. Now a refused greeting saves nothing; the Ask Cue line shows Facebook's error, and the person's next message tries the greeting again.
+- Bug (Kiko 04:33Z: "its still sending 1 notif per message"): the triage did not read the "already noted" mark that 1.28.19.1 set (script property MSGR_TOLD_<psid>), so someone noted before the triage shipped got a second Ask Cue line. The triage now uses the same mark: one Ask Cue line per person in total, including across greeting retries.
+
+Tests: MS10e (refused greeting retries), MS10f (1-minute collection, lease, quiet minutes leave no row), MS10g (one line per person across versions and retries). 664/664 pass.
 
 ## Cue 1.28.22: Friday status emails keep a copy in Canvas (LIVE as Version 203, 5 Nov 2026 04:31Z; rollback Version 202)
 
