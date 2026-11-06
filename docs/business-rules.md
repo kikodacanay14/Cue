@@ -1,6 +1,6 @@
 # Cue business rules — source-based first pass
 
-Status on main (checked 3 Nov 2026; CUE-046 added 6 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
+Status on main (checked 3 Nov 2026; CUE-046 and CUE-047 added 6 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
 Cue main and the live line have split: branch `claude/project-thread-y5l4x9-rel1285fix` (live, Version 191) has 256 commits main lacks,
 so a rule here can differ from what is live until main is reconciled with that line. The Canvas catalog is
 CanvasWorkspace `docs/business-rules.md`.
@@ -334,3 +334,25 @@ recovery attempts per run. They change no business outcome; a lead that still fa
 
 Evidence: `test/features/86-bid-lead-retry.js`, LR1 to LR9. A dry run on the real stored runs and ledger (6 Nov) gave 21 Bid finder deals
 before and 36 after, 15 new, no duplicate. Manual gap: live CRM Deals is being checked after Version 216 went live (6 Nov 01:23Z).
+
+### CUE-047: Messenger crew who wrote before tapping "I'm crew" go on Canvas's Link list once (code tag `CREW-RESTORE-2026-11-06`)
+
+Intended policy: on 6 Nov 2026 at 02:04Z Kiko wrote "these people messaged this what i want you to rtestore" and "i cant find whjere to
+approve or link them" about the King's Day crew who messaged the BSE Page at 8:00 Manila. On the decision card at 02:05Z Kiko picked "Add to
+Canvas list, you tap Link". Deploy yes 02:28Z ("Yes"). The Canvas side is CanvasWorkspace `docs/business-rules.md`, CREW-RESTORE-2026-11-06.
+
+Implemented in `src/CueMessenger.gs` (`cueMsgrCrewRestore_`), called from `cueResume` in `src/Cue.gs`:
+1. Once, it reads every saved Messenger chat (`MSGR_TRI_<psid>`) still at "asked" (never tapped "I'm crew") or at "crew" with no match
+   state yet (tapped, never typed details), and not yet restored.
+2. Each one is sent to Canvas's `crew_wait` with its typed details, or else its first message, and request_id `crewwait:<psid>`. The result
+   is saved on the chat as `restored`, so a person is sent once.
+3. It posts one main-chat line naming the people put on the list. Nobody is messaged.
+4. When nothing failed it sets `CUE_CREW_RESTORE_DONE` and never runs again; a failure is tried again on a later resume.
+
+Left out on purpose: chats with a match state (code, wait, locked, unsure). Those people typed details and went through `crew_match`, which
+already handled them: a code was sent (code, locked), a "No contact" row waits for Link (wait), or a "No match" row waits for staff (unsure).
+
+Claude's reading, not Kiko's words: which saved states count as "messaged but never listed", and the one-time boundary.
+
+Evidence: `test/features/87-crew-restore.js`, CRW1 and CRW2 (synthetic chats and a fake bridge). Live since Cue 1.28.39 (Version 220,
+6 Nov 2026 02:45Z, rollback 219) with Canvas V483. Manual gap: the live Messenger Waiting rows are checked after the first resume.

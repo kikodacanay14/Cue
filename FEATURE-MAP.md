@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 76 server files, 1524 top-level names, 35 task kinds, 35 word checks before the
+Counts: 76 server files, 1525 top-level names, 35 task kinds, 35 word checks before the
 chat call, 17 background jobs in the 5-minute trigger, 95 page-to-server functions, 65 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -135,7 +135,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 69 | 44 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 69 | 45 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
@@ -178,7 +178,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueMailAlerts.gs` | `subject` |  | 0 | 0 | 2 | 6 |
 | `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 3 | 9 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
-| `CueMessenger.gs` |  | Chat, Requests | 0 | 0 | 5 | 6 |
+| `CueMessenger.gs` |  | Chat, Requests | 0 | 0 | 6 | 6 |
 | `CueMorning.gs` | `client_status` | Requests | 0 | 0 | 9 | 12 |
 | `CueMsgTemplates.gs` |  |  | 0 | 0 | 1 | 6 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 7 | 8 |
@@ -234,8 +234,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueGpt_` | `CueAi.gs` | 21 |
 | `cueClaude_` | `CueAi.gs` | 19 |
 | `cueMetrics_` | `Cue.gs` | 18 |
+| `cueResume` | `Cue.gs` | 18 |
 | `cuePh_` | `CueDates.gs` | 17 |
-| `cueResume` | `Cue.gs` | 17 |
 | `CUE_GMAIL_` | `CueGmail.gs` | 16 |
 | `cueView_` | `Cue.gs` | 16 |
 | `cueGmail_` | `CueGmail.gs` | 15 |
