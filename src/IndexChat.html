@@ -111,7 +111,7 @@
      thread ({canvasWs:'cueTeam'}), with all its buttons. */
   var canvasRows = [];
   function canvasRowsSet(rows) {
-    canvasRows = rows.filter(function (r) { return r && (r.k === 'crm' || r.k === 'todo'); }).slice(0, 2).map(function (r) {
+    canvasRows = rows.filter(function (r) { return r && (r.k === 'crm' || r.k === 'todo'); }).map(function (r) {
       return { k: r.k, name: String(r.name || (r.k === 'crm' ? 'CRM' : 'To do')).slice(0, 60), sub: String(r.sub || '').slice(0, 200), n: Math.max(0, Math.min(999, +r.n || 0)) };
     });
   }
