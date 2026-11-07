@@ -9,7 +9,7 @@ Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plu
   went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
 - The msgr_mark for such a send has its own request id (`msgr:<doc>:<id>:<now_at>`), so the bridge runs it again and Canvas clears
   the ask.
-- Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 738 tests pass.
+- Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 735 tests pass.
 
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
