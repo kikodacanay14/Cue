@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.44: Payments for tomorrow in the Monday and Wednesday 8 AM update (not deployed)
+
+Kiko, 7 Nov 2026, SOP answer: "payment days are Tuesday and Thursday. The payment report runs Monday and Wednesday."; 12:45Z
+"approve all"; Canvas spec `docs/specs/payment-days.md` approved 13:11Z ("yes").
+
+- On Monday and Wednesday the 8 AM update has a "Payments for tomorrow" section: each payment request whose pay day is the next
+  day and that still has a balance (Request ID, project, payee, balance, "Urgent" when the Payment Date Required is before the
+  pay day, and the approval status when it is not Approved), then the total. Other days have no section.
+- It reads Canvas through the new bridge read `pay_day_due` (needs the Canvas release that adds it). A failed read is named under
+  "Could not read" and the rest of the update still goes. No AI call.
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (adds `pay_day_due`).
+- Tests: `test/features/90-pay-report.js` (PY1 to PY5). 727/727 pass.
+
 ## Cue 1.28.43: labels use the Canvas variant names (not deployed)
 
 Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
