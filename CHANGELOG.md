@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.43: labels use the Canvas variant names (not deployed)
+
+Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
+accent: "use a label"; 12:45Z: "approve all".
+
+- Every Cue label now uses the Canvas Brand.html variant names: `accent` / `plain` (the base tag), `warn`, `good` and `crit`.
+  `tag new` became `tag warn`, `tag pref` became `tag good`, `tag flag` became `tag crit`. Colours and sizes are unchanged.
+- The old names stay in `src/IndexStyle.html` as aliases with the same colours, so nothing renders differently.
+- Tests: `test/features/89-label-names.js` (LN1, LN2). 722/722 pass.
+
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA

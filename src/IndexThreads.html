@@ -878,7 +878,7 @@
   function metricLine(r) {
     var m = r.metrics || {};
     return '<div class="small muted">' + esc(m.ai_calls) + ' AI calls' + (m.seconds_to_card != null ? ', card in ' + esc(m.seconds_to_card) + ' s' : '')
-      + (m.seconds_work != null ? ', Cue worked ' + esc(m.seconds_work) + ' s' : m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag flag">' + esc(m.flag) + '</span>' : '') + '</div>';
+      + (m.seconds_work != null ? ', Cue worked ' + esc(m.seconds_work) + ' s' : m.seconds_total != null ? ', ready in ' + esc(m.seconds_total) + ' s' : '') + (m.flag ? ' <span class="tag crit">' + esc(m.flag) + '</span>' : '') + '</div>';
   }
   var CHANGE = [['GPT reading', 'GPT', 'GPT reads the message and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the same project'],
     ['Opening project files', 'Canvas', 'Canvas lists the project folder files'], ['Finding past RFQs', 'Gmail', 'Cue finds the RFQ emails you sent before'],
