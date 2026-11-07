@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
+
+Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
+10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
+
+- `cueMsgrRun_`: a paper Canvas lists with `now_at` (staff tapped Message on FB) goes out on the next Messenger tick even when it
+  went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
+- The msgr_mark for such a send has its own request id (`msgr:<doc>:<id>:<now_at>`), so the bridge runs it again and Canvas clears
+  the ask.
+- Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 738 tests pass.
+
 ## Cue 1.28.46: RFQ drafts leave out a price written in a spec or drawing; intake-real check on real inquiries (not deployed)
 
 Kiko, 7 Nov 2026, spec intake-real-check (approved 13:59Z; rules R1 "an RFQ never names the client" and R2 "never states a price
