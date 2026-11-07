@@ -19,16 +19,12 @@ if (tool === 'Bash') {
   const cmd = String(input.command || '');
   const m = cmd.match(/\bclasp\s+(push|deploy|create-deployment|update-deployment|redeploy|undeploy|delete-deployment|version|create-version)\b/);
   if (m) ask(`clasp ${m[1]} changes the Apps Script project directly. Live changes go through Deploy Cue / Deploy Canvas after Kiko's go.`);
-  if (/\bgh\s+workflow\s+run\b/.test(cmd) && /deploy/i.test(cmd) && /mode[=\s]+["']?deploy\b/.test(cmd))
-    ask('This runs a live deploy (mode=deploy). Only the "Cue and Canvas deploys" thread does that, after Kiko\'s go.');
 }
 
-// 2. GitHub MCP: a live deploy run, or a re-run (a re-run repeats the original inputs, which may be mode=deploy).
+// 2. GitHub MCP: a re-run (a re-run repeats the original inputs, which may be mode=deploy).
+//    A plain live deploy run (gh workflow run or run_workflow with mode=deploy) is no longer asked: Kiko's 2 Nov 2026 rule
+//    lets any session ship end to end (observation review 7 Nov 2026, decision D1). Deploy Cue's own checks still apply.
 if (tool === 'mcp__github__actions_run_trigger') {
-  const wf = String(input.workflow_id || '');
-  const mode = String((input.inputs || {}).mode || '');
-  if (input.method === 'run_workflow' && /deploy/i.test(wf) && mode === 'deploy')
-    ask(`Live deploy: ${input.repo} ${wf} mode=deploy. Only the "Cue and Canvas deploys" thread does this, after Kiko's go.`);
   if (/^rerun/.test(String(input.method || '')))
     ask(`Re-running a workflow run in ${input.repo}. If it is a Deploy run it repeats its original mode, which may be live.`);
 }
