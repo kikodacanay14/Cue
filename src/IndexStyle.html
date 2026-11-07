@@ -507,6 +507,6 @@
   .msg.me[data-t]::after { left:auto; right:4px; }
   .msg .ml { white-space:normal; margin:4px 0 6px; padding-left:22px; } .msg .ml li { margin:2px 0; } .msg .ml .ml { margin:2px 0; }
   #ptabs.cat-proj { background:#2810DC; color:#fff; } #ptabs.cat-crm { background:#F06A25; color:#16151B; } #ptabs.cat-gen { background:#23006F; color:#fff; }
-  #ptabs.cat-crm button, #ptabs.cat-gen button, #ptabs.cat-crm .t, #ptabs.cat-gen .t { color:#fff; }
+  #ptabs:is(.cat-proj,.cat-gen) :is(button,.t,.crumb,.ibtn) { color:#fff; } #ptabs.cat-crm :is(button,.t,.crumb,.ibtn) { color:#16151B; }
   .trow.cat-proj { box-shadow:inset 3px 0 0 #2810DC; } .trow.cat-crm { box-shadow:inset 3px 0 0 #F06A25; } .trow.cat-gen { box-shadow:inset 3px 0 0 #23006F; }
 </style>
