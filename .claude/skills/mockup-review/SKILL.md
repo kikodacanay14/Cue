@@ -13,14 +13,15 @@ shown to him before anything is built.
 - Use only the approved Blank Space brand system: its colors, fonts, spacing and components. Never improvise a color,
   font or component.
 - The canonical brand system is the **Blank Space Events** design system:
-  https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8 (Kiko, 29 Oct 2026). Read its `project/README.md` and
-  `project/tokens.json` before every mockup; take every color, font, spacing and radius from there. Official palette:
-  deep purple #2B0169, magenta #B00C98, orange #CD5023, yellow #E9D151, sky blue #559FEF, white. Display font Steagal,
-  body Quicksand. Default ground is Night (card navy); Paper for documents.
-- Canvas's current `src/Brand.html` uses a different set (hot pink, electric blue, Archivo Black). It is not the brand
-  system; the "Restyle Canvas and the Feature Board" epic moves it onto the canonical one.
-- Keep the design system's own rules: one highlight per view, the spectrum gradient only for heroes and covers, never
-  yellow on white, and the required font credit.
+  https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8, version 2.0 of 5 November 2026 (Kiko, Question 1 = A: the live Canvas
+  look is the official brand). Read its `project/README.md` and `project/tokens.json` before every mockup; take every
+  color, font, spacing and radius from there. Palette: purple #23006F, pink #F000AA, orange #F06A25, yellow #F4F12C,
+  electric blue #2810DC, ink #16151B, white. Display font Archivo Black (one display moment per screen), everything else
+  DM Sans. Default ground is Paper (lavender #F6F2FC) with white cards and a purple menu rail.
+- Canvas's current `src/Brand.html` (§13, Website look) is the live form of version 2.0. Version 1.0 (29 Oct 2026: deep
+  purple #2B0169, card navy, Steagal and Quicksand) is retired from app screens.
+- Keep the design system's own rules: one display moment per screen, the gradient only for the Home greeting, heroes and covers, never
+  yellow on white, and status always shown with words, never colour alone.
 - Load `frontend-design` for craft, and tell it the brand lock overrides its own style choices.
 
 ## What to make

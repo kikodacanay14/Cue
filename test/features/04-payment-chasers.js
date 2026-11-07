@@ -22,7 +22,7 @@ test('PY1 find: one Canvas read, one email per client (BIs grouped, oldest first
   const acme = it.filter(i => i.who === 'Fe Santos')[0];
   assert.ok(/BI 1041, BI 1047: PHP 105,000.00 owed, 20 days overdue \(due 2026-10-01\)\. From info@, CC you/.test(acme.why), acme.why);
   assert.ok(/^Hi Fe,\n\nA quick check-in on billing invoices 1041, 1047/.test(acme.body) && /Total due: PHP 105,000.00/.test(acme.body), acme.body); assert.strictEqual(acme.drafted_by, 'template');
-  assert.ok(/\nThanks!\nBlank Space Events\nAccounts Receivable$/.test(acme.body) && /background:#559FEF/.test(acme.html), 'C7 sign-off and the client banner');
+  assert.ok(/\nThanks!\nBlank Space Events\nAccounts Receivable$/.test(acme.body) && /background:#55D7E5/.test(acme.html), 'C7 sign-off and the client banner');
   assert.ok(/client replied on 2026-10-15/i.test(it.filter(i => i.who === 'Ben Cruz')[0].why)); assert.ok(/No billing email found/.test(it.filter(i => i.who === 'Zed')[0].why));
   assert.ok(!(t.log.chaserItems || []).length, 'nothing goes to ChatGPT');
   assert.ok(b.notes.some(n => /BI 1045 \(Gamma Gala\): The BI has no total/.test(n)));

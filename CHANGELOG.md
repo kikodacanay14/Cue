@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.28.43: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
+
+Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
+be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
+
+- Web app: DM Sans for text and Archivo Black for the welcome line only (Google Fonts link in Index.html); the embedded Steagal
+  font is removed. The Settings heading uses DM Sans 700 instead of the display face. Page ground is lavender #F6F2FC (was cream
+  #F7F3EA), Admin included.
+- Version 1.0 colours removed from screens: the Project and CRM thread tabs and row edges use electric blue #2810DC and orange
+  #F06A25 (were sky #559FEF and #CD5023); Canvas in the activity list is purple #23006F, Kiko pink #F000AA; the Messages
+  audience dots use the v2.0 email colours (clients cyan #55D7E5, suppliers #CD5023, crew #B00C98).
+- Chaser emails follow the v2.0 email look Kiko approved on 6 Nov 2026: client banner cyan #55D7E5 with ink text, crew magenta
+  #B00C98, supplier orange #CD5023; the action button is the yellow #E9D151 pill with ink text; the font is DM Sans with Arial as
+  the email-client fallback (Quicksand removed).
+- Chrome bubble: the settings page uses DM Sans and the yellow #F4F12C button with ink text; the selection box and focus ring are
+  electric blue.
+- Brand lock and mockup-review skills now name v2.0 (DM Sans, Archivo Black, lavender ground) instead of Steagal and Quicksand.
+
+Tests: 720/720 (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
+
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA

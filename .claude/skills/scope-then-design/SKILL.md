@@ -52,28 +52,38 @@ take the bigger size. Kiko can change the size at any time.
 ## Brand lock for Canvas and Cue screens
 
 Every screen, mockup and component in Canvas, Cue and the Feature Board uses the Blank Space Events design system
-(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8): its colour tokens, spacing, radii and the fonts below. Canvas's
-current Brand.html styling is not the reference. When `frontend-design` pushes for a distinctive look, the brand wins:
-use its judgement for layout, hierarchy and restraint, never to pick new colours or new fonts.
+(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8), version 2.0 of 5 November 2026: its colour tokens, spacing, radii and
+the fonts below. Version 2.0 made the live Canvas "Website look" (Brand.html §13, picked by Kiko on 11 October 2026) the
+official brand (design system decision log: "5 Nov 2026: v2.0, the live Canvas look made official (Kiko, Question 1 = A)").
+It replaced version 1.0 of 29 October 2026 (Steagal and Quicksand, from the business card). When `frontend-design` pushes for
+a distinctive look, the brand wins: use its judgement for layout, hierarchy and restraint, never to pick new colours or new
+fonts.
 
 ### Fonts
 
 | Role | Font | Where | Rules |
 |---|---|---|---|
-| Display | Steagal (W01 Regular) | Screen titles, page heroes, one big number on a dashboard | 24px or larger. One display line per screen. Never on buttons, labels, tables, forms or body text: it has one light weight. |
-| UI and body | Quicksand | Everything else: navigation, buttons, labels, forms, tables, cards, messages | Body 14 to 16px at weight 500; labels and buttons 600; section headings 700. Nothing smaller than 12px. |
-| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
-| Not used in apps | Steagal Rough | Marketing, party themes and social posts only | Never in Canvas, Cue or the Feature Board. |
+| Display | Archivo Black | Display moments only: the Home greeting, announcements, document covers | One display line per screen. Never on buttons, labels, tables, forms or body text. |
+| UI and body | DM Sans | Everything else: page titles, navigation, buttons, labels, forms, tables, cards, messages | Page titles 34px/400. Section headers 16px/700 in purple (`highlight`). Body 14px at 400 to 500. Labels and buttons 700. Nothing smaller than 12px. |
+| Numbers, money, IDs | DM Sans with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. Kiko's table rule wins over the line in design system v2.0 that says money is right-aligned. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
+| Not used on app screens | Steagal, Steagal Rough | Print pieces and pattern artwork only | Never in Canvas, Cue or the Feature Board. Wherever they are used, credit "Fonts by OnlineWebFonts.com (CC BY 4.0)". |
 
-Fallback stacks: display `Steagal, Quicksand, "Trebuchet MS", sans-serif`; UI `Quicksand, Nunito, "Trebuchet MS", sans-serif`.
+Fallback stacks: display `"Archivo Black", "DM Sans", system-ui, sans-serif`; UI `"DM Sans", system-ui, -apple-system,
+"Segoe UI", Roboto, sans-serif`; email `'DM Sans', Arial, Helvetica, sans-serif` (Arial is the email-client fallback, not a
+brand font).
+
+### Colour and ground
+
+Use the design system's role tokens, not raw palette hexes: page ground `surface` #F6F2FC (lavender), cards `surface-raised`
+#FFFFFF, text `ink` #16151B, headings and table-header bands `highlight` #23006F, links and focus `accent` #2810DC, primary
+action ink #16151B with blue #2810DC on hover, selected menu item yellow #F4F12C with ink text. Pink, yellow and orange are
+decoration only. The version 1.0 colours (#2B0169, #261F62, #5B2271, #559FEF, #E9D151, #CD5023, #B00C98) are retired from app
+screens; #CD5023, #B00C98 and #E9D151 stay only as the Cue email tokens the design system names.
 
 Loading:
 
-- Quicksand: Google Fonts link in the page head (Canvas is an Apps Script HtmlService app; Google Fonts loads there).
-- Steagal: embed the font file from the design system's `fonts/` folder as a base64 `@font-face` in the shared stylesheet
-  include. Never hotlink onlinewebfonts.com.
-- Credit: Steagal is CC BY 4.0 from OnlineWebFonts.com and needs credit. Put "Fonts by OnlineWebFonts.com (CC BY 4.0)" in
-  the app's footer or About panel.
+- DM Sans and Archivo Black: Google Fonts link in the page head (Canvas and Cue are Apps Script HtmlService apps; Google
+  Fonts loads there). Canvas pages get both through Brand.html.
 - Cue: any screen Cue renders itself (web view, approval page, email) follows the same table. Text Cue sends into
   ChatGPT or Claude cannot carry fonts; there only the wording and structure apply.
 
