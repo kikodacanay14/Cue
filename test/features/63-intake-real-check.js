@@ -57,3 +57,33 @@ test('IR6 intake-real check on one named project: only inquiries with those word
   const fb = t.call('cueIcPick_', 30, 6, 'launch nobody').result; assert.strictEqual(fb.length, 1, JSON.stringify(fb)); assert.ok(fb[0].text && !fb[0].error, JSON.stringify(fb[0]));
   assert.ok(/launch nobody newer_than:30d/.test(t.log.inboxQ), t.log.inboxQ);
 });
+/* CUE-048 (Kiko 7 Nov 2026 13:37Z/13:38Z R1 and R2, 13:59Z R3) and spec intake-real-check AC2/AC4: the check's own rules, in
+ * test/checks/intake-rules.cjs. They only report; nothing in Cue is blocked by them. */
+const irRules = require(path.join(__dirname, 'checks', 'intake-rules.cjs'));
+test('IR7 RFQ rules R1 to R3: client by full name or first distinctive word, peso amounts and budget, other suppliers; no false flags', () => {
+  const c = { client: 'Moldex Realty Inc', suppliers: ['Lights PH', 'Sound Co', 'ABC'] };
+  const bad = irRules.rfqBreaks({ supplier: 'Lights PH', subject: 'RFQ', body: 'For Moldex we have a budget. Sound Co is also quoting.' }, c);
+  deq(bad.map(x => x.slice(0, 2)), ['R1', 'R2', 'R3']);
+  ['PHP 5,000', '₱5000', 'P50,000', 'P 120000', 'Php1.2', '50k pesos', '5,000 pesos'].forEach(m =>
+    assert.ok(irRules.rfqBreaks({ supplier: 'x', body: 'Total ' + m + ' only.' }, {}).some(x => /^R2/.test(x)), m));
+  deq(irRules.rfqBreaks({ supplier: 'ABC', body: 'For ABC Events' }, { client: 'ABC', suppliers: ['ABC'] }).map(x => x.slice(0, 2)), ['R1'], 'a short client name still counts as a whole word');
+  // Negative cases: none of these is a price, the client or another supplier.
+  deq(irRules.rfqBreaks({ supplier: 'Lights PH', body: 'Please quote P1 lighting, a sound system, Day 2 PM setup, model X300, 2 units, '
+    + 'ABCs of staging, realty-grade risers. Event date TBC. Kindly include unit prices and VAT.' }, c), []);
+  deq(irRules.rfqBreaks({ supplier: 'Lights PH', body: 'Lights PH, please send your rates.' }, c), [], 'the draft may name its own supplier');
+});
+test('IR8 RFQ drafts: blank event details must read TBC, never "0 pax"; filled details need no TBC', () => {
+  deq(irRules.tbcBreaks({ body: 'Date: 5 December. Venue: SMX. City: Pasay. Pax: 300.' }, { date: '2026-12-05', venue: 'SMX', city: 'Pasay', pax: 300 }), []);
+  assert.ok(/never says TBC/.test(irRules.tbcBreaks({ body: 'Venue: SMX. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 })[0]));
+  assert.ok(irRules.tbcBreaks({ body: 'Date TBC. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 }).some(x => /0 pax/.test(x)));
+  deq(irRules.tbcBreaks({ body: 'Date TBC. Pax TBC.' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 }), []);
+});
+test('IR9 AC4 and AC2: an RFQ supplier must be one phase 3 named for its lines (Canvas evidence or found and marked new); phase 1 client and event must come from the inquiry', () => {
+  const lines = [{ key: 'K1', suppliers: [{ name: 'Lights PH', new: false }, { name: 'Glow Rentals', new: true }] }, { key: 'K2', suppliers: [{ name: 'Sound Co' }] }];
+  deq(irRules.supplierBreaks({ supplier: 'Glow Rentals', keys: ['K1'] }, lines), []);
+  assert.strictEqual(irRules.supplierBreaks({ supplier: 'Sound Co', keys: ['K1'] }, lines).length, 1, 'named for another line only');
+  assert.strictEqual(irRules.supplierBreaks({ supplier: 'Made Up Inc', keys: ['K2'] }, lines).length, 1);
+  const src = { from: 'Ana Reyes <ana@moldex.example>', subject: 'Quote for our year-end party', text: 'Moldex Realty is holding its Year-End Party on 5 December.' };
+  deq(irRules.readBack({ client: 'Moldex Realty Inc', event: { name: 'Year-End Party' } }, src), { client: 'Moldex Realty Inc', client_in_inquiry: true, event: 'Year-End Party', event_in_inquiry: true });
+  assert.strictEqual(irRules.readBack({ client: 'Ayala Land', event: { name: '' } }, src).client_in_inquiry, false, 'a client the inquiry never names fails');
+});
