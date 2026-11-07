@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.43: Cue tells Kiko about each new Canvas bug report (not deployed)
+
+Kiko, 7 Nov 2026 11:47Z: "i want a report a bug function. this will take a screenshot of the window accessed and have a
+paragraph form. after submitting it will go to service desk". 11:59Z, answer 3 on how Kiko hears about a report: "can be thru Cue".
+
+- New background job "Service Desk reports" (src/CueServiceDesk.gs), every 15 minutes, no AI: it reads Canvas's newest bug
+  reports through the new read-only bridge action service_desk_new and posts one chat line per report it has not told Kiko
+  about yet: who sent it, the page and project, the first 300 characters, whether a picture came with it, and an "Open
+  BUG-xxxx in Service Desk" button. Cue remembers the highest report number it told (script property CUE_SD_STATE).
+- Needs the Canvas release that adds Report a bug and service_desk_new; until then the read fails quietly in Job Runs.
+- service_desk_new added to the cloud check's allowed reads; test/fixtures/ZapBridge.gs refreshed from Canvas.
+- Tests: test/features/89-service-desk.js (SD1-SD3). 723 of 723 pass.
+
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA
