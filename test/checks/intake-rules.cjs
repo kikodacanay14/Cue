@@ -77,8 +77,13 @@ function supplierBreaks(rfq, lines) {
 function readBack(card, source) {
   const src = [source && source.from, source && source.subject, source && source.text].join('\n');
   const client = String((card && card.client) || ''), event = String((card && card.event && card.event.name) || '');
-  return { client, client_in_inquiry: !client || namedIn(src, client) || namedIn(String((source && source.from) || '').replace(/[@.]/g, ' '), client),
-    event, event_in_inquiry: !event || words(event).filter(w => w.length >= 4).some(w => namedIn(src, w)) };
+  const from = String((source && source.from) || '').replace(/[@.]/g, ' ');
+  // "Asian Development Bank (ADB)": the name outside the brackets, or the short name inside them, counts as read from the inquiry.
+  const forms = [client].concat(client.match(/^(.*?)\s*\(([^)]+)\)\s*$/) ? client.match(/^(.*?)\s*\(([^)]+)\)\s*$/).slice(1) : []).filter(Boolean);
+  // Event words of 4 letters or more; a name made only of short words ("IRT YEP") uses all of them.
+  const long = words(event).filter(w => w.length >= 4), ev = long.length ? long : words(event).filter(w => w.length >= 3);
+  return { client, client_in_inquiry: !client || forms.some(f => namedIn(src, f) || namedIn(from, f)),
+    event, event_in_inquiry: !event || ev.some(w => namedIn(src, w)) };
 }
 
 module.exports = { rfqBreaks, tbcBreaks, supplierBreaks, readBack, namedIn, mentions };
