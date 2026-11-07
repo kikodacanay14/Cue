@@ -78,11 +78,15 @@ function cueIcDeep_(id, phase) {
   }
   if (phase === 2) cuePhBreak_(s); else if (phase === 3) cuePhCost_(s, () => {}); else cuePhRfqs_(s);
   try { c.put(key, JSON.stringify(s), 21600); } catch (e) { console.error('Intake check cache: ' + e); }
-  const out = { phase: s.phase, stage: s.stage, status: s.status, client: (s.x.client || {}).company || '', ai_calls: s.metrics.ai_calls, notes: s.notes || [] };
+  const e = s.x.event || {};
+  const out = { phase: s.phase, stage: s.stage, status: s.status, client: (s.x.client || {}).company || '', ai_calls: s.metrics.ai_calls, notes: s.notes || [],
+    // The phase 1 event, so the check can compare it with the inquiry and see TBC in the RFQ drafts (spec intake-real-check, AC2 and AC4).
+    event: { name: e.name || '', date: e.date || '', venue: e.venue || '', city: e.city || '', pax: e.pax || 0 } };
   if (phase === 2) return Object.assign(out, { rows: s.reqs.map(r => ({ scope: r.category, item: r.item, spec: r.spec, quantity: r.quantity, days: r.occurrence, status: r.status })),
     excluded: s.excluded || [], questions: s.x.questions || [] });
   const p = s.proposal;
-  if (phase === 3) return Object.assign(out, { totals: p.totals, lines: p.lines.map(l => ({ item: l.item, execution: l.execution, unit_cost: l.unit_cost, cost_basis: l.cost_basis,
-    unit_price: l.unit_price, price_basis: l.price_basis, suppliers: (l.suppliers || []).map(x => x.name || x), flags: l.flags || [] })) });
-  return Object.assign(out, { rfqs: (p.rfqs || []).map(r => ({ supplier: ((r.suppliers || [])[0] || {}).name || '', subject: r.subject, body: r.body })) });
+  if (phase === 3) return Object.assign(out, { totals: p.totals, lines: p.lines.map(l => ({ key: l.key, item: l.item, execution: l.execution, unit_cost: l.unit_cost, cost_basis: l.cost_basis,
+    unit_price: l.unit_price, price_basis: l.price_basis, suppliers: (l.suppliers || []).map(x => ({ name: x.name || x, new: !!x.new })), flags: l.flags || [] })) });
+  return Object.assign(out, { rfqs: (p.rfqs || []).map(r => { const x = (r.suppliers || [])[0] || {};
+    return { supplier: x.name || '', new: !!x.new, keys: r.keys || [], subject: r.subject, body: r.body }; }) });
 }
