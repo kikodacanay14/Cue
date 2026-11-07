@@ -87,3 +87,20 @@ test('IR9 AC4 and AC2: an RFQ supplier must be one phase 3 named for its lines (
   deq(irRules.readBack({ client: 'Moldex Realty Inc', event: { name: 'Year-End Party' } }, src), { client: 'Moldex Realty Inc', client_in_inquiry: true, event: 'Year-End Party', event_in_inquiry: true });
   assert.strictEqual(irRules.readBack({ client: 'Ayala Land', event: { name: '' } }, src).client_in_inquiry, false, 'a client the inquiry never names fails');
 });
+
+test('IR10 check run 2 (7 Nov): a client written "Name (SHORT)" and an event made of short words read back from the inquiry; a price in a spec stays an R2 break', () => {
+  // Real run 2: "Asian Development Bank (ADB)" from mail sent by adb.org, and "IRT YEP" from the subject "Request for Quote | IRT YEP".
+  const adb = { from: 'Procurement <procurement@adb.org>', subject: 'Reminder: RFP for the Provision of Large Format Printing', text: 'Please submit by Friday.' };
+  assert.strictEqual(irRules.readBack({ client: 'Asian Development Bank (ADB)', event: { name: '' } }, adb).client_in_inquiry, true, 'short name in brackets');
+  assert.strictEqual(irRules.readBack({ client: 'Inter-American Bank (IDB)', event: { name: '' } }, adb).client_in_inquiry, false, 'neither form named still fails');
+  const yep = { from: 'Joy <joy@foundever.example>', subject: 'Request for Quote | IRT YEP', text: 'See the attached PDF.' };
+  assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'IRT YEP' } }, yep).event_in_inquiry, true, 'short-word event name');
+  assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'XYZ ABC' } }, yep).event_in_inquiry, false, 'short words not in the inquiry fail');
+  // Real run 2: the Landlite RFQ copied the drawing's price into the item. R2 must still catch it.
+  const rfq = { supplier: 'Landlite Philippines Corporation', subject: 'RFQ: lights', body: '- R10: Ground light GUWL-0101 12V, per drawing at P4,800 each; qty 1.' };
+  assert.ok(irRules.rfqBreaks(rfq, { client: 'Moldex Land, Inc.', suppliers: [rfq.supplier] }).some(b => /^R2/.test(b)));
+  // The RFQ prompts say outright that a price inside a spec, the inquiry or a drawing is left out.
+  const fs = require('fs');
+  assert.ok(/not even a price or rate written in a spec/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueIntake.gs'), 'utf8')));
+  assert.ok(/not even a price or rate in Kiko\\'s specs/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueVendor.gs'), 'utf8')));
+});
