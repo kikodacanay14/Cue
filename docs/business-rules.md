@@ -356,3 +356,24 @@ Claude's reading, not Kiko's words: which saved states count as "messaged but ne
 
 Evidence: `test/features/87-crew-restore.js`, CRW1 and CRW2 (synthetic chats and a fake bridge). Live since Cue 1.28.39 (Version 220,
 6 Nov 2026 02:45Z, rollback 219) with Canvas V483. Manual gap: the live Messenger Waiting rows are checked after the first resume.
+
+## RFQ draft rules (intake-real-check, 7 Nov 2026)
+
+### CUE-048: An RFQ to a supplier never names the client, never states a price or budget, and never mentions other suppliers
+
+Intended policy, in Kiko's own answers on 7 Nov 2026 (thread "Pick and scope next backlog feature"):
+- R1 and R2. Asked: "Do you approve the two RFQ rules that are already in the code? An RFQ to a supplier never names the client and never
+  states a price or budget." Kiko at 13:37Z: "1. yes". At 13:38Z he tapped "RFQ rules yes, no inquiry yet" on the card that confirmed
+  which answer went with which question.
+- R3. Asked: "Approve rule R3: an RFQ never mentions other suppliers?" Kiko at 13:59Z, decision card: "Yes".
+
+Before 7 Nov 2026 these three limits existed only in the RFQ prompts and had no approval on record. This entry records the approval;
+it adds no block.
+
+Implemented: the RFQ prompts tell GPT the three limits (`src/CueIntake.gs` `CUE_R_SYSTEM_`, `src/CueVendor.gs` `CUE_VQ_SYSTEM_`).
+Nothing in Cue stops a draft that breaks them. Kiko reads every draft before Send (CUE-012). The cloud check
+`test/checks/intake-real.check.mjs` reports any break, using `test/checks/intake-rules.cjs`. Price means a peso amount written as PHP, ₱,
+P with a thousands comma or 4 or more digits, "50k pesos" or "5,000 pesos", or the word budget. Client means the full name or its first
+distinctive word.
+
+Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.

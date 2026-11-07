@@ -8,6 +8,7 @@
 // to Canvas, so the check never taps it; phases 2 to 4 (Claude's rows, costing from Canvas's evidence with web research, RFQ drafts) run
 // on a copy with nothing saved, written or drafted. Mail: none. AI calls: about 5 per inquiry.
 import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 const runs = [];
 let picks = [];
 // One project Kiko names (29 Oct 15:09Z "how do we test the intake? i have a project"): words from its subject or sender, one line, in
@@ -15,14 +16,10 @@ let picks = [];
 const ONLY_FILE = new URL('./intake-real.only.txt', import.meta.url);
 const ONLY = existsSync(ONLY_FILE) ? readFileSync(ONLY_FILE, 'utf8').trim() : '';
 
-const RFQ_LEAK = (r, client) => {
-  const body = String(r.body || '');
-  if (client && client.length >= 4 && body.toLowerCase().indexOf(client.toLowerCase()) >= 0) return 'names the client (' + client + ')';
-  if (/\b(PHP|₱)\s?\d/.test(body)) return 'states a price';
-  return '';
-};
+// R1 to R3 and the AC2/AC4 tests live in intake-rules.cjs so test/features/63-intake-real-check.js can test them too (spec approved 7 Nov 2026).
+const rules = createRequire(import.meta.url)('./intake-rules.cjs');
 
-async function runOne(h, label, start) {
+async function runOne(h, label, start, src) {
   const r = { label, ok: false, steps: [] };
   runs.push(r);
   const st = await start();
@@ -33,14 +30,17 @@ async function runOne(h, label, start) {
   const v = run.result || {};
   r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '' };
   if (v.status === 'Failed' || v.error) throw new Error(label + ': phase 1 ended ' + v.status + ': ' + (v.error || v.stage));
-  if (v.stage === 'Same project?' && ONLY) {
+  // Run of 7 Nov 2026 14:05Z: all three real inquiries already had a Canvas project, so every start stopped at "Same project?" and
+  // phases 2 to 4 never ran. Asking first is correct, but it proves nothing past phase 1 (spec A11), so the check always goes on as a new
+  // project. In check mode that writes nothing: the phase 1 card still waits for an Approve the check never taps.
+  if (v.stage === 'Same project?') {
     r.same = (v.same || []).map(x => x.name);
     const a = await h.door('check_call', { fn: 'cueSameAnswer', args: [r.id, 'new'] });
     if (!a.ok) throw new Error(label + ': could not go on as a new project: ' + a.error);
     Object.assign(v, a.result || {});
     r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '', same_as: r.same };
   }
-  if (v.stage === 'Same project?') { r.ok = true; r.note = 'Canvas already has a project that looks the same, so Cue asked first (correct; no phases 2 to 4)'; return r; }
+  if (r.same) r.note = 'Canvas already has a project that looks the same (' + r.same.join(', ') + '), so Cue asked first (correct); the check went on as a new project to run phases 2 to 4';
   if (v.status !== 'Needs you' || !(v.ph && v.ph.phase === 1)) throw new Error(label + ': expected the phase 1 card, got ' + v.status + ' / ' + v.stage);
   for (const n of [2, 3, 4]) {
     const d = await h.door('check_call', { fn: 'cueIcDeep_', args: [r.id, n] });
@@ -52,8 +52,16 @@ async function runOne(h, label, start) {
   const long = rows.filter(x => String(x.item).split(/\s+/).length > 6 || String(x.spec).split(/\s+/).filter(Boolean).length > 12);
   if (long.length) throw new Error(label + ': rows over the 6/12-word limit: ' + JSON.stringify(long));
   if ((r.phase3.lines || []).length !== rows.length) throw new Error(label + ': costing has ' + (r.phase3.lines || []).length + ' lines for ' + rows.length + ' rows');
-  const leak = (r.phase4.rfqs || []).map(q => [q.supplier, RFQ_LEAK(q, r.phase4.client)]).filter(x => x[1]);
-  if (leak.length) throw new Error(label + ': RFQ drafts break the RFQ rules: ' + leak.map(x => x[0] + ' ' + x[1]).join('; '));
+  // AC2: the phase 1 client and event, side by side with the inquiry (kept in the run log either way).
+  r.readback = rules.readBack({ client: r.phase2.client, event: r.phase2.event }, src);
+  const fails = [];
+  if (r.readback.client_in_inquiry === false || r.readback.event_in_inquiry === false) fails.push('phase 1 read a client or event the inquiry does not name: ' + JSON.stringify(r.readback));
+  // AC4 and CUE-048 (R1 to R3): each draft's supplier, TBC for blank event details, no client, no price, no other supplier.
+  const rfqs = r.phase4.rfqs || [], names = rfqs.map(q => q.supplier);
+  r.rfq_breaks = rfqs.map(q => [q.supplier, [].concat(rules.supplierBreaks(q, r.phase3.lines), rules.tbcBreaks(q, r.phase2.event),
+    rules.rfqBreaks(q, { client: r.phase4.client, suppliers: names }))]).filter(x => x[1].length);
+  if (r.rfq_breaks.length) fails.push('RFQ drafts break the rules: ' + r.rfq_breaks.map(x => x[0] + ': ' + x[1].join(', ')).join('; '));
+  if (fails.length) throw new Error(label + ': ' + fails.join(' | '));
   r.ok = true;
   return r;
 }
@@ -84,15 +92,15 @@ export default {
     } },
     { title: 'Gmail: Start intake on a real inquiry, phase 1 to the RFQ drafts', stopOnFail: false, run: async h => {
       const p = picks[0];
-      await runOne(h, 'Gmail (' + (p.inbox === 'info' ? 'info@' : 'your inbox') + '): ' + p.subject, () => h.door('check_call', { fn: 'cueIcStart_', args: [p] }));
+      await runOne(h, 'Gmail (' + (p.inbox === 'info' ? 'info@' : 'your inbox') + '): ' + p.subject, () => h.door('check_call', { fn: 'cueIcStart_', args: [p] }), p);
     } },
     { title: 'Screenshot: a real inquiry pasted as a picture, phase 1 to the RFQ drafts', stopOnFail: false, run: async h => {
       const p = picks[1 % picks.length], data = await drawEmail(h, p, 'png');
-      await runOne(h, 'Screenshot: ' + p.subject, () => h.door('check_call', { fn: 'cueSend', args: ['', [{ name: 'image.png', type: 'image/png', data }], ''] }));
+      await runOne(h, 'Screenshot: ' + p.subject, () => h.door('check_call', { fn: 'cueSend', args: ['', [{ name: 'image.png', type: 'image/png', data }], ''] }), p);
     } },
     { title: 'Uploaded file: a real inquiry as a PDF, phase 1 to the RFQ drafts', stopOnFail: false, run: async h => {
       const p = picks[2 % picks.length], data = await drawEmail(h, p, 'pdf');
-      await runOne(h, 'PDF: ' + p.subject, () => h.door('check_call', { fn: 'cueSend', args: ['New inquiry, the brief is attached.', [{ name: 'inquiry-brief.pdf', type: 'application/pdf', data }], ''] }));
+      await runOne(h, 'PDF: ' + p.subject, () => h.door('check_call', { fn: 'cueSend', args: ['New inquiry, the brief is attached.', [{ name: 'inquiry-brief.pdf', type: 'application/pdf', data }], ''] }), p);
     } },
     { title: 'What each intake produced (nothing written to Canvas, nothing sent)', run: async h => {
       await h.page().evaluate(rs => {
@@ -105,6 +113,8 @@ export default {
           const t = (r.phase3 && r.phase3.totals) || {};
           return '<div style="border-top:1px solid #eee;padding:8px 0"><b>' + (r.ok ? '✓ ' : '✗ ') + esc(r.label) + '</b><br>Phase 1: ' + esc(r.phase1 && r.phase1.name) + ' (' + esc(r.phase1 && r.phase1.stage) + ')'
             + (r.note ? '<br>' + esc(r.note) : '')
+            + (r.readback ? '<br>Read from the inquiry: client "' + esc(r.readback.client) + '" ' + (r.readback.client_in_inquiry === 'unverified' ? '? (only in an attachment)' : r.readback.client_in_inquiry ? '✓' : '✗') + ', event "' + esc(r.readback.event) + '" ' + (r.readback.event_in_inquiry === 'unverified' ? '? (only in an attachment)' : r.readback.event_in_inquiry ? '✓' : '✗') : '')
+            + (r.rfq_breaks && r.rfq_breaks.length ? '<br>RFQ rule breaks: ' + esc(r.rfq_breaks.map(x => x[0] + ': ' + x[1].join(', ')).join('; ')) : '')
             + (r.phase2 ? '<br>Phase 2: ' + r.phase2.rows.length + ' rows: ' + esc(r.phase2.rows.map(x => x.item + (x.spec ? ' (' + x.spec + ')' : '') + ' x' + x.quantity).join('; ')) : '')
             + (r.phase3 ? '<br>Phase 3: known cost ' + peso(t.known_cost) + ', price ' + peso(t.known_price) + '; ' + t.lines_without_cost + ' need a cost, ' + t.lines_without_price + ' a price' : '')
             + (r.phase4 ? '<br>Phase 4: ' + r.phase4.rfqs.length + ' RFQ draft(s): ' + esc(r.phase4.rfqs.map(q => q.supplier).join(', ')) + '; ' + r.phase4.ai_calls + ' AI calls in all' : '') + '</div>';
@@ -114,6 +124,7 @@ export default {
       await h.see('Nothing was written to Canvas');
       // The run log keeps what each phase produced, so it can be read without the artifact (the report has the same in pictures).
       console.log('INTAKE-REAL ' + JSON.stringify(runs.map(r => ({ label: r.label, ok: r.ok, phase1: r.phase1, note: r.note || '',
+        readback: r.readback, rfq_breaks: r.rfq_breaks || [], event: r.phase2 && r.phase2.event,
         rows: r.phase2 && r.phase2.rows, questions: r.phase2 && r.phase2.questions, excluded: r.phase2 && r.phase2.excluded,
         totals: r.phase3 && r.phase3.totals, lines: r.phase3 && r.phase3.lines, notes: r.phase3 && r.phase3.notes,
         rfqs: r.phase4 && r.phase4.rfqs.map(q => ({ supplier: q.supplier, subject: q.subject, body: String(q.body || '').slice(0, 600) })), ai_calls: r.phase4 && r.phase4.ai_calls }))));

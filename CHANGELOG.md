@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.28.46: RFQ drafts leave out a price written in a spec or drawing; intake-real check on real inquiries (not deployed)
+
+Kiko, 7 Nov 2026, spec intake-real-check (approved 13:59Z; rules R1 "an RFQ never names the client" and R2 "never states a price
+or budget" approved 13:37Z, R3 "never mentions other suppliers" approved 13:59Z; docs/business-rules.md CUE-048).
+
+- RFQ prompts (intake phase 4 and vendor RFQs): a price or rate written in a spec, the inquiry or a drawing is left out of the
+  item. Check Cue run 2 on a real inquiry found the Landlite RFQ quoting "P4,800 each" from the client's drawing.
+- Intake check door (`cueIcDeep_`, check deployment only) returns the phase 1 event, line keys and supplier "new" marks, so the
+  check can test R1 to R3, TBC for blank details, suppliers phase 3 named, and client and event read back from the inquiry.
+- `test/checks/intake-real.check.mjs` checks every RFQ draft against R1 to R3 and goes on as a new project when Canvas has a
+  match, so phases 2 to 4 always run. It only reports; no block was added to Cue.
+- Check Cue run 3 (7 Nov 2026 14:27Z, 1f26883) on 3 real inquiries (Gmail, screenshot, PDF): passed, 5 AI calls each,
+  nothing written to Canvas, nothing sent.
+
+Tests: IR7 to IR10 added; 731/731 (`node test/cue.test.js`).
+
 ## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
 
 Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
