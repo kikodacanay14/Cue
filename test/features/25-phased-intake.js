@@ -17,7 +17,7 @@ test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client
   assert.strictEqual(t.log.deskCheck.length, 1, 'one read-only check before the card');
   const d = t.v.ph.desk; assert.ok(d && d.client === 'new' && d.contacts_new >= 1, JSON.stringify(d));
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8');
-  assert.ok(/Client Desk', P\.desk\.client === 'new' \? '<span class="tag pref">New client<\/span> ' \+ esc\(P\.desk\.company\)/.test(page), 'the card row escapes the company');
+  assert.ok(/Client Desk', P\.desk\.client === 'new' \? '<span class="tag good">New client<\/span> ' \+ esc\(P\.desk\.company\)/.test(page), 'the card row escapes the company');
   t.ctx.cueApprove(t.id, {});
   assert.ok(t.log.phProject[0].project.client.industry === undefined, 'not a bid notice: no industry');
   const said = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Added to Canvas/.test(x))[0];
