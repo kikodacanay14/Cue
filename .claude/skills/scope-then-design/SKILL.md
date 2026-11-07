@@ -15,7 +15,7 @@ Extended on 3 Nov 2026 at Kiko's request: assumptions instead of question floods
 
 Extended on 5 Nov 2026 at Kiko's request: every screen is checked against the Brand Guidelines with `brand-ui-check` (Phases 4 and 8).
 
-Extended on 7 Nov 2026 from Kiko's review of logged failures: one capped round of discovery questions, live checks before a design is approved, independent review before release, Quicksand as the body font and money columns centred.
+Extended on 7 Nov 2026 from Kiko's review of logged failures: one capped round of discovery questions, live checks before a design is approved, independent review before release, and money columns centred.
 
 Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/SKILL.md`. The copy in `kikodacanay14/Cue` and the one saved to Kiko's Claude account mirror it. Change the canonical copy first, then the others.
 
@@ -54,36 +54,50 @@ Anything that touches money, a rule, people's data or a send to someone outside 
 
 ## Brand lock for Canvas and Cue screens
 
-Every screen, mockup and component in Canvas, Cue and the Feature Board uses the Blank Space Events design system (https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8) and Brand Guidelines v2.0: its colour tokens, colour roles, spacing, radii, alignment rules and the fonts below. On 5 Nov 2026 Kiko made the live Canvas look (the 11 Oct "Website look" in Brand.html §13) the official brand, so the design system and Brand.html now agree. When `frontend-design` pushes for a distinctive look, the brand wins: use its judgement for layout, hierarchy and restraint, never to pick new colours or new fonts.
+Every screen, mockup and component in Canvas, Cue and the Feature Board uses the Blank Space Events design system
+(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8), version 2.0 of 5 November 2026: its colour tokens, spacing, radii and
+the fonts below. Version 2.0 made the live Canvas "Website look" (Brand.html §13, picked by Kiko on 11 October 2026) the
+official brand (design system decision log: "5 Nov 2026: v2.0, the live Canvas look made official (Kiko, Question 1 = A)").
+It replaced version 1.0 of 29 October 2026 (Steagal and Quicksand, from the business card). When `frontend-design` pushes for
+a distinctive look, the brand wins: use its judgement for layout, hierarchy and restraint, never to pick new colours or new
+fonts.
 
 Voice: copy on screens and in emails or messages Canvas or Cue send follows the Blank Space voice set in the brand-voice guidelines (`brand-voice:brand-voice-enforcement`). Where the voice is not yet generated, use the wording already in Canvas and flag the gap as an assumption.
 
 Brand check: `anthropic-skills:brand-ui-check` tests each rendered screen for field alignment, font styling, header colours, table fit and link anchors. It reports; it does not fix.
 
-### Colour roles
-
-Use the role, not the raw colour: selected menu item yellow #F4F12C with ink #16151B text; primary action ink #16151B with white text, blue #2810DC on hover; links, focus and selected tabs blue #2810DC; headings and table headers purple #23006F; menu rail purple #23006F; status always with words (good #1E7A46 on #E5F3EA, warn #8A5300 on #FBF0D9, crit #B3261E on #FBE9E7, info #2810DC on #ECEAFD). Pink #F000AA, yellow and orange #F06A25 are decoration only. Page ground lavender #F6F2FC, cards white, lines #E3DDD0.
-
 ### Fonts
 
 | Role | Font | Where | Rules |
 |---|---|---|---|
-| Display | Archivo Black | The Home greeting, announcements, document covers | Display moments only, one per screen. Never on buttons, labels, tables, forms or body text. |
-| UI and body | Quicksand (Kiko, 7 Nov 2026) | Everything else: page titles, navigation, buttons, labels, forms, tables, cards, messages | Page title 34px/400; section headers 16px/700 purple; body 14px at 400 to 500; labels and buttons 700. Nothing smaller than 12px. |
-| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. Cells are middle-aligned. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own (observation 0063). |
-| Print and patterns only | Steagal, Steagal Rough | Kept in the design system for print pieces and pattern artwork | Never on Canvas, Cue or Feature Board screens. Where Steagal appears, keep the credit "Fonts by OnlineWebFonts.com (CC BY 4.0)". |
+| Display | Archivo Black | Display moments only: the Home greeting, announcements, document covers | One display line per screen. Never on buttons, labels, tables, forms or body text. |
+| UI and body | DM Sans | Everything else: page titles, navigation, buttons, labels, forms, tables, cards, messages | Page titles 34px/400. Section headers 16px/700 in purple (`highlight`). Body 14px at 400 to 500. Labels and buttons 700. Nothing smaller than 12px. |
+| Numbers, money, IDs | DM Sans with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. Kiko's table rule wins over the line in design system v2.0 that says money is right-aligned. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own (observation 0063). |
+| Not used on app screens | Steagal, Steagal Rough | Print pieces and pattern artwork only | Never in Canvas, Cue or the Feature Board. Wherever they are used, credit "Fonts by OnlineWebFonts.com (CC BY 4.0)". |
 
-Fallback stacks: display `"Archivo Black", Quicksand, system-ui, sans-serif`; UI `Quicksand, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`.
+Fallback stacks: display `"Archivo Black", "DM Sans", system-ui, sans-serif`; UI `"DM Sans", system-ui, -apple-system,
+"Segoe UI", Roboto, sans-serif`; email `'DM Sans', Arial, Helvetica, sans-serif` (Arial is the email-client fallback, not a
+brand font).
 
-Cue screens follow the live Cue look (Kiko, 7 Nov 2026): take colours, fonts and components from Cue's own stylesheet (`src/IndexStyle.html` and `src/CueStyle.gs` in kikodacanay14/Cue) before the design system, and use the design system only where Cue has no style for an element or Kiko has approved a restyle (observation 0034).
+### Colour and ground
 
-Known gaps: the app-wide gaps that exist today (for example Canvas still loads DM Sans as its body font in `src/Brand.html`) are accepted as a known baseline and listed in `brand-ui-check/references/known-gaps.md`. They are not re-reported as new findings on each screen.
+Use the design system's role tokens, not raw palette hexes: page ground `surface` #F6F2FC (lavender), cards `surface-raised`
+#FFFFFF, text `ink` #16151B, headings and table-header bands `highlight` #23006F, links and focus `accent` #2810DC, primary
+action ink #16151B with blue #2810DC on hover, selected menu item yellow #F4F12C with ink text. Pink, yellow and orange are
+decoration only. The version 1.0 colours (#2B0169, #261F62, #5B2271, #559FEF, #E9D151, #CD5023, #B00C98) are retired from app
+screens; #CD5023, #B00C98 and #E9D151 stay only as the Cue email tokens the design system names. Menu rail purple #23006F;
+selected tabs blue #2810DC; lines #E3DDD0. Status is always shown with words as well as colour (good #1E7A46 on #E5F3EA, warn
+#8A5300 on #FBF0D9, crit #B3261E on #FBE9E7, info #2810DC on #ECEAFD).
+
+Known gaps: app-wide gaps that exist today are accepted as a known baseline and listed in
+`brand-ui-check/references/known-gaps.md`. They are not re-reported as new findings on each screen.
 
 Loading:
 
-- Quicksand and Archivo Black: Google Fonts link in the page head (Canvas is an Apps Script HtmlService app; Google Fonts loads there), or the files in the design system's `fonts/` folder.
-- Emails: email clients do not load web fonts, so email HTML uses `Quicksand, Arial, Helvetica, sans-serif` and is checked as it renders in Arial.
-- Cue: any screen Cue renders itself (web view, approval page, email) follows the same table. Text Cue sends into ChatGPT or Claude cannot carry fonts; there only the wording and structure apply.
+- DM Sans and Archivo Black: Google Fonts link in the page head (Canvas and Cue are Apps Script HtmlService apps; Google
+  Fonts loads there). Canvas pages get both through Brand.html.
+- Cue: any screen Cue renders itself (web view, approval page, email) follows the same table. Text Cue sends into
+  ChatGPT or Claude cannot carry fonts; there only the wording and structure apply.
 - Cue emails follow Kiko's BSE Message Templates Revised Google Doc (approved 6 Nov 2026): one banner layout for every audience, used as the image files in the design system Email group (client cyan #55D7E5 with black logo, supplier orange #CD5023 and crew magenta #B00C98 with white logo). Body white, 600px, 15px/1.55 ink. Action button: yellow #E9D151 pill, bold ink text, label from the doc, linking to the recipient's authorised Canvas record. "Step into Canvas": bold magenta #B00C98 link. Wording, subjects, variables and sign-offs come from the doc exactly.
 
 ### Patterns
@@ -161,7 +175,7 @@ One file per ask in the spec folder, updated at every phase: task ID and title, 
 - All UI uses the Blank Space design system and the Brand lock fonts; frontend-design is loaded for every screen (Kiko, 29 Oct 2026).
 - List assumptions rather than asking many questions; do not repeat answered questions (Kiko's account preferences, 3 Nov 2026).
 - One discovery round of at most five questions; everything else is a stated assumption; business rules are always asked (Kiko, 7 Nov 2026).
-- Body font Quicksand; Cue screens follow the live Cue look; today's app-wide gaps are a known baseline (Kiko, 7 Nov 2026).
+- Fonts and colours come from design system v2.0 (DM Sans body, Archivo Black display; Kiko, 5 Nov 2026, Question 1 = A); today's app-wide gaps are a known baseline in `brand-ui-check/references/known-gaps.md`.
 
 ## For ChatGPT and Codex
 

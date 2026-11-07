@@ -1,5 +1,63 @@
 # Changelog
 
+## Cue 1.28.46: RFQ drafts leave out a price written in a spec or drawing; intake-real check on real inquiries (not deployed)
+
+Kiko, 7 Nov 2026, spec intake-real-check (approved 13:59Z; rules R1 "an RFQ never names the client" and R2 "never states a price
+or budget" approved 13:37Z, R3 "never mentions other suppliers" approved 13:59Z; docs/business-rules.md CUE-048).
+
+- RFQ prompts (intake phase 4 and vendor RFQs): a price or rate written in a spec, the inquiry or a drawing is left out of the
+  item. Check Cue run 2 on a real inquiry found the Landlite RFQ quoting "P4,800 each" from the client's drawing.
+- Intake check door (`cueIcDeep_`, check deployment only) returns the phase 1 event, line keys and supplier "new" marks, so the
+  check can test R1 to R3, TBC for blank details, suppliers phase 3 named, and client and event read back from the inquiry.
+- `test/checks/intake-real.check.mjs` checks every RFQ draft against R1 to R3 and goes on as a new project when Canvas has a
+  match, so phases 2 to 4 always run. It only reports; no block was added to Cue.
+- Check Cue run 3 (7 Nov 2026 14:27Z, 1f26883) on 3 real inquiries (Gmail, screenshot, PDF): passed, 5 AI calls each,
+  nothing written to Canvas, nothing sent.
+
+Tests: IR7 to IR10 added; 731/731 (`node test/cue.test.js`).
+
+## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
+
+Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
+be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
+
+- Web app: DM Sans for text and Archivo Black for the welcome line only (Google Fonts link in Index.html); the embedded Steagal
+  font is removed. The Settings heading uses DM Sans 700 instead of the display face. Page ground is lavender #F6F2FC (was cream
+  #F7F3EA), Admin included.
+- Version 1.0 colours removed from screens: the Project and CRM thread tabs and row edges use electric blue #2810DC and orange
+  #F06A25 (were sky #559FEF and #CD5023); Canvas in the activity list is purple #23006F, Kiko pink #F000AA; the Messages
+  audience dots use the v2.0 email colours (clients cyan #55D7E5, suppliers #CD5023, crew #B00C98).
+- Chaser emails follow the v2.0 email look Kiko approved on 6 Nov 2026: client banner cyan #55D7E5 with ink text, crew magenta
+  #B00C98, supplier orange #CD5023; the action button is the yellow #E9D151 pill with ink text; the font is DM Sans with Arial as
+  the email-client fallback (Quicksand removed).
+- Chrome bubble: the settings page uses DM Sans and the yellow #F4F12C button with ink text; the selection box and focus ring are
+  electric blue.
+- Brand lock and mockup-review skills now name v2.0 (DM Sans, Archivo Black, lavender ground) instead of Steagal and Quicksand.
+
+Tests: 727/727 (with main merged) (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
+## Cue 1.28.44: Payments for tomorrow in the Monday and Wednesday 8 AM update (not deployed)
+
+Kiko, 7 Nov 2026, SOP answer: "payment days are Tuesday and Thursday. The payment report runs Monday and Wednesday."; 12:45Z
+"approve all"; Canvas spec `docs/specs/payment-days.md` approved 13:11Z ("yes").
+
+- On Monday and Wednesday the 8 AM update has a "Payments for tomorrow" section: each payment request whose pay day is the next
+  day and that still has a balance (Request ID, project, payee, balance, "Urgent" when the Payment Date Required is before the
+  pay day, and the approval status when it is not Approved), then the total. Other days have no section.
+- It reads Canvas through the new bridge read `pay_day_due` (needs the Canvas release that adds it). A failed read is named under
+  "Could not read" and the rest of the update still goes. No AI call.
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (adds `pay_day_due`).
+- Tests: `test/features/90-pay-report.js` (PY1 to PY5). 727/727 pass.
+
+## Cue 1.28.43: labels use the Canvas variant names (not deployed)
+
+Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
+accent: "use a label"; 12:45Z: "approve all".
+
+- Every Cue label now uses the Canvas Brand.html variant names: `accent` / `plain` (the base tag), `warn`, `good` and `crit`.
+  `tag new` became `tag warn`, `tag pref` became `tag good`, `tag flag` became `tag crit`. Colours and sizes are unchanged.
+- The old names stay in `src/IndexStyle.html` as aliases with the same colours, so nothing renders differently.
+- Tests: `test/features/89-label-names.js` (LN1, LN2). 722/722 pass.
+
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA

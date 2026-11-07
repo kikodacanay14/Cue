@@ -15,7 +15,7 @@ function pickArea(reply) {
   const root = host.attachShadow({ mode: 'closed' });
   root.innerHTML = `<style>
     .o{position:fixed;inset:0;cursor:crosshair;background:rgba(20,21,24,.35)}
-    .r{position:fixed;display:none;border:2px solid #559fef;background:rgba(85,159,239,.12);box-shadow:0 0 0 9999px rgba(20,21,24,.35)}
+    .r{position:fixed;display:none;border:2px solid #2810DC;background:rgba(40,16,220,.12);box-shadow:0 0 0 9999px rgba(20,21,24,.35)}
     .t{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#1d1f24;color:#e4e6ea;border:1px solid #34373f;border-radius:9999px;
       padding:8px 16px;font:600 14px/1.4 'DM Sans','Segoe UI',system-ui,sans-serif;pointer-events:none}
   </style><div class="o" tabindex="-1"></div><div class="r"></div><div class="t">Drag over what Cue should read. Esc cancels.</div>`;
@@ -55,7 +55,7 @@ function pickArea(reply) {
       background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%);box-shadow:0 4px 14px rgba(0,0,0,.45);
       display:flex;align-items:center;justify-content:center;transition:transform .12s;}
     .b:hover{transform:scale(1.06)} .b.drag{cursor:grabbing;transform:scale(1.1)}
-    .b:focus-visible{outline:3px solid #559fef;outline-offset:3px}
+    .b:focus-visible{outline:3px solid #2810DC;outline-offset:3px}
     /* Kiko 28 Oct 04:29Z chose the chat bubble: the old colour wheel read as a loading spinner. */
     .in{width:32px;height:32px;display:block}
     .x{position:fixed;display:none;width:20px;height:20px;border-radius:50%;background:#262930;color:#e4e6ea;border:1px solid #3d4250;

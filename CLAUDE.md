@@ -21,15 +21,15 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 2. **/dev (preview)**: when Test Cue passes on main, Deploy Cue runs `mode=preview` by itself and puts main on the /dev test
    link. Repo variable `CUE_AUTO_PREVIEW = off` pauses this (set it while a PC check must not see new code). Apps Script
    triggers run the head code, so the 07:00 jobs and schedules run main's code once it is previewed.
-3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by the "Live Cue testing on
-   PC" thread (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's).
-4. **Live (/exec)**: deploying follows Kiko's 2 Nov 2026 rule, the same in Cue and Canvas (CanvasWorkspace CLAUDE.md,
-   "Deploying"). Kiko's words: "i just claude to deploy and nothing else is asked for me. can you put that as a ruile". When
-   work is built and tested, the session that built it ships it end to end without asking Kiko: Deploy Cue `mode=deploy` once
-   the PC check in step 3 has passed (where that step applies), the `CHANGELOG.md` block, the Feature Board card, and the
-   merge. Any session may do this; no deploys-thread hand-off, Canvas Integration `CLEARED` mark or separate go from Kiko is
-   needed. The safety steps stay: never ship main live while it carries a change that failed or has not had its check (cut a
-   release branch from the last live commit plus the tested commits instead), and note the rollback Version.
+3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by a Claude session
+   (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's). This is Claude's own safety step, not a step
+   for Kiko.
+4. **Live (/exec)**: the session that built and tested the release runs Deploy Cue `mode=deploy` itself, once the PC check
+   (when one applies) passes. Kiko is not asked for a go (Kiko 7 Nov 2026 12:34Z, on Canvas's 2 Nov "Claude deploys end to
+   end" rule: "that can apply to Cue"; his approval point is the spec and mockup, before the build: "i want something very
+   seamless and would require less interaction from me.,.. but i also want thorough scoping and design"). Record the release
+   in CanvasWorkspace `deploy-queue.md`. Never ship main live while it carries a change that failed or has not had its check:
+   cut a release branch from the last live commit plus the tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
 
@@ -44,7 +44,7 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - RFQs and CEs go from Kiko's own Gmail, never from info@. GPT and Claude never write to Canvas; Canvas writes only after
   Kiko approves, through the bridge, once.
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
-- Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
+- Don't hold a Cue release for a Canvas release, and don't hold a Canvas release for a Cue feature (Kiko 7 Nov 2026).
 
 ## Feature Board (Kiko, 3 Nov 2026)
 
@@ -97,6 +97,7 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
+- Any question, choice or approval for Kiko: use the ask-kiko skill (`.claude/skills/ask-kiko/SKILL.md`) for every one, including one-line yes/no checks. The question card goes last in the reply (Kiko, 7 Nov 2026, approving this line).
 
 ## Task observer
 

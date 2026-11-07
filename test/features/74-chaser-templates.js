@@ -32,7 +32,7 @@ test('CT4 C3: the AI writes only the middle; the greeting, "Great to hear from y
   const m = k.wrap({ who: 'Ana Reyes', subject: 'Venue for the gala' }, 'Yes, the 15th works for the walkthrough.');
   assert.strictEqual(m.subject, 'Re: Venue for the gala');
   assert.strictEqual(m.body, 'Hi Ana,\n\nGreat to hear from you! Yes, the 15th works for the walkthrough.\n\nAnything else you’d like us to work into the plan? Just reply here.\n\nThanks!\nKiko Dacanay\nBlank Space Events');
-  assert.ok(/bgcolor="#559FEF"/.test(m.html), 'the client banner');
+  assert.ok(/bgcolor="#55D7E5"/.test(m.html), 'the client banner');
 });
 
 test('CT5 Emails waiting is dropped: Canvas\'s card gets on:false and no threads, while the project log still reads the inbox', () => {

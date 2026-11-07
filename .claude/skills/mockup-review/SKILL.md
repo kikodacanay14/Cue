@@ -12,17 +12,23 @@ shown to him before anything is built.
 
 - Use only the approved Blank Space brand system: its colors, fonts, spacing and components. Never improvise a color,
   font or component.
+- The canonical brand system is the **Blank Space Events** design system:
+  https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8, version 2.0 of 5 November 2026 (Kiko, Question 1 = A: the live Canvas
+  look is the official brand). Read its `project/README.md` and `project/tokens.json` before every mockup; take every
+  color, font, spacing and radius from there. Palette: purple #23006F, pink #F000AA, orange #F06A25, yellow #F4F12C,
+  electric blue #2810DC, ink #16151B, white. Display font Archivo Black (one display moment per screen), everything else
+  DM Sans. Default ground is Paper (lavender #F6F2FC) with white cards and a purple menu rail.
+- Canvas's current `src/Brand.html` (§13, Website look) is the live form of version 2.0. Version 1.0 (29 Oct 2026: deep
+  purple #2B0169, card navy, Steagal and Quicksand) is retired from app screens.
+- Keep the design system's own rules: one display moment per screen, the gradient only for the Home greeting, heroes and covers, never
+  yellow on white, and status always shown with words, never colour alone.
 - The brand rules are the "Brand lock for Canvas and Cue screens" section of `scope-then-design` (colour roles, fonts,
-  alignment) and the target app's live stylesheet. First copy the target app's live tokens into the mockup (Canvas:
-  `src/Brand.html`; Cue: `src/IndexStyle.html` and `src/CueStyle.gs`), using `ui-consistency:finding-patterns`. Use the
-  Blank Space Events design system (https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8) only where the app has no style
-  for an element, or where Kiko has approved a restyle (observation 0034).
-- Body font Quicksand, even where a live stylesheet still loads DM Sans (a known gap). Cue screens follow the live Cue
-  look (Kiko, 7 Nov 2026).
+  alignment). Also copy the target app's live tokens into the mockup (Canvas: `src/Brand.html`; Cue: `src/IndexStyle.html`
+  and `src/CueStyle.gs`), using `ui-consistency:finding-patterns`, so the mockup looks like the app Kiko compares it with.
+  Where the live stylesheet and design system 2.0 differ, follow 2.0 and list the difference in the design plan, or check
+  `brand-ui-check/references/known-gaps.md` (observation 0034).
 - Before building, list the colour role of every filled element (buttons, tabs, tags, highlights) in the design plan
   and check each against the Brand lock's colour roles (observation 0034).
-- Keep the design system's own rules: one highlight per view, the spectrum gradient only for heroes and covers, never
-  yellow on white, and the font credit wherever Steagal appears.
 - Load `frontend-design` for craft, and tell it the brand lock overrides its own style choices.
 
 ## What to make
