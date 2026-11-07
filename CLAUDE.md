@@ -90,6 +90,7 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
+- Any question, choice or approval for Kiko: use the ask-kiko skill (`.claude/skills/ask-kiko/SKILL.md`) for every one, including one-line yes/no checks. The question card goes last in the reply (Kiko, 7 Nov 2026, approving this line).
 
 ## Task observer
 
