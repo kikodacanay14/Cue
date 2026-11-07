@@ -24,6 +24,12 @@
     assert.strictEqual(DG.claimCheck(queue, { now: NOW, name: 'Cue 1.28.4' }).own.length, 0, '1.28.4 is not 1.28.43');
   });
 
+  test('DG4 shared claim line: "- Claim: <Version> <name> <time> OPEN" blocks; SHIPPED or ABANDONED on it closes the claim', () => {
+    const mk = state => `### Cue 1.28.50 payout fix (Cue)\n- Claim: V230 cue-1.28.50 ${new Date(NOW.getTime() - 10 * 60e3).toISOString().slice(0, 16)}Z ${state}\n`;
+    assert.strictEqual(DG.claimCheck(mk('OPEN'), { now: NOW, name: 'Cue 1.28.43' }).blocking.length, 1, 'open shared claim blocks');
+    assert.strictEqual(DG.claimCheck(mk('SHIPPED'), { now: NOW, name: 'Cue 1.28.43' }).blocking.length, 0, 'shipped closes it');
+    assert.strictEqual(DG.claimCheck(mk('ABANDONED'), { now: NOW, name: 'Cue 1.28.43' }).blocking.length, 0, 'abandoned closes it');
+  });
   test('DG2 version names: read from Cue.gs, written and read back in version descriptions, CUE_DEV_ ignored when comparing code', () => {
     assert.strictEqual(DG.versionName("x\nconst CUE_VERSION_ = 'Cue 1.28.42';   // note\n"), 'Cue 1.28.42');
     assert.strictEqual(DG.versionName(fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8')).startsWith('Cue '), true);

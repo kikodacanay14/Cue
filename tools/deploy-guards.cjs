@@ -4,7 +4,7 @@
 // 1. Release claims (0036): several sessions ship Cue, and one deployed while another was mid-release. Cue and Canvas
 //    releases are recorded in CanvasWorkspace deploy-queue.md ("### <name> (Cue)" or "(Canvas + Cue)" entries with a
 //    "- Status:" line). A real deploy stops while another session's Cue entry claimed under 60 minutes ago is still open,
-//    meaning its status is not SHIPPED, DROPPED or ABANDONED. The claim time is read from the entry's "- Claimed:" line,
+//    meaning its status is not SHIPPED, DROPPED or ABANDONED. The claim time is read from the entry's "- Claim:" line (the format CanvasWorkspace releases/README.md step 0 sets), else its "- Claimed:" line,
 //    or else its "- Added by:" line. An entry that names this build's version or commit is this session's own claim.
 // 2. Version names (0060): a failure was diagnosed against the wrong code because two builds carried the name
 //    "Cue 1.28.16". A version name must identify one build. Each Apps Script version is now described
@@ -46,8 +46,12 @@ function parseQueue(md) {
     const heading = block.split('\n')[0].trim();
     const tag = (heading.match(/\(([^()]*)\)\s*$/) || [])[1] || '';
     const field = name => (block.match(new RegExp('^- ' + name + ':\\s*(.*)$', 'm')) || [])[1];
-    const status = (field('Status') || '').trim();
-    const claimLine = field('Claimed') != null ? field('Claimed') : field('Added by');
+    // The shared claim line CanvasWorkspace's make_release.py and deploy.mjs read (releases/README.md step 0):
+    // "- Claim: <Version> <release name> <ISO time> OPEN|SHIPPED|ABANDONED". Its state closes the claim like a Status does.
+    const claim = (field('Claim') || '').trim();
+    const claimState = (claim.match(/\b(OPEN|SHIPPED|ABANDONED)\s*$/i) || [])[1] || '';
+    const status = (field('Status') || '').trim() || (/^open$/i.test(claimState) ? '' : claimState.toUpperCase());
+    const claimLine = claim ? claim : field('Claimed') != null ? field('Claimed') : field('Added by');
     return { heading, cue: /\bCue\b/.test(tag), status, claimedAt: firstTime(claimLine), text: block };
   });
 }
