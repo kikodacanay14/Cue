@@ -30,14 +30,17 @@ async function runOne(h, label, start, src) {
   const v = run.result || {};
   r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '' };
   if (v.status === 'Failed' || v.error) throw new Error(label + ': phase 1 ended ' + v.status + ': ' + (v.error || v.stage));
-  if (v.stage === 'Same project?' && ONLY) {
+  // Run of 7 Nov 2026 14:05Z: all three real inquiries already had a Canvas project, so every start stopped at "Same project?" and
+  // phases 2 to 4 never ran. Asking first is correct, but it proves nothing past phase 1 (spec A11), so the check always goes on as a new
+  // project. In check mode that writes nothing: the phase 1 card still waits for an Approve the check never taps.
+  if (v.stage === 'Same project?') {
     r.same = (v.same || []).map(x => x.name);
     const a = await h.door('check_call', { fn: 'cueSameAnswer', args: [r.id, 'new'] });
     if (!a.ok) throw new Error(label + ': could not go on as a new project: ' + a.error);
     Object.assign(v, a.result || {});
     r.phase1 = { status: v.status, stage: v.stage, name: v.name || '', error: v.error || '', same_as: r.same };
   }
-  if (v.stage === 'Same project?') { r.ok = true; r.note = 'Canvas already has a project that looks the same, so Cue asked first (correct; no phases 2 to 4)'; return r; }
+  if (r.same) r.note = 'Canvas already has a project that looks the same (' + r.same.join(', ') + '), so Cue asked first (correct); the check went on as a new project to run phases 2 to 4';
   if (v.status !== 'Needs you' || !(v.ph && v.ph.phase === 1)) throw new Error(label + ': expected the phase 1 card, got ' + v.status + ' / ' + v.stage);
   for (const n of [2, 3, 4]) {
     const d = await h.door('check_call', { fn: 'cueIcDeep_', args: [r.id, n] });
