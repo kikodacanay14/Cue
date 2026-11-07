@@ -3,7 +3,9 @@
 ## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
-10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
+10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`), live as Canvas V511.
+Release branch claude/project-thread-h0rk83-rel12847 = live 1.28.42 (16bd3cb) plus this change only; 1.28.43 to 1.28.46 stay on
+main, not deployed, so they are not shipped here.
 
 - `cueMsgrRun_`: a paper Canvas lists with `now_at` (staff tapped Message on FB) goes out on the next Messenger tick even when it
   went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
