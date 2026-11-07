@@ -149,6 +149,194 @@ function cueMsgrPaySend_(psid, text) {
   let msg = ''; try { msg = (JSON.parse(res.getContentText()).error || {}).message || ''; } catch (e) { msg = ''; }
   return { ok: false, error: 'Meta ' + code + (msg ? ': ' + String(msg).slice(0, 160) : '') };
 }
+
+/** Crew registration onboarding: receives sealed QR ref, determines registration state (A/B/C/D), sends form to Messenger.
+ * Scenarios: A) has messenger_id but missing details; B) registered but no Messenger; C) not registered; D) complete (skipped).
+ * Returns { ok, scenario, error } to caller. */
+function cueMsgrCrewRegister_(s, ref) {
+  if (!ref) return { ok: false, error: 'no ref' };
+  // Decrypt sealed ref to get email
+  let r = cueBridge_(s, 'crew_ref_check', { ref }) || {};
+  if (!r.ok) return { ok: false, error: r.error };
+  const email = r.email;
+  // Get crew state from Canvas
+  r = cueBridge_(s, 'crew_state', { email }) || {};
+  if (!r.ok) return { ok: false, error: r.error };
+  const crew = r;
+  // Determine scenario
+  const hasMessenger = !!crew.messenger_id;
+  const hasEmail = !!crew.email;
+  const hasFullName = !!crew.full_name;
+  const hasGender = !!crew.gender;
+  const hasPhone = !!crew.phone;
+  let scenario = '';
+  if (hasMessenger && (hasEmail || hasFullName || hasGender)) {
+    // Already linked to Messenger; check if missing details
+    scenario = (!hasFullName || !hasGender || !hasPhone) ? 'A' : 'D';
+  } else if (hasEmail && !hasMessenger) {
+    scenario = 'B';  // registered but no Messenger
+  } else if (!hasEmail && !hasMessenger) {
+    scenario = 'C';  // not registered
+  } else {
+    scenario = 'D';  // complete
+  }
+  if (scenario === 'D') {
+    // Already complete, nothing to do
+    return { ok: true, scenario };
+  }
+  // Initialize crew form state with email for later save
+  const P = PropertiesService.getScriptProperties();
+  const stateKey = 'CUE_CREW_FORM_' + crew.messenger_id;
+  const state = { email, full_name: crew.full_name || '', gender: crew.gender || '', phone: crew.phone || '', step: 'form_start' };
+  P.setProperty(stateKey, JSON.stringify(state));
+  // Build form message based on scenario
+  const form = cueMsgrCrewForm_(scenario, crew);
+  // Send form to crew (cueMsgrSend_ handles 24-hour window; if outside, Messenger will error)
+  const send = cueMsgrSend_(crew.messenger_id, form.text, form.buttons);
+  if (!send.ok) return { ok: false, error: send.error };
+  return { ok: true, scenario };
+}
+
+/** Build form text and buttons for crew registration scenario. */
+function cueMsgrCrewForm_(scenario, crew) {
+  const name = (crew.full_name || 'Hi').split(/\s+/)[0] || 'Hi';
+  if (scenario === 'A') {
+    // Complete registration: missing full name or gender
+    const text = name + ', we need a few more details to finish your profile. Let\'s start!';
+    const buttons = [
+      ['What\'s your full name?', 'crew_form_name'],
+      ['Select your gender', 'crew_form_gender']
+    ];
+    if (!crew.phone) buttons.push(['Add your phone number', 'crew_form_phone']);
+    buttons.push(['Cancel', 'crew_form_cancel']);
+    return { text, buttons };
+  }
+  if (scenario === 'B') {
+    // Registered but no Messenger: confirm linking and ask for details
+    const text = name + ', great! You\'ve already registered for Blank Space Events. Let\'s complete your Messenger profile.';
+    return {
+      text,
+      buttons: [
+        ['Continue', 'crew_form_continue'],
+        ['Skip for now', 'crew_form_cancel']
+      ]
+    };
+  }
+  if (scenario === 'C') {
+    // Not registered: start registration
+    const text = 'Welcome to Blank Space Events! Let\'s get you set up. First, what\'s your full name?';
+    return {
+      text,
+      buttons: [
+        ['Tell me your name', 'crew_form_name_new']
+      ]
+    };
+  }
+  return { text: 'Invalid scenario', buttons: [] };
+}
+
+/** Handle postback from crew registration form. Payload determines which field to collect or confirm. */
+function cueMsgrCrewPostback_(s, psid, payload) {
+  if (!psid || !payload) return { ok: false, error: 'missing psid or payload' };
+  const P = PropertiesService.getScriptProperties();
+  const stateKey = 'CUE_CREW_FORM_' + psid;
+  let state = {};
+  try { state = JSON.parse(P.getProperty(stateKey) || '{}'); } catch (e) { state = {}; }
+
+  // Route based on payload
+  if (payload === 'crew_form_cancel') {
+    P.deleteProperty(stateKey);
+    return cueMsgrSend_(psid, 'No problem! You can scan the QR code again anytime to continue.');
+  }
+
+  if (payload === 'crew_form_name' || payload === 'crew_form_name_new') {
+    state.step = 'collecting_name';
+    P.setProperty(stateKey, JSON.stringify(state));
+    return cueMsgrSend_(psid, 'What\'s your full name?');
+  }
+
+  if (payload === 'crew_form_gender') {
+    state.step = 'collecting_gender';
+    P.setProperty(stateKey, JSON.stringify(state));
+    return cueMsgrSend_(psid, 'What\'s your gender?', [['Male', 'crew_form_gender_male'], ['Female', 'crew_form_gender_female'], ['Other', 'crew_form_gender_other']]);
+  }
+
+  if (payload === 'crew_form_phone') {
+    state.step = 'collecting_phone';
+    P.setProperty(stateKey, JSON.stringify(state));
+    return cueMsgrSend_(psid, 'What\'s your phone number?');
+  }
+
+  if (payload === 'crew_form_continue') {
+    state.step = 'collecting_name';
+    P.setProperty(stateKey, JSON.stringify(state));
+    return cueMsgrSend_(psid, 'Great! Let\'s get your details. What\'s your full name?');
+  }
+
+  if (payload.startsWith('crew_form_gender_')) {
+    const gender = payload.replace('crew_form_gender_', '').charAt(0).toUpperCase() + payload.replace('crew_form_gender_', '').slice(1);
+    state.gender = gender;
+    state.step = 'collected_gender';
+    P.setProperty(stateKey, JSON.stringify(state));
+    return cueMsgrSend_(psid, 'Got it! ' + gender + '. What\'s your phone number?');
+  }
+
+  return { ok: false, error: 'unknown payload: ' + payload };
+}
+
+/** Handle text input for crew form fields (name, phone). Routes to next step or finalizes. */
+function cueMsgrCrewFormText_(s, psid, text) {
+  if (!psid || !text) return false;
+  const P = PropertiesService.getScriptProperties();
+  const stateKey = 'CUE_CREW_FORM_' + psid;
+  let state = {};
+  try { state = JSON.parse(P.getProperty(stateKey) || '{}'); } catch (e) { return false; }
+
+  const step = state.step || '';
+
+  if (step === 'collecting_name') {
+    state.full_name = cueStr_(text, 120);
+    state.step = 'collected_name';
+    // Move to gender selection
+    P.setProperty(stateKey, JSON.stringify(state));
+    cueMsgrSend_(psid, 'Thanks, ' + state.full_name + '! What\'s your gender?',
+      [['Male', 'crew_form_gender_male'], ['Female', 'crew_form_gender_female'], ['Other', 'crew_form_gender_other']]);
+    return true;
+  }
+
+  if (step === 'collecting_phone') {
+    state.phone = cueStr_(text, 20);
+    state.step = 'collected_phone';
+    P.setProperty(stateKey, JSON.stringify(state));
+    // All fields collected, save to Canvas
+    cueMsgrCrewSave_(s, psid, state);
+    return true;
+  }
+
+  return false;
+}
+
+/** Save crew registration form data to Canvas. Called after all fields collected. */
+function cueMsgrCrewSave_(s, psid, data) {
+  if (!psid || !data.email) return { ok: false, error: 'missing psid or email' };
+  const saveData = {
+    request_id: 'crewreg:' + psid + ':' + String(cueNow_()).replace(/[^0-9]/g, ''),
+    email: data.email,
+    scenario: data.scenario
+  };
+  if (data.full_name) saveData.full_name = data.full_name;
+  if (data.gender) saveData.gender = data.gender;
+  if (data.phone) saveData.phone = data.phone;
+  try {
+    const r = cueBridge_(s, 'crew_register_save', saveData) || {};
+    if (!r.ok) return { ok: false, error: r.error };
+    PropertiesService.getScriptProperties().deleteProperty('CUE_CREW_FORM_' + psid);
+    return cueMsgrSend_(psid, 'Perfect! Your profile is complete. Thanks for joining Blank Space Events! 🎉');
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 /** One pass: { sent, skipped: [{ id, why }], failed: [{ id, why }] }. */
 function cueMsgrRun_(now) {
   const s = { id: 'msgr' }, o = cueBridge_(s, 'msgr_due', {}) || {}, out = { sent: 0, skipped: [], failed: [] };
@@ -289,9 +477,31 @@ function cueMsgrOne_(m) {
   if (!/^\d{1,40}$/.test(psid) || msg.is_echo) return false;   // our own messages come back as echoes
   const at = new Date(Number(m.timestamp) || cueNow_()).toISOString(), text = cueStr_(msg.text || '', 2000);
   const ref = cueStr_((m.referral || {}).ref || ((m.postback || {}).referral || {}).ref || '', 400), s = { id: 'msgr' };
+  const pb = m.postback || {}, pbPayload = String(pb.payload || '');
+  // CREW-REGISTER postback routing: crew form responses (collected name, gender, phone, etc.)
+  if (pbPayload.startsWith('crew_form_')) {
+    cueMsgrCrewPostback_(s, psid, pbPayload);
+    return true;
+  }
+  // CREW-REGISTER text input: handle name/phone collection during crew form
+  if (text && !pbPayload) {
+    const stateKey = 'CUE_CREW_FORM_' + psid;
+    const stateStr = PropertiesService.getScriptProperties().getProperty(stateKey);
+    if (stateStr) {
+      if (cueMsgrCrewFormText_(s, psid, text)) return true;
+    }
+  }
   const people = cueMsgrPeople_();
   let p = people[psid];
   if (ref) {
+    // Try crew registration first (sealed ref with email)
+    const crewReg = cueMsgrCrewRegister_(s, ref);
+    if (crewReg.ok) {
+      // Crew registration form sent successfully
+      cueChat_('Cue', 'Crew Messenger onboarding started: scenario ' + crewReg.scenario + '.', '');
+      return true;
+    }
+    // Fall back to general social link (fl_social_save)
     const prof = cueMsgrProfile_(psid);
     const r = cueBridge_(s, 'fl_social_save', { request_id: 'msgrlink:' + psid + ':' + at.replace(/[^0-9A-Za-z]/g, ''), ref, messenger_id: psid,
       messenger_name: prof.name || '', gender: prof.gender || '', linked_at: at, last_message: at }) || {};
