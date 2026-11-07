@@ -55,7 +55,7 @@ async function runOne(h, label, start, src) {
   // AC2: the phase 1 client and event, side by side with the inquiry (kept in the run log either way).
   r.readback = rules.readBack({ client: r.phase2.client, event: r.phase2.event }, src);
   const fails = [];
-  if (!r.readback.client_in_inquiry || !r.readback.event_in_inquiry) fails.push('phase 1 read a client or event the inquiry does not name: ' + JSON.stringify(r.readback));
+  if (r.readback.client_in_inquiry === false || r.readback.event_in_inquiry === false) fails.push('phase 1 read a client or event the inquiry does not name: ' + JSON.stringify(r.readback));
   // AC4 and CUE-048 (R1 to R3): each draft's supplier, TBC for blank event details, no client, no price, no other supplier.
   const rfqs = r.phase4.rfqs || [], names = rfqs.map(q => q.supplier);
   r.rfq_breaks = rfqs.map(q => [q.supplier, [].concat(rules.supplierBreaks(q, r.phase3.lines), rules.tbcBreaks(q, r.phase2.event),
@@ -113,7 +113,7 @@ export default {
           const t = (r.phase3 && r.phase3.totals) || {};
           return '<div style="border-top:1px solid #eee;padding:8px 0"><b>' + (r.ok ? '✓ ' : '✗ ') + esc(r.label) + '</b><br>Phase 1: ' + esc(r.phase1 && r.phase1.name) + ' (' + esc(r.phase1 && r.phase1.stage) + ')'
             + (r.note ? '<br>' + esc(r.note) : '')
-            + (r.readback ? '<br>Read from the inquiry: client "' + esc(r.readback.client) + '" ' + (r.readback.client_in_inquiry ? '✓' : '✗') + ', event "' + esc(r.readback.event) + '" ' + (r.readback.event_in_inquiry ? '✓' : '✗') : '')
+            + (r.readback ? '<br>Read from the inquiry: client "' + esc(r.readback.client) + '" ' + (r.readback.client_in_inquiry === 'unverified' ? '? (only in an attachment)' : r.readback.client_in_inquiry ? '✓' : '✗') + ', event "' + esc(r.readback.event) + '" ' + (r.readback.event_in_inquiry === 'unverified' ? '? (only in an attachment)' : r.readback.event_in_inquiry ? '✓' : '✗') : '')
             + (r.rfq_breaks && r.rfq_breaks.length ? '<br>RFQ rule breaks: ' + esc(r.rfq_breaks.map(x => x[0] + ': ' + x[1].join(', ')).join('; ')) : '')
             + (r.phase2 ? '<br>Phase 2: ' + r.phase2.rows.length + ' rows: ' + esc(r.phase2.rows.map(x => x.item + (x.spec ? ' (' + x.spec + ')' : '') + ' x' + x.quantity).join('; ')) : '')
             + (r.phase3 ? '<br>Phase 3: known cost ' + peso(t.known_cost) + ', price ' + peso(t.known_price) + '; ' + t.lines_without_cost + ' need a cost, ' + t.lines_without_price + ' a price' : '')

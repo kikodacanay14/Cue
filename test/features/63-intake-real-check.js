@@ -74,8 +74,8 @@ test('IR7 RFQ rules R1 to R3: client by full name or first distinctive word, pes
 });
 test('IR8 RFQ drafts: blank event details must read TBC, never "0 pax"; filled details need no TBC', () => {
   deq(irRules.tbcBreaks({ body: 'Date: 5 December. Venue: SMX. City: Pasay. Pax: 300.' }, { date: '2026-12-05', venue: 'SMX', city: 'Pasay', pax: 300 }), []);
-  assert.ok(/never says TBC/.test(irRules.tbcBreaks({ body: 'Venue: SMX. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 })[0]));
-  assert.ok(irRules.tbcBreaks({ body: 'Date TBC. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 }).some(x => /0 pax/.test(x)));
+  assert.ok(/does not say TBC for: date, pax/.test(irRules.tbcBreaks({ body: 'Venue: SMX. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 })[0]));
+  assert.ok(irRules.tbcBreaks({ body: 'Date TBC. Expected pax: 0' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 }).some(x => /pax \("0"\)/.test(x)));
   deq(irRules.tbcBreaks({ body: 'Date TBC. Pax TBC.' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 0 }), []);
 });
 test('IR9 AC4 and AC2: an RFQ supplier must be one phase 3 named for its lines (Canvas evidence or found and marked new); phase 1 client and event must come from the inquiry', () => {
@@ -103,4 +103,16 @@ test('IR10 check run 2 (7 Nov): a client written "Name (SHORT)" and an event mad
   const fs = require('fs');
   assert.ok(/not even a price or rate written in a spec/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueIntake.gs'), 'utf8')));
   assert.ok(/not even a price or rate in Kiko\\'s specs/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueVendor.gs'), 'utf8')));
+});
+
+test('IR11 PR #347 review: each blank event detail needs its own TBC; a name only an attachment could hold is unverified, not a fail', () => {
+  // One TBC must not cover a made-up date (the 29 Oct regression).
+  assert.ok(/date \("5 December 2026"\)/.test(irRules.tbcBreaks({ body: 'Date: 5 December 2026. Venue: TBC.' }, { date: '', venue: '', city: 'Pasay', pax: 300 })[0]));
+  deq(irRules.tbcBreaks({ body: 'Date: TBC. Venue: TBC. Quote deadline: 10 November 2026.' }, { date: '', venue: '', city: 'Pasay', pax: 300 }), []);
+  deq(irRules.tbcBreaks({ body: 'Due date: 10 November. Event date: TBC.' }, { date: '', venue: 'SMX', city: 'Pasay', pax: 300 }), []);
+  // Email text without the name, but the inquiry had a file: unverified. No file: false.
+  const src = { from: 'Joy <joy@x.example>', subject: 'Request for Quote', text: 'See attached brief.' };
+  assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, Object.assign({ files: 1 }, src)).client_in_inquiry, 'unverified');
+  assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, Object.assign({ files: 1 }, src)).event_in_inquiry, 'unverified');
+  assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, src).client_in_inquiry, false);
 });

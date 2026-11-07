@@ -54,14 +54,20 @@ function rfqBreaks(rfq, ctx) {
   return out;
 }
 
-/** Event fields that phase 1 left blank but the draft fills in instead of writing TBC (Cue 1.27.72 fix). */
+/**
+ * Event fields that phase 1 left blank but the draft fills in instead of writing TBC (Cue 1.27.72 fix). Each blank field is
+ * checked on its own: a labelled line ("Date: 5 December") must say TBC, and with no labelled line the draft must say TBC somewhere.
+ */
+const TBC_LABEL = { date: '(?<!due |quote |deadline )date', venue: 'venue', city: 'city', pax: '(?:expected\\s+)?pax|guests?|attendees?' };
 function tbcBreaks(rfq, event) {
   const e = event || {}, body = String((rfq && rfq.body) || ''), out = [];
   const blank = v => v === 0 || v === '0' || !String(v == null ? '' : v).trim();
-  if (!/\bTBC\b/.test(body) && ['date', 'venue', 'city', 'pax'].some(k => blank(e[k]))) {
-    out.push('event details are blank (' + ['date', 'venue', 'city', 'pax'].filter(k => blank(e[k])).join(', ') + ') but the draft never says TBC');
-  }
-  if (blank(e.pax) && /\b(?:pax|guests?|attendees?)\s*:?\s*0\b/i.test(body)) out.push('says 0 pax instead of TBC');
+  const missing = [];
+  ['date', 'venue', 'city', 'pax'].filter(k => blank(e[k])).forEach(k => {
+    const said = body.match(new RegExp('\\b(?:' + TBC_LABEL[k] + ')\\s*:\\s*([^,.;\\n]*)', 'i'));
+    if (said ? !/\bTBC\b/i.test(said[1]) : !/\bTBC\b/.test(body)) missing.push(k + (said ? ' ("' + said[1].trim() + '")' : ''));
+  });
+  if (missing.length) out.push('event details are blank in phase 1 but the draft does not say TBC for: ' + missing.join(', '));
   return out;
 }
 
@@ -82,8 +88,11 @@ function readBack(card, source) {
   const forms = [client].concat(client.match(/^(.*?)\s*\(([^)]+)\)\s*$/) ? client.match(/^(.*?)\s*\(([^)]+)\)\s*$/).slice(1) : []).filter(Boolean);
   // Event words of 4 letters or more; a name made only of short words ("IRT YEP") uses all of them.
   const long = words(event).filter(w => w.length >= 4), ev = long.length ? long : words(event).filter(w => w.length >= 3);
-  return { client, client_in_inquiry: !client || forms.some(f => namedIn(src, f) || namedIn(from, f)),
-    event, event_in_inquiry: !event || ev.some(w => namedIn(src, w)) };
+  // An inquiry with attachments: intake also read the files, which the check cannot see. A name not in the email text is then
+  // 'unverified', not false: the check reports it but does not fail on it.
+  const miss = (source && Number(source.files) > 0) ? 'unverified' : false;
+  return { client, client_in_inquiry: !client || forms.some(f => namedIn(src, f) || namedIn(from, f)) || miss,
+    event, event_in_inquiry: !event || ev.some(w => namedIn(src, w)) || miss };
 }
 
 module.exports = { rfqBreaks, tbcBreaks, supplierBreaks, readBack, namedIn, mentions };
