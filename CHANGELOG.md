@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
+## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (live as Version 227, 7 Nov 2026 16:31Z, rollback 223, from release branch claude/project-thread-h0rk83-rel12847 = 1.28.42 plus this change)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
 10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
