@@ -18,7 +18,7 @@
     items.forEach(function (it) {
       var g = NM_GROUP[it.group] || NM_GROUP.fyi, done = it.removed || it.task_id;
       h += '<div class="card" style="margin:8px 0 0;background:var(--input)' + (done ? ';opacity:.5' : '') + '">'
-        + '<span class="tag' + (it.group === 'inquiry' ? ' flag' : it.group === 'reply' ? ' new' : '') + '">' + esc(g[0]) + '</span>' + (it.urgent ? ' <span class="tag flag">today</span>' : '')
+        + '<span class="tag' + (it.group === 'inquiry' ? ' crit' : it.group === 'reply' ? ' warn' : '') + '">' + esc(g[0]) + '</span>' + (it.urgent ? ' <span class="tag crit">today</span>' : '')
         + ' <span class="small muted">' + (it.inbox === 'info' ? 'info@ · ' : '') + esc(it.who) + (it.date ? ' · ' + esc(ago(it.date)) : '') + '</span>'
         + (it.known ? '<div class="small muted">' + esc([it.known.who, it.known.name !== it.who && it.known.name, it.known.project].filter(Boolean).join(' · ')) + ' · also in Canvas Emails waiting</div>' : '')
         + '<div style="margin-top:4px"><b>' + esc(it.subject || '(no subject)') + '</b></div>'
@@ -87,12 +87,12 @@
     kinds.forEach(function (k, ki) {
       h += '<details class="sec" data-swfold="' + esc(r.id + '|' + k) + '"' + swFold(r.id + '|' + k, ki === 0) + '><summary>' + esc(k) + ' (' + by[k].length + ')</summary>';
       by[k].forEach(function (it) {
-        var dim = it.removed ? ';opacity:.5' : '', state = it.sent ? '<span class="tag pref">sent</span>' : it.made ? '<span class="tag new">in Drafts</span>' : '';
+        var dim = it.removed ? ';opacity:.5' : '', state = it.sent ? '<span class="tag good">sent</span>' : it.made ? '<span class="tag warn">in Drafts</span>' : '';
         var fk = r.id + '|' + it.key, tick = waiting && !it.no_email && !it.removed && !it.tap;
         // Folded: the line's name, its tags and a short note (the who for chasers without one). The tick stays on the row.
         h += '<details class="card swl" style="margin:8px 0 0;background:var(--input)' + dim + '" data-swfold="' + esc(fk) + '"' + swFold(fk, false) + '><summary>'
           + (tick ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + ' aria-label="Include ' + esc(it.project || it.who || 'this line') + ' in the send">' : it.removed ? '<span>–</span>' : it.sent || it.made ? '<span>✓</span>' : '')
-          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag flag">Urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
+          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag crit">Urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
           + '<span class="small muted swn">' + esc(it.short || (it.project ? it.who : '') || '') + '</span></summary>'
           + '<div style="display:flex;gap:8px;align-items:flex-start"><span><span class="small muted">' + (it.who && it.project ? esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') : '') + '</span>'
           + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
@@ -440,7 +440,7 @@
       + '<td data-l="Sent from">' + esc(cue ? k.from : 'Canvas') + '</td><td class="c" data-l="How">' + IC.mail + (cue ? '' : IC.sms) + '</td>';
     if (R) head += '<td class="c" data-l="First after">' + n('first', R.first, 1, 60, 'First after') + unit + '</td><td class="c" data-l="Then every">' + n('every', R.every, 1, 60, 'Then every') + unit + '</td><td class="c" data-l="Stop after">' + n('max', R.max, 1, 10, 'Stop after') + '<span class="chm-u">chases</span></td>'
       + '<td class="c" data-l="On"><input type="checkbox" data-rule="' + esc(k.kind) + '.on"' + (R.on ? ' checked' : '') + ' aria-label="On"></td><td class="c" data-l="Lined up">In the morning batch</td>';
-    else head += '<td colspan="3" class="c chm-span" data-l="Timing">' + (cue ? 'Each morning, in the 8 AM update' : 'Canvas\'s own timing') + '</td><td class="c" data-l="On">' + (cue ? (k.on ? '<span class="tag pref">On</span>' : '<span class="tag">Off</span>') : '<span class="tag pref">On</span>') + '</td><td class="c" data-l="Lined up">' + (cue ? 'In the morning batch' : (d ? (d[key] || []).length : '…')) + '</td>';
+    else head += '<td colspan="3" class="c chm-span" data-l="Timing">' + (cue ? 'Each morning, in the 8 AM update' : 'Canvas\'s own timing') + '</td><td class="c" data-l="On">' + (cue ? (k.on ? '<span class="tag good">On</span>' : '<span class="tag">Off</span>') : '<span class="tag good">On</span>') + '</td><td class="c" data-l="Lined up">' + (cue ? 'In the morning batch' : (d ? (d[key] || []).length : '…')) + '</td>';
     head += '</tr>';
     if (R && R.soon_first != null) head += '<tr class="chm-sub"><td data-l="Chaser" class="adesc">↳ Event within 7 days</td><td></td><td></td><td class="c" data-l="First after">' + n('soon_first', R.soon_first, 1, 60, 'First after, event within 7 days') + '</td><td class="c" data-l="Then every">' + n('soon_every', R.soon_every, 1, 60, 'Then every, event within 7 days') + '</td><td></td><td></td><td></td></tr>';
     if (open) head += '<tr class="chm-x"><td colspan="8">' + (cue ? jcHtml(k) : '<div class="chm-slot"></div>') + '</td></tr>';
@@ -797,7 +797,7 @@
   function tok(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n); }
   function usageDetail(m) {
     return '<div class="label">By AI</div><div class="scroll"><table><tr><th>AI</th><th>Model</th><th>Calls</th><th>Tokens in / out</th><th>Web searches</th><th>US$</th><th>₱</th></tr>'
-      + m.by_ai.map(function (a) { return '<tr><td>' + esc(a.provider === 'GPT' ? 'ChatGPT' : a.provider) + '</td><td>' + esc(a.model) + (a.priced ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + a.calls + (a.failed ? ' <span class="small muted">(' + a.failed + ' failed)</span>' : '') + '</td><td>' + tok(a.in) + ' / ' + tok(a.out) + '</td><td>' + (a.provider === 'GPT' ? a.web : '–') + '</td><td>' + esc(usd(a.usd).slice(4)) + '</td><td>' + esc(php(a.usd)) + '</td></tr>'; }).join('')
+      + m.by_ai.map(function (a) { return '<tr><td>' + esc(a.provider === 'GPT' ? 'ChatGPT' : a.provider) + '</td><td>' + esc(a.model) + (a.priced ? '' : ' <span class="tag warn">no price set</span>') + '</td><td>' + a.calls + (a.failed ? ' <span class="small muted">(' + a.failed + ' failed)</span>' : '') + '</td><td>' + tok(a.in) + ' / ' + tok(a.out) + '</td><td>' + (a.provider === 'GPT' ? a.web : '–') + '</td><td>' + esc(usd(a.usd).slice(4)) + '</td><td>' + esc(php(a.usd)) + '</td></tr>'; }).join('')
       + '</table></div><div class="label">By command</div><div class="scroll"><table><tr><th>Command</th><th>Calls</th><th>US$</th><th>₱</th><th>Share</th></tr>'
       + m.by_cmd.map(function (c) { return '<tr><td>' + esc(c.name) + '</td><td>' + c.calls + '</td><td>' + esc(usd(c.usd).slice(4)) + '</td><td>' + esc(php(c.usd)) + '</td><td>' + c.share + '%</td></tr>'; }).join('') + '</table></div>';
   }
@@ -805,7 +805,7 @@
     if (!usage) return;
     var U = usage, M = U.months || [], cur = M[0] && M[0].current ? M[0] : null, P = U.prices, h = '';
     if (U.error) h += '<div class="err">' + esc(U.error) + '</div>';
-    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag new">ESTIMATE</span></div>'
+    if (cur) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">' + esc(cur.label) + ' so far (1–' + cur.days + ')</b><span class="tag warn">ESTIMATE</span></div>'
       + '<table class="facts" style="margin-top:8px"><tr><td>AI calls</td><td><b style="color:var(--white)">' + cur.calls + '</b> <span class="small muted">Claude ' + cur.claude + ' · ChatGPT ' + cur.gpt + (cur.failed ? ' · ' + cur.failed + ' failed' : '') + '</span></td></tr>'
       + '<tr><td>Cost so far</td><td><b style="color:var(--white)">' + esc(php(cur.usd)) + '</b> <span class="small muted">' + esc(usd(cur.usd)) + '</span></td></tr>'
       + '<tr><td>Likely by month end</td><td><b style="color:var(--white)">' + esc(php(cur.likely_usd)) + '</b> <span class="small muted">' + esc(usd(cur.likely_usd)) + (cur.rough ? ' · rough: under 7 days of data' : '') + '</span></td></tr></table>'
@@ -813,7 +813,7 @@
     else h += '<div class="card"><div class="small muted">No AI calls logged this month yet.</div></div>';
     if (U.canvas) h += '<div class="small muted" style="margin:4px 0 8px">' + (U.canvas.note ? esc(U.canvas.note) : 'Includes Canvas AI calls (' + U.canvas.rows + ' logged), shown as "Canvas: …" in By command.') + '</div>';   // CUE-STRUCTURE-4.6
     var G = U.github;   // GH-ACTIONS-COST (Kiko 4 Nov 2026 13:05Z): GitHub Actions, billed apart from the AI, from figures typed in below.
-    if (G) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">GitHub Actions (as of ' + esc(G.asof) + ')</b><span class="tag new">ESTIMATE</span></div>'
+    if (G) h += '<div class="card"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:var(--white);font-size:16px">GitHub Actions (as of ' + esc(G.asof) + ')</b><span class="tag warn">ESTIMATE</span></div>'
       + '<table class="facts" style="margin-top:8px"><tr><td>Used so far</td><td><b style="color:var(--white)">' + esc(php(G.used)) + '</b> <span class="small muted">' + esc(usd(G.used)) + '</span></td></tr>'
       + '<tr><td>Included each month</td><td><b style="color:var(--white)">' + esc(php(G.free)) + '</b> <span class="small muted">' + esc(usd(G.free)) + ' · about ' + Math.round(G.free / 0.006).toLocaleString('en-US') + ' Linux minutes</span></td></tr>'
       + '<tr><td>Plan fee</td><td><b style="color:var(--white)">' + esc(php(G.plan)) + '</b> <span class="small muted">' + esc(usd(G.plan)) + ' a month</span></td></tr>'
@@ -830,7 +830,7 @@
     var names = Object.keys(P.models).concat(U.unpriced || []).filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
     var n = function (k, v, w) { return '<input type="number" step="0.01" min="0" data-up="' + esc(k) + '" value="' + (v == null ? '' : esc(v)) + '" style="width:' + (w || 80) + 'px" aria-label="' + esc(k) + '">'; };
     h += '<div class="label">Prices used (editable)</div><div class="card"><div class="scroll"><table><tr><th>Model</th><th>US$ / 1M in</th><th>US$ / 1M out</th></tr>'
-      + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag new">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
+      + names.map(function (k) { var p = P.models[k] || []; return '<tr><td>' + esc(k) + (P.models[k] ? '' : ' <span class="tag warn">no price set</span>') + '</td><td>' + n('in:' + k, p[0]) + '</td><td>' + n('out:' + k, p[1]) + '</td></tr>'; }).join('')
       + '<tr><td>ChatGPT web search, US$ per 1,000</td><td>' + n('web', P.web) + '</td><td></td></tr><tr><td>₱ per US$ 1</td><td>' + n('fx', P.fx) + '</td><td></td></tr>'
       + (P.gh ? '<tr><td>GitHub Actions used so far, US$</td><td>' + n('ghused', P.gh.used) + '</td><td></td></tr>'   // GH-ACTIONS-COST
         + '<tr><td>GitHub Actions figures as of</td><td><input type="date" data-up="ghasof" value="' + esc(P.gh.asof) + '" aria-label="ghasof"></td><td></td></tr>'
