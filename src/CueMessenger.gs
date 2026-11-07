@@ -94,7 +94,8 @@ function cueMsgrPost_(token, psid, message) {
 /** Tells Canvas a document went out on Messenger (once, A11). On success the local note is dropped; on failure it stays for the next tick. */
 function cueMsgrMark_(s, d, k, P) {
   try {
-    const r = cueBridge_(s, 'msgr_mark', { request_id: 'msgr:' + d.doc + ':' + d.id, doc: d.doc, id: d.id, email: d.email, psid: String(d.messenger_id) }) || {};
+    // DOC-MENU-2026-11-07: a Message on FB ask (now_at) gets its own request id, so the bridge runs the mark again and Canvas clears the ask.
+    const r = cueBridge_(s, 'msgr_mark', { request_id: 'msgr:' + d.doc + ':' + d.id + (d.now_at ? ':' + d.now_at : ''), doc: d.doc, id: d.id, email: d.email, psid: String(d.messenger_id) }) || {};
     if (r.ok) P.deleteProperty('CUE_MSGR_SENT_' + k);
   } catch (e) { console.warn('Messenger mark ' + k + ': ' + e); }
 }
@@ -170,8 +171,10 @@ function cueMsgrRun_(now) {
   };
   const synced = {};
   (o.docs || []).forEach(d => {
-    const k = d.doc + ':' + d.id;
-    if (d.sent) { if (held(k)) P.deleteProperty('CUE_MSGR_SENT_' + k); return; }
+    /* DOC-MENU-2026-11-07 (Kiko 7 Nov 2026: "Message on FB" in Canvas Resources › FSA / AR, "build" 15:23Z): staff asked Canvas to send
+     * this paper now (now_at), so it goes out on this tick even when it went on Messenger before. Same 24-hour window as always. */
+    const k = d.doc + ':' + d.id + (d.now_at ? ':' + d.now_at : '');
+    if (d.sent && !d.now_at) { if (held(k)) P.deleteProperty('CUE_MSGR_SENT_' + k); return; }
     if (held(k)) { cueMsgrMark_(s, d, k, P); return; }
     if (!d.messenger_id || !d.sign_link) { out.skipped.push({ id: d.id, why: 'not linked' }); return; }
     const L = lastOf(d);

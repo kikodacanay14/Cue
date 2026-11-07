@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
+
+Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
+10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
+
+- `cueMsgrRun_`: a paper Canvas lists with `now_at` (staff tapped Message on FB) goes out on the next Messenger tick even when it
+  went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
+- The msgr_mark for such a send has its own request id (`msgr:<doc>:<id>:<now_at>`), so the bridge runs it again and Canvas clears
+  the ask.
+- Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 738 tests pass.
+
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
 Kiko, 6 Nov 2026 08:27Z, after their own FSA landed as a long link: "Can it show an image instead of a link? Or the FSA
