@@ -16,11 +16,15 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 2. **/dev (preview)**: when Test Cue passes on main, Deploy Cue runs `mode=preview` by itself and puts main on the /dev test
    link. Repo variable `CUE_AUTO_PREVIEW = off` pauses this (set it while a PC check must not see new code). Apps Script
    triggers run the head code, so the 07:00 jobs and schedules run main's code once it is previewed.
-3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by the "Live Cue testing on
-   PC" thread (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's).
-4. **Live (/exec)**: only the "Cue and Canvas deploys" thread runs Deploy Cue `mode=deploy`, and only after the PC check passes
-   and Kiko says go. Other threads hand their build to it. Never ship main live while it carries a change that failed or has not
-   had its check: cut a release branch from the last live commit plus the tested commits instead.
+3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by a Claude session
+   (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's). This is Claude's own safety step, not a step
+   for Kiko.
+4. **Live (/exec)**: the session that built and tested the release runs Deploy Cue `mode=deploy` itself, once the PC check
+   (when one applies) passes. Kiko is not asked for a go (Kiko 7 Nov 2026 12:34Z, on Canvas's 2 Nov "Claude deploys end to
+   end" rule: "that can apply to Cue"; his approval point is the spec and mockup, before the build: "i want something very
+   seamless and would require less interaction from me.,.. but i also want thorough scoping and design"). Record the release
+   in CanvasWorkspace `deploy-queue.md`. Never ship main live while it carries a change that failed or has not had its check:
+   cut a release branch from the last live commit plus the tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
 
@@ -33,7 +37,7 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - RFQs and CEs go from Kiko's own Gmail, never from info@. GPT and Claude never write to Canvas; Canvas writes only after
   Kiko approves, through the bridge, once.
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
-- Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
+- Don't hold a Cue release for a Canvas release, and don't hold a Canvas release for a Cue feature (Kiko 7 Nov 2026).
 
 ## Feature Board (Kiko, 3 Nov 2026)
 
