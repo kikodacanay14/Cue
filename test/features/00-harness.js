@@ -225,6 +225,9 @@ function sandbox(o = {}) {
         return resp(200, { ok: true, status: 'Completed', result: Object.assign({ items: (o.rfpBox || []).filter(x => !(log.rfpDone || {})[x.key]) }, o.rfpLogo ? { logo: o.rfpLogo } : {}) }); }
       if (body.action === 'rfp_sent') { (log.rfpSent = log.rfpSent || []).push(body.args); if (o.rfpSentFail && log.rfpSent.length <= o.rfpSentFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
         (log.rfpDone = log.rfpDone || {})[body.args.key] = 1; return resp(200, { ok: true, status: 'Completed', result: { ok: true } }); }
+      // PAY-DAYS-2026-11-07: the Mon/Wed payments due tomorrow (pay_day_due), with the bridge's shape.
+      if (body.action === 'pay_day_due') { (log.payDue = log.payDue || []).push(body.args); if (o.payDueFail) return resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' });
+        return resp(200, { ok: true, status: 'Completed', result: Object.assign({ day: body.args.day, requests: [], total: 0 }, o.payDue || {}) }); }
       // CUE-NEW-MAIL-2026-10-27: info@'s new inbox mail (inbox_new), with the bridge's shape.
       if (body.action === 'inbox_new') { (log.inboxNew = log.inboxNew || []).push(body.args);
         return o.infoFail ? resp(200, { ok: false, status: 'Blocked', error: 'Canvas busy' }) : resp(200, { ok: true, status: 'Completed', result: { until: now, items: typeof o.info === 'function' ? o.info(body.args) : o.info || [] } }); }

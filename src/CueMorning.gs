@@ -95,6 +95,9 @@ function cueK0Build_(day, contacts, mode, work) {
       lvl('Needs your review or approval', focus.review), lvl('Nudge your team', W.nudge), lvl('Blocked, waiting on someone', W.blocked), lvl('Key milestones in the next 3 days', W.soon),
       lvl('Personal', W.personal)));
     if (work && (work.missed || []).length) out.push('', 'Could not read ' + work.missed.join('; ') + '. Those lines are left out today.');
+    // PAY-DAYS-2026-11-07 (Canvas spec payment-days.md, Kiko 7 Nov 2026 13:11Z "yes"): Monday and Wednesday list the payment requests
+    // whose pay day is tomorrow (Tue, Thu) and that still have a balance, from the bridge read pay_day_due, with the total.
+    if (work && work.pay) sec('Payments for tomorrow (' + cueK0Short_(work.pay.day) + ')', cueK0PayLines_(work.pay));
     sec('New opportunities', opps);
     sec('New clients (reply "add 2" to add them to Canvas)', people);
     if (!out.length) out.push('', 'Nothing needs you this morning.');
@@ -132,6 +135,17 @@ function cueK0Build_(day, contacts, mode, work) {
     chasers: chasers.length, funnel: funnelLines.length, fn_title: fnTitle, fn_text: funnelLines.length ? fnTitle + '\n\n' + funnelLines.map(l => '- ' + l).join('\n') : '' };
 }
 
+/* PAY-DAYS-2026-11-07: the Mon/Wed "Payments for tomorrow" lines: one per request (Request ID, project, payee, balance, Urgent when
+ * the Payment Date Required is before the pay day, and the approval status when it is not blank or Approved), then the total. */
+const cueK0PayDays_ = { 1: 1, 3: 1 };   // Monday and Wednesday (Kiko: "The payment report runs Monday and Wednesday")
+const cueK0Php_ = n => '₱' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+function cueK0PayLines_(pay) {
+  const list = (pay && pay.requests) || [];
+  if (!list.length) return ['- None due tomorrow.'];
+  return list.map(r => '- ' + [r.request_id, r.project || r.project_id, r.payee, cueK0Php_(r.balance)].filter(Boolean).join(' · ')
+    + (r.urgent ? ' · Urgent (needed ' + cueK0Short_(r.due) + ')' : '') + (r.approval && !/^approved$/i.test(r.approval) ? ' · ' + r.approval : ''))
+    .concat(['- Total: ' + cueK0Php_(pay.total)]);
+}
 /* ---------- CUE-K0-WORK-2026-11-01: the Shared Task Tracker and the ongoing projects' timelines ----------
  * Kiko 1 Nov 2026: "it should also reference the project timeline of any ongoing project", and on the proposal: "1. add. anything
  * assigned to internal that i need to nudge / 2. They should [Personal in its own group] / 3. yes [key milestones in the next 3
@@ -253,6 +267,12 @@ function cueK0Run_(manual, mode) {
     work = cueK0Work_(s);
     try { work.moved = JSON.parse(P.getProperty('CUE_K0_TT_DUE') || 'null'); } catch (e) { work.moved = null; }
     if (work.tasks.length) { const keep = {}; work.tasks.forEach(t => { if (t.id) keep[t.id] = t.due; }); P.setProperty('CUE_K0_TT_DUE', JSON.stringify(keep)); }
+    // PAY-DAYS-2026-11-07: Monday and Wednesday only; a failed read is named in "Could not read".
+    if (cueK0PayDays_[new Date(Date.parse(day + 'T12:00:00+08:00')).getUTCDay()]) {
+      const next = cueK0Day_(day, 1);
+      try { const r = cueBridge_(s, 'pay_day_due', { day: next }) || {}; work.pay = { day: r.day || next, requests: r.requests || [], total: Number(r.total) || 0 }; }
+      catch (e) { work.missed.push('the payments due tomorrow in Canvas (' + cueStr_((e && e.message) || e, 120) + ')'); }
+    }
   }
   const K = cueK0Build_(day, contacts, mode, work);
   // CUE-JOB-THREADS-2026-11-03 (Kiko 3 Nov: "Scheduled Jobs should have their own thread and they are not supposed to be sent as an

@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.43: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
+## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
 
 Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
 be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
@@ -18,7 +18,29 @@ be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 
   electric blue.
 - Brand lock and mockup-review skills now name v2.0 (DM Sans, Archivo Black, lavender ground) instead of Steagal and Quicksand.
 
-Tests: 720/720 (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
+Tests: 727/727 (with main merged) (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
+## Cue 1.28.44: Payments for tomorrow in the Monday and Wednesday 8 AM update (not deployed)
+
+Kiko, 7 Nov 2026, SOP answer: "payment days are Tuesday and Thursday. The payment report runs Monday and Wednesday."; 12:45Z
+"approve all"; Canvas spec `docs/specs/payment-days.md` approved 13:11Z ("yes").
+
+- On Monday and Wednesday the 8 AM update has a "Payments for tomorrow" section: each payment request whose pay day is the next
+  day and that still has a balance (Request ID, project, payee, balance, "Urgent" when the Payment Date Required is before the
+  pay day, and the approval status when it is not Approved), then the total. Other days have no section.
+- It reads Canvas through the new bridge read `pay_day_due` (needs the Canvas release that adds it). A failed read is named under
+  "Could not read" and the rest of the update still goes. No AI call.
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (adds `pay_day_due`).
+- Tests: `test/features/90-pay-report.js` (PY1 to PY5). 727/727 pass.
+
+## Cue 1.28.43: labels use the Canvas variant names (not deployed)
+
+Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
+accent: "use a label"; 12:45Z: "approve all".
+
+- Every Cue label now uses the Canvas Brand.html variant names: `accent` / `plain` (the base tag), `warn`, `good` and `crit`.
+  `tag new` became `tag warn`, `tag pref` became `tag good`, `tag flag` became `tag crit`. Colours and sizes are unchanged.
+- The old names stay in `src/IndexStyle.html` as aliases with the same colours, so nothing renders differently.
+- Tests: `test/features/89-label-names.js` (LN1, LN2). 722/722 pass.
 
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 

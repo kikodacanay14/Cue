@@ -93,14 +93,14 @@ test('A6d Morning batch page: kinds and lines fold (first kind open), the urgent
   const h = ctx.card(r);
   assert.ok(/<details class="sec" data-swfold="R1\|CE award chasers" open><summary>CE award chasers \(2\)<\/summary>/.test(h), 'first kind open');
   assert.ok(/<details class="sec" data-swfold="R1\|RFQ reminders"><summary>RFQ reminders \(1\)/.test(h), 'other kinds folded');
-  assert.ok(/<details class="card swl"[^>]*data-swfold="R1\|award:a"><summary><b>Gala<\/b> <span class="tag flag">urgent<\/span><span class="small muted swn">Event 2026-11-01<\/span><\/summary>/.test(h), 'line folds to one row');
+  assert.ok(/<details class="card swl"[^>]*data-swfold="R1\|award:a"><summary><b>Gala<\/b> <span class="tag crit">urgent<\/span><span class="small muted swn">Event 2026-11-01<\/span><\/summary>/.test(h), 'line folds to one row');
   assert.ok(/data-act="sweep-one" data-id="R1" data-key="award:a">Send follow-up<\/button><button class="btn ghost" data-act="sweep-skip"/.test(h));
   assert.ok(/<textarea class="mail" data-sb="R1" data-k="award:a"/.test(h) && /only when you tap Send follow-up/.test(h));
   assert.ok(/<a class="btn" data-canvas="1" data-name="Old Gala" href="https:\/\/script\.google\.com\/macros\/s\/X\/exec\?page=canvas&amp;project=S-1"[^>]*>Open in Canvas<\/a><button class="btn ghost" data-act="sweep-skip"/.test(h));
   assert.ok(/<input type="checkbox" data-sk="R1" value="rfq:c" checked/.test(h) && !/data-sk="R1" value="award:a"/.test(h), 'the urgent line has no tick');
   assert.strictEqual((h.match(/data-act="sweep-send"/g) || []).length, 1, 'the RFQ line still counts as mail');
   const sent = ctx.card(Object.assign({}, r, { status: 'Done', batch: Object.assign({}, r.batch, { items: [Object.assign({}, r.batch.items[0], { sent: true })] }) }));
-  assert.ok(!/Send follow-up<\/button>/.test(sent) && /<span class="tag pref">sent<\/span>/.test(sent), 'sent: no button, a sent tag');
+  assert.ok(!/Send follow-up<\/button>/.test(sent) && /<span class="tag good">sent<\/span>/.test(sent), 'sent: no button, a sent tag');
   const after = ctx.card(Object.assign({}, r, { status: 'Scheduled' }));
   assert.ok(/Send follow-up<\/button>/.test(after) && !/sweep-skip/.test(after), 'after Approve and send the tap still works');
   assert.ok(page.indexOf("call('cueSweepSendOne', [id, b.getAttribute('data-key'), ta ? ta.value : ''], done, fail)") > 0, 'tap sends that box\'s words');
