@@ -30,6 +30,10 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
    tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
+6. **Live UI check** (Kiko 8 Nov 2026 06:11Z: "every build that is deployed should go through this in live production. use
+   KKD to do remote and test"): after each Cue release goes live, the session that shipped it runs the web-design-guidelines
+   skill against the changed views in live `/exec` on Kiko's PC KKD through Remote Control, read-only, and reports findings
+   by view. Cue's UI rules and the Canvas brand win where the Vercel list differs.
 
 ## Never
 
