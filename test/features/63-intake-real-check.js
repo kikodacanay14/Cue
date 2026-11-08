@@ -116,3 +116,30 @@ test('IR11 PR #347 review: each blank event detail needs its own TBC; a name onl
   assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, Object.assign({ files: 1 }, src)).event_in_inquiry, 'unverified');
   assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, src).client_in_inquiry, false);
 });
+
+test('IR12 Kiko 8 Nov ("definitely i want all"): research that names a kind of business gets no RFQ; the card says what was left out', () => {
+  const research = { prices: RESEARCH.prices, suppliers: [
+    { key: 'R3', name: 'SkyLights PH', email: 'hello@skylights.example', website: 'https://skylights.example', why: 'drone shows' },
+    { key: 'R3', name: 'Licensed electrical contractors (Metro Manila)', email: '', website: '', why: 'category' },
+    { key: 'R3', name: 'Event contractors / booth builders (e.g., local event fabrication houses)', email: '', website: '', why: 'category' },
+    { key: 'R3', name: 'LightAndSoundRental (rates blog)', email: '', website: '', why: 'blog' }] };
+  const t = startToCard({ research });
+  deq(t.v.proposal.lines[2].suppliers.map(s => s.name), ['SkyLights PH']);
+  assert.ok(t.v.notes.some(n => /named 3 kind\(s\) of business instead of a supplier/.test(n) && /Licensed electrical contractors/.test(n)));
+  assert.ok(!(t.v.proposal.rfqs || []).some(q => /contractors|blog/i.test(((q.suppliers || [])[0] || {}).name || '')), 'no RFQ goes to a category');
+  // Real names from check runs 2 and 3 stay, including slashes and brackets.
+  ['Floor Center / Tile Center', 'Landlite Philippines Corporation (distributor/retailer)', 'MCAV (alternate contact / Cebu branch reference)',
+    '8th Beat / 8th Beat Professional Lights and Sounds', 'ABC Builders', 'R2Z2 TABLES AND CHAIRS RENTALS'].forEach(n => assert.strictEqual(t.ctx.cueIsCategory_(n), false, n));
+  ['Pasay City LGU / Grand View Tower building admin', 'Major electrical suppliers (e.g., Ace Hardware / Handyman)', 'Local signage fabricators (examples: sign shops)',
+    'Nursery / event-prop rental companies', 'Kwyzer – assorted acts (market listings)', 'Local government RFQ examples (pricing reference)'].forEach(n => assert.strictEqual(t.ctx.cueIsCategory_(n), true, n));
+  // The research prompt asks for real companies only.
+  assert.ok(/never a kind of business/.test(t.ctx.CUE_RS_SYSTEM_ || require('fs').readFileSync(path.join(__dirname, '..', 'src', 'CueIntake.gs'), 'utf8')));
+});
+
+test('IR13 check run 3 (7 Nov): research that finds no suppliers at all is said on the card', () => {
+  const t = startToCard({ research: { prices: RESEARCH.prices, suppliers: [] } });
+  assert.ok(t.v.proposal.lines.some(l => l.flags.some(f => /No supplier on file or found/.test(f))));
+  assert.ok(t.v.notes.some(n => /Web research found no new suppliers this time/.test(n)));
+  const u = startToCard();
+  assert.ok(!u.v.notes.some(n => /Web research found no new suppliers/.test(n)), 'not said when research found some');
+});
