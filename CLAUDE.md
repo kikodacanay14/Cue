@@ -61,9 +61,6 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
 - Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
   marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
-- Usage rule (Kiko, 2 Nov 2026: "Hold off any UI or UX improvements if Usage is lower than 30$"): no UI or UX improvement while
-  Kiko's remaining Claude usage is under $30. Claude cannot see the balance, so it asks Kiko before starting UI or UX work; bug fixes
-  and requested features are not held.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
 
