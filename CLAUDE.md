@@ -57,6 +57,11 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 ## Working style
 
 - Kiko approves a spec before any build. Specs live in the project files under `canvas-integration/specs/`.
+- Terms and decisions: the glossary (`docs/glossary.md`) and the decision records (`docs/adr/`, indexed in
+  `docs/adr/README.md`) for Canvas and Cue live in CanvasWorkspace (Kiko, 8 Nov 2026: "can you make me a glossary and ADR",
+  then "Yes" to keeping them current). A Cue change that records a new Kiko decision adds its ADR there, and one that
+  introduces a new term adds its glossary entry there, in a CanvasWorkspace PR opened with the Cue PR. A replaced decision
+  is marked Superseded, never deleted.
 - While an approval about new access to people's data (mail, files, accounts) or a new standing job is pending, write
   none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
 - Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
