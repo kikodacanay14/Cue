@@ -12,6 +12,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+const { branchHasLive } = createRequire(import.meta.url)('./base-guard.cjs');
 
 const mode = process.argv[2];
 if (!['check', 'preview', 'test', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|test|deploy'); process.exit(2); }
@@ -53,7 +55,19 @@ if (!dep) fail('Cue web app deployment not found in that project');
 const live = dep.versionNumber;
 console.log(`Cue web app is on Version ${live || '(head)'}`);
 if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
+// G1 (Kiko 8 Nov 2026): the branch must already contain the live Version's code (tools/base-guard.cjs), so a deploy never wipes
+// live code. Needs the full history (deploy.yml checks out with fetch-depth 0). check reports it; deploy stops on it.
+let base = { ok: true, missing: [] };
+if (live) {
+  const liveDir = path.join(work, 'src');
+  base = branchHasLive(dep.description, Object.keys(sums(liveDir)).map(f => [f, path.join(liveDir, f)]),
+    args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }));
+  console.log(base.ok ? `BASE OK: this branch contains live Version ${live} (${base.how})`
+    : `BASE: this branch is missing live Version ${live} code (${base.how}): ${base.missing.join(', ')}`);
+}
 if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.exit(0); }
+if (mode === 'deploy' && !base.ok)
+  fail(`live Version ${live} has code this branch does not (${base.missing.join(', ')}). Someone else deployed, or the branch is on an old base: rebuild on the live Version first.`);
 
 const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));
