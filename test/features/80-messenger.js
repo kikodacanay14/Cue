@@ -154,6 +154,8 @@ function msgrSandbox(o = {}) {
     }
   }, o));
   t.props.MSGR_PAGE_TOKEN = 'page-token'; t.props.MSGR_RELAY_KEY = MSGR_KEY; t.props.MSGR_RELAY_URL = 'https://relay.example.workers.dev';
+  // These legacy tests isolate message handling; cadence is exercised separately in 92-msgr-cadence.js.
+  t.ctx.cueMsgrCadenceMs_ = () => 0;
   let T = Date.parse('2026-11-02T06:40:00Z'); t.ctx.cueNow_ = () => T; t.at = iso => { T = Date.parse(iso); };
   let n = 0;
   const door = event => { held.push({ id: 'e:' + String(1e12 + (++n)) + ':0000000' + n, event }); const h = t.ctx.cueMsgrPull_(); return { ok: true, handled: h }; };
