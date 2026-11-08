@@ -377,3 +377,15 @@ P with a thousands comma or 4 or more digits, "50k pesos" or "5,000 pesos", or t
 distinctive word.
 
 Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
+
+### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
+
+- Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
+  categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
+- Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
+  youre not asking me what i want next. coz definitely i want all." Read as Yes on this card. Kiko can reverse it with one word.
+- Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
+  "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
+- Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
+  out, and the research prompt asks for real companies only. Canvas Supplier Database names are never filtered. Tests IR12 and IR13.
+- Also (not a rule, a note): when web research finds no suppliers at all, the card says so (check run 3 found none with no note).
