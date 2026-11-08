@@ -88,3 +88,10 @@ test('BG7 live 1.28.47 vs a branch stamped 1.28.45 that holds its Messenger chan
   const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run);
   deq([res.ok, res.missing], [false, ['CueMessenger.gs']]);
 });
+test('BG8 G4: Deploy Cue counts saved versions and from 180 raises a run warning; it never stops the run', () => {
+  const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8');
+  const at = tool.indexOf("clasp(work, 'list-versions')"), g4 = tool.slice(at, tool.indexOf("if (mode === 'check') { console.log('CHECK OK"));
+  assert.ok(at > 0 && at < tool.indexOf("if (mode === 'check') { console.log('CHECK OK"), 'check mode shows it too');
+  assert.ok(/saved >= 180/.test(g4) && /::warning title=Saved versions/.test(g4) && /GITHUB_STEP_SUMMARY/.test(g4));
+  assert.ok(!/fail\(/.test(g4), 'never fails the run');
+});

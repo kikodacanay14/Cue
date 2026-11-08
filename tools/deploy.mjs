@@ -65,6 +65,16 @@ if (live) {
   console.log(base.ok ? `BASE OK: this branch contains live Version ${live} (${base.how})`
     : `BASE: this branch is missing live Version ${live} code (${base.how}): ${base.missing.join(', ')}`);
 }
+// G4 (Kiko 8 Nov 2026): Apps Script keeps 200 versions and Deploy Cue failed at 200 on 5 Nov. Warn from 180 (Canvas's limit,
+// Kiko 28 Oct "Yes, warn me at 180") on the run page and summary. It never blocks.
+try {
+  const vs = clasp(work, 'list-versions'), saved = (vs.versions || vs).length;
+  console.log(`saved versions: ${saved} of 200`);
+  if (saved >= 180) {
+    console.log(`::warning title=Saved versions ${saved} of 200::Deploys stop at 200. Delete old versions in Project history soon.`);
+    if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `VERSIONS WARNING: Cue has ${saved} of 200 saved versions; deploys stop at 200.\n`);
+  }
+} catch (e) { console.log('saved versions: could not read (' + e.message.split('\n')[0] + ')'); }
 if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.exit(0); }
 if (mode === 'deploy' && !base.ok)
   fail(`live Version ${live} has code this branch does not (${base.missing.join(', ')}). Someone else deployed, or the branch is on an old base: rebuild on the live Version first.`);
