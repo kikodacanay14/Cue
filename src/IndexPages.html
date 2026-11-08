@@ -187,7 +187,7 @@
       + '<input data-msgr-url placeholder="https://bse-messenger-relay.….workers.dev" value="' + esc(MS.url || '') + '" style="flex:1;min-width:180px"></div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><b style="min-width:110px">Page token</b>'
       + '<span class="' + (MS.token ? '' : 'muted') + '">' + (MS.token ? 'Saved' : 'Not set') + '</span>'
-      + '<input type="password" data-msgr-token placeholder="Paste the Page access token" autocomplete="off" style="flex:1;min-width:180px">'
+      + '<input type="password" data-msgr-token placeholder="Paste the Page access token" aria-label="Page access token" autocomplete="off" style="flex:1;min-width:180px">'
       + '<button class="btn ghost" data-msgr-save="1">Save</button></div>'
       + '</div>');
   }
