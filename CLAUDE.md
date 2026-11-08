@@ -122,3 +122,18 @@ Tickets live as Feature Board cards (collection `features`), not GitHub Issues. 
 ### Domain docs
 
 Single-context: `docs/business-rules.md` and `docs/decisions.md` are the decision record. See `docs/agents/domain.md`.
+
+## Glossary and decisions
+
+Kiko (8 Nov 2026) asked for these two files to be added to CLAUDE.md for every session. Both live in CanvasWorkspace and
+cover Canvas and Cue:
+
+- Glossary: [docs/glossary.md](https://github.com/kikodacanay14/CanvasWorkspace/blob/main/docs/glossary.md), the plain
+  meaning of every Canvas and Cue term, ID format and short form.
+- Decision records: [docs/adr/README.md](https://github.com/kikodacanay14/CanvasWorkspace/blob/main/docs/adr/README.md),
+  one ADR per decision in the Canvas and Cue decision logs.
+
+The full rule wording stays in CanvasWorkspace `docs/business-rules.md` and `docs/decisions.md`. Until CanvasWorkspace
+PR #601 merges, both files exist only on branch `claude/project-thread-rmkfi1`:
+[glossary](https://github.com/kikodacanay14/CanvasWorkspace/blob/claude/project-thread-rmkfi1/docs/glossary.md),
+[ADR index](https://github.com/kikodacanay14/CanvasWorkspace/blob/claude/project-thread-rmkfi1/docs/adr/README.md).
