@@ -66,11 +66,14 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   and requested features are not held.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
+
+## UI rules
+
 - Tables (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are
   always aligned center"; 14:51Z: "middle align tables for short columns and the headers"): centre every table header, every
   number cell (amount, count, percent) and every short column (each filled cell 12 characters or fewer: status, P-stage, date,
-  yes/no, code), on pages, Cue Admin, emails, reports and mockups. Long text keeps its own alignment, and every cell sits in
-  the middle of its row.
+  yes/no, code, days, labels), on pages, Cue Admin, emails, reports and mockups. Long text stays left (its own alignment), and
+  every cell sits in the middle of its row.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
 - UI rules for every card and table (Kiko, 30 Oct 2026 06:12Z: "Tables: Headers are always aligned Center. Columns with
@@ -84,9 +87,6 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
   same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
   marks what a mockup or release changes says only New, Changed or Removed, with no counts like "+5".
-- Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
-  short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
-  Mockups follow it too.
 
 ## Always-on skills
 
