@@ -20,11 +20,14 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
    (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's). This is Claude's own safety step, not a step
    for Kiko.
 4. **Live (/exec)**: the session that built and tested the release runs Deploy Cue `mode=deploy` itself, once the PC check
-   (when one applies) passes. Kiko is not asked for a go (Kiko 7 Nov 2026 12:34Z, on Canvas's 2 Nov "Claude deploys end to
-   end" rule: "that can apply to Cue"; his approval point is the spec and mockup, before the build: "i want something very
-   seamless and would require less interaction from me.,.. but i also want thorough scoping and design"). Record the release
-   in CanvasWorkspace `deploy-queue.md`. Never ship main live while it carries a change that failed or has not had its check:
-   cut a release branch from the last live commit plus the tested commits instead.
+   (when one applies) passes. Kiko is not asked for a go once he has approved the scope and design (Kiko 8 Nov 2026 01:03Z:
+   "whats important for me is that requirements are properly scoped, that you get to ask necessary questions to understand
+   the requirements, and that the design follows business rules, UI and UX logic and business branding guidelines. Once those
+   conditions are met, i am okay not having to say yes in the rest of deployment process"; applied to Cue at 01:06Z and
+   confirmed on a decision card at 01:08Z). Work that skipped scoping, or was built differently from the approved design,
+   still needs Kiko's yes before it goes live. Record the release in CanvasWorkspace `deploy-queue.md`. Never ship main live
+   while it carries a change that failed or has not had its check: cut a release branch from the last live commit plus the
+   tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
 
