@@ -9,10 +9,15 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - `node test/cue.test.js` runs every test in about 6 s. Run it before every commit; CI (Test Cue) runs it on every PR and push to main.
 - A new feature gets tests in `test/features/` (its own numbered file; `test/cue.test.js` loads them all). Bridge calls must match `test/fixtures/ZapBridge.gs`; refresh that copy
   from Canvas `src/ZapBridge.gs` whenever a Canvas release changes the bridge.
+- Before explaining why a CI job stalled or failed (Test Cue, Deploy Cue), read the check run's annotations
+  (`gh api repos/kikodacanay14/Cue/check-runs/<id>/annotations`) and quote them. A job still queued with no annotation is
+  "queued, cause not yet known" (review of 7 Nov 2026, observation 0061).
 
 ## How code reaches Kiko
 
-1. **main**: tested changes merge to main right away (PR, Test Cue green, merge). Don't park finished work on branches.
+1. **main**: tested changes merge to main right away (PR, Test Cue green, merge). Don't park finished work on branches. A
+   branch that is already pushed is updated by merging `origin/main` into it, never by rebasing (a rebase ends in a blocked
+   force push; observation 0013).
 2. **/dev (preview)**: when Test Cue passes on main, Deploy Cue runs `mode=preview` by itself and puts main on the /dev test
    link. Repo variable `CUE_AUTO_PREVIEW = off` pauses this (set it while a PC check must not see new code). Apps Script
    triggers run the head code, so the 07:00 jobs and schedules run main's code once it is previewed.

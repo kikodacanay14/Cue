@@ -1,6 +1,6 @@
 ---
-name: mockup-review
-description: Use inside scope-then-design after user stories are written — makes polished, brand-locked mockups of every screen a story shows, gets Kiko's approval screen by screen, and saves the approved versions so the build copies them exactly.
+name: "mockup-review"
+description: "Use inside scope-then-design after user stories are written — makes polished, brand-locked mockups of every screen a story shows, gets Kiko's approval screen by screen, and saves the approved versions so the build copies them exactly."
 ---
 
 # Mockup review
@@ -22,6 +22,13 @@ shown to him before anything is built.
   purple #2B0169, card navy, Steagal and Quicksand) is retired from app screens.
 - Keep the design system's own rules: one display moment per screen, the gradient only for the Home greeting, heroes and covers, never
   yellow on white, and status always shown with words, never colour alone.
+- The brand rules are the "Brand lock for Canvas and Cue screens" section of `scope-then-design` (colour roles, fonts,
+  alignment). Also copy the target app's live tokens into the mockup (Canvas: `src/Brand.html`; Cue: `src/IndexStyle.html`
+  and `src/CueStyle.gs`), using `ui-consistency:finding-patterns`, so the mockup looks like the app Kiko compares it with.
+  Where the live stylesheet and design system 2.0 differ, follow 2.0 and list the difference in the design plan, or check
+  `brand-ui-check/references/known-gaps.md` (observation 0034).
+- Before building, list the colour role of every filled element (buttons, tabs, tags, highlights) in the design plan
+  and check each against the Brand lock's colour roles (observation 0034).
 - Load `frontend-design` for craft, and tell it the brand lock overrides its own style choices.
 
 ## What to make
@@ -31,6 +38,11 @@ shown to him before anything is built.
   step.
 - Every screen shows its real states: filled, empty, loading, error, and phone width. Use realistic Blank Space
   examples (real-looking project names, amounts in ₱), never lorem ipsum.
+- When the ask is "show X" or "let me edit X", mock the working screen (filter, list, viewer, edit state) built from
+  the real source data and assets, not a document about it. Organise it by the source's own codes or ordering
+  (observation 0032).
+- Before calling anything in a source missing, read the source in full and count its entries. Never list it through
+  `head`, `tail` or any other cut (observation 0032).
 - Label each screen with its story ID.
 
 ## Showing Kiko

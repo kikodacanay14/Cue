@@ -1,6 +1,6 @@
 ---
-name: stories-and-rules
-description: Use inside scope-then-design to break an approved ask into Epics and User Stories on the Feature Board, and to pull every business rule out of them into the Rules register as Waiting for Kiko before anything is built.
+name: "stories-and-rules"
+description: "Use inside scope-then-design to break an approved ask into Epics and User Stories on the Feature Board, and to pull every business rule out of them into the Rules register as Waiting for Kiko before anything is built."
 ---
 
 # Stories and rules
@@ -47,6 +47,10 @@ A rule is any block, guard, check, refusal, "can't" or "must first" condition, l
    - **Approved**: cite it. Done.
    - **Waiting for Kiko / Not reviewed**: it is not usable yet. Add it to this ask's rule list.
    - **Not there**: it is new. Write it into the register as **Waiting for Kiko**, with the story ID that needs it.
+   - Before any rule goes to Kiko, grep its field name in the code and in the Rules register. Put every existing
+     automatic write and rule on that field on the rule's card, so his decision covers both (observation 0035).
+   - Every clause of a rule quotes Kiko or cites an Approved register row. A clause that does neither is written as
+     Waiting for Kiko, never as decided (observation 0029).
 3. Ask Kiko about the open rules in one batch with `ask-kiko`, one card per rule, at most four cards at a time. Group
    rules by page so he answers related ones together.
 4. Record each answer in the register with the date and his words: Approved, Kiko said remove, or changed wording.
