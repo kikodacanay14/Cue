@@ -87,6 +87,28 @@ test('BG7 live 1.28.47 vs a branch stamped 1.28.45 that holds its Messenger chan
   const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run);
   deq([res.ok, res.missing], [false, ['CueMessenger.gs']]);
 });
+test('BG9 Codex review: a live change right next to the stamp is checked on its own; the stamp in the same hunk never blocks', () => {
+  const r = bgRepo();
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.42';\n" + BG_LINES(20)); const base = r.commit('1.28.42');
+  r.git('checkout', '-q', '-b', 'rel');
+  const m = BG_LINES(20).split('\n'); m[0] = 'new first line';
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.47';\n" + m.join('\n')); const rel = r.commit('1.28.47');
+  r.git('checkout', '-q', 'main');
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.45';\n" + m.join('\n')); r.commit('1.28.45 with the change squashed in');
+  deq(BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run).ok, true);
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.45';\n" + BG_LINES(20)); r.commit('the change lost');
+  deq(BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run).missing, ['Cue.gs']);
+  deq(!!base, true);
+});
+test('BG10 Codex review: only the CUE_VERSION_ declaration is exempt; a changed line that uses CUE_VERSION_ is still checked', () => {
+  const r = bgRepo();
+  const f = flag => "const CUE_VERSION_ = 'Cue 1.28.42';\n" + BG_LINES(10) + 'return { version: CUE_VERSION_, feature: ' + flag + ' };\n' + BG_LINES(10);
+  r.put('Cue.gs', f(false)); r.commit('base');
+  r.git('checkout', '-q', '-b', 'rel'); r.put('Cue.gs', f(true)); const rel = r.commit('feature on');
+  r.git('checkout', '-q', 'main'); r.put('Admin.gs', 'x\n'); r.commit('other work');
+  const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run);
+  deq([res.ok, res.missing], [false, ['Cue.gs']]);
+});
 test('BG8 G4: Deploy Cue counts saved versions and from 180 raises a run warning; it never stops the run', () => {
   const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8');
   const at = tool.indexOf("clasp(work, 'list-versions')"), g4 = tool.slice(at, tool.indexOf("if (mode === 'check') { console.log('CHECK OK"));

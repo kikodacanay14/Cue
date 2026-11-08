@@ -24,7 +24,10 @@ function seenFromRawLog(raw) {
   return seen;
 }
 // diff: `git diff -U1 <base> <live> -- src/`. Returns [{ file, patch, stampOnly }], one per hunk, each a patch git apply takes.
-// stampOnly: the hunk only changes the CUE_VERSION_ line, which every release changes and a newer branch rightly differs on.
+// stampOnly: the hunk only changes the CUE_VERSION_ declaration, which every release changes and a newer branch rightly differs on.
+// Only the declaration counts (STAMP_), never a line that merely uses CUE_VERSION_, so a real change on such a line is checked.
+const STAMP_ = /^\s*const\s+CUE_VERSION_\s*=/;
+const isStamp = l => /^[+-]/.test(l) && STAMP_.test(l.slice(1));
 function hunks(diff) {
   const out = [];
   for (const sec of String(diff).split(/^(?=diff --git )/m).filter(x => x.startsWith('diff --git '))) {
@@ -33,7 +36,7 @@ function hunks(diff) {
     const head = sec.slice(0, at), file = (head.match(/^\+\+\+ b\/src\/(.+)$/m) || head.match(/^--- a\/src\/(.+)$/m) || [])[1] || '?';
     for (const h of sec.slice(at).split(/^(?=@@ )/m)) {
       const changed = h.split('\n').slice(1).filter(l => /^[+-]/.test(l));
-      out.push({ file, patch: head + h.replace(/\n?$/, '\n'), stampOnly: changed.length > 0 && changed.every(l => /\bCUE_VERSION_\b/.test(l)) });
+      out.push({ file, patch: head + h.replace(/\n?$/, '\n'), stampOnly: changed.length > 0 && changed.every(isStamp) });
     }
   }
   return out;
@@ -49,12 +52,23 @@ function branchHasLive(liveDesc, liveFiles, run) {
     // The branch holds live when every change live made since the shared base is already in the branch: each hunk, run
     // backwards, applies to the branch. A squash merge keeps the changes but loses the ancestry, so this still passes.
     const missing = [...new Set(hunks(run(['diff', '-U1', base, sha, '--', 'src/']))
-      .filter(h => !h.stampOnly && tryRun(['apply', '--reverse', '--check', '-C1', '-'], h.patch) === null).map(h => h.file))].sort((a, b) => a.localeCompare(b));
+      .filter(h => !h.stampOnly && tryRun(['apply', '--reverse', '--check', '-C1', '-'], ownStamp(h, run, tryRun)) === null).map(h => h.file))].sort((a, b) => a.localeCompare(b));
     return { ok: !missing.length, how: missing.length ? `live commit ${short} has changes this branch lacks`
       : `live commit ${short}'s changes are all in this branch (version stamp aside)`, missing };
   }
   const files = byFiles(liveFiles, run, tryRun);
   return { ok: files.ok, how: `live commit ${short || '(none in the description)'} not found; compared files`, missing: files.missing };
+}
+// A hunk that changes the stamp next to real code: the stamp is not what we check, so its lines become the branch's own
+// stamp line as context (the '-' line goes, the '+' line turns into ' ' plus this branch's line). Line counts stay the same.
+function ownStamp(h, run, tryRun) {
+  const lines = h.patch.split('\n');
+  if (!lines.some(isStamp)) return h.patch;
+  const src = tryRun(['show', 'HEAD:src/' + h.file]);
+  const mine = src === null ? null : src.split('\n').find(l => STAMP_.test(l));
+  if (mine === undefined || mine === null) return h.patch;
+  return lines.filter(l => !(l.startsWith('-') && !l.startsWith('---') && STAMP_.test(l.slice(1))))
+    .map(l => l.startsWith('+') && !l.startsWith('+++') && STAMP_.test(l.slice(1)) ? ' ' + mine : l).join('\n');
 }
 function byFiles(liveFiles, run, tryRun) {
   // Compare the live files' git blobs against every blob src/ ever had on this branch (plus today's src/).

@@ -377,3 +377,25 @@ P with a thousands comma or 4 or more digits, "50k pesos" or "5,000 pesos", or t
 distinctive word.
 
 Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
+
+## Deploy management (Kiko, 8 Nov 2026)
+
+### CUE-049: Deploy Cue never puts live a branch that lacks code already live (G1), and warns from 180 saved versions (G4)
+
+Intended policy: Kiko at 01:22Z on 8 Nov 2026 replied "G1, G2, G3, G4, G5, L1" to the plan "Deploy management across projects"
+(https://claude.ai/artifact/5mrvX4bk48EfHuuGazFtMh). G1 there reads: Deploy Cue refuses to deploy a branch that does not contain the
+code of the Version that is live. G4: warn before the 200 saved-version limit. Why (observed): on 5 Nov 2026 V202, built on V200,
+wiped the triage release live as V201.
+
+Implemented (`tools/base-guard.cjs`, `tools/deploy.mjs`):
+- The live Version's description names its commit ("Cue <sha>"). The branch passes when that commit is an ancestor, or when every
+  hunk the live commit changed since the shared base, run backwards, applies to the branch (a squash merge passes).
+- The `const CUE_VERSION_ = ...` declaration never blocks: a hunk that changes only it is skipped, and in a hunk that also changes
+  real code the declaration is replaced by the branch's own before the check. Any other line, including one that uses
+  `CUE_VERSION_`, is checked.
+- When the commit is not found, every live file must be one the branch's history has held.
+- `mode=check` prints a `BASE` line; `mode=deploy` stops before pushing and names the files. The script fetches full history itself.
+- From 180 saved versions the run shows a warning and a job-summary line. It never stops the run (Kiko 28 Oct 2026: "warn me at 180").
+
+Evidence: `test/features/92-deploy-base.js`, BG1 to BG10 (real git in a temp repo). Live check run 42434987571 on the branch printed
+"BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.
