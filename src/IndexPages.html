@@ -92,7 +92,7 @@
         // Folded: the line's name, its tags and a short note (the who for chasers without one). The tick stays on the row.
         h += '<details class="card swl" style="margin:8px 0 0;background:var(--input)' + dim + '" data-swfold="' + esc(fk) + '"' + swFold(fk, false) + '><summary>'
           + (tick ? '<input type="checkbox" data-sk="' + esc(r.id) + '" value="' + esc(it.key) + '"' + (it.selected ? ' checked' : '') + ' aria-label="Include ' + esc(it.project || it.who || 'this line') + ' in the send">' : it.removed ? '<span>–</span>' : it.sent || it.made ? '<span>✓</span>' : '')
-          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag crit">urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
+          + '<b>' + esc(it.project || it.who || it.summary) + '</b>' + (it.priority === 'urgent' ? ' <span class="tag crit">Urgent</span>' : '') + (SWEEP_GROUP[it.group] ? ' <span class="tag">' + SWEEP_GROUP[it.group][0] + '</span>' : '') + (state ? ' ' + state : '')
           + '<span class="small muted swn">' + esc(it.short || (it.project ? it.who : '') || '') + '</span></summary>'
           + '<div style="display:flex;gap:8px;align-items:flex-start"><span><span class="small muted">' + (it.who && it.project ? esc(it.who) + (it.to ? ' · ' + esc(it.to) : '') : '') + '</span>'
           + (it.kind === 'inbox' && it.subject && it.who ? '<br><span class="small">' + esc(it.subject) + '</span>' : '')
