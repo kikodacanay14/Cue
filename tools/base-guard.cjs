@@ -12,7 +12,7 @@ function liveCommit(desc) {
   return m ? m[1] : '';
 }
 function missingFromBranch(liveBlobs, seen) {
-  return Object.keys(liveBlobs).filter(f => !(seen[f] && seen[f].has(liveBlobs[f]))).sort();
+  return Object.keys(liveBlobs).filter(f => !(seen[f] && seen[f].has(liveBlobs[f]))).sort((a, b) => a.localeCompare(b));
 }
 // raw: output of `git log -m --no-abbrev --format= --raw --no-renames HEAD -- src/`.
 function seenFromRawLog(raw) {
@@ -49,7 +49,7 @@ function branchHasLive(liveDesc, liveFiles, run) {
     // The branch holds live when every change live made since the shared base is already in the branch: each hunk, run
     // backwards, applies to the branch. A squash merge keeps the changes but loses the ancestry, so this still passes.
     const missing = [...new Set(hunks(run(['diff', '-U1', base, sha, '--', 'src/']))
-      .filter(h => !h.stampOnly && tryRun(['apply', '--reverse', '--check', '-C1', '-'], h.patch) === null).map(h => h.file))].sort();
+      .filter(h => !h.stampOnly && tryRun(['apply', '--reverse', '--check', '-C1', '-'], h.patch) === null).map(h => h.file))].sort((a, b) => a.localeCompare(b));
     return { ok: !missing.length, how: missing.length ? `live commit ${short} has changes this branch lacks`
       : `live commit ${short}'s changes are all in this branch (version stamp aside)`, missing };
   }
