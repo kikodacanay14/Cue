@@ -60,6 +60,11 @@ if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
 let base = { ok: true, missing: [] };
 if (live) {
   const liveDir = path.join(work, 'src');
+  // G1 reads the branch's history. Actions checks out one commit only, so fetch the rest here (no workflow change).
+  try {
+    if (execFileSync('git', ['rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim() === 'true')
+      execFileSync('git', ['fetch', '--quiet', '--unshallow', 'origin'], { stdio: 'ignore' });
+  } catch (e) { console.log('BASE: could not fetch full history (' + e.message.split('\n')[0] + ')'); }
   base = branchHasLive(dep.description, Object.keys(sums(liveDir)).map(f => [f, path.join(liveDir, f)]),
     (args, input) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, input, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'ignore'] }));
   console.log(base.ok ? `BASE OK: this branch contains live Version ${live} (${base.how})`

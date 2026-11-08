@@ -64,13 +64,12 @@ test('BG5 commit not found and a live file this branch never held: refused', () 
   const res = BG.branchHasLive('Cue 1234abc', [['Cue.gs', path.join(out, 'Cue.gs')]], r.run);
   deq([res.ok, res.missing], [false, ['Cue.gs']]);
 });
-test('BG6 Deploy Cue wires it in: check reports, deploy stops, the workflow fetches full history', () => {
+test('BG6 Deploy Cue wires it in: check reports, deploy stops, deploy.mjs fetches full history', () => {
   const tool = fs.readFileSync(path.join(__dirname, '..', 'tools', 'deploy.mjs'), 'utf8');
-  const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'deploy.yml'), 'utf8');
   assert.ok(/base = branchHasLive\(dep\.description,/.test(tool), 'deploy.mjs runs the base check on the live deployment');
   assert.ok(/if \(mode === 'deploy' && !base\.ok\)\s*\n\s*fail\(/.test(tool), 'deploy stops when the branch lacks live code');
   assert.ok(tool.indexOf("if (mode === 'deploy' && !base.ok)") < tool.indexOf("clasp(pushDir, 'push', '--force')"), 'it stops before anything is pushed');
-  assert.ok(/fetch-depth: 0/.test(wf), 'the workflow checks out the whole history');
+  assert.ok(/'--unshallow'/.test(tool) && tool.indexOf("'--unshallow'") < tool.indexOf('base = branchHasLive('), 'deploy.mjs fetches the whole history before the check');
   deq(BG.liveCommit('Cue 8fe0da5'), '8fe0da5');
   deq(BG.liveCommit('Cue local'), '');
 });

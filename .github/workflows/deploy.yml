@@ -34,8 +34,6 @@ jobs:
         with:
           # Auto-preview ships the exact commit whose tests passed; a manual run ships the branch it was started on.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          # G1 (Kiko 8 Nov 2026): the base check reads the branch's whole history of src/.
-          fetch-depth: 0
       - name: Skip if main has moved on
         if: github.event_name == 'workflow_run'
         id: fresh
