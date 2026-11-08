@@ -18,7 +18,7 @@ function bgRepo() {
       const name = p.replace(/^src\//, ''); fs.writeFileSync(path.join(out, name), git('show', sha + ':' + p)); return [name, path.join(out, name)];
     });
   };
-  const run = a => git(...a);
+  const run = (a, input) => cp.execFileSync('git', a, { cwd: dir, encoding: 'utf8', input, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
   return { dir, git, put, commit, live, run };
 }
 const BG_LINES = n => Array.from({ length: n }, (_, i) => 'line ' + i).join('\n') + '\n';
@@ -73,4 +73,18 @@ test('BG6 Deploy Cue wires it in: check reports, deploy stops, the workflow fetc
   assert.ok(/fetch-depth: 0/.test(wf), 'the workflow checks out the whole history');
   deq(BG.liveCommit('Cue 8fe0da5'), '8fe0da5');
   deq(BG.liveCommit('Cue local'), '');
+});
+test('BG7 live 1.28.47 vs a branch stamped 1.28.45 that holds its Messenger change: the version stamp alone never blocks', () => {
+  const r = bgRepo();
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.42';\n" + BG_LINES(20)); r.put('CueMessenger.gs', BG_LINES(20)); r.commit('1.28.42');
+  r.git('checkout', '-q', '-b', 'rel');
+  const m = BG_LINES(20).split('\n'); m[10] = 'send again on now_at';
+  r.put('CueMessenger.gs', m.join('\n')); r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.47';\n" + BG_LINES(20)); const rel = r.commit('1.28.47');
+  r.git('checkout', '-q', 'main');
+  const c = BG_LINES(20).split('\n'); c[3] = 'report a bug';
+  r.put('Cue.gs', "const CUE_VERSION_ = 'Cue 1.28.45';\n" + c.join('\n')); r.put('CueMessenger.gs', m.join('\n')); r.commit('1.28.45 with the 1.28.47 change squashed in');
+  deq(BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run).ok, true);
+  r.put('CueMessenger.gs', BG_LINES(20)); r.commit('the Messenger change lost');
+  const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run);
+  deq([res.ok, res.missing], [false, ['CueMessenger.gs']]);
 });

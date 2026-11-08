@@ -61,7 +61,7 @@ let base = { ok: true, missing: [] };
 if (live) {
   const liveDir = path.join(work, 'src');
   base = branchHasLive(dep.description, Object.keys(sums(liveDir)).map(f => [f, path.join(liveDir, f)]),
-    args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }));
+    (args, input) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, input, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'ignore'] }));
   console.log(base.ok ? `BASE OK: this branch contains live Version ${live} (${base.how})`
     : `BASE: this branch is missing live Version ${live} code (${base.how}): ${base.missing.join(', ')}`);
 }
