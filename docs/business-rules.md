@@ -389,3 +389,14 @@ Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
 - Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
   out, and the research prompt asks for real companies only. Canvas Supplier Database names are never filtered. Tests IR12 and IR13.
 - Also (not a rule, a note): when web research finds no suppliers at all, the card says so (check run 3 found none with no note).
+
+
+## CUE-MSGR-CADENCE-2026-11-08: temporary incoming cadence
+
+User instruction (8 Nov 2026): hourly normal-day incoming polling, every minute from seven Manila days before through the recorded event day; revisit when developing Cue. Both incoming trigger paths share the gate. Outgoing jobs and relay immediate tap replies stay unchanged. See [design, acceptance and limitations](messenger-cadence.md).
+
+Canvas get_project_board / Admin Directory supplies the recorded date. Invalid/unknown dates, moved projects and explicit Not Awarded, Cancelled/Canceled, On Hold or Complete/Completed statuses do not activate fast mode. Dates/status refresh hourly. Missing board coverage falls back hourly with a diagnostic, never an invented event date. There is no multi-day end field in this contract.
+
+Preserve crew-code usability: after Canvas returns code_sent, poll every minute for at most ten minutes. This does not extend Canvas authentication expiry, change attempt limits or bypass verification. Then the event/normal cadence resumes. Failed relay attempts also observe cadence. Maximum50 queued events per pull is unchanged; large normal-day backlog can add delay.
+
+Free KV event-week capacity remains a known risk: minute polling alone can exceed1,000 LIST/day. No billing upgrade is authorized or performed by this change. Feature Board record remains unsynced until ArtifactData access is available.
