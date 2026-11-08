@@ -56,7 +56,7 @@ const live = dep.versionNumber;
 console.log(`Cue web app is on Version ${live || '(head)'}`);
 if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
 // G1 (Kiko 8 Nov 2026): the branch must already contain the live Version's code (tools/base-guard.cjs), so a deploy never wipes
-// live code. Needs the full history (deploy.yml checks out with fetch-depth 0). check reports it; deploy stops on it.
+// live code. It needs the full history, fetched below. check reports it; deploy stops on it.
 let base = { ok: true, missing: [] };
 if (live) {
   const liveDir = path.join(work, 'src');
