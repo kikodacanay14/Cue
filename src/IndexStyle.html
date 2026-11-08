@@ -498,6 +498,9 @@
   /* Today's tasks (Morning thread): places left, counts centred, every cell middle. */
   table.ttoday { width:100%; border-collapse:collapse; font-size:13px; } table.ttoday :is(th, td) { padding:6px 8px; text-align:center; vertical-align:middle; border-bottom:1px solid var(--line); }
   table.ttoday th { font-size:14px; font-weight:700; } table.ttoday td { color:var(--muted); font-weight:500; } table.ttoday td:first-child { text-align:left; }
+  /* A11Y-2026-11-08 (code review, Kiko 8 Nov 2026 "fix them"): digits in every table take equal widths, so money and count
+     columns stop shifting as numbers change. Look only. */
+  table :is(td, th) { font-variant-numeric:tabular-nums; }
   .tlink { background:none; border:0; padding:0; font:inherit; color:#2810DC; cursor:pointer; text-align:left; }
   /* CUE-CANVAS-LOOK-2026-10-31 (Kiko 31 Oct, mockups C2/D2 approved "perfect", then "A"): no magenta; a message's sent time sits
      under its box, outside it (left for Cue, right for Kiko), in chat and threads; Cue's lists are real lists; a thread's header

@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.48: form fields get labels, table digits line up (not deployed)
+
+Kiko, 8 Nov 2026, "fix them", on the Web Interface Guidelines code review
+(/mnt/project-files/audits/web-guidelines/2026-11-08-code-review.md). Accessibility only: nothing changes in what Cue does.
+
+- Labels: the 14 fields the review flagged now have a name that screen readers announce. These are the CE line Item, Spec,
+  Quantity and Days boxes, both Included/Optional pickers, both In house/Outsourced pickers, the two pairs of add-supplier boxes,
+  the Messenger Page access token box, and the ask box, which is named by its title.
+- Numbers: every table cell uses tabular digits, so money and count columns no longer change width as the numbers change.
+- Version label 1.28.48. Tests: `test/features/92-a11y-labels.js` (AL1 to AL3).
+
 ## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (live as Version 227, 7 Nov 2026 16:31Z, rollback 223, from release branch claude/project-thread-h0rk83-rel12847 = 1.28.42 plus this change)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
