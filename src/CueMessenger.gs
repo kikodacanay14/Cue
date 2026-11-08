@@ -439,6 +439,8 @@ function cueMsgrCrewMatch_(psid, at, text, T) {
   if (!m) return false;
   if (m.status === 'already') return cueMsgrCrewLinked_(psid, at, T, m, text);
   if (m.status === 'code_sent') {
+    // Keep the 10-minute code conversation responsive; Canvas still owns expiry and attempt limits.
+    PropertiesService.getScriptProperties().setProperty('CUE_MSGR_CODE_FAST_UNTIL', String(cueNow_() + 10 * 60000));
     cueMsgrSend_(psid, CUE_MSGR_SAY_.code(m.project, m.channel === 'mobile' ? m.hint : ''));
     T.m = 'code'; T.details = cueStr_(text, 1000); cueMsgrTriSave_(psid, T); log();
     cueChat_('Cue', 'Matched to ' + (m.person || T.name) + ' on ' + m.project + '. Cue sent them a 6-digit code by ' + (m.channel === 'mobile' ? 'SMS' : 'email') + '.', T.chat);
@@ -551,15 +553,65 @@ function cueMsgrSaid_(c) {
 
 /* ---------- collecting from the relay (Job Runs "Messenger inbox") ---------- */
 /** Collects held events from the relay, handles them, then tells the relay which to drop. Returns how many were handled. */
-/** CUE-MSGR-FAST-2026-11-05 (Kiko 5 Nov 04:30Z "5 minuites is not good"): the pull also runs from the 1-minute trigger
- * (cueRfpKick), so a reply goes out within about a minute. A short lease (CUE_MSGR_PULL_RUN) keeps the 1-minute and 5-minute
- * runs from collecting the same events twice. Returns how many were handled, or 0 while another run holds the lease. */
+/* CUE-MSGR-CADENCE-2026-11-08: Kiko requested hourly incoming polling on normal days, every minute from seven
+ * Manila calendar days before through the recorded event day. See docs/messenger-cadence.md and docs/business-rules.md.
+ * Both triggers enter here. Outgoing payment/sign-link jobs and the relay's immediate button replies are unchanged. */
+const CUE_MSGR_CADENCE_ = { normal: 3600000, fast: 60000 };
+function cueMsgrCadenceDay_(value) {
+  const s = String(value || '').trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/), y, mo, d;
+  if (m) { y=+m[1]; mo=+m[2]; d=+m[3]; }
+  else { m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (!m) return ''; y=+m[3]; mo=+m[1]; d=+m[2]; }
+  const dt=new Date(Date.UTC(y,mo-1,d));
+  return y >= 2000 && dt.getUTCFullYear()===y && dt.getUTCMonth()===mo-1 && dt.getUTCDate()===d ? dt.toISOString().slice(0,10) : '';
+}
+function cueMsgrCadenceDates_(projects) {
+  const off = /^(not awarded|cancelled|canceled|on hold|complete|completed)$/i;
+  return Array.from(new Set(projects.filter(p => p && !p.moved && String(p.id || '').trim() && !off.test(String(p.status || '').trim())
+    && !off.test(String(p.adminStatus || '').trim())).map(p => cueMsgrCadenceDay_(p.date)).filter(Boolean)));
+}
+function cueMsgrCadenceDays_(projects, today) {
+  const end = new Date(Date.parse(today + 'T00:00:00Z') + 7 * 86400000).toISOString().slice(0,10);
+  return cueMsgrCadenceDates_(projects).some(d => d >= today && d <= end);
+}
+function cueMsgrCadenceMs_(P, now) {
+  // Calendar boundaries use Manila, not the Apps Script host timezone. Cache dates, never today's fast/slow answer.
+  const today = new Date(now + 8 * 3600000).toISOString().slice(0,10);
+  const codeUntil=Number(P.getProperty('CUE_MSGR_CODE_FAST_UNTIL')||0);
+  if (codeUntil > now && codeUntil <= now + 10 * 60000) return CUE_MSGR_CADENCE_.fast;
+  let c=null; try { c=JSON.parse(P.getProperty('CUE_MSGR_CADENCE') || 'null'); } catch (e) { c=null; }
+  if (!c || !Array.isArray(c.days) || !Number.isFinite(c.at) || now < c.at || now-c.at >= CUE_MSGR_CADENCE_.normal) {
+    c={at:now,days:[]};
+    try {
+      const board=cueBridge_({id:'msgr-cadence'},'get_project_board',{});
+      if (!board || !Array.isArray(board.projects)) throw new Error('Canvas project board missing projects');
+      // At most nine distinct dates fit this cache; do not copy client names or the whole board into script properties.
+      const horizon=new Date(Date.parse(today+'T00:00:00Z')+8*86400000).toISOString().slice(0,10);
+      c.days=cueMsgrCadenceDates_(board.projects).filter(d=>d>=today && d<=horizon);
+      P.deleteProperty('CUE_MSGR_CADENCE_ERROR');
+    } catch(e) {
+      // Unknown dates are not proof of an event window. Keep receiving hourly and expose the coverage failure.
+      P.setProperty('CUE_MSGR_CADENCE_ERROR',new Date(now).toISOString()+': Canvas event dates unavailable; hourly fallback');
+      console.error('Messenger cadence: Canvas event dates unavailable; hourly fallback');
+    }
+    P.setProperty('CUE_MSGR_CADENCE',JSON.stringify(c));
+  }
+  return cueMsgrCadenceDays_(c.days.map(d=>({id:d,date:d})),today) ? CUE_MSGR_CADENCE_.fast : CUE_MSGR_CADENCE_.normal;
+}
 function cueMsgrPull_() {
   const P = PropertiesService.getScriptProperties(), l = LockService.getScriptLock(), now = cueNow_();
+  if (!/^https:\/\/[\w.-]+(\/[\w.-]*)*$/.test(String(P.getProperty('MSGR_RELAY_URL')||'').replace(/\/+$/,'')) ||
+      !P.getProperty('MSGR_RELAY_KEY') || !P.getProperty('MSGR_PAGE_TOKEN')) return 0;
   if (!l.tryLock(5000)) return 0;
   try { if (Number(P.getProperty('CUE_MSGR_PULL_RUN') || 0) > now) return 0; P.setProperty('CUE_MSGR_PULL_RUN', String(now + 4 * 60 * 1000)); }
   finally { l.releaseLock(); }
-  try { return cueMsgrPullOnce_(); } finally { P.deleteProperty('CUE_MSGR_PULL_RUN'); }
+  try {
+    const every=cueMsgrCadenceMs_(P,now), last=Number(P.getProperty('CUE_MSGR_PULL_LAST')||0);
+    if (last > 0 && now >= last && now-last < every) return 0;
+    // Count attempts too: an unavailable relay must not turn hourly polling back into minute retries.
+    P.setProperty('CUE_MSGR_PULL_LAST',String(now));
+    return cueMsgrPullOnce_();
+  } finally { P.deleteProperty('CUE_MSGR_PULL_RUN'); }
 }
 /** The 1-minute run (from cueRfpKick). Writes a Job Runs row only when it handled a message or failed, so quiet minutes leave none. */
 function cueMsgrKick_() {
