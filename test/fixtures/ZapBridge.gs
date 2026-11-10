@@ -496,6 +496,14 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: false, schema: { min_days_late: { type: 'number', min: 0 } },
     run: (r) => zbOverdueBillings_(r.args.min_days_late == null ? 7 : r.args.min_days_late)
   },
+  pay_day_due: {
+    // PAY-DAYS-2026-11-07 (spec docs/specs/payment-days.md, Kiko 7 Nov 2026 13:11Z "yes"; 12:45Z "Cue's 8 AM Mon and Wed report lists
+    // what's due next day"): the payment requests whose pay day (Tue or Thu, PayDays.gs payDay_) is `day` (default tomorrow,
+    // Manila) and that still have a balance. Returns { day, requests: [{ request_id, project_id, project, payee, approval, amount,
+    // balance, due, urgent }], total }. Read only.
+    kind: 'read', needsProject: false, schema: { day: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
+    run: (r) => payDayDue_(r.args.day)
+  },
   send_payment_chasers: {
     // CUE-2026-10-21 (Kiko 08:08-08:09Z): payment chasers go FROM info@ with Kiko on CC, one email per approved line, only
     // after Kiko approves it in Cue (Cue holds it until 09:00 PH). Canvas re-checks that every BI is still open and that the
@@ -544,6 +552,14 @@ const ZB_ACTIONS_ = {
       status: { type: 'string', required: true, oneOf: ['Sent', 'Failed'] }, thread_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ },
       message_id: { type: 'string', re: /^[A-Za-z0-9]{6,40}$/ }, note: { type: 'string', max: 300 } },
     run: (r) => rfpOutboxDone_(r.args)
+  },
+  service_desk_new: {
+    // BUG-REPORT-2026-11-07 (Kiko 7 Nov 2026 11:59Z, how Kiko hears of a new bug report: "can be thru Cue"): the 20 newest Service
+    // Desk reports, oldest first (ServiceDeskData.gs sdNewForCue_): ID, status, time, sender, page, Project ID, the first 300
+    // characters of the description and a link that opens it in Service Desk. No picture passes here. Cue tells Kiko about each ID
+    // above the highest one it already told him about. Read only.
+    kind: 'read', needsProject: false, schema: {},
+    run: () => sdNewForCue_()
   },
   run_now_list: {
     // CUE-ADMIN-MOVE-2026-10-29 (Kiko 29 Oct 03:43Z "lets move the AR, Incoice, Payment sent, Final Reminder Admin configs to Cue
@@ -710,6 +726,7 @@ const ZB_ACTIONS_ = {
 function zapBridge(raw, sig) {
   if (String(activeEmail_() || '')) throw new Error('This is only for the Zapier adapter.');
   const s = String(sig || '');   // GPT-DOOR-2026-10-23: no signature = a ChatGPT call, checked by its key instead
+  if (!s && zbDeskCall_(raw)) return JSON.stringify(zbDeskDoor_(String(raw || ''), Date.now()));   // SERVICE-DESK-DOOR-2026-11-07
   return JSON.stringify(s ? zbHandle_(String(raw || ''), s, Date.now(), false) : zbGptDoor_(String(raw || ''), Date.now()));
 }
 
@@ -783,6 +800,74 @@ function zbGptDoorRun_(raw, now, seen) {
   return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true)); // SITE-ACCESS-1-2026-10-28 F3: ChatGPT gets masked numbers
 }
 
+/* SERVICE-DESK-DOOR-2026-11-07 (Kiko 7 Nov 2026, service desk chat: "the fact that i sent it here its should be approved";
+ * "check out quick actions and see how things are done. so u can replicate it when i give that command to you"; "yes" to
+ * building this door; spec docs/specs/service-desk-quick-actions.md, Feature Board card sd-1-receipts-door).
+ * Kiko's service desk (a Claude session) runs the same bridge actions the ChatGPT door opens, which call the functions behind
+ * Canvas's quick actions, so every save keeps Canvas's own checks, lock, IDs, audit log and notices.
+ * No key: each call carries a ticket, a small file the service desk saves in Kiko's own Drive folder through his Google sign-in,
+ * whose text is the SHA-256 of the request. The door takes the call only when that file is in the service desk folder, is owned
+ * by Kiko, was made in the last 5 minutes, and its text equals the hash of the request it came with. Kiko turns the door off by
+ * removing info@'s access to the folder. Answers are masked as for ChatGPT, and every call, refusals too, is logged to the
+ * ledger book's tab _Service Desk Log. */
+const ZB_DESK_FOLDER_ = '1yJ_CE9OXWrZZQPd-xdmYqVZ3sAuyElkB';   // Kiko's My Drive: "Service desk (Canvas tickets and receipts)"
+const ZB_DESK_OWNER_ = 'kikodacanay@blankspaceevent.com';
+const ZB_DESK_TICKET_MS_ = 5 * 60 * 1000, ZB_DESK_SKEW_MS_ = 60 * 1000;
+const ZB_DESK_KEYS_ = ['desk', 'ticket', 'req'];
+const ZB_DESK_REQ_KEYS_ = ['command_id', 'action', 'project_id', 'expected_project_number', 'args'];
+const ZB_DESK_LOG_TAB_ = '_Service Desk Log';
+/** PURE: true when a raw body is a service desk call ({"desk":1,...}); anything else goes on to the ChatGPT door as before. */
+function zbDeskCall_(raw) {
+  let r; try { r = JSON.parse(String(raw || '')); } catch (e) { return false; }
+  return !!r && typeof r === 'object' && !Array.isArray(r) && r.desk === 1;
+}
+function zbDeskDoor_(raw, now) {
+  const seen = {}, out = zbDeskDoorRun_(raw, now, seen);
+  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, 'desk', seen.pid, ZB_DESK_LOG_TAB_);
+  return out;
+}
+/** The ticket check. '' = good; otherwise why it was refused. f is the Drive file (tests pass a stand-in). */
+function zbDeskTicketCheck_(f, req, now) {
+  if (!f || f.isTrashed()) return 'ticket not found';
+  let owner = ''; try { owner = String(f.getOwner().getEmail() || '').toLowerCase(); } catch (e) { owner = ''; }
+  if (owner !== ZB_DESK_OWNER_) return 'ticket is not Kiko\'s';
+  let inFolder = false; const ps = f.getParents();
+  while (ps.hasNext()) if (ps.next().getId() === ZB_DESK_FOLDER_) inFolder = true;
+  if (!inFolder) return 'ticket is not in the service desk folder';
+  const age = now - f.getDateCreated().getTime();
+  if (age > ZB_DESK_TICKET_MS_ || age < -ZB_DESK_SKEW_MS_) return 'ticket is too old';
+  const text = String(f.getBlob().getDataAsString('UTF-8') || '').trim().toLowerCase();
+  return zbSafeEq_(text, zbHash_(req)) ? '' : 'ticket does not match the request';
+}
+function zbDeskDoorRun_(raw, now, seen) {
+  let r; try { r = JSON.parse(raw); } catch (e) { return zbOut_('Rejected', {}, { error: 'body is not JSON' }); }
+  const extra = Object.keys(r).filter(k => ZB_DESK_KEYS_.indexOf(k) < 0);
+  if (extra.length) return zbOut_('Rejected', {}, { error: 'unexpected field: ' + extra[0].slice(0, 40) });
+  if (typeof r.ticket !== 'string' || !/^[\w-]{20,80}$/.test(r.ticket)) return zbOut_('Rejected', {}, { error: 'ticket missing' });
+  if (typeof r.req !== 'string' || !r.req) return zbOut_('Rejected', {}, { error: 'req missing' });
+  let o; try { o = JSON.parse(r.req); } catch (e) { return zbOut_('Rejected', {}, { error: 'req is not JSON' }); }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return zbOut_('Rejected', {}, { error: 'req must be a JSON object' });
+  seen.action = o.action;
+  const oextra = Object.keys(o).filter(k => ZB_DESK_REQ_KEYS_.indexOf(k) < 0);
+  if (oextra.length) return zbOut_('Rejected', o, { error: 'unexpected field: ' + oextra[0].slice(0, 40) });
+  let f = null; try { f = DriveApp.getFileById(r.ticket); } catch (e) { f = null; }
+  const bad = zbDeskTicketCheck_(f, r.req, now);
+  if (bad) return zbOut_('Rejected', o, { error: bad });
+  if (ZB_GPT_ACTIONS_.indexOf(String(o.action)) < 0 && ZB_DESK_ONLY_.indexOf(String(o.action)) < 0) return zbOut_('Rejected', o, { error: 'this action is not open to the service desk' });
+  const fr = { args: o.args }, fbad = zbGptFiles_(fr); if (fbad) return zbOut_('Rejected', o, { error: fbad });
+  const cid = o.command_id == null || o.command_id === '' ? 'desk-' + Utilities.getUuid() : String(o.command_id);
+  const q = { command_id: cid, task_id: 'desk:' + cid, action: o.action, args: fr.args == null ? {} : fr.args };
+  // Same rule as the ChatGPT door (GPT-PID-2026-11-03): a top-level project_id goes into args when the action takes it there.
+  const act = zbOwn_(ZB_ACTIONS_, o.action) ? ZB_ACTIONS_[o.action] : null;
+  if (o.project_id && act && !act.needsProject && typeof act.kindOf !== 'function') {
+    const a = q.args;
+    if (a && typeof a === 'object' && !Array.isArray(a) && act.schema && zbOwn_(act.schema, 'project_id') && !zbOwn_(a, 'project_id')) a.project_id = o.project_id;
+  } else if (o.project_id) q.project_id = o.project_id;
+  if (o.expected_project_number) q.expected_project_number = o.expected_project_number;
+  seen.q = q; seen.pid = o.project_id ? String(o.project_id).slice(0, 60) : '';
+  return zbGptMask_(zbHandle_(JSON.stringify(q), '', now, true));
+}
+
 /* SITE-ACCESS-1-2026-10-28 F3 (Kiko 28 Oct 04:44Z "yes"; spec site-access-audit/SPEC.md R4: "Answers to ChatGPT (GPT door and
  * @Canvas connector) carry bank and GCash numbers as the last 4 only, TINs masked, and no personal phones or home addresses").
  * The door runs as the bridge's Manager identity, so results can carry full account numbers (getProject payBank, Transfers bank
@@ -834,10 +919,11 @@ function zbGptMaskAll_(v, f, depth) {
   return f(v);
 }
 // One row per ChatGPT call in the ledger book (tab _ChatGPT Door Log), for the read-only write check. Never blocks the answer.
-function zbGptLog_(q, out, task, pid) {
+function zbGptLog_(q, out, task, pid, tab) {   // tab: the service desk door logs to its own tab (SERVICE-DESK-DOOR-2026-11-07)
   try {
     const id = PropertiesService.getScriptProperties().getProperty('ZAD_LEDGER_ID'); if (!id) return;
-    const ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(ZB_GPT_LOG_TAB_) || ss.insertSheet(ZB_GPT_LOG_TAB_);
+    tab = tab || ZB_GPT_LOG_TAB_;
+    const ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
     if (sh.getLastRow() === 0) sh.appendRow(ZB_GPT_LOG_HEAD_);
     const t = JSON.stringify([out.result, out.steps, out.evidence]) || '', uniq = a => a.filter((x, i) => a.indexOf(x) === i);
     const ids = uniq(t.match(/\b(REQ\d{2}-[\w-]+|SCP\d{2}-[\w-]+|S-\d{3,12}[A-Z0-9]{2}|AP-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-\d{1,4}|ENT-\d{2,}-\d{2,}-\d{1,4})\b/g) || []);
@@ -919,6 +1005,18 @@ ZB_ACTIONS_.expense_add = {
       : { ok: false, rejected: true, error: String(res.error || 'refused') };
   }
 };
+// transfer_move_proof: PROOF-MOVE-2026-11-07 (Kiko 7 Nov 2026 15:47Z "fix it now!!!!!"): a proof saved on the wrong person's line goes
+// to a new Paid line for the right person (transferMoveProof_ in Code.gs). Service desk only.
+ZB_ACTIONS_.transfer_move_proof = {
+  kind: 'write', needsProject: true,
+  schema: { request_id: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ }, from_name: { type: 'string', required: true, max: 120 },
+    from_confirmation: { type: 'string', required: true, max: 120 }, to_name: { type: 'string', required: true, max: 120 },
+    amount: { type: 'number', required: true, positive: true }, date: { type: 'string', required: true, max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
+    confirmation: { type: 'string', required: true, max: 120 } },
+  run: (r) => { try { return transferMoveProof_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.moved ? { ok: true } : { ok: false, rejected: true, error: String((res && (res.refused || res.error)) || 'refused') }
+};
+const ZB_DESK_ONLY_ = ['transfer_move_proof']; // PROOF-MOVE-2026-11-07: the service desk door only, never the ChatGPT door
 // expense_edit: Canvas's Edit request (editPaymentRequest): unpaid requests only, and each change carries the value it replaces.
 const ZB_GPT_EDIT_ = { amount: 'amount', cost_type: 'cost type', expense_type: 'expense type', payee: 'payee', payment_stage: 'payment stage',
   payment_date_required: 'payment date required', supplier_quotation: 'supplier quotation' };
@@ -2197,7 +2295,7 @@ ZB_ACTIONS_.ce_save_version = {
   kind: 'write', needsProject: true, retrySafe: false,
   schema: { new_version: { type: 'boolean' }, ce_key: { type: 'string', re: /^[A-Za-z0-9_-]{1,60}$/ } },
   run: (r) => { try {
-    if (String(r.task_id || '').indexOf('gpt:') !== 0) throw new Error('ce_save_version is only open to the ChatGPT door. Nothing was saved.');
+    if (!/^(gpt|desk):/.test(String(r.task_id || ''))) throw new Error('ce_save_version is only open to the ChatGPT door and the service desk door. Nothing was saved.');   // DESK-PREFIX-2026-11-07 (Codex review of #571)
     return gceSaveVersion_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
     : res && res.ok ? { ok: true, evidence: { ce_no: res.ce_no, version: res.version, pdf_url: res.pdf ? res.pdf.url : '', filed_url: res.filed ? res.filed.url : '' } }
@@ -2212,7 +2310,8 @@ ZB_GPT_ACTIONS_.push('ce_save_version', 'ce_versions');
 (function () {
   const a = ZB_ACTIONS_.save_ce_requirements, run0 = a.run;
   a.run = (r, proj, prior) => { const res = run0(r, proj, prior);
-    if (String(r.task_id || '').indexOf('gpt:') === 0 && r.args.subs) { try { gceNoteSubs_(r.project_id, r.args.subs, res); } catch (e) { /* never fails the save */ } }
+    if (/^(gpt|desk):/.test(String(r.task_id || '')) && r.args.subs) {   // DESK-PREFIX-2026-11-07: desk-made sub-items are noted too
+      try { gceNoteSubs_(r.project_id, r.args.subs, res); } catch (e) { /* never fails the save */ } }
     return res; };
 })();
 

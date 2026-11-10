@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.51: a chat line for each new Canvas bug report (not deployed)
+
+Kiko, 7 Nov 2026 11:47Z asked for a Report a bug function in Canvas; 11:59Z "3. can be thru Cue" (Kiko hears about each report
+through Cue); "build" 13:11Z; "Deploy" 10 Nov 2026 04:08Z. Canvas side live as main V523 (10 Nov 2026 05:53:55Z). Release branch
+= live 1.28.50 (claude/project-thread-c8aunt-rel12850) plus this change only; built and tested as 1.28.49 in Cue PR #350, which
+never shipped.
+
+- New background job "Service Desk reports" (src/CueServiceDesk.gs, every 15 minutes): reads Canvas's read-only bridge action
+  `service_desk_new` and posts one Cue chat line per new report: who sent it, the page, the project, the first 300 characters,
+  whether a picture came with it, and an Open in Service Desk button. Check versions skip it.
+- `CUE_CHECK_READS_` lists `service_desk_new`; `test/fixtures/ZapBridge.gs` refreshed from live Canvas V523.
+- Tests SD1 to SD3 (test/features/89-service-desk.js).
+
 ## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (not deployed)
 
 Kiko, 8 Nov 2026 06:31Z, "fix them", after the live web-guidelines check of Cue on KKD; 10 Nov 2026 04:07Z he picked
