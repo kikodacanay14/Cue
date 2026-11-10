@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.51: Cue tells Kiko about each new Canvas bug report (live as Version 232, 10 Nov 2026 06:07:17Z, rollback 230, from release branch claude/project-thread-d3jc54-rel12851 = live 1.28.50 plus this change; built here as 1.28.49, which never shipped)
+
+Kiko, 7 Nov 2026 11:47Z: "i want a report a bug function. this will take a screenshot of the window accessed and have a
+paragraph form. after submitting it will go to service desk". 11:59Z, answer 3 on how Kiko hears about a report: "can be thru Cue".
+
+- New background job "Service Desk reports" (src/CueServiceDesk.gs), every 15 minutes, no AI: it reads Canvas's newest bug
+  reports through the new read-only bridge action service_desk_new and posts one chat line per report it has not told Kiko
+  about yet: who sent it, the page and project, the first 300 characters, whether a picture came with it, and an "Open
+  BUG-xxxx in Service Desk" button. Cue remembers the highest report number it told (script property CUE_SD_STATE).
+- Needs the Canvas release that adds Report a bug and service_desk_new (CanvasWorkspace PR #580, slot main-526); until then
+  the read fails in Job Runs every 15 minutes, so ship Canvas first.
+- service_desk_new added to the cloud check's allowed reads; test/fixtures/ZapBridge.gs gains service_desk_new.
+- Tests: test/features/89-service-desk.js (SD1-SD3).
 ## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (live as Version 230, 10 Nov 2026, rollback 227, from release branch claude/project-thread-c8aunt-rel12850 = live 1.28.47 plus this change)
 
 Kiko, 8 Nov 2026 06:31Z, "fix them", after the live web-guidelines check of Cue on KKD; 10 Nov 2026 04:07Z he picked
