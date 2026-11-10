@@ -380,10 +380,15 @@ Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
 
 ### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
 
+**Status: APPROVED by Kiko, 10 Nov 2026 04:16:01Z**, his own tap on the decision card "Should Cue skip RFQs to a kind of business
+instead of a named supplier?": "Yes, skip and note them" (thread "Watchdog: RFQ skip rule shipped on an inferred yes"). Until then
+it was not approved (watchdog finding W1): from 8 Nov to 10 Nov this entry wrongly recorded the 06:33Z message below as Kiko's yes.
+That message asked for the overall plan and did not answer the card.
+
 - Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
   categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
 - Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
-  youre not asking me what i want next. coz definitely i want all." Read as Yes on this card. Kiko can reverse it with one word.
+  youre not asking me what i want next. coz definitely i want all." This was wrongly read as Yes on this card; see the status line above.
 - Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
   "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
 - Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left

@@ -1,5 +1,5 @@
 // Rules the intake-real check applies to what intake produced (backlog card intake-real-check, spec approved by Kiko 7 Nov 2026 13:59Z).
-// R1 to R3 are Kiko's own answers, recorded in docs/business-rules.md as CUE-047 to CUE-049:
+// R1 to R3 are Kiko's own answers, recorded in docs/business-rules.md as CUE-048:
 //   R1 an RFQ to a supplier never names the client (Kiko 7 Nov 2026 13:37Z "1. yes", confirmed 13:38Z);
 //   R2 an RFQ to a supplier never states a price or budget (same answer);
 //   R3 an RFQ to a supplier never mentions other suppliers (Kiko 7 Nov 2026 13:59Z, "Yes").

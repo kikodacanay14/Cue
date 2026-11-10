@@ -279,7 +279,7 @@ function cueIntakeBuild_(s, E, a, research, asked) {
       ((research && research.suppliers) || []).filter(z => z && z.key === r.key).forEach(z => {
         const nm = cueStr_(z.name, 200).trim();
         if (!nm || db.some(d => cueName_(d.name) === cueName_(nm)) || sups.some(d => cueName_(d.name) === cueName_(nm)) || sups.length >= CUE_SUPS_) return;
-        // Kiko 8 Nov 2026 ("definitely i want all", on the card "Should Cue skip RFQs to supplier categories?"): a category is not a supplier.
+        // CUE-049, Kiko 10 Nov 2026 04:16Z ("Yes, skip and note them"): a kind of business is not a supplier, so no RFQ goes to it.
         if (cueIsCategory_(nm)) { dropped.push(nm); return; }
         sups.push({ name: nm, email: cueEmail_(z.email), new: true, accredited: false, preferred: false,
           why: 'New, unaccredited: ' + cueStr_(z.why, 160), website: /^https:\/\/[^\s]{4,300}$/.test(String(z.website || '')) ? String(z.website) : '' });

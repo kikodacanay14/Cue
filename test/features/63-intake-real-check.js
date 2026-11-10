@@ -117,7 +117,7 @@ test('IR11 PR #347 review: each blank event detail needs its own TBC; a name onl
   assert.strictEqual(irRules.readBack({ client: 'Foundever', event: { name: 'Gala Night' } }, src).client_in_inquiry, false);
 });
 
-test('IR12 Kiko 8 Nov ("definitely i want all"): research that names a kind of business gets no RFQ; the card says what was left out', () => {
+test('IR12 CUE-049 (Kiko 10 Nov, "Yes, skip and note them"): research that names a kind of business gets no RFQ; the card says what was left out', () => {
   const research = { prices: RESEARCH.prices, suppliers: [
     { key: 'R3', name: 'SkyLights PH', email: 'hello@skylights.example', website: 'https://skylights.example', why: 'drone shows' },
     { key: 'R3', name: 'Licensed electrical contractors (Metro Manila)', email: '', website: '', why: 'category' },
