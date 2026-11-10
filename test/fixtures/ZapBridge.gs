@@ -555,7 +555,7 @@ const ZB_ACTIONS_ = {
   },
   service_desk_new: {
     // BUG-REPORT-2026-11-07 (Kiko 7 Nov 2026 11:59Z, how Kiko hears of a new bug report: "can be thru Cue"): the 20 newest Service
-    // Desk reports, oldest first (ServiceDesk.gs sdNewForCue_): ID, status, time, sender, page, Project ID, the first 300
+    // Desk reports, oldest first (ServiceDeskData.gs sdNewForCue_): ID, status, time, sender, page, Project ID, the first 300
     // characters of the description and a link that opens it in Service Desk. No picture passes here. Cue tells Kiko about each ID
     // above the highest one it already told him about. Read only.
     kind: 'read', needsProject: false, schema: {},
@@ -853,7 +853,7 @@ function zbDeskDoorRun_(raw, now, seen) {
   let f = null; try { f = DriveApp.getFileById(r.ticket); } catch (e) { f = null; }
   const bad = zbDeskTicketCheck_(f, r.req, now);
   if (bad) return zbOut_('Rejected', o, { error: bad });
-  if (ZB_GPT_ACTIONS_.indexOf(String(o.action)) < 0) return zbOut_('Rejected', o, { error: 'this action is not open to the service desk' });
+  if (ZB_GPT_ACTIONS_.indexOf(String(o.action)) < 0 && ZB_DESK_ONLY_.indexOf(String(o.action)) < 0) return zbOut_('Rejected', o, { error: 'this action is not open to the service desk' });
   const fr = { args: o.args }, fbad = zbGptFiles_(fr); if (fbad) return zbOut_('Rejected', o, { error: fbad });
   const cid = o.command_id == null || o.command_id === '' ? 'desk-' + Utilities.getUuid() : String(o.command_id);
   const q = { command_id: cid, task_id: 'desk:' + cid, action: o.action, args: fr.args == null ? {} : fr.args };
@@ -1005,6 +1005,18 @@ ZB_ACTIONS_.expense_add = {
       : { ok: false, rejected: true, error: String(res.error || 'refused') };
   }
 };
+// transfer_move_proof: PROOF-MOVE-2026-11-07 (Kiko 7 Nov 2026 15:47Z "fix it now!!!!!"): a proof saved on the wrong person's line goes
+// to a new Paid line for the right person (transferMoveProof_ in Code.gs). Service desk only.
+ZB_ACTIONS_.transfer_move_proof = {
+  kind: 'write', needsProject: true,
+  schema: { request_id: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ }, from_name: { type: 'string', required: true, max: 120 },
+    from_confirmation: { type: 'string', required: true, max: 120 }, to_name: { type: 'string', required: true, max: 120 },
+    amount: { type: 'number', required: true, positive: true }, date: { type: 'string', required: true, max: 10, re: /^\d{4}-\d{2}-\d{2}$/ },
+    confirmation: { type: 'string', required: true, max: 120 } },
+  run: (r) => { try { return transferMoveProof_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.moved ? { ok: true } : { ok: false, rejected: true, error: String((res && (res.refused || res.error)) || 'refused') }
+};
+const ZB_DESK_ONLY_ = ['transfer_move_proof']; // PROOF-MOVE-2026-11-07: the service desk door only, never the ChatGPT door
 // expense_edit: Canvas's Edit request (editPaymentRequest): unpaid requests only, and each change carries the value it replaces.
 const ZB_GPT_EDIT_ = { amount: 'amount', cost_type: 'cost type', expense_type: 'expense type', payee: 'payee', payment_stage: 'payment stage',
   payment_date_required: 'payment date required', supplier_quotation: 'supplier quotation' };

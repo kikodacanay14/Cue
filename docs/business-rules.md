@@ -380,12 +380,47 @@ Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
 
 ### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
 
+**Status: APPROVED by Kiko, 10 Nov 2026 04:16:01Z**, his own tap on the decision card "Should Cue skip RFQs to a kind of business
+instead of a named supplier?": "Yes, skip and note them" (thread "Watchdog: RFQ skip rule shipped on an inferred yes"). Until then
+it was not approved (watchdog finding W1): from 8 Nov to 10 Nov this entry wrongly recorded the 06:33Z message below as Kiko's yes.
+That message asked for the overall plan and did not answer the card.
+
 - Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
   categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
 - Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
-  youre not asking me what i want next. coz definitely i want all." Read as Yes on this card. Kiko can reverse it with one word.
+  youre not asking me what i want next. coz definitely i want all." This was wrongly read as Yes on this card; see the status line above.
 - Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
   "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
 - Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
   out, and the research prompt asks for real companies only. Canvas Supplier Database names are never filtered. Tests IR12 and IR13.
 - Also (not a rule, a note): when web research finds no suppliers at all, the card says so (check run 3 found none with no note).
+
+## Deploy management (Kiko, 8 Nov 2026)
+
+### CUE-050: Deploy Cue never puts live a branch that lacks code already live (G1), and warns from 180 saved versions (G4)
+
+Intended policy: Kiko at 01:22Z on 8 Nov 2026 replied "G1, G2, G3, G4, G5, L1" to the plan "Deploy management across projects"
+(https://claude.ai/artifact/5mrvX4bk48EfHuuGazFtMh). G1 there reads: Deploy Cue refuses to deploy a branch that does not contain the
+code of the Version that is live. G4: warn before the 200 saved-version limit. Why (observed): on 5 Nov 2026 V202, built on V200,
+wiped the triage release live as V201.
+
+Implemented (`tools/base-guard.cjs`, `tools/deploy.mjs`):
+- The live Version's description names its commit ("Cue <sha>"). The branch passes when that commit is an ancestor, or when every
+  hunk the live commit changed since the shared base, run backwards, applies to the branch (a squash merge passes).
+- The `const CUE_VERSION_ = ...` declaration never blocks: a hunk that changes only it is skipped, and in a hunk that also changes
+  real code the declaration is replaced by the branch's own before the check. Any other line, including one that uses
+  `CUE_VERSION_`, is checked.
+  The same holds when the declaration is only an unchanged context line beside a live change.
+- Only the files Deploy Cue pushes (`.gs`, `.html`, `.json` in `src/`) are compared, and a renamed file counts as a delete
+  plus an add, so a renamed template is checked.
+- When the commit is not found, every live file must be one the branch's history has held.
+- `mode=check` prints a `BASE` line; `mode=deploy` stops before pushing and names the files. The script fetches full history itself.
+- From 180 saved versions the run shows a warning and a job-summary line. It never stops the run (Kiko 28 Oct 2026: "warn me at 180").
+
+Known limits (Codex review on PR #355, 10 Nov 2026, left as they are): the check reverse-applies each live hunk with one line
+of context. (a) If the same few lines also exist elsewhere in the file, a branch that lost the live change can still pass.
+(b) If the branch also edited a line right next to a live change, it is refused even though it holds the change; rebuilding
+on the live Version clears it. Both need the same code near a live change, which no Cue release so far has hit.
+
+Evidence: `test/features/92-deploy-base.js`, BG1 to BG13 (real git in a temp repo). Live check run 42434987571 on the branch printed
+"BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.

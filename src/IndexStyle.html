@@ -509,4 +509,10 @@
   #ptabs.cat-proj { background:#2810DC; color:#fff; } #ptabs.cat-crm { background:#F06A25; color:#16151B; } #ptabs.cat-gen { background:#23006F; color:#fff; }
   #ptabs:is(.cat-proj,.cat-gen) :is(button,.t,.crumb,.ibtn) { color:#fff; } #ptabs.cat-crm :is(button,.t,.crumb,.ibtn) { color:#16151B; }
   .trow.cat-proj { box-shadow:inset 3px 0 0 #2810DC; } .trow.cat-crm { box-shadow:inset 3px 0 0 #F06A25; } .trow.cat-gen { box-shadow:inset 3px 0 0 #23006F; }
+  /* WEB-GUIDELINES-2026-11-08 (Kiko 8 Nov 2026 06:31Z "fix them", after the live web-guidelines check): number cells use
+     fixed-width digits so amounts and counts line up, and motion stops for people who ask their system for less motion. */
+  table td, table th, .tag { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  }
 </style>

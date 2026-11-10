@@ -33,3 +33,8 @@ test('UR5 icons beside a label or button text sit in the middle', () => {
   assert.ok(/\.btn svg, \.tag svg, \.fk svg, \.label svg, summary svg \{ vertical-align:middle;/.test(b));
   assert.ok(/#settings \.ic \{ vertical-align:middle; \}/.test(b));
 });
+test('UR9 web guidelines (Kiko 8 Nov 2026 "fix them"): fixed-width digits in tables and tags, motion off under reduced motion', () => {
+  const css = UR_CSS();
+  assert.ok(/table td, table th, \.tag \{ font-variant-numeric: tabular-nums; \}/.test(css), 'tabular digits');
+  assert.ok(/@media \(prefers-reduced-motion: reduce\) \{[^}]*transition-duration: 0\.01ms !important;/.test(css), 'reduced motion');
+});
