@@ -25,11 +25,18 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
    the requirements, and that the design follows business rules, UI and UX logic and business branding guidelines. Once those
    conditions are met, i am okay not having to say yes in the rest of deployment process"; applied to Cue at 01:06Z and
    confirmed on a decision card at 01:08Z). Work that skipped scoping, or was built differently from the approved design,
-   still needs Kiko's yes before it goes live. Record the release in CanvasWorkspace `deploy-queue.md`. Never ship main live
+   still needs Kiko's yes before it goes live. Record the release in CanvasWorkspace `deploy-queue.md` and update the `cue` entry of CanvasWorkspace `live.json` in
+   the same commit (G2, Kiko 8 Nov 2026). Before building, read `live.json` and build on that Version. Claim the
+   `1.28.x` number yourself first in the shared `slots` list (CanvasWorkspace CLAUDE.md, "How code goes live", G3). Deploy Cue refuses
+   a branch that lacks the live code (G1, `tools/base-guard.cjs`); `mode=check` prints the result as a `BASE` line. Never ship main live
    while it carries a change that failed or has not had its check: cut a release branch from the last live commit plus the
    tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
+6. **Live UI check** (Kiko 8 Nov 2026 06:11Z: "every build that is deployed should go through this in live production. use
+   KKD to do remote and test"): after each Cue release goes live, the session that shipped it runs the web-design-guidelines
+   skill against the changed views in live `/exec` on Kiko's PC KKD through Remote Control, read-only, and reports findings
+   by view. Cue's UI rules and the Canvas brand win where the Vercel list differs.
 
 ## Never
 
