@@ -412,5 +412,10 @@ Implemented (`tools/base-guard.cjs`, `tools/deploy.mjs`):
 - `mode=check` prints a `BASE` line; `mode=deploy` stops before pushing and names the files. The script fetches full history itself.
 - From 180 saved versions the run shows a warning and a job-summary line. It never stops the run (Kiko 28 Oct 2026: "warn me at 180").
 
+Known limits (Codex review on PR #355, 10 Nov 2026, left as they are): the check reverse-applies each live hunk with one line
+of context. (a) If the same few lines also exist elsewhere in the file, a branch that lost the live change can still pass.
+(b) If the branch also edited a line right next to a live change, it is refused even though it holds the change; rebuilding
+on the live Version clears it. Both need the same code near a live change, which no Cue release so far has hit.
+
 Evidence: `test/features/92-deploy-base.js`, BG1 to BG13 (real git in a temp repo). Live check run 42434987571 on the branch printed
 "BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.
