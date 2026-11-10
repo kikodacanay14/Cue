@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (not deployed)
+
+Kiko, 8 Nov 2026 06:31Z, "fix them", after the live web-guidelines check of Cue on KKD; 10 Nov 2026 04:07Z he picked
+"Ship what's built now". Release branch = live 1.28.47 (claude/project-thread-h0rk83-rel12847) plus this change only.
+
+- Tables and tags use fixed-width digits (`font-variant-numeric: tabular-nums`) so amounts and counts line up.
+- Motion stops when the system asks for reduced motion (`prefers-reduced-motion: reduce`).
+- The urgent tag on Morning batch lines reads "Urgent", matching the Canvas pill casing.
+- Tests: UR9 added, A6d updated. 724/724 pass on the release branch.
+
 ## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
