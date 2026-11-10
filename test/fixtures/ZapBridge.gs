@@ -496,6 +496,14 @@ const ZB_ACTIONS_ = {
     kind: 'read', needsProject: false, schema: { min_days_late: { type: 'number', min: 0 } },
     run: (r) => zbOverdueBillings_(r.args.min_days_late == null ? 7 : r.args.min_days_late)
   },
+  pay_day_due: {
+    // PAY-DAYS-2026-11-07 (spec docs/specs/payment-days.md, Kiko 7 Nov 2026 13:11Z "yes"; 12:45Z "Cue's 8 AM Mon and Wed report lists
+    // what's due next day"): the payment requests whose pay day (Tue or Thu, PayDays.gs payDay_) is `day` (default tomorrow,
+    // Manila) and that still have a balance. Returns { day, requests: [{ request_id, project_id, project, payee, approval, amount,
+    // balance, due, urgent }], total }. Read only.
+    kind: 'read', needsProject: false, schema: { day: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ } },
+    run: (r) => payDayDue_(r.args.day)
+  },
   send_payment_chasers: {
     // CUE-2026-10-21 (Kiko 08:08-08:09Z): payment chasers go FROM info@ with Kiko on CC, one email per approved line, only
     // after Kiko approves it in Cue (Cue holds it until 09:00 PH). Canvas re-checks that every BI is still open and that the

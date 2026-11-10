@@ -66,7 +66,7 @@ All source links pin the inspected snapshot. Runtime configuration, deployed cod
 | CUE-027 | Implemented: signature scan proposes blank title/company/phone fills from bounded recent evidence. Values match cited signature; phones validated; BSE own values excluded. Approved exact fills use bridge/server results. [CueContactScan](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueContactScan.gs). | Preserve existing manually supplied contact title. |
 | CUE-028 | Implemented: HubSpot fixes selected/bounded; pipeline review read-only. Header says every open deal but implementation caps fetched/AI-reviewed evidence and reports truncation. [Hubspot](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueHubspot.gs), [Pipeline](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CuePipeline.gs). | Truncated review cannot claim complete coverage. |
 | CUE-029 | Documented scoped automatic exception + implemented: known-client email metadata log, not bodies, bounded hours/batches; thread/email/day identity and bridge requests support dedup. Current standing approval unverified. [CueCrmLog](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueCrmLog.gs). | Repeat identity does not create a second log; no general automatic CRM editing. |
-| CUE-030 | Documented scoped automatic exception + implemented, deployment unverified: Messenger sign-link send requires token, known recipient, unsigned document and valid inbound age under 24 hours. Marker supports report retries. Relay security not fully audited. [CueMessenger](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueMessenger.gs). | Missing token, future timestamp or expired window means no send. |
+| CUE-030 | Documented scoped automatic exception + implemented, deployment unverified: Messenger sign-link send requires token, known recipient, unsigned document and valid inbound age under 24 hours. Marker supports report retries. Relay security not fully audited. Message on FB exception (Cue 1.28.47, live V227, 7 Nov 2026; Kiko 10:55Z to 10:59Z asks, "build" 15:23Z, "deploy" 16:16:25Z): when Canvas lists a paper with `now_at` (staff tapped Message on FB in Resources), Cue sends it once more even if it went on Messenger before; the same token, recipient, unsigned and 24-hour checks apply; the mark's request id adds `now_at` (`msgr:<doc>:<id>:<now_at>`), so each ask is marked once and a retry after a delivered send only reports. Acceptance: `test/features/91-msgr-now.js` MN1 to MN3; live delivery not yet tested. Canvas rule: CanvasWorkspace docs/business-rules.md, RES-DOC-MENU-2026-11-07. [CueMessenger](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueMessenger.gs). | Missing token, future timestamp or expired window means no send. |
 
 ## Branding and documentation discipline
 
@@ -356,3 +356,36 @@ Claude's reading, not Kiko's words: which saved states count as "messaged but ne
 
 Evidence: `test/features/87-crew-restore.js`, CRW1 and CRW2 (synthetic chats and a fake bridge). Live since Cue 1.28.39 (Version 220,
 6 Nov 2026 02:45Z, rollback 219) with Canvas V483. Manual gap: the live Messenger Waiting rows are checked after the first resume.
+
+## RFQ draft rules (intake-real-check, 7 Nov 2026)
+
+### CUE-048: An RFQ to a supplier never names the client, never states a price or budget, and never mentions other suppliers
+
+Intended policy, in Kiko's own answers on 7 Nov 2026 (thread "Pick and scope next backlog feature"):
+- R1 and R2. Asked: "Do you approve the two RFQ rules that are already in the code? An RFQ to a supplier never names the client and never
+  states a price or budget." Kiko at 13:37Z: "1. yes". At 13:38Z he tapped "RFQ rules yes, no inquiry yet" on the card that confirmed
+  which answer went with which question.
+- R3. Asked: "Approve rule R3: an RFQ never mentions other suppliers?" Kiko at 13:59Z, decision card: "Yes".
+
+Before 7 Nov 2026 these three limits existed only in the RFQ prompts and had no approval on record. This entry records the approval;
+it adds no block.
+
+Implemented: the RFQ prompts tell GPT the three limits (`src/CueIntake.gs` `CUE_R_SYSTEM_`, `src/CueVendor.gs` `CUE_VQ_SYSTEM_`).
+Nothing in Cue stops a draft that breaks them. Kiko reads every draft before Send (CUE-012). The cloud check
+`test/checks/intake-real.check.mjs` reports any break, using `test/checks/intake-rules.cjs`. Price means a peso amount written as PHP, ₱,
+P with a thousands comma or 4 or more digits, "50k pesos" or "5,000 pesos", or the word budget. Client means the full name or its first
+distinctive word.
+
+Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
+
+### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
+
+- Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
+  categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
+- Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
+  youre not asking me what i want next. coz definitely i want all." Read as Yes on this card. Kiko can reverse it with one word.
+- Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
+  "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
+- Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
+  out, and the research prompt asks for real companies only. Canvas Supplier Database names are never filtered. Tests IR12 and IR13.
+- Also (not a rule, a note): when web research finds no suppliers at all, the card says so (check run 3 found none with no note).

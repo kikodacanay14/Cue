@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 77 server files, 1534 top-level names, 35 task kinds, 35 word checks before the
-chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 66 bridge actions in the Canvas bridge copy.
+Counts: 77 server files, 1539 top-level names, 35 task kinds, 35 word checks before the
+chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -180,7 +180,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 3 | 9 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
 | `CueMessenger.gs` |  | Chat, Requests | 0 | 0 | 6 | 6 |
-| `CueMorning.gs` | `client_status` | Requests | 0 | 0 | 9 | 12 |
+| `CueMorning.gs` | `client_status`, `pay_day_due` | Requests | 0 | 0 | 9 | 12 |
 | `CueMsgTemplates.gs` |  |  | 0 | 0 | 1 | 6 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 7 | 8 |
 | `CuePersonal.gs` |  | Requests | 1 | 3 | 5 | 5 |
