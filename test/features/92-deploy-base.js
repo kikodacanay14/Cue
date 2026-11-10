@@ -116,3 +116,29 @@ test('BG8 G4: Deploy Cue counts saved versions and from 180 raises a run warning
   assert.ok(/saved >= 180/.test(g4) && /::warning title=Saved versions/.test(g4) && /GITHUB_STEP_SUMMARY/.test(g4));
   assert.ok(!/fail\(/.test(g4), 'never fails the run');
 });
+test('BG11 Codex review: a live change to a file Deploy Cue never pushes (src/AGENTS.md) does not block', () => {
+  const r = bgRepo();
+  r.put('Cue.gs', BG_LINES(20)); r.put('AGENTS.md', 'notes\n'); r.commit('base');
+  r.git('checkout', '-q', '-b', 'rel'); r.put('AGENTS.md', 'notes\nmore notes\n'); const rel = r.commit('notes only');
+  r.git('checkout', '-q', 'main'); r.put('Admin.gs', 'x\n'); r.commit('other work');
+  const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel).filter(([n]) => n !== 'AGENTS.md'), r.run);
+  deq([res.ok, res.missing], [true, []]);
+});
+test('BG12 Codex review: the stamp as an unchanged context line beside a live change never blocks', () => {
+  const r = bgRepo();
+  const f = (stamp, first) => "const CUE_VERSION_ = 'Cue " + stamp + "';\n" + first + '\n' + BG_LINES(20);
+  r.put('Cue.gs', f('1.28.42', 'old first')); r.commit('base');
+  r.git('checkout', '-q', '-b', 'rel'); r.put('Cue.gs', f('1.28.42', 'new first')); const rel = r.commit('feature only');
+  r.git('checkout', '-q', 'main'); r.put('Cue.gs', f('1.28.45', 'new first')); r.commit('1.28.45 with the feature squashed in');
+  deq(BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run).ok, true);
+  r.put('Cue.gs', f('1.28.45', 'old first')); r.commit('the feature lost');
+  deq(BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run).missing, ['Cue.gs']);
+});
+test('BG13 Codex review: a template renamed live is checked, not skipped as a rename', () => {
+  const r = bgRepo();
+  r.put('Cue.gs', BG_LINES(10)); r.put('Old.html', BG_LINES(10)); r.commit('base');
+  r.git('checkout', '-q', '-b', 'rel'); r.git('mv', 'src/Old.html', 'src/New.html'); const rel = r.commit('rename');
+  r.git('checkout', '-q', 'main'); r.put('Admin.gs', 'x\n'); r.commit('other work');
+  const res = BG.branchHasLive('Cue ' + rel.slice(0, 7), r.live(rel), r.run);
+  deq([res.ok, res.missing], [false, ['New.html', 'Old.html']]);
+});

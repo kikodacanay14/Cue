@@ -28,6 +28,7 @@ function seenFromRawLog(raw) {
 // Only the declaration counts (STAMP_), never a line that merely uses CUE_VERSION_, so a real change on such a line is checked.
 const STAMP_ = /^\s*const\s+CUE_VERSION_\s*=/;
 const isStamp = l => /^[+-]/.test(l) && STAMP_.test(l.slice(1));
+const DEPLOYED_ = ['src/*.gs', 'src/*.html', 'src/*.json'];
 function hunks(diff) {
   const out = [];
   for (const sec of String(diff).split(/^(?=diff --git )/m).filter(x => x.startsWith('diff --git '))) {
@@ -51,7 +52,9 @@ function branchHasLive(liveDesc, liveFiles, run) {
     if (tryRun(['merge-base', '--is-ancestor', sha, 'HEAD']) !== null) return { ok: true, how: `live commit ${short} is in this branch`, missing: [] };
     // The branch holds live when every change live made since the shared base is already in the branch: each hunk, run
     // backwards, applies to the branch. A squash merge keeps the changes but loses the ancestry, so this still passes.
-    const missing = [...new Set(hunks(run(['diff', '-U1', base, sha, '--', 'src/']))
+    // Only the files Deploy Cue pushes (.gs, .html, .json; deploy.mjs sums()) count, and renames are split into a delete
+    // and an add so a renamed template is checked too (Codex review on PR #355).
+    const missing = [...new Set(hunks(run(['diff', '-U1', '--no-renames', base, sha, '--', ...DEPLOYED_]))
       .filter(h => !h.stampOnly && tryRun(['apply', '--reverse', '--check', '-C1', '-'], ownStamp(h, run, tryRun)) === null).map(h => h.file))].sort((a, b) => a.localeCompare(b));
     return { ok: !missing.length, how: missing.length ? `live commit ${short} has changes this branch lacks`
       : `live commit ${short}'s changes are all in this branch (version stamp aside)`, missing };
@@ -59,16 +62,18 @@ function branchHasLive(liveDesc, liveFiles, run) {
   const files = byFiles(liveFiles, run, tryRun);
   return { ok: files.ok, how: `live commit ${short || '(none in the description)'} not found; compared files`, missing: files.missing };
 }
-// A hunk that changes the stamp next to real code: the stamp is not what we check, so its lines become the branch's own
-// stamp line as context (the '-' line goes, the '+' line turns into ' ' plus this branch's line). Line counts stay the same.
+// A hunk that changes the stamp next to real code, or has the stamp as a context line: the stamp is not what we check, so
+// its lines become the branch's own stamp line as context (the '-' line goes; the '+' line and a ' ' stamp line turn into
+// ' ' plus this branch's line). Line counts stay the same.
+const anyStamp = l => /^[ +-]/.test(l) && !l.startsWith('+++') && !l.startsWith('---') && STAMP_.test(l.slice(1));
 function ownStamp(h, run, tryRun) {
   const lines = h.patch.split('\n');
-  if (!lines.some(isStamp)) return h.patch;
+  if (!lines.some(anyStamp)) return h.patch;
   const src = tryRun(['show', 'HEAD:src/' + h.file]);
   const mine = src === null ? null : src.split('\n').find(l => STAMP_.test(l));
   if (mine === undefined || mine === null) return h.patch;
   return lines.filter(l => !(l.startsWith('-') && !l.startsWith('---') && STAMP_.test(l.slice(1))))
-    .map(l => l.startsWith('+') && !l.startsWith('+++') && STAMP_.test(l.slice(1)) ? ' ' + mine : l).join('\n');
+    .map(l => anyStamp(l) ? ' ' + mine : l).join('\n');
 }
 function byFiles(liveFiles, run, tryRun) {
   // Compare the live files' git blobs against every blob src/ ever had on this branch (plus today's src/).

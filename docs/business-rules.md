@@ -405,9 +405,12 @@ Implemented (`tools/base-guard.cjs`, `tools/deploy.mjs`):
 - The `const CUE_VERSION_ = ...` declaration never blocks: a hunk that changes only it is skipped, and in a hunk that also changes
   real code the declaration is replaced by the branch's own before the check. Any other line, including one that uses
   `CUE_VERSION_`, is checked.
+  The same holds when the declaration is only an unchanged context line beside a live change.
+- Only the files Deploy Cue pushes (`.gs`, `.html`, `.json` in `src/`) are compared, and a renamed file counts as a delete
+  plus an add, so a renamed template is checked.
 - When the commit is not found, every live file must be one the branch's history has held.
 - `mode=check` prints a `BASE` line; `mode=deploy` stops before pushing and names the files. The script fetches full history itself.
 - From 180 saved versions the run shows a warning and a job-summary line. It never stops the run (Kiko 28 Oct 2026: "warn me at 180").
 
-Evidence: `test/features/92-deploy-base.js`, BG1 to BG10 (real git in a temp repo). Live check run 42434987571 on the branch printed
+Evidence: `test/features/92-deploy-base.js`, BG1 to BG13 (real git in a temp repo). Live check run 42434987571 on the branch printed
 "BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.
