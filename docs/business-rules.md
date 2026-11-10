@@ -380,10 +380,17 @@ Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
 
 ### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
 
+**Status: NOT APPROVED (watchdog finding W1, 10 Nov 2026).** Kiko never answered the card below. His 8 Nov 2026 06:33Z message
+asked for the overall plan; it did not answer this card. The coordinator said the same of that message at 06:34Z for the RFQ price
+fix ("'All' was Kiko's reply to my plan request, not to your card"). The behaviour below is merged to main (Cue 1.28.49, PR #358) but
+not live: live Cue is 1.28.47, Version 227. It stays as built, unchanged, until Kiko answers yes or no. Under the existing Cue CLAUDE.md
+rule (work built without approval needs Kiko's yes before it goes live), a live release before his answer is cut from the last
+live commit, not from main. If Kiko says no, `cueIsCategory_` and the research prompt line are taken out and this entry is removed.
+
 - Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
   categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
 - Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
-  youre not asking me what i want next. coz definitely i want all." Read as Yes on this card. Kiko can reverse it with one word.
+  youre not asking me what i want next. coz definitely i want all." This was read as Yes on this card. That reading was wrong: see the status line above.
 - Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
   "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
 - Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
