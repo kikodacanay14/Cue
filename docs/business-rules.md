@@ -478,7 +478,7 @@ sheet? add another tab and those are all the things that require Kiko".
   A message decided elsewhere turns its row Done. A row with no Message ID turns Answered when he writes anything.
 - Nothing runs on a decision (scope Q3 B).
 
-- The message is re-read under the lock right before his answer is recorded; a decision made meanwhile on the Inbox page is kept and the row turns Done.
+- The whole sync runs under the lock shared with the Inbox page's Approve and Reject, so items are added at most once and a decision made on the page is kept (the row turns Done). The sync writes only the State and Note cells, never Your answer.
 
-Evidence: `test/features/97-inbox-agents.js` K1 to K5. Manual gap: not yet run on live.
+Evidence: `test/features/97-inbox-agents.js` K1 to K7. Manual gap: not yet run on live.
 

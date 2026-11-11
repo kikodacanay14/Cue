@@ -59,6 +59,13 @@ function cueInboxIntake_() {
  * decided elsewhere turns Done. A row without a Message ID turns Answered when he writes anything. Runs from cueResume. */
 const CUE_FORKIKO_COLS_ = 11;
 function cueForKikoSync_() {
+  // The whole sync runs under the lock (Codex on Cue PR #376): two overlapping runs can never add the same item twice, and
+  // the Inbox page's Approve and Reject (same lock) never interleave with an answer from the sheet.
+  return cueLocked_(() => cueForKikoSyncLocked_());
+}
+/** Writes only the script-owned State and Note cells, so an answer Kiko is typing in the row is never overwritten. */
+function cueForKikoMark_(row, state, note) { cueSheet_('For Kiko').getRange(row, 9, 1, 2).setValues([[state, cueStr_(note, 300)]]); }
+function cueForKikoSyncLocked_() {
   const tab = 'For Kiko', now = cueNow_();
   const items = cueInboxRows_(tab, CUE_FORKIKO_COLS_);
   const msgs = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_), byId = {};
@@ -76,25 +83,18 @@ function cueForKikoSync_() {
     cueSheet_(tab).appendRow([cueInboxId_('K'), v[0], chats[v[1]] || '', v[4], cueStr_(v[5], 2000), cueStr_(why, 500), v[2], '', 'Open', 'Type Approve or Reject in Your answer.', String(v[3] || '')]);
     have[v[0]] = 1;
   });
-  // 2. Kiko's answers, and items settled elsewhere.
+  // 2. Kiko's answers, and items settled elsewhere. The answer is read fresh from its cell right before it is used.
   cueInboxRows_(tab, CUE_FORKIKO_COLS_).forEach(x => {
     const v = x.v; if (v[8] !== 'Open') return;
-    const ans = String(v[7] || '').trim(), m = v[1] ? byId[v[1]] : null;
-    if (m && m.v[10]) { v[8] = 'Done'; v[9] = m.v[10] + ' by ' + (m.v[13] || 'Kiko'); cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
+    const m = v[1] ? cueInboxFind_(v[1]) : null;
+    if (m && m.v[10]) return cueForKikoMark_(x.row, 'Done', m.v[10] + ' by ' + (m.v[13] || 'Kiko'));
+    const ans = String(cueSheet_(tab).getRange(x.row, 8, 1, 1).getValues()[0][0] || '').trim();
     if (!ans) return;
-    if (!v[1]) { v[8] = 'Answered'; v[9] = 'Answered ' + new Date(now).toISOString(); cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
-    if (!m) { v[8] = 'Done'; v[9] = 'Message not found.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
-    // The whole answer must be the word (Codex on PR #376): "Approve? not yet" is not a decision.
-    const d = /^approved?\.?$/i.test(ans) ? 'Approve' : /^rejected?\.?$/i.test(ans) ? 'Reject' : '';
-    if (!d) { v[9] = 'Type Approve or Reject in Your answer.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
-    // Re-read the message under the lock right before writing, so a decision made meanwhile on the Inbox page is kept.
-    const done = cueLocked_(() => {
-      const fresh = cueInboxFind_(v[1]);
-      if (fresh.v[10]) return fresh.v[10] + ' by ' + (fresh.v[13] || 'Kiko');
-      cueInboxRecord_(fresh, d, 'From the For Kiko tab', 'Kiko (For Kiko tab)');
-      return (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString();
-    });
-    v[8] = 'Done'; v[9] = done;
-    cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v);
+    if (!v[1]) return cueForKikoMark_(x.row, 'Answered', 'Answered ' + new Date(now).toISOString());
+    // The whole answer must be the word (Codex on PR #376): "Approve? not yet" is not a decision; Reject and Rejected both are.
+    const d = /^approve(d)?\.?$/i.test(ans) ? 'Approve' : /^reject(ed)?\.?$/i.test(ans) ? 'Reject' : '';
+    if (!d) return cueForKikoMark_(x.row, 'Open', 'Type Approve or Reject in Your answer.');
+    cueInboxRecord_(m, d, 'From the For Kiko tab', 'Kiko (For Kiko tab)');
+    cueForKikoMark_(x.row, 'Done', (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString());
   });
 }

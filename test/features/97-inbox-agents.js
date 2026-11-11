@@ -148,7 +148,7 @@ test('K4 only a whole Approve or Reject counts: "Approve? not yet" asks again an
   t.ctx.cueForKikoSync_();
   deq(kikoRows(t)[0][8], 'Open');
   deq(inboxRows(t, 'Inbox Decisions').length, 0);
-  t.tabs['For Kiko'].rows[1][7] = ' Rejected ';
+  t.tabs['For Kiko'].rows[1][7] = 'Reject';
   t.ctx.cueForKikoSync_();
   deq([kikoRows(t)[0][8], inboxRows(t, 'Inbox Messages').filter(m => m[0] === r.message_id)[0][10]], ['Done', 'Rejected']);
 });
@@ -159,8 +159,7 @@ test('K5 a decision made on the page while the sheet answer is processed is kept
   const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
   later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
   t.tabs['For Kiko'].rows[1][7] = 'Approve';
-  const real = t.ctx.cueInboxFind_; let first = true;
-  t.ctx.cueInboxFind_ = function (id) { if (first) { first = false; t.ctx.cueInboxFind_ = real; real(id); t.ctx.cueInboxDecide(id, 'Reject', ''); } return real(id); };
+  t.ctx.cueInboxDecide(r.message_id, 'Reject', '');   // decided on the page after Kiko typed Approve in the sheet
   t.ctx.cueForKikoSync_();
   deq(inboxRows(t, 'Inbox Decisions').map(d => d[2]), ['Rejected']);
   deq(kikoRows(t)[0][8], 'Done');
@@ -179,4 +178,20 @@ test('A9 a paused Question goes back to New at once, so a run that dies afterwar
   deq(reqRow(t, 1)[7], 'New');
   later(t, 4 * 60 * 1000); t.ctx.cueInboxIntake_();
   deq(reqRow(t, 1)[7], 'Sent');
+});
+
+test('K6 the sync writes only State and Note: an answer typed while the row is processed is kept (Codex on PR #376)', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('For Kiko');
+  t.tabs['For Kiko'].appendRow(['K-a', '', 'Canvas PO', 'Question', 'Banner color?', 'Only Kiko knows', '', 'Blue', 'Open', '', 'agent: canvas']);
+  t.tabs['For Kiko'].appendRow(['K-b', '', 'Canvas PO', 'Question', 'Logo?', 'Only Kiko knows', '', 'Old', 'Open', '', 'agent: canvas']);
+  const real = t.ctx.cueForKikoMark_; let once = true;
+  t.ctx.cueForKikoMark_ = function () { if (once) { once = false; t.tabs['For Kiko'].rows[2][7] = 'Use red instead'; } return real.apply(null, arguments); };
+  t.ctx.cueForKikoSync_();
+  deq(kikoRows(t).map(r => [r[7], r[8]]), [['Blue', 'Answered'], ['Use red instead', 'Answered']]);
+});
+
+test('K7 the For Kiko sync runs under one lock, so overlapping runs cannot add an item twice (Codex on PR #376)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxAgents.gs'), 'utf8');
+  assert.ok(/function cueForKikoSync_\(\) \{[\s\S]{0,300}return cueLocked_\(\(\) => cueForKikoSyncLocked_\(\)\);/.test(src));
 });

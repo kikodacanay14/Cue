@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 81 server files, 1598 top-level names, 35 task kinds, 35 word checks before the
+Counts: 81 server files, 1600 top-level names, 35 task kinds, 35 word checks before the
 chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -171,7 +171,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages, Inbox Queue | 0 | 0 | 4 | 3 |
-| `CueInboxAgents.gs` |  |  | 0 | 0 | 1 | 3 |
+| `CueInboxAgents.gs` |  | For Kiko | 0 | 0 | 1 | 3 |
 | `CueInboxProjects.gs` | `get_project_board` | Inbox Chats | 0 | 0 | 0 | 4 |
 | `CueInboxRoles.gs` |  | Inbox Chats | 1 | 2 | 1 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |

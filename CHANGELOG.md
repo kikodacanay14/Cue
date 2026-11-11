@@ -14,7 +14,9 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 
 - Codex review fixes on the For Kiko tab: only a whole "Approve" or "Reject" counts as a decision; the message is re-read under the lock right before the answer is recorded, so a decision made on the Inbox page meanwhile is kept (the page's Approve and Reject now take the same lock); a paused agent Question goes straight back to New.
 
-Test count: 819 passed (A1 to A9 and K1 to K5 new in test/features/97-inbox-agents.js).
+- More Codex fixes: "Reject" is accepted (not only "Rejected"); the sync writes only the State and Note cells, so an answer Kiko types meanwhile is kept; the whole For Kiko sync runs under the lock, so no item is added twice.
+
+Test count: 821 passed (A1 to A9 and K1 to K7 new in test/features/97-inbox-agents.js).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
