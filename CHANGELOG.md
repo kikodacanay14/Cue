@@ -1,6 +1,16 @@
 # Changelog
 
-## Cue 1.28.55: role chats decide Confirms and Google Drive requests in the team inbox (not deployed)
+## Cue 1.28.56: team inbox fixes from the Codex review of 1.28.55 (not deployed)
+
+Codex review on Cue PR #366 (three findings, checked against the code and confirmed). Fixes to the design Kiko approved on 11 Nov 2026; no new rule.
+
+- Each role chat is told its own name, so Cue PO, Charter PO, Canvas PO and Chase PO know which product they own. Before, the four sent identical prompts.
+- A decision Kiko makes while a role chat is still answering is kept; the late role answer no longer overwrites it.
+- The chat list counts Contested messages in Waiting.
+
+Test count: 797 passed (R12 to R14 new).
+
+## Cue 1.28.55: role chats decide Confirms and Google Drive requests in the team inbox (live as Version 236, 11 Nov 2026 12:25Z, rollback 235)
 
 Kiko, 11 Nov 2026 evening: the roles are chats ("they are chats as well. Tech Lead is BSE Apps & Systems", "Account Manager is ChatGPT Account Manager chat", PO and QA chats "Cue PO, Charter PO, Canvas PO, Chase PO, QA"); Tech Lead approves "google drive. then let me approve others"; "yes" to the routing (Tech Lead, then Account Manager on Escalate, then Kiko); "A" to running the Claude roles inside Cue on the Claude API, because a claude.ai chat cannot be reached from Cue. Decisions D3 to D5 in CanvasWorkspace docs/specs/team-inbox-design.md section 14.
 
