@@ -128,3 +128,10 @@ test('R14 the chat list counts Contested messages as waiting (Codex on PR #366)'
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
   assert.ok(/function waiting\(id\)[^\n]*'Contested'/.test(html));
 });
+
+test('R15 Cue\'s header has an Inbox link that opens ?view=inbox in a new tab (Kiko 11 Nov 2026, "A")', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/<a class="btn ghost" id="inbox-link" target="_blank" rel="noopener"[^>]*hidden>Inbox ↗<\/a>/.test(html));
+  const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.ok(/\$\('inbox-link'\)\.href = appUrl\(\) \+ '\?view=inbox'/.test(js));
+});

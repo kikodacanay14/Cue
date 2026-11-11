@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.28.56: team inbox fixes from the Codex review of 1.28.55 (not deployed)
+## Cue 1.28.57: Inbox link in Cue's header (not deployed)
+
+Kiko, 11 Nov 2026: "where do i see it", then "A" to adding an Inbox link to Cue's menu.
+
+- Cue's header shows "Inbox ↗" next to the settings button. It opens the team inbox (?view=inbox) in a new tab, the same way the avatar opens Cue Admin (src/Index.html, src/IndexPages.html).
+
+Test count: 798 passed (R15 new).
+
+## Cue 1.28.56: team inbox fixes from the Codex review of 1.28.55 (live as Version 237, 11 Nov 2026 12:30Z, rollback 236)
 
 Codex review on Cue PR #366 (three findings, checked against the code and confirmed). Fixes to the design Kiko approved on 11 Nov 2026; no new rule.
 
