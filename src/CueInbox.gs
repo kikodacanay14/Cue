@@ -12,6 +12,7 @@ const CUE_INBOX_TOOLS_ = ['Google Drive', 'Other tool'];   // Request access: th
 const CUE_INBOX_KINDS_ = ['Question', 'Confirm', 'Request access'];   // D4 (Kiko 11 Nov 2026): Request access is a third kind
 const CUE_INBOX_DECIDED_KINDS_ = ['Confirm', 'Request access'];   // kinds that take Approve or Reject; nothing runs on either
 const CUE_INBOX_MSG_COLS_ = 15, CUE_INBOX_CHAT_COLS_ = 9, CUE_INBOX_DEC_COLS_ = 7, CUE_INBOX_QUEUE_COLS_ = 3;
+const CUE_INBOX_COOLDOWN_MS_ = 3 * 60 * 1000;   // Kiko 11 Nov 2026: "lets do B but lets pause ... may 3 minutes before it can send again": one Question per chat every 3 minutes
 const CUE_INBOX_COUNTDOWN_MS_ = 2 * 60 * 1000;   // D2 (Kiko 11 Nov 2026): a Question sends 2 minutes after its fields are filled; Cancel stops it
 
 
@@ -69,6 +70,12 @@ function cueInboxSend_(chatId, kind, body, tool) {
   const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === chatId)[0];
   if (!chat) throw new Error('That chat is not in the inbox.');
   if (chat.v[3] !== 'Active') throw new Error('That chat is retired. Pick another chat.');
+  if (kind === 'Question') {   // 3-minute pause per chat (Kiko 11 Nov 2026); Confirm and Request access are not paused
+    const last = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_).filter(x => x.v[1] === chatId && x.v[4] === 'Question' && x.v[6] !== 'Cancelled')
+      .map(x => new Date(x.v[2]).getTime()).filter(t => t).sort((a, b) => b - a)[0];
+    const wait = last ? last + CUE_INBOX_COOLDOWN_MS_ - cueNow_() : 0;
+    if (wait > 0) throw new Error('This chat can take another Question in ' + Math.ceil(wait / 1000) + ' seconds.');
+  }
   const msgId = cueInboxId_('M'), now = new Date(cueNow_()).toISOString();
   const row = [msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', ''];
   cueSheet_('Inbox Messages').appendRow(row);

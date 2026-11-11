@@ -82,6 +82,7 @@ test('R9 a Question to a Claude API role chat is answered by one Claude call wit
   const t = roleBox({ inboxReply: { reply: 'Test the save path first.' } });
   const c = chatByLabel(t, 'QA');
   deq(inboxJson(t.ctx.cueInboxSend(c, 'Question', 'What do I test?')).reply, 'Test the save path first.');
+  const n0 = t.ctx.cueNow_(); t.ctx.cueNow_ = () => n0 + 4 * 60 * 1000;   // past the 3-minute pause
   inboxJson(t.ctx.cueInboxSend(c, 'Question', 'And then?'));
   assert.ok(/Your role: QA/.test(t.log.claude[1].system));
   assert.ok(/Q: What do I test\?\nA: Test the save path first\./.test(t.log.claude[1].messages[0].content));
