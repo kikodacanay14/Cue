@@ -89,7 +89,6 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
         <label for="body">Message</label>
         <textarea id="body" maxlength="4000" required></textarea>
         <p class="note"><span id="count">0</span> of 4,000 characters.</p>
-        <div id="queueLine" class="note" hidden><span id="queueText"></span> <button type="button" id="cancelQ">Cancel</button></div>
         <div class="btns"><button type="submit" id="sendBtn">Send</button></div>
         <div id="sendErr" class="err" role="alert"></div>
       </form>
@@ -124,8 +123,9 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     r[name].apply(r, args);
   }
   function load() {
-    call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render(); });
-    call('cueInboxDecisions', [], renderDecisions, function () {});
+    // One server call at a time (Kiko 11 Nov 2026 hit Google's "too many scripts running" limit): the list, then the decisions.
+    call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render();
+      call('cueInboxDecisions', [], renderDecisions, function () {}); });
   }
   function day(iso) { var t = String(iso || ''); return t.slice(0, 10) + (t.length > 15 ? ' ' + t.slice(11, 16) : ''); }
   function renderDecisions(list) {
@@ -160,7 +160,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     });
     document.getElementById('chatRows').innerHTML = rows.join('');
     document.getElementById('chatsEmpty').hidden = state.chats.length > 0;
-    if (state.chat) renderThread();
+    if (state.chat) { renderThread(); coolShow(); }
   }
   function pick(id) {
     state.chat = state.chats.filter(function (c) { return c.chat_id === id; })[0] || null;
@@ -188,51 +188,37 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('chatRows').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-id]'); if (tr) pick(tr.dataset.id); });
   document.getElementById('chatRows').addEventListener('keydown', function (e) { var tr = e.target.closest && e.target.closest('tr[data-id]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(tr.dataset.id); } });
   document.getElementById('body').addEventListener('input', function (e) { document.getElementById('count').textContent = e.target.value.length; });
-  /* D1/D2 (Kiko 11 Nov 2026): a Question is queued when its text is filled in, sends after a 2-minute countdown, and Cancel
-     stops it. Editing restarts the countdown. A Confirm keeps the Send button (nothing runs on Confirm). */
-  var queued = null, queueTimer = null, tick = null, sendAt = 0;
+  /* Kiko 11 Nov 2026 ("lets do B but lets pause so that theres not constant mesasging may 3 minutes before it can send again"),
+     replacing the 2-minute countdown of D2: Send sends a Question at once; then that chat takes no new Question for 3 minutes,
+     and the Send button shows the time left. Confirm and Request access are not paused. */
+  var COOL = 3 * 60 * 1000, coolTick = null;
+  function coolLeft() {
+    if (!state.chat || kindNow() !== 'Question') return 0;
+    var t = state.messages.filter(function (m) { return m.chat_id === state.chat.chat_id && m.kind === 'Question' && m.status !== 'Cancelled'; })
+      .map(function (m) { return new Date(m.created_at).getTime(); }).filter(function (x) { return x; }).sort(function (a, b) { return b - a; })[0];
+    return t ? Math.max(0, t + COOL - Date.now()) : 0;
+  }
+  function coolShow() {
+    var btn = document.getElementById('sendBtn'), left = Math.ceil(coolLeft() / 1000);
+    btn.disabled = left > 0;
+    btn.textContent = left > 0 ? 'Next Question in ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'Send';
+    if (left > 0 && !coolTick) coolTick = setInterval(coolShow, 1000);
+    if (left <= 0 && coolTick) { clearInterval(coolTick); coolTick = null; }
+  }
   function kindNow() { return document.getElementById('kind').value; }
-  function showQueue(text) { document.getElementById('queueLine').hidden = false; document.getElementById('queueText').textContent = text; }
-  function hideQueue() { document.getElementById('queueLine').hidden = true; clearInterval(tick); tick = null; queued = null; }
-  function countdown() {
-    var left = Math.max(0, Math.round((sendAt - Date.now()) / 1000));
-    if (left === 0) { hideQueue(); load(); return; }
-    showQueue('Sends in ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) + '.');
-  }
-  function doQueue() {
-    var body = document.getElementById('body').value.trim();
-    if (kindNow() !== 'Question' || !state.chat) return;
-    var go = function () {
-      if (!body) { hideQueue(); return; }
-      call('cueInboxQueue', [state.chat.chat_id, body], function (r) {
-        queued = r.message_id; sendAt = new Date(r.send_at).getTime();
-        clearInterval(tick); tick = setInterval(countdown, 1000); countdown(); load();
-      }, function (x) { document.getElementById('sendErr').textContent = x.message || String(x); });
-    };
-    if (queued) call('cueInboxCancel', [queued], go, go); else go();
-  }
-  function scheduleQueue() { clearTimeout(queueTimer); queueTimer = setTimeout(doQueue, 1500); }
-  document.getElementById('body').addEventListener('input', function () { if (kindNow() === 'Question') scheduleQueue(); });
   document.getElementById('kind').addEventListener('change', function () {
-    var q = kindNow() === 'Question';
-    document.getElementById('sendBtn').hidden = q;
     document.getElementById('toolRow').hidden = kindNow() !== 'Request access';
-    if (!q && queued) call('cueInboxCancel', [queued], function () { hideQueue(); }, function () { hideQueue(); });
-  });
-  document.getElementById('cancelQ').addEventListener('click', function () {
-    if (!queued) return;
-    call('cueInboxCancel', [queued], function () { hideQueue(); document.getElementById('sendErr').textContent = ''; load(); },
-      function (x) { document.getElementById('sendErr').textContent = x.message || String(x); hideQueue(); load(); });
+    coolShow();
   });
   document.getElementById('send').addEventListener('submit', function (e) {
     e.preventDefault(); var err = document.getElementById('sendErr'); err.textContent = '';
-    var btn = e.target.querySelector('button'); btn.disabled = true;
+    var btn = document.getElementById('sendBtn'); btn.disabled = true;
     call('cueInboxSend', [state.chat.chat_id, document.getElementById('kind').value, document.getElementById('body').value, document.getElementById('tool').value], function (r) {
       btn.disabled = false; document.getElementById('body').value = ''; document.getElementById('count').textContent = '0';
-      if (r.status === 'Waiting') err.textContent = 'The chat did not answer: ' + r.error + ' You can decide it yourself below.';
+      if (r.status === 'Waiting') err.textContent = 'The chat did not answer: ' + r.error + (kindNow() === 'Question' ? '' : ' You can decide it yourself below.');
       if (r.status === 'Contested') err.textContent = 'The Tech Lead and Account Manager could not decide. It is waiting for you below.';
       load();
-    }, function (x) { btn.disabled = false; err.textContent = x.message || String(x); });
+    }, function (x) { btn.disabled = false; err.textContent = x.message || String(x); coolShow(); });
   });
   document.getElementById('addChat').addEventListener('submit', function (e) {
     e.preventDefault(); var err = document.getElementById('addErr'); err.textContent = '';
@@ -247,7 +233,6 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('syncBtn').addEventListener('click', function () { sync(true); });
   document.getElementById('approveBtn').addEventListener('click', function () { decide('Approve'); });
   document.getElementById('rejectBtn').addEventListener('click', function () { decide('Reject'); });
-  document.getElementById('sendBtn').hidden = kindNow() === 'Question';
   call('cueInboxSetupRoles', [], function () { sync(false); }, function () { sync(false); });
 })();
 </script>

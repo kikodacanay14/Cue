@@ -1,6 +1,19 @@
 # Changelog
 
-## Cue 1.28.60: the Question countdown sends again (bug fix) (not deployed)
+## Cue 1.28.61: Send sends a Question at once, then a 3-minute pause per chat (not deployed)
+
+Kiko, 11 Nov 2026: "maybe lets not do a countdown... let the user press send", then on the choice of A (2 minutes after Send), B (at once) or C (30 seconds): "lets do B but lets pause so that theres not constant mesasging may 3 minutes before it can send again". Replaces the 2-minute countdown (D2).
+
+- Send on a Question sends it at once. Then that chat takes no new Question for 3 minutes; the Send button reads "Next Question in m:ss" and is greyed out. The server refuses an early one with the seconds left (src/CueInbox.gs, src/Inbox.html).
+- The pause is per chat. Confirm and Request access are not paused.
+- The countdown line and its Cancel button are removed from the page. The queue functions and the every-minute sweep stay, so any Question queued before this release still sends.
+
+- The every-minute inbox trigger is removed again (trigger version 8 deletes it on live): Kiko hit Google's "There are too many scripts running simultaneously for this Google user account" limit right after 1.28.60 turned it on. Nothing waits to send any more; the 5-minute cueResume runs the inbox sweep for anything still queued (src/Cue.gs).
+- The Inbox page makes one server call at a time when it loads (the list, then the decisions).
+
+Test count: 803 passed (T22, T23, T24 rewritten, T25 new, R9 steps past the pause; trigger lists in tests 02 and 32 updated).
+
+## Cue 1.28.60: the Question countdown sends again (bug fix) (live as Version 240 with 1.28.59, 11 Nov 2026 12:52Z, rollback 239)
 
 Kiko, 11 Nov 2026: "the countdown stopped...". Cause: 1.28.53 added the every-minute inbox sweep to cueTriggers_ but did not raise CUE_TRIGGERS_NOW_, so live Cue (already on trigger version 6) never installed it, and a Question whose 2-minute countdown ended stayed Queued.
 
@@ -8,7 +21,7 @@ Kiko, 11 Nov 2026: "the countdown stopped...". Cause: 1.28.53 added the every-mi
 
 Test count: 801 passed (T23 new; BD9 expects version 7).
 
-## Cue 1.28.59: Add a chat no longer offers claude.ai (not deployed)
+## Cue 1.28.59: Add a chat no longer offers claude.ai (live as Version 240, 11 Nov 2026 12:52Z, rollback 239)
 
 Kiko, 11 Nov 2026: "can you remove that option so iit wont be confusing". A claude.ai chat cannot be reached from Cue, so its messages never get an answer.
 

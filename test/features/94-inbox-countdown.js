@@ -80,14 +80,33 @@ test('T21 queue and cancel are owner only', () => {
   assert.throws(() => t.ctx.cueInboxCancel('M-x'), /owner|Only|not allowed/i);
 });
 
-test('T22 the sweep trigger is installed every minute with the other Cue triggers', () => {
+test('T22 no every-minute inbox trigger (1.28.61, Google too-many-scripts limit); the 5-minute cueResume sends anything still queued', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
-  assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src), 'trigger line present');
+  assert.ok(!/newTrigger\('cueInboxSweep'\)/.test(src) && /try \{ cueInboxSweep_\(\); \}/.test(src), 'no 1-minute trigger; cueResume sweeps');
 });
 
-test('T23 the trigger version is raised past 6, so live Cue installs the inbox sweep (bug: 1.28.53 added it without raising the version; Kiko 11 Nov 2026 "the countdown stopped")', () => {
+test('T23 the trigger version is 8 or more, so live Cue deletes the old every-minute inbox trigger', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   const v = +(src.match(/const CUE_TRIGGERS_NOW_ = '(\d+)'/) || [])[1];
-  assert.ok(v >= 7, 'CUE_TRIGGERS_NOW_ is ' + v);
-  assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src));
+  assert.ok(v >= 8, 'CUE_TRIGGERS_NOW_ is ' + v);
+  assert.ok(/'cueHsWeekly', 'cueInboxSweep'\]\.indexOf/.test(src), '1.28.61: the old 1-minute sweep trigger is deleted on live');
+});
+
+test('T24 Send sends a Question at once (no countdown, no Cancel); the page shows the 3-minute pause on the Send button (Kiko 11 Nov 2026, "lets do B")', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
+  assert.ok(!/cueInboxQueue|cancelQ|scheduleQueue/.test(html), 'no queue, countdown or Cancel on the page');
+  assert.ok(/var COOL = 3 \* 60 \* 1000/.test(html) && /'Next Question in '/.test(html));
+  assert.ok(/call\('cueInboxSend', \[state\.chat\.chat_id, document\.getElementById\('kind'\)\.value/.test(html));
+});
+
+test('T25 one Question per chat every 3 minutes: a second one is refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go', () => {
+  const t = inboxBox({ gpt: { inbox_reply: { reply: 'ok' } } });
+  const a = inboxChat(t, 'ChatGPT API', 'A'), b = inboxChat(t, 'ChatGPT API', 'B');
+  deq(inboxJson(t.ctx.cueInboxSend(a, 'Question', 'one')).status, 'Replied');
+  assert.throws(() => t.ctx.cueInboxSend(a, 'Question', 'two'), /This chat can take another Question in 1[0-9]{2} seconds\./);
+  deq(inboxJson(t.ctx.cueInboxSend(b, 'Question', 'other chat')).status, 'Replied');
+  deq(inboxJson(t.ctx.cueInboxSend(a, 'Confirm', 'go?')).status, 'New');
+  const n0 = t.ctx.cueNow_(); t.ctx.cueNow_ = () => n0 + 3 * 60 * 1000;
+  deq(inboxJson(t.ctx.cueInboxSend(a, 'Question', 'three')).status, 'Replied');
+  deq(t.log.gpt.length, 3);
 });
