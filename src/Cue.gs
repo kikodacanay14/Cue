@@ -110,7 +110,7 @@ function cueSetup() {
 /** The 5-minute resume trigger, and the 1-minute RFP sender (cueRfpKick). Also checked when Cue opens, so a deploy needs no extra step.
  * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday check had their own
  * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
-const CUE_TRIGGERS_NOW_ = '6';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster")
+const CUE_TRIGGERS_NOW_ = '7';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster"); 7: the 1-minute inbox sweep (CueInbox.gs; 1.28.53 added it without raising this, so live never installed it)
 function cueTriggers_() {
   ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
