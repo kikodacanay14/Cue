@@ -15,6 +15,7 @@ h1{font-size:34px;font-weight:400;margin:0 0 16px;color:var(--purple)}
 h2{font-size:16px;font-weight:700;color:var(--purple);margin:0 0 8px}
 a{color:var(--blue);text-decoration:underline}
 .full{grid-column:1 / -1}
+.filters{display:flex;gap:8px;align-items:flex-end;margin:0 0 8px}.filters>div{flex:1;min-width:0}.filters label{margin:0 0 4px}
 .wrap>*{min-width:0}.tscroll{overflow-x:auto}
 .wrap{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;padding:20px;min-height:100vh;align-items:start}
 .card{background:var(--white);border:1px solid var(--line);border-radius:4px;padding:16px}
@@ -49,11 +50,17 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   <h1 class="page-title">Inbox</h1>
   <section class="card" aria-labelledby="chats-h">
     <h2 id="chats-h">Chats</h2>
+    <div class="filters">
+      <div><label for="chatShow">Show</label>
+        <select id="chatShow"><option value="all">All</option><option value="role">Roles</option><option value="project">Projects</option><option value="other">Other</option></select></div>
+      <div><label for="chatFind">Find</label><input id="chatFind" type="search" placeholder="Chat or project name" autocomplete="off"></div>
+    </div>
     <table aria-describedby="chats-h">
       <thead><tr><th scope="col">Chat</th><th scope="col">Provider</th><th scope="col">Waiting</th><th scope="col">Status</th></tr></thead>
       <tbody id="chatRows"></tbody>
     </table>
     <div id="chatsEmpty" class="empty" hidden>No chats yet. Add one below.</div>
+    <div id="chatsNone" class="empty" hidden>No chat matches this filter.</div>
     <p class="note">Each open Canvas project has its own chat, made from the Canvas project board.</p>
     <div class="btns"><button type="button" class="alt" id="syncBtn">Refresh projects</button></div>
     <div id="syncErr" class="err" role="alert"></div>
@@ -134,8 +141,20 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       function (x) { err.textContent = x.message || String(x); load(); });
   }
   function waiting(id) { return state.messages.filter(function (m) { return m.chat_id === id && (m.status === 'New' || m.status === 'Waiting' || m.status === 'Contested'); }).length; }
+  /* Chat filter (Kiko 11 Nov 2026: "maybe have a filter?"): Show All, Roles, Projects or Other, and Find by name. The choice is
+     remembered in this browser only. */
+  var filt = { show: 'all', find: '' };
+  try { filt.show = localStorage.getItem('cueInboxShow') || 'all'; } catch (e) {}
+  function kindOf(c) { return c.role ? 'role' : c.project_id ? 'project' : 'other'; }
+  function shown(c) {
+    if (filt.show !== 'all' && kindOf(c) !== filt.show) return false;
+    var q = filt.find.trim().toLowerCase();
+    return !q || String(c.label).toLowerCase().indexOf(q) >= 0 || String(c.project_id || '').toLowerCase().indexOf(q) >= 0;
+  }
   function render() {
-    var rows = state.chats.map(function (c) {
+    var list = state.chats.filter(shown);
+    document.getElementById('chatsNone').hidden = !(state.chats.length && !list.length);
+    var rows = list.map(function (c) {
       var sel = state.chat && state.chat.chat_id === c.chat_id;
       return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong>' + (c.project_id ? ' <span class="tag plain">Project</span>' : '') + (c.role ? ' <span class="tag plain">' + esc(c.role) + '</span>' : '') + '</td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
     });
@@ -163,6 +182,9 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     document.getElementById('decide').dataset.id = confirm ? confirm.message_id : '';
     document.getElementById('decideWhat').textContent = confirm ? confirm.kind + ': ' + String(confirm.body).slice(0, 140) : '';
   }
+  document.getElementById('chatShow').value = filt.show;
+  document.getElementById('chatShow').addEventListener('change', function (e) { filt.show = e.target.value; try { localStorage.setItem('cueInboxShow', filt.show); } catch (x) {} render(); });
+  document.getElementById('chatFind').addEventListener('input', function (e) { filt.find = e.target.value; render(); });
   document.getElementById('chatRows').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-id]'); if (tr) pick(tr.dataset.id); });
   document.getElementById('chatRows').addEventListener('keydown', function (e) { var tr = e.target.closest && e.target.closest('tr[data-id]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(tr.dataset.id); } });
   document.getElementById('body').addEventListener('input', function (e) { document.getElementById('count').textContent = e.target.value.length; });

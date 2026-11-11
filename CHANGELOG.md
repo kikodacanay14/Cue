@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.28.57: Inbox link in Cue's header (not deployed)
+## Cue 1.28.58: filter for the Inbox chat list (not deployed)
+
+Kiko, 11 Nov 2026: "how come eveb project chats are showing here", then "maybe have a filter?".
+
+- The Chats list on the Inbox page has Show (All, Roles, Projects, Other) and Find (by chat or project name). The Show choice is remembered in this browser only. A filter that matches nothing says so (src/Inbox.html).
+
+Test count: 799 passed (R16 new).
+
+## Cue 1.28.57: Inbox link in Cue's header (live as Version 238, 11 Nov 2026 12:36Z, rollback 237)
 
 Kiko, 11 Nov 2026: "where do i see it", then "A" to adding an Inbox link to Cue's menu.
 
