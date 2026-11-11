@@ -80,7 +80,7 @@ test('T21 queue and cancel are owner only', () => {
   assert.throws(() => t.ctx.cueInboxCancel('M-x'), /owner|Only|not allowed/i);
 });
 
-test('T22 no every-minute inbox trigger (1.28.61, Google's too-many-scripts limit); the 5-minute cueResume sends anything still queued', () => {
+test('T22 no every-minute inbox trigger (1.28.61, Google too-many-scripts limit); the 5-minute cueResume sends anything still queued', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(!/newTrigger\('cueInboxSweep'\)/.test(src) && /try \{ cueInboxSweep_\(\); \}/.test(src), 'no 1-minute trigger; cueResume sweeps');
 });
