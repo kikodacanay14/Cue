@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.52: team inbox (not deployed)
+
+Kiko, 11 Nov 2026 (design approved in CanvasWorkspace docs/specs/team-inbox-design.md, section 12; scope answers a, b, a, a; screens approved 17:29 Manila). Requested "continue until its built".
+
+- New Inbox page (?view=inbox, src/Inbox.html): every chat in one list, the messages of the chosen chat, Question or Confirm to send, Approve or Reject on a Confirm.
+- ChatGPT API chats: a Question is answered by one OpenAI Responses call (src/CueInbox.gs, cueInboxAsk_), the answer stored as the reply; retry is one call (cueAiAll_). Replies continue the chat's thread through previous_response_id.
+- claude.ai chats: a Question is saved and waits. The claude.ai pull endpoint is NOT built (held until Kiko approves its access, design section 6). Test T12 checks it is absent.
+- Confirm messages only record Approve or Reject (Inbox Decisions tab). Nothing runs (scope Q3 B).
+- New sheet tabs: Inbox Chats, Inbox Messages, Inbox Decisions. Messages over 4,000 characters are refused, not cut. Open messages older than 7 days show Expired.
+- No Canvas bridge call and no Canvas write (test T11). Every function is owner only (test T10).
+- Tests: test/features/93-team-inbox.js (T1 to T14). Full suite: node test/cue.test.js, 768/768 passed.
+- Not done in this release: S7 Google sign-in (held), claude.ai pull endpoint (held), brand check run in a browser on the live Apps Script page (gap: the page is only checked as a file in the repo; see the PR body).
+- Feature Board card "team-inbox" still to be created by Kiko (the board is public and cannot be written from here).
+
 ## Cue 1.28.51: Cue tells Kiko about each new Canvas bug report (live as Version 232, 10 Nov 2026 06:07:17Z, rollback 230, from release branch claude/project-thread-d3jc54-rel12851 = live 1.28.50 plus this change; built here as 1.28.49, which never shipped)
 
 Kiko, 7 Nov 2026 11:47Z: "i want a report a bug function. this will take a screenshot of the window accessed and have a
@@ -3184,3 +3198,4 @@ Register a supplier (command C5; spec `canvas-integration/specs/supplier-registr
 - Speed budget: at most 5 AI calls and 180 s, with runs over budget flagged.
 - Cue bubble Chrome extension 1.0.0.
 - Moved here from CanvasWorkspace (integrations/cue, commit 397d1f2).
+

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue Inbox</title>
+<!-- Team inbox (CueInbox.gs). Brand: Blank Space design system tokens; DM Sans for all text (Archivo Black not used: no display moment here). -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#16151B;--yellow:#F4F12C;--blue:#2810DC;--purple:#23006F;--lav:#F6F2FC;--line:#E3DDD0;--white:#fff;
+--good:#1E7A46;--good-bg:#E5F3EA;--warn:#8A5300;--warn-bg:#FBF0D9;--crit:#B3261E;--crit-bg:#FBE9E7;--info:#2810DC;--info-bg:#ECEAFD}
+*{box-sizing:border-box}
+body{margin:0;font-family:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;font-weight:400;color:var(--ink);background:var(--lav)}
+h1{font-size:34px;font-weight:400;margin:0 0 16px;color:var(--purple)}
+.page-title{grid-column:1 / -1;margin:0}
+h2{font-size:16px;font-weight:700;color:var(--purple);margin:0 0 8px}
+a{color:var(--blue);text-decoration:underline}
+.wrap{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;padding:20px;min-height:100vh;align-items:start}
+.card{background:var(--white);border:1px solid var(--line);border-radius:4px;padding:16px}
+table{width:100%;border-collapse:collapse}
+th{font-size:14px;font-weight:700;color:var(--purple);text-align:center;vertical-align:middle;padding:8px 6px;border-bottom:1px solid var(--line)}
+td{font-size:13px;font-weight:400;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.c{text-align:center}
+tr.sel{background:var(--lav)}
+tr.pick{cursor:pointer}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:0;white-space:nowrap}
+.tag.info{color:var(--info);background:var(--info-bg)}.tag.warn{color:var(--warn);background:var(--warn-bg)}
+.tag.good{color:var(--good);background:var(--good-bg)}.tag.crit{color:var(--crit);background:var(--crit-bg)}
+.tag.plain{color:var(--ink);background:var(--lav);border:1px solid var(--line)}
+.msg{border-top:1px solid var(--line);padding:12px 0}
+.msg .who{font-size:12px;color:var(--ink)}
+.body{white-space:pre-wrap;text-align:left;font-size:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+label{font-size:14px;font-weight:700;color:var(--ink);display:block;margin:10px 0 4px}
+input,select,textarea{font:inherit;font-size:14px;width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--white);color:var(--ink)}
+textarea{min-height:96px;resize:vertical}
+.btns{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+button{font:inherit;font-size:14px;font-weight:700;padding:8px 14px;border-radius:4px;border:1px solid var(--ink);background:var(--ink);color:var(--white);cursor:pointer}
+button.alt{background:var(--white);color:var(--ink)}
+button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.note{font-size:12px;color:var(--ink);margin-top:6px;text-align:left}
+.err{color:var(--crit);font-size:14px;margin-top:8px}
+.empty{color:var(--ink);font-size:14px;padding:12px 0}
+@media (max-width:768px){.wrap{grid-template-columns:1fr;padding:12px}h1{font-size:28px}}
+</style></head>
+<body>
+<div class="wrap">
+  <h1 class="page-title">Inbox</h1>
+  <section class="card" aria-labelledby="chats-h">
+    <h2 id="chats-h">Chats</h2>
+    <table aria-describedby="chats-h">
+      <thead><tr><th scope="col">Chat</th><th scope="col">Provider</th><th scope="col">Waiting</th><th scope="col">Status</th></tr></thead>
+      <tbody id="chatRows"></tbody>
+    </table>
+    <div id="chatsEmpty" class="empty" hidden>No chats yet. Add one below.</div>
+    <h2 style="margin-top:16px">Add a chat</h2>
+    <form id="addChat" novalidate>
+      <label for="chatLabel">Chat name</label>
+      <input id="chatLabel" maxlength="80" required>
+      <label for="chatProvider">Provider</label>
+      <select id="chatProvider"><option>ChatGPT API</option><option>claude.ai</option></select>
+      <div class="btns"><button type="submit">Add chat</button></div>
+      <p class="note">claude.ai chats read their messages through a read token. That step is held until Kiko approves it; messages wait with status New until then.</p>
+      <div id="addErr" class="err" role="alert"></div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="thread-h">
+    <h2 id="thread-h">Messages</h2>
+    <div id="threadEmpty" class="empty">Pick a chat to see its messages.</div>
+    <div id="thread" hidden>
+      <div id="msgs"></div>
+      <form id="send" novalidate style="margin-top:12px">
+        <label for="kind">Kind</label>
+        <select id="kind"><option value="Question">Question (chat answers)</option><option value="Confirm">Confirm (you approve or reject)</option></select>
+        <label for="body">Message</label>
+        <textarea id="body" maxlength="4000" required></textarea>
+        <p class="note"><span id="count">0</span> of 4,000 characters.</p>
+        <div class="btns"><button type="submit">Send</button></div>
+        <div id="sendErr" class="err" role="alert"></div>
+      </form>
+    </div>
+    <div id="decide" hidden style="margin-top:12px">
+      <h2>Approve or reject</h2>
+      <p class="note">Record approval saves your decision. Nothing runs until the approval card is built (Q3 B). Reject records the decision and runs nothing.</p>
+      <div class="btns"><button type="button" class="alt" id="rejectBtn">Reject</button><button type="button" id="approveBtn">Record approval</button></div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var state = { chats: [], messages: [], chat: null };
+  var STATUS = { New: 'info', Waiting: 'warn', Replied: 'good', Expired: 'plain', Recorded: 'plain', Active: 'good', Retired: 'plain' };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function tag(s) { return '<span class="tag ' + (STATUS[s] || 'plain') + '">' + esc(s) + '</span>'; }
+  function call(name, args, ok, fail) {
+    var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function (e) { alert(e.message || e); });
+    r[name].apply(r, args);
+  }
+  function load() { call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render(); }); }
+  function waiting(id) { return state.messages.filter(function (m) { return m.chat_id === id && (m.status === 'New' || m.status === 'Waiting'); }).length; }
+  function render() {
+    var rows = state.chats.map(function (c) {
+      var sel = state.chat && state.chat.chat_id === c.chat_id;
+      return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong></td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
+    });
+    document.getElementById('chatRows').innerHTML = rows.join('');
+    document.getElementById('chatsEmpty').hidden = state.chats.length > 0;
+    if (state.chat) renderThread();
+  }
+  function pick(id) {
+    state.chat = state.chats.filter(function (c) { return c.chat_id === id; })[0] || null;
+    document.getElementById('threadEmpty').hidden = !!state.chat;
+    document.getElementById('thread').hidden = !state.chat;
+    document.getElementById('decide').hidden = true;
+    render();
+  }
+  function renderThread() {
+    var list = state.messages.filter(function (m) { return m.chat_id === state.chat.chat_id; });
+    document.getElementById('msgs').innerHTML = list.length ? list.map(function (m) {
+      var reply = m.reply ? '<div class="body"><span class="who">Reply (' + esc(m.reply_source) + ')</span>\n' + esc(m.reply) + '</div>' : '';
+      return '<div class="msg"><div class="row">' + tag(m.status) + ' <span class="who">' + esc(m.kind) + ' · ' + esc(m.created_at) + '</span></div><div class="body">' + esc(m.body) + '</div>' + reply + '</div>';
+    }).join('') : '<div class="empty">No messages in this chat yet.</div>';
+    var confirm = list.filter(function (m) { return m.kind === 'Confirm' && m.status === 'New'; })[0];
+    document.getElementById('decide').hidden = !confirm;
+    document.getElementById('decide').dataset.id = confirm ? confirm.message_id : '';
+  }
+  document.getElementById('chatRows').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-id]'); if (tr) pick(tr.dataset.id); });
+  document.getElementById('chatRows').addEventListener('keydown', function (e) { var tr = e.target.closest && e.target.closest('tr[data-id]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(tr.dataset.id); } });
+  document.getElementById('body').addEventListener('input', function (e) { document.getElementById('count').textContent = e.target.value.length; });
+  document.getElementById('send').addEventListener('submit', function (e) {
+    e.preventDefault(); var err = document.getElementById('sendErr'); err.textContent = '';
+    var btn = e.target.querySelector('button'); btn.disabled = true;
+    call('cueInboxSend', [state.chat.chat_id, document.getElementById('kind').value, document.getElementById('body').value], function (r) {
+      btn.disabled = false; document.getElementById('body').value = ''; document.getElementById('count').textContent = '0';
+      if (r.status === 'Waiting') err.textContent = 'ChatGPT did not answer: ' + r.error + ' Press Send again to retry.';
+      load();
+    }, function (x) { btn.disabled = false; err.textContent = x.message || String(x); });
+  });
+  document.getElementById('addChat').addEventListener('submit', function (e) {
+    e.preventDefault(); var err = document.getElementById('addErr'); err.textContent = '';
+    call('cueInboxAddChat', [{ label: document.getElementById('chatLabel').value, provider: document.getElementById('chatProvider').value }], function () {
+      document.getElementById('chatLabel').value = ''; load();
+    }, function (x) { err.textContent = x.message || String(x); });
+  });
+  function decide(decision) {
+    var id = document.getElementById('decide').dataset.id; if (!id) return;
+    call('cueInboxDecide', [id, decision, ''], function () { load(); });
+  }
+  document.getElementById('approveBtn').addEventListener('click', function () { decide('Approve'); });
+  document.getElementById('rejectBtn').addEventListener('click', function () { decide('Reject'); });
+  load();
+})();
+</script>
+</body></html>
