@@ -70,15 +70,18 @@ function cueInboxSend_(chatId, kind, body, tool) {
   const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === chatId)[0];
   if (!chat) throw new Error('That chat is not in the inbox.');
   if (chat.v[3] !== 'Active') throw new Error('That chat is retired. Pick another chat.');
-  if (kind === 'Question') {   // 3-minute pause per chat (Kiko 11 Nov 2026); Confirm and Request access are not paused
-    const last = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_).filter(x => x.v[1] === chatId && x.v[4] === 'Question' && x.v[6] !== 'Cancelled')
-      .map(x => new Date(x.v[2]).getTime()).filter(t => t).sort((a, b) => b - a)[0];
-    const wait = last ? last + CUE_INBOX_COOLDOWN_MS_ - cueNow_() : 0;
-    if (wait > 0) throw new Error('This chat can take another Question in ' + Math.ceil(wait / 1000) + ' seconds.');
-  }
+  // The pause check and the new row are one locked step, so two tabs cannot both pass the pause (Codex on Cue PR #372).
+  // The lock is released before any AI call.
   const msgId = cueInboxId_('M'), now = new Date(cueNow_()).toISOString();
-  const row = [msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', ''];
-  cueSheet_('Inbox Messages').appendRow(row);
+  cueLocked_(() => {
+    if (kind === 'Question') {   // CUE-051: 3-minute pause per chat (Kiko 11 Nov 2026); Confirm and Request access are not paused
+      const last = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_).filter(x => x.v[1] === chatId && x.v[4] === 'Question' && x.v[6] !== 'Cancelled')
+        .map(x => new Date(x.v[2]).getTime()).filter(t => t).sort((a, b) => b - a)[0];
+      const wait = last ? last + CUE_INBOX_COOLDOWN_MS_ - cueNow_() : 0;
+      if (wait > 0) throw new Error('This chat can take another Question in ' + Math.ceil(wait / 1000) + ' seconds.');
+    }
+    cueSheet_('Inbox Messages').appendRow([msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', '']);
+  });
   if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return cueInboxRoute_(msgId);   // D3 to D5: role chats decide, nothing runs
   if (chat.v[1] === 'Claude API') return cueInboxAskClaude_(msgId, chat, text);
   if (chat.v[1] !== 'ChatGPT API') return { message_id: msgId, status: 'New' };   // design 4.2: claude.ai pull is held

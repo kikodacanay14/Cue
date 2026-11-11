@@ -1,6 +1,15 @@
 # Changelog
 
-## Cue 1.28.61: Send sends a Question at once, then a 3-minute pause per chat (not deployed)
+## Cue 1.28.62: the 3-minute pause holds across two tabs; rule CUE-051 recorded (not deployed)
+
+Codex review on Cue PR #372 (two findings, both confirmed).
+
+- The pause check and the new message row are one locked step (cueLocked_), so two tabs sending at the same moment cannot both pass the pause. The lock is released before any AI call (src/CueInbox.gs).
+- docs/business-rules.md gains CUE-051 (Send at once, 3-minute pause per chat), which supersedes D2.
+
+Test count: T26 new.
+
+## Cue 1.28.61: Send sends a Question at once, then a 3-minute pause per chat (deploying)
 
 Kiko, 11 Nov 2026: "maybe lets not do a countdown... let the user press send", then on the choice of A (2 minutes after Send), B (at once) or C (30 seconds): "lets do B but lets pause so that theres not constant mesasging may 3 minutes before it can send again". Replaces the 2-minute countdown (D2).
 

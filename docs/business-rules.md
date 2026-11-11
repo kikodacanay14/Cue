@@ -424,3 +424,24 @@ on the live Version clears it. Both need the same code near a live change, which
 
 Evidence: `test/features/92-deploy-base.js`, BG1 to BG13 (real git in a temp repo). Live check run 42434987571 on the branch printed
 "BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.
+
+## Team inbox (Kiko, 11 Nov 2026)
+
+### CUE-051: Send sends a Question at once; then that chat takes no new Question for 3 minutes
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "maybe lets not do a countdown... let the user press send",
+then, offered A (send 2 minutes after Send, with Cancel), B (send at once) or C (30 seconds): "lets do B but lets pause so that theres
+not constant mesasging may 3 minutes before it can send again". This replaces decision D2 (a Question sends 2 minutes after its
+fields are filled, Cancel stops it; Kiko 11 Nov 2026, CanvasWorkspace ADR-0161), which stays on record as superseded.
+
+- Send on a Question sends it at once (one AI call). Then the same chat refuses a new Question until 3 minutes after the last one;
+  the server says how many seconds are left and the Send button reads "Next Question in m:ss".
+- Per chat: another chat can take a Question at once. Assumption stated to Kiko and not contradicted.
+- Not paused: Confirm and Request access (they go to the role chats for a decision). Assumption stated to Kiko and not contradicted.
+- The pause check and the new message row are one locked step, so two open tabs cannot both pass it (Codex review on Cue PR #372).
+- Built: Cue 1.28.61 (`cueInboxSend_` in `src/CueInbox.gs`, `src/Inbox.html`); the lock in 1.28.62.
+
+Evidence: `test/features/94-inbox-countdown.js` T24 (page has no countdown, shows the pause on Send) and T25 (second Question in the
+same chat refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go; three AI calls), T26 (the
+check runs inside the lock). Manual gap: not yet tried on the live Inbox in Kiko's browser.
+

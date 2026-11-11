@@ -110,3 +110,8 @@ test('T25 one Question per chat every 3 minutes: a second one is refused with th
   deq(inboxJson(t.ctx.cueInboxSend(a, 'Question', 'three')).status, 'Replied');
   deq(t.log.gpt.length, 3);
 });
+
+test('T26 the 3-minute pause check and the new message row run inside one lock (Codex on Cue PR #372)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInbox.gs'), 'utf8');
+  assert.ok(/cueLocked_\(\(\) => \{\s*if \(kind === 'Question'\)[\s\S]{0,700}appendRow\(\[msgId[\s\S]{0,200}\}\);/.test(src));
+});
