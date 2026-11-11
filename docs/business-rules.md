@@ -445,3 +445,23 @@ Evidence: `test/features/94-inbox-countdown.js` T24 (page has no countdown, show
 same chat refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go; three AI calls), T26 (the
 check runs inside the lock). Manual gap: not yet tried on the live Inbox in Kiko's browser.
 
+### CUE-052: Agents post to the team inbox only through the Cue sheet's Inbox Requests tab, sent by Cue every 5 minutes
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "the goal is for things to run without me", then "go" to
+shipping "the Inbox connection so chats can post and read the Inbox themselves" (step 1 of the plan shown to him).
+
+- Scope: an agent (a Claude chat or session holding Kiko's Google Sheets connector) appends one row to the Cue sheet's "Inbox
+  Requests" tab: Request ID, Chat (name or Chat ID), Kind, Tool, Message, From. No other path: Cue's web app stays open to Kiko's
+  Google account only, and no new web route, doPost or key was added.
+- Lifecycle: every 5 minutes `cueResume` (as the script owner) claims up to 5 new rows under the lock (State Sending, written
+  before any AI call), then sends each exactly as the Inbox page would (`cueInboxSendCore_`: same checks, CUE-051 pause, role-chat
+  routing). The row ends Sent with the Message ID and status, Refused with the reason, or back to New while the 3-minute pause
+  holds. A row left at Sending is never sent again.
+- A chat name that matches more than one active chat is refused with their Chat IDs; it is never guessed.
+- The agent reads the reply or decision from that Message ID's row in "Inbox Messages". Nothing runs on a decision (scope Q3 B).
+- What it does not grant: no Canvas write, no email, no action. Anyone who can edit the Cue sheet can post (today only Kiko's
+  account and the connectors acting as him).
+
+Evidence: `test/features/97-inbox-agents.js` A1 to A7 (send and routing, Question reply, refusals, pause, 5-row cap, claim before
+send under overlap, ambiguous names). Manual gap: not yet run on live with a real connector-written row.
+

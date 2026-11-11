@@ -55,3 +55,24 @@ test('A5 at most 5 rows per run; cueResume runs the intake; no new web route or 
   const agents = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxAgents.gs'), 'utf8');
   assert.ok(!/function doPost|function doGet|cueBridge/.test(agents));
 });
+
+test('A6 a request is claimed (State Sending, written) before any AI call, so a second overlapping run sends nothing twice (Codex on PR #375)', () => {
+  let t, during = null;
+  t = agentBox({ inboxDecide: () => { during = reqRow(t, 0)[7]; deq(inboxJson(t.ctx.cueInboxIntake_()), { sent: 0 }); return { decision: 'Approve', reason: 'ok' }; } });
+  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'Go?', 'x', '', '', '', '']);
+  t.ctx.cueInboxIntake_();
+  deq(during, 'Sending');
+  deq([reqRow(t, 0)[7], inboxRows(t, 'Inbox Messages').length, inboxRows(t, 'Inbox Decisions').length], ['Sent', 1, 1]);
+});
+
+test('A7 two chats with the same name are refused with their Chat IDs; a Chat ID picks the exact chat (Codex on PR #375)', () => {
+  const t = agentBox({ inboxReply: { reply: 'ok' } });
+  const a = inboxChat(t, 'Claude API', 'Ops'), b = inboxChat(t, 'Claude API', 'ops');
+  t.tabs['Inbox Requests'].appendRow(['R1', 'Ops', 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Inbox Requests'].appendRow(['R2', b, 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.ctx.cueInboxIntake_();
+  deq(reqRow(t, 0)[7], 'Refused');
+  assert.ok(reqRow(t, 0)[9].indexOf(a) >= 0 && reqRow(t, 0)[9].indexOf(b) >= 0, reqRow(t, 0)[9]);
+  deq(reqRow(t, 1)[7], 'Sent');
+  deq(inboxRows(t, 'Inbox Messages').filter(m => m[0] === reqRow(t, 1)[8])[0][1], b);
+});
