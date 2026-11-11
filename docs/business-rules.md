@@ -66,7 +66,7 @@ All source links pin the inspected snapshot. Runtime configuration, deployed cod
 | CUE-027 | Implemented: signature scan proposes blank title/company/phone fills from bounded recent evidence. Values match cited signature; phones validated; BSE own values excluded. Approved exact fills use bridge/server results. [CueContactScan](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueContactScan.gs). | Preserve existing manually supplied contact title. |
 | CUE-028 | Implemented: HubSpot fixes selected/bounded; pipeline review read-only. Header says every open deal but implementation caps fetched/AI-reviewed evidence and reports truncation. [Hubspot](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueHubspot.gs), [Pipeline](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CuePipeline.gs). | Truncated review cannot claim complete coverage. |
 | CUE-029 | Documented scoped automatic exception + implemented: known-client email metadata log, not bodies, bounded hours/batches; thread/email/day identity and bridge requests support dedup. Current standing approval unverified. [CueCrmLog](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueCrmLog.gs). | Repeat identity does not create a second log; no general automatic CRM editing. |
-| CUE-030 | Documented scoped automatic exception + implemented, deployment unverified: Messenger sign-link send requires token, known recipient, unsigned document and valid inbound age under 24 hours. Marker supports report retries. Relay security not fully audited. [CueMessenger](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueMessenger.gs). | Missing token, future timestamp or expired window means no send. |
+| CUE-030 | Documented scoped automatic exception + implemented, deployment unverified: Messenger sign-link send requires token, known recipient, unsigned document and valid inbound age under 24 hours. Marker supports report retries. Relay security not fully audited. Message on FB exception (Cue 1.28.47, live V227, 7 Nov 2026; Kiko 10:55Z to 10:59Z asks, "build" 15:23Z, "deploy" 16:16:25Z): when Canvas lists a paper with `now_at` (staff tapped Message on FB in Resources), Cue sends it once more even if it went on Messenger before; the same token, recipient, unsigned and 24-hour checks apply; the mark's request id adds `now_at` (`msgr:<doc>:<id>:<now_at>`), so each ask is marked once and a retry after a delivered send only reports. Acceptance: `test/features/91-msgr-now.js` MN1 to MN3; live delivery not yet tested. Canvas rule: CanvasWorkspace docs/business-rules.md, RES-DOC-MENU-2026-11-07. [CueMessenger](https://github.com/kikodacanay14/Cue/blob/3080b1cb1f2dcafacf41e3b60ccd79fe8fb83b20/src/CueMessenger.gs). | Missing token, future timestamp or expired window means no send. |
 
 ## Branding and documentation discipline
 
@@ -356,3 +356,92 @@ Claude's reading, not Kiko's words: which saved states count as "messaged but ne
 
 Evidence: `test/features/87-crew-restore.js`, CRW1 and CRW2 (synthetic chats and a fake bridge). Live since Cue 1.28.39 (Version 220,
 6 Nov 2026 02:45Z, rollback 219) with Canvas V483. Manual gap: the live Messenger Waiting rows are checked after the first resume.
+
+## RFQ draft rules (intake-real-check, 7 Nov 2026)
+
+### CUE-048: An RFQ to a supplier never names the client, never states a price or budget, and never mentions other suppliers
+
+Intended policy, in Kiko's own answers on 7 Nov 2026 (thread "Pick and scope next backlog feature"):
+- R1 and R2. Asked: "Do you approve the two RFQ rules that are already in the code? An RFQ to a supplier never names the client and never
+  states a price or budget." Kiko at 13:37Z: "1. yes". At 13:38Z he tapped "RFQ rules yes, no inquiry yet" on the card that confirmed
+  which answer went with which question.
+- R3. Asked: "Approve rule R3: an RFQ never mentions other suppliers?" Kiko at 13:59Z, decision card: "Yes".
+
+Before 7 Nov 2026 these three limits existed only in the RFQ prompts and had no approval on record. This entry records the approval;
+it adds no block.
+
+Implemented: the RFQ prompts tell GPT the three limits (`src/CueIntake.gs` `CUE_R_SYSTEM_`, `src/CueVendor.gs` `CUE_VQ_SYSTEM_`).
+Nothing in Cue stops a draft that breaks them. Kiko reads every draft before Send (CUE-012). The cloud check
+`test/checks/intake-real.check.mjs` reports any break, using `test/checks/intake-rules.cjs`. Price means a peso amount written as PHP, ₱,
+P with a thousands comma or 4 or more digits, "50k pesos" or "5,000 pesos", or the word budget. Client means the full name or its first
+distinctive word.
+
+Evidence: `test/features/63-intake-real-check.js`, IR7 to IR9.
+
+### CUE-049: an RFQ goes only to a named supplier, never to a kind of business (8 Nov 2026)
+
+**Status: APPROVED by Kiko, 10 Nov 2026 04:16:01Z**, his own tap on the decision card "Should Cue skip RFQs to a kind of business
+instead of a named supplier?": "Yes, skip and note them" (thread "Watchdog: RFQ skip rule shipped on an inferred yes"). Until then
+it was not approved (watchdog finding W1): from 8 Nov to 10 Nov this entry wrongly recorded the 06:33Z message below as Kiko's yes.
+That message asked for the overall plan and did not answer the card.
+
+- Question (decision card in the "Pick and scope next backlog feature" thread, 7 Nov 2026 14:3xZ): "Should Cue skip RFQs to supplier
+  categories instead of named suppliers?" Options: "Yes, flag and skip them" (recommended) or "No, keep as is".
+- Kiko's answer, 8 Nov 2026 06:33Z, in the same thread while this card was open: "maybe you should tell me what is the overall plan so
+  youre not asking me what i want next. coz definitely i want all." This was wrongly read as Yes on this card; see the status line above.
+- Evidence: Check Cue intake-real runs 2 and 3 (7 Nov 2026). Phase 4 drafted RFQs to "Licensed electrical contractors (Metro Manila)",
+  "Pasay City LGU / Grand View Tower building admin", "LightAndSoundRental (rates blog)" and others: 8 of 20 RFQs in one inquiry.
+- Built: `cueIsCategory_` in `src/CueIntake.gs` leaves such research entries out of the line's suppliers, the card notes what was left
+  out, and the research prompt asks for real companies only. Canvas Supplier Database names are never filtered. Tests IR12 and IR13.
+- Also (not a rule, a note): when web research finds no suppliers at all, the card says so (check run 3 found none with no note).
+
+## Deploy management (Kiko, 8 Nov 2026)
+
+### CUE-050: Deploy Cue never puts live a branch that lacks code already live (G1), and warns from 180 saved versions (G4)
+
+Intended policy: Kiko at 01:22Z on 8 Nov 2026 replied "G1, G2, G3, G4, G5, L1" to the plan "Deploy management across projects"
+(https://claude.ai/artifact/5mrvX4bk48EfHuuGazFtMh). G1 there reads: Deploy Cue refuses to deploy a branch that does not contain the
+code of the Version that is live. G4: warn before the 200 saved-version limit. Why (observed): on 5 Nov 2026 V202, built on V200,
+wiped the triage release live as V201.
+
+Implemented (`tools/base-guard.cjs`, `tools/deploy.mjs`):
+- The live Version's description names its commit ("Cue <sha>"). The branch passes when that commit is an ancestor, or when every
+  hunk the live commit changed since the shared base, run backwards, applies to the branch (a squash merge passes).
+- The `const CUE_VERSION_ = ...` declaration never blocks: a hunk that changes only it is skipped, and in a hunk that also changes
+  real code the declaration is replaced by the branch's own before the check. Any other line, including one that uses
+  `CUE_VERSION_`, is checked.
+  The same holds when the declaration is only an unchanged context line beside a live change.
+- Only the files Deploy Cue pushes (`.gs`, `.html`, `.json` in `src/`) are compared, and a renamed file counts as a delete
+  plus an add, so a renamed template is checked.
+- When the commit is not found, every live file must be one the branch's history has held.
+- `mode=check` prints a `BASE` line; `mode=deploy` stops before pushing and names the files. The script fetches full history itself.
+- From 180 saved versions the run shows a warning and a job-summary line. It never stops the run (Kiko 28 Oct 2026: "warn me at 180").
+
+Known limits (Codex review on PR #355, 10 Nov 2026, left as they are): the check reverse-applies each live hunk with one line
+of context. (a) If the same few lines also exist elsewhere in the file, a branch that lost the live change can still pass.
+(b) If the branch also edited a line right next to a live change, it is refused even though it holds the change; rebuilding
+on the live Version clears it. Both need the same code near a live change, which no Cue release so far has hit.
+
+Evidence: `test/features/92-deploy-base.js`, BG1 to BG13 (real git in a temp repo). Live check run 42434987571 on the branch printed
+"BASE OK" against live Version 227 and "saved versions: 180 of 200". Manual gap: a refused `mode=deploy` has not been run live.
+
+## Team inbox (Kiko, 11 Nov 2026)
+
+### CUE-051: Send sends a Question at once; then that chat takes no new Question for 3 minutes
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "maybe lets not do a countdown... let the user press send",
+then, offered A (send 2 minutes after Send, with Cancel), B (send at once) or C (30 seconds): "lets do B but lets pause so that theres
+not constant mesasging may 3 minutes before it can send again". This replaces decision D2 (a Question sends 2 minutes after its
+fields are filled, Cancel stops it; Kiko 11 Nov 2026, CanvasWorkspace ADR-0161), which stays on record as superseded.
+
+- Send on a Question sends it at once (one AI call). Then the same chat refuses a new Question until 3 minutes after the last one;
+  the server says how many seconds are left and the Send button reads "Next Question in m:ss".
+- Per chat: another chat can take a Question at once. Assumption stated to Kiko and not contradicted.
+- Not paused: Confirm and Request access (they go to the role chats for a decision). Assumption stated to Kiko and not contradicted.
+- The pause check and the new message row are one locked step, so two open tabs cannot both pass it (Codex review on Cue PR #372).
+- Built: Cue 1.28.61 (`cueInboxSend_` in `src/CueInbox.gs`, `src/Inbox.html`); the lock in 1.28.62.
+
+Evidence: `test/features/94-inbox-countdown.js` T24 (page has no countdown, shows the pause on Send) and T25 (second Question in the
+same chat refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go; three AI calls), T26 (the
+check runs inside the lock). Manual gap: not yet tried on the live Inbox in Kiko's browser.
+

@@ -228,7 +228,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueChat_` | `Cue.gs` | 44 |
 | `cueSheet_` | `Cue.gs` | 42 |
 | `cueBridge_` | `CueBridge.gs` | 40 |
-| `cueLocked_` | `Cue.gs` | 37 |
+| `cueLocked_` | `Cue.gs` | 38 |
 | `cueLoad_` | `Cue.gs` | 35 |
 | `cueOwner_` | `Cue.gs` | 34 |
 | `cueProp_` | `Cue.gs` | 34 |
