@@ -19,7 +19,8 @@ const CUE_TABS_ = {
   'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created', 'Project ID', 'Role'],   // team inbox chats (CueInbox.gs); Project ID: a project chat made from a Canvas project (CueInboxProjects.gs)
   'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at', 'Tool', 'Decided by', 'Reason'],   // team inbox messages (CueInbox.gs)
   'Inbox Decisions': ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind'],   // Approve or Reject on a Confirm or Request access message (CueInbox.gs); read-only log on the Inbox page (D6)
-  'Inbox Queue': ['Message ID', 'Send at', 'State'],   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
+  'Inbox Queue': ['Message ID', 'Send at', 'State'],
+  'Inbox Requests': ['Request ID', 'Chat', 'Kind', 'Tool', 'Message', 'From', 'Created', 'State', 'Message ID', 'Note'],   // agents post here with the Google Sheets connector; cueResume sends them (CueInboxAgents.gs)   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
@@ -737,7 +738,8 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
-  try { cueInboxSweep_(); } catch (e) { console.error('Inbox sweep: ' + e); }   // 1.28.61: Questions queued before Send went instant (CueInbox.gs)
+  try { cueInboxSweep_(); } catch (e) { console.error('Inbox sweep: ' + e); }
+  try { cueInboxIntake_(); } catch (e) { console.error('Inbox requests: ' + e); }   // agents' requests from the Inbox Requests tab (CueInboxAgents.gs)   // 1.28.61: Questions queued before Send went instant (CueInbox.gs)
   try { cueBidsLeadsBacklogNow_(); } catch (e) { console.error('Bid lead recovery: ' + e); }   // once after 1.28.35: the 15 lost bid leads (CueBids.gs)
   try { cueMsgrCrewRestore_(); } catch (e) { console.error('Crew restore: ' + e); }   // once after 1.28.39: King's Day crew who never tapped I'm crew (CueMessenger.gs)
   const jobs = cueJobs_(), rows = [];   // STRUCTURE-PHASE-3: the job list and its Job Runs rows (CueJobs.gs)

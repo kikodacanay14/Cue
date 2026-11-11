@@ -1,6 +1,16 @@
 # Changelog
 
-## Cue 1.28.63: a hidden Cue tab stops refreshing (not deployed)
+## Cue 1.28.64: agents use the team inbox through the Cue sheet (not deployed; waiting for Kiko's yes)
+
+Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
+
+- New tab Inbox Requests in the Cue sheet. A Claude chat or session with Kiko's Google Sheets connector appends one row (Request ID, Chat, Kind, Tool, Message, From). Every 5 minutes cueResume sends each new row exactly as the Inbox page would (same checks, same 3-minute pause, same role-chat routing), marks it Sent with the Message ID, or Refused with the reason. At most 5 rows per run (src/CueInboxAgents.gs, src/Cue.gs).
+- cueInboxSend_ splits into the owner check and cueInboxSendCore_, which the intake also uses; a message from an agent shows "agent: <name>" as its sender (src/CueInbox.gs).
+- No new web door: Cue's web app stays open to Kiko's Google account only.
+
+Test count: 810 passed (A1 to A5 new in test/features/97-inbox-agents.js).
+
+## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
 Kiko, 11 Nov 2026: "i keep getting an error that there are too many scripts running for this uesr", then "A" to pausing refreshes in tabs he is not looking at.
 
