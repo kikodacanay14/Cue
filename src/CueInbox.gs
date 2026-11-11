@@ -9,7 +9,9 @@ const CUE_INBOX_BODY_MAX_ = 4000;          // design 3.2: longer text is refused
 const CUE_INBOX_EXPIRE_MS_ = 7 * 24 * 60 * 60 * 1000;   // design 3.2: unanswered after 7 days becomes Expired
 const CUE_INBOX_PROVIDERS_ = ['ChatGPT API', 'claude.ai'];
 const CUE_INBOX_KINDS_ = ['Question', 'Confirm'];
-const CUE_INBOX_MSG_COLS_ = 12, CUE_INBOX_CHAT_COLS_ = 7, CUE_INBOX_DEC_COLS_ = 5;
+const CUE_INBOX_MSG_COLS_ = 12, CUE_INBOX_CHAT_COLS_ = 7, CUE_INBOX_DEC_COLS_ = 5, CUE_INBOX_QUEUE_COLS_ = 3;
+const CUE_INBOX_COUNTDOWN_MS_ = 2 * 60 * 1000;   // D2 (Kiko 11 Nov 2026): a Question sends 2 minutes after its fields are filled; Cancel stops it
+
 
 /** Reads a tab as objects: { row (1-based sheet row), v (values) }. Header row skipped. */
 function cueInboxRows_(tab, cols) {
@@ -133,9 +135,52 @@ function cueInboxRetire_(chatId) {
   return { chat_id: chatId, status: 'Retired' };
 }
 
+/** D1/D2: a Question is queued with a 2-minute countdown. The sweep sends it when the countdown ends. Cancel stops it. */
+function cueInboxQueue_(chatId, body) {
+  cueOwner_();
+  const text = String(body || '').trim();
+  if (!text) throw new Error('Write a message first.');
+  if (text.length > CUE_INBOX_BODY_MAX_) throw new Error('Message is over ' + CUE_INBOX_BODY_MAX_ + ' characters. Shorten it and send again.');
+  const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === chatId)[0];
+  if (!chat) throw new Error('That chat is not in the inbox.');
+  if (chat.v[3] !== 'Active') throw new Error('That chat is retired. Pick another chat.');
+  const msgId = cueInboxId_('M'), now = cueNow_();
+  const sendAt = new Date(now + CUE_INBOX_COUNTDOWN_MS_).toISOString();
+  cueSheet_('Inbox Messages').appendRow([msgId, chatId, new Date(now).toISOString(), String(Session.getActiveUser().getEmail() || ''), 'Question', text, 'Queued', '', '', '', '', '']);
+  cueSheet_('Inbox Queue').appendRow([msgId, sendAt, 'Queued']);
+  return { message_id: msgId, send_at: sendAt, status: 'Queued' };
+}
+
+/** Cancel a queued Question before its countdown ends. */
+function cueInboxCancel_(msgId) {
+  cueOwner_();
+  const q = cueInboxRows_('Inbox Queue', CUE_INBOX_QUEUE_COLS_).filter(x => x.v[0] === msgId)[0];
+  if (!q || q.v[2] !== 'Queued') throw new Error('That message is already sent or was cancelled.');
+  q.v[2] = 'Cancelled'; cueInboxSetRow_('Inbox Queue', q.row, CUE_INBOX_QUEUE_COLS_, q.v);
+  const m = cueInboxFind_(msgId); m.v[6] = 'Cancelled'; cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
+  return { message_id: msgId, status: 'Cancelled' };
+}
+
+/** Time trigger (every minute, installed by cueTriggers_). Sends every Question whose countdown has ended. Owner-only by
+ * construction: no public entry point calls it, and it runs as the script owner. */
+function cueInboxSweep_() {
+  const now = cueNow_();
+  cueInboxRows_('Inbox Queue', CUE_INBOX_QUEUE_COLS_).filter(x => x.v[2] === 'Queued' && new Date(x.v[1]).getTime() <= now).forEach(q => {
+    q.v[2] = 'Sent'; cueInboxSetRow_('Inbox Queue', q.row, CUE_INBOX_QUEUE_COLS_, q.v);   // mark first: a second sweep never sends twice
+    const m = cueInboxFind_(q.v[0]);
+    m.v[6] = 'New'; cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
+    const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === m.v[1])[0];
+    if (chat && chat.v[1] === 'ChatGPT API') cueInboxAsk_(m.v[0], chat.v[4], m.v[5]);   // claude.ai stays New (pull held)
+  });
+}
+
 /* Public entry points for Inbox.html (google.script.run). Each one only passes on to the owner-checked function above. */
 function cueInboxList() { return cueInboxList_(); }
 function cueInboxAddChat(form) { return cueInboxAddChat_(form); }
 function cueInboxSend(chatId, kind, body) { return cueInboxSend_(chatId, kind, body); }
 function cueInboxDecide(msgId, decision, note) { return cueInboxDecide_(msgId, decision, note); }
 function cueInboxRetire(chatId) { return cueInboxRetire_(chatId); }
+function cueInboxQueue(chatId, body) { return cueInboxQueue_(chatId, body); }
+function cueInboxCancel(msgId) { return cueInboxCancel_(msgId); }
+/* Trigger entry point (cueTriggers_ installs it every minute). Owner check still applies. */
+function cueInboxSweep() { cueOwner_(); cueInboxSweep_(); }
