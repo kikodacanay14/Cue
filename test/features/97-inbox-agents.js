@@ -90,3 +90,51 @@ test('A8 a run that dies on one request strands only that row; later rows stay N
   t.ctx.cueInboxIntake_();
   deq([reqRow(t, 0)[7], reqRow(t, 1)[7]], ['Sending', 'Sent']);
 });
+
+const kikoRows = t => inboxRows(t, 'For Kiko');
+const later = (t, ms) => { const n0 = t.ctx.cueNow_(); t.ctx.cueNow_ = () => n0 + ms; };
+
+test('K1 a Contested Confirm and an Other-tool request land on the For Kiko tab once, after a minute; settled ones do not', () => {
+  const t = agentBox({ inboxDecide: { decision: 'Escalate', reason: 'Needs Kiko.' }, gpt: { inbox_decision: { decision: 'Escalate', reason: 'Cannot decide.' } } });
+  t.ctx.cueSheet_('For Kiko');
+  const c = chatByLabel(t, 'QA');
+  t.ctx.cueInboxSend(c, 'Confirm', 'Ship with one known bug?');
+  t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool');
+  t.ctx.cueForKikoSync_();
+  deq(kikoRows(t).length, 0);   // younger than a minute
+  later(t, 2 * 60 * 1000);
+  t.ctx.cueForKikoSync_(); t.ctx.cueForKikoSync_();
+  deq(kikoRows(t).map(r => [r[2], r[3], r[8]]), [['QA', 'Confirm', 'Open'], ['QA', 'Request access', 'Open']]);
+  assert.ok(/could not decide/.test(kikoRows(t)[0][5]) && /Other tool/.test(kikoRows(t)[1][5]));
+});
+
+test('K2 Kiko types Approve or Reject in Your answer: recorded as his decision, row Done; other text asks again', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('For Kiko');
+  const c = chatByLabel(t, 'QA');
+  const a = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool'));
+  const b = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Sheets for Ana', 'Other tool'));
+  later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
+  t.tabs['For Kiko'].rows[1][7] = 'approve'; t.tabs['For Kiko'].rows[2][7] = 'maybe later';
+  t.ctx.cueForKikoSync_();
+  deq([kikoRows(t)[0][8], kikoRows(t)[1][8]], ['Done', 'Open']);
+  assert.ok(/Type Approve or Reject/.test(kikoRows(t)[1][9]));
+  const m = inboxRows(t, 'Inbox Messages').filter(x => x[0] === a.message_id)[0];
+  deq([m[6], m[10], m[13]], ['Recorded', 'Approved', 'Kiko (For Kiko tab)']);
+  deq(inboxRows(t, 'Inbox Decisions').length, 1);
+});
+
+test('K3 an item decided on the Inbox page turns Done; an agent row without a Message ID turns Answered when Kiko writes', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('For Kiko');
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
+  t.ctx.cueInboxDecide(r.message_id, 'Reject', '');
+  t.tabs['For Kiko'].appendRow(['K-agent', '', 'Canvas PO', 'Question', 'Which client logo goes on the banner?', 'Only Kiko knows', '', '', 'Open', '', 'agent: canvas']);
+  t.ctx.cueForKikoSync_();
+  deq(kikoRows(t)[0][8], 'Done');
+  deq(kikoRows(t)[1][8], 'Open');
+  t.tabs['For Kiko'].rows[2][7] = 'Use the blue one';
+  t.ctx.cueForKikoSync_();
+  deq(kikoRows(t)[1][8], 'Answered');
+});

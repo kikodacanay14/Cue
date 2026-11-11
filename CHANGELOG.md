@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.64: agents use the team inbox through the Cue sheet (not deployed)
+## Cue 1.28.64: agents use the team inbox through the Cue sheet; the For Kiko tab (not deployed)
 
 Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
 
@@ -10,7 +10,9 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 
 - Codex review fixes before the first deploy: each request is claimed one at a time (State Sending, written under the lock) right before it is sent, so overlapping runs never send one twice and a run that dies strands only the row in flight; a chat name matching more than one chat is refused with the Chat IDs, and Chat accepts a Chat ID; rule CUE-052 recorded in docs/business-rules.md.
 
-Test count: 813 passed (A1 to A8 new in test/features/97-inbox-agents.js).
+- For Kiko tab (Kiko: "add another tab and those are all the things that require Kiko"): every 5 minutes Cue lists each Confirm or access request the role chats did not settle; agents may add their own rows; Kiko types Approve, Reject or a reply in Your answer and Cue records it (cueForKikoSync_, rule CUE-053).
+
+Test count: 816 passed (A1 to A8 and K1 to K3 new in test/features/97-inbox-agents.js).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 

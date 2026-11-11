@@ -48,3 +48,46 @@ function cueInboxIntake_() {
   waits.forEach(r => { r.v[7] = 'New'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); });
   return { sent };
 }
+
+/* For Kiko (Kiko 11 Nov 2026: "why cant they just also send a message for me in the google sheet? add another tab and those are
+ * all the things that require Kiko"). One tab in the Cue sheet holds everything that needs him:
+ *   - Cue adds a row for each Confirm or Request access the role chats did not settle (Contested, Waiting after a failed call,
+ *     or any tool other than Google Drive), at most once per message, once the message is a minute old.
+ *   - An agent may append its own row (leave Message ID blank) for anything only Kiko can answer; it reads Your answer back.
+ * Kiko types in Your answer. For a row with a Message ID: "Approve" or "Reject" (any case) is recorded as his decision, the same
+ * as the Inbox page, and the row turns Done; any other text gets a Note asking for Approve or Reject. A row whose message was
+ * decided elsewhere turns Done. A row without a Message ID turns Answered when he writes anything. Runs from cueResume. */
+const CUE_FORKIKO_COLS_ = 11;
+function cueForKikoSync_() {
+  const tab = 'For Kiko', now = cueNow_();
+  const items = cueInboxRows_(tab, CUE_FORKIKO_COLS_);
+  const msgs = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_), byId = {};
+  msgs.forEach(m => { byId[m.v[0]] = m; });
+  const chats = {}; cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).forEach(c => { chats[c.v[0]] = c.v[2]; });
+  const have = {}; items.forEach(x => { if (x.v[1]) have[x.v[1]] = 1; });
+  // 1. New items: undecided Confirm or Request access that are waiting for Kiko.
+  msgs.forEach(m => {
+    const v = m.v, kindOk = CUE_INBOX_DECIDED_KINDS_.indexOf(v[4]) >= 0, open = !v[10] && ['New', 'Contested', 'Waiting'].indexOf(v[6]) >= 0;
+    if (!kindOk || !open || have[v[0]] || now - new Date(v[2]).getTime() < 60 * 1000) return;
+    const why = v[6] === 'Contested' ? 'The Tech Lead and Account Manager could not decide: ' + String(v[14] || '')
+      : v[6] === 'Waiting' ? 'A role chat did not answer: ' + String(v[14] || '')
+      : v[4] === 'Request access' ? 'Access to ' + (v[12] || 'a tool') + ' needs your yes (only Google Drive goes to the Tech Lead).'
+      : 'No role chat decided it.';
+    cueSheet_(tab).appendRow([cueInboxId_('K'), v[0], chats[v[1]] || '', v[4], cueStr_(v[5], 2000), cueStr_(why, 500), v[2], '', 'Open', 'Type Approve or Reject in Your answer.', String(v[3] || '')]);
+    have[v[0]] = 1;
+  });
+  // 2. Kiko's answers, and items settled elsewhere.
+  cueInboxRows_(tab, CUE_FORKIKO_COLS_).forEach(x => {
+    const v = x.v; if (v[8] !== 'Open') return;
+    const ans = String(v[7] || '').trim(), m = v[1] ? byId[v[1]] : null;
+    if (m && m.v[10]) { v[8] = 'Done'; v[9] = m.v[10] + ' by ' + (m.v[13] || 'Kiko'); cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
+    if (!ans) return;
+    if (!v[1]) { v[8] = 'Answered'; v[9] = 'Answered ' + new Date(now).toISOString(); cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
+    if (!m) { v[8] = 'Done'; v[9] = 'Message not found.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
+    const d = /^approve/i.test(ans) ? 'Approve' : /^reject/i.test(ans) ? 'Reject' : '';
+    if (!d) { v[9] = 'Type Approve or Reject in Your answer.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
+    cueInboxRecord_(m, d, 'From the For Kiko tab', 'Kiko (For Kiko tab)');
+    v[8] = 'Done'; v[9] = (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString();
+    cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v);
+  });
+}

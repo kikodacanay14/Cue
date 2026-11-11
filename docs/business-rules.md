@@ -465,3 +465,18 @@ shipping "the Inbox connection so chats can post and read the Inbox themselves" 
 Evidence: `test/features/97-inbox-agents.js` A1 to A8 (send and routing, Question reply, refusals, pause, 5-row cap, claim before
 send under overlap, ambiguous names, a killed run strands only the row in flight). Manual gap: not yet run on live with a real connector-written row.
 
+### CUE-053: Everything that needs Kiko goes to the For Kiko tab of the Cue sheet, and he answers there
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "why cant they just also send a message for me in the google
+sheet? add another tab and those are all the things that require Kiko".
+
+- Every 5 minutes `cueResume` adds one row per Confirm or Request access that the role chats did not settle (Contested, Waiting
+  after a failed role call, or a tool other than Google Drive), once the message is a minute old and at most once per message.
+- An agent may append its own row with no Message ID for anything only Kiko can answer, and read Your answer back.
+- Kiko types in Your answer. On a row with a Message ID, "Approve" or "Reject" (any case) is recorded as his decision exactly like
+  the Inbox page (decided by "Kiko (For Kiko tab)") and the row turns Done; other text gets a Note asking for Approve or Reject.
+  A message decided elsewhere turns its row Done. A row with no Message ID turns Answered when he writes anything.
+- Nothing runs on a decision (scope Q3 B).
+
+Evidence: `test/features/97-inbox-agents.js` K1 to K3. Manual gap: not yet run on live.
+
