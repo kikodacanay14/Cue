@@ -473,10 +473,12 @@ sheet? add another tab and those are all the things that require Kiko".
 - Every 5 minutes `cueResume` adds one row per Confirm or Request access that the role chats did not settle (Contested, Waiting
   after a failed role call, or a tool other than Google Drive), once the message is a minute old and at most once per message.
 - An agent may append its own row with no Message ID for anything only Kiko can answer, and read Your answer back.
-- Kiko types in Your answer. On a row with a Message ID, "Approve" or "Reject" (any case) is recorded as his decision exactly like
+- Kiko types in Your answer. On a row with a Message ID, the whole answer "Approve" or "Reject" (any case; "Approved" and "Rejected" too) is recorded as his decision exactly like
   the Inbox page (decided by "Kiko (For Kiko tab)") and the row turns Done; other text gets a Note asking for Approve or Reject.
   A message decided elsewhere turns its row Done. A row with no Message ID turns Answered when he writes anything.
 - Nothing runs on a decision (scope Q3 B).
 
-Evidence: `test/features/97-inbox-agents.js` K1 to K3. Manual gap: not yet run on live.
+- The message is re-read under the lock right before his answer is recorded; a decision made meanwhile on the Inbox page is kept and the row turns Done.
+
+Evidence: `test/features/97-inbox-agents.js` K1 to K5. Manual gap: not yet run on live.
 

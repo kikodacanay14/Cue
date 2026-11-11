@@ -14,13 +14,15 @@ function cueInboxIntake_() {
   // Claim one row at a time, under the lock, right before it is sent (Codex on Cue PR #375 and #376): the row is marked Sending
   // and written before any AI call, so an overlapping run cannot pick it, and a run that dies strands only the row in flight.
   // A row left at Sending is never sent again.
+  const tried = {};   // rows this run already handled (a paused Question goes straight back to New, so it must not be retaken now)
   const claimNext = () => cueLocked_(() => {
-    const r = cueInboxRows_('Inbox Requests', CUE_INBOX_REQ_COLS_).filter(x => !String(x.v[7] || '').trim() || x.v[7] === 'New')[0];
+    const r = cueInboxRows_('Inbox Requests', CUE_INBOX_REQ_COLS_).filter(x => !tried[x.row] && (!String(x.v[7] || '').trim() || x.v[7] === 'New'))[0];
+    if (r) tried[r.row] = 1;
     if (r) { r.v[6] = r.v[6] || now; r.v[7] = 'Sending'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); }
     return r || null;
   });
   const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(c => c.v[3] === 'Active');
-  let sent = 0, waits = [];
+  let sent = 0;
   for (let i = 0; i < CUE_INBOX_REQ_MAX_; i++) {
     const r = claimNext(); if (!r) break;
     const v = r.v, want = String(v[1] || '').trim();
@@ -39,13 +41,11 @@ function cueInboxIntake_() {
       sent++;
     } catch (e) {
       const why = cueStr_((e && e.message) || e, 300);
-      if (/can take another Question in/.test(why)) { v[7] = 'Paused'; v[9] = 'Waiting for the 3-minute pause; sends on a later run.'; waits.push(r); }
+      if (/can take another Question in/.test(why)) { v[7] = 'New'; v[9] = 'Waiting for the 3-minute pause; sends on a later run.'; }   // New at once (Codex on PR #376): a run that dies later never strands it
       else { v[7] = 'Refused'; v[9] = why; }
     }
     cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v);
   }
-  // Rows held by the pause go back to New only now, so this run does not claim them again.
-  waits.forEach(r => { r.v[7] = 'New'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); });
   return { sent };
 }
 
@@ -84,10 +84,17 @@ function cueForKikoSync_() {
     if (!ans) return;
     if (!v[1]) { v[8] = 'Answered'; v[9] = 'Answered ' + new Date(now).toISOString(); cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
     if (!m) { v[8] = 'Done'; v[9] = 'Message not found.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
-    const d = /^approve/i.test(ans) ? 'Approve' : /^reject/i.test(ans) ? 'Reject' : '';
+    // The whole answer must be the word (Codex on PR #376): "Approve? not yet" is not a decision.
+    const d = /^approved?\.?$/i.test(ans) ? 'Approve' : /^rejected?\.?$/i.test(ans) ? 'Reject' : '';
     if (!d) { v[9] = 'Type Approve or Reject in Your answer.'; cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v); return; }
-    cueInboxRecord_(m, d, 'From the For Kiko tab', 'Kiko (For Kiko tab)');
-    v[8] = 'Done'; v[9] = (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString();
+    // Re-read the message under the lock right before writing, so a decision made meanwhile on the Inbox page is kept.
+    const done = cueLocked_(() => {
+      const fresh = cueInboxFind_(v[1]);
+      if (fresh.v[10]) return fresh.v[10] + ' by ' + (fresh.v[13] || 'Kiko');
+      cueInboxRecord_(fresh, d, 'From the For Kiko tab', 'Kiko (For Kiko tab)');
+      return (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString();
+    });
+    v[8] = 'Done'; v[9] = done;
     cueInboxSetRow_(tab, x.row, CUE_FORKIKO_COLS_, v);
   });
 }

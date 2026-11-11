@@ -138,3 +138,45 @@ test('K3 an item decided on the Inbox page turns Done; an agent row without a Me
   t.ctx.cueForKikoSync_();
   deq(kikoRows(t)[1][8], 'Answered');
 });
+
+test('K4 only a whole Approve or Reject counts: "Approve? not yet" asks again and records nothing (Codex on PR #376)', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('For Kiko');
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
+  t.tabs['For Kiko'].rows[1][7] = 'Approve? Not yet, wait for my confirmation';
+  t.ctx.cueForKikoSync_();
+  deq(kikoRows(t)[0][8], 'Open');
+  deq(inboxRows(t, 'Inbox Decisions').length, 0);
+  t.tabs['For Kiko'].rows[1][7] = ' Rejected ';
+  t.ctx.cueForKikoSync_();
+  deq([kikoRows(t)[0][8], inboxRows(t, 'Inbox Messages').filter(m => m[0] === r.message_id)[0][10]], ['Done', 'Rejected']);
+});
+
+test('K5 a decision made on the page while the sheet answer is processed is kept, not overwritten (Codex on PR #376)', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('For Kiko');
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
+  t.tabs['For Kiko'].rows[1][7] = 'Approve';
+  const real = t.ctx.cueInboxFind_; let first = true;
+  t.ctx.cueInboxFind_ = function (id) { if (first) { first = false; t.ctx.cueInboxFind_ = real; real(id); t.ctx.cueInboxDecide(id, 'Reject', ''); } return real(id); };
+  t.ctx.cueForKikoSync_();
+  deq(inboxRows(t, 'Inbox Decisions').map(d => d[2]), ['Rejected']);
+  deq(kikoRows(t)[0][8], 'Done');
+});
+
+test('A9 a paused Question goes back to New at once, so a run that dies afterwards does not strand it (Codex on PR #376)', () => {
+  const t = agentBox({ inboxReply: { reply: 'ok' } });
+  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Question', '', 'one', 'x', '', '', '', '']);
+  t.ctx.cueInboxIntake_();
+  t.tabs['Inbox Requests'].appendRow(['R2', 'QA', 'Question', '', 'two', 'x', '', '', '', '']);
+  t.tabs['Inbox Requests'].appendRow(['R3', 'QA', 'Confirm', '', 'go?', 'x', '', '', '', '']);
+  const real = t.ctx.cueInboxSetRow_; let writes = 0;
+  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Inbox Requests' && ++writes === 4) throw new Error('script killed'); return real.apply(null, arguments); };
+  assert.throws(() => t.ctx.cueInboxIntake_(), /script killed/);
+  t.ctx.cueInboxSetRow_ = real;
+  deq(reqRow(t, 1)[7], 'New');
+  later(t, 4 * 60 * 1000); t.ctx.cueInboxIntake_();
+  deq(reqRow(t, 1)[7], 'Sent');
+});

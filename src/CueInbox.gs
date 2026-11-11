@@ -136,10 +136,13 @@ function cueInboxSetChatResponse_(chatId, respId) {
 function cueInboxDecide_(msgId, decision, note) {
   cueOwner_();
   if (['Approve', 'Reject'].indexOf(decision) < 0) throw new Error('Decision must be Approve or Reject.');
-  const m = cueInboxFind_(msgId);
-  if (CUE_INBOX_DECIDED_KINDS_.indexOf(m.v[4]) < 0) throw new Error('Only Confirm and Request access messages take a decision.');
-  cueInboxRecord_(m, decision, note, 'Kiko' + (Session.getActiveUser().getEmail() ? ' (' + Session.getActiveUser().getEmail() + ')' : ''));
-  return { message_id: msgId, decision: m.v[10] };
+  const by = 'Kiko' + (Session.getActiveUser().getEmail() ? ' (' + Session.getActiveUser().getEmail() + ')' : '');
+  return cueLocked_(() => {   // same lock as the For Kiko tab and agent intake, so two decision writers never interleave
+    const m = cueInboxFind_(msgId);
+    if (CUE_INBOX_DECIDED_KINDS_.indexOf(m.v[4]) < 0) throw new Error('Only Confirm and Request access messages take a decision.');
+    cueInboxRecord_(m, decision, note, by);
+    return { message_id: msgId, decision: m.v[10] };
+  });
 }
 /** Writes a decision on the message and one Inbox Decisions row. by: who decided (a role chat or Kiko). */
 function cueInboxRecord_(m, decision, note, by) {

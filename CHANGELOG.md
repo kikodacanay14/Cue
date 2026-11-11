@@ -12,7 +12,9 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 
 - For Kiko tab (Kiko: "add another tab and those are all the things that require Kiko"): every 5 minutes Cue lists each Confirm or access request the role chats did not settle; agents may add their own rows; Kiko types Approve, Reject or a reply in Your answer and Cue records it (cueForKikoSync_, rule CUE-053).
 
-Test count: 816 passed (A1 to A8 and K1 to K3 new in test/features/97-inbox-agents.js).
+- Codex review fixes on the For Kiko tab: only a whole "Approve" or "Reject" counts as a decision; the message is re-read under the lock right before the answer is recorded, so a decision made on the Inbox page meanwhile is kept (the page's Approve and Reject now take the same lock); a paused agent Question goes straight back to New.
+
+Test count: 819 passed (A1 to A9 and K1 to K5 new in test/features/97-inbox-agents.js).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
