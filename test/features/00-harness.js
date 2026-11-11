@@ -190,6 +190,7 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You are a role chat in Kiko's team inbox/.test(body.system)) { log.claude.push(body);   // team inbox role chats (CueInboxRoles.gs)
+      if (body.output_config.format.schema.properties.note) return claudeOk(typeof o.teamDaily === 'function' ? o.teamDaily(body) : o.teamDaily || { note: 'All fine.', requests: [] });   // team daily jobs (CueInboxTeam.gs)
       const want = body.output_config.format.schema.properties.decision ? 'inboxDecide' : 'inboxReply';
       if ((o.fail || {})[want]) return o.fail[want]();
       const v = o[want]; return claudeOk(typeof v === 'function' ? v(body) : v || (want === 'inboxDecide' ? { decision: 'Approve', reason: 'Clear and safe.' } : { reply: 'Claude answer.' })); }

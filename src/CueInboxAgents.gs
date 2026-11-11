@@ -1,13 +1,13 @@
 /* Team inbox for agents (Kiko 11 Nov 2026: "the goal is for things to run without me", then "now are you gonna do what i want?").
  * Cue's web app opens only for Kiko's Google account, so an outside agent cannot call it, and this file opens no new door.
  * Instead an agent (a Claude Code session with Kiko's Google Sheets connector) appends one row to the Cue sheet's
- * "Inbox Requests" tab:  Request ID | Chat (name or Chat ID) | Kind | Tool | Message | From   (leave Created, State, Message ID, Note blank)
+ * "Team Requests" tab:  Request ID | Chat (name or Chat ID) | Kind | Tool | Message | From   (leave Created, State, Message ID, Note blank)
  * Every 5 minutes cueResume (running as the script owner) sends each new row exactly as the Inbox page would: same checks,
  * same 3-minute pause per chat, same routing to the role chats. The row then gets State Sent and the Message ID; the agent reads
  * the reply or decision from that row of "Inbox Messages" (Status, Reply, Decision, Decided by, Reason). Nothing runs on a
  * decision. A row the inbox refuses gets State Refused and the reason in Note. At most 5 rows per run (each can make two AI calls). */
 
-const CUE_INBOX_REQ_COLS_ = 10, CUE_INBOX_REQ_MAX_ = 5;
+const CUE_INBOX_REQ_COLS_ = 12, CUE_INBOX_REQ_MAX_ = 5;
 
 function cueInboxIntake_() {
   const now = new Date(cueNow_()).toISOString();
@@ -16,9 +16,9 @@ function cueInboxIntake_() {
   // A row left at Sending is never sent again.
   const tried = {};   // rows this run already handled (a paused Question goes straight back to New, so it must not be retaken now)
   const claimNext = () => cueLocked_(() => {
-    const r = cueInboxRows_('Inbox Requests', CUE_INBOX_REQ_COLS_).filter(x => !tried[x.row] && (!String(x.v[7] || '').trim() || x.v[7] === 'New'))[0];
+    const r = cueInboxRows_('Team Requests', CUE_INBOX_REQ_COLS_).filter(x => !tried[x.row] && (!String(x.v[7] || '').trim() || x.v[7] === 'New'))[0];
     if (r) tried[r.row] = 1;
-    if (r) { r.v[6] = r.v[6] || now; r.v[7] = 'Sending'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); }
+    if (r) { r.v[6] = r.v[6] || now; r.v[7] = 'Sending'; cueInboxSetRow_('Team Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); }
     return r || null;
   });
   const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(c => c.v[3] === 'Active');
@@ -33,18 +33,21 @@ function cueInboxIntake_() {
       v[7] = 'Refused';
       v[9] = hits.length ? 'More than one inbox chat is named "' + want + '". Use its Chat ID (' + hits.map(c => c.v[0]).join(', ') + ').'
         : 'No active inbox chat named "' + want + '".';
-      cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v); continue;
+      cueInboxSetRow_('Team Requests', r.row, CUE_INBOX_REQ_COLS_, v); continue;
     }
     try {
       const out = cueInboxSendCore_(hits[0].v[0], String(v[2] || '').trim(), v[4], String(v[3] || '').trim(), 'agent: ' + cueStr_(String(v[5] || 'unnamed'), 80));
-      v[7] = 'Sent'; v[8] = out.message_id; v[9] = cueStr_(out.status + (out.decision ? ' ' + out.decision : '') + (out.error ? ': ' + out.error : ''), 300);
+      v[7] = 'Sent'; v[8] = out.message_id; v[9] = cueStr_(out.status + (out.error ? ': ' + out.error : ''), 300);
+      // The answer goes on the same row, so agents read only this spreadsheet.
+      const m = cueInboxFind_(out.message_id).v;
+      v[10] = cueStr_(m[7] || (m[10] ? m[10] + (m[14] ? ': ' + m[14] : '') : ''), 4000); v[11] = m[13] || (m[7] ? cueInboxChatLabel_(m[1]) : '');
       sent++;
     } catch (e) {
       const why = cueStr_((e && e.message) || e, 300);
       if (/can take another Question in/.test(why)) { v[7] = 'New'; v[9] = 'Waiting for the 3-minute pause; sends on a later run.'; }   // New at once (Codex on PR #376): a run that dies later never strands it
       else { v[7] = 'Refused'; v[9] = why; }
     }
-    cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v);
+    cueInboxSetRow_('Team Requests', r.row, CUE_INBOX_REQ_COLS_, v);
   }
   return { sent };
 }

@@ -46,21 +46,21 @@ test('R4 both escalate: the message is Contested for Kiko with both reasons, no 
   assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
 });
 
-test('R5 Request access: Google Drive goes to the Tech Lead; another tool waits for Kiko with no AI call; a tool must be picked', () => {
+test('R5 every access request, Google Drive or another tool, goes to the Tech Lead; a tool must be picked (Kiko 11 Nov 2026: "do not include me in any step")', () => {
   const t = roleBox({ inboxDecide: { decision: 'Approve', reason: 'Project folder only.' } });
   const c = chatByLabel(t, 'Chase PO');
-  const g = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Drive folder for the Acme project', 'Google Drive'));
-  deq([g.status, g.decision], ['Recorded', 'Approved']);
-  const o = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool'));
-  deq([o.status, o.routed_to], ['New', 'Kiko']);
-  deq(t.log.claude.length, 1);
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Drive folder for the Acme project', 'Google Drive')).decision, 'Approved');
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool')).decision, 'Approved');
+  deq(t.log.claude.length, 2);
   assert.throws(() => t.ctx.cueInboxSend(c, 'Request access', 'x'), /Pick the tool/);
 });
 
-test('R6 Tech Lead escalating a Drive request makes it Contested (the Account Manager never decides access)', () => {
-  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Personal files inside.' } });
+test('R6 the Tech Lead escalating an access request sends it to the Account Manager, the final decider: its schema has no Escalate', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Personal files inside.' }, gpt: { inbox_decision: { decision: 'Reject', reason: 'HR data.' } } });
   const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Request access', 'Drive access to HR folder', 'Google Drive'));
-  deq(r.status, 'Contested'); deq(t.log.gpt.length, 0);
+  deq([r.status, r.decision, r.by], ['Recorded', 'Rejected', 'ChatGPT Account Manager']);
+  deq(t.log.gpt[0].text.format.schema.properties.decision.enum, ['Approve', 'Reject']);
+  assert.ok(/final decider/.test(t.log.gpt[0].instructions));
 });
 
 test('R7 a role chat that fails to answer leaves the message Waiting with the reason, and Kiko can still decide', () => {

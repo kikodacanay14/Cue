@@ -445,7 +445,7 @@ Evidence: `test/features/94-inbox-countdown.js` T24 (page has no countdown, show
 same chat refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go; three AI calls), T26 (the
 check runs inside the lock). Manual gap: not yet tried on the live Inbox in Kiko's browser.
 
-### CUE-052: Agents post to the team inbox only through the Cue sheet's Inbox Requests tab, sent by Cue every 5 minutes
+### CUE-052: Agents post to the team inbox only through the Cue sheet's Team Requests tab, sent by Cue every 5 minutes
 
 **Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "the goal is for things to run without me", then "go" to
 shipping "the Inbox connection so chats can post and read the Inbox themselves" (step 1 of the plan shown to him).
@@ -481,4 +481,24 @@ sheet? add another tab and those are all the things that require Kiko".
 - The whole sync runs under the lock shared with the Inbox page's Approve and Reject, so items are added at most once and a decision made on the page is kept (the row turns Done). The sync writes only the State and Note cells, never Your answer.
 
 Evidence: `test/features/97-inbox-agents.js` K1 to K7. Manual gap: not yet run on live.
+
+### CUE-054: The AI team runs without Kiko: the Account Manager has the final say, and each role does a daily job
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "the goal is for things to run without me", "change that....
+do not include me in any step there", "okay lets do that" to the flow shown to him (each role wakes on a schedule, asks the other
+roles through the sheet, the Account Manager's decision is final, nothing waits for him), then "do it in a new spreadsheet".
+
+- Every Confirm and every Request access (any tool) goes to the Tech Lead, then on Escalate to the Account Manager, whose decision is
+  final: its answer schema allows only Approve or Reject. This replaces the routing of D4 (Drive only to the Tech Lead, other tools
+  to Kiko) and D5 (Contested to Kiko). The For Kiko tab still lists anything left undecided (for example, no Tech Lead chat), as a view.
+- Daily jobs: once a day after 08:00 Manila, `cueResume` runs one job per role (Canvas PO and Account Manager read the Canvas project
+  board; Cue PO and QA read the last 24 hours of failed Cue jobs; the Tech Lead reads the last 24 hours of decisions), at most 2 per
+  run. Each writes a note on Team Daily and may send up to 2 Questions or Confirms to other roles on Team Requests. Charter PO and
+  Chase PO have no data source in Cue yet, so no daily job.
+- The team's tabs (Team Requests, Team Daily, For Kiko) live in their own spreadsheet "BSE AI Team", made by Cue in Kiko's Drive
+  (Script Property CUE_TEAM_SHEET_ID). Team Requests rows get the answer and who decided on the same row.
+- Limit kept (Kiko's standing rule): nothing the team decides sends email, spends money or changes Canvas. The only Canvas call is the
+  read-only project board.
+
+Evidence: `test/features/96-inbox-roles.js` R5, R6; `test/features/97-inbox-agents.js` A1, A2, A11, D1, D2. Manual gap: not yet run live.
 

@@ -1,31 +1,32 @@
-// Part of test/cue.test.js. Feature: agents use the team inbox through the Cue sheet's Inbox Requests tab (src/CueInboxAgents.gs).
+// Part of test/cue.test.js. Feature: agents use the team inbox through the Cue sheet's Team Requests tab (src/CueInboxAgents.gs).
 // Kiko 11 Nov 2026: "the goal is for things to run without me". No new web door: cueResume sends the rows as the script owner.
-const agentBox = (o = {}) => { const t = inboxBox(o); t.ctx.cueSetupRoles = null; t.ctx.cueInboxSetupRoles(); t.ctx.cueSheet_('Inbox Requests'); return t; };
-const reqRow = (t, i) => inboxRows(t, 'Inbox Requests')[i];
+const agentBox = (o = {}) => { const t = inboxBox(o); t.ctx.cueSetupRoles = null; t.ctx.cueInboxSetupRoles(); t.ctx.cueSheet_('Team Requests'); return t; };
+const reqRow = (t, i) => inboxRows(t, 'Team Requests')[i];
 
 test('A1 an agent row is sent like the page would: Confirm routed to the Tech Lead, row marked Sent with the message ID', () => {
   const t = agentBox({ inboxDecide: { decision: 'Approve', reason: 'Safe.' } });
-  t.tabs['Inbox Requests'].appendRow(['R1', 'Canvas PO', 'Confirm', '', 'Rename the button?', 'canvas-session', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R1', 'Canvas PO', 'Confirm', '', 'Rename the button?', 'canvas-session', '', '', '', '']);
   deq(inboxJson(t.ctx.cueInboxIntake_()), { sent: 1 });
   const r = reqRow(t, 0);
-  deq([r[7], /^M-/.test(r[8]), r[9]], ['Sent', true, 'Recorded Approved']);
+  deq([r[7], /^M-/.test(r[8]), r[9], r[10], r[11]], ['Sent', true, 'Recorded', 'Approved: Safe.', 'BSE Apps & Systems (Tech Lead)']);
   const m = inboxRows(t, 'Inbox Messages').filter(x => x[0] === r[8])[0];
   deq([m[3], m[4], m[6], m[10], m[13]], ['agent: canvas-session', 'Confirm', 'Recorded', 'Approved', 'BSE Apps & Systems (Tech Lead)']);
 });
 
 test('A2 a Question row gets the role chat answer; chat names match without case', () => {
   const t = agentBox({ inboxReply: { reply: 'Test the save path.' } });
-  t.tabs['Inbox Requests'].appendRow(['R2', 'qa', 'Question', '', 'What do I test?', 'cue-session', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', 'qa', 'Question', '', 'What do I test?', 'cue-session', '', '', '', '']);
   t.ctx.cueInboxIntake_();
   const m = inboxRows(t, 'Inbox Messages').filter(x => x[0] === reqRow(t, 0)[8])[0];
   deq([m[6], m[7]], ['Replied', 'Test the save path.']);
+  deq([reqRow(t, 0)[10], reqRow(t, 0)[11]], ['Test the save path.', 'QA']);
 });
 
 test('A3 unknown chat, bad kind and a missing tool are refused with the reason; nothing is sent and no AI is called', () => {
   const t = agentBox();
-  t.tabs['Inbox Requests'].appendRow(['R3', 'Nobody', 'Question', '', 'hi', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R4', 'QA', 'Order', '', 'hi', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R5', 'QA', 'Request access', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R3', 'Nobody', 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R4', 'QA', 'Order', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R5', 'QA', 'Request access', '', 'hi', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
   deq([0, 1, 2].map(i => reqRow(t, i)[7]), ['Refused', 'Refused', 'Refused']);
   assert.ok(/No active inbox chat named "Nobody"/.test(reqRow(t, 0)[9]) && /Kind must be/.test(reqRow(t, 1)[9]) && /Pick the tool/.test(reqRow(t, 2)[9]));
@@ -34,8 +35,8 @@ test('A3 unknown chat, bad kind and a missing tool are refused with the reason; 
 
 test('A4 the 3-minute pause applies to agents: the second Question stays New and goes on a later run; done rows are never sent twice', () => {
   const t = agentBox({ inboxReply: { reply: 'ok' } });
-  t.tabs['Inbox Requests'].appendRow(['R6', 'QA', 'Question', '', 'one', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R7', 'QA', 'Question', '', 'two', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R6', 'QA', 'Question', '', 'one', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R7', 'QA', 'Question', '', 'two', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
   deq([reqRow(t, 0)[7], reqRow(t, 1)[7]], ['Sent', 'New']);
   assert.ok(/3-minute pause/.test(reqRow(t, 1)[9]));
@@ -47,9 +48,9 @@ test('A4 the 3-minute pause applies to agents: the second Question stays New and
 
 test('A5 at most 5 rows per run; cueResume runs the intake; no new web route or doPost for agents', () => {
   const t = agentBox();
-  for (let i = 0; i < 7; i++) t.tabs['Inbox Requests'].appendRow(['R' + i, 'Nobody', 'Question', '', 'x', 'x', '', '', '', '']);
+  for (let i = 0; i < 7; i++) t.tabs['Team Requests'].appendRow(['R' + i, 'Nobody', 'Question', '', 'x', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
-  deq(inboxRows(t, 'Inbox Requests').filter(r => r[7] === 'Refused').length, 5);
+  deq(inboxRows(t, 'Team Requests').filter(r => r[7] === 'Refused').length, 5);
   const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(/try \{ cueInboxIntake_\(\); \}/.test(cue));
   const agents = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxAgents.gs'), 'utf8');
@@ -59,7 +60,7 @@ test('A5 at most 5 rows per run; cueResume runs the intake; no new web route or 
 test('A6 a request is claimed (State Sending, written) before any AI call, so a second overlapping run sends nothing twice (Codex on PR #375)', () => {
   let t, during = null;
   t = agentBox({ inboxDecide: () => { during = reqRow(t, 0)[7]; deq(inboxJson(t.ctx.cueInboxIntake_()), { sent: 0 }); return { decision: 'Approve', reason: 'ok' }; } });
-  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'Go?', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'Go?', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
   deq(during, 'Sending');
   deq([reqRow(t, 0)[7], inboxRows(t, 'Inbox Messages').length, inboxRows(t, 'Inbox Decisions').length], ['Sent', 1, 1]);
@@ -68,8 +69,8 @@ test('A6 a request is claimed (State Sending, written) before any AI call, so a 
 test('A7 two chats with the same name are refused with their Chat IDs; a Chat ID picks the exact chat (Codex on PR #375)', () => {
   const t = agentBox({ inboxReply: { reply: 'ok' } });
   const a = inboxChat(t, 'Claude API', 'Ops'), b = inboxChat(t, 'Claude API', 'ops');
-  t.tabs['Inbox Requests'].appendRow(['R1', 'Ops', 'Question', '', 'hi', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R2', b, 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R1', 'Ops', 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', b, 'Question', '', 'hi', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
   deq(reqRow(t, 0)[7], 'Refused');
   assert.ok(reqRow(t, 0)[9].indexOf(a) >= 0 && reqRow(t, 0)[9].indexOf(b) >= 0, reqRow(t, 0)[9]);
@@ -81,9 +82,9 @@ test('A8 a run that dies on one request strands only that row; later rows stay N
   const t = agentBox({ inboxDecide: { decision: 'Approve', reason: 'ok' } });
   // A killed run: the write after the first send fails (uncatchable in real Apps Script, so here it throws out of the intake).
   const real = t.ctx.cueInboxSetRow_; let writes = 0;
-  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Inbox Requests' && ++writes === 2) throw new Error('script killed'); return real.apply(null, arguments); };
-  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'one', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R2', 'QA', 'Confirm', '', 'two', 'x', '', '', '', '']);
+  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Team Requests' && ++writes === 2) throw new Error('script killed'); return real.apply(null, arguments); };
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'one', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', 'QA', 'Confirm', '', 'two', 'x', '', '', '', '']);
   assert.throws(() => t.ctx.cueInboxIntake_(), /script killed/);
   deq([reqRow(t, 0)[7], reqRow(t, 1)[7]], ['Sending', '']);
   t.ctx.cueInboxSetRow_ = real;
@@ -92,9 +93,10 @@ test('A8 a run that dies on one request strands only that row; later rows stay N
 });
 
 const kikoRows = t => inboxRows(t, 'For Kiko');
+const kikoBox = () => { const t = inboxBox(); t.ctx.cueSheet_('For Kiko'); inboxChat(t, 'ChatGPT API', 'QA'); return t; };   // no Tech Lead chat, so Confirms and access requests stay undecided
 const later = (t, ms) => { const n0 = t.ctx.cueNow_(); t.ctx.cueNow_ = () => n0 + ms; };
 
-test('K1 a Contested Confirm and an Other-tool request land on the For Kiko tab once, after a minute; settled ones do not', () => {
+test('K1 a Contested Confirm and a Contested access request land on the For Kiko tab once, after a minute; settled ones do not', () => {
   const t = agentBox({ inboxDecide: { decision: 'Escalate', reason: 'Needs Kiko.' }, gpt: { inbox_decision: { decision: 'Escalate', reason: 'Cannot decide.' } } });
   t.ctx.cueSheet_('For Kiko');
   const c = chatByLabel(t, 'QA');
@@ -105,13 +107,12 @@ test('K1 a Contested Confirm and an Other-tool request land on the For Kiko tab 
   later(t, 2 * 60 * 1000);
   t.ctx.cueForKikoSync_(); t.ctx.cueForKikoSync_();
   deq(kikoRows(t).map(r => [r[2], r[3], r[8]]), [['QA', 'Confirm', 'Open'], ['QA', 'Request access', 'Open']]);
-  assert.ok(/could not decide/.test(kikoRows(t)[0][5]) && /Other tool/.test(kikoRows(t)[1][5]));
+  assert.ok(/could not decide/.test(kikoRows(t)[0][5]) && /could not decide/.test(kikoRows(t)[1][5]));
 });
 
 test('K2 Kiko types Approve or Reject in Your answer: recorded as his decision, row Done; other text asks again', () => {
-  const t = agentBox();
-  t.ctx.cueSheet_('For Kiko');
-  const c = chatByLabel(t, 'QA');
+  const t = kikoBox();
+  const c = inboxRows(t, 'Inbox Chats')[0][0];
   const a = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool'));
   const b = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Sheets for Ana', 'Other tool'));
   later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
@@ -125,9 +126,8 @@ test('K2 Kiko types Approve or Reject in Your answer: recorded as his decision, 
 });
 
 test('K3 an item decided on the Inbox page turns Done; an agent row without a Message ID turns Answered when Kiko writes', () => {
-  const t = agentBox();
-  t.ctx.cueSheet_('For Kiko');
-  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  const t = kikoBox();
+  const r = inboxJson(t.ctx.cueInboxSend(inboxRows(t, 'Inbox Chats')[0][0], 'Request access', 'x', 'Other tool'));
   later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
   t.ctx.cueInboxDecide(r.message_id, 'Reject', '');
   t.tabs['For Kiko'].appendRow(['K-agent', '', 'Canvas PO', 'Question', 'Which client logo goes on the banner?', 'Only Kiko knows', '', '', 'Open', '', 'agent: canvas']);
@@ -140,9 +140,8 @@ test('K3 an item decided on the Inbox page turns Done; an agent row without a Me
 });
 
 test('K4 only a whole Approve or Reject counts: "Approve? not yet" asks again and records nothing (Codex on PR #376)', () => {
-  const t = agentBox();
-  t.ctx.cueSheet_('For Kiko');
-  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  const t = kikoBox();
+  const r = inboxJson(t.ctx.cueInboxSend(inboxRows(t, 'Inbox Chats')[0][0], 'Request access', 'x', 'Other tool'));
   later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
   t.tabs['For Kiko'].rows[1][7] = 'Approve? Not yet, wait for my confirmation';
   t.ctx.cueForKikoSync_();
@@ -154,9 +153,8 @@ test('K4 only a whole Approve or Reject counts: "Approve? not yet" asks again an
 });
 
 test('K5 a decision made on the page while the sheet answer is processed is kept, not overwritten (Codex on PR #376)', () => {
-  const t = agentBox();
-  t.ctx.cueSheet_('For Kiko');
-  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Request access', 'x', 'Other tool'));
+  const t = kikoBox();
+  const r = inboxJson(t.ctx.cueInboxSend(inboxRows(t, 'Inbox Chats')[0][0], 'Request access', 'x', 'Other tool'));
   later(t, 2 * 60 * 1000); t.ctx.cueForKikoSync_();
   t.tabs['For Kiko'].rows[1][7] = 'Approve';
   t.ctx.cueInboxDecide(r.message_id, 'Reject', '');   // decided on the page after Kiko typed Approve in the sheet
@@ -167,12 +165,12 @@ test('K5 a decision made on the page while the sheet answer is processed is kept
 
 test('A9 a paused Question goes back to New at once, so a run that dies afterwards does not strand it (Codex on PR #376)', () => {
   const t = agentBox({ inboxReply: { reply: 'ok' } });
-  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Question', '', 'one', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Question', '', 'one', 'x', '', '', '', '']);
   t.ctx.cueInboxIntake_();
-  t.tabs['Inbox Requests'].appendRow(['R2', 'QA', 'Question', '', 'two', 'x', '', '', '', '']);
-  t.tabs['Inbox Requests'].appendRow(['R3', 'QA', 'Confirm', '', 'go?', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', 'QA', 'Question', '', 'two', 'x', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R3', 'QA', 'Confirm', '', 'go?', 'x', '', '', '', '']);
   const real = t.ctx.cueInboxSetRow_; let writes = 0;
-  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Inbox Requests' && ++writes === 4) throw new Error('script killed'); return real.apply(null, arguments); };
+  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Team Requests' && ++writes === 4) throw new Error('script killed'); return real.apply(null, arguments); };
   assert.throws(() => t.ctx.cueInboxIntake_(), /script killed/);
   t.ctx.cueInboxSetRow_ = real;
   deq(reqRow(t, 1)[7], 'New');
@@ -203,4 +201,38 @@ test('A10 with the Inbox page gone, cueResume syncs project chats once role chat
   assert.ok(!/inbox-link|view=inbox/.test(idx));
   const t = agentBox(); t.ctx.cueInboxSetupRolesCore_();
   deq(inboxRows(t, 'Inbox Chats').filter(r => r[8]).length, 7);
+});
+
+test('A11 the team tabs live in their own spreadsheet "BSE AI Team", made once in Kiko\'s Drive (Kiko 11 Nov 2026: "do it in a new spreadsheet")', () => {
+  const t = agentBox();
+  deq(t.props.CUE_TEAM_SHEET_ID, 'new');
+  const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/const CUE_TEAM_TABS_ = \['Team Requests', 'For Kiko', 'Team Daily'\];/.test(cue) && /SpreadsheetApp\.create\('BSE AI Team'\)/.test(cue));
+});
+
+const teamAt = (t, iso) => { t.ctx.cueNow_ = () => Date.parse(iso); };
+test('D1 daily jobs run once a day after 08:00 Manila, at most 2 per run, write a Team Daily note and queue requests to other roles', () => {
+  const t = agentBox({ teamDaily: b => ({ note: 'Two projects at risk.', requests: /Canvas PO/.test(b.system) ? [{ to: 'BSE Apps & Systems', kind: 'Confirm', message: 'Move Kings Day to Execution?' }, { to: 'Nobody', kind: 'Question', message: 'x' }] : [] }),
+    gpt: { team_daily: { note: 'Client risks noted.', requests: [] } } });
+  t.ctx.cueSheet_('Team Daily');
+  teamAt(t, '2026-11-12T23:30:00Z');   // 07:30 Manila: too early
+  deq(t.ctx.cueTeamDaily_(), 0);
+  teamAt(t, '2026-11-13T00:30:00Z');   // 08:30 Manila
+  deq(t.ctx.cueTeamDaily_(), 2);
+  deq(t.ctx.cueTeamDaily_(), 2);
+  deq(t.ctx.cueTeamDaily_(), 1);
+  deq(t.ctx.cueTeamDaily_(), 0);   // all five done today
+  deq(inboxRows(t, 'Team Daily').map(r => r[1]), ['Canvas PO', 'ChatGPT Account Manager', 'Cue PO', 'QA', 'BSE Apps & Systems']);
+  const reqs = inboxRows(t, 'Team Requests');
+  deq(reqs.map(r => [r[1], r[2], r[5]]), [['BSE Apps & Systems', 'Confirm', 'Canvas PO']]);   // unknown "to" dropped
+  deq(t.log.bridge.filter(b => b.action === 'get_project_board').length, 1);   // the board is read once and shared
+  assert.ok(t.log.bridge.every(b => b.action === 'get_project_board'), 'only the read-only board');
+});
+
+test('D2 the next day the jobs run again; with no role chats nothing runs', () => {
+  const t = agentBox();
+  t.ctx.cueSheet_('Team Daily');
+  teamAt(t, '2026-11-13T00:30:00Z'); for (let i = 0; i < 4; i++) t.ctx.cueTeamDaily_();
+  teamAt(t, '2026-11-14T00:30:00Z'); deq(t.ctx.cueTeamDaily_(), 2);
+  const bare = inboxBox(); teamAt(bare, '2026-11-13T00:30:00Z'); deq(bare.ctx.cueTeamDaily_(), 0);
 });
