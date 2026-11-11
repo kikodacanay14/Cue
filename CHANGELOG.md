@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.54: project chats, Request access and the decisions log in the team inbox (not deployed)
+
+Kiko, 11 Nov 2026: "Project Chats" (19:33 Manila, CanvasWorkspace docs/specs/team-inbox-design.md section 15); D4 "Tech Lead should be able to approve request access as well" then "A"; D6 "feel free to show me decisions made so i can review when available" (section 14). Asked again 11 Nov 2026 evening: "continue doing the Team Inbox i need it asap".
+
+- Project chats: each open Canvas project (board phase Initiation, Planning, Execution or Closure) gets its own ChatGPT API chat, made from the Canvas project board through the existing read-only bridge action `get_project_board`. No new Canvas action, no Canvas write and no Canvas release. A project that is Complete, On Hold, Cancelled or Not Awarded makes no chat, and its chat is retired (messages stay). The label follows the project's name. The read runs when the Inbox page opens (at most every 10 minutes) or on Refresh projects; a failed read changes nothing and the page says so (src/CueInboxProjects.gs).
+- Request access is a third message kind. It is saved New, calls no AI, and Kiko approves or rejects it like a Confirm. Nothing runs on either. The Tech Lead routing in D3, D4 and D5 waits for the team roster and team sign-in (S7, held).
+- Decisions table on the Inbox page: every Approve and Reject, newest first, read only, with time, chat, kind, decision, who and the start of the message (cueInboxDecisions_). Inbox Decisions gains Decided by and Kind; Inbox Chats gains Project ID.
+- The page no longer scrolls sideways at phone width (checked at 375 and 1280).
+- Built on main after 1.28.53 (live Version 234).
+
+Test count: 783 passed (P1 to P7 new in test/features/95-inbox-projects.js; T8 and T14 updated).
+
 ## Cue 1.28.53: inbox countdown, Cancel, Questions sent by Cue (not deployed)
 
 Kiko, 11 Nov 2026 (decisions D1 to D6 in CanvasWorkspace docs/specs/team-inbox-design.md section 14; "build it" and "go" in chat, 19:31 Manila). The usage rule line in CLAUDE.md was removed (Kiko: "the 30 USD ... not applicable anymore").
