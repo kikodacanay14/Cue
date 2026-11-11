@@ -133,7 +133,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     call('cueInboxSyncProjects', [!!force], function (r) { if (r && r.error) err.textContent = r.error; load(); },
       function (x) { err.textContent = x.message || String(x); load(); });
   }
-  function waiting(id) { return state.messages.filter(function (m) { return m.chat_id === id && (m.status === 'New' || m.status === 'Waiting'); }).length; }
+  function waiting(id) { return state.messages.filter(function (m) { return m.chat_id === id && (m.status === 'New' || m.status === 'Waiting' || m.status === 'Contested'); }).length; }
   function render() {
     var rows = state.chats.map(function (c) {
       var sel = state.chat && state.chat.chat_id === c.chat_id;
