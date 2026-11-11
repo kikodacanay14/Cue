@@ -135,3 +135,11 @@ test('R15 Cue\'s header has an Inbox link that opens ?view=inbox in a new tab (K
   const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
   assert.ok(/\$\('inbox-link'\)\.href = appUrl\(\) \+ '\?view=inbox'/.test(js));
 });
+
+test('R16 the Chats list has a filter: Show All, Roles, Projects or Other, and Find by name (Kiko 11 Nov 2026, "maybe have a filter?")', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
+  assert.ok(/<select id="chatShow"><option value="all">All<\/option><option value="role">Roles<\/option><option value="project">Projects<\/option><option value="other">Other<\/option><\/select>/.test(html));
+  assert.ok(/<label for="chatFind">Find<\/label><input id="chatFind" type="search"/.test(html));
+  assert.ok(/state\.chats\.filter\(shown\)/.test(html) && /localStorage\.setItem\('cueInboxShow'/.test(html));
+  assert.ok(/No chat matches this filter\./.test(html));
+});
