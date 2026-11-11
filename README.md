@@ -41,7 +41,7 @@ Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Goog
 
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.
 
-Team inbox (1.28.52): `src/CueInbox.gs` (owner-only server functions, OpenAI call for ChatGPT chats) and `src/Inbox.html` (page at `?view=inbox`). Tabs: Inbox Chats, Inbox Messages, Inbox Decisions, Inbox Queue. A Question waits 2 minutes (Cancel stops it) and the `cueInboxSweep` trigger (every minute) sends it. Tests: `test/features/93-team-inbox.js`, `test/features/94-inbox-countdown.js`.
+Team inbox (1.28.52): `src/CueInbox.gs` (owner-only server functions, OpenAI call for ChatGPT chats) and `src/Inbox.html` (page at `?view=inbox`). Tabs: Inbox Chats, Inbox Messages, Inbox Decisions, Inbox Queue. A Question waits 2 minutes (Cancel stops it) and the `cueInboxSweep` trigger (every minute) sends it. Project chats (1.28.54): `src/CueInboxProjects.gs` makes one chat per open Canvas project from the read-only bridge action `get_project_board` (when the page opens, at most every 10 minutes, or on Refresh projects) and retires it when the project is complete, on hold, cancelled or not awarded. Request access is a third message kind, decided like a Confirm. The Decisions table on the page lists every Approve and Reject. Tests: `test/features/93-team-inbox.js`, `test/features/94-inbox-countdown.js`, `test/features/95-inbox-projects.js`.
 
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
 - `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.
