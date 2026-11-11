@@ -5,11 +5,8 @@
  * The banner is a solid colour band with the wordmark and tagline. The designed banner image (diamond and orbit pattern) comes with the
  * Canvas release (part 3), which owns the shared email images. */
 
-// Design system v2.0 email look (Kiko approved 6 Nov 2026): cyan banner with ink text for clients, orange for suppliers, magenta for crew;
-// a yellow #E9D151 action pill with ink text; body in DM Sans with Arial as the email-client fallback.
-const CUE_TPL_LOOK_ = { client: '#55D7E5', supplier: '#CD5023', crew: '#B00C98' };
-const CUE_TPL_INK_ = { client: '#16151B', supplier: '#FFFFFF', crew: '#FFFFFF' };
-const CUE_TPL_FONT_ = "'DM Sans',Arial,Helvetica,sans-serif";
+const CUE_TPL_LOOK_ = { client: '#559FEF', supplier: '#CD5023', crew: '#B3107C' };
+const CUE_TPL_FONT_ = "'Quicksand','DM Sans',Arial,Helvetica,sans-serif";
 const CUE_TPL_SIGN_ = { kiko: 'Kiko Dacanay\nBlank Space Events', ar: 'Blank Space Events\nAccounts Receivable', sc: 'Blank Space Events\nSupplier Coordination' };
 
 const cueTplFirst_ = v => { const w = String(v || '').trim().split(/[\s@]+/)[0] || ''; return /^[A-Za-z][A-Za-z'.-]*$/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : 'there'; };
@@ -26,14 +23,14 @@ function cueTplDay_(d) {
 function cueTplMail_(aud, subject, first, paras, sign, button) {
   const ps = paras.filter(p => String(p || '').trim());
   const body = 'Hi ' + first + ',\n\n' + ps.join('\n\n') + '\n\nThanks!\n' + sign + (button && button.url ? '\n\n' + button.label + ': ' + button.url : '');
-  const col = CUE_TPL_LOOK_[aud] || CUE_TPL_LOOK_.client, ink = CUE_TPL_INK_[aud] || CUE_TPL_INK_.client, p = t => '<p style="margin:0 0 14px;font-size:15px;line-height:1.5">' + cueTplEsc_(t).replace(/\n/g, '<br>') + '</p>';
+  const col = CUE_TPL_LOOK_[aud] || CUE_TPL_LOOK_.client, p = t => '<p style="margin:0 0 14px;font-size:15px;line-height:1.5">' + cueTplEsc_(t).replace(/\n/g, '<br>') + '</p>';
   const html = '<div style="font-family:' + CUE_TPL_FONT_ + ';max-width:560px;margin:0 auto;color:#16151B">'
     + '<table role="presentation" width="100%" style="border-collapse:collapse"><tr><td bgcolor="' + col + '" style="background:' + col + ';padding:18px 24px;border-radius:10px 10px 0 0">'
-    + '<span style="font-size:18px;font-weight:bold;letter-spacing:.04em;color:' + ink + '">BLANK SPACE EVENTS</span>'
-    + '<span style="float:right;font-size:11px;color:' + ink + ';padding-top:5px">Experiences people enjoy together</span></td></tr></table>'
+    + '<span style="font-size:18px;font-weight:bold;letter-spacing:.04em;color:#FFFFFF">BLANK SPACE EVENTS</span>'
+    + '<span style="float:right;font-size:11px;color:#FFFFFF;padding-top:5px">Experiences people enjoy together</span></td></tr></table>'
     + '<div style="background:#FFFFFF;border:1px solid #E3DDD0;border-top:0;border-radius:0 0 10px 10px;padding:22px 24px">'
     + p('Hi ' + first + ',') + ps.map(p).join('') + p('Thanks!')
-    + (button && button.url ? '<p style="margin:0 0 16px"><a href="' + cueTplEsc_(button.url) + '" style="background:#E9D151;color:#16151B;text-decoration:none;font-weight:bold;padding:11px 22px;border-radius:999px;display:inline-block">' + cueTplEsc_(button.label) + '</a></p>' : '')
+    + (button && button.url ? '<p style="margin:0 0 16px"><a href="' + cueTplEsc_(button.url) + '" style="background:' + col + ';color:#FFFFFF;text-decoration:none;font-weight:bold;padding:11px 22px;border-radius:999px;display:inline-block">' + cueTplEsc_(button.label) + '</a></p>' : '')
     + '<p style="margin:0;font-size:14px;line-height:1.4"><b>' + cueTplEsc_(sign.split('\n')[0]) + '</b><br>' + cueTplEsc_(sign.split('\n').slice(1).join(' ')) + '</p></div></div>';
   return { subject: String(subject).replace(/[\r\n]+/g, ' ').slice(0, 200), body, html, aud, button: button && button.url ? button : null };
 }

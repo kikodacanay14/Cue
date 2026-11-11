@@ -1,5 +1,15 @@
 # Changelog
 
+## Main only: back out Cue 1.28.45 brand v2.0 (not a release, not deployed)
+
+Asked by the Cue Dev Team release plan (Account Manager, 11 Nov 2026, release L1 clean-up) after the UX Lead answered CDT-Q1 on 11 Nov 2026 15:34 UTC: back out the unshipped brand v2.0 change (DM Sans, Archivo Black, lavender ground, v2.0 band colours) and adopt DS-01 v1.0.0 later as its own scoped change with mockups Kiko approves. Brand v2.0 never went live; live Cue 1.28.65 (Version 244) still wears the Quicksand and Steagal look.
+
+- Reverts #345 (commit 7b283c0) on main: fonts, ground colour, thread band colours, chaser email look, the extension bubble font, and the Brand lock and mockup-review skill text return to their pre-1.28.45 state. The later web-guidelines rules (tabular digits, reduced motion) and the label variant names stay.
+- src/IndexStyle.html now matches the live release branch (claude/eloquent-heisenberg-t7ivt9 at 5f84416) byte for byte except the label variant names, which belong to the separate unshipped 1.28.43 label change.
+- CUE_VERSION_ is left as it was on main; the version is stamped when a release is cut.
+
+Test count: see the PR.
+
 ## Cue 1.28.65: the Claude roles' daily job runs (not deployed)
 
 Found live on 11 Nov 2026 14:18Z, on the first daily run after 1.28.64: the Canvas PO row on Team Daily read "Did not run: Claude (Team daily): HTTP 400 invalid_request_error: output_config.format.schema: For 'array' type, property 'maxItems' is not supported".

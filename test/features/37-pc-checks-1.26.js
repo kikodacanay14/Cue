@@ -199,9 +199,9 @@ test('CIC3 inside Canvas: Open in Canvas goes to Canvas itself; only the host th
   assert.ok(/d\.canvasWs === 'cueThread' && e\.source === CUE_HOST\.canvas/.test(html), 'thread only from the host');
   assert.ok(/!cueAncestor\(e\.source\)/.test(html), 'messages only from windows above Cue');
 });
-test('CIC4 Cue wears Canvas: Workspace tokens (lavender, ink, purple action, magenta need), no graphite left', () => {
+test('CIC4 Cue wears Canvas: Workspace tokens (cream, ink, purple action, magenta need), no graphite left', () => {
   const html = cuePage();
-  ['--bg:#F6F2FC', '--text:#16151B', '--act:#23006F', '--need:#F000AA', '--line:#E2DCCF', '--muted:#5B5766'].forEach(t => assert.ok(html.indexOf(t) > 0, t));
+  ['--bg:#F7F3EA', '--text:#16151B', '--act:#23006F', '--need:#F000AA', '--line:#E2DCCF', '--muted:#5B5766'].forEach(t => assert.ok(html.indexOf(t) > 0, t));
   ['#141518', '#17181c', '#0e0f11', '#262930', '#22344d', '#1f2b3d', '#0b1320'].forEach(c => assert.ok(html.indexOf(c) < 0, c + ' left'));
   assert.ok(!/<b [^>]*color:#fff/.test(html), 'card titles use the ink token, not white');
 });
