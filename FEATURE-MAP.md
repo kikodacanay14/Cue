@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 77 server files, 1534 top-level names, 35 task kinds, 35 word checks before the
+Counts: 78 server files, 1557 top-level names, 35 task kinds, 35 word checks before the
 chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -136,12 +136,12 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 70 | 45 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 71 | 45 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
 | `CueAgent.gs` | `contains` |  | 0 | 0 | 1 | 7 |
-| `CueAi.gs` |  | AI Runs | 1 | 1 | 34 | 3 |
+| `CueAi.gs` |  | AI Runs | 1 | 1 | 35 | 3 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 5 | 4 |
 | `CueBatch.gs` |  |  | 0 | 0 | 2 | 3 |
 | `CueBids.gs` | `phone`, `subject` | Bid documents, Cowork PhilGEPS findings, Requests | 3 | 0 | 9 | 11 |
@@ -170,6 +170,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueGmail.gs` |  |  | 0 | 0 | 30 | 4 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
+| `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages | 0 | 0 | 0 | 2 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakeCheck.gs` |  | Requests, Triage log | 0 | 0 | 1 | 6 |
 | `CueIntakePhases.gs` | `client_check`, `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `phone`, `search_projects` |  | 1 | 3 | 4 | 9 |
@@ -220,17 +221,17 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueNow_` | `Cue.gs` | 61 |
+| `cueNow_` | `Cue.gs` | 62 |
 | `cueStr_` | `CueText.gs` | 60 |
 | `cueChat_` | `Cue.gs` | 44 |
+| `cueSheet_` | `Cue.gs` | 40 |
 | `cueBridge_` | `CueBridge.gs` | 39 |
-| `cueSheet_` | `Cue.gs` | 39 |
 | `cueLocked_` | `Cue.gs` | 37 |
 | `cueLoad_` | `Cue.gs` | 35 |
-| `cueProp_` | `Cue.gs` | 33 |
+| `cueProp_` | `Cue.gs` | 34 |
 | `cueSave_` | `Cue.gs` | 33 |
-| `cueOwner_` | `Cue.gs` | 31 |
-| `cueAiAll_` | `CueAi.gs` | 29 |
+| `cueOwner_` | `Cue.gs` | 32 |
+| `cueAiAll_` | `CueAi.gs` | 30 |
 | `cueEmail_` | `CueText.gs` | 28 |
 | `CUE_VERSION_` | `Cue.gs` | 26 |
 | `cueGpt_` | `CueAi.gs` | 21 |
@@ -244,8 +245,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRows_` | `Cue.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
 | `cueGmailSend_` | `CueGmail.gs` | 12 |
+| `cueKey_` | `CueAi.gs` | 11 |
 | `cueAskOpen_` | `CueRoute.gs` | 10 |
-| `cueKey_` | `CueAi.gs` | 10 |
 | `cueMe_` | `Cue.gs` | 10 |
 | `cueName_` | `CueText.gs` | 10 |
 | `cueAskPick` | `CueRoute.gs` | 9 |
@@ -264,9 +265,9 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueRunLeased_` | `Cue.gs` | 7 |
 | `cueStyleFor_` | `CueStyle.gs` | 7 |
 | `cueWords_` | `Cue.gs` | 7 |
+| `CUE_TABS_` | `Cue.gs` | 6 |
 | `cueGmailAll_` | `CueTriage.gs` | 6 |
 | `cueRecent_` | `Cue.gs` | 6 |
-| `CUE_TABS_` | `Cue.gs` | 5 |
 | `cueBridgeAll_` | `CueBridge.gs` | 5 |
 | `cueCloseSuperseded_` | `Cue.gs` | 5 |
 | `cueFilesParts_` | `CueFiles.gs` | 5 |

@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.52: team inbox (not deployed)
+
+Kiko, 11 Nov 2026 (design approved in CanvasWorkspace docs/specs/team-inbox-design.md, section 12; scope answers a, b, a, a; screens approved 17:29 Manila). Requested "continue until its built".
+
+- New Inbox page (?view=inbox, src/Inbox.html): every chat in one list, the messages of the chosen chat, Question or Confirm to send, Approve or Reject on a Confirm.
+- ChatGPT API chats: a Question is answered by one OpenAI Responses call (src/CueInbox.gs, cueInboxAsk_), the answer stored as the reply; retry is one call (cueAiAll_). Replies continue the chat's thread through previous_response_id.
+- claude.ai chats: a Question is saved and waits. The claude.ai pull endpoint is NOT built (held until Kiko approves its access, design section 6). Test T12 checks it is absent.
+- Confirm messages only record Approve or Reject (Inbox Decisions tab). Nothing runs (scope Q3 B).
+- New sheet tabs: Inbox Chats, Inbox Messages, Inbox Decisions. Messages over 4,000 characters are refused, not cut. Open messages older than 7 days show Expired.
+- No Canvas bridge call and no Canvas write (test T11). Every function is owner only (test T10).
+- Tests: test/features/93-team-inbox.js (T1 to T14). Full suite: node test/cue.test.js, 768/768 passed.
+- Not done in this release: S7 Google sign-in (held), claude.ai pull endpoint (held), brand check run in a browser on the live Apps Script page (gap: the page is only checked as a file in the repo; see the PR body).
+- Feature Board card "team-inbox" still to be created by Kiko (the board is public and cannot be written from here).
+
 ## Cue 1.28.51: a chat line for each new Canvas bug report (not deployed)
 
 Kiko, 7 Nov 2026 11:47Z asked for a Report a bug function in Canvas; 11:59Z "3. can be thru Cue" (Kiko hears about each report

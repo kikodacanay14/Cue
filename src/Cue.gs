@@ -16,6 +16,9 @@ const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
+  'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created'],   // team inbox chats (CueInbox.gs)
+  'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at'],   // team inbox messages (CueInbox.gs)
+  'Inbox Decisions': ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note'],   // Approve or Reject on a Confirm message (CueInbox.gs)
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
@@ -39,6 +42,7 @@ function doGet(e) {
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
+  if (q.view === 'inbox') return HtmlService.createHtmlOutputFromFile('Inbox').setTitle('Cue Inbox');   // team inbox page (CueInbox.gs, Inbox.html)
   if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   const page = HtmlService.createTemplateFromFile('Index');
   page.view = q.view === 'admin' ? 'admin' : '';   // CUE-ADMIN-2026-10-29 (Epic Cue #193): ?view=admin is Cue Admin, the Settings sections as one page
