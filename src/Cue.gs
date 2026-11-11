@@ -110,12 +110,12 @@ function cueSetup() {
 /** The 5-minute resume trigger, and the 1-minute RFP sender (cueRfpKick). Also checked when Cue opens, so a deploy needs no extra step.
  * Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): the 07:00 sweep, the 07:00 bid check and the Monday check had their own
  * triggers; they are now rows in the Schedule tab that cueResume starts, so their old triggers are removed here. */
-const CUE_TRIGGERS_NOW_ = '7';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster"); 7: the 1-minute inbox sweep (CueInbox.gs; 1.28.53 added it without raising this, so live never installed it)
+const CUE_TRIGGERS_NOW_ = '8';   // 6: the 1-minute RFP sender (CueRfpSend.gs, Kiko 28 Oct 2026 08:33Z "i need the rfp sending faster"); 7: the 1-minute inbox sweep (CueInbox.gs; 1.28.53 added it without raising this, so live never installed it); 8: that sweep removed again (1.28.61: Send sends at once; cueResume sends anything still queued every 5 minutes; Kiko 11 Nov 2026 hit Google's "too many scripts running" limit)
 function cueTriggers_() {
-  ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly', 'cueInboxSweep'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueRfpKick')) ScriptApp.newTrigger('cueRfpKick').timeBased().everyMinutes(1).create();
-  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueInboxSweep')) ScriptApp.newTrigger('cueInboxSweep').timeBased().everyMinutes(1).create();   // D2: sends Questions whose 2-minute countdown ended (CueInbox.gs)
+  // cueInboxSweep (every minute) was removed in 1.28.61: cueResume (every 5 minutes) sends any Question still queued.
   PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', CUE_TRIGGERS_NOW_);
 }
 
@@ -737,6 +737,7 @@ function cueRun(id) { cueOwner_(); return cueView_(cueRunLeased_(id)); }
 function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
+  try { cueInboxSweep_(); } catch (e) { console.error('Inbox sweep: ' + e); }   // 1.28.61: Questions queued before Send went instant (CueInbox.gs)
   try { cueBidsLeadsBacklogNow_(); } catch (e) { console.error('Bid lead recovery: ' + e); }   // once after 1.28.35: the 15 lost bid leads (CueBids.gs)
   try { cueMsgrCrewRestore_(); } catch (e) { console.error('Crew restore: ' + e); }   // once after 1.28.39: King's Day crew who never tapped I'm crew (CueMessenger.gs)
   const jobs = cueJobs_(), rows = [];   // STRUCTURE-PHASE-3: the job list and its Job Runs rows (CueJobs.gs)
