@@ -19,6 +19,7 @@ const CUE_TABS_ = {
   'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created'],   // team inbox chats (CueInbox.gs)
   'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at'],   // team inbox messages (CueInbox.gs)
   'Inbox Decisions': ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note'],   // Approve or Reject on a Confirm message (CueInbox.gs)
+  'Inbox Queue': ['Message ID', 'Send at', 'State'],   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
@@ -114,6 +115,7 @@ function cueTriggers_() {
   ScriptApp.getProjectTriggers().filter(t => ['cueSweep', 'cueBidsDaily', 'cueHsWeekly'].indexOf(t.getHandlerFunction()) >= 0).forEach(t => ScriptApp.deleteTrigger(t));
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueResume')) ScriptApp.newTrigger('cueResume').timeBased().everyMinutes(5).create();
   if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueRfpKick')) ScriptApp.newTrigger('cueRfpKick').timeBased().everyMinutes(1).create();
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'cueInboxSweep')) ScriptApp.newTrigger('cueInboxSweep').timeBased().everyMinutes(1).create();   // D2: sends Questions whose 2-minute countdown ended (CueInbox.gs)
   PropertiesService.getScriptProperties().setProperty('CUE_TRIGGERS_V', CUE_TRIGGERS_NOW_);
 }
 

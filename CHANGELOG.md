@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.53: inbox countdown, Cancel, Questions sent by Cue (not deployed)
+
+Kiko, 11 Nov 2026 (decisions D1 to D6 in CanvasWorkspace docs/specs/team-inbox-design.md section 14; "build it" and "go" in chat, 19:31 Manila). The usage rule line in CLAUDE.md was removed (Kiko: "the 30 USD ... not applicable anymore").
+
+- A Question is queued when its text is filled in. It sends 2 minutes later. Cancel stops it. Editing restarts the countdown. Send stays for Confirm only (src/CueInbox.gs cueInboxQueue_, cueInboxCancel_, cueInboxSweep_; src/Inbox.html).
+- New time trigger cueInboxSweep, every minute, installed by cueTriggers_ (src/Cue.gs). Two existing tests now expect it in the trigger list (test 02, test 32).
+- New sheet tab Inbox Queue (Message ID, Send at, State).
+- Not in this release: project-based chats (need a Canvas bridge action and a Canvas release), Tech Lead and Account Manager routing (need the team roster and team sign-in), request-access kind, decisions log page.
+
+Test count: 776 passed (T15 to T22 new in test/features/94-inbox-countdown.js).
+
 ## Cue 1.28.52: team inbox (not deployed)
 
 Kiko, 11 Nov 2026 (design approved in CanvasWorkspace docs/specs/team-inbox-design.md, section 12; scope answers a, b, a, a; screens approved 17:29 Manila). Requested "continue until its built".
