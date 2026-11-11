@@ -83,7 +83,7 @@ function cueForKikoSyncLocked_() {
       : v[6] === 'Waiting' ? 'A role chat did not answer: ' + String(v[14] || '')
       : v[4] === 'Request access' ? 'Access to ' + (v[12] || 'a tool') + ' needs your yes (only Google Drive goes to the Tech Lead).'
       : 'No role chat decided it.';
-    cueSheet_(tab).appendRow([cueInboxId_('K'), v[0], chats[v[1]] || '', v[4], cueStr_(v[5], 2000), cueStr_(why, 500), v[2], '', 'Open', 'Type Approve or Reject in Your answer.', String(v[3] || '')]);
+    cueSheet_(tab).appendRow([cueInboxId_('K'), v[0], chats[v[1]] || '', v[4], cueStr_(v[5], 45000), cueStr_(why, 500), v[2], '', 'Open', 'Type Approve or Reject in Your answer.', String(v[3] || '')]);
     have[v[0]] = 1;
   });
   // 2. Kiko's answers, and items settled elsewhere. The answer is read fresh from its cell right before it is used.
@@ -91,7 +91,8 @@ function cueForKikoSyncLocked_() {
     const v = x.v; if (v[8] !== 'Open') return;
     const m = v[1] ? cueInboxFind_(v[1]) : null;
     if (m && m.v[10]) return cueForKikoMark_(x.row, 'Done', m.v[10] + ' by ' + (m.v[13] || 'Kiko'));
-    const ans = String(cueSheet_(tab).getRange(x.row, 8, 1, 1).getValues()[0][0] || '').trim();
+    const cell = cueSheet_(tab).getRange(x.row, 8, 1, 1).getValues()[0][0];   // 0 is an answer (Codex on PR #376)
+    const ans = String(cell === null || cell === undefined ? '' : cell).trim();
     if (!ans) return;
     if (!v[1]) return cueForKikoMark_(x.row, 'Answered', 'Answered ' + new Date(now).toISOString());
     // The whole answer must be the word (Codex on PR #376): "Approve? not yet" is not a decision; Reject and Rejected both are.
@@ -101,3 +102,38 @@ function cueForKikoSyncLocked_() {
     cueForKikoMark_(x.row, 'Done', (d === 'Approve' ? 'Approved' : 'Rejected') + ' ' + new Date(now).toISOString());
   });
 }
+
+/* Closed tab (Kiko 11 Nov 2026: "add another tab - automatically moves items that are Closed to that tab"). Every cueResume run
+ * moves finished rows out of Team Requests (State Sent or Refused) and For Kiko (State Done or Answered) into Closed, so those
+ * two tabs show only open work. A moved row keeps its ID, answer, note and Message ID. Runs under the lock, bottom row first.
+ * Team Requests is left alone while a row is Sending (a run is writing it by row number); a Sending row older than 30 minutes
+ * is stranded and no longer holds it. */
+const CUE_CLOSED_STATES_ = { 'Team Requests': ['Sent', 'Refused'], 'For Kiko': ['Done', 'Answered'] };
+function cueTeamClose_() { return cueLocked_(() => cueTeamCloseLocked_()); }
+function cueTeamCloseLocked_() {
+  const now = cueNow_(), at = new Date(now).toISOString(), out = [];
+  const reqs = cueInboxRows_('Team Requests', CUE_INBOX_REQ_COLS_);
+  const busy = reqs.some(x => x.v[7] === 'Sending' && now - new Date(x.v[6]).getTime() < 30 * 60 * 1000);
+  const moves = [];
+  if (!busy) reqs.filter(x => CUE_CLOSED_STATES_['Team Requests'].indexOf(x.v[7]) >= 0).forEach(x => {
+    const v = x.v;
+    // A Sent row closes only once its message is settled. A decision that came later (For Kiko, or a role chat after a retry)
+    // is copied onto the row first (Codex on PR #376), so the answer is never lost.
+    if (v[7] === 'Sent' && cueTeamBlank_(v[10])) {
+      let f = null; try { f = v[8] ? cueInboxFind_(v[8]) : null; } catch (e) { f = null; }   // a message gone from the tab closes the row as it is
+      const m = f && f.v;
+      if (m && !(m[7] || m[10] || m[6] === 'Expired')) return;
+      if (m) { v[10] = cueStr_(m[7] || (m[10] ? m[10] + (m[14] ? ': ' + m[14] : '') : m[6]), 4000); v[11] = m[13] || (m[7] ? cueInboxChatLabel_(m[1]) : ''); }
+    }
+    moves.push({ tab: 'Team Requests', row: x.row,
+      vals: [at, 'Team Requests', v[0], v[1], v[2], v[4], (cueTeamBlank_(v[10]) ? '' : String(v[10])) + (v[11] ? ' (' + v[11] + ')' : ''), v[7], v[9], v[5], v[8]] });
+  });
+  cueInboxRows_('For Kiko', CUE_FORKIKO_COLS_).filter(x => CUE_CLOSED_STATES_['For Kiko'].indexOf(x.v[8]) >= 0).forEach(x => {
+    const v = x.v; moves.push({ tab: 'For Kiko', row: x.row, vals: [at, 'For Kiko', v[0], v[2], v[3], v[4], v[7], v[8], v[9], v[10], v[1]] });
+  });
+  if (!moves.length) return { moved: 0 };
+  moves.forEach(m => cueSheet_('Closed').appendRow(m.vals));   // copy first: a run that dies here leaves a duplicate, never a loss
+  moves.slice().sort((a, b) => a.tab === b.tab ? b.row - a.row : 0).forEach(m => cueSheet_(m.tab).deleteRow(m.row));
+  return { moved: moves.length };
+}
+function cueTeamBlank_(x) { return x === null || x === undefined || String(x).trim() === ''; }

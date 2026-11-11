@@ -41,7 +41,7 @@ Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Goog
 
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.
 
-Team inbox: the Inbox page was removed in 1.28.64. Role chats (`src/CueInboxRoles.gs`), project chats (`src/CueInboxProjects.gs`) and routing (`src/CueInbox.gs`) run behind the scenes. The team runs without Kiko: daily role jobs (`src/CueInboxTeam.gs`), requests between roles on the Team Requests tab and an optional For Kiko tab (`src/CueInboxAgents.gs`), all in the "BSE AI Team" spreadsheet; `cueResume` handles them every 5 minutes.
+Team inbox: the Inbox page was removed in 1.28.64. Role chats (`src/CueInboxRoles.gs`), project chats (`src/CueInboxProjects.gs`) and routing (`src/CueInbox.gs`) run behind the scenes. The team runs without Kiko: daily role jobs (`src/CueInboxTeam.gs`), requests between roles on the Team Requests tab an optional For Kiko tab and a Closed tab for finished rows (`src/CueInboxAgents.gs`), all in the "BSE AI Team" spreadsheet; `cueResume` handles them every 5 minutes.
 
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
 - `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.

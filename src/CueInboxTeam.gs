@@ -26,11 +26,18 @@ const CUE_TEAM_SCHEMA_ = { type: 'object', additionalProperties: false, required
 function cueTeamDaily_() {
   const now = cueNow_(), day = cueMnlDay_(now), hour = new Date(now + 8 * 3600e3).getUTCHours();
   if (hour < 8) return 0;
-  const props = PropertiesService.getScriptProperties(), st = String(props.getProperty('CUE_TEAM_DAY') || '').split('|');
-  const done = st[0] === day ? (st[1] ? st[1].split(',') : []) : [];
+  const props = PropertiesService.getScriptProperties();
   const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(c => c.v[3] === 'Active' && c.v[8]);
   if (!chats.length) return 0;   // the role chats are not set up
-  const todo = CUE_TEAM_JOBS_.filter(j => done.indexOf(j[0]) < 0 && chats.some(c => c.v[2] === j[0])).slice(0, 2);
+  // Claim the jobs under the lock before any AI call (Codex on PR #376): two overlapping runs never pick the same job. A claimed
+  // job counts as done for the day even if its call then fails (the failure is written to Team Daily).
+  const todo = cueLocked_(() => {
+    const st = String(props.getProperty('CUE_TEAM_DAY') || '').split('|');
+    const done = st[0] === day ? (st[1] ? st[1].split(',') : []) : [];
+    const pick = CUE_TEAM_JOBS_.filter(j => done.indexOf(j[0]) < 0 && chats.some(c => c.v[2] === j[0])).slice(0, 2);
+    if (pick.length) props.setProperty('CUE_TEAM_DAY', day + '|' + done.concat(pick.map(j => j[0])).join(','));
+    return pick;
+  });
   if (!todo.length) return 0;
   const ctx = {};
   let ran = 0;
@@ -43,13 +50,12 @@ function cueTeamDaily_() {
         + others + '. Use only the role name before the bracket.\n\nData:\n' + data };
     const call = chat.v[1] === 'ChatGPT API' ? cueGpt_(o) : cueClaude_(Object.assign(o, { effort: 'low' }));
     const r = cueAiAll_({ id: 'TEAM-' + day + '-' + j[0], metrics: { ai_calls: 0, calls: [] } }, [call])[0];
-    done.push(j[0]); ran++;
+    ran++;
     if (!r.ok) { cueSheet_('Team Daily').appendRow([day, j[0], 'Did not run: ' + cueStr_(r.error, 300), 0]); return; }
     const reqs = (r.data.requests || []).filter(q => q && chats.some(c => c.v[2].toLowerCase() === String(q.to || '').trim().toLowerCase())).slice(0, 2);
     reqs.forEach((q, i) => cueSheet_('Team Requests').appendRow([cueInboxId_('TR'), String(q.to).trim(), q.kind, '', cueStr_(q.message, 3000), j[0], '', '', '', '', '', '']));
     cueSheet_('Team Daily').appendRow([day, j[0], cueStr_(r.data.note, 2000), reqs.length]);
   });
-  props.setProperty('CUE_TEAM_DAY', day + '|' + done.join(','));
   return ran;
 }
 
@@ -62,7 +68,13 @@ function cueTeamContext_(kind, now) {
   }
   if (kind === 'jobs') {
     const sh = cueSheet_('Job Runs'), n = sh.getLastRow(); if (n < 2) return 'No job runs.';
-    const from = Math.max(2, n - 499), rows = sh.getRange(from, 1, n - from + 1, 6).getValues();
+    // Read back in blocks of 500 until a row is older than 24 hours (Codex on PR #376): Job Runs grows every 5 minutes.
+    let rows = [], end = n;
+    while (end >= 2) {
+      const from = Math.max(2, end - 499), part = sh.getRange(from, 1, end - from + 1, 6).getValues();
+      rows = part.concat(rows); end = from - 1;
+      if (part.some(r => now - new Date(r[0]).getTime() >= 24 * 3600e3)) break;
+    }
     const bad = {};
     rows.filter(r => now - new Date(r[0]).getTime() < 24 * 3600e3 && String(r[3]) !== 'OK').forEach(r => {
       const k = String(r[2]); bad[k] = bad[k] || { n: 0, err: '' }; bad[k].n++; bad[k].err = cueStr_(r[4], 200) || bad[k].err; });

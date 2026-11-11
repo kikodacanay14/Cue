@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 82 server files, 1608 top-level names, 35 task kinds, 35 word checks before the
+Counts: 82 server files, 1612 top-level names, 35 task kinds, 35 word checks before the
 chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -136,7 +136,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 75 | 49 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 75 | 50 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
@@ -171,9 +171,9 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages, Inbox Queue | 0 | 0 | 5 | 3 |
-| `CueInboxAgents.gs` |  | For Kiko | 0 | 0 | 1 | 4 |
+| `CueInboxAgents.gs` |  | Closed, For Kiko | 0 | 0 | 1 | 4 |
 | `CueInboxProjects.gs` | `get_project_board` | Inbox Chats | 0 | 0 | 2 | 4 |
-| `CueInboxRoles.gs` |  | Inbox Chats | 1 | 2 | 3 | 4 |
+| `CueInboxRoles.gs` |  | Inbox Chats | 1 | 2 | 4 | 4 |
 | `CueInboxTeam.gs` | `get_project_board` | Job Runs, Team Daily, Team Requests | 1 | 1 | 1 | 8 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakeCheck.gs` |  | Requests, Triage log | 0 | 0 | 1 | 6 |
@@ -230,7 +230,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueChat_` | `Cue.gs` | 44 |
 | `cueSheet_` | `Cue.gs` | 44 |
 | `cueBridge_` | `CueBridge.gs` | 41 |
-| `cueLocked_` | `Cue.gs` | 39 |
+| `cueLocked_` | `Cue.gs` | 40 |
 | `cueLoad_` | `Cue.gs` | 35 |
 | `cueOwner_` | `Cue.gs` | 34 |
 | `cueProp_` | `Cue.gs` | 34 |

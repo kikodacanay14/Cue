@@ -502,3 +502,13 @@ roles through the sheet, the Account Manager's decision is final, nothing waits 
 
 Evidence: `test/features/96-inbox-roles.js` R5, R6; `test/features/97-inbox-agents.js` A1, A2, A11, D1, D2. Manual gap: not yet run live.
 
+
+### CUE-055: Finished team rows move to a Closed tab
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "add another tab - automatically moves items that are
+Closed to that tab".
+
+- Every cueResume run moves a Team Requests row whose State is Sent (once its message has a reply, a decision or has expired) or
+  Refused, and a For Kiko row whose State is Done or Answered, to the Closed tab of the BSE AI Team spreadsheet. The moved row keeps
+  its ID, chat, kind, request text, answer, state, note, sender and Message ID, plus the time it moved and the tab it came from.
+- Assumption (not asked): "Closed" means those finished states; open rows (New, Sending, Open, still-undecided Sent) stay put.

@@ -207,7 +207,7 @@ test('A11 the team tabs live in their own spreadsheet "BSE AI Team", made once i
   const t = agentBox();
   deq(t.props.CUE_TEAM_SHEET_ID, 'new');
   const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
-  assert.ok(/const CUE_TEAM_TABS_ = \['Team Requests', 'For Kiko', 'Team Daily'\];/.test(cue) && /SpreadsheetApp\.create\('BSE AI Team'\)/.test(cue));
+  assert.ok(/const CUE_TEAM_TABS_ = \['Team Requests', 'For Kiko', 'Team Daily', 'Closed'\];/.test(cue) && /SpreadsheetApp\.create\('BSE AI Team'\)/.test(cue));
 });
 
 const teamAt = (t, iso) => { t.ctx.cueNow_ = () => Date.parse(iso); };
@@ -235,4 +235,77 @@ test('D2 the next day the jobs run again; with no role chats nothing runs', () =
   teamAt(t, '2026-11-13T00:30:00Z'); for (let i = 0; i < 4; i++) t.ctx.cueTeamDaily_();
   teamAt(t, '2026-11-14T00:30:00Z'); deq(t.ctx.cueTeamDaily_(), 2);
   const bare = inboxBox(); teamAt(bare, '2026-11-13T00:30:00Z'); deq(bare.ctx.cueTeamDaily_(), 0);
+});
+
+test('CL1 finished rows move to the Closed tab: Team Requests Sent and Refused, For Kiko Done and Answered; open rows stay (Kiko 11 Nov 2026)', () => {
+  const t = agentBox({ inboxReply: { reply: 'Test the save path.' } });
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Question', '', 'What do I test?', 'cue-session', '', '', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', 'Nobody', 'Question', '', 'hi', 'x', '', '', '', '']);
+  t.ctx.cueInboxIntake_();
+  t.tabs['Team Requests'].appendRow(['R3', 'QA', 'Question', '', 'later', 'x', '', 'New', '', '']);
+  t.ctx.cueSheet_('For Kiko').appendRow(['K1', '', 'QA', 'Question', 'Pick a date', 'x', '', '0', 'Answered', 'n', 'QA']);
+  t.ctx.cueSheet_('For Kiko').appendRow(['K2', '', 'QA', 'Question', 'Still open', 'x', '', '', 'Open', 'n', 'QA']);
+  deq(t.ctx.cueTeamClose_(), { moved: 3 });
+  deq(inboxRows(t, 'Team Requests').map(r => r[0]), ['R3']);
+  deq(inboxRows(t, 'For Kiko').map(r => r[0]), ['K2']);
+  const c = inboxRows(t, 'Closed');
+  deq(c.map(r => [r[1], r[2], r[7]]), [['Team Requests', 'R1', 'Sent'], ['Team Requests', 'R2', 'Refused'], ['For Kiko', 'K1', 'Answered']]);
+  deq([c[0][6], c[2][6]], ['Test the save path. (QA)', '0']);
+  assert.ok(/^M-/.test(c[0][10]));
+  deq(t.ctx.cueTeamClose_(), { moved: 0 });
+});
+
+test('CL2 Team Requests is left alone while a row is Sending, unless that row is older than 30 minutes', () => {
+  const t = agentBox();
+  const now = t.ctx.cueNow_();
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Question', '', 'a', 'x', new Date(now - 60000).toISOString(), 'Sending', '', '']);
+  t.tabs['Team Requests'].appendRow(['R2', 'QA', 'Question', '', 'b', 'x', '', 'Refused', '', 'why']);
+  deq(t.ctx.cueTeamClose_(), { moved: 0 });
+  t.tabs['Team Requests'].rows[1][6] = new Date(now - 31 * 60000).toISOString();
+  deq(t.ctx.cueTeamClose_(), { moved: 1 });
+  deq(inboxRows(t, 'Team Requests').map(r => r[0]), ['R1']);
+});
+
+test('A12 cueResume makes the role chats once, even if the old Inbox page was never opened (Codex on PR #376)', () => {
+  const t = inboxBox({ props: { CUE_ROLES_SET: '' } });
+  t.ctx.cueResume();
+  deq(inboxRows(t, 'Inbox Chats').filter(c => c[8]).length, 7);
+  deq(t.props.CUE_ROLES_SET, '1');
+});
+
+test('CL3 a Sent request whose message is still undecided stays open; once decided later, the decision is copied onto it and it closes (Codex on PR #376)', () => {
+  const t = agentBox();
+  const now = t.ctx.cueNow_();
+  t.ctx.cueSheet_('Inbox Messages').appendRow(['M-x', 'CH-1', new Date(now).toISOString(), 'agent: x', 'Confirm', 'Ship it?', 'Waiting', '', '', '', '', '', '', '', 'no answer']);
+  t.tabs['Team Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'Ship it?', 'x', '', 'Sent', 'M-x', 'Waiting', '', '']);
+  deq(t.ctx.cueTeamClose_(), { moved: 0 });
+  const m = t.tabs['Inbox Messages'].rows.filter(r => r[0] === 'M-x')[0];
+  m[6] = 'Recorded'; m[10] = 'Rejected'; m[13] = 'Kiko (For Kiko tab)'; m[14] = 'Not yet.';
+  deq(t.ctx.cueTeamClose_(), { moved: 1 });
+  const c = inboxRows(t, 'Closed')[0];
+  deq([c[2], c[6]], ['R1', 'Rejected: Not yet. (Kiko (For Kiko tab))']);
+});
+
+test('CL4 a daily job is claimed before its AI call, so an overlapping run cannot pick it again (Codex on PR #376)', () => {
+  let t = null; const seen = [];
+  t = agentBox({ teamDaily: () => { seen.push(String(t.props.CUE_TEAM_DAY || '')); return { note: 'ok', requests: [] }; }, gpt: { team_daily: { note: 'ok', requests: [] } } });
+  t.ctx.cueSheet_('Team Daily');
+  teamAt(t, '2026-11-13T00:30:00Z');
+  t.ctx.cueTeamDaily_();
+  assert.ok(seen.length && seen.every(s => /^2026-11-13\|Canvas PO,ChatGPT Account Manager$/.test(s)), seen.join(' / '));
+});
+
+test('CL5 the QA and Cue PO job reads the whole last 24 hours of Job Runs, not only the last 500 rows (Codex on PR #376)', () => {
+  const t = agentBox();
+  const now = Date.parse('2026-11-13T00:30:00Z'), sh = t.ctx.cueSheet_('Job Runs');
+  sh.appendRow([new Date(now - 30 * 3600e3).toISOString(), '', 'Old job', 'Failed', 'too old', '']);
+  sh.appendRow([new Date(now - 12 * 3600e3).toISOString(), '', 'Sweep', 'Failed', 'quota', '']);
+  for (let i = 0; i < 600; i++) sh.appendRow([new Date(now - 11 * 3600e3 + i * 60000).toISOString(), '', 'Sweep', 'OK', '', '']);
+  const out = t.ctx.cueTeamContext_('jobs', now);
+  assert.ok(/Sweep: failed 1 times; last error: quota/.test(out) && !/Old job/.test(out), out);
+});
+
+test('CL6 cueSetup makes the team tabs only in BSE AI Team, never in the Cue sheet (Codex on PR #376)', () => {
+  const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/Object\.keys\(CUE_TABS_\)\.forEach\(n => \{ if \(CUE_TEAM_TABS_\.indexOf\(n\) < 0 && !ss\.getSheetByName\(n\)\)/.test(cue));
 });

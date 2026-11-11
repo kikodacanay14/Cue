@@ -18,7 +18,11 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 
 - More Codex fixes: "Reject" is accepted (not only "Rejected"); the sync writes only the State and Note cells, so an answer Kiko types meanwhile is kept; the whole For Kiko sync runs under the lock, so no item is added twice.
 
-Test count: 818 passed (A1 to A11, K1 to K7, D1, D2 new; R5, R6 rewritten; page tests T13, T24, P7, R14 to R17 removed with the page).
+- Closed tab (Kiko, 11 Nov 2026: "add another tab - automatically moves items that are Closed to that tab"): every 5 minutes Cue moves finished rows from Team Requests (Sent, once the answer is in, or Refused) and For Kiko (Done or Answered) to a Closed tab in BSE AI Team, keeping ID, answer, note and Message ID. A decision that arrives after sending is copied onto the row before it moves. Team Requests waits while a row is Sending (cueTeamClose_, src/CueInboxAgents.gs; rule CUE-055).
+
+- Codex review fixes: cueResume makes the seven role chats once (they were made only by the removed page); daily jobs are claimed under the lock before their AI call; the Cue PO and QA jobs read all of the last 24 hours of Job Runs; cueSetup no longer makes the team tabs in the Cue sheet; For Kiko keeps the full request text and treats an answer of 0 as an answer.
+
+Test count: 825 passed (A1 to A12, K1 to K7, D1, D2, CL1 to CL6 new; R5, R6 rewritten; page tests T13, T24, P7, R14 to R17 removed with the page).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
