@@ -8,7 +8,10 @@ Kiko, 11 Nov 2026: "maybe lets not do a countdown... let the user press send", t
 - The pause is per chat. Confirm and Request access are not paused.
 - The countdown line and its Cancel button are removed from the page. The queue functions and the every-minute sweep stay, so any Question queued before this release still sends.
 
-Test count: 803 passed (T24 replaced, T25 new, R9 steps past the pause).
+- The every-minute inbox trigger is removed again (trigger version 8 deletes it on live): Kiko hit Google's "There are too many scripts running simultaneously for this Google user account" limit right after 1.28.60 turned it on. Nothing waits to send any more; the 5-minute cueResume runs the inbox sweep for anything still queued (src/Cue.gs).
+- The Inbox page makes one server call at a time when it loads (the list, then the decisions).
+
+Test count: 803 passed (T22, T23, T24 rewritten, T25 new, R9 steps past the pause; trigger lists in tests 02 and 32 updated).
 
 ## Cue 1.28.60: the Question countdown sends again (bug fix) (live as Version 240 with 1.28.59, 11 Nov 2026 12:52Z, rollback 239)
 

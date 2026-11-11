@@ -123,8 +123,9 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     r[name].apply(r, args);
   }
   function load() {
-    call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render(); });
-    call('cueInboxDecisions', [], renderDecisions, function () {});
+    // One server call at a time (Kiko 11 Nov 2026 hit Google's "too many scripts running" limit): the list, then the decisions.
+    call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render();
+      call('cueInboxDecisions', [], renderDecisions, function () {}); });
   }
   function day(iso) { var t = String(iso || ''); return t.slice(0, 10) + (t.length > 15 ? ' ' + t.slice(11, 16) : ''); }
   function renderDecisions(list) {

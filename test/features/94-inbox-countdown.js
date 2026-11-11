@@ -80,16 +80,16 @@ test('T21 queue and cancel are owner only', () => {
   assert.throws(() => t.ctx.cueInboxCancel('M-x'), /owner|Only|not allowed/i);
 });
 
-test('T22 the sweep trigger is installed every minute with the other Cue triggers', () => {
+test('T22 no every-minute inbox trigger (1.28.61, Google's too-many-scripts limit); the 5-minute cueResume sends anything still queued', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
-  assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src), 'trigger line present');
+  assert.ok(!/newTrigger\('cueInboxSweep'\)/.test(src) && /try \{ cueInboxSweep_\(\); \}/.test(src), 'no 1-minute trigger; cueResume sweeps');
 });
 
-test('T23 the trigger version is raised past 6, so live Cue installs the inbox sweep (bug: 1.28.53 added it without raising the version; Kiko 11 Nov 2026 "the countdown stopped")', () => {
+test('T23 the trigger version is 8 or more, so live Cue deletes the old every-minute inbox trigger', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   const v = +(src.match(/const CUE_TRIGGERS_NOW_ = '(\d+)'/) || [])[1];
-  assert.ok(v >= 7, 'CUE_TRIGGERS_NOW_ is ' + v);
-  assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src));
+  assert.ok(v >= 8, 'CUE_TRIGGERS_NOW_ is ' + v);
+  assert.ok(/'cueHsWeekly', 'cueInboxSweep'\]\.indexOf/.test(src), '1.28.61: the old 1-minute sweep trigger is deleted on live');
 });
 
 test('T24 Send sends a Question at once (no countdown, no Cancel); the page shows the 3-minute pause on the Send button (Kiko 11 Nov 2026, "lets do B")', () => {
