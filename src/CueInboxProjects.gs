@@ -36,7 +36,7 @@ function cueInboxSyncProjects_(force) {
     const open = cueInboxProjOpen_(p), label = cueInboxProjLabel_(p), c = byPid[pid];
     if (!c) {
       if (!open) return;
-      cueSheet_('Inbox Chats').appendRow([cueInboxId_('CH'), 'ChatGPT API', label, 'Active', '', '', now, pid]);
+      cueSheet_('Inbox Chats').appendRow([cueInboxId_('CH'), 'ChatGPT API', label, 'Active', '', '', now, pid, '']);
       byPid[pid] = true; out.added++; return;
     }
     if (c === true) return;

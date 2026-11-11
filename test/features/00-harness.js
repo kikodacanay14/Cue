@@ -189,6 +189,10 @@ function sandbox(o = {}) {
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn a list Kiko pasted/.test(body.system)) { log.claude.push(body); return (o.fail || {}).memory ? o.fail.memory() : claudeOk(o.memory || MEMORY); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You turn Kiko's ChatGPT custom instructions/.test(body.system)) { log.claude.push(body); return claudeOk(o.process || PROCESS); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You build a writing style guide/.test(body.system)) { log.claude.push(body); return (o.fail || {}).style ? o.fail.style() : claudeOk(o.style || STYLE); }
+    if (u.indexOf('api.anthropic.com') >= 0 && /^You are a role chat in Kiko's team inbox/.test(body.system)) { log.claude.push(body);   // team inbox role chats (CueInboxRoles.gs)
+      const want = body.output_config.format.schema.properties.decision ? 'inboxDecide' : 'inboxReply';
+      if ((o.fail || {})[want]) return o.fail[want]();
+      const v = o[want]; return claudeOk(typeof v === 'function' ? v(body) : v || (want === 'inboxDecide' ? { decision: 'Approve', reason: 'Clear and safe.' } : { reply: 'Claude answer.' })); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You write the daily release notes/.test(body.system)) { log.claude.push(body); return (o.fail || {}).relnotes ? o.fail.relnotes() : claudeOk(o.relnotes || RN_OUT); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You review an event project/.test(body.system)) { log.claude.push(body); return (o.fail || {}).review ? o.fail.review() : claudeOk(o.review || REVIEW); }
     if (u.indexOf('api.anthropic.com') >= 0 && /^You sort emails for Kiko/.test(body.system)) { log.claude.push(body); log.nmSorts = (log.nmSorts || 0) + 1;   // New mail (CueNewMail.gs)
