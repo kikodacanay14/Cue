@@ -46,21 +46,21 @@ test('R4 both escalate: the message is Contested for Kiko with both reasons, no 
   assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
 });
 
-test('R5 Request access: Google Drive goes to the Tech Lead; another tool waits for Kiko with no AI call; a tool must be picked', () => {
+test('R5 every access request, Google Drive or another tool, goes to the Tech Lead; a tool must be picked (Kiko 11 Nov 2026: "do not include me in any step")', () => {
   const t = roleBox({ inboxDecide: { decision: 'Approve', reason: 'Project folder only.' } });
   const c = chatByLabel(t, 'Chase PO');
-  const g = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Drive folder for the Acme project', 'Google Drive'));
-  deq([g.status, g.decision], ['Recorded', 'Approved']);
-  const o = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool'));
-  deq([o.status, o.routed_to], ['New', 'Kiko']);
-  deq(t.log.claude.length, 1);
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Drive folder for the Acme project', 'Google Drive')).decision, 'Approved');
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool')).decision, 'Approved');
+  deq(t.log.claude.length, 2);
   assert.throws(() => t.ctx.cueInboxSend(c, 'Request access', 'x'), /Pick the tool/);
 });
 
-test('R6 Tech Lead escalating a Drive request makes it Contested (the Account Manager never decides access)', () => {
-  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Personal files inside.' } });
+test('R6 the Tech Lead escalating an access request sends it to the Account Manager, the final decider: its schema has no Escalate', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Personal files inside.' }, gpt: { inbox_decision: { decision: 'Reject', reason: 'HR data.' } } });
   const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Request access', 'Drive access to HR folder', 'Google Drive'));
-  deq(r.status, 'Contested'); deq(t.log.gpt.length, 0);
+  deq([r.status, r.decision, r.by], ['Recorded', 'Rejected', 'ChatGPT Account Manager']);
+  deq(t.log.gpt[0].text.format.schema.properties.decision.enum, ['Approve', 'Reject']);
+  assert.ok(/final decider/.test(t.log.gpt[0].instructions));
 });
 
 test('R7 a role chat that fails to answer leaves the message Waiting with the reason, and Kiko can still decide', () => {
@@ -123,32 +123,6 @@ test('R13 a decision Kiko makes while a role call is running is kept, never over
   deq(r.decision, 'Rejected');
   deq(inboxRows(t, 'Inbox Decisions').length, 1);
   assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
-});
-
-test('R14 the chat list counts Contested messages as waiting (Codex on PR #366)', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/function waiting\(id\)[^\n]*'Contested'/.test(html));
-});
-
-test('R15 Cue\'s header has an Inbox link that opens ?view=inbox in a new tab (Kiko 11 Nov 2026, "A")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
-  assert.ok(/<a class="btn ghost" id="inbox-link" target="_blank" rel="noopener"[^>]*hidden>Inbox ↗<\/a>/.test(html));
-  const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
-  assert.ok(/\$\('inbox-link'\)\.href = appUrl\(\) \+ '\?view=inbox'/.test(js));
-});
-
-test('R16 the Chats list has a filter: Show All, Roles, Projects or Other, and Find by name (Kiko 11 Nov 2026, "maybe have a filter?")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/<select id="chatShow"><option value="all">All<\/option><option value="role">Roles<\/option><option value="project">Projects<\/option><option value="other">Other<\/option><\/select>/.test(html));
-  assert.ok(/<label for="chatFind">Find<\/label><input id="chatFind" type="search"/.test(html));
-  assert.ok(/state\.chats\.filter\(shown\)/.test(html) && /localStorage\.setItem\('cueInboxShow'/.test(html));
-  assert.ok(/No chat matches this filter\./.test(html));
-});
-
-test('R17 Add a chat offers only Claude API and ChatGPT API; claude.ai is gone from the form (Kiko 11 Nov 2026, "remove that option")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/<select id="chatProvider"><option>Claude API<\/option><option>ChatGPT API<\/option><\/select>/.test(html));
-  assert.ok(!/<option>claude\.ai<\/option>/.test(html) && !/read token/.test(html));
 });
 
 test('R18 a hidden Cue tab stops refreshing and refreshes once when shown (Kiko 11 Nov 2026, "too many scripts running", answer A)', () => {

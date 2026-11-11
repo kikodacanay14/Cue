@@ -17,9 +17,10 @@ const CUE_INBOX_ROLE_TEXT_ = {
   'Tech Lead': 'Your role: Tech Lead (BSE Apps & Systems). You review every Confirm. Approve when the change is clear, in scope and safe for '
     + 'Cue, Canvas and BSE\'s data. Reject when it is unsafe, out of scope, or breaks a rule the message states. Escalate when you cannot '
     + 'judge it from the message, or when it touches money, client data, people\'s personal data, or anything sent outside BSE. '
-    + 'For access requests you may approve Google Drive access only; escalate anything that gives access to people\'s mail, accounts or personal data.',
-  'Account Manager': 'Your role: Account Manager. You review a Confirm only after the Tech Lead escalated it. Weigh the client, the cost and '
-    + 'the timing. Approve or reject when you can decide; escalate to Kiko when you cannot.',
+    + 'For access requests you may approve Google Drive access only; escalate every other tool, and anything that gives access to people\'s mail, accounts or personal data.',
+  'Account Manager': 'Your role: Account Manager, the final decider. You review a Confirm or access request only after the Tech Lead '
+    + 'escalated it. Weigh the client, the cost, the timing and the risk, then Approve or Reject; you cannot escalate. When in real doubt, Reject '
+    + 'and say what would change your mind. Nothing you approve runs by itself: sending email, spending money and changing Canvas still need Kiko.',
   'PO': 'Your role: Product Owner for the product named in your chat name. You answer questions about what that product should do, '
     + 'for whom, and in what order, and you keep answers inside that product\'s scope.',
   'QA': 'Your role: QA. You answer questions about how to test a change, what could break, and whether a described result meets what was asked.'
@@ -37,8 +38,9 @@ function cueInboxRoleSystem_(role, label) {
 }
 
 /** Makes the role chats that are missing (matched by name and role). Sheet only, no AI. */
-function cueInboxSetupRoles_() {
-  cueOwner_();
+function cueInboxSetupRoles_() { cueOwner_(); return cueInboxSetupRolesCore_(); }
+/** The setup itself, run by cueResume as the script owner (the Inbox page that used to call it is gone). */
+function cueInboxSetupRolesCore_() {
   const have = {}, now = new Date(cueNow_()).toISOString();
   cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).forEach(c => { have[c.v[2] + '|' + c.v[8]] = 1; });
   let added = 0;
@@ -59,7 +61,10 @@ function cueInboxRoleChat_(role) {
 function cueInboxAskDecision_(chat, m) {
   const user = 'Kind: ' + m.v[4] + (m.v[12] ? '\nTool: ' + m.v[12] : '') + '\nChat it came from: ' + (cueInboxChatLabel_(m.v[1]) || 'unknown')
     + '\nMessage:\n' + m.v[5] + '\n\nDecide: Approve, Reject or Escalate, with a one-sentence reason.';
-  const o = { step: 'Team inbox decision', system: cueInboxRoleSystem_(chat.v[8], chat.v[2]), user, schema: CUE_INBOX_DECISION_SCHEMA_, name: 'inbox_decision',
+  const finalSay = chat.v[8] === 'Account Manager';   // the final decider cannot escalate (Kiko 11 Nov 2026)
+  const schema = finalSay ? { type: 'object', properties: { decision: { type: 'string', enum: ['Approve', 'Reject'] }, reason: { type: 'string' } },
+    required: ['decision', 'reason'], additionalProperties: false } : CUE_INBOX_DECISION_SCHEMA_;
+  const o = { step: 'Team inbox decision', system: cueInboxRoleSystem_(chat.v[8], chat.v[2]), user: finalSay ? user.replace('Decide: Approve, Reject or Escalate', 'Decide: Approve or Reject (you are the final decider)') : user, schema, name: 'inbox_decision',
     maxTokens: 1500, memory: false };
   const call = chat.v[1] === 'ChatGPT API' ? cueGpt_(o) : cueClaude_(Object.assign(o, { effort: 'low' }));
   const s = { id: 'INBOX-' + m.v[0], metrics: { ai_calls: 0, calls: [] } };
@@ -76,8 +81,9 @@ function cueInboxChatLabel_(chatId) {
 function cueInboxRoute_(msgId) {
   let m = cueInboxFind_(msgId);
   const access = m.v[4] === 'Request access';
-  if (access && m.v[12] !== 'Google Drive') return { message_id: msgId, status: 'New', routed_to: 'Kiko' };   // other tools: Kiko decides
-  const steps = access ? ['Tech Lead'] : ['Tech Lead', 'Account Manager'];
+  // Kiko 11 Nov 2026 ("do not include me in any step"): every Confirm and every access request goes to the Tech Lead, then
+  // the Account Manager, whose decision is final. Nothing waits for Kiko; the For Kiko tab only shows what is left undecided.
+  const steps = ['Tech Lead', 'Account Manager'];
   const trail = [];
   for (let i = 0; i < steps.length; i++) {
     const chat = cueInboxRoleChat_(steps[i]);

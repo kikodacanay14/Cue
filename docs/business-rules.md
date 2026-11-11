@@ -445,3 +445,70 @@ Evidence: `test/features/94-inbox-countdown.js` T24 (page has no countdown, show
 same chat refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go; three AI calls), T26 (the
 check runs inside the lock). Manual gap: not yet tried on the live Inbox in Kiko's browser.
 
+### CUE-052: Agents post to the team inbox only through the Cue sheet's Team Requests tab, sent by Cue every 5 minutes
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "the goal is for things to run without me", then "go" to
+shipping "the Inbox connection so chats can post and read the Inbox themselves" (step 1 of the plan shown to him).
+
+- Scope: an agent (a Claude chat or session holding Kiko's Google Sheets connector) appends one row to the Cue sheet's "Inbox
+  Requests" tab: Request ID, Chat (name or Chat ID), Kind, Tool, Message, From. No other path: Cue's web app stays open to Kiko's
+  Google account only, and no new web route, doPost or key was added.
+- Lifecycle: every 5 minutes `cueResume` (as the script owner) claims new rows one at a time under the lock, right before each is sent (State Sending, written
+  before any AI call; at most 5 per run), then sends each exactly as the Inbox page would (`cueInboxSendCore_`: same checks, CUE-051 pause, role-chat
+  routing). The row ends Sent with the Message ID and status, Refused with the reason, or back to New while the 3-minute pause
+  holds. A row left at Sending (a run that died mid-send) is never sent again; rows the run had not reached stay New.
+- A chat name that matches more than one active chat is refused with their Chat IDs; it is never guessed.
+- The agent reads the reply or decision from that Message ID's row in "Inbox Messages". Nothing runs on a decision (scope Q3 B).
+- What it does not grant: no Canvas write, no email, no action. Anyone who can edit the Cue sheet can post (today only Kiko's
+  account and the connectors acting as him).
+
+Evidence: `test/features/97-inbox-agents.js` A1 to A8 (send and routing, Question reply, refusals, pause, 5-row cap, claim before
+send under overlap, ambiguous names, a killed run strands only the row in flight). Manual gap: not yet run on live with a real connector-written row.
+
+### CUE-053: Everything that needs Kiko goes to the For Kiko tab of the Cue sheet, and he answers there
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "why cant they just also send a message for me in the google
+sheet? add another tab and those are all the things that require Kiko".
+
+- Every 5 minutes `cueResume` adds one row per Confirm or Request access that the role chats did not settle (Contested, Waiting
+  after a failed role call, or a tool other than Google Drive), once the message is a minute old and at most once per message.
+- An agent may append its own row with no Message ID for anything only Kiko can answer, and read Your answer back.
+- Kiko types in Your answer. On a row with a Message ID, the whole answer "Approve" or "Reject" (any case; "Approved" and "Rejected" too) is recorded as his decision exactly like
+  the Inbox page (decided by "Kiko (For Kiko tab)") and the row turns Done; other text gets a Note asking for Approve or Reject.
+  A message decided elsewhere turns its row Done. A row with no Message ID turns Answered when he writes anything.
+- Nothing runs on a decision (scope Q3 B).
+
+- The whole sync runs under the lock shared with the Inbox page's Approve and Reject, so items are added at most once and a decision made on the page is kept (the row turns Done). The sync writes only the State and Note cells, never Your answer.
+
+Evidence: `test/features/97-inbox-agents.js` K1 to K7. Manual gap: not yet run on live.
+
+### CUE-054: The AI team runs without Kiko: the Account Manager has the final say, and each role does a daily job
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "the goal is for things to run without me", "change that....
+do not include me in any step there", "okay lets do that" to the flow shown to him (each role wakes on a schedule, asks the other
+roles through the sheet, the Account Manager's decision is final, nothing waits for him), then "do it in a new spreadsheet".
+
+- Every Confirm and every Request access (any tool) goes to the Tech Lead, then on Escalate to the Account Manager, whose decision is
+  final: its answer schema allows only Approve or Reject. This replaces the routing of D4 (Drive only to the Tech Lead, other tools
+  to Kiko) and D5 (Contested to Kiko). The For Kiko tab still lists anything left undecided (for example, no Tech Lead chat), as a view.
+- Daily jobs: once a day after 08:00 Manila, `cueResume` runs one job per role (Canvas PO and Account Manager read the Canvas project
+  board; Cue PO and QA read the last 24 hours of failed Cue jobs; the Tech Lead reads the last 24 hours of decisions), at most 2 per
+  run. Each writes a note on Team Daily and may send up to 2 Questions or Confirms to other roles on Team Requests. Charter PO and
+  Chase PO have no data source in Cue yet, so no daily job.
+- The team's tabs (Team Requests, Team Daily, For Kiko) live in their own spreadsheet "BSE AI Team", made by Cue in Kiko's Drive
+  (Script Property CUE_TEAM_SHEET_ID). Team Requests rows get the answer and who decided on the same row.
+- Limit kept (Kiko's standing rule): nothing the team decides sends email, spends money or changes Canvas. The only Canvas call is the
+  read-only project board.
+
+Evidence: `test/features/96-inbox-roles.js` R5, R6; `test/features/97-inbox-agents.js` A1, A2, A11, D1, D2. Manual gap: not yet run live.
+
+
+### CUE-055: Finished team rows move to a Closed tab
+
+**Status: APPROVED by Kiko, 11 Nov 2026**, in the "Team Inbox" thread: "add another tab - automatically moves items that are
+Closed to that tab".
+
+- Every cueResume run moves a Team Requests row whose State is Sent (once its message has a reply, a decision or has expired) or
+  Refused, and a For Kiko row whose State is Done or Answered, to the Closed tab of the BSE AI Team spreadsheet. The moved row keeps
+  its ID, chat, kind, request text, answer, state, note, sender and Message ID, plus the time it moved and the tab it came from.
+- Assumption (not asked): "Closed" means those finished states; open rows (New, Sending, Open, still-undecided Sent) stay put.

@@ -1,14 +1,28 @@
 # Changelog
 
-## Cue 1.28.64: agents use the team inbox through the Cue sheet (not deployed; waiting for Kiko's yes)
+## Cue 1.28.64: the AI team runs without Kiko: daily role jobs, the Account Manager decides last, a BSE AI Team spreadsheet; the Inbox page is removed (not deployed)
 
 Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
 
-- New tab Inbox Requests in the Cue sheet. A Claude chat or session with Kiko's Google Sheets connector appends one row (Request ID, Chat, Kind, Tool, Message, From). Every 5 minutes cueResume sends each new row exactly as the Inbox page would (same checks, same 3-minute pause, same role-chat routing), marks it Sent with the Message ID, or Refused with the reason. At most 5 rows per run (src/CueInboxAgents.gs, src/Cue.gs).
+- Kiko, 11 Nov 2026: "do not include me in any step", "okay lets do that", "do it in a new spreadsheet". Every Confirm and access request goes to the Tech Lead, then the Account Manager, whose answer can only be Approve or Reject (final). Daily jobs (src/CueInboxTeam.gs): after 08:00 Manila each role reads a small piece of real data (Canvas board, failed Cue jobs, decisions), writes a note on Team Daily and may ask other roles up to 2 things. The team's tabs (Team Requests, Team Daily, For Kiko) live in a new spreadsheet "BSE AI Team" that Cue makes in Kiko's Drive; Team Requests rows carry the answer. Rule CUE-054.
+- The Inbox page, its ?view=inbox route and the "Inbox ↗" header button are removed (Kiko, 11 Nov 2026: "remove inbox already!!!", "it doesnt service its purpose"). The role chats, routing and sheet tabs stay; cueResume keeps project chats in step with Canvas (src/Inbox.html deleted; src/Cue.gs, src/Index.html, src/IndexPages.html).
+- New tab Team Requests in the Cue sheet. A Claude chat or session with Kiko's Google Sheets connector appends one row (Request ID, Chat, Kind, Tool, Message, From). Every 5 minutes cueResume sends each new row exactly as the Inbox page would (same checks, same 3-minute pause, same role-chat routing), marks it Sent with the Message ID, or Refused with the reason. At most 5 rows per run (src/CueInboxAgents.gs, src/Cue.gs).
 - cueInboxSend_ splits into the owner check and cueInboxSendCore_, which the intake also uses; a message from an agent shows "agent: <name>" as its sender (src/CueInbox.gs).
 - No new web door: Cue's web app stays open to Kiko's Google account only.
 
-Test count: 810 passed (A1 to A5 new in test/features/97-inbox-agents.js).
+- Codex review fixes before the first deploy: each request is claimed one at a time (State Sending, written under the lock) right before it is sent, so overlapping runs never send one twice and a run that dies strands only the row in flight; a chat name matching more than one chat is refused with the Chat IDs, and Chat accepts a Chat ID; rule CUE-052 recorded in docs/business-rules.md.
+
+- For Kiko tab (Kiko: "add another tab and those are all the things that require Kiko"): every 5 minutes Cue lists each Confirm or access request the role chats did not settle; agents may add their own rows; Kiko types Approve, Reject or a reply in Your answer and Cue records it (cueForKikoSync_, rule CUE-053).
+
+- Codex review fixes on the For Kiko tab: only a whole "Approve" or "Reject" counts as a decision; the message is re-read under the lock right before the answer is recorded, so a decision made on the Inbox page meanwhile is kept (the page's Approve and Reject now take the same lock); a paused agent Question goes straight back to New.
+
+- More Codex fixes: "Reject" is accepted (not only "Rejected"); the sync writes only the State and Note cells, so an answer Kiko types meanwhile is kept; the whole For Kiko sync runs under the lock, so no item is added twice.
+
+- Closed tab (Kiko, 11 Nov 2026: "add another tab - automatically moves items that are Closed to that tab"): every 5 minutes Cue moves finished rows from Team Requests (Sent, once the answer is in, or Refused) and For Kiko (Done or Answered) to a Closed tab in BSE AI Team, keeping ID, answer, note and Message ID. A decision that arrives after sending is copied onto the row before it moves. Team Requests waits while a row is Sending (cueTeamClose_, src/CueInboxAgents.gs; rule CUE-055).
+
+- Codex review fixes: cueResume makes the seven role chats once (they were made only by the removed page); daily jobs are claimed under the lock before their AI call; the Cue PO and QA jobs read all of the last 24 hours of Job Runs; cueSetup no longer makes the team tabs in the Cue sheet; For Kiko keeps the full request text and treats an answer of 0 as an answer.
+
+Test count: 825 passed (A1 to A12, K1 to K7, D1, D2, CL1 to CL6 new; R5, R6 rewritten; page tests T13, T24, P7, R14 to R17 removed with the page).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
