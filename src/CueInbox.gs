@@ -62,6 +62,11 @@ function cueInboxAddChat_(form) {
 /** Sends one message to a chat. Question to ChatGPT API: one OpenAI call, the answer becomes the reply. Other kinds wait. */
 function cueInboxSend_(chatId, kind, body, tool) {
   cueOwner_();
+  return cueInboxSendCore_(chatId, kind, body, tool, String(Session.getActiveUser().getEmail() || ''));
+}
+/** The send itself, without the owner check: the page (cueInboxSend_) and the agent request tab (CueInboxAgents.gs, run by
+ * cueResume as the script owner) both use it. from: who sent it (Kiko's email, or "agent: <name>"). */
+function cueInboxSendCore_(chatId, kind, body, tool, from) {
   const text = String(body || '').trim();
   if (CUE_INBOX_KINDS_.indexOf(kind) < 0) throw new Error('Kind must be Question, Confirm or Request access.');
   if (!text) throw new Error('Write a message first.');
@@ -80,7 +85,7 @@ function cueInboxSend_(chatId, kind, body, tool) {
       const wait = last ? last + CUE_INBOX_COOLDOWN_MS_ - cueNow_() : 0;
       if (wait > 0) throw new Error('This chat can take another Question in ' + Math.ceil(wait / 1000) + ' seconds.');
     }
-    cueSheet_('Inbox Messages').appendRow([msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', '']);
+    cueSheet_('Inbox Messages').appendRow([msgId, chatId, now, String(from || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', '']);
   });
   if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return cueInboxRoute_(msgId);   // D3 to D5: role chats decide, nothing runs
   if (chat.v[1] === 'Claude API') return cueInboxAskClaude_(msgId, chat, text);
