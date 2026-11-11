@@ -195,3 +195,12 @@ test('K7 the For Kiko sync runs under one lock, so overlapping runs cannot add a
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxAgents.gs'), 'utf8');
   assert.ok(/function cueForKikoSync_\(\) \{[\s\S]{0,300}return cueLocked_\(\(\) => cueForKikoSyncLocked_\(\)\);/.test(src));
 });
+
+test('A10 with the Inbox page gone, cueResume syncs project chats once role chats exist; no header button (Kiko 11 Nov 2026)', () => {
+  const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  assert.ok(/some\(c => c\.v\[8\]\)\) cueInboxSyncProjectsCore_\(false\)/.test(cue));
+  const idx = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.ok(!/inbox-link|view=inbox/.test(idx));
+  const t = agentBox(); t.ctx.cueInboxSetupRolesCore_();
+  deq(inboxRows(t, 'Inbox Chats').filter(r => r[8]).length, 7);
+});

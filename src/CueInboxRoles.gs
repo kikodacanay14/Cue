@@ -37,8 +37,9 @@ function cueInboxRoleSystem_(role, label) {
 }
 
 /** Makes the role chats that are missing (matched by name and role). Sheet only, no AI. */
-function cueInboxSetupRoles_() {
-  cueOwner_();
+function cueInboxSetupRoles_() { cueOwner_(); return cueInboxSetupRolesCore_(); }
+/** The setup itself, run by cueResume as the script owner (the Inbox page that used to call it is gone). */
+function cueInboxSetupRolesCore_() {
   const have = {}, now = new Date(cueNow_()).toISOString();
   cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).forEach(c => { have[c.v[2] + '|' + c.v[8]] = 1; });
   let added = 0;

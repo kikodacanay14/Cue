@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 81 server files, 1600 top-level names, 35 task kinds, 35 word checks before the
+Counts: 81 server files, 1602 top-level names, 35 task kinds, 35 word checks before the
 chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -136,7 +136,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 74 | 47 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 74 | 48 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
@@ -172,7 +172,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages, Inbox Queue | 0 | 0 | 4 | 3 |
 | `CueInboxAgents.gs` |  | For Kiko | 0 | 0 | 1 | 3 |
-| `CueInboxProjects.gs` | `get_project_board` | Inbox Chats | 0 | 0 | 0 | 4 |
+| `CueInboxProjects.gs` | `get_project_board` | Inbox Chats | 0 | 0 | 1 | 4 |
 | `CueInboxRoles.gs` |  | Inbox Chats | 1 | 2 | 1 | 4 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakeCheck.gs` |  | Requests, Triage log | 0 | 0 | 1 | 6 |
@@ -237,8 +237,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueAiAll_` | `CueAi.gs` | 31 |
 | `cueEmail_` | `CueText.gs` | 28 |
 | `CUE_VERSION_` | `Cue.gs` | 26 |
+| `cueResume` | `Cue.gs` | 23 |
 | `cueGpt_` | `CueAi.gs` | 22 |
-| `cueResume` | `Cue.gs` | 21 |
 | `cueClaude_` | `CueAi.gs` | 20 |
 | `cueMetrics_` | `Cue.gs` | 18 |
 | `cuePh_` | `CueDates.gs` | 17 |

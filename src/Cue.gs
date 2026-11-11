@@ -45,7 +45,6 @@ function doGet(e) {
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
-  if (q.view === 'inbox') return HtmlService.createHtmlOutputFromFile('Inbox').setTitle('Cue Inbox');   // team inbox page (CueInbox.gs, Inbox.html)
   if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   const page = HtmlService.createTemplateFromFile('Index');
   page.view = q.view === 'admin' ? 'admin' : '';   // CUE-ADMIN-2026-10-29 (Epic Cue #193): ?view=admin is Cue Admin, the Settings sections as one page
@@ -741,6 +740,7 @@ function cueResume() {
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueInboxSweep_(); } catch (e) { console.error('Inbox sweep: ' + e); }
   try { cueInboxIntake_(); } catch (e) { console.error('Inbox requests: ' + e); }
+  try { if (cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).some(c => c.v[8])) cueInboxSyncProjectsCore_(false); } catch (e) { console.error('Inbox chats: ' + e); }   // project chats stay in step with Canvas once the role chats exist (the Inbox page that did this is gone)   // role and project chats, now that the Inbox page is gone (Kiko 11 Nov 2026: "remove inbox already")
   try { cueForKikoSync_(); } catch (e) { console.error('For Kiko: ' + e); }   // the For Kiko tab: new items in, Kiko's answers recorded (CueInboxAgents.gs)   // agents' requests from the Inbox Requests tab (CueInboxAgents.gs)   // 1.28.61: Questions queued before Send went instant (CueInbox.gs)
   try { cueBidsLeadsBacklogNow_(); } catch (e) { console.error('Bid lead recovery: ' + e); }   // once after 1.28.35: the 15 lost bid leads (CueBids.gs)
   try { cueMsgrCrewRestore_(); } catch (e) { console.error('Crew restore: ' + e); }   // once after 1.28.39: King's Day crew who never tapped I'm crew (CueMessenger.gs)

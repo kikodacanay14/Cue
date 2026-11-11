@@ -774,8 +774,6 @@
   $('w-log').addEventListener('change', function (e) { var k = e.target.getAttribute('data-log'); if (k && k !== 'q') { logF[k] = e.target.value; renderLog(); } });
   $('w-log').addEventListener('input', function (e) { if (e.target.getAttribute('data-log') === 'q') { logF.q = e.target.value; renderLog(); var i = $('w-log').querySelector('[data-log="q"]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
   function closeSettings() { if (adminView) return; $('settings').hidden = true; $('avatar').focus(); }
-  // Team inbox link (Kiko 11 Nov 2026, "A" to adding it): opens ?view=inbox in a new tab once Cue knows its own address.
-  (function inboxLink() { if (appUrl()) { $('inbox-link').href = appUrl() + '?view=inbox'; $('inbox-link').hidden = false; } else setTimeout(inboxLink, 1000); })();
   $('avatar').onclick = function () { if (appUrl() && !adminView) window.open(appUrl() + '?view=admin', '_blank', 'noopener'); else { document.body.classList.remove('admin-chat'); settingsOpen(); } };
   $('settings-x').onclick = closeSettings;
   $('snav').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) settingsTab(b.getAttribute('data-s')); };

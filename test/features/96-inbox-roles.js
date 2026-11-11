@@ -125,32 +125,6 @@ test('R13 a decision Kiko makes while a role call is running is kept, never over
   assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
 });
 
-test('R14 the chat list counts Contested messages as waiting (Codex on PR #366)', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/function waiting\(id\)[^\n]*'Contested'/.test(html));
-});
-
-test('R15 Cue\'s header has an Inbox link that opens ?view=inbox in a new tab (Kiko 11 Nov 2026, "A")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
-  assert.ok(/<a class="btn ghost" id="inbox-link" target="_blank" rel="noopener"[^>]*hidden>Inbox ↗<\/a>/.test(html));
-  const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
-  assert.ok(/\$\('inbox-link'\)\.href = appUrl\(\) \+ '\?view=inbox'/.test(js));
-});
-
-test('R16 the Chats list has a filter: Show All, Roles, Projects or Other, and Find by name (Kiko 11 Nov 2026, "maybe have a filter?")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/<select id="chatShow"><option value="all">All<\/option><option value="role">Roles<\/option><option value="project">Projects<\/option><option value="other">Other<\/option><\/select>/.test(html));
-  assert.ok(/<label for="chatFind">Find<\/label><input id="chatFind" type="search"/.test(html));
-  assert.ok(/state\.chats\.filter\(shown\)/.test(html) && /localStorage\.setItem\('cueInboxShow'/.test(html));
-  assert.ok(/No chat matches this filter\./.test(html));
-});
-
-test('R17 Add a chat offers only Claude API and ChatGPT API; claude.ai is gone from the form (Kiko 11 Nov 2026, "remove that option")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/<select id="chatProvider"><option>Claude API<\/option><option>ChatGPT API<\/option><\/select>/.test(html));
-  assert.ok(!/<option>claude\.ai<\/option>/.test(html) && !/read token/.test(html));
-});
-
 test('R18 a hidden Cue tab stops refreshing and refreshes once when shown (Kiko 11 Nov 2026, "too many scripts running", answer A)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
   assert.ok(/function schedule\(\) \{ clearTimeout\(polling\); polling = null; if \(document\.hidden\) return; polling = setTimeout\(refresh, busy\(\) \? 2000 : 20000\); \}/.test(html));

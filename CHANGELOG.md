@@ -1,9 +1,10 @@
 # Changelog
 
-## Cue 1.28.64: agents use the team inbox through the Cue sheet; the For Kiko tab (not deployed)
+## Cue 1.28.64: the Inbox page is removed; agents use the team inbox through the Cue sheet; the For Kiko tab (not deployed)
 
 Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
 
+- The Inbox page, its ?view=inbox route and the "Inbox ↗" header button are removed (Kiko, 11 Nov 2026: "remove inbox already!!!", "it doesnt service its purpose"). The role chats, routing and sheet tabs stay; cueResume keeps project chats in step with Canvas (src/Inbox.html deleted; src/Cue.gs, src/Index.html, src/IndexPages.html).
 - New tab Inbox Requests in the Cue sheet. A Claude chat or session with Kiko's Google Sheets connector appends one row (Request ID, Chat, Kind, Tool, Message, From). Every 5 minutes cueResume sends each new row exactly as the Inbox page would (same checks, same 3-minute pause, same role-chat routing), marks it Sent with the Message ID, or Refused with the reason. At most 5 rows per run (src/CueInboxAgents.gs, src/Cue.gs).
 - cueInboxSend_ splits into the owner check and cueInboxSendCore_, which the intake also uses; a message from an agent shows "agent: <name>" as its sender (src/CueInbox.gs).
 - No new web door: Cue's web app stays open to Kiko's Google account only.
@@ -16,7 +17,7 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 
 - More Codex fixes: "Reject" is accepted (not only "Rejected"); the sync writes only the State and Note cells, so an answer Kiko types meanwhile is kept; the whole For Kiko sync runs under the lock, so no item is added twice.
 
-Test count: 821 passed (A1 to A9 and K1 to K7 new in test/features/97-inbox-agents.js).
+Test count: 815 passed (A1 to A10 and K1 to K7 new; page tests T13, T24, P7, R14 to R17 removed with the page).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 
