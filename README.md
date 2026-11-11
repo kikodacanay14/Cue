@@ -41,6 +41,8 @@ Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Goog
 
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.
 
+Team inbox (1.28.52): `src/CueInbox.gs` (owner-only server functions, OpenAI call for ChatGPT chats) and `src/Inbox.html` (page at `?view=inbox`). Tabs: Inbox Chats, Inbox Messages, Inbox Decisions. Tests: `test/features/93-team-inbox.js`.
+
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.
 - `CueAi.gs`: GPT (OpenAI Responses API) and Claude (Messages API) over HTTP. Calls run in parallel with `UrlFetchApp.fetchAll`. Each call is logged to AI Runs.
 - `CueBridge.gs`: signed calls to the Canvas bridge. Reads: `find_similar_projects`, `intake_evidence`, `list_project_files`, `get_project_board`, `get_readiness`. Writes (only after Kiko approves): `submit_intake`, `apply_intake`, `save_project_file`.
