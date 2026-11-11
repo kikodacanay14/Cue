@@ -1,6 +1,19 @@
 # Changelog
 
-## Cue 1.28.54: project chats, Request access and the decisions log in the team inbox (not deployed)
+## Cue 1.28.55: role chats decide Confirms and Google Drive requests in the team inbox (not deployed)
+
+Kiko, 11 Nov 2026 evening: the roles are chats ("they are chats as well. Tech Lead is BSE Apps & Systems", "Account Manager is ChatGPT Account Manager chat", PO and QA chats "Cue PO, Charter PO, Canvas PO, Chase PO, QA"); Tech Lead approves "google drive. then let me approve others"; "yes" to the routing (Tech Lead, then Account Manager on Escalate, then Kiko); "A" to running the Claude roles inside Cue on the Claude API, because a claude.ai chat cannot be reached from Cue. Decisions D3 to D5 in CanvasWorkspace docs/specs/team-inbox-design.md section 14.
+
+- Seven role chats are made on first open of the Inbox page (src/CueInboxRoles.gs): BSE Apps & Systems (Tech Lead), Cue PO, Charter PO, Canvas PO, Chase PO and QA on the Claude API, and ChatGPT Account Manager on the ChatGPT API. Each answers with its written role instructions (CUE_INBOX_ROLE_TEXT_), which Kiko approves before this release goes live.
+- A Confirm goes to the Tech Lead: Approve or Reject is final and recorded with who decided and why. Escalate sends it to the Account Manager; a second Escalate marks it Contested and it waits for Kiko. A failed call leaves it Waiting with the reason; Kiko can still decide.
+- Request access now names its tool. Google Drive goes to the Tech Lead (its Escalate makes it Contested); any other tool waits for Kiko with no AI call.
+- Questions to a Claude API chat are answered by one Claude call with the chat's last six answers as context, from Send or the 2-minute countdown.
+- Nothing runs on a decision (scope Q3 B). No Canvas call. At most two AI calls per Confirm.
+- New columns: Inbox Chats Role; Inbox Messages Tool, Decided by, Reason. The page shows role tags, the Tool picker, who decided and why, Contested in red, and which message the Approve and Reject buttons apply to.
+
+Test count: 794 passed (R1 to R11 new in test/features/96-inbox-roles.js; P5, P6 and T14 updated).
+
+## Cue 1.28.54: project chats, Request access and the decisions log in the team inbox (live as Version 235, 11 Nov 2026 12:11Z, rollback 234)
 
 Kiko, 11 Nov 2026: "Project Chats" (19:33 Manila, CanvasWorkspace docs/specs/team-inbox-design.md section 15); D4 "Tech Lead should be able to approve request access as well" then "A"; D6 "feel free to show me decisions made so i can review when available" (section 14). Asked again 11 Nov 2026 evening: "continue doing the Team Inbox i need it asap".
 

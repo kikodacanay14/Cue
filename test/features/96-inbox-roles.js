@@ -1,0 +1,106 @@
+// Part of test/cue.test.js. Feature: team inbox role chats and decision routing (src/CueInboxRoles.gs, src/CueInbox.gs).
+// Kiko 11 Nov 2026: roles are chats (Tech Lead = BSE Apps & Systems, Account Manager = ChatGPT Account Manager, PO = Cue PO,
+// Charter PO, Canvas PO, Chase PO, and QA); run inside Cue on the Claude API (answer A); D3 to D5 routing; Tech Lead approves
+// Google Drive access only. AI is the harness mock; nothing calls the Canvas bridge.
+const roleBox = (o = {}) => { const t = inboxBox(o); t.ctx.cueInboxSetupRoles(); return t; };
+const chatByLabel = (t, label) => inboxRows(t, 'Inbox Chats').filter(r => r[2] === label)[0][0];
+const msgRow = (t, id) => inboxRows(t, 'Inbox Messages').filter(r => r[0] === id)[0];
+
+test('R1 role chats are made once: seven chats with their roles and providers, and a second setup adds none', () => {
+  const t = roleBox();
+  deq(inboxRows(t, 'Inbox Chats').map(r => [r[2], r[8], r[1]]), [['BSE Apps & Systems', 'Tech Lead', 'Claude API'],
+    ['ChatGPT Account Manager', 'Account Manager', 'ChatGPT API'], ['Cue PO', 'PO', 'Claude API'], ['Charter PO', 'PO', 'Claude API'],
+    ['Canvas PO', 'PO', 'Claude API'], ['Chase PO', 'PO', 'Claude API'], ['QA', 'QA', 'Claude API']]);
+  deq(inboxJson(t.ctx.cueInboxSetupRoles()), { added: 0 });
+  deq(inboxJson(t.ctx.cueInboxList()).chats.filter(c => c.role).length, 7);
+});
+
+test('R2 a Confirm goes to the Tech Lead; its Approve is final, recorded with who and why, one AI call, no Canvas call', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Approve', reason: 'Small change, in scope.' } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Canvas PO'), 'Confirm', 'Rename the Gate Pass button?'));
+  deq([r.status, r.decision, r.by], ['Recorded', 'Approved', 'BSE Apps & Systems']);
+  deq(t.log.claude.length, 1); deq(t.log.gpt.length, 0); deq(t.log.bridge.length, 0);
+  assert.ok(/Tech Lead/.test(t.log.claude[0].system) && /Rename the Gate Pass button/.test(t.log.claude[0].messages[0].content));
+  const d = inboxRows(t, 'Inbox Decisions')[0];
+  deq([d[2], d[4], d[5], d[6]], ['Approved', 'Small change, in scope.', 'BSE Apps & Systems (Tech Lead)', 'Confirm']);
+  deq(msgRow(t, r.message_id).slice(13, 15), ['BSE Apps & Systems (Tech Lead)', 'Small change, in scope.']);
+});
+
+test('R3 Tech Lead escalates: the Account Manager (ChatGPT) decides, and its Reject is final', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Touches client money.' }, gpt: { inbox_decision: { decision: 'Reject', reason: 'Not in the client budget.' } } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Confirm', 'Add a paid map layer?'));
+  deq([r.status, r.decision, r.by], ['Recorded', 'Rejected', 'ChatGPT Account Manager']);
+  deq([t.log.claude.length, t.log.gpt.length], [1, 1]);
+  assert.ok(/Account Manager/.test(t.log.gpt[0].instructions));
+  deq(inboxRows(t, 'Inbox Decisions')[0][5], 'ChatGPT Account Manager (Account Manager)');
+});
+
+test('R4 both escalate: the message is Contested for Kiko with both reasons, no decision row; Kiko then decides', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Needs Kiko.' }, gpt: { inbox_decision: { decision: 'Escalate', reason: 'Cannot decide.' } } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'QA'), 'Confirm', 'Ship with one known bug?'));
+  deq(r.status, 'Contested');
+  const m = msgRow(t, r.message_id);
+  assert.ok(/BSE Apps & Systems escalated: Needs Kiko/.test(m[14]) && /ChatGPT Account Manager escalated: Cannot decide/.test(m[14]), m[14]);
+  deq(inboxRows(t, 'Inbox Decisions').length, 0);
+  deq(inboxJson(t.ctx.cueInboxDecide(r.message_id, 'Approve', '')).decision, 'Approved');
+  assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
+});
+
+test('R5 Request access: Google Drive goes to the Tech Lead; another tool waits for Kiko with no AI call; a tool must be picked', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Approve', reason: 'Project folder only.' } });
+  const c = chatByLabel(t, 'Chase PO');
+  const g = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Drive folder for the Acme project', 'Google Drive'));
+  deq([g.status, g.decision], ['Recorded', 'Approved']);
+  const o = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Canvas admin for Jo', 'Other tool'));
+  deq([o.status, o.routed_to], ['New', 'Kiko']);
+  deq(t.log.claude.length, 1);
+  assert.throws(() => t.ctx.cueInboxSend(c, 'Request access', 'x'), /Pick the tool/);
+});
+
+test('R6 Tech Lead escalating a Drive request makes it Contested (the Account Manager never decides access)', () => {
+  const t = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'Personal files inside.' } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Request access', 'Drive access to HR folder', 'Google Drive'));
+  deq(r.status, 'Contested'); deq(t.log.gpt.length, 0);
+});
+
+test('R7 a role chat that fails to answer leaves the message Waiting with the reason, and Kiko can still decide', () => {
+  const t = roleBox({ fail: { inboxDecide: () => ({ getResponseCode: () => 400, getContentText: () => JSON.stringify({ error: { type: 'invalid_request_error', message: 'bad' } }) }) } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Confirm', 'OK?'));
+  deq(r.status, 'Waiting');
+  assert.ok(/BSE Apps & Systems did not answer/.test(msgRow(t, r.message_id)[14]));
+  deq(inboxJson(t.ctx.cueInboxDecide(r.message_id, 'Reject', '')).decision, 'Rejected');
+});
+
+test('R8 with no Tech Lead chat (none set up or retired), a Confirm waits for Kiko as before and no AI is called', () => {
+  const t = inboxBox();
+  const c = inboxChat(t, 'ChatGPT API', 'Ops');
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Confirm', 'Go?')).status, 'New');
+  deq([t.log.claude.length, t.log.gpt.length], [0, 0]);
+});
+
+test('R9 a Question to a Claude API role chat is answered by one Claude call with its role and recent answers', () => {
+  const t = roleBox({ inboxReply: { reply: 'Test the save path first.' } });
+  const c = chatByLabel(t, 'QA');
+  deq(inboxJson(t.ctx.cueInboxSend(c, 'Question', 'What do I test?')).reply, 'Test the save path first.');
+  inboxJson(t.ctx.cueInboxSend(c, 'Question', 'And then?'));
+  assert.ok(/Your role: QA/.test(t.log.claude[1].system));
+  assert.ok(/Q: What do I test\?\nA: Test the save path first\./.test(t.log.claude[1].messages[0].content));
+  deq(msgRow(t, inboxRows(t, 'Inbox Messages')[0][0])[9], 'Claude API');
+});
+
+test('R10 the countdown sweep answers a queued Question in a Claude API chat', () => {
+  const t = roleBox({ inboxReply: { reply: 'Yes.' } });
+  t.ctx.cueSheet_('Inbox Queue');
+  const q = inboxJson(t.ctx.cueInboxQueue(chatByLabel(t, 'Canvas PO'), 'Is V526 ready?'));
+  t.ctx.cueNow_ = () => Date.parse(q.send_at) + 1000;
+  t.ctx.cueInboxSweep_();
+  deq(msgRow(t, q.message_id)[6], 'Replied');
+});
+
+test('R11 setup and every routed call are owner only; role instructions name Kiko\'s Drive-only rule', () => {
+  const o = inboxBox({ viewer: 'other@example.com' });
+  assert.throws(() => o.ctx.cueInboxSetupRoles(), /private to its owner/);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxRoles.gs'), 'utf8');
+  assert.ok(/Google Drive access only/.test(src));
+  assert.ok(!/cueBridge/.test(src), 'no Canvas call in role routing');
+});
