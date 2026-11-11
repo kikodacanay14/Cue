@@ -19,7 +19,8 @@ const CUE_TEAM_JOBS_ = [
     + 'Send a Confirm to the Account Manager only for one you think must be reversed.']];
 const CUE_TEAM_SCHEMA_ = { type: 'object', additionalProperties: false, required: ['note', 'requests'], properties: {
   note: { type: 'string' },
-  requests: { type: 'array', maxItems: 2, items: { type: 'object', additionalProperties: false, required: ['to', 'kind', 'message'], properties: {
+  requests: { type: 'array', items:   // no maxItems: the Claude API refuses it (live 11 Nov 2026); the code keeps the first 2
+    { type: 'object', additionalProperties: false, required: ['to', 'kind', 'message'], properties: {
     to: { type: 'string' }, kind: { type: 'string', enum: ['Question', 'Confirm'] }, message: { type: 'string' } } } } } };
 
 /** Runs from cueResume. Returns how many jobs ran this time. */

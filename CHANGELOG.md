@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.28.65: the Claude roles' daily job runs (not deployed)
+
+Found live on 11 Nov 2026 14:18Z, on the first daily run after 1.28.64: the Canvas PO row on Team Daily read "Did not run: Claude (Team daily): HTTP 400 invalid_request_error: output_config.format.schema: For 'array' type, property 'maxItems' is not supported".
+
+- The daily job's answer schema no longer sets maxItems on the requests list; the code still keeps only the first 2 requests (src/CueInboxTeam.gs). The ChatGPT roles were not affected.
+
+Test count: 826 passed (D3 new).
+
 ## Cue 1.28.64: the AI team runs without Kiko: daily role jobs, the Account Manager decides last, a BSE AI Team spreadsheet; the Inbox page is removed (not deployed)
 
 Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
