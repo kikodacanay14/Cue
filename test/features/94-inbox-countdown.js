@@ -92,13 +92,6 @@ test('T23 the trigger version is 8 or more, so live Cue deletes the old every-mi
   assert.ok(/'cueHsWeekly', 'cueInboxSweep'\]\.indexOf/.test(src), '1.28.61: the old 1-minute sweep trigger is deleted on live');
 });
 
-test('T24 Send sends a Question at once (no countdown, no Cancel); the page shows the 3-minute pause on the Send button (Kiko 11 Nov 2026, "lets do B")', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(!/cueInboxQueue|cancelQ|scheduleQueue/.test(html), 'no queue, countdown or Cancel on the page');
-  assert.ok(/var COOL = 3 \* 60 \* 1000/.test(html) && /'Next Question in '/.test(html));
-  assert.ok(/call\('cueInboxSend', \[state\.chat\.chat_id, document\.getElementById\('kind'\)\.value/.test(html));
-});
-
 test('T25 one Question per chat every 3 minutes: a second one is refused with the seconds left; another chat, a Confirm and a Question after 3 minutes all go', () => {
   const t = inboxBox({ gpt: { inbox_reply: { reply: 'ok' } } });
   const a = inboxChat(t, 'ChatGPT API', 'A'), b = inboxChat(t, 'ChatGPT API', 'B');

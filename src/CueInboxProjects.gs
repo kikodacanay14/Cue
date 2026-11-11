@@ -20,8 +20,9 @@ function cueInboxProjOpen_(p) {
 function cueInboxProjLabel_(p) { return cueStr_(String(p.name || p.event || p.id).trim(), 80); }
 
 /** Makes, renames and retires project chats from the Canvas project board. force: skip the 10-minute wait. */
-function cueInboxSyncProjects_(force) {
-  cueOwner_();
+function cueInboxSyncProjects_(force) { cueOwner_(); return cueInboxSyncProjectsCore_(force); }
+/** The sync itself, run by cueResume as the script owner (the Inbox page that used to call it is gone). */
+function cueInboxSyncProjectsCore_(force) {
   let cache = null; try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
   if (!force && cache && cache.get(CUE_INBOX_PROJ_SYNC_KEY_)) return { skipped: true };
   const s = { id: 'INBOX-PROJ-' + cueNow_().toString(36), metrics: { ai_calls: 0, calls: [] } };

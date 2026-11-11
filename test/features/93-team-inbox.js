@@ -119,19 +119,9 @@ test('T12 the claude.ai pull endpoint (C7) is held: no route reads or writes inb
   assert.ok(!/q\.inbox\b|e\.parameter\.inbox\b|\?inbox=/.test(src), 'no ?inbox= route before Kiko approves C7');
 });
 
-test('T13 the inbox page follows the brand: DM Sans, no empty links, no text under 12px, no Archivo Black', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/family=DM\+Sans/.test(html), 'DM Sans loaded');
-  assert.ok(!/href="#"|href=""/.test(html), 'no placeholder links');
-  assert.ok(!/font-family[^;]*Archivo/.test(html), 'Archivo Black is for display moments only, none used here');
-  const sizes = [...html.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map(m => +m[1]);
-  assert.ok(sizes.length > 0 && Math.min(...sizes) >= 12, 'smallest text ' + Math.min(...sizes));
-  assert.ok(/outline:\s*2px solid var\(--blue\)/.test(html), 'visible focus ring');
-});
-
-test('T14 the page route serves Inbox.html and the tabs exist in the sheet setup list', () => {
+test('T14 the Inbox page and its route are gone, and the inbox tabs stay in the sheet setup list', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
-  assert.ok(/q\.view === 'inbox'[\s\S]{0,120}createHtmlOutputFromFile\('Inbox'\)/.test(src), 'inbox view route');
+  assert.ok(!/q\.view === 'inbox'/.test(src) && !fs.existsSync(path.join(__dirname, '..', 'src', 'Inbox.html')), 'the Inbox page is gone (Kiko 11 Nov 2026: "remove inbox already")');
   const t = inboxBox();
   deq(t.tabs['Inbox Messages'].rows[0].slice(0, 3), ['Message ID', 'Chat ID', 'Created']);
   deq(t.tabs['Inbox Decisions'].rows[0], ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind']);

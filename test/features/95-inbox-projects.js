@@ -82,11 +82,3 @@ test('P6 the decisions log lists every decision newest first with chat, kind, wh
   assert.throws(() => o.ctx.cueInboxSyncProjects(true), /private to its owner/);
 });
 
-test('P7 the page shows Request access, Refresh projects, the Project tag and the read-only Decisions table with centred headers', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
-  assert.ok(/<option value="Request access">/.test(html));
-  assert.ok(/id="syncBtn"[^>]*>Refresh projects</.test(html));
-  assert.ok(/tag plain">Project</.test(html));
-  assert.ok(/id="decRows"/.test(html) && /th\{[^}]*text-align:center/.test(html));
-  assert.ok(/cueInboxSyncProjects/.test(html) && /cueInboxDecisions/.test(html));
-});

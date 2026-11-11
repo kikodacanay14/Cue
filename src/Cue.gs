@@ -20,7 +20,10 @@ const CUE_TABS_ = {
   'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at', 'Tool', 'Decided by', 'Reason'],   // team inbox messages (CueInbox.gs)
   'Inbox Decisions': ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind'],   // Approve or Reject on a Confirm or Request access message (CueInbox.gs); read-only log on the Inbox page (D6)
   'Inbox Queue': ['Message ID', 'Send at', 'State'],
-  'Inbox Requests': ['Request ID', 'Chat', 'Kind', 'Tool', 'Message', 'From', 'Created', 'State', 'Message ID', 'Note'],   // agents post here with the Google Sheets connector; cueResume sends them (CueInboxAgents.gs)   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
+  'For Kiko': ['Item ID', 'Message ID', 'Chat', 'Kind', 'What', 'Why it needs you', 'Asked at', 'Your answer', 'State', 'Note', 'From'],   // everything that needs Kiko, in the Cue sheet (CueInboxAgents.gs); he types Approve, Reject or a reply in Your answer
+  'Closed': ['Closed at', 'From tab', 'ID', 'Chat', 'Kind', 'What', 'Answer', 'State', 'Note', 'From', 'Message ID'],
+  'Team Requests': ['Request ID', 'Chat', 'Kind', 'Tool', 'Message', 'From', 'Created', 'State', 'Message ID', 'Note', 'Answer', 'Decided by'],
+  'Team Daily': ['Date', 'Role', 'Note', 'Requests sent'],   // each role's daily job (CueInboxTeam.gs), in the BSE AI Team spreadsheet   // agents post here with the Google Sheets connector; cueResume sends them (CueInboxAgents.gs)   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)
   'Contact scan': ['Email', 'Scanned', 'Proposed', 'Request'],   // who the old-email contact scan looked at (CueContactScan.gs)
   'New contacts': ['Email', 'Name', 'Via', 'Subject', 'Date', 'Thread', 'Status', 'Company', 'Title', 'Phone', 'Updated', 'Run'],   // people in Kiko's Gmail From / Cc (CueContactNew.gs)
@@ -44,7 +47,6 @@ function doGet(e) {
   const q = (e && e.parameter) || {};
   if (q.code && q.state) return cueTtCallback_(q);   // TickTick sign-in comes back here (CueTickTick.gs)
   // CUE-TODAY: Canvas Home's hidden frame. It draws nothing; it hands the Today rows to Canvas, which draws the card (CueToday.gs).
-  if (q.view === 'inbox') return HtmlService.createHtmlOutputFromFile('Inbox').setTitle('Cue Inbox');   // team inbox page (CueInbox.gs, Inbox.html)
   if (q.view === 'today') return HtmlService.createHtmlOutputFromFile('Today').setTitle('Cue Today').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   const page = HtmlService.createTemplateFromFile('Index');
   page.view = q.view === 'admin' ? 'admin' : '';   // CUE-ADMIN-2026-10-29 (Epic Cue #193): ?view=admin is Cue Admin, the Settings sections as one page
@@ -98,7 +100,8 @@ function cueSetup() {
   let id = props.getProperty('CUE_SHEET_ID'), ss = null;
   if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
   if (!ss) { ss = SpreadsheetApp.create('Cue'); props.setProperty('CUE_SHEET_ID', ss.getId()); }
-  Object.keys(CUE_TABS_).forEach(n => { if (!ss.getSheetByName(n)) { const sh = ss.insertSheet(n); sh.appendRow(CUE_TABS_[n]); sh.setFrozenRows(1); } });
+  Object.keys(CUE_TABS_).forEach(n => { if (CUE_TEAM_TABS_.indexOf(n) < 0 && !ss.getSheetByName(n))   // team tabs live only in BSE AI Team (Codex on PR #376)
+    { const sh = ss.insertSheet(n); sh.appendRow(CUE_TABS_[n]); sh.setFrozenRows(1); } });
   cueTriggers_();
   const missing = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ZAD_SECRET', 'CUE_BRIDGE_URL'].filter(k => !props.getProperty(k));
   let acc = null; try { acc = cueAccess_(); } catch (e) { acc = null; }
@@ -142,7 +145,24 @@ function cueFixAccess() {
 }
 
 /* ---------- store ---------- */
+// The AI team's tabs live in their own spreadsheet, "BSE AI Team" (Kiko 11 Nov 2026: "do it in a new spreadsheet"), so agents
+// and Kiko never wade through Cue's own tabs. Cue makes it in Kiko's Drive on first use and keeps its ID in CUE_TEAM_SHEET_ID.
+const CUE_TEAM_TABS_ = ['Team Requests', 'For Kiko', 'Team Daily', 'Closed'];
+function cueTeamBook_() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('CUE_TEAM_SHEET_ID');
+  if (!id) {
+    const ss = SpreadsheetApp.create('BSE AI Team'); id = ss.getId(); props.setProperty('CUE_TEAM_SHEET_ID', id);
+    try { ss.getSheets()[0].setName('Team Requests').appendRow(CUE_TABS_['Team Requests']); ss.getSheets()[0].setFrozenRows(1); } catch (e) { /* the tab is made on first use below */ }
+  }
+  return SpreadsheetApp.openById(id);
+}
 function cueSheet_(tab) {
+  if (CUE_TEAM_TABS_.indexOf(tab) >= 0) {
+    const ss = cueTeamBook_(); let sh = ss.getSheetByName(tab);
+    if (!sh) { sh = ss.insertSheet(tab); sh.appendRow(CUE_TABS_[tab]); sh.setFrozenRows(1); }
+    return sh;
+  }
   const id = cueProp_('CUE_SHEET_ID', '');
   if (!id) throw new Error('Run cueSetup first.');
   const ss = SpreadsheetApp.openById(id);
@@ -739,7 +759,12 @@ function cueResume() {
   const now = cueNow_();
   if (cueProp_('CUE_TRIGGERS_V', '') !== CUE_TRIGGERS_NOW_) { try { cueTriggers_(); } catch (e) { console.error('Triggers: ' + e); } }   // after a deploy, before Cue is opened
   try { cueInboxSweep_(); } catch (e) { console.error('Inbox sweep: ' + e); }
-  try { cueInboxIntake_(); } catch (e) { console.error('Inbox requests: ' + e); }   // agents' requests from the Inbox Requests tab (CueInboxAgents.gs)   // 1.28.61: Questions queued before Send went instant (CueInbox.gs)
+  try { cueInboxIntake_(); } catch (e) { console.error('Inbox requests: ' + e); }   // agents' requests from the Team Requests tab (CueInboxAgents.gs)
+  try { if (cueProp_('CUE_ROLES_SET', '') !== '1') { cueInboxSetupRolesCore_(); PropertiesService.getScriptProperties().setProperty('CUE_ROLES_SET', '1'); } } catch (e) { console.error('Role chats: ' + e); }   // once: the seven role chats exist even if the old Inbox page was never opened (Codex on PR #376)
+  try { if (cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).some(c => c.v[8])) cueInboxSyncProjectsCore_(false); } catch (e) { console.error('Inbox chats: ' + e); }   // project chats stay in step with Canvas (the Inbox page that did this is gone; Kiko 11 Nov 2026: "remove inbox already")
+  try { cueTeamDaily_(); } catch (e) { console.error('Team daily: ' + e); }   // each role's daily job, after 08:00 Manila (CueInboxTeam.gs)
+  try { cueForKikoSync_(); } catch (e) { console.error('For Kiko: ' + e); }   // the For Kiko tab: new items in, Kiko's answers recorded (CueInboxAgents.gs)
+  try { cueTeamClose_(); } catch (e) { console.error('Closed tab: ' + e); }   // finished rows move to the Closed tab (Kiko 11 Nov 2026, CueInboxAgents.gs)
   try { cueBidsLeadsBacklogNow_(); } catch (e) { console.error('Bid lead recovery: ' + e); }   // once after 1.28.35: the 15 lost bid leads (CueBids.gs)
   try { cueMsgrCrewRestore_(); } catch (e) { console.error('Crew restore: ' + e); }   // once after 1.28.39: King's Day crew who never tapped I'm crew (CueMessenger.gs)
   const jobs = cueJobs_(), rows = [];   // STRUCTURE-PHASE-3: the job list and its Job Runs rows (CueJobs.gs)
