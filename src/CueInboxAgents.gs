@@ -11,17 +11,18 @@ const CUE_INBOX_REQ_COLS_ = 10, CUE_INBOX_REQ_MAX_ = 5;
 
 function cueInboxIntake_() {
   const now = new Date(cueNow_()).toISOString();
-  // Claim under the lock (Codex on Cue PR #375): each new row is marked Sending and written before any AI call, so an
-  // overlapping run cannot pick the same request. A row left at Sending (a run that died mid-call) is never sent again.
-  const claimed = cueLocked_(() => {
-    const rows = cueInboxRows_('Inbox Requests', CUE_INBOX_REQ_COLS_).filter(r => !String(r.v[7] || '').trim() || r.v[7] === 'New').slice(0, CUE_INBOX_REQ_MAX_);
-    rows.forEach(r => { r.v[6] = r.v[6] || now; r.v[7] = 'Sending'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); });
-    return rows;
+  // Claim one row at a time, under the lock, right before it is sent (Codex on Cue PR #375 and #376): the row is marked Sending
+  // and written before any AI call, so an overlapping run cannot pick it, and a run that dies strands only the row in flight.
+  // A row left at Sending is never sent again.
+  const claimNext = () => cueLocked_(() => {
+    const r = cueInboxRows_('Inbox Requests', CUE_INBOX_REQ_COLS_).filter(x => !String(x.v[7] || '').trim() || x.v[7] === 'New')[0];
+    if (r) { r.v[6] = r.v[6] || now; r.v[7] = 'Sending'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); }
+    return r || null;
   });
-  if (!claimed.length) return { sent: 0 };
   const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(c => c.v[3] === 'Active');
-  let sent = 0;
-  claimed.forEach(r => {
+  let sent = 0, waits = [];
+  for (let i = 0; i < CUE_INBOX_REQ_MAX_; i++) {
+    const r = claimNext(); if (!r) break;
     const v = r.v, want = String(v[1] || '').trim();
     // A Chat ID matches exactly; otherwise the name, ignoring case. Two chats with the same name are refused, never guessed.
     let hits = chats.filter(c => c.v[0] === want);
@@ -30,7 +31,7 @@ function cueInboxIntake_() {
       v[7] = 'Refused';
       v[9] = hits.length ? 'More than one inbox chat is named "' + want + '". Use its Chat ID (' + hits.map(c => c.v[0]).join(', ') + ').'
         : 'No active inbox chat named "' + want + '".';
-      cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v); return;
+      cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v); continue;
     }
     try {
       const out = cueInboxSendCore_(hits[0].v[0], String(v[2] || '').trim(), v[4], String(v[3] || '').trim(), 'agent: ' + cueStr_(String(v[5] || 'unnamed'), 80));
@@ -38,10 +39,12 @@ function cueInboxIntake_() {
       sent++;
     } catch (e) {
       const why = cueStr_((e && e.message) || e, 300);
-      if (/can take another Question in/.test(why)) { v[7] = 'New'; v[9] = 'Waiting for the 3-minute pause; sends on a later run.'; }
+      if (/can take another Question in/.test(why)) { v[7] = 'Paused'; v[9] = 'Waiting for the 3-minute pause; sends on a later run.'; waits.push(r); }
       else { v[7] = 'Refused'; v[9] = why; }
     }
     cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, v);
-  });
+  }
+  // Rows held by the pause go back to New only now, so this run does not claim them again.
+  waits.forEach(r => { r.v[7] = 'New'; cueInboxSetRow_('Inbox Requests', r.row, CUE_INBOX_REQ_COLS_, r.v); });
   return { sent };
 }

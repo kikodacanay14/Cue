@@ -76,3 +76,17 @@ test('A7 two chats with the same name are refused with their Chat IDs; a Chat ID
   deq(reqRow(t, 1)[7], 'Sent');
   deq(inboxRows(t, 'Inbox Messages').filter(m => m[0] === reqRow(t, 1)[8])[0][1], b);
 });
+
+test('A8 a run that dies on one request strands only that row; later rows stay New and go on the next run (Codex on PR #376)', () => {
+  const t = agentBox({ inboxDecide: { decision: 'Approve', reason: 'ok' } });
+  // A killed run: the write after the first send fails (uncatchable in real Apps Script, so here it throws out of the intake).
+  const real = t.ctx.cueInboxSetRow_; let writes = 0;
+  t.ctx.cueInboxSetRow_ = function (tab) { if (tab === 'Inbox Requests' && ++writes === 2) throw new Error('script killed'); return real.apply(null, arguments); };
+  t.tabs['Inbox Requests'].appendRow(['R1', 'QA', 'Confirm', '', 'one', 'x', '', '', '', '']);
+  t.tabs['Inbox Requests'].appendRow(['R2', 'QA', 'Confirm', '', 'two', 'x', '', '', '', '']);
+  assert.throws(() => t.ctx.cueInboxIntake_(), /script killed/);
+  deq([reqRow(t, 0)[7], reqRow(t, 1)[7]], ['Sending', '']);
+  t.ctx.cueInboxSetRow_ = real;
+  t.ctx.cueInboxIntake_();
+  deq([reqRow(t, 0)[7], reqRow(t, 1)[7]], ['Sending', 'Sent']);
+});

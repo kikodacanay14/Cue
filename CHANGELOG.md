@@ -8,9 +8,9 @@ Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonn
 - cueInboxSend_ splits into the owner check and cueInboxSendCore_, which the intake also uses; a message from an agent shows "agent: <name>" as its sender (src/CueInbox.gs).
 - No new web door: Cue's web app stays open to Kiko's Google account only.
 
-- Codex review fixes before the first deploy: each request is claimed (State Sending, written under the lock) before any AI call, so overlapping runs never send one twice; a chat name matching more than one chat is refused with the Chat IDs, and Chat accepts a Chat ID; rule CUE-052 recorded in docs/business-rules.md.
+- Codex review fixes before the first deploy: each request is claimed one at a time (State Sending, written under the lock) right before it is sent, so overlapping runs never send one twice and a run that dies strands only the row in flight; a chat name matching more than one chat is refused with the Chat IDs, and Chat accepts a Chat ID; rule CUE-052 recorded in docs/business-rules.md.
 
-Test count: 812 passed (A1 to A7 new in test/features/97-inbox-agents.js).
+Test count: 813 passed (A1 to A8 new in test/features/97-inbox-agents.js).
 
 ## Cue 1.28.63: a hidden Cue tab stops refreshing (live as Version 242, 11 Nov 2026 13:25Z, rollback 241)
 

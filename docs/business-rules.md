@@ -453,15 +453,15 @@ shipping "the Inbox connection so chats can post and read the Inbox themselves" 
 - Scope: an agent (a Claude chat or session holding Kiko's Google Sheets connector) appends one row to the Cue sheet's "Inbox
   Requests" tab: Request ID, Chat (name or Chat ID), Kind, Tool, Message, From. No other path: Cue's web app stays open to Kiko's
   Google account only, and no new web route, doPost or key was added.
-- Lifecycle: every 5 minutes `cueResume` (as the script owner) claims up to 5 new rows under the lock (State Sending, written
-  before any AI call), then sends each exactly as the Inbox page would (`cueInboxSendCore_`: same checks, CUE-051 pause, role-chat
+- Lifecycle: every 5 minutes `cueResume` (as the script owner) claims new rows one at a time under the lock, right before each is sent (State Sending, written
+  before any AI call; at most 5 per run), then sends each exactly as the Inbox page would (`cueInboxSendCore_`: same checks, CUE-051 pause, role-chat
   routing). The row ends Sent with the Message ID and status, Refused with the reason, or back to New while the 3-minute pause
-  holds. A row left at Sending is never sent again.
+  holds. A row left at Sending (a run that died mid-send) is never sent again; rows the run had not reached stay New.
 - A chat name that matches more than one active chat is refused with their Chat IDs; it is never guessed.
 - The agent reads the reply or decision from that Message ID's row in "Inbox Messages". Nothing runs on a decision (scope Q3 B).
 - What it does not grant: no Canvas write, no email, no action. Anyone who can edit the Cue sheet can post (today only Kiko's
   account and the connectors acting as him).
 
-Evidence: `test/features/97-inbox-agents.js` A1 to A7 (send and routing, Question reply, refusals, pause, 5-row cap, claim before
-send under overlap, ambiguous names). Manual gap: not yet run on live with a real connector-written row.
+Evidence: `test/features/97-inbox-agents.js` A1 to A8 (send and routing, Question reply, refusals, pause, 5-row cap, claim before
+send under overlap, ambiguous names, a killed run strands only the row in flight). Manual gap: not yet run on live with a real connector-written row.
 
