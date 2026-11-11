@@ -143,3 +143,9 @@ test('R16 the Chats list has a filter: Show All, Roles, Projects or Other, and F
   assert.ok(/state\.chats\.filter\(shown\)/.test(html) && /localStorage\.setItem\('cueInboxShow'/.test(html));
   assert.ok(/No chat matches this filter\./.test(html));
 });
+
+test('R17 Add a chat offers only Claude API and ChatGPT API; claude.ai is gone from the form (Kiko 11 Nov 2026, "remove that option")', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
+  assert.ok(/<select id="chatProvider"><option>Claude API<\/option><option>ChatGPT API<\/option><\/select>/.test(html));
+  assert.ok(!/<option>claude\.ai<\/option>/.test(html) && !/read token/.test(html));
+});
