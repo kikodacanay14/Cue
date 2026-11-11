@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (not deployed)
+
+Asked: Kiko chose "clean-up first" for the live Cue release order (CDT-Q8, 11 Nov 2026); the Account Manager set the scope
+(1.28.43, 1.28.44, 1.28.46 and 1.28.49) in the release plan https://claude.ai/artifact/68BtA2ATTfVnsYtxWF59Xb. Release branch
+cut from live Version 244 (5f84416), slot cue-1.28.66. Brand v2 (1.28.45) is left out: it was backed out of main (#378).
+
+- 1.28.43: labels use the standard names and the crit pill (`tag crit` replaces `tag flag`); the live "Urgent" wording stays.
+- 1.28.44: the morning report lists payments due tomorrow (`pay_day_due` from the Canvas bridge, already live in Canvas).
+- 1.28.46: RFQ drafts leave out a price or rate written in a spec, the inquiry or a drawing (CUE-048, R2); the intake-real
+  check tests R1 to R3 on real inquiries. It only reports; no block was added.
+- 1.28.49: an RFQ goes only to a named supplier, never to a kind of business, and the card says when web research finds no
+  suppliers (CUE-049, approved by Kiko 10 Nov 2026 04:16Z).
+
+Tests: 813/813 (`node test/cue.test.js`; live 5f84416 runs 799).
+
 ## Cue 1.28.65: the Claude roles' daily job runs (not deployed)
 
 Found live on 11 Nov 2026 14:18Z, on the first daily run after 1.28.64: the Canvas PO row on Team Daily read "Did not run: Claude (Team daily): HTTP 400 invalid_request_error: output_config.format.schema: For 'array' type, property 'maxItems' is not supported".
