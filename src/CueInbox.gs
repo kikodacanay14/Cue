@@ -7,10 +7,11 @@
 
 const CUE_INBOX_BODY_MAX_ = 4000;          // design 3.2: longer text is refused, never cut
 const CUE_INBOX_EXPIRE_MS_ = 7 * 24 * 60 * 60 * 1000;   // design 3.2: unanswered after 7 days becomes Expired
-const CUE_INBOX_PROVIDERS_ = ['ChatGPT API', 'claude.ai'];
+const CUE_INBOX_PROVIDERS_ = ['ChatGPT API', 'Claude API', 'claude.ai'];   // Claude API: a role chat run inside Cue (CueInboxRoles.gs)
+const CUE_INBOX_TOOLS_ = ['Google Drive', 'Other tool'];   // Request access: the Tech Lead decides Google Drive only (Kiko 11 Nov 2026)
 const CUE_INBOX_KINDS_ = ['Question', 'Confirm', 'Request access'];   // D4 (Kiko 11 Nov 2026): Request access is a third kind
 const CUE_INBOX_DECIDED_KINDS_ = ['Confirm', 'Request access'];   // kinds that take Approve or Reject; nothing runs on either
-const CUE_INBOX_MSG_COLS_ = 12, CUE_INBOX_CHAT_COLS_ = 8, CUE_INBOX_DEC_COLS_ = 7, CUE_INBOX_QUEUE_COLS_ = 3;
+const CUE_INBOX_MSG_COLS_ = 15, CUE_INBOX_CHAT_COLS_ = 9, CUE_INBOX_DEC_COLS_ = 7, CUE_INBOX_QUEUE_COLS_ = 3;
 const CUE_INBOX_COUNTDOWN_MS_ = 2 * 60 * 1000;   // D2 (Kiko 11 Nov 2026): a Question sends 2 minutes after its fields are filled; Cancel stops it
 
 
@@ -27,7 +28,7 @@ function cueInboxSetRow_(tab, row, cols, vals) { cueSheet_(tab).getRange(row, 1,
 /** The inbox page's list: chats and the newest 200 messages per chat. Marks old open messages Expired (design 3.2). */
 function cueInboxList_() {
   cueOwner_();
-  const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).map(x => ({ chat_id: x.v[0], provider: x.v[1], label: x.v[2], status: x.v[3], created_at: x.v[6], project_id: String(x.v[7] || '') }));
+  const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).map(x => ({ chat_id: x.v[0], provider: x.v[1], label: x.v[2], status: x.v[3], created_at: x.v[6], project_id: String(x.v[7] || ''), role: String(x.v[8] || '') }));
   const msgs = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_);
   const now = cueNow_();
   msgs.forEach(m => {
@@ -43,43 +44,44 @@ function cueInboxList_() {
   return { chats, messages: out, now: new Date(now).toISOString() };
 }
 function cueInboxMsgObj_(v) {
-  return { message_id: v[0], chat_id: v[1], created_at: v[2], from: v[3], kind: v[4], body: v[5], status: v[6], reply: v[7], replied_at: v[8], reply_source: v[9], decision: v[10], decided_at: v[11] };
+  return { message_id: v[0], chat_id: v[1], created_at: v[2], from: v[3], kind: v[4], body: v[5], status: v[6], reply: v[7], replied_at: v[8], reply_source: v[9], decision: v[10], decided_at: v[11], tool: v[12] || '', decided_by: v[13] || '', reason: v[14] || '' };
 }
 
 /** Adds a chat to the registry (add-chat form). provider: 'ChatGPT API' or 'claude.ai'. The claude.ai read token is HELD (design 6). */
 function cueInboxAddChat_(form) {
   cueOwner_();
   const provider = String((form || {}).provider || ''), label = String((form || {}).label || '').trim();
-  if (CUE_INBOX_PROVIDERS_.indexOf(provider) < 0) throw new Error('Pick ChatGPT API or claude.ai.');
+  if (CUE_INBOX_PROVIDERS_.indexOf(provider) < 0) throw new Error('Pick ChatGPT API, Claude API or claude.ai.');
   if (!label || label.length > 80) throw new Error('Give the chat a name of 1 to 80 characters.');
   const id = cueInboxId_('CH');
-  cueSheet_('Inbox Chats').appendRow([id, provider, label, 'Active', '', '', new Date(cueNow_()).toISOString(), '']);
+  cueSheet_('Inbox Chats').appendRow([id, provider, label, 'Active', '', '', new Date(cueNow_()).toISOString(), '', '']);
   return { chat_id: id };
 }
 
 /** Sends one message to a chat. Question to ChatGPT API: one OpenAI call, the answer becomes the reply. Other kinds wait. */
-function cueInboxSend_(chatId, kind, body) {
+function cueInboxSend_(chatId, kind, body, tool) {
   cueOwner_();
   const text = String(body || '').trim();
   if (CUE_INBOX_KINDS_.indexOf(kind) < 0) throw new Error('Kind must be Question, Confirm or Request access.');
   if (!text) throw new Error('Write a message first.');
   if (text.length > CUE_INBOX_BODY_MAX_) throw new Error('Message is over ' + CUE_INBOX_BODY_MAX_ + ' characters. Shorten it and send again.');
+  if (kind === 'Request access' && CUE_INBOX_TOOLS_.indexOf(tool) < 0) throw new Error('Pick the tool: Google Drive or Other tool.');
   const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === chatId)[0];
   if (!chat) throw new Error('That chat is not in the inbox.');
   if (chat.v[3] !== 'Active') throw new Error('That chat is retired. Pick another chat.');
   const msgId = cueInboxId_('M'), now = new Date(cueNow_()).toISOString();
-  const row = [msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', ''];
+  const row = [msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', '', kind === 'Request access' ? tool : '', '', ''];
   cueSheet_('Inbox Messages').appendRow(row);
-  if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return { message_id: msgId, status: 'New' };   // design 4.3 and D4: recorded on Approve or Reject, nothing runs
+  if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return cueInboxRoute_(msgId);   // D3 to D5: role chats decide, nothing runs
+  if (chat.v[1] === 'Claude API') return cueInboxAskClaude_(msgId, chat, text);
   if (chat.v[1] !== 'ChatGPT API') return { message_id: msgId, status: 'New' };   // design 4.2: claude.ai pull is held
-  const r = cueInboxAsk_(msgId, chat.v[4], text);
-  return r;
+  return cueInboxAsk_(msgId, chat.v[4], text, chat.v[8]);
 }
 
 /** One OpenAI Responses call (design 4.1). previous_response_id keeps the chat's thread. Failure leaves the message Waiting. */
-function cueInboxAsk_(msgId, prevId, text) {
+function cueInboxAsk_(msgId, prevId, text, role) {
   const model = cueProp_('OPENAI_MODEL', 'gpt-5-mini');
-  const body = { model, instructions: 'You answer one message from Kiko\'s team inbox. Reply in plain English, short, with no preamble.',
+  const body = { model, instructions: role ? cueInboxRoleSystem_(role) : 'You answer one message from Kiko\'s team inbox. Reply in plain English, short, with no preamble.',
     input: text, store: true, max_output_tokens: 2000,
     text: { format: { type: 'json_schema', name: 'inbox_reply', strict: true, schema: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'], additionalProperties: false } } } };
   if (prevId) body.previous_response_id = prevId;
@@ -121,11 +123,15 @@ function cueInboxDecide_(msgId, decision, note) {
   if (['Approve', 'Reject'].indexOf(decision) < 0) throw new Error('Decision must be Approve or Reject.');
   const m = cueInboxFind_(msgId);
   if (CUE_INBOX_DECIDED_KINDS_.indexOf(m.v[4]) < 0) throw new Error('Only Confirm and Request access messages take a decision.');
-  const now = new Date(cueNow_()).toISOString();
-  m.v[6] = 'Recorded'; m.v[10] = decision === 'Approve' ? 'Approved' : 'Rejected'; m.v[11] = now;
-  cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
-  cueSheet_('Inbox Decisions').appendRow([cueInboxId_('D'), msgId, m.v[10], now, String(note || '').slice(0, 300), String(Session.getActiveUser().getEmail() || ''), m.v[4]]);
+  cueInboxRecord_(m, decision, note, 'Kiko' + (Session.getActiveUser().getEmail() ? ' (' + Session.getActiveUser().getEmail() + ')' : ''));
   return { message_id: msgId, decision: m.v[10] };
+}
+/** Writes a decision on the message and one Inbox Decisions row. by: who decided (a role chat or Kiko). */
+function cueInboxRecord_(m, decision, note, by) {
+  const now = new Date(cueNow_()).toISOString();
+  m.v[6] = 'Recorded'; m.v[10] = decision === 'Approve' ? 'Approved' : 'Rejected'; m.v[11] = now; m.v[13] = by; m.v[14] = String(note || '').slice(0, 500);
+  cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
+  cueSheet_('Inbox Decisions').appendRow([cueInboxId_('D'), m.v[0], m.v[10], now, String(note || '').slice(0, 300), by, m.v[4]]);
 }
 
 /** D6 (Kiko 11 Nov 2026: "feel free to show me decisions made so i can review when available"): the read-only decisions log,
@@ -162,7 +168,7 @@ function cueInboxQueue_(chatId, body) {
   if (chat.v[3] !== 'Active') throw new Error('That chat is retired. Pick another chat.');
   const msgId = cueInboxId_('M'), now = cueNow_();
   const sendAt = new Date(now + CUE_INBOX_COUNTDOWN_MS_).toISOString();
-  cueSheet_('Inbox Messages').appendRow([msgId, chatId, new Date(now).toISOString(), String(Session.getActiveUser().getEmail() || ''), 'Question', text, 'Queued', '', '', '', '', '']);
+  cueSheet_('Inbox Messages').appendRow([msgId, chatId, new Date(now).toISOString(), String(Session.getActiveUser().getEmail() || ''), 'Question', text, 'Queued', '', '', '', '', '', '', '', '']);
   cueSheet_('Inbox Queue').appendRow([msgId, sendAt, 'Queued']);
   return { message_id: msgId, send_at: sendAt, status: 'Queued' };
 }
@@ -186,14 +192,15 @@ function cueInboxSweep_() {
     const m = cueInboxFind_(q.v[0]);
     m.v[6] = 'New'; cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
     const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === m.v[1])[0];
-    if (chat && chat.v[1] === 'ChatGPT API') cueInboxAsk_(m.v[0], chat.v[4], m.v[5]);   // claude.ai stays New (pull held)
+    if (chat && chat.v[1] === 'ChatGPT API') cueInboxAsk_(m.v[0], chat.v[4], m.v[5], chat.v[8]);
+    else if (chat && chat.v[1] === 'Claude API') cueInboxAskClaude_(m.v[0], chat, m.v[5]);   // claude.ai stays New (pull held)
   });
 }
 
 /* Public entry points for Inbox.html (google.script.run). Each one only passes on to the owner-checked function above. */
 function cueInboxList() { return cueInboxList_(); }
 function cueInboxAddChat(form) { return cueInboxAddChat_(form); }
-function cueInboxSend(chatId, kind, body) { return cueInboxSend_(chatId, kind, body); }
+function cueInboxSend(chatId, kind, body, tool) { return cueInboxSend_(chatId, kind, body, tool); }
 function cueInboxDecide(msgId, decision, note) { return cueInboxDecide_(msgId, decision, note); }
 function cueInboxRetire(chatId) { return cueInboxRetire_(chatId); }
 function cueInboxQueue(chatId, body) { return cueInboxQueue_(chatId, body); }

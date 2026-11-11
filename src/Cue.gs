@@ -16,8 +16,8 @@ const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
-  'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created', 'Project ID'],   // team inbox chats (CueInbox.gs); Project ID: a project chat made from a Canvas project (CueInboxProjects.gs)
-  'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at'],   // team inbox messages (CueInbox.gs)
+  'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created', 'Project ID', 'Role'],   // team inbox chats (CueInbox.gs); Project ID: a project chat made from a Canvas project (CueInboxProjects.gs)
+  'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at', 'Tool', 'Decided by', 'Reason'],   // team inbox messages (CueInbox.gs)
   'Inbox Decisions': ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind'],   // Approve or Reject on a Confirm or Request access message (CueInbox.gs); read-only log on the Inbox page (D6)
   'Inbox Queue': ['Message ID', 'Send at', 'State'],   // Question countdown: Queued, Cancelled or Sent (CueInbox.gs, D2)
   'Chase log': ['Key', 'Kind', 'Project', 'Who', 'Last chased', 'Times chased', 'Next due', 'Muted', 'Note'],   // the sweep's memory (CueSweep.gs)

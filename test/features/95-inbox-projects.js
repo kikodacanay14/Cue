@@ -59,7 +59,7 @@ test('P4 the project sync only reads: get_project_board is its one bridge action
 test('P5 Request access is a third kind: saved New, no AI call, Approve or Reject recorded, nothing runs', () => {
   const t = projBox({ gpt: { inbox_reply: { reply: 'x' } } });
   const c = inboxChat(t, 'ChatGPT API', 'Tools');
-  const r = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Give Ana the project board.'));
+  const r = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Give Ana the project board.', 'Other tool'));
   deq(r.status, 'New');
   deq(t.log.gpt.length, 0);
   deq(inboxJson(t.ctx.cueInboxDecide(r.message_id, 'Reject', '')).decision, 'Rejected');
@@ -71,7 +71,7 @@ test('P6 the decisions log lists every decision newest first with chat, kind, wh
   const t = projBox();
   const c = inboxChat(t, 'claude.ai', 'Canvas PO');
   const a = inboxJson(t.ctx.cueInboxSend(c, 'Confirm', 'Ship V526?'));
-  const b = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Board access for Jo'));
+  const b = inboxJson(t.ctx.cueInboxSend(c, 'Request access', 'Board access for Jo', 'Other tool'));
   t.ctx.cueInboxDecide(a.message_id, 'Approve', '');
   t.ctx.cueInboxDecide(b.message_id, 'Reject', '');
   const log = inboxJson(t.ctx.cueInboxDecisions());

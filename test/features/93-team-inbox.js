@@ -135,5 +135,6 @@ test('T14 the page route serves Inbox.html and the tabs exist in the sheet setup
   const t = inboxBox();
   deq(t.tabs['Inbox Messages'].rows[0].slice(0, 3), ['Message ID', 'Chat ID', 'Created']);
   deq(t.tabs['Inbox Decisions'].rows[0], ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind']);
-  deq(t.tabs['Inbox Chats'].rows[0].slice(-1), ['Project ID']);
+  deq(t.tabs['Inbox Chats'].rows[0].slice(-2), ['Project ID', 'Role']);
+  deq(t.tabs['Inbox Messages'].rows[0].slice(-3), ['Tool', 'Decided by', 'Reason']);
 });

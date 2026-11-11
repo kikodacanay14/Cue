@@ -62,7 +62,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       <label for="chatLabel">Chat name</label>
       <input id="chatLabel" maxlength="80" required>
       <label for="chatProvider">Provider</label>
-      <select id="chatProvider"><option>ChatGPT API</option><option>claude.ai</option></select>
+      <select id="chatProvider"><option>ChatGPT API</option><option>Claude API</option><option>claude.ai</option></select>
       <div class="btns"><button type="submit">Add chat</button></div>
       <p class="note">claude.ai chats read their messages through a read token. That step is held until Kiko approves it; messages wait with status New until then.</p>
       <div id="addErr" class="err" role="alert"></div>
@@ -77,6 +77,8 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       <form id="send" novalidate style="margin-top:12px">
         <label for="kind">Kind</label>
         <select id="kind"><option value="Question">Question (chat answers)</option><option value="Confirm">Confirm (you approve or reject)</option><option value="Request access">Request access (you approve or reject)</option></select>
+        <div id="toolRow" hidden><label for="tool">Tool</label>
+        <select id="tool"><option value="Google Drive">Google Drive (Tech Lead decides)</option><option value="Other tool">Other tool (you decide)</option></select></div>
         <label for="body">Message</label>
         <textarea id="body" maxlength="4000" required></textarea>
         <p class="note"><span id="count">0</span> of 4,000 characters.</p>
@@ -87,7 +89,8 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     </div>
     <div id="decide" hidden style="margin-top:12px">
       <h2>Approve or reject</h2>
-      <p class="note">Record approval saves your decision. Nothing runs until the approval card is built (Q3 B). Reject records the decision and runs nothing. You decide Confirms and access requests until the team roster is set up.</p>
+      <p class="body" id="decideWhat"></p>
+      <p class="note">Record approval saves your decision. Nothing runs until the approval card is built (Q3 B). Reject records the decision and runs nothing. The Tech Lead chat decides Confirms and Google Drive requests first; you see the ones it and the Account Manager could not decide, and every other tool request.</p>
       <div class="btns"><button type="button" class="alt" id="rejectBtn">Reject</button><button type="button" id="approveBtn">Record approval</button></div>
     </div>
   </section>
@@ -105,7 +108,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
 <script>
 (function () {
   var state = { chats: [], messages: [], chat: null };
-  var STATUS = { New: 'info', Waiting: 'warn', Replied: 'good', Expired: 'plain', Recorded: 'plain', Active: 'good', Retired: 'plain', Queued: 'warn', Cancelled: 'plain', Approved: 'good', Rejected: 'crit' };
+  var STATUS = { New: 'info', Waiting: 'warn', Replied: 'good', Expired: 'plain', Recorded: 'plain', Active: 'good', Retired: 'plain', Queued: 'warn', Cancelled: 'plain', Approved: 'good', Rejected: 'crit', Contested: 'crit' };
   var DECIDED = { Confirm: 1, 'Request access': 1 };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function tag(s) { return '<span class="tag ' + (STATUS[s] || 'plain') + '">' + esc(s) + '</span>'; }
@@ -134,7 +137,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   function render() {
     var rows = state.chats.map(function (c) {
       var sel = state.chat && state.chat.chat_id === c.chat_id;
-      return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong>' + (c.project_id ? ' <span class="tag plain">Project</span>' : '') + '</td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
+      return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong>' + (c.project_id ? ' <span class="tag plain">Project</span>' : '') + (c.role ? ' <span class="tag plain">' + esc(c.role) + '</span>' : '') + '</td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
     });
     document.getElementById('chatRows').innerHTML = rows.join('');
     document.getElementById('chatsEmpty').hidden = state.chats.length > 0;
@@ -151,11 +154,14 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     var list = state.messages.filter(function (m) { return m.chat_id === state.chat.chat_id; });
     document.getElementById('msgs').innerHTML = list.length ? list.map(function (m) {
       var reply = m.reply ? '<div class="body"><span class="who">Reply (' + esc(m.reply_source) + ')</span>\n' + esc(m.reply) + '</div>' : '';
-      return '<div class="msg"><div class="row">' + tag(m.status) + ' <span class="who">' + esc(m.kind) + ' · ' + esc(m.created_at) + '</span></div><div class="body">' + esc(m.body) + '</div>' + reply + '</div>';
+      var dec = m.decision ? '<div class="note">' + tag(m.decision) + ' by ' + esc(m.decided_by || 'Kiko') + (m.reason ? ': ' + esc(m.reason) : '') + '</div>'
+        : (m.reason && (m.status === 'Contested' || m.status === 'Waiting') ? '<div class="note">' + esc(m.reason) + '</div>' : '');
+      return '<div class="msg"><div class="row">' + tag(m.status) + ' <span class="who">' + esc(m.kind) + (m.tool ? ' · ' + esc(m.tool) : '') + ' · ' + esc(m.created_at) + '</span></div><div class="body">' + esc(m.body) + '</div>' + reply + dec + '</div>';
     }).join('') : '<div class="empty">No messages in this chat yet.</div>';
-    var confirm = list.filter(function (m) { return DECIDED[m.kind] && m.status === 'New'; })[0];
+    var confirm = list.filter(function (m) { return DECIDED[m.kind] && (m.status === 'New' || m.status === 'Contested' || m.status === 'Waiting'); })[0];
     document.getElementById('decide').hidden = !confirm;
     document.getElementById('decide').dataset.id = confirm ? confirm.message_id : '';
+    document.getElementById('decideWhat').textContent = confirm ? confirm.kind + ': ' + String(confirm.body).slice(0, 140) : '';
   }
   document.getElementById('chatRows').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-id]'); if (tr) pick(tr.dataset.id); });
   document.getElementById('chatRows').addEventListener('keydown', function (e) { var tr = e.target.closest && e.target.closest('tr[data-id]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(tr.dataset.id); } });
@@ -188,6 +194,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('kind').addEventListener('change', function () {
     var q = kindNow() === 'Question';
     document.getElementById('sendBtn').hidden = q;
+    document.getElementById('toolRow').hidden = kindNow() !== 'Request access';
     if (!q && queued) call('cueInboxCancel', [queued], function () { hideQueue(); }, function () { hideQueue(); });
   });
   document.getElementById('cancelQ').addEventListener('click', function () {
@@ -198,9 +205,10 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('send').addEventListener('submit', function (e) {
     e.preventDefault(); var err = document.getElementById('sendErr'); err.textContent = '';
     var btn = e.target.querySelector('button'); btn.disabled = true;
-    call('cueInboxSend', [state.chat.chat_id, document.getElementById('kind').value, document.getElementById('body').value], function (r) {
+    call('cueInboxSend', [state.chat.chat_id, document.getElementById('kind').value, document.getElementById('body').value, document.getElementById('tool').value], function (r) {
       btn.disabled = false; document.getElementById('body').value = ''; document.getElementById('count').textContent = '0';
-      if (r.status === 'Waiting') err.textContent = 'ChatGPT did not answer: ' + r.error + ' Press Send again to retry.';
+      if (r.status === 'Waiting') err.textContent = 'The chat did not answer: ' + r.error + ' You can decide it yourself below.';
+      if (r.status === 'Contested') err.textContent = 'The Tech Lead and Account Manager could not decide. It is waiting for you below.';
       load();
     }, function (x) { btn.disabled = false; err.textContent = x.message || String(x); });
   });
@@ -218,7 +226,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('approveBtn').addEventListener('click', function () { decide('Approve'); });
   document.getElementById('rejectBtn').addEventListener('click', function () { decide('Reject'); });
   document.getElementById('sendBtn').hidden = kindNow() === 'Question';
-  sync(false);
+  call('cueInboxSetupRoles', [], function () { sync(false); }, function () { sync(false); });
 })();
 </script>
 </body></html>
