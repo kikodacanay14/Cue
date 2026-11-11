@@ -75,13 +75,13 @@ function cueInboxSend_(chatId, kind, body, tool) {
   if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return cueInboxRoute_(msgId);   // D3 to D5: role chats decide, nothing runs
   if (chat.v[1] === 'Claude API') return cueInboxAskClaude_(msgId, chat, text);
   if (chat.v[1] !== 'ChatGPT API') return { message_id: msgId, status: 'New' };   // design 4.2: claude.ai pull is held
-  return cueInboxAsk_(msgId, chat.v[4], text, chat.v[8]);
+  return cueInboxAsk_(msgId, chat.v[4], text, chat.v[8], chat.v[2]);
 }
 
 /** One OpenAI Responses call (design 4.1). previous_response_id keeps the chat's thread. Failure leaves the message Waiting. */
-function cueInboxAsk_(msgId, prevId, text, role) {
+function cueInboxAsk_(msgId, prevId, text, role, label) {
   const model = cueProp_('OPENAI_MODEL', 'gpt-5-mini');
-  const body = { model, instructions: role ? cueInboxRoleSystem_(role) : 'You answer one message from Kiko\'s team inbox. Reply in plain English, short, with no preamble.',
+  const body = { model, instructions: role ? cueInboxRoleSystem_(role, label) : 'You answer one message from Kiko\'s team inbox. Reply in plain English, short, with no preamble.',
     input: text, store: true, max_output_tokens: 2000,
     text: { format: { type: 'json_schema', name: 'inbox_reply', strict: true, schema: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'], additionalProperties: false } } } };
   if (prevId) body.previous_response_id = prevId;
@@ -192,7 +192,7 @@ function cueInboxSweep_() {
     const m = cueInboxFind_(q.v[0]);
     m.v[6] = 'New'; cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
     const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === m.v[1])[0];
-    if (chat && chat.v[1] === 'ChatGPT API') cueInboxAsk_(m.v[0], chat.v[4], m.v[5], chat.v[8]);
+    if (chat && chat.v[1] === 'ChatGPT API') cueInboxAsk_(m.v[0], chat.v[4], m.v[5], chat.v[8], chat.v[2]);
     else if (chat && chat.v[1] === 'Claude API') cueInboxAskClaude_(m.v[0], chat, m.v[5]);   // claude.ai stays New (pull held)
   });
 }

@@ -31,7 +31,10 @@ const CUE_INBOX_ROLE_CHATS_ = [
 const CUE_INBOX_DECISION_SCHEMA_ = { type: 'object', properties: { decision: { type: 'string', enum: ['Approve', 'Reject', 'Escalate'] },
   reason: { type: 'string' } }, required: ['decision', 'reason'], additionalProperties: false };
 
-function cueInboxRoleSystem_(role) { return CUE_INBOX_ROLE_COMMON_ + (CUE_INBOX_ROLE_TEXT_[role] ? ' ' + CUE_INBOX_ROLE_TEXT_[role] : ''); }
+/** The system text for a role chat. label: the chat's name, so each PO knows its product (Codex review on Cue PR #366). */
+function cueInboxRoleSystem_(role, label) {
+  return CUE_INBOX_ROLE_COMMON_ + (label ? ' Your chat name: ' + label + '.' : '') + (CUE_INBOX_ROLE_TEXT_[role] ? ' ' + CUE_INBOX_ROLE_TEXT_[role] : '');
+}
 
 /** Makes the role chats that are missing (matched by name and role). Sheet only, no AI. */
 function cueInboxSetupRoles_() {
@@ -56,7 +59,7 @@ function cueInboxRoleChat_(role) {
 function cueInboxAskDecision_(chat, m) {
   const user = 'Kind: ' + m.v[4] + (m.v[12] ? '\nTool: ' + m.v[12] : '') + '\nChat it came from: ' + (cueInboxChatLabel_(m.v[1]) || 'unknown')
     + '\nMessage:\n' + m.v[5] + '\n\nDecide: Approve, Reject or Escalate, with a one-sentence reason.';
-  const o = { step: 'Team inbox decision', system: cueInboxRoleSystem_(chat.v[8]), user, schema: CUE_INBOX_DECISION_SCHEMA_, name: 'inbox_decision',
+  const o = { step: 'Team inbox decision', system: cueInboxRoleSystem_(chat.v[8], chat.v[2]), user, schema: CUE_INBOX_DECISION_SCHEMA_, name: 'inbox_decision',
     maxTokens: 1500, memory: false };
   const call = chat.v[1] === 'ChatGPT API' ? cueGpt_(o) : cueClaude_(Object.assign(o, { effort: 'low' }));
   const s = { id: 'INBOX-' + m.v[0], metrics: { ai_calls: 0, calls: [] } };
@@ -82,6 +85,7 @@ function cueInboxRoute_(msgId) {
     if (!chat) { trail.push(steps[i] + ': no active chat'); break; }
     const r = cueInboxAskDecision_(chat, m);
     m = cueInboxFind_(msgId);
+    if (m.v[10]) return { message_id: msgId, status: m.v[6], decision: m.v[10], by: m.v[13] || 'Kiko' };   // Kiko decided while the call ran: keep his
     if (!r.ok) {
       m.v[6] = 'Waiting'; m.v[14] = cueStr_(chat.v[2] + ' did not answer: ' + r.error, 500);
       cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
@@ -103,7 +107,7 @@ function cueInboxRoute_(msgId) {
 function cueInboxAskClaude_(msgId, chat, text) {
   const past = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_).filter(x => x.v[1] === chat.v[0] && x.v[6] === 'Replied').slice(-6)
     .map(x => 'Q: ' + x.v[5] + '\nA: ' + x.v[7]).join('\n\n');
-  const call = cueClaude_({ step: 'Team inbox', system: cueInboxRoleSystem_(chat.v[8]), memory: false, maxTokens: 2000, effort: 'low',
+  const call = cueClaude_({ step: 'Team inbox', system: cueInboxRoleSystem_(chat.v[8], chat.v[2]), memory: false, maxTokens: 2000, effort: 'low',
     user: (past ? 'Earlier in this chat:\n' + past + '\n\n' : '') + 'Message:\n' + text,
     schema: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'], additionalProperties: false } });
   const res = cueAiAll_({ id: 'INBOX-' + msgId, metrics: { ai_calls: 0, calls: [] } }, [call])[0];

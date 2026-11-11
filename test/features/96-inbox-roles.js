@@ -104,3 +104,27 @@ test('R11 setup and every routed call are owner only; role instructions name Kik
   assert.ok(/Google Drive access only/.test(src));
   assert.ok(!/cueBridge/.test(src), 'no Canvas call in role routing');
 });
+
+test('R12 each PO chat is told its own name, so Cue PO and Charter PO get different prompts (Codex on PR #366)', () => {
+  const t = roleBox({ inboxReply: { reply: 'ok' } });
+  t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Question', 'What is next?');
+  t.ctx.cueInboxSend(chatByLabel(t, 'Charter PO'), 'Question', 'What is next?');
+  assert.ok(/Your chat name: Cue PO\./.test(t.log.claude[0].system) && /Your chat name: Charter PO\./.test(t.log.claude[1].system));
+  const g = roleBox({ inboxDecide: { decision: 'Escalate', reason: 'x' }, gpt: { inbox_decision: { decision: 'Approve', reason: 'ok' } } });
+  g.ctx.cueInboxSend(chatByLabel(g, 'QA'), 'Confirm', 'Go?');
+  assert.ok(/Your chat name: ChatGPT Account Manager\./.test(g.log.gpt[0].instructions));
+});
+
+test('R13 a decision Kiko makes while a role call is running is kept, never overwritten (Codex on PR #366)', () => {
+  let t;
+  t = roleBox({ inboxDecide: () => { const id = inboxRows(t, 'Inbox Messages').slice(-1)[0][0]; t.ctx.cueInboxDecide(id, 'Reject', ''); return { decision: 'Approve', reason: 'late' }; } });
+  const r = inboxJson(t.ctx.cueInboxSend(chatByLabel(t, 'Cue PO'), 'Confirm', 'Go?'));
+  deq(r.decision, 'Rejected');
+  deq(inboxRows(t, 'Inbox Decisions').length, 1);
+  assert.ok(/^Kiko/.test(inboxRows(t, 'Inbox Decisions')[0][5]));
+});
+
+test('R14 the chat list counts Contested messages as waiting (Codex on PR #366)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'Inbox.html'), 'utf8');
+  assert.ok(/function waiting\(id\)[^\n]*'Contested'/.test(html));
+});
