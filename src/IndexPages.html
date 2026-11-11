@@ -651,7 +651,7 @@
    * attached to the email"): Cue Admin › Templates. Filters, the list by journey step, and the viewer with Send me a test, Open in doc
    * and Edit (Save to doc writes the subject and words back into the doc through Canvas). The words come only from the doc, through Canvas (CueMsgTemplates.gs). */
   var MT = { d: null, err: '', f: { who: '', ch: 'Email', st: '' }, sel: '', edit: null, prev: {}, perr: {}, busy: false, msg: '' };
-  var MT_COL = { C: '#55D7E5', S: '#CD5023', R: '#B00C98', T: '#23006F' }, MT_WHO = [['', 'All'], ['C', 'Clients'], ['S', 'Suppliers'], ['R', 'Crew'], ['T', 'Team']];
+  var MT_COL = { C: '#559FEF', S: '#CD5023', R: '#B3107C', T: '#23006F' }, MT_WHO = [['', 'All'], ['C', 'Clients'], ['S', 'Suppliers'], ['R', 'Crew'], ['T', 'Team']];
   var MT_TAG = { 'In use': 'use', 'Old wording': 'old', 'New draft': 'new', 'Sent by hand': 'man' };
   function mtLoad() { MT.err = ''; call('cueAdminTemplates', [], function (r) { MT.d = r; if (!mtRow(MT.sel)) MT.sel = (mtShown()[0] || {}).key || ''; mtDraw(); mtPrev(); }, function (e) { MT.err = (e && e.message) || String(e); mtDraw(); }); }
   function mtRow(k) { return ((MT.d && MT.d.list) || []).filter(function (x) { return x.key === k; })[0] || null; }
@@ -677,7 +677,7 @@
     if (!MT.d) return setHtml($('w-mt'), h + (MT.err ? '' : '<div class="small muted">Loading…</div>'));
     if (D.error) h += '<div class="err">The templates could not be read, so none are shown: ' + esc(D.error) + '</div>';
     var F = '<h4>Who receives it</h4>' + MT_WHO.map(function (w) {
-      return '<button class="mtchip" data-mt-who="' + w[0] + '" aria-pressed="' + (MT.f.who === w[0]) + '"><span class="mtdot" style="background:' + (w[0] ? MT_COL[w[0]] : 'linear-gradient(90deg,#55D7E5 0 25%,#CD5023 25% 50%,#B00C98 50% 75%,#23006F 75%)') + '"></span>' + esc(w[1])
+      return '<button class="mtchip" data-mt-who="' + w[0] + '" aria-pressed="' + (MT.f.who === w[0]) + '"><span class="mtdot" style="background:' + (w[0] ? MT_COL[w[0]] : 'linear-gradient(90deg,#559FEF 0 25%,#CD5023 25% 50%,#B3107C 50% 75%,#23006F 75%)') + '"></span>' + esc(w[1])
         + '<span class="n">' + q(function (x) { return (!w[0] || x.who === w[0]) && (!MT.f.ch || x.channel === MT.f.ch); }) + '</span></button>'; }).join('')
       + '<h4>Channel</h4>' + ['Email', 'SMS', 'Social'].map(function (c) { return '<button class="mtchip" data-mt-ch="' + c + '" aria-pressed="' + (MT.f.ch === c) + '">' + c + '<span class="n">' + q(function (x) { return x.channel === c && (!MT.f.who || x.who === MT.f.who); }) + '</span></button>'; }).join('')
       + '<h4>Status</h4>' + [''].concat(D.statuses || []).map(function (st) { return '<button class="mtchip" data-mt-st="' + esc(st) + '" aria-pressed="' + (MT.f.st === st) + '">' + esc(st || 'Any') + '</button>'; }).join('');

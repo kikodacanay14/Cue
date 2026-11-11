@@ -69,7 +69,7 @@ test('SF6 the C2 wording: first follow-up, then the final one; client banner, Ki
   const t = sweepBox({ funnel: FUNNEL2 }, null); t.ctx.cueSweep();
   const it = t.state(batchOf(t).id).batch.items.find(i => i.key === 'inq:D-9');
   assert.ok(/^Hi Kim,\n\nPicking up my note—I’d love to hear what Kappa is planning\./.test(it.body) && !/₱|price/i.test(it.body), it.body);
-  assert.ok(/\nThanks!\nKiko Dacanay\nBlank Space Events$/.test(it.body) && /background:#55D7E5/.test(it.html));
+  assert.ok(/\nThanks!\nKiko Dacanay\nBlank Space Events$/.test(it.body) && /background:#559FEF/.test(it.html));
   const fin = t.ctx.cueTplC2_(Object.assign({}, it, { times: 1 }));
   assert.ok(/I’ll leave the door open for now\. When the next event idea comes along at Kappa/.test(fin.body), fin.body);
 });
