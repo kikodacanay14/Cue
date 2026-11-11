@@ -75,7 +75,8 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
         <label for="body">Message</label>
         <textarea id="body" maxlength="4000" required></textarea>
         <p class="note"><span id="count">0</span> of 4,000 characters.</p>
-        <div class="btns"><button type="submit">Send</button></div>
+        <div id="queueLine" class="note" hidden><span id="queueText"></span> <button type="button" id="cancelQ">Cancel</button></div>
+        <div class="btns"><button type="submit" id="sendBtn">Send</button></div>
         <div id="sendErr" class="err" role="alert"></div>
       </form>
     </div>
@@ -127,6 +128,41 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
   document.getElementById('chatRows').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-id]'); if (tr) pick(tr.dataset.id); });
   document.getElementById('chatRows').addEventListener('keydown', function (e) { var tr = e.target.closest && e.target.closest('tr[data-id]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(tr.dataset.id); } });
   document.getElementById('body').addEventListener('input', function (e) { document.getElementById('count').textContent = e.target.value.length; });
+  /* D1/D2 (Kiko 11 Nov 2026): a Question is queued when its text is filled in, sends after a 2-minute countdown, and Cancel
+     stops it. Editing restarts the countdown. A Confirm keeps the Send button (nothing runs on Confirm). */
+  var queued = null, queueTimer = null, tick = null, sendAt = 0;
+  function kindNow() { return document.getElementById('kind').value; }
+  function showQueue(text) { document.getElementById('queueLine').hidden = false; document.getElementById('queueText').textContent = text; }
+  function hideQueue() { document.getElementById('queueLine').hidden = true; clearInterval(tick); tick = null; queued = null; }
+  function countdown() {
+    var left = Math.max(0, Math.round((sendAt - Date.now()) / 1000));
+    if (left === 0) { hideQueue(); load(); return; }
+    showQueue('Sends in ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) + '.');
+  }
+  function doQueue() {
+    var body = document.getElementById('body').value.trim();
+    if (kindNow() !== 'Question' || !state.chat) return;
+    var go = function () {
+      if (!body) { hideQueue(); return; }
+      call('cueInboxQueue', [state.chat.chat_id, body], function (r) {
+        queued = r.message_id; sendAt = new Date(r.send_at).getTime();
+        clearInterval(tick); tick = setInterval(countdown, 1000); countdown(); load();
+      }, function (x) { document.getElementById('sendErr').textContent = x.message || String(x); });
+    };
+    if (queued) call('cueInboxCancel', [queued], go, go); else go();
+  }
+  function scheduleQueue() { clearTimeout(queueTimer); queueTimer = setTimeout(doQueue, 1500); }
+  document.getElementById('body').addEventListener('input', function () { if (kindNow() === 'Question') scheduleQueue(); });
+  document.getElementById('kind').addEventListener('change', function () {
+    var q = kindNow() === 'Question';
+    document.getElementById('sendBtn').hidden = q;
+    if (!q && queued) call('cueInboxCancel', [queued], function () { hideQueue(); }, function () { hideQueue(); });
+  });
+  document.getElementById('cancelQ').addEventListener('click', function () {
+    if (!queued) return;
+    call('cueInboxCancel', [queued], function () { hideQueue(); document.getElementById('sendErr').textContent = ''; load(); },
+      function (x) { document.getElementById('sendErr').textContent = x.message || String(x); hideQueue(); load(); });
+  });
   document.getElementById('send').addEventListener('submit', function (e) {
     e.preventDefault(); var err = document.getElementById('sendErr'); err.textContent = '';
     var btn = e.target.querySelector('button'); btn.disabled = true;

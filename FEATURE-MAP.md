@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 78 server files, 1557 top-level names, 35 task kinds, 35 word checks before the
+Counts: 78 server files, 1564 top-level names, 35 task kinds, 35 word checks before the
 chat call, 18 background jobs in the 5-minute trigger, 95 page-to-server functions, 67 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -136,7 +136,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 71 | 45 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 71 | 46 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 4 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
@@ -170,7 +170,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueGmail.gs` |  |  | 0 | 0 | 30 | 4 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
-| `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages | 0 | 0 | 0 | 2 |
+| `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages, Inbox Queue | 0 | 0 | 1 | 2 |
 | `CueIntake.gs` | `apply_intake`, `find_similar_projects`, `intake_evidence`, `make_project_folders`, `phone`, `subject`, `submit_intake` |  | 3 | 1 | 3 | 9 |
 | `CueIntakeCheck.gs` |  | Requests, Triage log | 0 | 0 | 1 | 6 |
 | `CueIntakePhases.gs` | `client_check`, `find_similar_projects`, `intake_add_lines`, `intake_add_project`, `intake_evidence`, `intake_log_rfqs`, `intake_remove`, `intake_save_costs`, `phone`, `search_projects` |  | 1 | 3 | 4 | 9 |
