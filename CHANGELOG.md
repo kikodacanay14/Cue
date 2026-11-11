@@ -10,7 +10,7 @@ Asked by the Cue Dev Team release plan (Account Manager, 11 Nov 2026, release L1
 
 Test count: see the PR.
 
-## Cue 1.28.65: the Claude roles' daily job runs (not deployed)
+## Cue 1.28.65: the Claude roles' daily job runs (live as Version 244, 11 Nov 2026 14:25Z, rollback 243, from release branch claude/eloquent-heisenberg-t7ivt9 @ 5f84416)
 
 Found live on 11 Nov 2026 14:18Z, on the first daily run after 1.28.64: the Canvas PO row on Team Daily read "Did not run: Claude (Team daily): HTTP 400 invalid_request_error: output_config.format.schema: For 'array' type, property 'maxItems' is not supported".
 
@@ -18,7 +18,7 @@ Found live on 11 Nov 2026 14:18Z, on the first daily run after 1.28.64: the Canv
 
 Test count: 826 passed (D3 new).
 
-## Cue 1.28.64: the AI team runs without Kiko: daily role jobs, the Account Manager decides last, a BSE AI Team spreadsheet; the Inbox page is removed (not deployed)
+## Cue 1.28.64: the AI team runs without Kiko: daily role jobs, the Account Manager decides last, a BSE AI Team spreadsheet; the Inbox page is removed (live as Version 243, 11 Nov 2026 14:13Z, rollback 242)
 
 Kiko, 11 Nov 2026: "the goal is for things to run without me", "now are you gonna do what i want?".
 
@@ -214,7 +214,7 @@ or budget" approved 13:37Z, R3 "never mentions other suppliers" approved 13:59Z;
 
 Tests: IR7 to IR10 added; 731/731 (`node test/cue.test.js`).
 
-## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
+## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (never deployed; backed out of main by #378 on 11 Nov 2026)
 
 Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
 be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
