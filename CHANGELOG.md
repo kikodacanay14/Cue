@@ -1,5 +1,13 @@
 # Changelog
 
+## Cue 1.28.60: the Question countdown sends again (bug fix) (not deployed)
+
+Kiko, 11 Nov 2026: "the countdown stopped...". Cause: 1.28.53 added the every-minute inbox sweep to cueTriggers_ but did not raise CUE_TRIGGERS_NOW_, so live Cue (already on trigger version 6) never installed it, and a Question whose 2-minute countdown ended stayed Queued.
+
+- CUE_TRIGGERS_NOW_ goes from 6 to 7. The next cueResume run (every 5 minutes) or opening Cue installs cueInboxSweep; its first run sends every Question already past its countdown (src/Cue.gs).
+
+Test count: 801 passed (T23 new; BD9 expects version 7).
+
 ## Cue 1.28.59: Add a chat no longer offers claude.ai (not deployed)
 
 Kiko, 11 Nov 2026: "can you remove that option so iit wont be confusing". A claude.ai chat cannot be reached from Cue, so its messages never get an answer.

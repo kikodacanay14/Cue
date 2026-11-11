@@ -84,3 +84,10 @@ test('T22 the sweep trigger is installed every minute with the other Cue trigger
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src), 'trigger line present');
 });
+
+test('T23 the trigger version is raised past 6, so live Cue installs the inbox sweep (bug: 1.28.53 added it without raising the version; Kiko 11 Nov 2026 "the countdown stopped")', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
+  const v = +(src.match(/const CUE_TRIGGERS_NOW_ = '(\d+)'/) || [])[1];
+  assert.ok(v >= 7, 'CUE_TRIGGERS_NOW_ is ' + v);
+  assert.ok(/newTrigger\('cueInboxSweep'\)\.timeBased\(\)\.everyMinutes\(1\)/.test(src));
+});

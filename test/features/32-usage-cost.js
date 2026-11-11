@@ -65,6 +65,6 @@ test('UG5 Settings page: AI usage and cost section loads only when opened, shows
 
 test('BD9 Kiko 19:50Z: the bid check runs at 06:30 (07:00 until the 8 AM update, 31 Oct); since the scheduler its trigger, the sweep\'s and the Monday HubSpot one are removed once', () => {
   const t = sandbox({ props: { CUE_TRIGGERS_V: '4' } }); t.log.triggers = ['cueResume', 'cueSweep', 'cueBidsDaily', 'cueHsWeekly']; t.ctx.cueState();
-  deq(t.log.triggers.slice(), ['cueResume', 'cueRfpKick', 'cueInboxSweep']); assert.strictEqual(t.props.CUE_TRIGGERS_V, '6');
+  deq(t.log.triggers.slice(), ['cueResume', 'cueRfpKick', 'cueInboxSweep']); assert.strictEqual(t.props.CUE_TRIGGERS_V, '7');
   assert.strictEqual(t.ctx.cueSchedules().filter(x => x.id === 'sys-bids')[0].when, 'Weekdays 06:30');
 });
