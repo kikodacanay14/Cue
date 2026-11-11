@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.28.62: the 3-minute pause holds across two tabs; rule CUE-051 recorded (not deployed)
+## Cue 1.28.63: a hidden Cue tab stops refreshing (not deployed)
+
+Kiko, 11 Nov 2026: "i keep getting an error that there are too many scripts running for this uesr", then "A" to pausing refreshes in tabs he is not looking at.
+
+- The Cue page refreshes every 20 seconds (2 while a task works), and each refresh is one Apps Script run. Google allows about 30 at once per account, across Cue and Canvas. A hidden tab now schedules no refresh; showing it refreshes at once (src/IndexThreads.html). Work Cue does in the background is unchanged (cueResume every 5 minutes).
+
+Test count: 805 passed (R18 new).
+
+## Cue 1.28.62: the 3-minute pause holds across two tabs; rule CUE-051 recorded (live as Version 241, 11 Nov 2026 13:17Z, rollback 240)
 
 Codex review on Cue PR #372 (two findings, both confirmed).
 
@@ -9,7 +17,7 @@ Codex review on Cue PR #372 (two findings, both confirmed).
 
 Test count: T26 new.
 
-## Cue 1.28.61: Send sends a Question at once, then a 3-minute pause per chat (deploying)
+## Cue 1.28.61: Send sends a Question at once, then a 3-minute pause per chat (live as Version 241 with 1.28.62, 11 Nov 2026 13:17Z, rollback 240)
 
 Kiko, 11 Nov 2026: "maybe lets not do a countdown... let the user press send", then on the choice of A (2 minutes after Send), B (at once) or C (30 seconds): "lets do B but lets pause so that theres not constant mesasging may 3 minutes before it can send again". Replaces the 2-minute countdown (D2).
 
