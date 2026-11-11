@@ -150,3 +150,9 @@ test('R17 Add a chat offers only Claude API and ChatGPT API; claude.ai is gone f
   assert.ok(/<select id="chatProvider"><option>Claude API<\/option><option>ChatGPT API<\/option><\/select>/.test(html));
   assert.ok(!/<option>claude\.ai<\/option>/.test(html) && !/read token/.test(html));
 });
+
+test('R18 a hidden Cue tab stops refreshing and refreshes once when shown (Kiko 11 Nov 2026, "too many scripts running", answer A)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
+  assert.ok(/function schedule\(\) \{ clearTimeout\(polling\); polling = null; if \(document\.hidden\) return; polling = setTimeout\(refresh, busy\(\) \? 2000 : 20000\); \}/.test(html));
+  assert.ok(/addEventListener\('visibilitychange', function \(\) \{ if \(!document\.hidden && !polling\) refresh\(\); \}\)/.test(html));
+});

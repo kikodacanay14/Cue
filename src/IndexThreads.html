@@ -378,7 +378,10 @@
   function arPoll() { state.requests.forEach(function (r) { if (!arMaking(r) || running[r.id] || Date.now() - (arLooked[r.id] || 0) < 30000) return;
     arLooked[r.id] = Date.now(); running[r.id] = 1; call('cueRun', [r.id], function () { delete running[r.id]; refresh(); }, function () { delete running[r.id]; }); }); }
   function busy() { return state.requests.some(function (r) { return WORK[r.status] && !arMaking(r); }) || Object.keys(running).some(function (id) { return !state.requests.some(function (r) { return r.id === id && arMaking(r); }); }); }
-  function schedule() { clearTimeout(polling); polling = setTimeout(refresh, busy() ? 2000 : 20000); }
+  // A hidden tab does not refresh: every refresh is one Apps Script run, and Google allows about 30 at once per account across
+  // Cue and Canvas (Kiko 11 Nov 2026: "too many scripts running"; "A" to pausing hidden tabs). Showing the tab refreshes at once.
+  function schedule() { clearTimeout(polling); polling = null; if (document.hidden) return; polling = setTimeout(refresh, busy() ? 2000 : 20000); }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && !polling) refresh(); });
 
   function render() { renderChat(); renderWidgets(); renderBatch(); $('ver').textContent = state.version ? '· ' + state.version : ''; }
   function setHtml(el, h) {
