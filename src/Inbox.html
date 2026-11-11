@@ -14,6 +14,8 @@ h1{font-size:34px;font-weight:400;margin:0 0 16px;color:var(--purple)}
 .page-title{grid-column:1 / -1;margin:0}
 h2{font-size:16px;font-weight:700;color:var(--purple);margin:0 0 8px}
 a{color:var(--blue);text-decoration:underline}
+.full{grid-column:1 / -1}
+.wrap>*{min-width:0}.tscroll{overflow-x:auto}
 .wrap{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;padding:20px;min-height:100vh;align-items:start}
 .card{background:var(--white);border:1px solid var(--line);border-radius:4px;padding:16px}
 table{width:100%;border-collapse:collapse}
@@ -52,6 +54,9 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       <tbody id="chatRows"></tbody>
     </table>
     <div id="chatsEmpty" class="empty" hidden>No chats yet. Add one below.</div>
+    <p class="note">Each open Canvas project has its own chat, made from the Canvas project board.</p>
+    <div class="btns"><button type="button" class="alt" id="syncBtn">Refresh projects</button></div>
+    <div id="syncErr" class="err" role="alert"></div>
     <h2 style="margin-top:16px">Add a chat</h2>
     <form id="addChat" novalidate>
       <label for="chatLabel">Chat name</label>
@@ -71,7 +76,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       <div id="msgs"></div>
       <form id="send" novalidate style="margin-top:12px">
         <label for="kind">Kind</label>
-        <select id="kind"><option value="Question">Question (chat answers)</option><option value="Confirm">Confirm (you approve or reject)</option></select>
+        <select id="kind"><option value="Question">Question (chat answers)</option><option value="Confirm">Confirm (you approve or reject)</option><option value="Request access">Request access (you approve or reject)</option></select>
         <label for="body">Message</label>
         <textarea id="body" maxlength="4000" required></textarea>
         <p class="note"><span id="count">0</span> of 4,000 characters.</p>
@@ -82,27 +87,54 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     </div>
     <div id="decide" hidden style="margin-top:12px">
       <h2>Approve or reject</h2>
-      <p class="note">Record approval saves your decision. Nothing runs until the approval card is built (Q3 B). Reject records the decision and runs nothing.</p>
+      <p class="note">Record approval saves your decision. Nothing runs until the approval card is built (Q3 B). Reject records the decision and runs nothing. You decide Confirms and access requests until the team roster is set up.</p>
       <div class="btns"><button type="button" class="alt" id="rejectBtn">Reject</button><button type="button" id="approveBtn">Record approval</button></div>
     </div>
+  </section>
+
+  <section class="card full" aria-labelledby="dec-h">
+    <h2 id="dec-h">Decisions</h2>
+    <p class="note">Every Approve and Reject, newest first. Read only.</p>
+    <div class="tscroll"><table aria-describedby="dec-h">
+      <thead><tr><th scope="col">Decided</th><th scope="col">Chat</th><th scope="col">Kind</th><th scope="col">Decision</th><th scope="col">By</th><th scope="col">Message</th></tr></thead>
+      <tbody id="decRows"></tbody>
+    </table></div>
+    <div id="decEmpty" class="empty" hidden>No decisions yet.</div>
   </section>
 </div>
 <script>
 (function () {
   var state = { chats: [], messages: [], chat: null };
-  var STATUS = { New: 'info', Waiting: 'warn', Replied: 'good', Expired: 'plain', Recorded: 'plain', Active: 'good', Retired: 'plain' };
+  var STATUS = { New: 'info', Waiting: 'warn', Replied: 'good', Expired: 'plain', Recorded: 'plain', Active: 'good', Retired: 'plain', Queued: 'warn', Cancelled: 'plain', Approved: 'good', Rejected: 'crit' };
+  var DECIDED = { Confirm: 1, 'Request access': 1 };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function tag(s) { return '<span class="tag ' + (STATUS[s] || 'plain') + '">' + esc(s) + '</span>'; }
   function call(name, args, ok, fail) {
     var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function (e) { alert(e.message || e); });
     r[name].apply(r, args);
   }
-  function load() { call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render(); }); }
+  function load() {
+    call('cueInboxList', [], function (d) { state.chats = d.chats; state.messages = d.messages; render(); });
+    call('cueInboxDecisions', [], renderDecisions, function () {});
+  }
+  function day(iso) { var t = String(iso || ''); return t.slice(0, 10) + (t.length > 15 ? ' ' + t.slice(11, 16) : ''); }
+  function renderDecisions(list) {
+    list = list || [];
+    document.getElementById('decRows').innerHTML = list.map(function (d) {
+      return '<tr><td class="c">' + esc(day(d.decided_at)) + '</td><td>' + esc(d.chat) + '</td><td class="c">' + esc(d.kind) + '</td><td class="c">' + tag(d.decision) + '</td><td class="c">' + esc(d.by || 'Kiko') + '</td><td>' + esc(d.body) + '</td></tr>';
+    }).join('');
+    document.getElementById('decEmpty').hidden = list.length > 0;
+  }
+  function sync(force) {
+    var err = document.getElementById('syncErr'); err.textContent = '';
+    call('cueInboxSyncProjects', [!!force], function (r) { if (r && r.error) err.textContent = r.error; load(); },
+      function (x) { err.textContent = x.message || String(x); load(); });
+  }
   function waiting(id) { return state.messages.filter(function (m) { return m.chat_id === id && (m.status === 'New' || m.status === 'Waiting'); }).length; }
   function render() {
     var rows = state.chats.map(function (c) {
       var sel = state.chat && state.chat.chat_id === c.chat_id;
-      return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong></td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
+      return '<tr class="pick' + (sel ? ' sel' : '') + '" data-id="' + esc(c.chat_id) + '" tabindex="0"><td><strong>' + esc(c.label) + '</strong>' + (c.project_id ? ' <span class="tag plain">Project</span>' : '') + '</td><td class="c">' + esc(c.provider) + '</td><td class="c">' + waiting(c.chat_id) + '</td><td class="c">' + tag(c.status) + '</td></tr>';
     });
     document.getElementById('chatRows').innerHTML = rows.join('');
     document.getElementById('chatsEmpty').hidden = state.chats.length > 0;
@@ -121,7 +153,7 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
       var reply = m.reply ? '<div class="body"><span class="who">Reply (' + esc(m.reply_source) + ')</span>\n' + esc(m.reply) + '</div>' : '';
       return '<div class="msg"><div class="row">' + tag(m.status) + ' <span class="who">' + esc(m.kind) + ' · ' + esc(m.created_at) + '</span></div><div class="body">' + esc(m.body) + '</div>' + reply + '</div>';
     }).join('') : '<div class="empty">No messages in this chat yet.</div>';
-    var confirm = list.filter(function (m) { return m.kind === 'Confirm' && m.status === 'New'; })[0];
+    var confirm = list.filter(function (m) { return DECIDED[m.kind] && m.status === 'New'; })[0];
     document.getElementById('decide').hidden = !confirm;
     document.getElementById('decide').dataset.id = confirm ? confirm.message_id : '';
   }
@@ -182,9 +214,11 @@ button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,s
     var id = document.getElementById('decide').dataset.id; if (!id) return;
     call('cueInboxDecide', [id, decision, ''], function () { load(); });
   }
+  document.getElementById('syncBtn').addEventListener('click', function () { sync(true); });
   document.getElementById('approveBtn').addEventListener('click', function () { decide('Approve'); });
   document.getElementById('rejectBtn').addEventListener('click', function () { decide('Reject'); });
-  load();
+  document.getElementById('sendBtn').hidden = kindNow() === 'Question';
+  sync(false);
 })();
 </script>
 </body></html>

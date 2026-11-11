@@ -8,8 +8,9 @@
 const CUE_INBOX_BODY_MAX_ = 4000;          // design 3.2: longer text is refused, never cut
 const CUE_INBOX_EXPIRE_MS_ = 7 * 24 * 60 * 60 * 1000;   // design 3.2: unanswered after 7 days becomes Expired
 const CUE_INBOX_PROVIDERS_ = ['ChatGPT API', 'claude.ai'];
-const CUE_INBOX_KINDS_ = ['Question', 'Confirm'];
-const CUE_INBOX_MSG_COLS_ = 12, CUE_INBOX_CHAT_COLS_ = 7, CUE_INBOX_DEC_COLS_ = 5, CUE_INBOX_QUEUE_COLS_ = 3;
+const CUE_INBOX_KINDS_ = ['Question', 'Confirm', 'Request access'];   // D4 (Kiko 11 Nov 2026): Request access is a third kind
+const CUE_INBOX_DECIDED_KINDS_ = ['Confirm', 'Request access'];   // kinds that take Approve or Reject; nothing runs on either
+const CUE_INBOX_MSG_COLS_ = 12, CUE_INBOX_CHAT_COLS_ = 8, CUE_INBOX_DEC_COLS_ = 7, CUE_INBOX_QUEUE_COLS_ = 3;
 const CUE_INBOX_COUNTDOWN_MS_ = 2 * 60 * 1000;   // D2 (Kiko 11 Nov 2026): a Question sends 2 minutes after its fields are filled; Cancel stops it
 
 
@@ -26,7 +27,7 @@ function cueInboxSetRow_(tab, row, cols, vals) { cueSheet_(tab).getRange(row, 1,
 /** The inbox page's list: chats and the newest 200 messages per chat. Marks old open messages Expired (design 3.2). */
 function cueInboxList_() {
   cueOwner_();
-  const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).map(x => ({ chat_id: x.v[0], provider: x.v[1], label: x.v[2], status: x.v[3], created_at: x.v[6] }));
+  const chats = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).map(x => ({ chat_id: x.v[0], provider: x.v[1], label: x.v[2], status: x.v[3], created_at: x.v[6], project_id: String(x.v[7] || '') }));
   const msgs = cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_);
   const now = cueNow_();
   msgs.forEach(m => {
@@ -52,7 +53,7 @@ function cueInboxAddChat_(form) {
   if (CUE_INBOX_PROVIDERS_.indexOf(provider) < 0) throw new Error('Pick ChatGPT API or claude.ai.');
   if (!label || label.length > 80) throw new Error('Give the chat a name of 1 to 80 characters.');
   const id = cueInboxId_('CH');
-  cueSheet_('Inbox Chats').appendRow([id, provider, label, 'Active', '', '', new Date(cueNow_()).toISOString()]);
+  cueSheet_('Inbox Chats').appendRow([id, provider, label, 'Active', '', '', new Date(cueNow_()).toISOString(), '']);
   return { chat_id: id };
 }
 
@@ -60,7 +61,7 @@ function cueInboxAddChat_(form) {
 function cueInboxSend_(chatId, kind, body) {
   cueOwner_();
   const text = String(body || '').trim();
-  if (CUE_INBOX_KINDS_.indexOf(kind) < 0) throw new Error('Kind must be Question or Confirm.');
+  if (CUE_INBOX_KINDS_.indexOf(kind) < 0) throw new Error('Kind must be Question, Confirm or Request access.');
   if (!text) throw new Error('Write a message first.');
   if (text.length > CUE_INBOX_BODY_MAX_) throw new Error('Message is over ' + CUE_INBOX_BODY_MAX_ + ' characters. Shorten it and send again.');
   const chat = cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).filter(x => x.v[0] === chatId)[0];
@@ -69,7 +70,7 @@ function cueInboxSend_(chatId, kind, body) {
   const msgId = cueInboxId_('M'), now = new Date(cueNow_()).toISOString();
   const row = [msgId, chatId, now, String(Session.getActiveUser().getEmail() || ''), kind, text, 'New', '', '', '', '', ''];
   cueSheet_('Inbox Messages').appendRow(row);
-  if (kind === 'Confirm') return { message_id: msgId, status: 'New' };   // design 4.3: recorded on Approve or Reject, nothing runs
+  if (CUE_INBOX_DECIDED_KINDS_.indexOf(kind) >= 0) return { message_id: msgId, status: 'New' };   // design 4.3 and D4: recorded on Approve or Reject, nothing runs
   if (chat.v[1] !== 'ChatGPT API') return { message_id: msgId, status: 'New' };   // design 4.2: claude.ai pull is held
   const r = cueInboxAsk_(msgId, chat.v[4], text);
   return r;
@@ -113,17 +114,32 @@ function cueInboxSetChatResponse_(chatId, respId) {
   c.v[4] = respId; cueInboxSetRow_('Inbox Chats', c.row, CUE_INBOX_CHAT_COLS_, c.v);
 }
 
-/** Approve or Reject a Confirm message. Records only (scope Q3 B): nothing runs. */
+/** Approve or Reject a Confirm or Request access message. Records only (scope Q3 B): nothing runs. Kiko decides both until the
+ * team roster and team sign-in exist (S7 held); then D3, D4 and D5 move Confirms and tool access to the Tech Lead. */
 function cueInboxDecide_(msgId, decision, note) {
   cueOwner_();
   if (['Approve', 'Reject'].indexOf(decision) < 0) throw new Error('Decision must be Approve or Reject.');
   const m = cueInboxFind_(msgId);
-  if (m.v[4] !== 'Confirm') throw new Error('Only Confirm messages take a decision.');
+  if (CUE_INBOX_DECIDED_KINDS_.indexOf(m.v[4]) < 0) throw new Error('Only Confirm and Request access messages take a decision.');
   const now = new Date(cueNow_()).toISOString();
   m.v[6] = 'Recorded'; m.v[10] = decision === 'Approve' ? 'Approved' : 'Rejected'; m.v[11] = now;
   cueInboxSetRow_('Inbox Messages', m.row, CUE_INBOX_MSG_COLS_, m.v);
-  cueSheet_('Inbox Decisions').appendRow([cueInboxId_('D'), msgId, m.v[10], now, String(note || '').slice(0, 300)]);
+  cueSheet_('Inbox Decisions').appendRow([cueInboxId_('D'), msgId, m.v[10], now, String(note || '').slice(0, 300), String(Session.getActiveUser().getEmail() || ''), m.v[4]]);
   return { message_id: msgId, decision: m.v[10] };
+}
+
+/** D6 (Kiko 11 Nov 2026: "feel free to show me decisions made so i can review when available"): the read-only decisions log,
+ * newest first, at most 200. Each line: when, who decided, the chat, the kind, the decision and the start of the message. */
+function cueInboxDecisions_() {
+  cueOwner_();
+  const msgs = {}, chats = {};
+  cueInboxRows_('Inbox Messages', CUE_INBOX_MSG_COLS_).forEach(m => { msgs[m.v[0]] = m.v; });
+  cueInboxRows_('Inbox Chats', CUE_INBOX_CHAT_COLS_).forEach(c => { chats[c.v[0]] = c.v[2]; });
+  return cueInboxRows_('Inbox Decisions', CUE_INBOX_DEC_COLS_).slice().reverse().slice(0, 200).map(d => {
+    const m = msgs[d.v[1]] || [];
+    return { decision_id: d.v[0], message_id: d.v[1], decision: d.v[2], decided_at: d.v[3], note: d.v[4], by: d.v[5] || '',
+      kind: d.v[6] || m[4] || '', chat: chats[m[1]] || '', body: String(m[5] || '').slice(0, 140) };
+  });
 }
 
 /** Retire a chat: keeps its messages, stops new sends. */
@@ -182,5 +198,6 @@ function cueInboxDecide(msgId, decision, note) { return cueInboxDecide_(msgId, d
 function cueInboxRetire(chatId) { return cueInboxRetire_(chatId); }
 function cueInboxQueue(chatId, body) { return cueInboxQueue_(chatId, body); }
 function cueInboxCancel(msgId) { return cueInboxCancel_(msgId); }
+function cueInboxDecisions() { return cueInboxDecisions_(); }
 /* Trigger entry point (cueTriggers_ installs it every minute). Owner check still applies. */
 function cueInboxSweep() { cueOwner_(); cueInboxSweep_(); }

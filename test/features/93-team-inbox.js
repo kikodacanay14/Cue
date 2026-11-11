@@ -87,7 +87,7 @@ test('T8 a decision only applies to a Confirm message, and only Approve or Rejec
   const t = inboxBox();
   const c = inboxChat(t, 'claude.ai', 'Canvas Ops');
   const q = inboxJson(t.ctx.cueInboxSend(c, 'Question', 'Which day?'));
-  assert.throws(() => t.ctx.cueInboxDecide(q.message_id, 'Approve', ''), /Only Confirm messages/);
+  assert.throws(() => t.ctx.cueInboxDecide(q.message_id, 'Approve', ''), /Only Confirm and Request access messages/);
   const m = inboxJson(t.ctx.cueInboxSend(c, 'Confirm', 'Go?'));
   assert.throws(() => t.ctx.cueInboxDecide(m.message_id, 'Maybe', ''), /Approve or Reject/);
 });
@@ -134,5 +134,6 @@ test('T14 the page route serves Inbox.html and the tabs exist in the sheet setup
   assert.ok(/q\.view === 'inbox'[\s\S]{0,120}createHtmlOutputFromFile\('Inbox'\)/.test(src), 'inbox view route');
   const t = inboxBox();
   deq(t.tabs['Inbox Messages'].rows[0].slice(0, 3), ['Message ID', 'Chat ID', 'Created']);
-  deq(t.tabs['Inbox Decisions'].rows[0], ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note']);
+  deq(t.tabs['Inbox Decisions'].rows[0], ['Decision ID', 'Message ID', 'Decision', 'Decided at', 'Note', 'Decided by', 'Kind']);
+  deq(t.tabs['Inbox Chats'].rows[0].slice(-1), ['Project ID']);
 });
