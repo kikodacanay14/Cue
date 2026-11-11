@@ -309,3 +309,9 @@ test('CL6 cueSetup makes the team tabs only in BSE AI Team, never in the Cue she
   const cue = fs.readFileSync(path.join(__dirname, '..', 'src', 'Cue.gs'), 'utf8');
   assert.ok(/Object\.keys\(CUE_TABS_\)\.forEach\(n => \{ if \(CUE_TEAM_TABS_\.indexOf\(n\) < 0 && !ss\.getSheetByName\(n\)\)/.test(cue));
 });
+
+test('D3 the daily job schema has no maxItems, which the Claude API refuses (live 11 Nov 2026: "property \'maxItems\' is not supported"); the code still keeps 2 requests', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueInboxTeam.gs'), 'utf8');
+  assert.ok(!/maxItems/.test(src.replace(/\/\/.*$/gm, '')));
+  assert.ok(/\.slice\(0, 2\)/.test(src));
+});
