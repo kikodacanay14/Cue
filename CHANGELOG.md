@@ -1,6 +1,14 @@
 # Changelog
 
-## Cue 1.28.58: filter for the Inbox chat list (not deployed)
+## Cue 1.28.59: Add a chat no longer offers claude.ai (not deployed)
+
+Kiko, 11 Nov 2026: "can you remove that option so iit wont be confusing". A claude.ai chat cannot be reached from Cue, so its messages never get an answer.
+
+- The Add a chat form offers Claude API (first) and ChatGPT API only; the read-token note is replaced by one line saying both answer inside Cue. Chats already set up keep working (src/Inbox.html).
+
+Test count: 800 passed (R17 new).
+
+## Cue 1.28.58: filter for the Inbox chat list (live as Version 239, 11 Nov 2026)
 
 Kiko, 11 Nov 2026: "how come eveb project chats are showing here", then "maybe have a filter?".
 
