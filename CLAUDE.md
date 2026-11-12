@@ -45,7 +45,9 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Never change `deploy.json`, `.deploy/` or `.github/workflows/` without Kiko's approval. `.claude/hooks/guard.mjs` asks first.
 - No production change and no outgoing email without Kiko's explicit approval. Approve = send, per message.
 - RFQs and CEs go from Kiko's own Gmail, never from info@. GPT and Claude never write to Canvas; Canvas writes only after
-  Kiko approves, through the bridge, once.
+  Kiko approves, through the bridge, once. One exception (Kiko 12 Nov 2026, CanvasWorkspace ADR-0168): the BSE Canvas Ops
+  role agents save their own role's Canvas records through their own connector keys without a go per save; sends, awards,
+  CE, paid or locked records, deletes and redesign still need Kiko's approval. Cue itself is not a role agent.
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
 - Don't hold a Cue release for a Canvas release, and don't hold a Canvas release for a Cue feature (Kiko 7 Nov 2026).
 
