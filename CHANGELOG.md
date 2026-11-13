@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.68: agents' handover updates in Cue, with Mark read and Reply (not deployed)
+
+Asked: Kiko, 13 Nov 2026 11:06:33Z ("can Cue also support general updates not just drafts"), "Updates plus replies" on the
+project-chat card, spec 11:10:27Z (agent and project, handover reference, summary, gaps, next owner and action, AS acknowledgment
+link, unique update key; "failed handovers should appear as Blocked, never Delivered"), card 11:15:52Z "Yes, no link means
+Blocked" (CanvasWorkspace ADR-0180). Built on live 1.28.67 (Version 246), slot cue-1.28.68, card agent-handover-updates. Needs
+Canvas V537 for the bridge action `agent_update` and the read and reply decisions.
+
+- `src/CueAgentDrafts.gs`: unread handover updates from Canvas get a card in the agent's thread and a chat line ("X posted a
+  handover update: REF · Delivered/Blocked"). Anything not exactly Delivered shows Blocked. `?agd=DRF-xxxx` opens the update.
+- `src/IndexCards.html`: the update card shows Delivered or Blocked, Unread or Read, the facts, the AS link, Mark read and a Reply
+  box (one reply).
+- Bridge fixture refreshed from Canvas. Tests AGU1 to AGU5; 828/828 pass.
+
 ## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (LIVE as Version 246, 13 Nov 2026 09:42Z, rollback 245)
 
 Asked: Kiko, 13 Nov 2026 08:13:49Z ("they return a draft to me and then i approve"), 08:19:47Z (Edit then Send, Rewrite with
