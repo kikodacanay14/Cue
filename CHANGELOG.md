@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (not deployed)
+## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (LIVE as Version 246, 13 Nov 2026 09:42Z, rollback 245)
 
 Asked: Kiko, 13 Nov 2026 08:13:49Z ("they return a draft to me and then i approve"), 08:19:47Z (Edit then Send, Rewrite with
 Cue, Send back to agent), 08:34:57Z (approved the two card screens; "can it show in Cue as a separate thread from each agent?"),
