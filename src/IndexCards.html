@@ -766,7 +766,31 @@
   var AGD_FROM = { payment_sent: 'AccountsPayables@', signature_chaser: 'freelancers@', accreditation_chaser: 'Your Gmail, suppliers@ in CC', rfp: 'Your Gmail' };
   var AGD_PILL = { 'Waiting for Kiko': ['warn', 'Waiting for you'], Sending: ['', 'Sending'], Sent: ['good', 'Sent'], Saved: ['good', 'Saved'], Failed: ['crit', 'Failed'],
     Rejected: ['', 'Rejected'], 'Sent back': ['', 'Sent back'], Dropped: ['', 'Not sent: no longer due'] };
+  // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:10:27Z): an agent's handover update. Read only, with Mark read; nothing is sent.
+  // A failed handover shows Blocked (crit), never Delivered (Kiko: "failed handovers should appear as Blocked, never Delivered").
+  function agdUpdHtml(r) {
+    var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
+    var canReply = (A.status === 'Unread' || A.status === 'Read') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"
+    var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
+      + '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>'
+      + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">From ' + esc(A.agent) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
+    var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + esc(H.summary || A.body) + '</span>'],
+      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + esc(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
+      ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
+    if (!ok && H.why) f.push(['Why Blocked', esc(H.why)]);
+    h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
+    if (A.status === 'Replied' && A.note) h += '<div class="small" style="margin-top:6px"><b>Your reply:</b> ' + esc(A.note) + '</div><div class="small muted">' + esc(A.agent) + ' reads it on its next run.</div>';
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
+      + esc(A.agent) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
+    if (unread) h += '<div class="actions"><button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button></div>';
+    else if (r.status === 'Sending') h += '<div class="small muted" style="margin-top:6px">Passing it to Canvas…</div>';
+    return h + '</div>';
+  }
   function agdCardHtml(r) {
+    if ((r.agd || {}).type === 'update') return agdUpdHtml(r);
     var A = r.agd || {}, id = esc(r.id), wait = A.waiting && r.status !== 'Sending', req = A.type === 'requirements', ed = !!editing[r.id];
     var pill = AGD_PILL[A.status] || ['', A.status || ''];
     var when = A.created ? ' · ' + esc(A.created) : '';
@@ -1382,8 +1406,9 @@
           var agn = scope.querySelector('[data-agd-note="' + id + '"]'), agNote = agn ? agn.value.trim() : '';
           if (act === 'agd-rewrite') { if (!agNote) return alertErr(new Error('Type what Cue should change in the box, then tap Rewrite with Cue.'), id);
             b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }
+          if (act === 'agd-reply' && !agNote) return alertErr(new Error('Type your reply in the box, then tap Reply.'), id);
           if (act === 'agd-back' && !agNote) return alertErr(new Error('Type what the agent should change in the box, then tap Send back to agent.'), id);
-          var ago = { decision: { 'agd-send': 'send', 'agd-save': 'save', 'agd-back': 'send_back', 'agd-reject': 'reject' }[act], note: agNote };
+          var ago = { decision: { 'agd-send': 'send', 'agd-save': 'save', 'agd-back': 'send_back', 'agd-reject': 'reject', 'agd-read': 'read', 'agd-reply': 'reply' }[act], note: act === 'agd-read' ? '' : agNote };
           if (act === 'agd-send') { var asj = scope.querySelector('[data-agd-subject="' + id + '"]'), abd = scope.querySelector('[data-agd-body="' + id + '"]');
             if (asj) ago.subject = asj.value; if (abd) ago.body = abd.value; }
           if (act === 'agd-save') { ago.lines = []; scope.querySelectorAll('[data-agl="' + id + '"]').forEach(function (tr) { var it = tr.querySelector('[data-f="item"]');
@@ -1598,7 +1623,15 @@
   }
   paneShow();
   refresh(); loadRules(); loadMyRules();
-  call('cueAgdOpen', [], function (o) { if (o && o.added) refresh(); }, function () {});   // AGENT-DRAFTS-2026-11-13 (A2): new agent drafts when Kiko opens Cue
+  // AGENT-DRAFTS-2026-11-13 (A2): new agent drafts when Kiko opens Cue. AGENT-UPDATE-2026-11-13: Canvas's Cue link (?agd=DRF-....) opens that card's thread.
+  (function agdOpen(go) {
+    try { google.script.url.getLocation(function (l) { go(l && l.parameter && /^DRF-\d{4,6}$/.test(String(l.parameter.agd || '')) ? String(l.parameter.agd) : ''); }); } catch (e) { go(''); }
+  })(function (agd) {
+    call('cueAgdOpen', [agd], function (o) {
+      if (o && o.id) return refresh(function () { goThread(rootOf(o.id, byId())); });
+      if (o && o.added) refresh();
+    }, function () {});
+  });
 })();
 /* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z and 14:51Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
    or blank counts as empty) is tagged whole, so its dashes line up too; outside such a column a lone number cell is tagged by itself.

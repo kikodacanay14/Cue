@@ -15,8 +15,8 @@
 const CUE_AGD_ = { every_min: 15, open_min: 2, prop: 'CUE_AGD_STATE', days: 3, id: /^DRF-\d{4,6}$/ };
 // Canvas's status on the left, the card's Cue status on the right.
 const CUE_AGD_STATUS_ = { 'Waiting for Kiko': 'Needs you', Sending: 'Sending', Sent: 'Done', Saved: 'Done', Failed: 'Failed', Rejected: 'Rejected',
-  'Sent back': 'Closed', Dropped: 'Closed' };
-const CUE_AGD_TYPES_ = ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'invoice_chaser', 'ar_chaser', 'signature_chaser', 'accreditation_chaser', 'rfp', 'requirements'];
+  'Sent back': 'Closed', Dropped: 'Closed', Unread: 'Needs you', Read: 'Done', Replied: 'Done' };   // Replied: Kiko's card "Updates plus replies"   // AGENT-UPDATE-2026-11-13: an agent's update
+const CUE_AGD_TYPES_ = ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'invoice_chaser', 'ar_chaser', 'signature_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'update'];
 
 function cueAgdLoad_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CUE_AGD_.prop) || '{}') || {}; } catch (e) { return {}; } }
 function cueAgdSave_(st) { PropertiesService.getScriptProperties().setProperty(CUE_AGD_.prop, JSON.stringify(st)); }
@@ -25,11 +25,16 @@ const cueAgdKey_ = a => String(a || '').trim().toLowerCase().replace(/\s+/g, ' '
 /** From cueResume (CueJobs.gs): every 15 minutes. Returns how many new drafts it added, or null when not due. */
 function cueAgdTick_() { return cueAgdRead_(CUE_AGD_.every_min); }
 /** The page calls this once when Kiko opens Cue (A2). At most once every 2 minutes, so reloads never pile up runs. */
-function cueAgdOpen() { cueOwner_(); const n = cueAgdRead_(CUE_AGD_.open_min); return { added: n || 0 }; }
+function cueAgdOpen(agd) { cueOwner_();
+  // AGENT-UPDATE-2026-11-13: Canvas's Cue link (?agd=DRF-....) reads Canvas now, so the card is there, and names the request to open.
+  const want = CUE_AGD_.id.test(String(agd || '')) ? String(agd) : '';
+  const n = cueAgdRead_(want ? 0 : CUE_AGD_.open_min);
+  let id = ''; if (want) { const x = cueAgdRecords_(cueSheet_('Requests')).by[want]; id = x ? x.s.id : ''; }
+  return { added: n || 0, id }; }
 function cueAgdRead_(gapMin) {
   if (globalThis.CUE_CHECK_ON_ || UrlFetchApp.__cueCheck === true) return null;   // a check version never adds cards to Kiko's Cue
   const st = cueAgdLoad_(), now = cueNow_();
-  if (st.at && now - st.at < gapMin * 60000) return null;
+  if (gapMin && st.at && now - st.at < gapMin * 60000) return null;
   st.at = now; cueAgdSave_(st);
   const r = cueBridge_({ id: 'agd-' + now.toString(36) }, 'agent_drafts', { days: CUE_AGD_.days }) || {};
   return cueAgdSync_(r.drafts || []);
@@ -56,7 +61,15 @@ function cueAgdFrom_(d) {
   return { draft_id: String(d.draft_id), agent: cueStr_(d.agent, 40) || 'Agent', door: cueStr_(d.door, 20), type: CUE_AGD_TYPES_.indexOf(d.type) >= 0 ? d.type : 'unknown',
     type_label: cueStr_(d.type_label || d.type, 40), project_id: cueStr_(d.project_id, 20), project: cueStr_(d.project, 200), item: cueStr_(d.item, 300),
     recipient: cueStr_(d.recipient, 300), subject: cueStr_(d.subject, 250), body: cueStr_(d.body, 6000), lines, created: cueStr_(d.created, 30),
-    status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 2000), reason: cueStr_(d.reason, 600) };
+    status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 2000), reason: cueStr_(d.reason, 600),
+    handover: d.type === 'update' ? cueAgdHand_(d.handover) : null };   // AGENT-UPDATE-2026-11-13
+}
+/** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
+function cueAgdHand_(h) {
+  h = h || {};
+  return { handover_ref: cueStr_(h.handover_ref, 100), summary: cueStr_(h.summary, 4000), gaps: cueStr_(h.gaps, 4000), next_owner: cueStr_(h.next_owner, 100),
+    next_action: cueStr_(h.next_action, 1000), ack_link: /^https:\/\/[^\s<>"']+$/.test(String(h.ack_link || '')) ? cueStr_(h.ack_link, 500) : '',
+    state: h.state === 'Delivered' ? 'Delivered' : 'Blocked', why: cueStr_(h.why, 300) };
 }
 const cueAgdCueStatus_ = st => CUE_AGD_STATUS_[st] || 'Closed';
 
@@ -70,6 +83,8 @@ function cueAgdLine_(a) {
   if (st === 'Dropped') return 'Not sent, because it is no longer due. ' + (a.reason || '');
   if (st === 'Sent back') return 'Sent back to ' + a.agent + (a.note ? ' with your note: "' + a.note + '"' : '') + '.';
   if (st === 'Rejected') return 'Rejected. Nothing was sent.';
+  if (st === 'Read') return 'Marked read.';   // AGENT-UPDATE-2026-11-13
+  if (st === 'Replied') return 'You replied' + (a.note ? ': "' + a.note + '"' : '') + '. ' + a.agent + ' reads it on its next run.';
   return 'Canvas now shows it as ' + st + '.';
 }
 
@@ -83,7 +98,8 @@ function cueAgdSync_(drafts) {
       if (!d0 || !CUE_AGD_.id.test(String(d0.draft_id || ''))) return;
       const a = cueAgdFrom_(d0), x = R.by[a.draft_id];
       if (!x) {
-        if (a.status !== 'Waiting for Kiko') return;   // only waiting drafts get a card; one decided before Cue saw it stays in Canvas
+        const upd = a.type === 'update';   // AGENT-UPDATE-2026-11-13: an unread update gets a card the same way
+        if (a.status !== (upd ? 'Unread' : 'Waiting for Kiko')) return;   // only waiting drafts get a card; one decided before Cue saw it stays in Canvas
         const now = cueNow_(), d = new Date(now), k = cueAgdKey_(a.agent);
         const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
         const s = { id, version: CUE_VERSION_, kind: 'agentdraft', created: d.toISOString(), started: now, card_at: now, status: 'Needs you', stage: 'Needs you',
@@ -91,7 +107,8 @@ function cueAgdSync_(drafts) {
           metrics: { ai_calls: 0, calls: [] }, notes: [] };
         sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
         R.by[a.draft_id] = { row: sh.getLastRow(), s }; if (!s.ref) R.roots[k] = id;
-        said.push([id, a.agent + ' drafted ' + (/^[aeiou]/i.test(a.type_label) ? 'an ' : 'a ') + a.type_label.toLowerCase() + ': ' + a.item + (a.project ? ' (' + a.project + ')' : '') + '. It waits for you.']);
+        said.push([id, upd ? a.agent + ' posted a handover update: ' + a.item + ' · ' + ((a.handover && a.handover.state) || 'Blocked') + (a.project ? ' (' + a.project + ')' : '') + '.'
+          : a.agent + ' drafted ' + (/^[aeiou]/i.test(a.type_label) ? 'an ' : 'a ') + a.type_label.toLowerCase() + ': ' + a.item + (a.project ? ' (' + a.project + ')' : '') + '. It waits for you.']);
         n++; return;
       }
       const s = x.s, was = s.agd.status;
@@ -104,7 +121,7 @@ function cueAgdSync_(drafts) {
       if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) return;
       // Canvas's own record wins for the outcome; Kiko's edits on a card still waiting stay until he decides.
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { s.agd[f] = a[f]; });
-      if (a.status !== 'Waiting for Kiko') { s.agd.subject = a.subject; s.agd.body = a.body; if (a.lines.length) s.agd.lines = a.lines; }
+      if (a.status !== 'Waiting for Kiko' && a.type !== 'update') { s.agd.subject = a.subject; s.agd.body = a.body; if (a.lines.length) s.agd.lines = a.lines; }
       s.status = s.stage = cueAgdCueStatus_(a.status);
       if (s.status !== 'Needs you' && s.status !== 'Sending') s.ready_at = s.ready_at || cueNow_();
       cueSave_(sh, x.row, s);
@@ -124,7 +141,7 @@ function cueAgdView_(s) {
   return { draft_id: a.draft_id, agent: a.agent, door: a.door, type: a.type, type_label: a.type_label, project_id: a.project_id, project: a.project, item: a.item,
     recipient: a.recipient, subject: a.subject, body: a.body, lines: a.lines || [], created: a.created, status: a.status, decided: a.decided, sent: a.sent,
     gmail_url: /^[0-9a-f]{8,24}$/.test(String(a.gmail_thread || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + a.gmail_thread : '',
-    note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko' };
+    note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null };
 }
 
 /** Kiko's tap. o = { decision: send | save | send_back | reject, subject?, body?, note?, lines? }. Canvas decides once. */
@@ -132,14 +149,18 @@ function cueAgdDecide(id, o) { cueOwner_(); return cueView_(cueAgdDecide_(id, o 
 function cueAgdDecide_(id, o) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never decides an agent draft.');
   const dec = String(o.decision || '');
-  if (['send', 'save', 'send_back', 'reject'].indexOf(dec) < 0) throw new Error('Pick Send, Save, Send back or Reject.');
+  if (['send', 'save', 'send_back', 'reject', 'read', 'reply'].indexOf(dec) < 0) throw new Error('Pick Send, Save, Send back or Reject.');
   const note = cueStr_(String(o.note || '').trim(), 2000);
   if (dec === 'send_back' && !note) throw new Error('Say what ' + 'the agent should change, then tap Send back.');
+  if (dec === 'reply' && !note) throw new Error('Type your reply, then tap Reply.');
   const L = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('No such agent draft.');
     const a = L.s.agd;
-    if (a.status !== 'Waiting for Kiko') throw new Error('This draft is ' + a.status + ' in Canvas, not waiting for you.');
+    const forUpd = dec === 'read' || dec === 'reply';   // AGENT-UPDATE-2026-11-13
+    if ((a.type === 'update') !== forUpd) throw new Error(a.type === 'update' ? 'An update is marked read or replied to.' : 'Only an update is marked read or replied to.');
+    if (dec === 'reply' && a.status === 'Replied') throw new Error('You already replied to this update.');
+    if (!(dec === 'reply' && a.status === 'Read') && a.status !== (a.type === 'update' ? 'Unread' : 'Waiting for Kiko')) throw new Error('This ' + (a.type === 'update' ? 'update' : 'draft') + ' is ' + a.status + ' in Canvas, not waiting for you.');
     if (L.s.status === 'Sending') throw new Error('Cue is already passing this draft to Canvas.');
     if (dec === 'save' && a.type !== 'requirements') throw new Error('Only a requirements list is saved.');
     if (dec === 'send' && a.type === 'requirements') throw new Error('A requirements list is saved, not sent.');
