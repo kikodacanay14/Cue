@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.68: agents' handover updates in Cue, with Mark read and Reply (not deployed)
+## Cue 1.28.68: agents' handover updates in Cue, with Mark read and Reply (LIVE as Version 247, 13 Nov 2026 11:39Z, rollback 246)
 
 Asked: Kiko, 13 Nov 2026 11:06:33Z ("can Cue also support general updates not just drafts"), "Updates plus replies" on the
 project-chat card, spec 11:10:27Z (agent and project, handover reference, summary, gaps, next owner and action, AS acknowledgment
