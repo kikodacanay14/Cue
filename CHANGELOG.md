@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (not deployed)
+## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (LIVE as Version 245, 13 Nov 2026 01:18Z, rollback 244)
 
 Asked: Kiko chose "clean-up first" for the live Cue release order (CDT-Q8, 11 Nov 2026); the Account Manager set the scope
 (1.28.43, 1.28.44, 1.28.46 and 1.28.49) in the release plan https://claude.ai/artifact/68BtA2ATTfVnsYtxWF59Xb. Release branch
@@ -14,6 +14,8 @@ cut from live Version 244 (5f84416), slot cue-1.28.66. Brand v2 (1.28.45) is lef
   suppliers (CUE-049, approved by Kiko 10 Nov 2026 04:16Z).
 
 Tests: 813/813 (`node test/cue.test.js`; live 5f84416 runs 799).
+
+Shipped 13 Nov 2026 from f62d612, which adds the version line (CUE_VERSION_ said Cue 1.28.51). Deploy Cue run 43343802855. QA CONDITIONAL PASS 01:16Z; Tech Lead approved under Rest Mode (Decisions row 234). PC66-01 to 03 are checked on the first live intake, PC66-04 on the Mon 16 Nov 8 AM update.
 
 ## Cue 1.28.65: the Claude roles' daily job runs (not deployed)
 
