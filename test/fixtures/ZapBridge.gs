@@ -54,7 +54,7 @@ const ZB_PNO_RE_ = /^\d{3}$/;                   // Project Number Registry: 3 di
 const ZB_FORBIDDEN_ = {
   file_ce: 'Filing a CE needs Kiko\'s separate approval.', set_active_ce: 'Changing the active CE needs Kiko\'s separate approval.',
   set_project_status: 'Project status is set by a person in Canvas.',
-  delete_ce_lines: 'Deleting CE lines is not exposed.', save_entry: 'Supplier entries are not exposed yet.',
+  delete_ce_lines: 'Deleting CE lines is not exposed.', // GPT-SCOPE-ENTRY-2026-11-11 (Kiko Q1 yes): save_entry is no longer blocked; quotes are added and edited with entry_add and entry_edit
   award: 'Award needs approval.', book: 'Booking needs approval.', pay: 'Payment needs approval.'
 };
 
@@ -323,12 +323,15 @@ const ZB_ACTIONS_ = {
     // Supplier Database matches (Preferred first), past quotes for the item, named suppliers' history and a project's quotes
     // (canvas-ai/AiVendor.gs). Read only; no bank details or TINs.
     kind: 'read', needsProject: false,
+    // SUP-SEARCH-EASY-2026-11-13 (Kiko 08:08:53Z): type, accreditation and city work alone; limit up to 20 (AiVendor.gs).
     schema: { item: { type: 'string', max: 120 }, city: { type: 'string', max: 100 }, names: { type: 'array', maxItems: 5 },
-      project_id: { type: 'string', re: ZB_PID_RE_ } },
+      project_id: { type: 'string', re: ZB_PID_RE_ }, type: { type: 'string', max: 80 }, accreditation: { type: 'string', max: 40 },
+      limit: { type: 'number', min: 1 } },   // more than 20 shows 20
     run: (r) => {
       const names = r.args.names || [];
       if (names.some(x => typeof x !== 'string' || !x.trim() || x.length > 120)) throw new Error('names must be supplier names (120 characters at most)');
-      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '' });
+      return aiVendorLookup_({ item: r.args.item || '', city: r.args.city || '', names: names, project_id: r.args.project_id || '',
+        type: r.args.type || '', accreditation: r.args.accreditation || '', limit: r.args.limit || 0 });
     }
   },
   accreditation_gaps: {
@@ -1061,6 +1064,9 @@ function zbHandle_(raw, sig, now, gpt) {
   if (SW_.fn === 'zapBridge') SW_.fn = 'zapBridge ' + String(r.action || '').slice(0, 60); // PAY-SAVE-LAPS-2026-11-06: Save Timings names the action
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);   // no 'constructor', '__proto__'
   if (own(ZB_FORBIDDEN_, r.action)) return zbOut_('Rejected', r, { error: ZB_FORBIDDEN_[r.action] });
+  // GPT-PROJECT-STATUS-FIX-2026-11-13 (Codex review of #640): a signed Cue call picks its own task_id, so a 'gpt:' prefix alone
+  // does not prove the ChatGPT door. Only the doors (gpt true) may reach a ChatGPT-only action; zbPstatSet_ then keeps out the desk.
+  if (!gpt && ZB_GPT_ONLY_.indexOf(String(r.action)) >= 0) return zbOut_('Rejected', r, { error: ZB_FORBIDDEN_.set_project_status });
   const a = own(ZB_ACTIONS_, r.action) ? ZB_ACTIONS_[r.action] : null;
   if (!a) return zbOut_('Rejected', r, { error: 'unknown action' });
   r.args = r.args == null ? {} : r.args;
@@ -2493,6 +2499,90 @@ ZB_ACTIONS_.supplier_add = {
     : { ok: true, evidence: { supplier: res && res.supplier, added: !!(res && res.added), contact: res && res.contact } }
 };
 ZB_GPT_ACTIONS_.push('supplier_add');
+
+/* SUP-AGENT-FINDINGS-2026-11-13 (Kiko 13 Nov 2026 05:26:59Z: "can you add a read only field in Supplier Database so that agent
+ * can put its findings? It will include Accreditation details"; 05:29Z: "zapier thru connector", "yes" (lookups return it), "free
+ * text"; 05:32Z approved the mockup). supplier_findings_add puts one dated entry at the top of the supplier's Agent Findings cell
+ * (Supplier Database > Main); older entries are kept. The column is added at the end of the header row on the first save. It never
+ * changes any other field, Accreditation Status included. Findings never hold phone numbers, TINs or account numbers (approved
+ * with the mockup), so text with such a number is refused. Support Desk shows the cell read only (lockedHeaders). */
+const ZB_AF_HEAD_ = 'Agent Findings', ZB_AF_MAX_ = 45000;
+/* SUP-AGENT-REVIEW-2026-11-13 (Kiko 13 Nov 2026 06:34:08Z: "it also needs access to this": Agent Last Reviewed, Agent Review
+ * Status, Agent Missing Documents, Agent Next Action; 06:35:55Z approved the mockup and that the lookup lists the documents on file
+ * by name). The same save writes them, under the same rules as Agent Findings: connector only, read only in Support Desk, no phone,
+ * TIN or account numbers. They hold the latest review, so each save overwrites the ones it sends. Canvas stamps Agent Last Reviewed
+ * itself when a save sets the status to Needs Review or Complete (a finished review); the agent never types that date. Nothing here
+ * changes Accreditation Status. */
+const ZB_AR_STATUS_ = ['Pending', 'In Progress', 'Needs Review', 'Complete'], ZB_AR_DONE_ = ['Needs Review', 'Complete'];
+const ZB_AR_HEAD_ = { status: 'Agent Review Status', last: 'Agent Last Reviewed', missing: 'Agent Missing Documents', next: 'Agent Next Action' };
+const ZB_AF_NUM_RE_ = /(\+?63[\s-]?9\d{2}|\b09\d{2})[\s-]?\d{3}[\s-]?\d{4}\b|\b\d{3}-\d{3}-\d{3}(-\d{3,5})?\b|\d{10,}/;
+ZB_ACTIONS_.supplier_findings_add = {
+  kind: 'write', needsProject: false, retrySafe: false,
+  schema: { request_id: ZB_CRM_RID_, supplier: { type: 'string', required: true, nonBlank: true, max: 150 },
+    findings: { type: 'string', max: 3000 }, agent: { type: 'string', max: 40 },
+    // SUP-AGENT-REVIEW-2026-11-13: the four review fields, each optional; the latest save overwrites them.
+    status: { type: 'string', oneOf: ZB_AR_STATUS_ }, missing_documents: { type: 'string', max: 1500 }, next_action: { type: 'string', max: 500 } },
+  run: (r) => { try { return zbFindingsAdd_(r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.saved ? { ok: true, evidence: { supplier: res.supplier, entry: res.entry, saved_fields: res.saved_fields } } : { ok: false, error: 'the findings save gave no answer' }
+};
+ZB_GPT_ACTIONS_.push('supplier_findings_add');
+function zbFindingsAdd_(a, now) {
+  const clean = v => String(v == null ? '' : v).replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const text = clean(a.findings), agent = clean(a.agent).replace(/\n/g, ' ').replace(/·/g, '-').slice(0, 40) || 'Agent';
+  const has = k => a[k] !== undefined && a[k] !== null;
+  const status = has('status') ? clean(a.status) : '', missing = has('missing_documents') ? clean(a.missing_documents) : null;
+  const nextAct = has('next_action') ? clean(a.next_action).replace(/\n+/g, ' ') : null;
+  if (!text && !status && missing === null && nextAct === null) throw new Error('Send findings, a status, missing documents or a next action. Nothing was saved.');
+  if (status && ZB_AR_STATUS_.indexOf(status) < 0) throw new Error('Status must be one of: ' + ZB_AR_STATUS_.join(', ') + '. Nothing was saved.');
+  const noNums = [text, missing || '', nextAct || ''].join('\n').replace(/https?:\/\/\S+/g, ' ');
+  if (ZB_AF_NUM_RE_.test(noNums)) throw new Error('Findings must not hold phone numbers, TINs or account numbers. Take them out and send it again. Nothing was saved.');
+  const p = supplierProfile(clean(a.supplier).slice(0, 150));
+  if (!p.found) throw new Error('"' + clean(a.supplier) + '" is not in the Supplier Database. Add it with supplier_add first. Nothing was saved.');
+  const when = Utilities.formatDate(now || new Date(), 'Asia/Manila', 'd MMM yyyy, h:mm a');
+  // A line in the text that looks like an entry heading would split the entry when shown, so it gets a leading "- ".
+  const body = text.split('\n').map(l => /^\d{1,2} [A-Z][a-z]{2} \d{4}, \d{1,2}:\d{2} [AP]M · /.test(l) ? '- ' + l : l).join('\n');
+  const entry = when + ' · ' + agent + '\n' + body;   // the cell always starts with the date, so Sheets never reads it as a formula
+  const writes = {};                                    // header -> value
+  if (status) writes[ZB_AR_HEAD_.status] = status;
+  if (ZB_AR_DONE_.indexOf(status) >= 0) writes[ZB_AR_HEAD_.last] = when;
+  // One document per line, bullets as "• "; text Sheets would read as a formula gets a leading apostrophe (it stays text).
+  const asText = v => /^[=+@-]/.test(v) ? "'" + v : v;
+  if (missing !== null) writes[ZB_AR_HEAD_.missing] = asText(missing.split('\n').map(l => l.replace(/^\s*[-*•]\s*/, '• ')).join('\n'));
+  if (nextAct !== null) writes[ZB_AR_HEAD_.next] = asText(nextAct);
+  const cfg = CONFIG.ENTITIES.suppliers, lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = getSheet_(cfg), hr = cfg.headerRow;
+    let lastCol = sh.getLastColumn();
+    const head = sh.getRange(hr, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h).trim());
+    // A column this save needs that is not there yet is added at the end of the header row.
+    const col = h => { let c = head.indexOf(h) + 1; if (!c) { c = ++lastCol; head[c - 1] = h; sh.getRange(hr, c).setValue(h); } return c; };
+    const k = head.indexOf(cfg.keyHeader);
+    if (k < 0) throw new Error('No "' + cfg.keyHeader + '" column in the Supplier Database. Nothing was saved.');
+    const ids = sh.getRange(hr + 1, k + 1, Math.max(sh.getLastRow() - hr, 1), 1).getDisplayValues().map(x => String(x[0]).trim());
+    const at = ids.indexOf(String(p.id).trim());
+    if (!p.id || at < 0) throw new Error('"' + p.name + '" has no Supplier ID # row to write to. Nothing was saved.');
+    const row = hr + 1 + at;
+    let next = null, cell = null;
+    if (text) {
+      cell = sh.getRange(row, col(ZB_AF_HEAD_));
+      const old = String(cell.getValue() == null ? '' : cell.getValue()).trim();
+      next = old ? entry + '\n\n' + old : entry;
+      if (next.length > ZB_AF_MAX_) throw new Error('The Agent Findings cell for ' + p.name + ' is full (' + ZB_AF_MAX_ + ' characters). Nothing was saved.');
+    }
+    if (cell) cell.setValue(next);
+    // Agent Last Reviewed is plain text (the same date format as the findings), so Sheets never turns it into another format.
+    Object.keys(writes).forEach(h => { const r = sh.getRange(row, col(h)); if (h === ZB_AR_HEAD_.last) r.setNumberFormat('@'); r.setValue(writes[h]); });
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+  const what = [text ? 'findings' : '', status ? 'status ' + status : '', missing !== null ? 'missing documents' : '', nextAct !== null ? 'next action' : ''].filter(String).join(', ');
+  try { logEvent('Agent findings added', 'Suppliers', p.name + ' (' + agent + '): ' + what); } catch (e) { /* logging never blocks */ }
+  const out = { saved: true, supplier: p.name, supplier_id: p.id, entry: text ? entry.split('\n')[0] : '', saved_fields: what };
+  if (status) out.review_status = status;
+  if (writes[ZB_AR_HEAD_.last]) out.last_reviewed = when;
+  return out;
+}
 function zbSupplierAdd_(a) {
   const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
   const name = clean(a.name).slice(0, 150), email = clean(a.email).toLowerCase();
@@ -2518,6 +2608,119 @@ function zbSupplierAdd_(a) {
   addQuoteContact(p.name, [person, phone, email, pos]);
   return { supplier: p.name, added, contact: person + (email ? ' · ' + email : '') + (phone ? ' · ' + phone : '') };
 }
+
+/* GPT-SCOPE-ENTRY-2026-11-11 (Kiko 11 Nov 2026 18:38Z "Yes" to the scope in thread "Build Canvas connector for scopes and
+ * suppliers": Q1 take save_entry off the blocked list; Q2 an awarded or partly paid quote's locked fields are done in Canvas; Q3 every
+ * field the Entry tab edits; Q4 ChatGPT and Claude). ChatGPT adds and edits scopes and supplier entries (quotes) through Canvas's own
+ * saves: addScope, saveScopeFields and saveEntry. Every lock those saves have applies unchanged: duplicate and similar scopes,
+ * Complete, award, In House, and PAID-ENTRY-RULES-2026-10-25 (a paid card stays open, but its cost never goes below what was paid,
+ * and no new quote is added to a paid scope). The bridge runs as a Manager, so an awarded quote's Supplier, Amount and Quote file
+ * are refused here. Status, award, payment and deletes stay out. Review 12 Nov 2026: the read back no longer passes text as a
+ * number, and compares dates and times the way Sheets stores them. */
+const ZB_GPT_SCOPE_ = { category: 'category', description: 'description', quantity: 'quantity', occurrence: 'occurrence', execution: 'execution',
+  cost_type: 'cost type', expense_type: 'expense type' };
+const ZB_GPT_ENTRY_ = { supplier: 'supplier', description: 'description', supplier_quotation: 'supplier quotation', amount: 'amount',
+  contact_person: 'contact person', delivery_date: 'delivery date', order_id: 'order id', driver: 'driver', contact_number: 'contact number',
+  plate_number: 'plate number', ordered_by: 'ordered by', pick_up: 'pick up', drop_off: 'drop off', vehicle_type: 'vehicle type',
+  quote_set_up: 'quote set-up', quote_event_date: 'quote event date', quote_pull_out: 'quote pull-out', quote_venue: 'quote venue', quote_terms: 'quote terms' };
+const ZB_SID_RE_ = /^SCP\d{2}-\d{3,}-\d{2,}$/, ZB_EID_RE_ = /^ENT-\d{2,}-\d{2,}-\d{1,4}$/;
+const zbFields_ = (map, num) => Object.keys(map).reduce((o, k) => { o[k] = num.indexOf(k) >= 0 ? { type: 'number', positive: true } : { type: 'string', max: 1000 }; return o; }, {});
+const zbChanges_ = (map, num) => ({ type: 'object', required: true, minKeys: 1, fields: Object.keys(map).reduce((o, k) => {
+  o[k] = num.indexOf(k) >= 0 ? { type: 'object', fields: { from: { type: 'number' }, to: { type: 'number', required: true, positive: true } } }
+    : k === 'execution' ? { type: 'object', fields: { from: { type: 'string', max: 500 }, to: { type: 'string', required: true, oneOf: ['In House', 'Outsourced'] } } }
+    : zbFromTo_('string'); return o; }, {}) });
+const zbOpKey_ = (r) => 'gpt-' + String(r.project_id || '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 30) + '-' + String(r.command_id || '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 70);
+// A Date reads as yyyy-MM-dd, with HH:mm when it has a time; a time-only cell (Sheets keeps it on 30 Dec 1899) reads as HH:mm.
+const zbTxt_ = v => { if (Object.prototype.toString.call(v) !== '[object Date]') return String(v == null ? '' : v).trim();
+  const f = p => Utilities.formatDate(v, 'Asia/Manila', p); if (v.getFullYear() < 1900) return f('HH:mm');
+  return f('HH:mm') === '00:00' ? f('yyyy-MM-dd') : f('yyyy-MM-dd HH:mm'); };
+function zbScopeNow_(pid, sid) { const S = sheet_(SRC.SCOPES, 'Scope Categories'), row = S.v[scopeRow_(S, pid, sid) - 1] || [];
+  return Object.keys(ZB_GPT_SCOPE_).concat(['status', 'requirement id']).reduce((o, k) => { const h = ZB_GPT_SCOPE_[k] || k, c = S.head.indexOf(h); o[k.replace(' ', '_')] = c < 0 ? '' : zbTxt_(row[c]); return o; }, {}); }
+function zbEntryRow_(pid, eid) { const S = sheet_(SRC.SCOPES, 'Supplier Entries'), at = entryAt_(S, 0, pid, eid); return { S, at, row: at ? S.v[at - 1] : null }; }
+function zbEntryNow_(pid, eid) { const x = zbEntryRow_(pid, eid); if (!x.row) return {};
+  return Object.keys(ZB_GPT_ENTRY_).concat(['scope id', 'awarded']).reduce((o, k) => { const h = ZB_GPT_ENTRY_[k] || k, c = x.S.head.indexOf(h); o[k.replace(' ', '_')] = c < 0 ? '' : zbTxt_(x.row[c]); return o; }, {}); }
+// What did not read back as sent: fields Canvas skipped (a formula column) are named apart, never counted as a failure.
+/* A number reads back as the same only when the cell holds a real number: blank, text or NaN never match (Number('') is 0 and
+   NaN - x > 0.005 is false, so the old check passed them). Commas and the peso sign are allowed, as Sheets may show them. */
+function zbSameNum_(got, want) { const t = String(got).replace(/[,\u20b1\s]/g, ''); if (!/^-?\d+(\.\d+)?$/.test(t)) return false;
+  return Math.abs(Number(t) - want) <= 0.005; }
+// Text sent to a cell Sheets turns into a number, date or time reads back changed; it matches when it is the same value.
+function zbSameText_(got, want) { if (got === want) return true;
+  const n = String(want).replace(/[,\u20b1\s]/g, ''); if (/^-?\d+(\.\d+)?$/.test(n)) return zbSameNum_(got, Number(n));
+  const tm = s => { const m = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?m?\.?$/i.exec(String(s).trim()); if (!m) return null;
+    let h = Number(m[1]) % (m[3] ? 12 : 24); if (m[3] && /p/i.test(m[3])) h += 12; return ('0' + h).slice(-2) + ':' + m[2]; };
+  if (/^\d{2}:\d{2}$/.test(got)) return tm(want) === got;
+  if (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/.test(got)) { const d = new Date(want); if (isNaN(d.getTime())) return false;
+    return Utilities.formatDate(d, 'Asia/Manila', got.length > 10 ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd') === got; }
+  return false; }
+function zbReadBack_(sent, now, skipped, map) { const off = [];
+  Object.keys(sent).forEach(k => { const want = String(sent[k] == null ? '' : sent[k]).trim(), got = String(now[k] == null ? '' : now[k]).trim();
+    if ((skipped || []).map(norm_).indexOf(norm_(map[k])) >= 0) return;
+    if (typeof sent[k] === 'number' ? !zbSameNum_(got, sent[k]) : !zbSameText_(got, want)) off.push(k + ' reads ' + (got || 'blank')); });
+  return off.length ? { ok: false, error: 'read back differs: ' + off.join('; ') } : { ok: true }; }
+const zbRefusedOr_ = (res, then) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : then();
+const zbSimilar_ = (e) => { const m = zbErr_(e); if (!/^SIMILAR: /.test(m)) return zbGptRefusal_(e);
+  return { refused: m.replace(/^SIMILAR: /, '').replace(/ Press Save anyway.*$/, '') + ' Send it again with allow_similar: true to add it as another scope. Nothing was saved.' }; };
+
+ZB_ACTIONS_.scope_add = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { requirement_id: { type: 'string', required: true, nonBlank: true, max: 60 }, category: { type: 'string', required: true, nonBlank: true, max: 200 },
+    description: { type: 'string', max: 1000 }, quantity: { type: 'number', positive: true }, occurrence: { type: 'number', positive: true },
+    execution: { type: 'string', oneOf: ['In House', 'Outsourced'] }, cost_type: { type: 'string', max: 40 }, expense_type: { type: 'string', max: 100 },
+    allow_similar: { type: 'boolean' } },
+  run: (r) => { const a = r.args, v = { 'requirement id': String(a.requirement_id).trim() };
+    Object.keys(ZB_GPT_SCOPE_).forEach(k => { if (a[k] != null && String(a[k]).trim() !== '') v[ZB_GPT_SCOPE_[k]] = typeof a[k] === 'number' ? a[k] : String(a[k]).trim(); });
+    let out; try { out = addScope(r.project_id, v, { opKey: zbOpKey_(r), allowSimilar: a.allow_similar === true }); } catch (e) { return zbSimilar_(e); }
+    const sid = String((out && (out.created || out.repeatOf)) || '').trim();
+    if (!sid) return { refused: 'Canvas made no Scope ID. Nothing was saved.' };
+    return { saved: true, scope_id: sid, repeat: !!(out && out.repeatOf), skipped: (out && out.skipped) || [], now: zbScopeNow_(r.project_id, sid) }; },
+  check: (r, res) => zbRefusedOr_(res, () => { const sent = {}; Object.keys(ZB_GPT_SCOPE_).forEach(k => { if (r.args[k] != null) sent[k] = r.args[k]; });
+    sent.requirement_id = String(r.args.requirement_id).trim();
+    return res.repeat ? { ok: true } : zbReadBack_(sent, res.now || {}, res.skipped, Object.assign({ requirement_id: 'requirement id' }, ZB_GPT_SCOPE_)); })
+};
+ZB_ACTIONS_.scope_edit = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { scope_id: { type: 'string', required: true, re: ZB_SID_RE_ }, changes: zbChanges_(ZB_GPT_SCOPE_, ['quantity', 'occurrence']) },
+  run: (r) => { const a = r.args, ch = {}; let was;
+    try { was = zbScopeNow_(r.project_id, a.scope_id); } catch (e) { return zbGptRefusal_(e); }
+    Object.keys(a.changes).forEach(k => { const c = a.changes[k]; ch[ZB_GPT_SCOPE_[k]] = { from: c.from != null ? c.from : was[k], to: c.to }; });
+    let out; try { out = saveScopeFields(r.project_id, a.scope_id, ch); } catch (e) { return zbGptRefusal_(e); }
+    return { saved: true, scope_id: a.scope_id, skipped: (out && out.skipped) || [],
+      was: Object.keys(a.changes).reduce((o, k) => { o[k] = ch[ZB_GPT_SCOPE_[k]].from; return o; }, {}), now: zbScopeNow_(r.project_id, a.scope_id) }; },
+  check: (r, res) => zbRefusedOr_(res, () => zbReadBack_(Object.keys(r.args.changes).reduce((o, k) => { o[k] = r.args.changes[k].to; return o; }, {}),
+    res.now || {}, res.skipped, ZB_GPT_SCOPE_))
+};
+ZB_ACTIONS_.entry_add = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { scope_id: { type: 'string', required: true, re: ZB_SID_RE_ }, values: { type: 'object', required: true, minKeys: 1, fields: zbFields_(ZB_GPT_ENTRY_, ['amount']) } },
+  run: (r) => { const a = r.args, v = {};
+    Object.keys(a.values).forEach(k => { v[ZB_GPT_ENTRY_[k]] = typeof a.values[k] === 'number' ? a.values[k] : String(a.values[k]).trim(); });
+    let out; try { out = saveEntry(r.project_id, { scopeId: a.scope_id, values: v, opKey: zbOpKey_(r), noReload: true }); } catch (e) { return zbGptRefusal_(e); }
+    const eid = String((out && (out.created || out.repeatOf)) || '').trim();
+    if (!eid) return { refused: 'Canvas made no Entry ID. Nothing was saved.' };
+    return { saved: true, scope_id: a.scope_id, entry_id: eid, repeat: !!(out && out.repeatOf), skipped: (out && out.skipped) || [], now: zbEntryNow_(r.project_id, eid),
+      execution: zbScopeNow_(r.project_id, a.scope_id).execution }; },
+  check: (r, res) => zbRefusedOr_(res, () => { if (res.repeat) return { ok: true };
+    const sent = Object.assign({}, r.args.values); // In House: Canvas makes the supplier Inrush, so only an In House scope skips that check
+    if ((res.now || {}).supplier === 'Inrush' && res.execution === 'In House') delete sent.supplier;
+    return zbReadBack_(sent, res.now || {}, res.skipped, ZB_GPT_ENTRY_); })
+};
+ZB_ACTIONS_.entry_edit = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { entry_id: { type: 'string', required: true, re: ZB_EID_RE_ }, changes: zbChanges_(ZB_GPT_ENTRY_, ['amount']) },
+  run: (r) => { const a = r.args, before = { 'entry id': a.entry_id }, v = {}; let x;
+    try { x = zbEntryRow_(r.project_id, a.entry_id); } catch (e) { return zbGptRefusal_(e); }
+    if (!x.row) return { refused: a.entry_id + ' is not a supplier entry in this project. Nothing was saved.' };
+    const was = zbEntryNow_(r.project_id, a.entry_id);
+    // A change sent with the value it replaces is checked against the sheet; one sent without it takes the value Canvas holds now.
+    Object.keys(a.changes).forEach(k => { const c = a.changes[k], h = ZB_GPT_ENTRY_[k]; v[h] = c.to; if (c.from != null) before[h] = c.from; });
+    let out; try { out = saveEntry(r.project_id, { _row: x.at, before, values: v, noReload: true }); } catch (e) { return zbGptRefusal_(e); }
+    return { saved: true, entry_id: a.entry_id, scope_id: was.scope_id, skipped: (out && out.skipped) || [],
+      was: Object.keys(a.changes).reduce((o, k) => { o[k] = a.changes[k].from != null ? a.changes[k].from : was[k]; return o; }, {}), now: zbEntryNow_(r.project_id, a.entry_id) }; },
+  check: (r, res) => zbRefusedOr_(res, () => zbReadBack_(Object.keys(r.args.changes).reduce((o, k) => { o[k] = r.args.changes[k].to; return o; }, {}),
+    res.now || {}, res.skipped, ZB_GPT_ENTRY_))
+};
+ZB_GPT_ACTIONS_.push('scope_add', 'scope_edit', 'entry_add', 'entry_edit');
 
 /* PROJECT-LOG-2026-10-27 (Kiko 10:34Z: everything about a project done in other threads is also written in the project's thread;
  * "include the mails that i receive"). Cue sends log lines: emails in and out (headers only), Ask Cue task summaries and
@@ -2644,6 +2847,165 @@ ZB_ACTIONS_.timeline_time_save = {
   }
 };
 ZB_GPT_ACTIONS_.push('timeline_times', 'timeline_time_save');
+
+/* GPT-CATALOG-READS-2026-11-13 (Kiko 12 Nov 23:30Z "Please add supplier details in mcp", 23:30Z "Read only"; 13 Nov 00:51Z card:
+ * "Selling prices only"). ChatGPT reads, never writes, three things:
+ * - supplier_lookup: Cue's existing supplier search (AiVendor.gs; no bank details, TINs or phones), now open to ChatGPT too.
+ * - price_list: the Product and Pricing Document's items, packages, package breakdowns and measurements, at selling prices.
+ *   The Materials tab (costs, labor, overhead, margin) and the All-In table (it adds up supplier costs) are never read.
+ * - inventory: the 2026 Inventory sheet's items with area, quantity, status, remarks and specs (no photos). */
+const ZB_CAT_MAX_ = 300;
+const ZB_CAT_COST_RE_ = /\b(cost|costs|costing|margin|markup|supplier)\b/i;
+function zbCatHit_(find, parts) {
+  const want = String(find || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!want.length) return true;
+  const hay = parts.map(x => String(x == null ? '' : x).toLowerCase()).join(' ');
+  return want.every(w => hay.indexOf(w) >= 0);
+}
+function zbCatCap_(list) { return { rows: list.slice(0, ZB_CAT_MAX_), more: Math.max(0, list.length - ZB_CAT_MAX_) }; }
+function zbPriceList_(a) {
+  const find = String(a.find || '').trim(), pkg = String(a.package_id || '').trim().toUpperCase();
+  const ss = book_(PL.sheetId), it = plItems_(ss);
+  const keep = (id, parts) => (!pkg || String(id || '').toUpperCase() === pkg) && zbCatHit_(find, parts);
+  const items = it.rows.map(r => ({ category: r.cat, item_id: r.itemId, item: r.item, package_id: r.pkgId, variant: r.variant,
+    description: r.desc, price: r.price, note: ZB_CAT_COST_RE_.test(r.note) ? '' : r.note }))
+    .filter(r => keep(r.package_id, [r.category, r.item_id, r.item, r.package_id, r.variant, r.description]));
+  const packages = plPackages_(ss).rows.map(r => ({ type: r.type, package_id: r.pkgId, name: r.name, description: r.desc, amount: r.amount,
+    note: ZB_CAT_COST_RE_.test(r.note) ? '' : r.note }))
+    .filter(r => keep(r.package_id, [r.type, r.package_id, r.name, r.description]));
+  // GPT-CATALOG-READS-FIX-2026-11-13 (Codex review, PR #635): the Price List page shows one breakdown per title, the primary (B:D)
+  // copy first (PriceList.html blockFor), and finds a package's own breakdown by its name (pkgForBlock); the read does the same.
+  const lc = x => String(x || '').trim().toLowerCase();
+  const all = plBreakdown_(ss, it).filter(b => b.kind !== 'allin');
+  const pkgNames = pkg ? plPackages_(ss).rows.filter(r => String(r.pkgId || '').toUpperCase() === pkg).map(r => lc(r.name)) : [];
+  const breakdowns = all.filter(b => b.primary || !all.some(o => o !== b && o.primary && lc(o.title) === lc(b.title)))
+    .map(b => ({ title: b.title, subtitle: b.sub,
+    kind: b.kind === 'addons' ? 'add-ons' : 'package', total: b.totalText || '', note: ZB_CAT_COST_RE_.test(b.note) ? '' : b.note,
+    components: b.comps.map(c => ({ name: c.name, included: c.incl, price: c.priceText, items: c.items || [] })) }))
+    .filter(b => (!pkg || pkgNames.indexOf(lc(b.title)) >= 0 || b.components.some(c => c.items.some(x => String(x).toUpperCase() === pkg)))
+      && zbCatHit_(find, [b.title, b.subtitle].concat(b.components.map(c => c.name + ' ' + c.items.join(' ')))));
+  const measurements = plSpecs_(ss).blocks.map(b => {
+    const head = b.rows[0] || [], ok = head.map(h => !ZB_CAT_COST_RE_.test(h));
+    return { title: b.title, item_ids: b.links, unit: b.unit, columns: head.filter((h, i) => ok[i]),
+      rows: b.rows.slice(1).map(row => row.filter((x, i) => ok[i])) };
+  }).filter(b => (!pkg || b.item_ids.some(x => items.some(i => i.item_id.toUpperCase() === x) || x === pkg))
+    && zbCatHit_(find, [b.title, b.item_ids.join(' ')].concat(b.rows.map(r => r.join(' ')))));
+  const I = zbCatCap_(items), P = zbCatCap_(packages);
+  return { find: find, package_id: pkg, prices: 'selling prices (PHP); costs and margins are not shared',
+    items: I.rows, more_items: I.more, packages: P.rows, more_packages: P.more, breakdowns: breakdowns.slice(0, 60),
+    measurements: measurements.slice(0, 60) };
+}
+function zbInventory_(a) {
+  const find = String(a.find || '').trim(), area = String(a.area || '').trim().toLowerCase(), status = String(a.status || '').trim().toLowerCase();
+  const ss = book_(INV.sheetId), T = invItems_(ss), S = invSpecs_(ss), specs = {};
+  S.rows.forEach(s => { const m = specs[s.pid] || (specs[s.pid] = {}); if (s.value || !(s.name in m)) m[s.name] = s.value; });
+  const rows = T.rows.map(r => ({ area_id: r.areaId, area: r.area, product_id: r.pid, item: r.item, quantity: r.qty,
+    status: r.status || 'OK', remarks: r.remarks, specs: specs[r.pid] || {} }))
+    .filter(r => (!area || r.area.toLowerCase().indexOf(area) >= 0 || r.area_id.toLowerCase() === area)
+      && (!status || r.status.toLowerCase() === status)
+      && zbCatHit_(find, [r.area_id, r.area, r.product_id, r.item, r.remarks]));
+  const C = zbCatCap_(rows);
+  return { find: find, area: area, status: status, statuses: ['OK'].concat(INV.statuses), items: C.rows, more_items: C.more };
+}
+ZB_ACTIONS_.price_list = {
+  kind: 'read', needsProject: false,
+  schema: { find: { type: 'string', max: 120 }, package_id: { type: 'string', max: 40 } },
+  run: (r) => zbPriceList_(r.args || {})
+};
+ZB_ACTIONS_.inventory = {
+  kind: 'read', needsProject: false,
+  schema: { find: { type: 'string', max: 120 }, area: { type: 'string', max: 80 }, status: { type: 'string', max: 40 } },
+  run: (r) => zbInventory_(r.args || {})
+};
+ZB_GPT_ACTIONS_.push('supplier_lookup', 'price_list', 'inventory');
+
+/* GPT-PROJECT-STATUS-2026-11-13 (Kiko 13 Nov 2026 02:29:59Z: "please update canvas connector to include updating of project
+ * status"). ChatGPT sets a project's PROJECT STATUS through the same save as the Projects page and Finance Desk
+ * (setProjectStatus), so its checks all apply: a "from" that no longer matches refuses the save, Completed runs the completion
+ * check, checklist gaps come back as a warning, and the timeline follows the stage. Only the statuses the Projects page offers
+ * (Canvas.html PROJECT_STATUSES) are accepted. ZB_FORBIDDEN_.set_project_status stays for Cue's signed calls: this action is
+ * open to the ChatGPT door only. */
+const ZB_PSTAT_LIST_ = ['For Admin Completion', 'For CE Creation', 'For Pitch Presentation', 'For Client Awarding', 'For Production Start',
+  'For Event Execution', 'For Service Invoicing', 'For Payment Advice', 'For Project Review', 'Completed', 'On Hold', 'Cancelled', 'Not Awarded'];
+function zbPstatNow_(pid) { // what Admin Directory shows now ('' when it can't be read)
+  for (const tab of ['Directory', ADMIN_PROJECTS_TAB]) {
+    try { const S = sheet_(SRC.ADMIN, tab), c = S.col('project status'), row = projectRow_(S, pid); return String(S.v[row - 1][c] == null ? '' : S.v[row - 1][c]).trim(); }
+    catch (e) { /* try the next tab */ }
+  }
+  return '';
+}
+function zbPstatSet_(r) {
+  if (!/^gpt:/.test(String(r.task_id || ''))) throw new Error('project_status_set is only open to the ChatGPT door. Nothing was saved.');
+  const a = r.args || {}, want = ZB_PSTAT_LIST_.find(x => norm_(x) === norm_(a.to));
+  if (!want) throw new Error('"' + a.to + '" is not a project status. Use one of: ' + ZB_PSTAT_LIST_.join(', ') + '. Nothing was saved.');
+  // A repeat of a save that already landed (the status is already the new one) is answered without writing again.
+  if (norm_(zbPstatNow_(r.project_id)) === norm_(want)) return { project_id: r.project_id, was: a.from == null ? '' : String(a.from), status: want,
+    admin_status: '', warning: '', moved_from: '', already: true };
+  let out;
+  try { out = setProjectStatus(r.project_id, a.from == null ? '' : String(a.from), want, 'Projects'); }
+  catch (e) { // Canvas's own refusals come before any write; say so, unless the sheet shows the new status after all.
+    const m = zbErr_(e);
+    if (/Nothing was saved\./.test(m)) throw new Error(m.replace(/\s*Press Refresh and try again\.?\s*$/, '').replace(/Nothing was saved\.\s*/, '').trim() + ' Read the project again for its current status. Nothing was saved.');
+    if (norm_(zbPstatNow_(r.project_id)) === norm_(want)) throw e;
+    throw new Error(m.replace(/\.?\s*$/, '.') + ' Nothing was saved.');
+  }
+  try { logEvent('Project status set', 'Projects', out.projectId + ': ' + (a.from || 'no status') + ' → ' + want + ' (from ChatGPT)'); } catch (e) { /* logging never blocks */ }
+  return { project_id: out.projectId, was: a.from == null ? '' : String(a.from), status: out.status, admin_status: out.adminStatus || '',
+    warning: out.warning || '', moved_from: out.oldId || '' };
+}
+ZB_ACTIONS_.project_status_set = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { from: { type: 'string', required: true, max: 60 }, to: { type: 'string', required: true, nonBlank: true, max: 60 } },
+  run: (r) => { try { return zbPstatSet_(r); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.status ? { ok: true, evidence: { status: res.status, was: res.was, warning: res.warning } }
+    : { ok: false, error: 'the status save gave no answer' }
+};
+ZB_GPT_ACTIONS_.push('project_status_set');
+const ZB_GPT_ONLY_ = ['project_status_set'];   // GPT-PROJECT-STATUS-FIX-2026-11-13: never reachable through a signed Cue call
+
+/* AGENT-DRAFTS-2026-11-13 (Kiko 13 Nov 2026, spec agent-drafts/spec.md, D1-D14, "Build it" 08:45:56Z; AgentDrafts.gs). Agents
+ * draft crew and supplier emails and requirement lists; Kiko approves each one in Cue; Canvas sends once. draft_add, draft_status
+ * and rfp_log are open to the ChatGPT door. agent_drafts and agent_draft_decide are Cue's (signed bridge only): the door can
+ * never decide a draft, so an agent can never send. */
+const ZB_AGD_LINE_ = { item: { type: 'string', required: true, nonBlank: true, max: 200 }, description: { type: 'string', max: 2000 },
+  unit_cost: { type: 'number', min: 0 }, discounted: { type: 'number', min: 0 }, qty: { type: 'number', required: true, positive: true },
+  occurrence: { type: 'number', positive: true }, price: { type: 'number', min: 0 }, section: { type: 'string', max: 100 } };
+ZB_ACTIONS_.draft_add = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
+    type: { type: 'string', required: true, oneOf: ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'signature_chaser', 'ar_chaser',
+      'invoice_chaser', 'accreditation_chaser', 'rfp', 'requirements'] },
+    project_id: { type: 'string', re: ZB_PID_RE_ }, item: { type: 'string', max: 300 }, supplier: { type: 'string', max: 150 },
+    subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 },
+    lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ }, replaces: { type: 'string', re: /^DRF-\d{4,6}$/ } },
+  run: (r) => { try { return agdAdd_(r); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.draft_id ? { ok: true, evidence: { draft_id: res.draft_id, status: res.status } } : { ok: false, error: 'the draft save gave no answer' }
+};
+ZB_ACTIONS_.draft_status = {
+  kind: 'read', needsProject: false,
+  schema: { draft_id: { type: 'string', re: /^DRF-\d{4,6}$/ }, agent: { type: 'string', max: 40 } },
+  run: (r) => agdStatus_(r.args)
+};
+ZB_ACTIONS_.rfp_log = {
+  kind: 'read', needsProject: false,
+  schema: { project_id: { type: 'string', required: true, re: ZB_PID_RE_ }, scope_id: { type: 'string', max: 40 } },
+  run: (r) => agdRfpLog_(r.args)
+};
+ZB_GPT_ACTIONS_.push('draft_add', 'draft_status', 'rfp_log');
+ZB_ACTIONS_.agent_drafts = {
+  kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 0 } },
+  run: (r) => agdForCue_(r.args)
+};
+ZB_ACTIONS_.agent_draft_decide = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, draft_id: { type: 'string', required: true, re: /^DRF-\d{4,6}$/ },
+    decision: { type: 'string', required: true, oneOf: ['send', 'save', 'send_back', 'reject'] },
+    subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 2000 },
+    lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
+  run: (r) => agdDecide_(r.args)
+};
 
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
  * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for

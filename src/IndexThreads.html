@@ -462,6 +462,7 @@
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
       vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
       workflow: { name: 'Workflow map', family: 'approve', steps: WORKFLOW, card: function (r) { return !!(r.workflow && r.workflow.map); } },
+      agentdraft: { name: function (r) { return (r.agd && r.agd.agent) || 'Agent draft'; }, family: 'draft', steps: null, card: function (r) { return !!r.agd; } },   // AGENT-DRAFTS-2026-11-13: one thread per agent
       tri: { name: function (r) { return ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || ''); }, family: 'approve', steps: null, card: function (r) { return !!r.tri; } },
       supplier: { name: 'Supplier registration', family: 'approve', steps: SUPPLIER, card: function (r) { return !!r.supplier; } },
       personal: { name: 'Personal expense', family: 'approve', steps: PERSONAL, card: function (r) { return !!r.personal; } },

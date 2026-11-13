@@ -1,5 +1,42 @@
 # Changelog
 
+## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (not deployed)
+
+Asked: Kiko, 13 Nov 2026 08:13:49Z ("they return a draft to me and then i approve"), 08:19:47Z (Edit then Send, Rewrite with
+Cue, Send back to agent), 08:34:57Z (approved the two card screens; "can it show in Cue as a separate thread from each agent?"),
+"Build it" on the spec at 08:45:56Z (CanvasWorkspace ADR-0177, docs/specs/agent-drafts.md). Built on live 1.28.66 (Version 245),
+slot cue-1.28.67, card agent-email-drafts. Needs Canvas V535 (live 09:08Z) for the bridge actions `agent_drafts` and
+`agent_draft_decide`.
+
+- New `src/CueAgentDrafts.gs`: every 15 minutes (job "Agent drafts") and when Kiko opens Cue, Cue reads Canvas's open and recent
+  agent drafts (read) and adds a card for each new waiting one, in one thread per agent named after the agent. No AI call.
+- The email card: Send (after an optional Edit), Rewrite with Cue (Kiko's note, one AI call, nothing sent), Send back to agent
+  (his note goes to the agent) and Reject. The requirements card: each requirement editable, Qty and Days, Save to Canvas; no
+  Execution column, since Canvas's requirement lines have no such field.
+- Kiko's tap goes to Canvas once (`agent_draft_decide`). Canvas re-checks the item is still due, sends through its own sender and
+  records the result; Cue only shows it (Sent, Saved, Not sent, Failed with the reason, Sent back, Rejected). An RFP or
+  accreditation chaser shows Sending until Kiko's Gmail sends it, then Sent with an Open in Gmail button.
+- A refusal (a number in the text, Canvas busy) keeps the card waiting with the reason. A tap whose run died is offered again
+  after 5 minutes; Canvas never sends a draft twice.
+- test/fixtures/ZapBridge.gs refreshed from Canvas V535. Tests: 98-agent-drafts.js (AGD1 to AGD10); 823 pass.
+
+## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (LIVE as Version 245, 13 Nov 2026 01:18Z, rollback 244)
+
+Asked: Kiko chose "clean-up first" for the live Cue release order (CDT-Q8, 11 Nov 2026); the Account Manager set the scope
+(1.28.43, 1.28.44, 1.28.46 and 1.28.49) in the release plan https://claude.ai/artifact/68BtA2ATTfVnsYtxWF59Xb. Release branch
+cut from live Version 244 (5f84416), slot cue-1.28.66. Brand v2 (1.28.45) is left out: it was backed out of main (#378).
+
+- 1.28.43: labels use the standard names and the crit pill (`tag crit` replaces `tag flag`); the live "Urgent" wording stays.
+- 1.28.44: the morning report lists payments due tomorrow (`pay_day_due` from the Canvas bridge, already live in Canvas).
+- 1.28.46: RFQ drafts leave out a price or rate written in a spec, the inquiry or a drawing (CUE-048, R2); the intake-real
+  check tests R1 to R3 on real inquiries. It only reports; no block was added.
+- 1.28.49: an RFQ goes only to a named supplier, never to a kind of business, and the card says when web research finds no
+  suppliers (CUE-049, approved by Kiko 10 Nov 2026 04:16Z).
+
+Tests: 813/813 (`node test/cue.test.js`; live 5f84416 runs 799).
+
+Shipped 13 Nov 2026 from f62d612, which adds the version line (CUE_VERSION_ said Cue 1.28.51). Deploy Cue run 43343802855. QA CONDITIONAL PASS 01:16Z; Tech Lead approved under Rest Mode (Decisions row 234). PC66-01 to 03 are checked on the first live intake, PC66-04 on the Mon 16 Nov 8 AM update.
+
 ## Main only: back out Cue 1.28.45 brand v2.0 (not a release, not deployed)
 
 Asked by the Cue Dev Team release plan (Account Manager, 11 Nov 2026, release L1 clean-up) after the UX Lead answered CDT-Q1 on 11 Nov 2026 15:34 UTC: back out the unshipped brand v2.0 change (DM Sans, Archivo Black, lavender ground, v2.0 band colours) and adopt DS-01 v1.0.0 later as its own scoped change with mockups Kiko approves. Brand v2.0 never went live; live Cue 1.28.65 (Version 244) still wears the Quicksand and Steagal look.
@@ -164,97 +201,41 @@ Kiko, 11 Nov 2026 (design approved in CanvasWorkspace docs/specs/team-inbox-desi
 - Not done in this release: S7 Google sign-in (held), claude.ai pull endpoint (held), brand check run in a browser on the live Apps Script page (gap: the page is only checked as a file in the repo; see the PR body).
 - Feature Board card "team-inbox" still to be created by Kiko (the board is public and cannot be written from here).
 
-## Cue 1.28.51: Cue tells Kiko about each new Canvas bug report (live as Version 232, 10 Nov 2026 06:07:17Z, rollback 230, from release branch claude/project-thread-d3jc54-rel12851 = live 1.28.50 plus this change; built here as 1.28.49, which never shipped)
+## Cue 1.28.51: a chat line for each new Canvas bug report (not deployed)
 
-Kiko, 7 Nov 2026 11:47Z: "i want a report a bug function. this will take a screenshot of the window accessed and have a
-paragraph form. after submitting it will go to service desk". 11:59Z, answer 3 on how Kiko hears about a report: "can be thru Cue".
+Kiko, 7 Nov 2026 11:47Z asked for a Report a bug function in Canvas; 11:59Z "3. can be thru Cue" (Kiko hears about each report
+through Cue); "build" 13:11Z; "Deploy" 10 Nov 2026 04:08Z. Canvas side live as main V523 (10 Nov 2026 05:53:55Z). Release branch
+= live 1.28.50 (claude/project-thread-c8aunt-rel12850) plus this change only; built and tested as 1.28.49 in Cue PR #350, which
+never shipped.
 
-- New background job "Service Desk reports" (src/CueServiceDesk.gs), every 15 minutes, no AI: it reads Canvas's newest bug
-  reports through the new read-only bridge action service_desk_new and posts one chat line per report it has not told Kiko
-  about yet: who sent it, the page and project, the first 300 characters, whether a picture came with it, and an "Open
-  BUG-xxxx in Service Desk" button. Cue remembers the highest report number it told (script property CUE_SD_STATE).
-- Needs the Canvas release that adds Report a bug and service_desk_new (CanvasWorkspace PR #580, slot main-526); until then
-  the read fails in Job Runs every 15 minutes, so ship Canvas first.
-- service_desk_new added to the cloud check's allowed reads; test/fixtures/ZapBridge.gs gains service_desk_new.
-- Tests: test/features/89-service-desk.js (SD1-SD3).
-## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (live as Version 230, 10 Nov 2026, rollback 227, from release branch claude/project-thread-c8aunt-rel12850 = live 1.28.47 plus this change)
+- New background job "Service Desk reports" (src/CueServiceDesk.gs, every 15 minutes): reads Canvas's read-only bridge action
+  `service_desk_new` and posts one Cue chat line per new report: who sent it, the page, the project, the first 300 characters,
+  whether a picture came with it, and an Open in Service Desk button. Check versions skip it.
+- `CUE_CHECK_READS_` lists `service_desk_new`; `test/fixtures/ZapBridge.gs` refreshed from live Canvas V523.
+- Tests SD1 to SD3 (test/features/89-service-desk.js).
+
+## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (not deployed)
 
 Kiko, 8 Nov 2026 06:31Z, "fix them", after the live web-guidelines check of Cue on KKD; 10 Nov 2026 04:07Z he picked
-"Ship what's built now". Main still carries 1.28.43 to 1.28.46 and 1.28.49, which are not live.
+"Ship what's built now". Release branch = live 1.28.47 (claude/project-thread-h0rk83-rel12847) plus this change only.
 
 - Tables and tags use fixed-width digits (`font-variant-numeric: tabular-nums`) so amounts and counts line up.
 - Motion stops when the system asks for reduced motion (`prefers-reduced-motion: reduce`).
 - The urgent tag on Morning batch lines reads "Urgent", matching the Canvas pill casing.
-- Tests: UR9 added, A6d updated. 724/724 on the release branch; Deploy Cue run 42754158740.
+- Tests: UR9 added, A6d updated. 724/724 pass on the release branch.
 
-## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (live as Version 227, 7 Nov 2026 16:31Z, rollback 223, from release branch claude/project-thread-h0rk83-rel12847 = 1.28.42 plus this change)
+## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
-10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
+10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`), live as Canvas V511.
+Release branch claude/project-thread-h0rk83-rel12847 = live 1.28.42 (16bd3cb) plus this change only; 1.28.43 to 1.28.46 stay on
+main, not deployed, so they are not shipped here.
 
 - `cueMsgrRun_`: a paper Canvas lists with `now_at` (staff tapped Message on FB) goes out on the next Messenger tick even when it
   went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
 - The msgr_mark for such a send has its own request id (`msgr:<doc>:<id>:<now_at>`), so the bridge runs it again and Canvas clears
   the ask.
 - Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 735 tests pass.
-
-## Cue 1.28.46: RFQ drafts leave out a price written in a spec or drawing; intake-real check on real inquiries (not deployed)
-
-Kiko, 7 Nov 2026, spec intake-real-check (approved 13:59Z; rules R1 "an RFQ never names the client" and R2 "never states a price
-or budget" approved 13:37Z, R3 "never mentions other suppliers" approved 13:59Z; docs/business-rules.md CUE-048).
-
-- RFQ prompts (intake phase 4 and vendor RFQs): a price or rate written in a spec, the inquiry or a drawing is left out of the
-  item. Check Cue run 2 on a real inquiry found the Landlite RFQ quoting "P4,800 each" from the client's drawing.
-- Intake check door (`cueIcDeep_`, check deployment only) returns the phase 1 event, line keys and supplier "new" marks, so the
-  check can test R1 to R3, TBC for blank details, suppliers phase 3 named, and client and event read back from the inquiry.
-- `test/checks/intake-real.check.mjs` checks every RFQ draft against R1 to R3 and goes on as a new project when Canvas has a
-  match, so phases 2 to 4 always run. It only reports; no block was added to Cue.
-- Check Cue run 3 (7 Nov 2026 14:27Z, 1f26883) on 3 real inquiries (Gmail, screenshot, PDF): passed, 5 AI calls each,
-  nothing written to Canvas, nothing sent.
-
-Tests: IR7 to IR10 added; 731/731 (`node test/cue.test.js`).
-
-## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (not deployed)
-
-Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
-be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
-
-- Web app: DM Sans for text and Archivo Black for the welcome line only (Google Fonts link in Index.html); the embedded Steagal
-  font is removed. The Settings heading uses DM Sans 700 instead of the display face. Page ground is lavender #F6F2FC (was cream
-  #F7F3EA), Admin included.
-- Version 1.0 colours removed from screens: the Project and CRM thread tabs and row edges use electric blue #2810DC and orange
-  #F06A25 (were sky #559FEF and #CD5023); Canvas in the activity list is purple #23006F, Kiko pink #F000AA; the Messages
-  audience dots use the v2.0 email colours (clients cyan #55D7E5, suppliers #CD5023, crew #B00C98).
-- Chaser emails follow the v2.0 email look Kiko approved on 6 Nov 2026: client banner cyan #55D7E5 with ink text, crew magenta
-  #B00C98, supplier orange #CD5023; the action button is the yellow #E9D151 pill with ink text; the font is DM Sans with Arial as
-  the email-client fallback (Quicksand removed).
-- Chrome bubble: the settings page uses DM Sans and the yellow #F4F12C button with ink text; the selection box and focus ring are
-  electric blue.
-- Brand lock and mockup-review skills now name v2.0 (DM Sans, Archivo Black, lavender ground) instead of Steagal and Quicksand.
-
-Tests: 727/727 (with main merged) (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
-## Cue 1.28.44: Payments for tomorrow in the Monday and Wednesday 8 AM update (not deployed)
-
-Kiko, 7 Nov 2026, SOP answer: "payment days are Tuesday and Thursday. The payment report runs Monday and Wednesday."; 12:45Z
-"approve all"; Canvas spec `docs/specs/payment-days.md` approved 13:11Z ("yes").
-
-- On Monday and Wednesday the 8 AM update has a "Payments for tomorrow" section: each payment request whose pay day is the next
-  day and that still has a balance (Request ID, project, payee, balance, "Urgent" when the Payment Date Required is before the
-  pay day, and the approval status when it is not Approved), then the total. Other days have no section.
-- It reads Canvas through the new bridge read `pay_day_due` (needs the Canvas release that adds it). A failed read is named under
-  "Could not read" and the rest of the update still goes. No AI call.
-- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (adds `pay_day_due`).
-- Tests: `test/features/90-pay-report.js` (PY1 to PY5). 727/727 pass.
-
-## Cue 1.28.43: labels use the Canvas variant names (not deployed)
-
-Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
-accent: "use a label"; 12:45Z: "approve all".
-
-- Every Cue label now uses the Canvas Brand.html variant names: `accent` / `plain` (the base tag), `warn`, `good` and `crit`.
-  `tag new` became `tag warn`, `tag pref` became `tag good`, `tag flag` became `tag crit`. Colours and sizes are unchanged.
-- The old names stay in `src/IndexStyle.html` as aliases with the same colours, so nothing renders differently.
-- Tests: `test/features/89-label-names.js` (LN1, LN2). 722/722 pass.
 
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
@@ -3348,4 +3329,3 @@ Register a supplier (command C5; spec `canvas-integration/specs/supplier-registr
 - Speed budget: at most 5 AI calls and 180 s, with runs over budget flagged.
 - Cue bubble Chrome extension 1.0.0.
 - Moved here from CanvasWorkspace (integrations/cue, commit 397d1f2).
-
