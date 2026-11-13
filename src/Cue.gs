@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.66';
+const CUE_VERSION_ = 'Cue 1.28.67';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -1143,6 +1143,7 @@ function cueView_(s) {
     vendor: s.kind === 'vendor' ? cueVendorView_(s) : null,
     workflow: s.kind === 'workflow' ? cueWorkflowView_(s) : null,
     tri: s.kind === 'tri' ? cueTriView_(s) : null,
+    agd: s.kind === 'agentdraft' ? cueAgdView_(s) : null,   // AGENT-DRAFTS-2026-11-13 (CueAgentDrafts.gs)
     supplier: s.kind === 'supplier' ? cueSupView_(s) : null,
     personal: s.kind === 'personal' ? cuePeView_(s) : null,
     style: s.kind === 'style' ? cueStyleView_(s) : null,
@@ -1150,7 +1151,7 @@ function cueView_(s) {
     mail: s.kind === 'email' ? cueMailView_(s) : null,
     open: cueCanvasFor_(s),   // CUE-CANVAS: the Canvas page for this card's "Open in Canvas"
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
-    name: s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
+    name: s.kind === 'agentdraft' ? String((s.agd && s.agd.agent) || 'Agent') : s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [], canvas: m.canvas || [] } };

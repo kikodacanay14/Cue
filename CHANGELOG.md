@@ -1,5 +1,25 @@
 # Changelog
 
+## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (not deployed)
+
+Asked: Kiko, 13 Nov 2026 08:13:49Z ("they return a draft to me and then i approve"), 08:19:47Z (Edit then Send, Rewrite with
+Cue, Send back to agent), 08:34:57Z (approved the two card screens; "can it show in Cue as a separate thread from each agent?"),
+"Build it" on the spec at 08:45:56Z (CanvasWorkspace ADR-0177, docs/specs/agent-drafts.md). Built on live 1.28.66 (Version 245),
+slot cue-1.28.67, card agent-email-drafts. Needs Canvas V535 (live 09:08Z) for the bridge actions `agent_drafts` and
+`agent_draft_decide`.
+
+- New `src/CueAgentDrafts.gs`: every 15 minutes (job "Agent drafts") and when Kiko opens Cue, Cue reads Canvas's open and recent
+  agent drafts (read) and adds a card for each new waiting one, in one thread per agent named after the agent. No AI call.
+- The email card: Send (after an optional Edit), Rewrite with Cue (Kiko's note, one AI call, nothing sent), Send back to agent
+  (his note goes to the agent) and Reject. The requirements card: each requirement editable, Qty and Days, Save to Canvas; no
+  Execution column, since Canvas's requirement lines have no such field.
+- Kiko's tap goes to Canvas once (`agent_draft_decide`). Canvas re-checks the item is still due, sends through its own sender and
+  records the result; Cue only shows it (Sent, Saved, Not sent, Failed with the reason, Sent back, Rejected). An RFP or
+  accreditation chaser shows Sending until Kiko's Gmail sends it, then Sent with an Open in Gmail button.
+- A refusal (a number in the text, Canvas busy) keeps the card waiting with the reason. A tap whose run died is offered again
+  after 5 minutes; Canvas never sends a draft twice.
+- test/fixtures/ZapBridge.gs refreshed from Canvas V535. Tests: 98-agent-drafts.js (AGD1 to AGD10); 823 pass.
+
 ## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (LIVE as Version 245, 13 Nov 2026 01:18Z, rollback 244)
 
 Asked: Kiko chose "clean-up first" for the live Cue release order (CDT-Q8, 11 Nov 2026); the Account Manager set the scope

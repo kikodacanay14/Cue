@@ -32,6 +32,7 @@ function cueJobs_() {
     { job: 'Client accreditation mail', fn: 'cueAcTick_', row: 'sys-accred' },
     { job: '8 AM update after the morning batch', fn: 'cueK0Retry_' },   // CUE-K0-2026-10-31: the update waits while the 07:00 batch still drafts         // CLIENT-ACCRED-THREADS-2026-10-29: replies into each company's Accreditation thread, every 30 min
     { job: 'New PhilGEPS read', fn: 'cueBidsPgTick_' },             // CUE-BIDS-PG-2026-11-01: the public bulletin board, hourly 7 AM to 7 PM, no AI
+    { job: 'Agent drafts', fn: 'cueAgdTick_' },                     // AGENT-DRAFTS-2026-11-13: agents' drafts from Canvas as cards, one thread per agent, every 15 min, no AI
     { job: 'Service Desk reports', fn: 'cueSdTick_' },              // SERVICE-DESK-2026-11-07: Canvas bug reports to Kiko's chat, every 15 min, no AI
     { job: 'Schedules', fn: 'cueSchedTick_', last: true }          // last, after the tasks: a task it starts runs on the next tick in its own 6 minutes
   ];
