@@ -170,3 +170,69 @@ test('AGD10 a tap whose run died (card stuck at Sending, Canvas still waiting) w
   const s = b.reqs()[0];
   assert.strictEqual(s.status, 'Needs you'); assert.ok(/nothing was sent/.test(s.error)); assert.strictEqual(b.st.decide.length, 0);
 });
+
+// AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:06:33Z, card "Updates only, no reply" 11:08:36Z, fields 11:10:27Z): an agent's handover update.
+const agdUpd = (n, o = {}) => agdDraft(n, Object.assign({ agent: 'ECII agent', type: 'update', type_label: 'Update', item: 'HO-KIN-07', recipient: 'AS', subject: 'HO-KIN-07',
+  body: 'Supplier shortlist handed to AS.', status: 'Unread', reason: 'Delivered',
+  handover: { handover_ref: 'HO-KIN-07', summary: 'Supplier shortlist handed to AS.', gaps: 'LightWorks still owes BIR 2303.', next_owner: 'AS', next_action: 'Chase LightWorks',
+    ack_link: 'https://t.me/c/123/456', state: 'Delivered', why: '' } }, o));
+test('AGU1 an unread handover update becomes a card in its agent\'s thread; Mark read goes to Canvas once and nothing else is decided', () => {
+  const b = agdBox({ drafts: [agdUpd(20)], answer: (a, st) => { const d = st.drafts[0]; Object.assign(d, { status: 'Read', decided: '2026-11-13 19:20' }); return { ok: true, draft: Object.assign({}, d) }; } });
+  assert.strictEqual(b.t.ctx.cueAgdTick_(), 1);
+  const s = b.reqs()[0]; assert.strictEqual(s.status, 'Needs you'); assert.strictEqual(s.agd.handover.state, 'Delivered');
+  assert.ok(b.chat(s.id).some(l => /ECII agent posted a handover update: HO-KIN-07 · Delivered/.test(l)));
+  assert.throws(() => b.t.ctx.cueAgdDecide(s.id, { decision: 'send' }), /An update is marked read or replied to/);
+  b.t.ctx.cueAgdDecide(s.id, { decision: 'read' });
+  assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read']); assert.strictEqual(bridgeCheck('agent_draft_decide', b.st.decide[0]), '');
+  const v = b.t.ctx.cueView_(b.reqs()[0]); assert.strictEqual(v.status, 'Done'); assert.strictEqual(v.agd.unread, false);
+  assert.ok(b.chat(s.id).some(l => /^Marked read\.$/.test(l)));
+  assert.throws(() => b.t.ctx.cueAgdDecide(s.id, { decision: 'read' }), /This update is Read in Canvas/);
+});
+test('AGU2 a failed handover shows Blocked, never Delivered; a bad link is dropped; a draft is never marked read', () => {
+  const c = sandbox({}).ctx;
+  assert.strictEqual(c.cueAgdHand_({ state: 'Delivered' }).state, 'Delivered');
+  ['Blocked', 'Failed', '', undefined].forEach(st => assert.strictEqual(c.cueAgdHand_({ state: st }).state, 'Blocked', String(st)));
+  assert.strictEqual(c.cueAgdHand_({ ack_link: 'javascript:alert(1)' }).ack_link, '');
+  const b = agdBox({ drafts: [agdDraft(12)] }); b.t.ctx.cueAgdTick_();
+  assert.throws(() => b.t.ctx.cueAgdDecide(b.reqs()[0].id, { decision: 'read' }), /Only an update is marked read or replied to/);
+});
+test('AGU3 the Cue link (?agd=DRF-....) reads Canvas at once and names the card to open; an unknown ID opens nothing', () => {
+  const b = agdBox({ drafts: [agdUpd(21)] });
+  b.t.ctx.cueAgdOpen('');   // the normal open, which also starts the 2-minute gap
+  b.st.drafts.push(agdUpd(22, { item: 'HO-KIN-08' }));
+  const o = b.t.ctx.cueAgdOpen('DRF-0022');
+  assert.strictEqual(o.added, 1); assert.strictEqual(o.id, b.reqs().filter(s => s.agd.draft_id === 'DRF-0022')[0].id);
+  assert.strictEqual(b.t.ctx.cueAgdOpen('DRF-9999').id, ''); assert.strictEqual(b.t.ctx.cueAgdOpen('x; y').id, '');
+});
+test('AGU4 the page: an update card shows the handover, Delivered or Blocked, the AS link, Mark read and Reply', () => {
+  const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = { editing: {} }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml'), ctx);
+  const b = agdBox({ drafts: [agdUpd(20), agdUpd(23, { item: 'HO-KIN-09', handover: { handover_ref: 'HO-KIN-09', summary: 'Not handed over.', gaps: 'AS did not answer.', state: 'Blocked', why: 'No AS acknowledgment link was sent.' } })] });
+  b.t.ctx.cueAgdTick_();
+  const [d, k] = b.reqs().map(s => JSON.parse(JSON.stringify(b.t.ctx.cueView_(s)))), hd = ctx.agdUpdHtml(d), hk = ctx.agdUpdHtml(k);
+  assert.ok(/Agent update · Handover/.test(hd) && /class="tag good">Delivered/.test(hd) && /class="tag warn">Unread/.test(hd) && /LightWorks still owes BIR 2303\./.test(hd));
+  assert.ok(/href="https:\/\/t\.me\/c\/123\/456"/.test(hd) && /data-act="agd-read"/.test(hd) && !/agd-send|agd-back|agd-reject/.test(hd) && /data-act="agd-reply"/.test(hd));
+  assert.ok(/class="tag crit">Blocked/.test(hk) && !/Delivered/.test(hk) && /No link sent/.test(hk) && /Why Blocked/.test(hk));
+  assert.ok(/if \(\(r\.agd \|\| \{\}\)\.type === 'update'\) return agdUpdHtml\(r\);/.test(page) && /'agd-read': 'read'/.test(page) && /call\('cueAgdOpen', \[agd\]/.test(page));
+});
+test('AGU5 Kiko replies to an update (card "Updates plus replies"): the reply goes to Canvas once, after Mark read too; an empty reply or a second one is refused', () => {
+  const b = agdBox({ drafts: [agdUpd(30)], answer: (a, st) => { const d = st.drafts[0];
+    Object.assign(d, a.decision === 'read' ? { status: 'Read' } : { status: 'Replied', note: a.note }, { decided: '2026-11-13 19:30' }); return { ok: true, draft: Object.assign({}, d) }; } });
+  b.t.ctx.cueAgdTick_(); const id = b.reqs()[0].id;
+  assert.throws(() => b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: ' ' }), /Type your reply/);
+  b.t.ctx.cueAgdDecide(id, { decision: 'read' });
+  b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'Skip LightWorks, they are on hold.' });
+  assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read', 'reply']); assert.strictEqual(b.st.decide[1].note, 'Skip LightWorks, they are on hold.');
+  assert.strictEqual(bridgeCheck('agent_draft_decide', b.st.decide[1]), '');
+  assert.ok(b.chat(id).some(l => /^You replied: "Skip LightWorks, they are on hold\."\. ECII agent reads it on its next run\.$/.test(l)));
+  assert.throws(() => b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'again' }), /already replied/);
+  const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml'), ctx);
+  const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
+  assert.ok(/Your reply:<\/b> Skip LightWorks/.test(h) && !/data-act="agd-reply"/.test(h) && !/data-act="agd-read"/.test(h));
+  const fresh = agdBox({ drafts: [agdUpd(31)] }); fresh.t.ctx.cueAgdTick_();
+  const hf = ctx.agdUpdHtml(JSON.parse(JSON.stringify(fresh.t.ctx.cueView_(fresh.reqs()[0]))));
+  assert.ok(/data-act="agd-reply"/.test(hf) && /data-agd-note=/.test(hf) && /data-act="agd-read"/.test(hf));
+  assert.ok(/'agd-reply': 'reply'/.test(page));
+});

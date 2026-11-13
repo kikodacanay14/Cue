@@ -1938,13 +1938,13 @@ function zbCrewDocs_(pid, kind) {
         p.kind === 'Resource' ? zbSendView_(adSendTo_(p.name, null, p.email || ''))
         : { has_email: !!p.email, registered: true, can_sign: false, send_why: p.email ? '' : 'No email on file.' }); }) };
   });
-  const cur = {}, sent = {}; fsaStatus_(pid).forEach(f => { cur[f.key] = f; });
+  const cur = {}, sent = {}, inv = {}; fsaStatus_(pid).forEach(f => { cur[f.key] = f; });
   fsaRows_(fsaTab_(false)).forEach(o => { if (norm_(o.r[FSA_C_['Project ID']]) !== norm_(pid) || /replaced/i.test(o.r[FSA_C_['Status']])) return;
-    const fp = adFpOf_(o.r[FSA_C_['Fingerprint']]); sent[fsaKey_(o.r[FSA_C_['Name']], o.r[FSA_C_['Role']])] = fp.sent ? 'Sent ' + (fp.at || '') : ''; });
+    const fp = adFpOf_(o.r[FSA_C_['Fingerprint']]); sent[fsaKey_(o.r[FSA_C_['Name']], o.r[FSA_C_['Role']])] = fp.sent ? 'Sent ' + (fp.at || '') : ''; inv[fsaKey_(o.r[FSA_C_['Name']], o.r[FSA_C_['Role']])] = fp.inv ? 'Invited ' + fp.inv : ''; });
   const all = fsaPeople_(pid);
   return { draft: adDraft_('fsa', ntfProject_(pid).name), more: all.length > 200, items: all.slice(0, 200).map(p => { const f = cur[p.key];
     return Object.assign({ key: p.key, kind: 'Resource', name: p.name, role: p.role, why: p.why || (p.person && p.person.unlisted ? 'Not in the Freelancers database yet.' : ''),
-      doc: f ? { id: f.id, status: f.status, url: f.url, generated: f.generated, signed_at: f.signedAt || '', sent: sent[p.key] || '' } : null },
+      doc: f ? { id: f.id, status: f.status, url: f.url, generated: f.generated, signed_at: f.signedAt || '', sent: sent[p.key] || '', invited: inv[p.key] || '' } : null }, // FSA-INVITE-2026-11-13: invited
       zbSendView_(adSendTo_(p.name, p.person, p.person && p.person.email))); }) };
 }
 /* CREW-DOCS-AR-FLAGS-2026-10-27 (Cue PC check 02:13Z on Hiraya): Cue's AR list keeps two kinds of payment out of Make, with the
@@ -1977,7 +1977,7 @@ function zbArFlags_(all) {
 // The tabs one AR list reads (arItems_, arRequests_, arPerson_ and the roles table), each read once inside tmemo_.
 const ZB_AR_TABS_ = () => [[SRC.TRI, 'Resource'], [SRC.SCOPES, 'Payment Request'], [SRC.SCOPES, 'Transfers'], [SRC.SCOPES, 'Supplier Entries'],
   [SRC.SCOPES, 'Scope Categories'], [SRC.SUPPLIERS, 'Main'], [SRC.ROCKETEERS, 'QRY'], [AR_.rolesBook, AR_.rolesTab]];
-const zbSendView_ = t => ({ has_email: t.has_email, registered: t.registered, can_sign: t.can_sign, send_why: t.send_why });
+const zbSendView_ = t => ({ has_email: t.has_email, registered: t.registered, can_sign: t.can_sign, send_why: t.send_why, invite: !!t.invite }); // FSA-INVITE-2026-11-13: invite = gets the register-to-sign email
 function zbCrewMake_(r) {
   const x = zbProject_(r); if (x.error) return { ok: false, error: x.error };
   const keys = r.args.keys.map(String).filter((v, i, l) => v.trim() && v.length <= 300 && l.indexOf(v) === i);
@@ -2994,6 +2994,34 @@ ZB_ACTIONS_.rfp_log = {
   run: (r) => agdRfpLog_(r.args)
 };
 ZB_GPT_ACTIONS_.push('draft_add', 'draft_status', 'rfp_log');
+/* AGENT-SEND-2026-11-13 (Kiko 10:31:02Z "they are pre-approved"; card 10:31:43Z "FSA, AR and chasers"; AgentDrafts.gs agdSend_):
+ * an agent triggers one template email with no Cue draft. No subject or body: the words are Canvas's own template. */
+ZB_ACTIONS_.agent_send = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
+    type: { type: 'string', required: true, oneOf: ['fsa_send', 'ar_send', 'signature_chaser', 'ar_chaser', 'invoice_chaser', 'accreditation_chaser'] },
+    project_id: { type: 'string', re: ZB_PID_RE_ }, item: { type: 'string', required: true, nonBlank: true, max: 300 } },
+  run: (r) => { try { return agdSend_(r); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.draft_id ? { ok: true, evidence: { draft_id: res.draft_id, status: res.status } } : { ok: false, error: 'the send gave no answer' }
+};
+ZB_GPT_ACTIONS_.push('agent_send');
+ZB_GPT_ONLY_.push('agent_send');   // never through a signed Cue call: Cue has its own senders
+// AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:06:33Z "can Cue also support general updates not just drafts", 11:10:27Z the handover
+// fields): an agent's handover update for its Cue thread. Nothing is sent or changed; Kiko marks it read in Cue.
+ZB_ACTIONS_.agent_update = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
+    project_id: { type: 'string', re: ZB_PID_RE_ }, handover_ref: { type: 'string', required: true, nonBlank: true, max: 100 },
+    summary: { type: 'string', required: true, nonBlank: true, max: 4000 }, gaps: { type: 'string', max: 4000 },
+    next_owner: { type: 'string', max: 100 }, next_action: { type: 'string', max: 1000 }, ack_link: { type: 'string', max: 500 },
+    update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked'] } },
+  run: (r) => { try { return agdUpdate_(r); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.update_id ? { ok: true, evidence: { update_id: res.update_id, handover: res.handover } } : { ok: false, error: 'the update save gave no answer' }
+};
+ZB_GPT_ACTIONS_.push('agent_update');
+ZB_GPT_ONLY_.push('agent_update');   // agents only: Cue never posts updates to itself
 ZB_ACTIONS_.agent_drafts = {
   kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 0 } },
   run: (r) => agdForCue_(r.args)
@@ -3001,7 +3029,7 @@ ZB_ACTIONS_.agent_drafts = {
 ZB_ACTIONS_.agent_draft_decide = {
   kind: 'queue', needsProject: false,
   schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, draft_id: { type: 'string', required: true, re: /^DRF-\d{4,6}$/ },
-    decision: { type: 'string', required: true, oneOf: ['send', 'save', 'send_back', 'reject'] },
+    decision: { type: 'string', required: true, oneOf: ['send', 'save', 'send_back', 'reject', 'read', 'reply'] },   // AGENT-UPDATE-2026-11-13: read = Mark read on an agent update; reply = Kiko's reply to it (note)
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 2000 },
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
   run: (r) => agdDecide_(r.args)
