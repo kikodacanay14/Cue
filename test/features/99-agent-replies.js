@@ -82,4 +82,6 @@ test('AGR6 the page keeps one id per message: a failed send leaves it on the box
   const page = cuePage();
   assert.ok(/function agmMid\(box, t, keep\)/.test(page) && /call\('cueSend', \[t, files, mode, ref, \(mine && mine\.reply\) \|\| '', mid\]/.test(page));
   assert.ok(/agmMid\(box, t, mid\); alertErr\(e, ref\)/.test(page), 'a failed agent send keeps its id on the box');
+  assert.ok(/function agmKeep\(box, t, mid, r\) \{ if \(r && r\.agent_message === false\) agmMid\(box, t, mid\); else agmMid\(box, ''\); \}/.test(page), 'Not saved keeps the id too');
+  assert.ok(/call\('cueAgdSay', \[ref, t, mid\], function \(r\) \{ agmKeep\(box, t, mid, r\)/.test(page) && /agmKeep\(mine && mine\.box, t, mid, r\)/.test(page));
 });

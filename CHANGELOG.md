@@ -7,7 +7,8 @@ shipped. All are within Kiko's approved design for agent threads (14 Nov 2026 ca
 live 1.28.69 (Version 248), slot cue-1.28.70, card agent-kiko-replies. No Canvas change.
 
 - `src/CueAgentDrafts.gs`, `src/Cue.gs`, `src/IndexThreads.html`: each message has one id, made once by the page and kept on the box
-  when a send fails, so a retry at any later time is saved once in Canvas (1.28.69 used a 10-minute time window).
+  when a send fails or Canvas answers "Not saved", so a retry at any later time is saved once in Canvas (1.28.69 used a 10-minute
+  time window).
 - Try again under "Not saved" resends that line's own message (`cueAgdRetry`), never Kiko's latest line in the thread.
 - A Reply in the main chat on an agent's bubble no longer shows a false error after it was saved (the result now ends the send).
 - A second reply on an update keeps a reply sent with 1.28.68, and uses Canvas's own reply list when it sends one.

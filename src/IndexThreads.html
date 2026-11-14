@@ -270,7 +270,7 @@
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
     call('cueSend', [t, files, mode, ref, (mine && mine.reply) || '', mid], function (r) {
-      agmMid(mine && mine.box, '');
+      agmKeep(mine && mine.box, t, mid, r);
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
@@ -282,6 +282,8 @@
   }
   // AGENT-REPLIES-2026-11-14 (Codex review on Cue PR #386): one id per message. When a send fails and the text goes back in the box, the
   // box keeps the id with it, so sending the same text again reuses it and Canvas still saves it once. agmMid(box, '') forgets it.
+  // The id is forgotten only after Canvas confirmed the save; "Not saved" keeps it, so the same text sent again is still one message.
+  function agmKeep(box, t, mid, r) { if (r && r.agent_message === false) agmMid(box, t, mid); else agmMid(box, ''); }
   function agmMid(box, t, keep) {
     var a = box && box.setAttribute ? box : null;
     if (keep !== undefined) { if (a) { a.setAttribute('data-agm-mid', keep); a.setAttribute('data-agm-text', t); } return keep; }
@@ -297,7 +299,7 @@
     outbox.push(mine); if (box) box.value = ''; renderChat();
     var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(box, t);
-    call('cueAgdSay', [ref, t, mid], function () { agmMid(box, ''); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
+    call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
