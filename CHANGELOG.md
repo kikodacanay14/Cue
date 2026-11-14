@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.69: Kiko's messages in an agent's thread reach the agent (not deployed)
+
+Asked: Kiko, 14 Nov 2026 08:44:34Z ("How do we go about agents cant read replies"), card 15:36:53Z "No, all goes to the agent"
+(everything typed in an agent's thread goes to that agent; Cue never acts on it), mockup approved on the card at 16:46:11Z
+("Approve, build it"). CanvasWorkspace ADR-0183 and rule R-AGD11. Built on live 1.28.68 (Version 247), slot cue-1.28.69, card
+agent-kiko-replies. Needs Canvas V540 for the bridge action `agent_message`.
+
+- `src/Cue.gs` and `src/CueAgentDrafts.gs`: a message typed in an agent's thread no longer goes to Cue's assistant. It is saved
+  on Canvas for that agent (`agent_message`, one request id per message so a retry never saves twice) and the thread shows
+  "Saved for <agent> · it reads it on its next run", or "Not saved: <why>." with Try again. Files are not sent to agents.
+- `src/IndexCards.html`: an update card takes as many replies as Kiko sends and lists them under "Your replies".
+- `src/IndexThreads.html`, `src/Index.html`, `src/IndexStyle.html`: the box in an agent's thread says "Message <agent>" with the
+  note "Messages here go to <agent> only. Cue does not act on them. Ask Cue in the main chat."
+- Bridge fixture refreshed from Canvas. Tests AGR1 to AGR3 and AGU5 updated; 831/831 pass.
+
 ## Cue 1.28.68: agents' handover updates in Cue, with Mark read and Reply (LIVE as Version 247, 13 Nov 2026 11:39Z, rollback 246)
 
 Asked: Kiko, 13 Nov 2026 11:06:33Z ("can Cue also support general updates not just drafts"), "Updates plus replies" on the
