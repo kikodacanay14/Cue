@@ -119,7 +119,12 @@ function cueAgdSync_(drafts) {
         s.status = s.stage = 'Needs you'; s.error = 'Cue did not hear back from Canvas. It still shows this draft waiting, so nothing was sent. Tap again.';
         cueSave_(sh, x.row, s); return;
       }
-      if (a.replies.length && JSON.stringify(a.replies) !== JSON.stringify(s.agd.replies || [])) { s.agd.replies = a.replies; if (was === a.status) { cueSave_(sh, x.row, s); return; } }   // AGENT-REPLIES-2026-11-14
+      if (a.replies.length && JSON.stringify(a.replies) !== JSON.stringify(s.agd.replies || [])) {   // AGENT-REPLIES-2026-11-14
+        s.agd.replies = a.replies;
+        // Canvas has the new reply, so a card left on Sending by a run that died settles to Canvas's status (Codex review on Cue PR #386).
+        if (s.status === 'Sending' && a.status !== 'Waiting for Kiko') { s.status = s.stage = cueAgdCueStatus_(a.status); s.error = ''; if (s.status !== 'Sending') s.ready_at = s.ready_at || cueNow_(); }
+        if (was === a.status) { cueSave_(sh, x.row, s); return; }
+      }
       if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) return;
       // Canvas's own record wins for the outcome; Kiko's edits on a card still waiting stay until he decides.
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { s.agd[f] = a[f]; });
@@ -192,10 +197,17 @@ function cueAgdDecide_(id, o) {
       t.status = t.stage = 'Needs you'; t.error = (err || (res && res.error) || 'Canvas did not answer.').replace(/^Canvas refused agent_draft_decide \(\w+\): /, '');
       line = 'Canvas did not take it: ' + t.error;
     } else {
+      const prev = { status: t.agd.status, note: t.agd.note, decided: t.agd.decided, replies: t.agd.replies };   // before Canvas's answer overwrites them
       const d = cueAgdFrom_(Object.assign({}, t.agd, res.draft || {}, { body: t.agd.body, lines: res.draft && res.draft.lines ? res.draft.lines : t.agd.lines, subject: t.agd.subject }));
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { t.agd[f] = d[f]; });
       if (note && !t.agd.note) t.agd.note = note;
-      if (dec === 'reply' && !res.again) t.agd.replies = (t.agd.replies || []).concat([{ at: cueStr_((res.message && res.message.at) || t.agd.decided, 30), text: note }]).slice(-50);
+      // Canvas's own reply list wins when it sends one; otherwise add this reply to what the card had, keeping a 1.28.68 reply that
+      // lived only in the note (Codex review on Cue PR #386).
+      if (dec === 'reply' && res.draft && Array.isArray(res.draft.replies) && res.draft.replies.length) t.agd.replies = d.replies;
+      else if (dec === 'reply' && !res.again) {
+        const had = (prev.replies || []).length ? prev.replies : (prev.status === 'Replied' && prev.note ? [{ at: cueStr_(prev.decided, 30), text: prev.note }] : []);
+        t.agd.replies = had.concat([{ at: cueStr_((res.message && res.message.at) || t.agd.decided, 30), text: note }]).slice(-50);
+      }
       t.status = t.stage = cueAgdCueStatus_(t.agd.status); t.error = '';
       if (t.status !== 'Sending') t.ready_at = cueNow_();
       line = res.again ? 'Canvas had already settled this draft: ' + cueAgdLine_(t.agd) : cueAgdLine_(t.agd);
@@ -266,25 +278,40 @@ function cueAgdRewrite_(id, instruction) {
  * starts an intake, mail or any other task from it. The agent reads it with draft_status on its next run. Files are not sent: agents
  * can't open them. Only the card buttons decide anything. */
 const CUE_AGM_SAVED_ = agent => 'Saved for ' + agent + ' · it reads it on its next run';
-function cueAgdSay(ref, text) { cueOwner_(); return cueAgdSay_(ref, text, false, false); }
-/** logged: Kiko's line is already in the chat (a Reply on a Cue bubble in the main chat). Returns { agent_message } for the page. */
-function cueAgdSay_(ref, text, has, logged) {
+function cueAgdSay(ref, text, mid) { cueOwner_(); return cueAgdSay_(ref, text, false, false, mid); }
+/** Try again under a "Not saved" line: resends that line's own message with its own id (Codex review on Cue PR #386). */
+function cueAgdRetry(ref, mid) {
+  cueOwner_();
+  const L = cueLoad_(ref), f = L && L.s.agd && (L.s.agd.failed || {})[String(mid || '')];
+  if (!f) throw new Error('That message was saved already or is no longer here. Type it again if it still needs to go.');
+  return cueAgdSay_(ref, f.text, false, true, String(mid));
+}
+/** logged: Kiko's line is already in the chat (a Reply in the main chat, or Try again). mid: the page's id for this one message, kept
+ * for every retry so Canvas saves it once (agent_message dedupes by request id). Returns { chat, agent_message } for the page. */
+function cueAgdSay_(ref, text, has, logged, mid) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never messages an agent.');
   const L = cueLoad_(ref);
   if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('This is not an agent\'s thread.');
   const agent = cueStr_(L.s.agd.agent, 40) || 'Agent', t = cueStr_(String(text || '').replace(/\r/g, '').trim(), 4000);
-  if (has) { if (t && !logged) cueChat_('Kiko', t, ref); cueChat_('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); return { agent_message: false }; }
+  if (has) { if (t && !logged) cueChat_('Kiko', t, ref); cueChat_('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); return { chat: true, agent_message: false }; }
   if (!t) throw new Error('Type your message first.');
   if (!logged) cueChat_('Kiko', t, ref);
-  // One request id per thread, text and 10 minutes: a retry of the same line saves once in Canvas.
-  const h = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, ref + '|' + t + '|' + Math.floor(cueNow_() / 600000))).replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
+  // One id per message, made once (by the page, or here) and reused by every retry, so Canvas saves it once whenever it is retried.
+  const h = /^[A-Za-z0-9]{8,40}$/.test(String(mid || '')) ? String(mid) : Utilities.getUuid().replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
   let res = null, err = '';
   try { res = cueBridge_(L.s, 'agent_message', { request_id: 'agm:' + h, agent, text: t }) || {}; } catch (e) { err = cueStr_((e && e.message) || e, 300); }
-  if (err || !res || res.ok === false) {
+  const ok = !(err || !res || res.ok === false);
+  cueLocked_(() => {   // a failed message is kept (at most 20) so its own Try again resends it; a saved one is dropped
+    const M = cueLoad_(ref), f = Object.assign({}, M.s.agd.failed || {});
+    if (ok) delete f[h]; else f[h] = { text: t, at: cueNow_() };
+    M.s.agd.failed = Object.keys(f).sort((a, b) => f[a].at - f[b].at).slice(-20).reduce((o, k) => (o[k] = f[k], o), {});
+    cueSave_(M.sh, M.row, M.s);
+  });
+  if (!ok) {
     const why = String(err || (res && res.error) || 'Canvas did not answer.').replace(/^Canvas refused agent_message \(\w+\): /, '');
-    cueChat_('Cue', 'Not saved: ' + why.replace(/\.?\s*$/, '.'), ref);
-    return { agent_message: false, error: why };
+    cueChat_('Cue', 'Not saved: ' + why.replace(/\.?\s*$/, '.') + ' [agm:' + h + ']', ref);   // the page shows Try again for this message
+    return { chat: true, agent_message: false, error: why, mid: h };
   }
   cueChat_('Cue', CUE_AGM_SAVED_(agent), ref);
-  return { agent_message: true, message: res.message || null };
+  return { chat: true, agent_message: true, message: res.message || null, mid: h };
 }

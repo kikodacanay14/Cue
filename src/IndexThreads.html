@@ -247,9 +247,15 @@
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
   document.addEventListener('click', function (e) {   // AGENT-REPLIES-2026-11-14: Try again under a line Canvas did not save
     var b = e.target.closest && e.target.closest('[data-agm-retry]'); if (!b) return;
-    var ref = b.getAttribute('data-agm-retry'), last = null;
-    state.chat.forEach(function (x) { if (x.who === 'Kiko' && x.request_id === ref) last = x; });
-    if (last && ref) agentSay(String(last.text || ''), false, ref, null);
+    var ref = b.getAttribute('data-agm-retry'), mid = b.getAttribute('data-agm-mid') || '';
+    if (!ref || !mid) return;   // Codex review on Cue PR #386: Try again resends the message that failed, by its own id, never the latest line
+    b.disabled = true;
+    var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueAgdRetry', [ref, mid], function (r) {
+      // saved: a text box still holding this message's id forgets it, so the same words sent later are a new message (Codex on #388)
+      if (r && r.agent_message) [].forEach.call(document.querySelectorAll('textarea[data-agm-mid],input[data-agm-mid]'), function (x) { if (x.getAttribute('data-agm-mid') === mid) agmMid(x, ''); });
+      refresh(function () { unbox(dots); });
+    }, function (e) { unbox(dots); alertErr(e, ref); refresh(); });
   });
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
@@ -266,7 +272,9 @@
     if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || ''], function (r) {
+    var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
+    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || '', mid], function (r) {
+      agmKeep(mine && mine.box, t, mid, r);
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
@@ -274,7 +282,18 @@
       refresh(swap);
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
-    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+    }, function (e) { unbox(mine, dots); back(mine, t); agmMid(mine && mine.box, t, mid); alertErr(e, ref); });
+  }
+  // AGENT-REPLIES-2026-11-14 (Codex review on Cue PR #386): one id per message. When a send fails and the text goes back in the box, the
+  // box keeps the id with it, so sending the same text again reuses it and Canvas still saves it once. agmMid(box, '') forgets it.
+  // The id is forgotten only after Canvas confirmed the save; "Not saved" keeps it, so the same text sent again is still one message.
+  function agmKeep(box, t, mid, r) { if (r && r.agent_message === false) agmMid(box, t, mid); else agmMid(box, ''); }
+  function agmMid(box, t, keep) {
+    var a = box && box.setAttribute ? box : null;
+    if (keep !== undefined) { if (a) { a.setAttribute('data-agm-mid', keep); a.setAttribute('data-agm-text', t); } return keep; }
+    if (!t) { if (a) { a.removeAttribute('data-agm-mid'); a.removeAttribute('data-agm-text'); } return ''; }
+    if (a && a.getAttribute('data-agm-text') === t && a.getAttribute('data-agm-mid')) return a.getAttribute('data-agm-mid');
+    var s = ''; while (s.length < 20) s += Math.random().toString(36).slice(2); return s.replace(/[^a-z0-9]/g, '').slice(0, 20);
   }
   // AGENT-REPLIES-2026-11-14 (Kiko's card 14 Nov 15:36:53Z "No, all goes to the agent"; mockup approved 16:46:11Z): a line in an
   // agent's thread is saved for that agent and nothing else runs. Files stay here: agents can't open them.
@@ -283,7 +302,8 @@
     var mine = { who: 'Kiko', text: t, request_id: ref, time: '', box: box, sent: Date.now() };
     outbox.push(mine); if (box) box.value = ''; renderChat();
     var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueAgdSay', [ref, t], function () { refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+    var mid = agmMid(box, t);
+    call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
@@ -528,7 +548,10 @@
     var lk = inThread === true ? lineKind(m) : '';
     // AGENT-REPLIES-2026-11-14: under Kiko's line in an agent's thread, the save status as a small line (approved mockup), not a bubble.
     if (lk === 'agm') return '<div class="small muted agm">' + esc(m.text) + '</div>';
-    if (lk === 'agmx') return '<div class="err agm">' + esc(m.text) + ' <button class="linkbtn" data-agm-retry="' + esc(m.request_id || '') + '">Try again</button></div>';
+    if (lk === 'agmx') {   // the line ends with its message's id, [agm:<id>]: Try again resends that message (Codex review on Cue PR #386)
+      var mx = String(m.text || '').match(/^([\s\S]*?)\s*\[agm:([A-Za-z0-9]{8,40})\]$/);
+      return '<div class="err agm">' + esc(mx ? mx[1] : m.text) + (mx ? ' <button class="linkbtn" data-agm-retry="' + esc(m.request_id || '') + '" data-agm-mid="' + mx[2] + '">Try again</button>' : '') + '</div>';
+    }
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
     // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.

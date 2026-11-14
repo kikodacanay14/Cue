@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.69';
+const CUE_VERSION_ = 'Cue 1.28.70';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -228,9 +228,9 @@ function cueChat_(who, text, id) {
 /* ---------- what the page calls ---------- */
 /** Kiko sends a message. mode 'intake' or 'chat' forces one; otherwise attachments or a "New project intake" opener start an
  * intake and everything else is a chat reply (one GPT call). Returns { request_id } for an intake or { chat, reply, suggest_intake }. */
-function cueSend(text, files, mode, ref, reply) { return cueSendWith_(text, files, mode, ref, null, reply); }
+function cueSend(text, files, mode, ref, reply, mid) { return cueSendWith_(text, files, mode, ref, null, reply, mid); }
 /** forced = a chat-call result already made (Teach Cue add-on, CueRoute.gs: a button under "which did you mean?"), so no second call. */
-function cueSendWith_(text, files, mode, ref, forced, reply) {
+function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
   cueOwner_();
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
@@ -242,7 +242,7 @@ function cueSendWith_(text, files, mode, ref, forced, reply) {
   if (reply && rp.s.kind !== 'k0' && !has) { cueChat_('Kiko', String(text || '').trim(), '↩' + reply); ref = reply; }
   // AGENT-REPLIES-2026-11-14 (Kiko's card 14 Nov 15:36:53Z "No, all goes to the agent"): in an agent's thread every line goes to that
   // agent and nothing else runs (no word checks, no GPT call, no intake). CueAgentDrafts.gs cueAgdSay_.
-  if (ref && ((cueLoad_(ref) || {}).s || {}).kind === 'agentdraft') return cueAgdSay_(ref, text, has, !!reply);
+  if (ref && ((cueLoad_(ref) || {}).s || {}).kind === 'agentdraft') return cueAgdSay_(ref, text, has, !!reply, mid);
   const inThread = !!ref;
   // STRUCTURE-PHASE-2 (Kiko 28 Oct 2026 04:21Z): the word checks are one ordered list, cueRoutes_ in CueCommands.gs. Each entry
   // keeps its note on who asked for it and when. The first that answers wins, in the same order as the hand-written chain before.

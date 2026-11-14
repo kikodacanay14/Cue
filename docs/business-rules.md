@@ -512,3 +512,23 @@ Closed to that tab".
   Refused, and a For Kiko row whose State is Done or Answered, to the Closed tab of the BSE AI Team spreadsheet. The moved row keeps
   its ID, chat, kind, request text, answer, state, note, sender and Message ID, plus the time it moved and the tab it came from.
 - Assumption (not asked): "Closed" means those finished states; open rows (New, Sending, Open, still-undecided Sent) stay put.
+
+### CUE-056: Everything Kiko types in an agent's thread is a message to that agent; Cue never acts on it
+
+**Status: APPROVED by Kiko, 14 Nov 2026**, in the "Let agents read Kiko's replies" thread: 08:44:34Z "Yes. How do we go about agents
+cant read replies"; decision card 15:36:53Z "No, all goes to the agent" (question: can you talk to Cue inside an agent's thread?);
+mockup card 16:46:11Z "Approve, build it". CanvasWorkspace ADR-0183 and rule R-AGD11 hold the Canvas side.
+
+- In an agent's thread (a thread of kind `agentdraft`), every line Kiko sends goes to that agent and nothing else runs: no word
+  checks, no GPT call, no intake, mail or other task. Cue saves it once in Canvas through the bridge action `agent_message` and
+  shows "Saved for <agent> · it reads it on its next run", or "Not saved: <why>." with Try again.
+- A Reply in the main chat on a Cue bubble about an agent's thread goes to that agent the same way.
+- An update card takes as many replies as Kiko sends (1.28.68 allowed one); each is also a message to the agent, and the card lists
+  them under "Your replies".
+- Files in an agent's thread are not sent (agents can't open them); the thread says so and nothing is saved.
+- Each message has one id, made once and reused by every retry (Try again, or sending the same text again after a failed send), so
+  Canvas saves it once. Try again resends the message that failed, never a later one (Codex review on Cue PR #386, fixed in 1.28.70).
+- Agents read the messages with `draft_status` (agent, since = newest message_id read); Canvas V540 and V541.
+
+Evidence: `test/features/99-agent-replies.js` AGR1 to AGR6. Built: Cue 1.28.69 (live as Version 248, 14 Nov 2026 17:21Z), review
+fixes in 1.28.70. Manual gap: not yet run live in Kiko's browser, and no agent has read a message yet.
