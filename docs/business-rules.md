@@ -531,4 +531,4 @@ mockup card 16:46:11Z "Approve, build it". CanvasWorkspace ADR-0183 and rule R-A
 - Agents read the messages with `draft_status` (agent, since = newest message_id read); Canvas V540 and V541.
 
 Evidence: `test/features/99-agent-replies.js` AGR1 to AGR6. Built: Cue 1.28.69 (live as Version 248, 14 Nov 2026 17:21Z), review
-fixes in 1.28.70. Manual gap: not yet run live in Kiko's browser, and no agent has read a message yet.
+fixes in 1.28.70 (live as Version 249, 17:52Z). Manual gap: not yet run live in Kiko's browser, and no agent has read a message yet.
