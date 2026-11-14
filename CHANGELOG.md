@@ -5,7 +5,7 @@
 Asked: Kiko, 14 Nov 2026 08:44:34Z ("How do we go about agents cant read replies"), card 15:36:53Z "No, all goes to the agent"
 (everything typed in an agent's thread goes to that agent; Cue never acts on it), mockup approved on the card at 16:46:11Z
 ("Approve, build it"). CanvasWorkspace ADR-0183 and rule R-AGD11. Built on live 1.28.68 (Version 247), slot cue-1.28.69, card
-agent-kiko-replies. Needs Canvas V540 for the bridge action `agent_message`.
+agent-kiko-replies. Needs Canvas V540 (live 14 Nov 2026 17:01Z) for the bridge action `agent_message`; the fixture is from V541.
 
 - `src/Cue.gs` and `src/CueAgentDrafts.gs`: a message typed in an agent's thread no longer goes to Cue's assistant. It is saved
   on Canvas for that agent (`agent_message`, one request id per message so a retry never saves twice) and the thread shows

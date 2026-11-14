@@ -3008,7 +3008,7 @@ ZB_ACTIONS_.draft_add = {
 ZB_ACTIONS_.draft_status = {
   kind: 'read', needsProject: false,
   schema: { draft_id: { type: 'string', re: /^DRF-\d{4,6}$/ }, agent: { type: 'string', max: 40 },
-    since: { type: 'string', max: 20 } },   // AGENT-REPLIES-2026-11-14: Kiko's messages after this time (yyyy-MM-dd HH:mm)
+    since: { type: 'string', max: 20 } },   // AGENT-REPLIES-2026-11-14: Kiko's messages after this message_id (DRF-0123)
   run: (r) => agdStatus_(r.args)
 };
 ZB_ACTIONS_.rfp_log = {
