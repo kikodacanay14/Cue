@@ -251,7 +251,11 @@
     if (!ref || !mid) return;   // Codex review on Cue PR #386: Try again resends the message that failed, by its own id, never the latest line
     b.disabled = true;
     var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueAgdRetry', [ref, mid], function () { refresh(function () { unbox(dots); }); }, function (e) { unbox(dots); alertErr(e, ref); refresh(); });
+    call('cueAgdRetry', [ref, mid], function (r) {
+      // saved: a text box still holding this message's id forgets it, so the same words sent later are a new message (Codex on #388)
+      if (r && r.agent_message) [].forEach.call(document.querySelectorAll('textarea[data-agm-mid],input[data-agm-mid]'), function (x) { if (x.getAttribute('data-agm-mid') === mid) agmMid(x, ''); });
+      refresh(function () { unbox(dots); });
+    }, function (e) { unbox(dots); alertErr(e, ref); refresh(); });
   });
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
