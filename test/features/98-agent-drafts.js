@@ -216,7 +216,7 @@ test('AGU4 the page: an update card shows the handover, Delivered or Blocked, th
   assert.ok(/class="tag crit">Blocked/.test(hk) && !/Delivered/.test(hk) && /No link sent/.test(hk) && /Why Blocked/.test(hk));
   assert.ok(/if \(\(r\.agd \|\| \{\}\)\.type === 'update'\) return agdUpdHtml\(r\);/.test(page) && /'agd-read': 'read'/.test(page) && /call\('cueAgdOpen', \[agd\]/.test(page));
 });
-test('AGU5 Kiko replies to an update (card "Updates plus replies"): the reply goes to Canvas once, after Mark read too; an empty reply or a second one is refused', () => {
+test('AGU5 Kiko replies to an update (card "Updates plus replies"): each reply goes to Canvas once, after Mark read too; an empty reply is refused; many replies are kept', () => {
   const b = agdBox({ drafts: [agdUpd(30)], answer: (a, st) => { const d = st.drafts[0];
     Object.assign(d, a.decision === 'read' ? { status: 'Read' } : { status: 'Replied', note: a.note }, { decided: '2026-11-13 19:30' }); return { ok: true, draft: Object.assign({}, d) }; } });
   b.t.ctx.cueAgdTick_(); const id = b.reqs()[0].id;
@@ -226,11 +226,15 @@ test('AGU5 Kiko replies to an update (card "Updates plus replies"): the reply go
   assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read', 'reply']); assert.strictEqual(b.st.decide[1].note, 'Skip LightWorks, they are on hold.');
   assert.strictEqual(bridgeCheck('agent_draft_decide', b.st.decide[1]), '');
   assert.ok(b.chat(id).some(l => /^You replied: "Skip LightWorks, they are on hold\."\. ECII agent reads it on its next run\.$/.test(l)));
-  assert.throws(() => b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'again' }), /already replied/);
+  // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): a second reply goes to Canvas too and the card lists both.
+  b.st.answer = (a, st) => { const d = st.drafts[0]; Object.assign(d, { status: 'Replied', note: a.note }); return { ok: true, draft: Object.assign({}, d), message: { at: '2026-11-13 19:41', text: a.note } }; };
+  b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'Ask Bright Events instead.' });
+  assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read', 'reply', 'reply']);
+  assert.deepStrictEqual(b.reqs()[0].agd.replies.map(x => x.text), ['Skip LightWorks, they are on hold.', 'Ask Bright Events instead.'].slice(b.reqs()[0].agd.replies.length === 2 ? 0 : 1));
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = {}; vm.createContext(ctx); vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml'), ctx);
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
-  assert.ok(/Your reply:<\/b> Skip LightWorks/.test(h) && !/data-act="agd-reply"/.test(h) && !/data-act="agd-read"/.test(h));
+  assert.ok(/Your replies<\/b>/.test(h) && /Ask Bright Events instead\./.test(h) && /data-act="agd-reply"/.test(h) && !/data-act="agd-read"/.test(h), h);
   const fresh = agdBox({ drafts: [agdUpd(31)] }); fresh.t.ctx.cueAgdTick_();
   const hf = ctx.agdUpdHtml(JSON.parse(JSON.stringify(fresh.t.ctx.cueView_(fresh.reqs()[0]))));
   assert.ok(/data-act="agd-reply"/.test(hf) && /data-agd-note=/.test(hf) && /data-act="agd-read"/.test(hf));

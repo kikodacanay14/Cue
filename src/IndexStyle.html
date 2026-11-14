@@ -170,6 +170,10 @@
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg label.tick { display:inline-flex; gap:8px; align-items:flex-start; cursor:pointer; } .msg label.tick input { margin-top:3px; flex:none; accent-color:var(--act); }   /* CUE-CONTACT-NEW-2026-10-29: ticks on the new contacts card */
   .msg.me { align-self:flex-end; background:var(--soft); }
+  /* AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): the save status under Kiko's line in an agent's thread. */
+  .agm { align-self:flex-end; margin:-6px 2px 0; max-width:85%; } .err.agm { margin-top:0; }
+  .linkbtn { all:unset; cursor:pointer; color:var(--act); text-decoration:underline; text-underline-offset:2px; } .linkbtn:focus-visible { outline:2px solid var(--act); }
+  #tagnote { margin-top:6px; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
   .msg.plan { border-left:4px solid var(--need); }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }

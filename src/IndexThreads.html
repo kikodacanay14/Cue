@@ -159,6 +159,7 @@
 
   function sendFrom(box, host, ref) {
     var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
+    if (ref && (byId()[ref] || {}).agd) return agentSay(t, !!withFiles, ref, box);   // AGENT-REPLIES-2026-11-14: an agent's thread
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
     var b = batchOf(ref);
@@ -244,6 +245,12 @@
   });
   $('send').onclick = function () { sendFrom($('box'), 'files', ''); };   // Enter shares this path, so a reply goes with either
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
+  document.addEventListener('click', function (e) {   // AGENT-REPLIES-2026-11-14: Try again under a line Canvas did not save
+    var b = e.target.closest && e.target.closest('[data-agm-retry]'); if (!b) return;
+    var ref = b.getAttribute('data-agm-retry'), last = null;
+    state.chat.forEach(function (x) { if (x.who === 'Kiko' && x.request_id === ref) last = x; });
+    if (last && ref) agentSay(String(last.text || ''), false, ref, null);
+  });
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
@@ -268,6 +275,15 @@
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
     }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+  }
+  // AGENT-REPLIES-2026-11-14 (Kiko's card 14 Nov 15:36:53Z "No, all goes to the agent"; mockup approved 16:46:11Z): a line in an
+  // agent's thread is saved for that agent and nothing else runs. Files stay here: agents can't open them.
+  function agentSay(t, withFiles, ref, box) {
+    if (withFiles) { pending = []; renderFiles(); return addLocal('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); }
+    var mine = { who: 'Kiko', text: t, request_id: ref, time: '', box: box, sent: Date.now() };
+    outbox.push(mine); if (box) box.value = ''; renderChat();
+    var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueAgdSay', [ref, t], function () { refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
@@ -498,6 +514,8 @@
   function lineKind(m) {
     if (m.who === 'Kiko') return '';
     var t = String(m.text || ''), q = askOf(m);
+    if (/^Saved for .{1,40} · it reads it on its next run$/.test(t) || t === 'Sending to Canvas…') return 'agm';   // AGENT-REPLIES-2026-11-14
+    if (/^Not saved: /.test(t)) return 'agmx';
     if (q && /^Learned: "/.test(t)) return 'learn';
     return !q && ACT_RE.test(t) ? 'act' : '';
   }
@@ -508,6 +526,9 @@
   function msgHtml(m, thread, inThread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var lk = inThread === true ? lineKind(m) : '';
+    // AGENT-REPLIES-2026-11-14: under Kiko's line in an agent's thread, the save status as a small line (approved mockup), not a bubble.
+    if (lk === 'agm') return '<div class="small muted agm">' + esc(m.text) + '</div>';
+    if (lk === 'agmx') return '<div class="err agm">' + esc(m.text) + ' <button class="linkbtn" data-agm-retry="' + esc(m.request_id || '') + '">Try again</button></div>';
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
     // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
@@ -663,7 +684,7 @@
     var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
-      lastThread = tn; renderThread(t);
+      lastThread = tn; renderThread(t); agentBox(t);
       if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
     renderPaneTabs(th); renderThreadList(th);
@@ -792,6 +813,12 @@
   function foldIn(c) {   // the Fold button goes first inside the card's own box; anything else gets a box around it
     var m = /^(<div class="card[^"]*"[^>]*>)/.exec(c);
     return m ? m[1] + FOLD_BTN + c.slice(m[1].length) : '<div class="tcardw">' + FOLD_BTN + c + '</div>';
+  }
+  // AGENT-REPLIES-2026-11-14: in an agent's thread the box writes to that agent, and the note under it says Cue does not act on it.
+  function agentBox(t) {
+    var x0 = t && t.reqs[0], ag = x0 && x0.agd ? x0.agd.agent || 'the agent' : '';
+    $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
+    $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
   }
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).

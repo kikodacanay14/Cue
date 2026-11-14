@@ -766,24 +766,46 @@ function zbGptGuide_(part) {
   const text = b.f.getBlob().getDataAsString('UTF-8');
   return { part, parts, updated: new Date(b.t).toISOString(), text: text.slice(0, ZB_GPT_GUIDE_MAX_), cut: text.length > ZB_GPT_GUIDE_MAX_ };
 }
+/* GPT-READ-KEY-2026-11-13 (Kiko 13 Nov 2026 15:12Z: "a separate credential restricted to read-only access for initial testing"
+ * for local Docker agents; card "Build read-only key" 15:13:11Z). A second door key, Script Property GPT_DOOR_READ_KEY, saved in
+ * Admin > System Config > API keys. It opens only the door actions whose kind is 'read'; every save is refused here, in Canvas,
+ * so it stays read only whatever the client sends. It starts with "ro-" so the connector can show read tools only. */
+const ZB_GPT_RO_PROP_ = 'GPT_DOOR_READ_KEY', ZB_GPT_RO_PREFIX_ = 'ro-';
+/** 'full' (the ChatGPT key), 'read' (the read-only key) or '' (neither). Keys under 24 characters never match. */
+function zbGptKeyKind_(key, full, ro) {
+  if (typeof key !== 'string' || !key) return '';
+  const h = zbHash_(key);
+  if (String(full || '').length >= 24 && zbSafeEq_(h, zbHash_(full))) return 'full';
+  if (String(ro || '').length >= 24 && zbSafeEq_(h, zbHash_(ro))) return 'read';
+  return '';
+}
+/** True when a door action only reads (a fixed kind 'read'; an action that decides its kind per call counts as a save). */
+function zbGptIsRead_(action) {
+  const a = zbOwn_(ZB_ACTIONS_, action) ? ZB_ACTIONS_[action] : null;
+  return !!a && typeof a.kindOf !== 'function' && a.kind === 'read';
+}
 const ZB_GPT_KEYS_ = ['key', 'command_id', 'task_id', 'action', 'project_id', 'expected_project_number', 'args', 'openaiFileIdRefs'];
 const ZB_GPT_LOG_TAB_ = '_ChatGPT Door Log';
 const ZB_GPT_LOG_HEAD_ = ['Time', 'Action', 'Project ID', 'Command ID', 'Status', 'OK', 'Record IDs', 'Drive links', 'Error'];
 function zbGptDoor_(raw, now) {   // every call is logged, refusals too (a bad key is logged without the key)
   const seen = {}, out = zbGptDoorRun_(raw, now, seen);
-  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, seen.task, seen.pid);
+  zbGptLog_(seen.q || { action: String(seen.action || '').slice(0, 60), command_id: '' }, out, seen.ro ? 'read-only key' + (seen.task ? ', ' + seen.task : '') : seen.task, seen.pid);
   return out;
 }
 function zbGptDoorRun_(raw, now, seen) {
   let r; try { r = JSON.parse(raw); } catch (e) { return zbOut_('Rejected', {}, { error: 'body is not JSON' }); }
   if (!r || typeof r !== 'object' || Array.isArray(r)) return zbOut_('Rejected', {}, { error: 'body must be a JSON object' });
   seen.action = r.action;
-  const secret = String(PropertiesService.getScriptProperties().getProperty('GPT_DOOR_KEY') || '');
-  if (secret.length < 24) return zbOut_('Rejected', {}, { error: 'The ChatGPT door is off. Kiko saves a ChatGPT key in Admin > System Config > API keys.' });
-  if (typeof r.key !== 'string' || !zbSafeEq_(zbHash_(r.key), zbHash_(secret))) return zbOut_('Rejected', {}, { error: 'bad key' });
+  const props = PropertiesService.getScriptProperties();
+  const secret = String(props.getProperty('GPT_DOOR_KEY') || ''), roKey = String(props.getProperty(ZB_GPT_RO_PROP_) || '');
+  if (secret.length < 24 && roKey.length < 24) return zbOut_('Rejected', {}, { error: 'The ChatGPT door is off. Kiko saves a ChatGPT key in Admin > System Config > API keys.' });
+  const which = zbGptKeyKind_(r.key, secret, roKey);
+  if (!which) return zbOut_('Rejected', {}, { error: 'bad key' });
   const extra = Object.keys(r).filter(k => ZB_GPT_KEYS_.indexOf(k) < 0);
   if (extra.length) return zbOut_('Rejected', r, { error: 'unexpected field: ' + extra[0].slice(0, 40) });
   if (ZB_GPT_ACTIONS_.indexOf(String(r.action)) < 0) return zbOut_('Rejected', r, { error: 'this action is not open to ChatGPT' });
+  if (which === 'read' && !zbGptIsRead_(r.action)) { seen.ro = true; return zbOut_('Rejected', r, { error: 'this key is read only: ' + String(r.action).slice(0, 60) + ' is a save' }); }
+  seen.ro = which === 'read';
   const fbad = zbGptFiles_(r); if (fbad) return zbOut_('Rejected', r, { error: fbad });
   const cid = r.command_id == null || r.command_id === '' ? 'gpt-' + Utilities.getUuid() : String(r.command_id);
   // task_id is ChatGPT's own grouping and only labels the log row; each write gets its own plan under 'gpt:' + command_id.
@@ -2985,7 +3007,8 @@ ZB_ACTIONS_.draft_add = {
 };
 ZB_ACTIONS_.draft_status = {
   kind: 'read', needsProject: false,
-  schema: { draft_id: { type: 'string', re: /^DRF-\d{4,6}$/ }, agent: { type: 'string', max: 40 } },
+  schema: { draft_id: { type: 'string', re: /^DRF-\d{4,6}$/ }, agent: { type: 'string', max: 40 },
+    since: { type: 'string', max: 20 } },   // AGENT-REPLIES-2026-11-14: Kiko's messages after this message_id (DRF-0123)
   run: (r) => agdStatus_(r.args)
 };
 ZB_ACTIONS_.rfp_log = {
@@ -3033,6 +3056,13 @@ ZB_ACTIONS_.agent_draft_decide = {
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 2000 },
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
   run: (r) => agdDecide_(r.args)
+};
+// AGENT-REPLIES-2026-11-14 (AgentDrafts.gs agdMessage_): Kiko's line in an agent's Cue thread, saved once for that agent. Cue only.
+ZB_ACTIONS_.agent_message = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, agent: { type: 'string', required: true, nonBlank: true, max: 40 },
+    text: { type: 'string', required: true, nonBlank: true, max: 4000 }, about: { type: 'string', re: /^DRF-\d{4,6}$/ } },
+  run: (r) => agdMessage_(r.args)
 };
 
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z

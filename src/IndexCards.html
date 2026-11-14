@@ -770,7 +770,7 @@
   // A failed handover shows Blocked (crit), never Delivered (Kiko: "failed handovers should appear as Blocked, never Delivered").
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
-    var canReply = (A.status === 'Unread' || A.status === 'Read') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"
+    var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
       + '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>'
@@ -781,7 +781,10 @@
       ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
     if (!ok && H.why) f.push(['Why Blocked', esc(H.why)]);
     h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
-    if (A.status === 'Replied' && A.note) h += '<div class="small" style="margin-top:6px"><b>Your reply:</b> ' + esc(A.note) + '</div><div class="small muted">' + esc(A.agent) + ' reads it on its next run.</div>';
+    // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): every reply Kiko sent on this update, oldest first.
+    var reps = (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
+    if (reps.length) h += '<div class="small" style="margin-top:8px"><b>Your replies</b></div>' + reps.map(function (x) { return '<div class="small" style="margin-top:2px">' + (x.at ? esc(String(x.at).slice(11, 16) || x.at) + ' · ' : '') + esc(x.text) + '</div>'; }).join('')
+      + '<div class="small muted">' + esc(A.agent) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
       + esc(A.agent) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';

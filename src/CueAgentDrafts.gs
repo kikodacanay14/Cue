@@ -62,7 +62,8 @@ function cueAgdFrom_(d) {
     type_label: cueStr_(d.type_label || d.type, 40), project_id: cueStr_(d.project_id, 20), project: cueStr_(d.project, 200), item: cueStr_(d.item, 300),
     recipient: cueStr_(d.recipient, 300), subject: cueStr_(d.subject, 250), body: cueStr_(d.body, 6000), lines, created: cueStr_(d.created, 30),
     status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 2000), reason: cueStr_(d.reason, 600),
-    handover: d.type === 'update' ? cueAgdHand_(d.handover) : null };   // AGENT-UPDATE-2026-11-13
+    handover: d.type === 'update' ? cueAgdHand_(d.handover) : null,   // AGENT-UPDATE-2026-11-13
+    replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 2000) })) : [] };   // AGENT-REPLIES-2026-11-14
 }
 /** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
 function cueAgdHand_(h) {
@@ -118,6 +119,7 @@ function cueAgdSync_(drafts) {
         s.status = s.stage = 'Needs you'; s.error = 'Cue did not hear back from Canvas. It still shows this draft waiting, so nothing was sent. Tap again.';
         cueSave_(sh, x.row, s); return;
       }
+      if (a.replies.length && JSON.stringify(a.replies) !== JSON.stringify(s.agd.replies || [])) { s.agd.replies = a.replies; if (was === a.status) { cueSave_(sh, x.row, s); return; } }   // AGENT-REPLIES-2026-11-14
       if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) return;
       // Canvas's own record wins for the outcome; Kiko's edits on a card still waiting stay until he decides.
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { s.agd[f] = a[f]; });
@@ -141,7 +143,8 @@ function cueAgdView_(s) {
   return { draft_id: a.draft_id, agent: a.agent, door: a.door, type: a.type, type_label: a.type_label, project_id: a.project_id, project: a.project, item: a.item,
     recipient: a.recipient, subject: a.subject, body: a.body, lines: a.lines || [], created: a.created, status: a.status, decided: a.decided, sent: a.sent,
     gmail_url: /^[0-9a-f]{8,24}$/.test(String(a.gmail_thread || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + a.gmail_thread : '',
-    note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null };
+    note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null,
+    replies: a.replies || [] };   // AGENT-REPLIES-2026-11-14: every reply Kiko sent on an update card
 }
 
 /** Kiko's tap. o = { decision: send | save | send_back | reject, subject?, body?, note?, lines? }. Canvas decides once. */
@@ -159,8 +162,8 @@ function cueAgdDecide_(id, o) {
     const a = L.s.agd;
     const forUpd = dec === 'read' || dec === 'reply';   // AGENT-UPDATE-2026-11-13
     if ((a.type === 'update') !== forUpd) throw new Error(a.type === 'update' ? 'An update is marked read or replied to.' : 'Only an update is marked read or replied to.');
-    if (dec === 'reply' && a.status === 'Replied') throw new Error('You already replied to this update.');
-    if (!(dec === 'reply' && a.status === 'Read') && a.status !== (a.type === 'update' ? 'Unread' : 'Waiting for Kiko')) throw new Error('This ' + (a.type === 'update' ? 'update' : 'draft') + ' is ' + a.status + ' in Canvas, not waiting for you.');
+    // AGENT-REPLIES-2026-11-14 (Kiko's mockup, approved 14 Nov 16:46:11Z): an update takes as many replies as Kiko sends.
+    if (!(dec === 'reply' && (a.status === 'Read' || a.status === 'Replied')) && a.status !== (a.type === 'update' ? 'Unread' : 'Waiting for Kiko')) throw new Error('This ' + (a.type === 'update' ? 'update' : 'draft') + ' is ' + a.status + ' in Canvas, not waiting for you.');
     if (L.s.status === 'Sending') throw new Error('Cue is already passing this draft to Canvas.');
     if (dec === 'save' && a.type !== 'requirements') throw new Error('Only a requirements list is saved.');
     if (dec === 'send' && a.type === 'requirements') throw new Error('A requirements list is saved, not sent.');
@@ -192,6 +195,7 @@ function cueAgdDecide_(id, o) {
       const d = cueAgdFrom_(Object.assign({}, t.agd, res.draft || {}, { body: t.agd.body, lines: res.draft && res.draft.lines ? res.draft.lines : t.agd.lines, subject: t.agd.subject }));
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { t.agd[f] = d[f]; });
       if (note && !t.agd.note) t.agd.note = note;
+      if (dec === 'reply' && !res.again) t.agd.replies = (t.agd.replies || []).concat([{ at: cueStr_((res.message && res.message.at) || t.agd.decided, 30), text: note }]).slice(-50);
       t.status = t.stage = cueAgdCueStatus_(t.agd.status); t.error = '';
       if (t.status !== 'Sending') t.ready_at = cueNow_();
       line = res.again ? 'Canvas had already settled this draft: ' + cueAgdLine_(t.agd) : cueAgdLine_(t.agd);
@@ -254,4 +258,33 @@ function cueAgdRewrite_(id, instruction) {
   });
   cueChat_('Cue', 'Rewrote it from your note: "' + what + '". Check it, then ' + (req ? 'Save to Canvas.' : 'Send.'), id);
   return s;
+}
+
+/* AGENT-REPLIES-2026-11-14 (Kiko 14 Nov 2026 08:44Z "Yes. How do we go about agents cant read replies"; card 15:36:53Z "No, all goes to
+ * the agent"; mockup approved 16:46:11Z; CanvasWorkspace agent-replies/discovery.md). Everything Kiko types in an agent's thread is a
+ * message to that agent: Cue saves it once in Canvas (bridge agent_message) and never acts on it, never asks GPT about it and never
+ * starts an intake, mail or any other task from it. The agent reads it with draft_status on its next run. Files are not sent: agents
+ * can't open them. Only the card buttons decide anything. */
+const CUE_AGM_SAVED_ = agent => 'Saved for ' + agent + ' · it reads it on its next run';
+function cueAgdSay(ref, text) { cueOwner_(); return cueAgdSay_(ref, text, false, false); }
+/** logged: Kiko's line is already in the chat (a Reply on a Cue bubble in the main chat). Returns { agent_message } for the page. */
+function cueAgdSay_(ref, text, has, logged) {
+  if (globalThis.CUE_CHECK_ON_) throw new Error('A check never messages an agent.');
+  const L = cueLoad_(ref);
+  if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('This is not an agent\'s thread.');
+  const agent = cueStr_(L.s.agd.agent, 40) || 'Agent', t = cueStr_(String(text || '').replace(/\r/g, '').trim(), 4000);
+  if (has) { if (t && !logged) cueChat_('Kiko', t, ref); cueChat_('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); return { agent_message: false }; }
+  if (!t) throw new Error('Type your message first.');
+  if (!logged) cueChat_('Kiko', t, ref);
+  // One request id per thread, text and 10 minutes: a retry of the same line saves once in Canvas.
+  const h = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, ref + '|' + t + '|' + Math.floor(cueNow_() / 600000))).replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
+  let res = null, err = '';
+  try { res = cueBridge_(L.s, 'agent_message', { request_id: 'agm:' + h, agent, text: t }) || {}; } catch (e) { err = cueStr_((e && e.message) || e, 300); }
+  if (err || !res || res.ok === false) {
+    const why = String(err || (res && res.error) || 'Canvas did not answer.').replace(/^Canvas refused agent_message \(\w+\): /, '');
+    cueChat_('Cue', 'Not saved: ' + why.replace(/\.?\s*$/, '.'), ref);
+    return { agent_message: false, error: why };
+  }
+  cueChat_('Cue', CUE_AGM_SAVED_(agent), ref);
+  return { agent_message: true, message: res.message || null };
 }
