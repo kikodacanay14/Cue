@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.70: agent messages are saved once, and Try again resends the right one (not deployed)
+
+Asked: no new ask. These fix six findings of the Codex review on Cue PR #386 (14 Nov 2026 17:07Z), which arrived after 1.28.69 had
+shipped. All are within Kiko's approved design for agent threads (14 Nov 2026 card 15:36:53Z, mockup 16:46:11Z; CUE-056). Built on
+live 1.28.69 (Version 248), slot cue-1.28.70, card agent-kiko-replies. No Canvas change.
+
+- `src/CueAgentDrafts.gs`, `src/Cue.gs`, `src/IndexThreads.html`: each message has one id, made once by the page and kept on the box
+  when a send fails, so a retry at any later time is saved once in Canvas (1.28.69 used a 10-minute time window).
+- Try again under "Not saved" resends that line's own message (`cueAgdRetry`), never Kiko's latest line in the thread.
+- A Reply in the main chat on an agent's bubble no longer shows a false error after it was saved (the result now ends the send).
+- A second reply on an update keeps a reply sent with 1.28.68, and uses Canvas's own reply list when it sends one.
+- A card left on Sending by a run that died settles to Canvas's status once Canvas shows the reply.
+- `docs/business-rules.md`: CUE-056 records the agent-thread rule. Tests AGR4 to AGR6 added, AGR1 to AGR3 and RB4 updated; 834/834 pass.
+
 ## Cue 1.28.69: Kiko's messages in an agent's thread reach the agent (LIVE as Version 248, 14 Nov 2026 17:21Z, rollback 247)
 
 Asked: Kiko, 14 Nov 2026 08:44:34Z ("How do we go about agents cant read replies"), card 15:36:53Z "No, all goes to the agent"

@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 83 server files, 1638 top-level names, 36 task kinds, 35 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 99 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
+Counts: 83 server files, 1639 top-level names, 36 task kinds, 35 word checks before the
+chat call, 19 background jobs in the 5-minute trigger, 100 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -295,7 +295,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueAccred.gs`: `cueAcDone`
 - `CueAdmin.gs`: `cueAdminChasers`, `cueAdminLog`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
 - `CueAdminCanvas.gs`: `cueAdminCanvasChaseSend`, `cueAdminCanvasChasers`, `cueAdminSnBoard`, `cueAdminSnItems`, `cueAdminSnPrepare`, `cueAdminSnSend`
-- `CueAgentDrafts.gs`: `cueAgdDecide`, `cueAgdOpen`, `cueAgdRewrite`, `cueAgdSay`
+- `CueAgentDrafts.gs`: `cueAgdDecide`, `cueAgdOpen`, `cueAgdRetry`, `cueAgdRewrite`, `cueAgdSay`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClarifyCancel`, `cueBidsClarifySend`, `cueBidsClose`, `cueBidsDecide`, `cueBidsStartIntake`
 - `CueEditLog.gs`: `cueAdminEditUndo`, `cueAdminEdits`

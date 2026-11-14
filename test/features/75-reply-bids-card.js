@@ -51,7 +51,7 @@ test('RB4 Reply on another task\'s bubble puts the message in that thread and ke
   assert.ok(rows.some(r => r[1] === 'Kiko' && r[3] === id), 'the message went into the thread');
   const page = cuePage();
   assert.ok(/id="replybar"[\s\S]*Replying to[\s\S]*id="replyx"/.test(page) && /data-reply=/.test(page) && /touchstart/.test(page), 'reply strip, ↩ button, long press');
-  assert.ok(/call\('cueSend', \[t, files, mode, ref, \(mine && mine\.reply\) \|\| ''\]/.test(page), 'the reply goes with the send');
+  assert.ok(/call\('cueSend', \[t, files, mode, ref, \(mine && mine\.reply\) \|\| ''(, mid)?\]/.test(page), 'the reply goes with the send');
 });
 
 test('RB5 new clients from the 8 AM update (Kiko 1 Nov: "B - until i decline or add"): "add" adds, "no" drops for good, the rest come back', () => {
