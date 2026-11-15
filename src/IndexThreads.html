@@ -160,6 +160,13 @@
   function sendFrom(box, host, ref) {
     var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
     if (ref && (byId()[ref] || {}).agd) return agentSay(t, !!withFiles, ref, box);   // AGENT-REPLIES-2026-11-14: an agent's thread
+    // AGENT-TAG-2026-11-15: "@name" that is no agent stays in the box. A tagged message goes straight to the server, before the
+    // batch, expense, upload and learn paths (Codex review on Cue PR #390), so nothing but the agent ever gets it.
+    if (!ref && box === $('box') && tagMatch(t)) {
+      if (!tagCheck(t)) return;
+      if (withFiles) return tagErr('Agents can\'t open files. Remove the files, or delete the @ to send them to Cue. Nothing was sent.');
+      return send(t, [], '', '', undefined, box, true);
+    }
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
     var b = batchOf(ref);
@@ -260,7 +267,7 @@
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
-  function send(t, files, mode, ref, mine, box) {
+  function send(t, files, mode, ref, mine, box, tagged) {
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
@@ -268,8 +275,8 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
-    if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (!tagged && mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
+    if (!tagged && mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
@@ -304,6 +311,69 @@
     var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(box, t);
     call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
+  }
+  /* AGENT-TAG-2026-11-15 (Kiko 15 Nov 2026 08:30:07Z "tag the agent name like @ Account Specialist"; mockup approved 09:24:50Z, card
+   * "Approve, one agent per message"; "build" 11:26:04Z). In the main chat, "@" as the first character opens the list of agents (one per
+   * agent thread, newest draft first). Picking one writes "@Name " in the box; the server sends the rest to that agent only
+   * (CueAgentDrafts.gs cueAgdTag_). A name that is no agent sends nothing: the words stay in the box with a red note. */
+  var tagState = { open: false, list: [], i: 0 };
+  function tagNorm(x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function tagAgents() {
+    if (state.agents) return state.agents;   // the server's full list (every request, not only the 20 the page holds)
+    var seen = {}, out = [], by = byId();
+    state.requests.forEach(function (r) {
+      if (!r.agd || !r.agd.agent) return;
+      var k = tagNorm(r.agd.agent), at = String(r.created || '');
+      if (!seen[k]) { seen[k] = { agent: String(r.agd.agent), ref: rootOf(r.id, by), at: at }; out.push(seen[k]); }
+      if (at > seen[k].at) seen[k].at = at;
+    });
+    return out.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+  }
+  // The same match as the server: the longest agent name that the text starts with, ending at a word break.
+  function tagMatch(t) {
+    var m = String(t || '').match(/^\s*@\s*([\s\S]*)$/); if (!m) return null;
+    var low = tagNorm(m[1]) + ' ', best = null;
+    tagAgents().forEach(function (a) { var n = tagNorm(a.agent); if (n && low.slice(0, n.length) === n && !/[\p{L}\p{N}]/u.test(low.charAt(n.length)) && (!best || n.length > tagNorm(best.agent).length)) best = a; });
+    if (!best) return { miss: m[1].trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40) };
+    return { agent: best.agent, rest: tagNorm(m[1]).slice(tagNorm(best.agent).length).replace(/^[\s,:;.\-]+/, '') };
+  }
+  function tagErr(msg) { var e = $('tagerr'); e.textContent = msg || ''; e.hidden = !msg; $('box').classList.toggle('bad', !!msg); }
+  function tagCheck(t) {
+    var g = tagMatch(t); if (!g) return true;
+    if (g.miss !== undefined) { tagErr('No agent is called "' + g.miss + '". Pick one from the list, or delete the @ to ask Cue. Nothing was sent.'); return false; }
+    if (!g.rest && !(fileHost === 'files' && pending.length)) { tagErr('Type your message after ' + g.agent + '.'); return false; }
+    tagErr(''); return true;
+  }
+  function tagOpen() {
+    var v = $('box').value, m = v.match(/^@([^\n]*)$/), q = m ? tagNorm(m[1]) : null;
+    var list = q === null ? [] : tagAgents().filter(function (a) { var n = tagNorm(a.agent); return n.slice(0, q.length) === q && q.length <= n.length && !(q === n && / $/.test(v)); });
+    tagState.open = list.length > 0; tagState.list = list; tagState.i = Math.min(tagState.i, Math.max(list.length - 1, 0));
+    var ul = $('taglist'); ul.hidden = !tagState.open; $('taghelp').hidden = !tagState.open;
+    ul.innerHTML = list.map(function (a, i) {
+      return '<li role="option" data-tag-pick="' + i + '" aria-selected="' + (i === tagState.i) + '"' + (i === tagState.i ? ' class="on"' : '') + '><b>' + esc(a.agent) + '</b><span class="small muted">' + (a.at ? 'last draft ' + esc(msgWhen(a.at)) : '') + '</span></li>';
+    }).join('');
+  }
+  function tagPick(i) { var a = tagState.list[i]; if (!a) return; $('box').value = '@' + a.agent + ' '; tagState.i = 0; tagOpen(); tagErr(''); $('box').focus(); }
+  function tagKey(e) {
+    if (!tagState.open) return false;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); tagState.i = (tagState.i + (e.key === 'ArrowDown' ? 1 : tagState.list.length - 1)) % tagState.list.length; tagOpen(); return true; }
+    if (tagState.open && (e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.isComposing) { e.preventDefault(); tagPick(tagState.i); return true; }
+    if (e.key === 'Escape') { tagState.open = false; $('taglist').hidden = $('taghelp').hidden = true; return true; }
+    return false;
+  }
+  $('box').addEventListener('input', function () { tagState.i = 0; tagOpen(); if (!$('tagerr').hidden) tagErr(''); });
+  $('taglist').addEventListener('mousedown', function (e) { var li = e.target.closest && e.target.closest('[data-tag-pick]'); if (!li) return; e.preventDefault(); tagPick(+li.getAttribute('data-tag-pick')); });
+  // The main chat's copy of a tagged message: Kiko's line with the agent as a tag, then the save status with Open thread.
+  function tagHtml(m, by) {
+    var ref = m.request_id.slice(1), t = String(m.text || ''), known = tagAgents().filter(function (a) { return a.ref === ref; })[0];
+    var ag = String(((by[ref] || {}).agd || {}).agent || (known && known.agent) || '');
+    if (m.who === 'Kiko') {
+      var rest = ag && t.indexOf('@' + ag) === 0 ? t.slice(ag.length + 1).trim() : t;
+      return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(ag) + '</span> ' : '') + esc(rest) + '</div>';
+    }
+    var h = msgHtml({ who: m.who, text: t, request_id: ref, time: m.time }, '', true);
+    // Open thread only when the page holds the thread's requests; an older one would open without its cards and its agent-only box (Codex on #390).
+    return by[ref] && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
@@ -404,7 +474,7 @@
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
-  $('box').addEventListener('keydown', function (e) { if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('box').addEventListener('keydown', function (e) { if (tagKey(e)) return; if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
@@ -437,7 +507,7 @@
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
     allLines().forEach(function (m) {
       var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
-      if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
+      if (m.request_id && m.request_id.charAt(0) !== '>' && m.request_id.charAt(0) !== '@') get(rootOf(m.request_id, by)).lines.push(m); });   // "@<thread>": AGENT-TAG main-chat copy
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
@@ -746,6 +816,7 @@
       if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
       // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
       if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
+      if (m.request_id.charAt(0) === '@') { h += tagHtml(m, by); return; }   // AGENT-TAG-2026-11-15: a message Kiko tagged to an agent
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later

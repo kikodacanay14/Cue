@@ -172,6 +172,12 @@
   .msg.me { align-self:flex-end; background:var(--soft); }
   /* AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): the save status under Kiko's line in an agent's thread. */
   .agm { align-self:flex-end; margin:-6px 2px 0; max-width:85%; } .err.agm { margin-top:0; }
+  /* AGENT-TAG-2026-11-15: the @ agent list above the main chat's box (approved mockup agent-tags/mockup). */
+  .composer .in { position:relative; }
+  .taglist { position:absolute; left:16px; bottom:calc(100% - 4px); z-index:6; width:min(360px, calc(100% - 32px)); margin:0; padding:6px; list-style:none; background:var(--panel); border:1px solid var(--line2); border-radius:10px; box-shadow:0 6px 20px rgba(22,21,27,.12); }
+  .taglist li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:6px; cursor:pointer; }
+  .taglist li b { font-weight:700; font-size:14px; } .taglist li.on, .taglist li:hover { background:var(--soft); }
+  #box.bad { border-color:var(--bad); } #taghelp, #tagerr { margin:6px 2px 0; } #tagerr { color:var(--bad); }
   .linkbtn { all:unset; cursor:pointer; color:var(--act); text-decoration:underline; text-underline-offset:2px; } .linkbtn:focus-visible { outline:2px solid var(--act); }
   #tagnote { margin-top:6px; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }

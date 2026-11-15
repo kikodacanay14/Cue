@@ -81,13 +81,16 @@
     <div class="replybar" id="replybar" hidden><span class="small muted">Replying to</span> <b id="replyto"></b><button class="btn ghost sm" id="replyx" aria-label="Cancel the reply">×</button></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="small muted" id="hint" role="status" hidden></div>
+    <ul class="taglist" id="taglist" role="listbox" aria-label="Agents" hidden></ul>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
       <button class="btn ghost attach" id="snap" hidden title="Snap the page you were looking at (Alt+Shift+S works too)" aria-label="Snap the page you were looking at">📷</button>
       <input type="file" id="picker" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.eml,.txt,.csv">
-      <textarea id="box" placeholder="Ask Cue, or paste an inquiry. 📎 adds briefs, photos and plans." aria-label="Message"></textarea>
+      <textarea id="box" placeholder="Ask Cue, or type @ for an agent. 📎 adds briefs, photos and plans." aria-label="Message"></textarea>
       <button class="btn" id="send">Send</button>
     </div>
+    <div class="small muted" id="taghelp" hidden>Type @ to send a message to one agent. Without @, Cue answers as today. ↑ ↓ to move · Enter or tap to pick · Esc to close</div>
+    <div class="small" id="tagerr" role="alert" hidden></div>
     <div class="chips">
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
       <button class="chip" id="chip-batch" hidden title="Hold these and wait for more files for the same task">More coming</button>

@@ -532,3 +532,25 @@ mockup card 16:46:11Z "Approve, build it". CanvasWorkspace ADR-0183 and rule R-A
 
 Evidence: `test/features/99-agent-replies.js` AGR1 to AGR6. Built: Cue 1.28.69 (live as Version 248, 14 Nov 2026 17:21Z), review
 fixes in 1.28.70 (live as Version 249, 17:52Z). Manual gap: not yet run live in Kiko's browser, and no agent has read a message yet.
+
+### CUE-057: A main-chat message that starts with @ and an agent's name goes to that agent only
+
+**Status: APPROVED by Kiko, 15 Nov 2026**, in the "Scope @-tag routing to agents in Cue" thread: 08:30:07Z "is it possible for me to
+type in the new Cue and tag the agent name like @ Account Specialist and Cue sends the message to the Account Specialist agent";
+scope and mockup (project files `agent-tags/scope.md`, `agent-tags/mockup/`) approved on the decision card 09:24:50Z "Approve, one
+agent per message"; "build" 11:26:04Z (build on /dev only; going live needs a separate yes). Builds on CUE-056.
+
+- In the main chat, "@" as the first character opens a list of the agents that have a thread in Cue, newest draft first. Picking
+  one writes "@<agent> " in the box.
+- A message whose first word is "@" and an agent's name (capitals and spaces do not matter, the longest name wins) goes to that
+  agent exactly as CUE-056 describes: saved once in Canvas with `agent_message`, shown in the agent's thread, and nothing else runs.
+  The main chat shows Kiko's line with the agent as a tag, then "Saved for <agent> · it reads it on its next run · Open thread" or
+  "Not saved: <why>." with Try again. Cue's assistant never reads these lines.
+- Only the start of the message counts: an @ later in a line (an email address, "@ 5 PM") is plain text, and untagged messages work
+  as before. One agent per message: a second @ in the same message is plain text.
+- A name that is no agent sends nothing: the words stay in the box with "No agent is called "<name>". Pick one from the list, or
+  delete the @ to ask Cue. Nothing was sent." A tag with no words after it asks for the message.
+- Files with a tag are not sent (CUE-056). A tag wins over a Reply on a Cue bubble.
+
+Evidence: `test/features/99-agent-tag.js` TAG1 to TAG5. Built: Cue 1.28.71 (not deployed). Manual gap: not yet run on /dev in Kiko's
+browser.
