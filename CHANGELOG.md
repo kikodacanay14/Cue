@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.71: tag an agent with @ in the main chat (not deployed)
+## Cue 1.28.71: tag an agent with @ in the main chat (LIVE as Version 250, 15 Nov 2026 12:46Z, rollback 249)
 
 Asked: Kiko, 15 Nov 2026 08:30:07Z ("is it possible for me to type in the new Cue and tag the agent name like @ Account Specialist and
 Cue sends the message to the Account Specialist agent"); scope and mockup approved on the card 09:24:50Z ("Approve, one agent per
@@ -16,6 +16,7 @@ Built on live 1.28.70 (Version 249), slot cue-1.28.71, card cue-agent-tag. No Ca
 - Codex review on PR #390: a tagged message now skips the batch, expense, upload and learn paths on the page, and the page gets
   every agent from the server (not only the 20 latest requests).
 - Tests TAG1 to TAG5 added; 839/839 pass.
+- Kiko said "ship @ tag" on 15 Nov 2026 at 12:46:07Z. Deploy Cue run 43715537330 shipped main 4538019 as Version 250.
 
 ## Cue 1.28.70: agent messages are saved once, and Try again resends the right one (LIVE as Version 249, 14 Nov 2026 17:52Z, rollback 248)
 
