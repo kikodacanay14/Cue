@@ -284,16 +284,18 @@ function cueAgdRetry(ref, mid) {
   cueOwner_();
   const L = cueLoad_(ref), f = L && L.s.agd && (L.s.agd.failed || {})[String(mid || '')];
   if (!f) throw new Error('That message was saved already or is no longer here. Type it again if it still needs to go.');
-  return cueAgdSay_(ref, f.text, false, true, String(mid));
+  return cueAgdSay_(ref, f.text, false, true, String(mid), !!f.main);
 }
 /** logged: Kiko's line is already in the chat (a Reply in the main chat, or Try again). mid: the page's id for this one message, kept
  * for every retry so Canvas saves it once (agent_message dedupes by request id). Returns { chat, agent_message } for the page. */
-function cueAgdSay_(ref, text, has, logged, mid) {
+function cueAgdSay_(ref, text, has, logged, mid, main) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never messages an agent.');
   const L = cueLoad_(ref);
   if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('This is not an agent\'s thread.');
   const agent = cueStr_(L.s.agd.agent, 40) || 'Agent', t = cueStr_(String(text || '').replace(/\r/g, '').trim(), 4000);
-  if (has) { if (t && !logged) cueChat_('Kiko', t, ref); cueChat_('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); return { chat: true, agent_message: false }; }
+  // AGENT-TAG-2026-11-15: a message tagged "@agent" in the main chat (main) shows Cue's answer in the main chat too, on rows marked "@<thread>".
+  const say = x => { cueChat_('Cue', x, ref); if (main) cueChat_('Cue', x, '@' + ref); };
+  if (has) { if (t && !logged) cueChat_('Kiko', t, ref); say('Agents can\'t open files. Send files in the main chat. Nothing was saved.'); return { chat: true, agent_message: false }; }
   if (!t) throw new Error('Type your message first.');
   if (!logged) cueChat_('Kiko', t, ref);
   // One id per message, made once (by the page, or here) and reused by every retry, so Canvas saves it once whenever it is retried.
@@ -303,15 +305,51 @@ function cueAgdSay_(ref, text, has, logged, mid) {
   const ok = !(err || !res || res.ok === false);
   cueLocked_(() => {   // a failed message is kept (at most 20) so its own Try again resends it; a saved one is dropped
     const M = cueLoad_(ref), f = Object.assign({}, M.s.agd.failed || {});
-    if (ok) delete f[h]; else f[h] = { text: t, at: cueNow_() };
+    if (ok) delete f[h]; else f[h] = { text: t, at: cueNow_(), main: !!main };
     M.s.agd.failed = Object.keys(f).sort((a, b) => f[a].at - f[b].at).slice(-20).reduce((o, k) => (o[k] = f[k], o), {});
     cueSave_(M.sh, M.row, M.s);
   });
   if (!ok) {
     const why = String(err || (res && res.error) || 'Canvas did not answer.').replace(/^Canvas refused agent_message \(\w+\): /, '');
-    cueChat_('Cue', 'Not saved: ' + why.replace(/\.?\s*$/, '.') + ' [agm:' + h + ']', ref);   // the page shows Try again for this message
+    say('Not saved: ' + why.replace(/\.?\s*$/, '.') + ' [agm:' + h + ']');   // the page shows Try again for this message
     return { chat: true, agent_message: false, error: why, mid: h };
   }
-  cueChat_('Cue', CUE_AGM_SAVED_(agent), ref);
+  say(CUE_AGM_SAVED_(agent));
   return { chat: true, agent_message: true, message: res.message || null, mid: h };
+}
+
+/* AGENT-TAG-2026-11-15 (Kiko 15 Nov 2026 08:30:07Z "is it possible for me to type in the new Cue and tag the agent name like @ Account
+ * Specialist and Cue sends the message to the Account Specialist agent"; scope and mockup approved 09:24:50Z, card "Approve, one agent
+ * per message"; "build" 11:26:04Z; project files agent-tags/scope.md). A main-chat message whose first word is "@" and an agent's
+ * name goes to that agent exactly as if typed in its thread (cueAgdSay_), and Cue does nothing else with it. Only the start of the
+ * message counts, so an email address or "@ 5 PM" later in a line is plain text. One agent per message: a second @ stays plain text.
+ * A name that is no agent sends nothing; the page keeps the words in the box. */
+/** The agents Kiko can tag: one per agent thread, newest draft first. [{ agent, ref, at }] */
+function cueAgdAgents_() {
+  const rows = cueRows_(cueSheet_('Requests')), seen = {}, out = [];
+  rows.forEach(r => {
+    if (!/^Agent draft DRF-/.test(String(r[4] || ''))) return;
+    let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
+    if (!s || s.kind !== 'agentdraft' || !s.agd || !s.agd.agent) return;
+    const k = cueAgdKey_(s.agd.agent), at = String(s.created || '');
+    if (!seen[k]) { seen[k] = { agent: cueStr_(s.agd.agent, 40), ref: s.ref || s.id, at }; out.push(seen[k]); }
+    if (!s.ref) seen[k].ref = s.id;   // the agent's first draft is its thread
+    if (at > seen[k].at) seen[k].at = at;
+  });
+  return out.sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+}
+/** "@Account Specialist skip LightWorks" -> { agent, ref, rest }; "@Nobody hi" -> { miss: 'Nobody hi' }; no leading @ -> null.
+ * Capitals and spaces do not matter; the longest name that fits wins. */
+function cueAgdTag_(text, agents) {
+  const m = String(text || '').match(/^\s*@\s*([\s\S]*)$/); if (!m) return null;
+  const body = m[1], low = body.toLowerCase().replace(/\s+/g, ' ');
+  let best = null;
+  (agents || cueAgdAgents_()).forEach(a => {
+    const n = String(a.agent || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!n || low.slice(0, n.length) !== n || /[\p{L}\p{N}]/u.test(low.charAt(n.length))) return;
+    if (!best || n.length > best.n.length) best = { a, n };
+  });
+  if (!best) return { miss: body.trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40) };
+  let i = 0, k = 0; while (k < best.n.length && i < body.length) { if (/\s/.test(body[i])) { while (i < body.length && /\s/.test(body[i])) i++; k++; } else { i++; k++; } }
+  return { agent: best.a.agent, ref: best.a.ref, rest: body.slice(i).replace(/^[\s,:;.\-]+/, '').trim() };
 }

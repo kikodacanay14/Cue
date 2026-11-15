@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.71: tag an agent with @ in the main chat (not deployed)
+
+Asked: Kiko, 15 Nov 2026 08:30:07Z ("is it possible for me to type in the new Cue and tag the agent name like @ Account Specialist and
+Cue sends the message to the Account Specialist agent"); scope and mockup approved on the card 09:24:50Z ("Approve, one agent per
+message"); "build" 11:26:04Z, on /dev only (going live needs a separate yes). Rule CUE-057, CanvasWorkspace ADR for this decision.
+Built on live 1.28.70 (Version 249), slot cue-1.28.71, card cue-agent-tag. No Canvas change: it uses `agent_message` (Canvas V540).
+
+- `src/Cue.gs`, `src/CueAgentDrafts.gs`: a main-chat message that starts with "@" and an agent's name goes to that agent only, the
+  same way as a line typed in its thread (`cueAgdTag_`, `cueAgdAgents_`). The main chat keeps it on rows marked "@<thread>", which
+  Cue's assistant never reads. Unknown names send nothing; files are refused; Try again answers in the main chat too.
+- `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: "@" opens the agent list above the box (arrows, Enter or tap to
+  pick, Esc to close); a name that is no agent keeps the words in the box with a red note; the main chat shows the agent as a tag
+  with "Saved for <agent> · it reads it on its next run · Open thread". The box placeholder mentions @.
+- Tests TAG1 to TAG4 added; 838/838 pass.
+
 ## Cue 1.28.70: agent messages are saved once, and Try again resends the right one (LIVE as Version 249, 14 Nov 2026 17:52Z, rollback 248)
 
 Asked: no new ask. These fix six findings of the Codex review on Cue PR #386 (14 Nov 2026 17:07Z), which arrived after 1.28.69 had

@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.70';
+const CUE_VERSION_ = 'Cue 1.28.71';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -234,6 +234,18 @@ function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
   cueOwner_();
   const has = !!(files && files.length);
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
+  // AGENT-TAG-2026-11-15 (Kiko's card 15 Nov 09:24:50Z "Approve, one agent per message"; CueAgentDrafts.gs cueAgdTag_): a main-chat
+  // message that starts with "@" and an agent's name goes to that agent only. The main chat keeps it on rows marked "@<thread>", which
+  // Cue's assistant never reads. It wins over a Reply on a Cue bubble (scope assumption 6).
+  if (!ref) {
+    const tg = cueAgdTag_(text);
+    if (tg && tg.miss !== undefined) throw new Error('No agent is called "' + tg.miss + '". Pick one from the list, or delete the @ to ask Cue. Nothing was sent.');
+    if (tg) {
+      if (!tg.rest && !has) throw new Error('Type your message after ' + tg.agent + '.');
+      cueChat_('Kiko', '@' + tg.agent + ' ' + tg.rest, '@' + tg.ref);
+      return Object.assign(cueAgdSay_(tg.ref, tg.rest, has, false, mid, true), { agent: tg.agent, thread: tg.ref });
+    }
+  }
   // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): Reply on a Cue bubble in the main chat quotes that
   // message. A reply to an 8 AM or 2 PM update is answered there (cueK0Said_). Any other quoted task gets the message in its thread, and
   // the main chat keeps Kiko's line with its quote ("↩<id>").
