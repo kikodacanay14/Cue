@@ -1050,7 +1050,9 @@ function cueState() {
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
+  let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

@@ -13,7 +13,9 @@ Built on live 1.28.70 (Version 249), slot cue-1.28.71, card cue-agent-tag. No Ca
 - `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: "@" opens the agent list above the box (arrows, Enter or tap to
   pick, Esc to close); a name that is no agent keeps the words in the box with a red note; the main chat shows the agent as a tag
   with "Saved for <agent> · it reads it on its next run · Open thread". The box placeholder mentions @.
-- Tests TAG1 to TAG4 added; 838/838 pass.
+- Codex review on PR #390: a tagged message now skips the batch, expense, upload and learn paths on the page, and the page gets
+  every agent from the server (not only the 20 latest requests).
+- Tests TAG1 to TAG5 added; 839/839 pass.
 
 ## Cue 1.28.70: agent messages are saved once, and Try again resends the right one (LIVE as Version 249, 14 Nov 2026 17:52Z, rollback 248)
 

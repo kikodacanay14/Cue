@@ -64,3 +64,15 @@ test('TAG4 the page: @ opens the agent list, Enter picks, unknown names stay in 
   assert.ok(/<ul class="taglist" id="taglist" role="listbox" aria-label="Agents" hidden><\/ul>/.test(idx) && /id="tagerr" role="alert" hidden/.test(idx) && /placeholder="Ask Cue, or type @ for an agent\./.test(idx));
   assert.ok(/!\/\[\\p\{L\}\\p\{N\}\]\/u\.test\(low\.charAt\(n\.length\)\)/.test(page), 'the page ends a name at a word break, like the server');
 });
+// Codex review on Cue PR #390 (15 Nov 2026).
+test('TAG5 a tagged message skips the batch, expense, upload and learn paths, and the page gets every agent from the server', () => {
+  const page = cuePage();
+  assert.ok(/if \(!ref && box === \$\('box'\) && tagMatch\(t\)\) \{\s*if \(!tagCheck\(t\)\) return;\s*if \(withFiles\) return tagErr\(/.test(page), 'tags are handled before batches and files');
+  assert.ok(page.indexOf('tagMatch(t)) {') < page.indexOf('var b = batchOf(ref);'), 'before the batch path');
+  assert.ok(/return send\(t, \[\], '', '', undefined, box, true\);/.test(page));
+  assert.ok(/if \(!tagged && mode !== 'intake' && isExpense\(t\)/.test(page) && /if \(!tagged && mode !== 'intake' && !files\.length && CHATS_RE\.test\(t\)\)/.test(page));
+  assert.ok(/if \(state\.agents\) return state\.agents;/.test(page));
+  const b = tagBox(), st = JSON.parse(JSON.stringify(b.t.ctx.cueState()));
+  assert.deepStrictEqual(st.agents.map(a => a.agent).sort(), ['Account Specialist', 'ECII agent']);
+  assert.ok(st.agents.every(a => /^cue-/.test(a.ref)));
+});

@@ -160,7 +160,13 @@
   function sendFrom(box, host, ref) {
     var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
     if (ref && (byId()[ref] || {}).agd) return agentSay(t, !!withFiles, ref, box);   // AGENT-REPLIES-2026-11-14: an agent's thread
-    if (!ref && box === $('box') && !tagCheck(t)) return;   // AGENT-TAG-2026-11-15: "@name" that is no agent stays in the box
+    // AGENT-TAG-2026-11-15: "@name" that is no agent stays in the box. A tagged message goes straight to the server, before the
+    // batch, expense, upload and learn paths (Codex review on Cue PR #390), so nothing but the agent ever gets it.
+    if (!ref && box === $('box') && tagMatch(t)) {
+      if (!tagCheck(t)) return;
+      if (withFiles) return tagErr('Agents can\'t open files. Remove the files, or delete the @ to send them to Cue. Nothing was sent.');
+      return send(t, [], '', '', undefined, box, true);
+    }
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
     var b = batchOf(ref);
@@ -261,7 +267,7 @@
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
-  function send(t, files, mode, ref, mine, box) {
+  function send(t, files, mode, ref, mine, box, tagged) {
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
@@ -269,8 +275,8 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
-    if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (!tagged && mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
+    if (!tagged && mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
@@ -313,6 +319,7 @@
   var tagState = { open: false, list: [], i: 0 };
   function tagNorm(x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
   function tagAgents() {
+    if (state.agents) return state.agents;   // the server's full list (every request, not only the 20 the page holds)
     var seen = {}, out = [], by = byId();
     state.requests.forEach(function (r) {
       if (!r.agd || !r.agd.agent) return;
@@ -358,13 +365,14 @@
   $('taglist').addEventListener('mousedown', function (e) { var li = e.target.closest && e.target.closest('[data-tag-pick]'); if (!li) return; e.preventDefault(); tagPick(+li.getAttribute('data-tag-pick')); });
   // The main chat's copy of a tagged message: Kiko's line with the agent as a tag, then the save status with Open thread.
   function tagHtml(m, by) {
-    var ref = m.request_id.slice(1), ag = String(((by[ref] || {}).agd || {}).agent || ''), t = String(m.text || '');
+    var ref = m.request_id.slice(1), t = String(m.text || ''), known = tagAgents().filter(function (a) { return a.ref === ref; })[0];
+    var ag = String(((by[ref] || {}).agd || {}).agent || (known && known.agent) || '');
     if (m.who === 'Kiko') {
       var rest = ag && t.indexOf('@' + ag) === 0 ? t.slice(ag.length + 1).trim() : t;
       return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(ag) + '</span> ' : '') + esc(rest) + '</div>';
     }
     var h = msgHtml({ who: m.who, text: t, request_id: ref, time: m.time }, '', true);
-    return by[ref] && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
+    return (by[ref] || known) && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {

@@ -325,8 +325,8 @@ function cueAgdSay_(ref, text, has, logged, mid, main) {
  * message counts, so an email address or "@ 5 PM" later in a line is plain text. One agent per message: a second @ stays plain text.
  * A name that is no agent sends nothing; the page keeps the words in the box. */
 /** The agents Kiko can tag: one per agent thread, newest draft first. [{ agent, ref, at }] */
-function cueAgdAgents_() {
-  const rows = cueRows_(cueSheet_('Requests')), seen = {}, out = [];
+function cueAgdAgents_(rows) {
+  rows = rows || cueRows_(cueSheet_('Requests')); const seen = {}, out = [];
   rows.forEach(r => {
     if (!/^Agent draft DRF-/.test(String(r[4] || ''))) return;
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }

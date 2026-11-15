@@ -552,5 +552,5 @@ agent per message"; "build" 11:26:04Z (build on /dev only; going live needs a se
   delete the @ to ask Cue. Nothing was sent." A tag with no words after it asks for the message.
 - Files with a tag are not sent (CUE-056). A tag wins over a Reply on a Cue bubble.
 
-Evidence: `test/features/99-agent-tag.js` TAG1 to TAG4. Built: Cue 1.28.71 (not deployed). Manual gap: not yet run on /dev in Kiko's
+Evidence: `test/features/99-agent-tag.js` TAG1 to TAG5. Built: Cue 1.28.71 (not deployed). Manual gap: not yet run on /dev in Kiko's
 browser.
