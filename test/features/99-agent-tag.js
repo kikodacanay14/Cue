@@ -72,6 +72,7 @@ test('TAG5 a tagged message skips the batch, expense, upload and learn paths, an
   assert.ok(/return send\(t, \[\], '', '', undefined, box, true\);/.test(page));
   assert.ok(/if \(!tagged && mode !== 'intake' && isExpense\(t\)/.test(page) && /if \(!tagged && mode !== 'intake' && !files\.length && CHATS_RE\.test\(t\)\)/.test(page));
   assert.ok(/if \(state\.agents\) return state\.agents;/.test(page));
+  assert.ok(/return by\[ref\] && \/\^<div class="small muted agm">Saved for \/\.test\(h\)/.test(page), 'Open thread only for a thread the page holds');
   const b = tagBox(), st = JSON.parse(JSON.stringify(b.t.ctx.cueState()));
   assert.deepStrictEqual(st.agents.map(a => a.agent).sort(), ['Account Specialist', 'ECII agent']);
   assert.ok(st.agents.every(a => /^cue-/.test(a.ref)));

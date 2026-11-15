@@ -372,7 +372,8 @@
       return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(ag) + '</span> ' : '') + esc(rest) + '</div>';
     }
     var h = msgHtml({ who: m.who, text: t, request_id: ref, time: m.time }, '', true);
-    return (by[ref] || known) && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
+    // Open thread only when the page holds the thread's requests; an older one would open without its cards and its agent-only box (Codex on #390).
+    return by[ref] && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
