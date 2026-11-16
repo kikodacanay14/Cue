@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.72: the FSA reminder starts 3 days after the FSA goes out (not deployed)
+## Cue 1.28.72: the FSA reminder starts 3 days after the FSA goes out (LIVE as Version 251, 16 Nov 2026 03:58Z, rollback 250)
 
 Asked: Kiko, 16 Nov 2026 02:50:02Z ("FSA (the initial notification) / FSA Reminder - Automatic: Start - 3 days after initial,
 (when does the chaser start)"). Claude showed that the signature chaser started the day after the event ended; Kiko said "yes"
@@ -11,7 +11,8 @@ fsa-reminder-start. No Canvas change: Canvas already gives each FSA's Generated 
   then every 2 days, at most 3, as before. An FSA with no Generated date keeps the old start (the day after the event). ARs are
   unchanged. Before the event, the line says "FSA sent <date>. Event ends <date>." instead of "Event ended".
 - The Chaser rules card's "First after" for FSA / AR signatures still sets the AR start; the FSA start is fixed at 3 days.
-- Tests: G1 to G5 keep their dates (fixture FSAs made 12 Nov); G6 added; 840/840 pass.
+- Tests: G1 to G5 keep their dates (fixture FSAs made 12 Nov); G6 added; 840/840 pass. Rule CUE-058, CanvasWorkspace ADR-0185.
+- Kiko said "ship" on 16 Nov 2026 at 03:57:37Z. Deploy Cue run 43801202211 shipped main 3977f36 as Version 251.
 
 ## Cue 1.28.71: tag an agent with @ in the main chat (LIVE as Version 250, 15 Nov 2026 12:46Z, rollback 249)
 
