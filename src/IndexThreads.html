@@ -66,6 +66,7 @@
       // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
       if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
+      if (g[0] === 'agent') h += agentFeedHtml(agentFeed(state.requests, Date.now(), by));   // AGENT-FEED-2026-11-16
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
@@ -538,6 +539,32 @@
   function listGroup(th, st, archived) {
     if (!archived && th.reqs[0] && th.reqs[0].agd) return 'agent';
     return st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest';
+  }
+  /* AGENT-FEED-2026-11-16 (Kiko 16 Nov 2026 15:48:10Z "BUILD IT NOW", asking for agent updates and messages under the Agents group
+   * with an hourly status): under the Agents header, one line on the last hour (how many drafts and updates, from how many agents)
+   * and the five newest agent drafts and updates, newest first. A row opens its agent's thread. Display only: no new calls, no schedule. */
+  function agentFeed(reqs, now, by) {
+    var all = (reqs || []).filter(function (r) { return r && r.agd && r.agd.agent && r.created; })
+      .sort(function (a, b) { return a.created < b.created ? 1 : a.created > b.created ? -1 : 0; });
+    var hour = all.filter(function (r) { var t = Date.parse(r.created); return t <= now && now - t < 3600000; }), who = {};
+    hour.forEach(function (r) { who[String(r.agd.agent).toLowerCase()] = 1; });
+    return { n: hour.length, agents: Object.keys(who).length, last: all.length ? all[0].created : '',
+      items: all.slice(0, 5).map(function (r) {
+        var a = r.agd, st = String(a.status || '');
+        return { k: rootOf(r.id, by || {}), agent: agdLabel(a.agent), kind: a.type === 'update' ? 'Update' : String(a.type_label || 'Draft'),
+          item: String(a.item || '') + (a.project ? ' (' + a.project + ')' : ''), at: r.created,
+          tag: st === 'Waiting for Kiko' ? ['Needs you', 'warn'] : st === 'Unread' ? ['Unread', 'warn'] : st === 'Failed' ? ['Failed', 'crit']
+            : /^(Sent|Saved|Read|Replied)$/.test(st) ? [st, 'good'] : [st || 'New', 'accent'] };
+      }) };
+  }
+  function agentFeedHtml(f) {
+    if (!f.items.length) return '';
+    var s = f.n ? 'Last hour: ' + f.n + (f.n === 1 ? ' update' : ' updates') + ' from ' + f.agents + (f.agents === 1 ? ' agent.' : ' agents.')
+      : 'Last hour: nothing new from the agents. Last one ' + ago(f.last) + '.';
+    return '<p class="agstat">' + esc(s) + '</p><div class="agfeed" aria-label="Latest from the agents">' + f.items.map(function (x) {
+      return '<button class="trow agf" data-thread="' + esc(x.k) + '"><span class="tx"><b>' + esc(x.agent) + ' · ' + esc(x.kind) + '</b><span>' + esc(noTok(x.item).slice(0, 200)) + '</span></span>'
+        + '<span class="tag ' + x.tag[1] + '">' + esc(x.tag[0]) + '</span><span class="tm">' + esc(ago(x.at).replace(' ago', '').replace('just now', 'now')) + '</span></button>';
+    }).join('') + '</div>';
   }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });

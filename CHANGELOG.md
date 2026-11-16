@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.77: agent updates show under the Agents group, with a last-hour line (not deployed)
+
+Asked: Kiko, 16 Nov 2026 15:48:10Z ("BUILD IT NOW"), for agent updates and messages under the Agents group in the top panel, with
+an hourly status. Slot cue-1.28.77, card cue-agent-feed. Built on main after 1.28.76. Display only: no new server calls, no
+schedule, no Canvas change.
+
+- `src/IndexThreads.html` `agentFeed`, `agentFeedHtml`: under the Agents header, one line on the last hour ("Last hour: 3 updates
+  from 2 agents", or "nothing new from the agents. Last one 2h ago") and the five newest agent drafts and updates (agent · type,
+  the item and project, a standard status tag, how long ago). A row opens that agent's thread. Folding the Agents group hides it.
+- `src/IndexStyle.html`: `.agstat`, `.agfeed`, `.trow.agf`.
+- Tests: AGF1 to AGF3 added; 856/856 pass.
+
 ## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
 
 Asked: Kiko, 16 Nov 2026 14:55:19Z ("can we still work on how Cue rewords and summarizes things... and formats messages? ...
