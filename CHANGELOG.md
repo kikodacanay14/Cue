@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.78: an agent's old-name and new-name threads are one thread (not deployed)
+
+Asked: Kiko, 16 Nov 2026 15:57Z ("APPROVE 1-8"), item 5 of the role rename: ECII is now Procurement Specialist and ECI is now
+Event Specialist, and the n8n senders now post the new agent names. Slot cue-1.28.78, card role-names-cue-labels. Built on main.
+
+- `src/CueAgentDrafts.gs`: the agent thread key uses the shown name, so a draft from "Procurement Specialist agent" joins the
+  existing "ECII agent" thread instead of opening a second one. A reply in that thread goes to Canvas under the name the agent
+  used on its newest draft (`cueAgdNewest_`), because Canvas finds an agent's replies by its name. The @ list keeps one entry per
+  agent, with its newest name. `src/IndexThreads.html` groups the page's fallback agent list the same way.
+- Tests: ROLE4 added; 854/854 pass.
+
 ## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
 
 Asked: Kiko, 16 Nov 2026 14:55:19Z ("can we still work on how Cue rewords and summarizes things... and formats messages? ...
