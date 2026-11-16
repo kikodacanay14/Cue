@@ -35,7 +35,7 @@ const CUE_TRIAGE_SCHEMA_ = { type: 'object', additionalProperties: false, requir
     properties: { k: { type: 'string', description: 'The email key, e.g. M3' }, group: { type: 'string', enum: CUE_TRIAGE_GROUPS_ },
       summary: { type: 'string', description: 'One line for Kiko: who, what they want, and the event date if given' },
       urgent: { type: 'boolean', description: 'True only when a reply is needed today' },
-      type: { type: 'string', description: 'The kind of email in 1 to 3 words: Client, Supplier, Freelancer, Personal, Government, Bank, Bills and dues, Platform notices, Newsletters and promos, or a short new name when none fits' } } } } } };   // ACC-3
+      type: { type: 'string', description: 'The kind of email in 1 to 3 words: Client, Supplier, Freelancer (BSE crew), Own work (Kiko\'s own outside jobs, contracts or engagements with other companies, not BSE business), Personal, Government, Bank, Bills and dues, Platform notices, Newsletters and promos, or a short new name when none fits' } } } } } };   // ACC-3
 const CUE_TRIAGE_SYSTEM_ = 'You sort emails for Kiko, who runs Blank Space Events (BSE), an events company in the Philippines. '
   + 'Groups: "inquiry" = someone asks BSE to quote, plan or run a new event or project; "reply" = a person wrote to Kiko and expects '
   + 'an answer (a question, a request, a meeting); "fyi" = worth knowing but no answer needed (receipts, confirmations, updates, notices); '

@@ -37,7 +37,7 @@ test('ACC4 a sender already typed is typed by code; Ignore marks read and shows 
   assert.ok(t.log.markRead.some(x => x.ids.indexOf('n5') >= 0));
   const a = t.ctx.cueAdminTypes(); assert.ok(a.types.some(x => x.type === 'Newsletters and promos' && x.senders.indexOf('ana@client.example') >= 0));
   const saved = t.ctx.cueAdminTypesSave([{ type: 'client', setting: 'Own chat' }, { type: 'Bank', setting: 'Ignore' }, { type: 'Client', setting: 'One line' }]);
-  deq(saved.types.map(x => [x.type, x.setting]), [['Client', 'Own chat'], ['Bank', 'Ignore']], 'names trimmed and capitalised, no type twice');
+  deq(saved.types.map(x => [x.type, x.setting]), [['Client', 'Own chat'], ['Bank', 'Ignore'], ['Own work', 'One line']], 'names trimmed and capitalised, no type twice');
   assert.throws(() => t.ctx.cueAdminTypesSave([]), /at least one type/);
   t.ctx.cueAdminTypeSender('@bdo.example', 'Bank'); assert.ok(t.ctx.cueAdminTypes().types.filter(x => x.type === 'Bank')[0].senders.indexOf('@bdo.example') >= 0);
   assert.throws(() => t.ctx.cueAdminTypeSender('not an email', 'Bank'), /not an email/);
@@ -74,7 +74,7 @@ test('ACC7 one chat per email: Cue\'s read is the first message (one Haiku call 
   assert.strictEqual(read.model, 'claude-haiku-5-5'); assert.ok(/Can we add 2 booths\?/.test(read.messages[0].content));
   const msg = t.tabs.Chat.rows.filter(r => r[3] === ana.chat_id).map(r => r[2]).join('\n');
   assert.ok(/What they want: They want a quote\./.test(msg) && /Suggested next step: Reply with a quote date\./.test(msg) && /Reply here: "draft a reply saying …", "start intake" or "done"\./.test(msg));
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New email: Ana Reyes <ana@client\.example> · Client · /.test(r[2]) && /\nSubject: Booth count\n/.test(r[2])), 'one post in Ask Cue points to the chat');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New email · Ana Reyes · Client · /.test(r[2]) && /\n\nSubject: Booth count\n\n/.test(r[2])), 'one post in Ask Cue points to the chat');
   const v = t.ctx.cueSend('done', [], 'chat', ana.chat_id);
   assert.strictEqual(v.status, 'Done'); assert.strictEqual(t.state(id).nm.items.filter(x => x.key === ana.key)[0].removed, 'done');
   assert.ok(!t.log.markRead.some(x => x.ids.indexOf('n5') >= 0), 'done changes nothing in Gmail');
@@ -100,7 +100,7 @@ test('ACC9 a later email in the same Gmail conversation joins its chat and reope
   box.filter(x => x.id === '55ee000000000005')[0].msgs.push({ id: 'n7', ms: MS('2026-10-21T03:40:00Z'), h: H('Ana Reyes <ana@client.example>', 'Re: Booth count'), body: 'Also 1 more table please.' });
   cur = nmAdded(['55ee000000000005']); t.ctx.__wait(35 * 60e3); t.ctx.cueNmTick_();
   const ch = t.state(ana.chat_id); assert.strictEqual(ch.status, 'Needs you', 'reopened'); assert.strictEqual(ch.mc.message_ids.length, 2);
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New in this conversation: Ana Reyes <ana@client\.example> · Client · /.test(r[2]) && /\nSubject: Re: Booth count\n/.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + ana.chat_id && /^New in this conversation · Ana Reyes · Client · /.test(r[2]) && /\n\nSubject: Re: Booth count\n\n/.test(r[2])));
   const gym = t.tabs.Requests.rows.slice(1).map(r => { try { return JSON.parse(r.slice(10).join('')); } catch (e) { return null; } }).filter(x => x && x.kind === 'mailtype');
   assert.strictEqual(gym.length, 1, 'asked once'); assert.strictEqual(gym[0].mt.type, 'Gym memberships');
   assert.ok(t.tabs.Chat.rows.some(r => r[3] === gym[0].id && /Reply here: own chat, one line or ignore\./.test(r[2])));
