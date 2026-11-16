@@ -5,10 +5,13 @@
  *   so there is no AI call. Kiko approves; Canvas sends it from freelancers@ (send_doc_reminder), only for docs still unsigned.
  * - Timing (Kiko 08:08Z): chasing starts the day after the event's last day (Chaser rules "first", 1 day), then every 2 days,
  *   at most 3. An AR made after the event (late payment) starts the day after it was made. Supplier ARs are not chased here.
+ * - FSA-REMIND-2026-11-16 (Kiko 16 Nov 2026 02:50:02Z "FSA Reminder - Automatic: Start - 3 days after initial", yes 03:44:20Z):
+ *   an FSA is chased from 3 days after Canvas made and sent it (its Generated date), so the reminder lands before the event, not
+ *   after it. Every 2 days, at most 3, as before. An FSA with no Generated date keeps the after-the-event start. ARs are unchanged.
  * - Drafts only puts the reminder in Kiko's own Gmail Drafts (freelancers@ lives in info@, which Cue can't draft in).
  * - The file name sorts after CueSweep.gs on purpose: Apps Script runs files in order, and cueKind_ must exist first. */
 
-const CUE_SIGN_ = { closed: /cancel|not awarded|dropped|void|lost/i, from: 'Blank Space Events · Freelancers' }; // VOICE-2026-10-29: the guide's sign-off
+const CUE_SIGN_ = { closed: /cancel|not awarded|dropped|void|lost/i, from: 'Blank Space Events · Freelancers', fsaFirst: 3 }; // VOICE-2026-10-29: the guide's sign-off; fsaFirst: FSA-REMIND-2026-11-16
 
 /** find(ctx): one item per freelancer whose unsigned FSAs or ARs are due today. */
 function cueSignFind_(ctx) {
@@ -21,12 +24,13 @@ function cueSignFind_(ctx) {
     if (!cueStatusFits_('signature', st)) { if (ctx.leftOut) ctx.leftOut.push(cueStatusLine_('Signature chasers', d.project || d.project_id, st)); return; }
     const end = cueSignDay_(d.event_end) || cueSignDay_(d.event_date), made = cueSignDay_(d.generated);
     if (!end) return;   // no event date in Canvas: nothing to time it from
-    const start = [cueAddDays_(end, first), made ? cueAddDays_(made, first) : ''].sort().pop();
+    const start = d.doc === 'FSA' && made ? cueAddDays_(made, CUE_SIGN_.fsaFirst)   // FSA-REMIND-2026-11-16: 3 days after the FSA went out
+      : [cueAddDays_(end, first), made ? cueAddDays_(made, first) : ''].sort().pop();
     if (start > ctx.today) return;
     const email = cueEmail_(d.email), k = email ? email.toLowerCase() : 'name:' + String(d.name || '').trim().toLowerCase();
     const p = by[k] || (by[k] = { email, name: cueStr_(d.name, 120), docs: [], since: start });
     p.docs.push({ doc: d.doc === 'AR' ? 'AR' : 'FSA', id: cueStr_(d.id, 60), project: cueStr_(d.project || d.project_id, 200), project_id: cueStr_(d.project_id, 30),
-      role: cueStr_(d.role, 120), event_end: end });
+      role: cueStr_(d.role, 120), event_end: end, sent: d.doc === 'FSA' ? made : '' });
     if (start < p.since) p.since = start;
   });
   return Object.keys(by).map(k => {
@@ -35,9 +39,14 @@ function cueSignFind_(ctx) {
     const pids = p.docs.map(d => d.project_id).filter((x, i, a) => a.indexOf(x) === i).sort();
     const base = { key: 'signature:' + k + ':' + pids.join('+'), who: p.name || p.email, to: p.email, project: projects.join(', '), project_id: p.docs[0].project_id,
       due_since: p.since, docs: p.docs, sign_url: url, status_checked: true,
-      why: cueSignList_(p.docs) + ' not signed yet. Event ended ' + p.docs.map(d => d.event_end).sort()[0] + '.' };
+      why: cueSignList_(p.docs) + ' not signed yet. ' + cueSignWhen_(p.docs, ctx.today) };
     return p.email ? base : Object.assign(base, { no_email: true, why: base.why + ' No email on file in Canvas: remind them by text or call.' });
   });
+}
+/** FSA-REMIND-2026-11-16: "FSA sent 2026-11-10." before the event; "Event ended 2026-11-14." once it is over. */
+function cueSignWhen_(docs, today) {
+  const end = docs.map(d => d.event_end).sort()[0], sent = docs.map(d => d.sent).filter(Boolean).sort()[0];
+  return end < today || !sent ? 'Event ended ' + end + '.' : 'FSA sent ' + sent + '. Event ' + (end === today ? 'ends today' : 'ends ' + end) + '.';
 }
 /** "FSA for Expo (Usher) and AR for Expo (Usher)" */
 function cueSignList_(docs) {
