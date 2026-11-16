@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.28.73: agent updates with requirement rows open a panel on the left (not deployed)
+
+Asked: Kiko, 16 Nov 2026 11:58:14Z ("maybe something like a card then can be clicked opens that opens a window on the left"). He
+removed Status, Handed to and Kind at 12:19:11Z, approved mockup v2 at 12:23:52Z (https://claude.ai/artifact/5m4yWBitssjLnRPEG2PncG)
+and said "ok" at 12:25:28Z to: panel on the left, the agent sets Needs you per row, view only. Slot cue-1.28.73, card
+agent-update-rows-panel. Built on live 1.28.72 (Version 251).
+
+- `src/CueAgentDrafts.gs`: an update's handover keeps an optional `rows` list (at most 100): req_id, name, sourcing (In House or
+  Outsourced), spec_by (AS or MM), dimensions, needs_kiko (true only when sent as true), open_items (at most 20). Other fields are dropped.
+- `src/IndexCards.html`, `src/IndexChat.html`, `src/IndexStyle.html`: an update with rows is one short card ("AS agent · Pandamart
+  Likha · 11 requirements · 5 need you") with Open requirements. The panel slides in from the left over the chat: All / Needs you,
+  columns #, Requirement, Sourcing, Specs by, Dimensions ("MM to add" until MM fills it), Open items, Images (later); rows that need
+  Kiko first; Reply and Mark read in its footer; ✕, the shade or Esc closes it. Updates without rows look as before.
+- Needs Canvas first: `agent_update` in ZapBridge takes no `rows` yet, so no update carries rows until that Canvas change (Kiko's
+  separate go) ships and Cue refreshes `test/fixtures/ZapBridge.gs`.
+- Tests: AUR1 to AUR3 added; 843/843 pass.
+
 ## Cue 1.28.72: the FSA reminder starts 3 days after the FSA goes out (LIVE as Version 251, 16 Nov 2026 03:58Z, rollback 250)
 
 Asked: Kiko, 16 Nov 2026 02:50:02Z ("FSA (the initial notification) / FSA Reminder - Automatic: Start - 3 days after initial,
