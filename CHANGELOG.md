@@ -1,5 +1,28 @@
 # Changelog
 
+## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
+
+Asked: Kiko, 16 Nov 2026 14:55:19Z ("can we still work on how Cue rewords and summarizes things... and formats messages? ...
+bold on headers please", "how come all of a sudden i am getting these Fing Alert?"). Decision card 15:13:40Z: "New type Own work,
+one line". Scope and mockup (`cue-alert-format/mockup-375.png`, `mockup-1280.png` in the project files) approved 15:14:05Z
+("1 yes": emails only for now). Slot cue-1.28.76, card cue-alert-format. Built on main after 1.28.75.
+
+- `src/IndexThreads.html` `cueLabels`: the section labels of an email post (New email, New in this conversation, Subject, What they
+  sent, What it is for, What they expect, What to do next, and in the email's own chat What they want, From the thread and the
+  project's emails, Suggested next step) are drawn bold, only at the start of a line.
+- `src/CueMailChat.gs`: a blank line between sections in the main-chat post and the email's own chat. The main-chat post shows the
+  sender's name and company (from the signature the same read already finds), not the email address; the address moves to the first
+  line of the email's own chat. The read (still one Claude Haiku call, same fields) is told to write to Kiko as "you", never "Kiko"
+  or "his", not to repeat the sender's name or company, to keep each field to one sentence of at most 20 words, and to give a day
+  with its date ("Wednesday 18 Nov"); today's Manila date now goes with the email.
+- Why the alerts: no Cue code in the email path changed since 4 Nov. Every email whose type is Own chat gets a full post, and
+  Freelancer is Own chat. Kiko's own Crescendo engagement email was sorted as Freelancer.
+- New type **Own work** (`src/CueMailTypes.gs`, `src/CueTriage.gs`): the sort is told it means Kiko's own outside jobs, contracts or
+  engagements with other companies, not BSE business, and Freelancer means BSE crew. Own work is One line even when the Triage
+  types tab does not list it yet (no "new kind of email" question); a row Kiko saves in Cue Admin › Triage wins. A sender Cue
+  already learned under another type keeps that type until it is moved in Cue Admin › Triage.
+- Tests: AF1 to AF5 added; ML4, ML5, ACC4, ACC7, ACC9, AM1, AM1b and AM6 updated to the new layout; 853/853 pass.
+
 ## Cue 1.28.75: agent chats get their own Agents group in the top panel (not deployed)
 
 Asked: Kiko, 16 Nov 2026 14:34:51Z ("in Cue theres that area on top with the CRM - i want the agent chats to have a place there");
