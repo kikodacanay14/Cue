@@ -31,7 +31,7 @@
     if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
   });
   function renderThreadList(th) {
-    var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
+    var by = byId(), G = { agent: [], need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
       var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
@@ -40,7 +40,7 @@
       var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
       var failed = lastReq.status === 'Failed';
       var nmOpen = t.reqs.filter(function (r) { return r.kind === 'newmail' && r.nm && r.status !== 'Closed'; }).reduce(function (a, r) { return a + nmOpenCount(r); }, 0);
-      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length, nm: nmOpen,
+      G[listGroup(t, st, showArchived)].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length, nm: nmOpen,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
@@ -58,16 +58,18 @@
         + '<span class="tx"><b>' + esc(r.name) + '</b><span>' + esc(r.sub || (r.k === 'crm' ? 'Nothing to follow up' : 'Nothing to do right now')) + '</span></span>'
         + (r.n ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + r.n + ' waiting">' + r.n + '</i>' : '') + '</button>';
     }).join('');
-    [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
-      var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
-      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';
+    [['agent', 'Agents'], ['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
+      // AGENT-GROUP-2026-11-16: agents waiting on Kiko first, then newest; the Agents count is how many wait on him
+      var l = G[g[0]].sort(function (a, b) { return g[0] === 'agent' && !a.st.need !== !b.st.need ? (a.st.need ? -1 : 1) : a.when < b.when ? 1 : -1; }); if (!l.length) return;
+      var gn = g[0] === 'agent' ? l.filter(function (x) { return x.st.need; }).length : l.length;
+      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + (gn ? ' <span class="n">' + gn + '</span>' : '') + '</span></button>';
       // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
       if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
-    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
+    setHtml($('tlist'), h + (tq && !G.agent.length && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
       + (showArchived ? '<button class="tmore" data-act="show-archived" data-id="">Back to recent</button>' : ''));
     bind();
   }
@@ -529,6 +531,13 @@
     if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
     return th.reqs.some(function (r) { return r.kind === 'mail'; })
       && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
+  }
+  // AGENT-GROUP-2026-11-16 (Kiko 16 Nov 2026 14:34:51Z "in Cue theres that area on top with the CRM - i want the agent chats to have a
+  // place there"; design approved 14:36:42Z): an agent's thread (made from its drafts) gets its own Agents group under From Canvas,
+  // out of Waiting on you and Recent. The Archived view keeps the old groups.
+  function listGroup(th, st, archived) {
+    if (!archived && th.reqs[0] && th.reqs[0].agd) return 'agent';
+    return st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest';
   }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });

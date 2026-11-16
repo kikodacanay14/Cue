@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.75: agent chats get their own Agents group in the top panel (not deployed)
+
+Asked: Kiko, 16 Nov 2026 14:34:51Z ("in Cue theres that area on top with the CRM - i want the agent chats to have a place there");
+design approved 14:36:42Z ("approge agent group"). Slot cue-1.28.75, card cue-agents-group. Built on main after 1.28.74.
+
+- Display only. `src/IndexThreads.html`: new `listGroup` puts every agent thread (made from agent drafts) in an **Agents** group
+  under From Canvas and above Waiting on you, so agent chats no longer mix with job runs in Waiting on you and Recent. Same row,
+  dot, chip and time as the other groups; a row opens the agent's thread. Agents waiting on Kiko come first, then newest; the
+  Agents header counts the agents waiting on him. "N threads are waiting on you" still counts them. The Archived view, search,
+  Close older runs, agent logic, routing and Canvas are unchanged.
+- Tests: AGG1 and AGG2 added (fail before, pass after); 848/848 pass.
+
 ## Cue 1.28.74: agent names show the new role names (not deployed)
 
 Asked: Kiko, 16 Nov 2026 13:13Z ("lets change ECII to Procurement Specialist and ECI to Event Specialist"); Cue and dashboard labels
