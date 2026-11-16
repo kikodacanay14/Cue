@@ -73,6 +73,16 @@
   .trow .chip { flex:none; display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border:1px solid var(--line2); border-radius:9999px; color:var(--text); font-size:13px; font-weight:600; min-height:0; background:none; }
   .trow .chip svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; }
   .trow .tm { flex:none; color:var(--muted); font-size:13px; white-space:nowrap; padding-top:3px; min-width:26px; text-align:right; }
+  /* AGENT-FEED-2026-11-16: the last-hour line and the newest agent updates under the Agents header */
+  /* AGENT-CHAT-2026-11-16: an agent's message in its own thread */
+  #tmsgs .msg.agmsg .agtx { display:block; white-space:pre-wrap; }
+  #tmsgs .msg.agmsg .agft { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:6px; }
+  #tmsgs .msg.agmsg .agft .tag { margin:0; }
+  .agcard { margin-top:-4px; }
+  .agstat { margin:2px 12px 4px; color:var(--muted); font-size:13px; }
+  .agfeed { margin:0 0 6px 12px; border-left:2px solid var(--line2); }
+  .trow.agf { align-items:center; padding:6px 10px; } .trow.agf .tx b { font-size:13.5px; } .trow.agf .tx span { -webkit-line-clamp:1; }
+  .trow.agf .tag { flex:none; margin:0; } .trow.agf .tm { padding-top:0; }
   .tmore { all:unset; cursor:pointer; display:block; width:100%; text-align:center; color:var(--act); font-size:13px; font-weight:600; padding:6px; }
   /* Kiko 14:54Z: three panes. Files and images open in a viewer on the right of the threads pane, like Claude's: name and ✕,
      Download / Open externally / More, zoom − Fit + with a % readout, rotate, fullscreen, then the type and "1 of N" at the foot. */

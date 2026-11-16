@@ -66,6 +66,7 @@
       // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
       if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
+      if (g[0] === 'agent') h += agentFeedHtml(agentFeed(state.requests, Date.now(), by));   // AGENT-FEED-2026-11-16
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
@@ -539,6 +540,32 @@
     if (!archived && th.reqs[0] && th.reqs[0].agd) return 'agent';
     return st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest';
   }
+  /* AGENT-FEED-2026-11-16 (Kiko 16 Nov 2026 15:48:10Z "BUILD IT NOW", asking for agent updates and messages under the Agents group
+   * with an hourly status): under the Agents header, one line on the last hour (how many drafts and updates, from how many agents)
+   * and the five newest agent drafts and updates, newest first. A row opens its agent's thread. Display only: no new calls, no schedule. */
+  function agentFeed(reqs, now, by) {
+    var all = (reqs || []).filter(function (r) { return r && r.agd && r.agd.agent && r.created; })
+      .sort(function (a, b) { return a.created < b.created ? 1 : a.created > b.created ? -1 : 0; });
+    var hour = all.filter(function (r) { var t = Date.parse(r.created); return t <= now && now - t < 3600000; }), who = {};
+    hour.forEach(function (r) { who[String(r.agd.agent).toLowerCase()] = 1; });
+    return { n: hour.length, agents: Object.keys(who).length, last: all.length ? all[0].created : '',
+      items: all.slice(0, 5).map(function (r) {
+        var a = r.agd, st = String(a.status || '');
+        return { k: rootOf(r.id, by || {}), agent: agdLabel(a.agent), kind: a.type === 'update' ? 'Update' : String(a.type_label || 'Draft'),
+          item: String(a.item || '') + (a.project ? ' (' + a.project + ')' : ''), at: r.created,
+          tag: st === 'Waiting for Kiko' ? ['Needs you', 'warn'] : st === 'Unread' ? ['Unread', 'warn'] : st === 'Failed' ? ['Failed', 'crit']
+            : /^(Sent|Saved|Read|Replied)$/.test(st) ? [st, 'good'] : [st || 'New', 'accent'] };
+      }) };
+  }
+  function agentFeedHtml(f) {
+    if (!f.items.length) return '';
+    var s = f.n ? 'Last hour: ' + f.n + (f.n === 1 ? ' update' : ' updates') + ' from ' + f.agents + (f.agents === 1 ? ' agent.' : ' agents.')
+      : 'Last hour: nothing new from the agents. Last one ' + ago(f.last) + '.';
+    return '<p class="agstat">' + esc(s) + '</p><div class="agfeed" aria-label="Latest from the agents">' + f.items.map(function (x) {
+      return '<button class="trow agf" data-thread="' + esc(x.k) + '"><span class="tx"><b>' + esc(x.agent) + ' · ' + esc(x.kind) + '</b><span>' + esc(noTok(x.item).slice(0, 200)) + '</span></span>'
+        + '<span class="tag ' + x.tag[1] + '">' + esc(x.tag[0]) + '</span><span class="tm">' + esc(ago(x.at).replace(' ago', '').replace('just now', 'now')) + '</span></button>';
+    }).join('') + '</div>';
+  }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
     var last = th.reqs[th.reqs.length - 1];
@@ -926,6 +953,45 @@
     $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
     $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
   }
+  /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
+   * update is a chat bubble from that agent, in time order, and Kiko's replies are his own bubbles. The full card (approve, edit, the
+   * requirements table) opens from Details under the bubble; a draft that waits for Kiko opens with its card. Cue's announcement lines
+   * ("… posted a handover update", "You replied …") are left out because the bubbles say the same. Display only. */
+  var agdOpen = {};
+  function agentSays(r) {
+    var A = r.agd || {}, H = A.handover || {}, rows = H.rows || [], proj = A.project ? ' (' + A.project + ')' : '';
+    if (A.type === 'update') {
+      var need = rows.filter(function (x) { return x && x.needs_kiko; }).length;
+      return [rows.length ? (A.item || 'Requirements') + proj + ': ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's') + (need ? ', ' + need + ' need you.' : '.') : '',
+        H.summary || A.body || (rows.length ? '' : (A.item || '') + proj),
+        H.gaps ? 'Still open: ' + H.gaps : '',
+        H.next_action ? 'Next: ' + H.next_action + (H.next_owner ? ' (' + H.next_owner + ')' : '') : '',
+        H.state && H.state !== 'Delivered' ? 'Handover blocked' + (H.why ? ': ' + H.why : '.') : ''].filter(Boolean).join('\n');
+    }
+    return ['Draft ' + String(A.type_label || 'email') + ': ' + (A.item || '') + proj + '.', A.subject ? 'Subject: ' + A.subject : '',
+      A.status === 'Waiting for Kiko' ? 'It waits for you.' : ''].filter(Boolean).join('\n');
+  }
+  function agentReplies(r) {
+    var A = r.agd || {};
+    return (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
+  }
+  function agentEcho(m) {
+    if (m.who === 'Kiko') return false;
+    return /^.{1,60} (posted a handover update: |drafted an? )/.test(String(m.text || '')) || /^You replied/.test(String(m.text || ''));
+  }
+  function agentBubble(r) {
+    var A = r.agd || {}, st = String(A.status || ''), open = r.id in agdOpen ? agdOpen[r.id] : st === 'Waiting for Kiko';
+    var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
+    var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
+      + '<span class="agtx">' + esc(noTok(agentSays(r))) + '</span>'
+      + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span></div>';
+    var c = open ? cardOf(r) : '';
+    return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
+  }
+  $('tmsgs').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-agd-open]'); if (!b) return;
+    var id = b.getAttribute('data-agd-open'); agdOpen[id] = b.getAttribute('aria-expanded') !== 'true'; renderChat();
+  });
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
@@ -938,15 +1004,20 @@
     /* THREAD-CHAT-2026-11-03 (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; artifact comment: "if
        rejected or done already. the card shouldnt stick anymore"): each task's card sits in the conversation where it was posted
        (when it asked for Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. */
-    var cards = [];
+    var cards = [], agT = !!(x0 && x0.agd);   // AGENT-CHAT-2026-11-16: an agent's thread reads as a conversation
     t.reqs.forEach(function (r) {
+      if (agT && r.agd) {
+        cards.push({ at: Date.parse(r.created) || 0, html: agentBubble(r) });
+        agentReplies(r).forEach(function (x) { cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
+        return;
+      }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
     });
     if (threadTitle(t) === 'Morning') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
-    var min = !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
+    var min = !agT && !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
     cards = cards.map(function (c, i) { c.i = i; return c; }).sort(function (a, b) { return a.at - b.at || a.i - b.i; });
     var put = function (upTo) { var o = ''; for (; ci < cards.length && cards[ci].at <= upTo; ci++) if (!min) o += cards[ci].html; return o; };
-    t.lines.forEach(function (m) { h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
+    t.lines.forEach(function (m) { if (agT && agentEcho(m)) return; h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
     h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
