@@ -554,3 +554,17 @@ agent per message"; "build" 11:26:04Z (build on /dev only; going live needs a se
 
 Evidence: `test/features/99-agent-tag.js` TAG1 to TAG5. Built: Cue 1.28.71 (live as Version 250, 15 Nov 2026 12:46Z). Manual gap: not yet
 run live in Kiko's browser.
+
+### CUE-058: The FSA reminder starts 3 days after the FSA goes out
+
+**Status: APPROVED by Kiko, 16 Nov 2026**, in the "Confirm FSA reminder start timing" thread: 02:50:02Z "FSA (the initial
+notification) / FSA Reminder - Automatic: Start - 3 days after initial, (when does the chaser start)"; "yes" 03:44:20Z; "ship"
+03:57:37Z. Changes the start of the R5/R6 signature chaser (Kiko 21 Oct 2026 08:08Z) for FSAs only. CanvasWorkspace ADR-0185.
+
+- An unsigned FSA is chased from 3 days after its Generated date in Canvas, then every 2 days, at most 3. Each reminder is a draft
+  Kiko approves; Canvas sends it from freelancers@.
+- An FSA with no Generated date keeps the old start (the day after the event's last day). AR reminders are unchanged.
+- Before the event the line reads "FSA sent <date>. Event ends <date>."
+
+Evidence: `test/features/20-signature-chasers.js` G6. Built: Cue 1.28.72 (live as Version 251, 16 Nov 2026 03:58Z). Manual gap: no
+live reminder seen yet.
