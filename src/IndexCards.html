@@ -785,16 +785,16 @@
         + td(x.spec_by === 'MM' ? '<span class="ph">Later</span>' : none, 1) + '</tr>';
     }).join('');
     var p = '<div class="agdshade" data-act="agd-rows" data-id="' + id + '"></div><aside class="agdp" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">'
-      + '<div class="agdph"><div class="t"><b>' + esc(title) + '</b><div class="small muted">From ' + esc(A.agent) + (A.project_id ? ' · ' + esc(A.project_id) : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div></div>'
+      + '<div class="agdph"><div class="t"><b>' + esc(title) + '</b><div class="small muted">From ' + esc(agdLabel(A.agent)) + (A.project_id ? ' · ' + esc(A.project_id) : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div></div>'
       + '<button class="ibtn agdx" data-act="agd-rows" data-id="' + id + '" aria-label="Close the panel">✕</button></div>'
       + '<div class="agdf" role="group" aria-label="Show"><button class="filt" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-pressed="' + !f + '">All ' + rows.length + '</button>'
       + '<button class="filt" data-act="agd-rows" data-agf="need" data-id="' + id + '" aria-pressed="' + f + '">Needs you ' + need + '</button></div>'
       + '<div class="agdtw"><table><thead><tr><th>#</th><th>Requirement</th><th>Sourcing</th><th>Specs by</th><th>Dimensions</th><th>Open items</th><th>Images</th></tr></thead><tbody>' + body + '</tbody></table></div>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
-      + '<div class="agdpf">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(A.agent) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
+      + '<div class="agdpf">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(agdLabel(A.agent)) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></aside>';
     return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Requirements review</div>'
-      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + esc(A.agent) + ' · ' + esc(title) + (need ? ' · ' + need + ' need you' : '') + '</b>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + esc(agdLabel(A.agent)) + ' · ' + esc(title) + (need ? ' · ' + need + ' need you' : '') + '</b>'
       + (need ? '<span class="tag crit">' + need + ' need you</span>' : '') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">' + (A.project_id ? esc(A.project_id) + ' · ' : '') + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
@@ -809,7 +809,7 @@
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
       + '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>'
       + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
-      + '<div class="small muted" style="margin-top:4px">From ' + esc(A.agent) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
+      + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
     var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + esc(H.summary || A.body) + '</span>'],
       ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + esc(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
       ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
@@ -818,10 +818,10 @@
     // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): every reply Kiko sent on this update, oldest first.
     var reps = (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
     if (reps.length) h += '<div class="small" style="margin-top:8px"><b>Your replies</b></div>' + reps.map(function (x) { return '<div class="small" style="margin-top:2px">' + (x.at ? esc(String(x.at).slice(11, 16) || x.at) + ' · ' : '') + esc(x.text) + '</div>'; }).join('')
-      + '<div class="small muted">' + esc(A.agent) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
+      + '<div class="small muted">' + esc(agdLabel(A.agent)) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
-      + esc(A.agent) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
+      + esc(agdLabel(A.agent)) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
     if (unread) h += '<div class="actions"><button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button></div>';
     else if (r.status === 'Sending') h += '<div class="small muted" style="margin-top:6px">Passing it to Canvas…</div>';
     return h + '</div>';
@@ -834,7 +834,7 @@
     var h = '<div class="card' + (wait ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent draft · ' + esc(A.type_label || '') + '</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(req ? (A.project || A.project_id) + (A.project && A.project_id ? ' · ' + A.project_id : '') : A.item) + '</b>'
       + '<span class="tag' + (pill[0] ? ' ' + pill[0] : '') + '">' + esc(pill[1]) + '</span></div>'
-      + '<div class="small muted" style="margin-top:4px">From ' + esc(A.agent) + (A.door ? ' (' + esc(A.door) + ')' : '') + when + ' · ' + esc(A.draft_id) + (req ? ' · existing project' : '') + '</div>';
+      + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + when + ' · ' + esc(A.draft_id) + (req ? ' · existing project' : '') + '</div>';
     if (req) {
       h += '<div class="scroll" style="margin-top:8px"><table><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Days</th></tr>'
         + (A.lines || []).map(function (l, i) {

@@ -333,27 +333,27 @@
   function tagMatch(t) {
     var m = String(t || '').match(/^\s*@\s*([\s\S]*)$/); if (!m) return null;
     var low = tagNorm(m[1]) + ' ', best = null;
-    tagAgents().forEach(function (a) { var n = tagNorm(a.agent); if (n && low.slice(0, n.length) === n && !/[\p{L}\p{N}]/u.test(low.charAt(n.length)) && (!best || n.length > tagNorm(best.agent).length)) best = a; });
+    tagAgents().forEach(function (a) { [agdLabel(a.agent), a.agent].forEach(function (x) { var n = tagNorm(x); if (n && low.slice(0, n.length) === n && !/[\p{L}\p{N}]/u.test(low.charAt(n.length)) && (!best || n.length > best.n.length)) best = { a: a, n: n }; }); });
     if (!best) return { miss: m[1].trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40) };
-    return { agent: best.agent, rest: tagNorm(m[1]).slice(tagNorm(best.agent).length).replace(/^[\s,:;.\-]+/, '') };
+    return { agent: best.a.agent, label: agdLabel(best.a.agent), rest: tagNorm(m[1]).slice(best.n.length).replace(/^[\s,:;.\-]+/, '') };
   }
   function tagErr(msg) { var e = $('tagerr'); e.textContent = msg || ''; e.hidden = !msg; $('box').classList.toggle('bad', !!msg); }
   function tagCheck(t) {
     var g = tagMatch(t); if (!g) return true;
     if (g.miss !== undefined) { tagErr('No agent is called "' + g.miss + '". Pick one from the list, or delete the @ to ask Cue. Nothing was sent.'); return false; }
-    if (!g.rest && !(fileHost === 'files' && pending.length)) { tagErr('Type your message after ' + g.agent + '.'); return false; }
+    if (!g.rest && !(fileHost === 'files' && pending.length)) { tagErr('Type your message after ' + g.label + '.'); return false; }
     tagErr(''); return true;
   }
   function tagOpen() {
     var v = $('box').value, m = v.match(/^@([^\n]*)$/), q = m ? tagNorm(m[1]) : null;
-    var list = q === null ? [] : tagAgents().filter(function (a) { var n = tagNorm(a.agent); return n.slice(0, q.length) === q && q.length <= n.length && !(q === n && / $/.test(v)); });
+    var list = q === null ? [] : tagAgents().filter(function (a) { return [agdLabel(a.agent), a.agent].some(function (x) { var n = tagNorm(x); return n.slice(0, q.length) === q && q.length <= n.length && !(q === n && / $/.test(v)); }); });
     tagState.open = list.length > 0; tagState.list = list; tagState.i = Math.min(tagState.i, Math.max(list.length - 1, 0));
     var ul = $('taglist'); ul.hidden = !tagState.open; $('taghelp').hidden = !tagState.open;
     ul.innerHTML = list.map(function (a, i) {
-      return '<li role="option" data-tag-pick="' + i + '" aria-selected="' + (i === tagState.i) + '"' + (i === tagState.i ? ' class="on"' : '') + '><b>' + esc(a.agent) + '</b><span class="small muted">' + (a.at ? 'last draft ' + esc(msgWhen(a.at)) : '') + '</span></li>';
+      return '<li role="option" data-tag-pick="' + i + '" aria-selected="' + (i === tagState.i) + '"' + (i === tagState.i ? ' class="on"' : '') + '><b>' + esc(agdLabel(a.agent)) + '</b><span class="small muted">' + (a.at ? 'last draft ' + esc(msgWhen(a.at)) : '') + '</span></li>';
     }).join('');
   }
-  function tagPick(i) { var a = tagState.list[i]; if (!a) return; $('box').value = '@' + a.agent + ' '; tagState.i = 0; tagOpen(); tagErr(''); $('box').focus(); }
+  function tagPick(i) { var a = tagState.list[i]; if (!a) return; $('box').value = '@' + agdLabel(a.agent) + ' '; tagState.i = 0; tagOpen(); tagErr(''); $('box').focus(); }
   function tagKey(e) {
     if (!tagState.open) return false;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); tagState.i = (tagState.i + (e.key === 'ArrowDown' ? 1 : tagState.list.length - 1)) % tagState.list.length; tagOpen(); return true; }
@@ -368,8 +368,9 @@
     var ref = m.request_id.slice(1), t = String(m.text || ''), known = tagAgents().filter(function (a) { return a.ref === ref; })[0];
     var ag = String(((by[ref] || {}).agd || {}).agent || (known && known.agent) || '');
     if (m.who === 'Kiko') {
-      var rest = ag && t.indexOf('@' + ag) === 0 ? t.slice(ag.length + 1).trim() : t;
-      return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(ag) + '</span> ' : '') + esc(rest) + '</div>';
+      var lb = agdLabel(ag), pre = !ag ? '' : t.indexOf('@' + lb) === 0 ? '@' + lb : t.indexOf('@' + ag) === 0 ? '@' + ag : '';   // older rows carry the stored name
+      var rest = pre ? t.slice(pre.length).trim() : t;
+      return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(lb) + '</span> ' : '') + esc(rest) + '</div>';
     }
     var h = msgHtml({ who: m.who, text: t, request_id: ref, time: m.time }, '', true);
     // Open thread only when the page holds the thread's requests; an older one would open without its cards and its agent-only box (Codex on #390).
@@ -568,7 +569,7 @@
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
       vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
       workflow: { name: 'Workflow map', family: 'approve', steps: WORKFLOW, card: function (r) { return !!(r.workflow && r.workflow.map); } },
-      agentdraft: { name: function (r) { return (r.agd && r.agd.agent) || 'Agent draft'; }, family: 'draft', steps: null, card: function (r) { return !!r.agd; } },   // AGENT-DRAFTS-2026-11-13: one thread per agent
+      agentdraft: { name: function (r) { return (r.agd && r.agd.agent) ? agdLabel(r.agd.agent) : 'Agent draft'; }, family: 'draft', steps: null, card: function (r) { return !!r.agd; } },   // AGENT-DRAFTS-2026-11-13: one thread per agent
       tri: { name: function (r) { return ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || ''); }, family: 'approve', steps: null, card: function (r) { return !!r.tri; } },
       supplier: { name: 'Supplier registration', family: 'approve', steps: SUPPLIER, card: function (r) { return !!r.supplier; } },
       personal: { name: 'Personal expense', family: 'approve', steps: PERSONAL, card: function (r) { return !!r.personal; } },
@@ -910,7 +911,7 @@
   }
   // AGENT-REPLIES-2026-11-14: in an agent's thread the box writes to that agent, and the note under it says Cue does not act on it.
   function agentBox(t) {
-    var x0 = t && t.reqs[0], ag = x0 && x0.agd ? x0.agd.agent || 'the agent' : '';
+    var x0 = t && t.reqs[0], ag = x0 && x0.agd ? agdLabel(x0.agd.agent) || 'the agent' : '';
     $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
     $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
   }

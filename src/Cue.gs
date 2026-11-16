@@ -241,9 +241,9 @@ function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
     const tg = cueAgdTag_(text);
     if (tg && tg.miss !== undefined) throw new Error('No agent is called "' + tg.miss + '". Pick one from the list, or delete the @ to ask Cue. Nothing was sent.');
     if (tg) {
-      if (!tg.rest && !has) throw new Error('Type your message after ' + tg.agent + '.');
-      cueChat_('Kiko', '@' + tg.agent + ' ' + tg.rest, '@' + tg.ref);
-      return Object.assign(cueAgdSay_(tg.ref, tg.rest, has, false, mid, true), { agent: tg.agent, thread: tg.ref });
+      if (!tg.rest && !has) throw new Error('Type your message after ' + tg.label + '.');
+      cueChat_('Kiko', '@' + tg.label + ' ' + tg.rest, '@' + tg.ref);
+      return Object.assign(cueAgdSay_(tg.ref, tg.rest, has, false, mid, true), { agent: tg.agent, label: tg.label, thread: tg.ref });
     }
   }
   // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): Reply on a Cue bubble in the main chat quotes that
@@ -1168,7 +1168,7 @@ function cueView_(s) {
     mail: s.kind === 'email' ? cueMailView_(s) : null,
     open: cueCanvasFor_(s),   // CUE-CANVAS: the Canvas page for this card's "Open in Canvas"
     ph: s.phased && s.kind === 'intake' ? cuePhView_(s) : null, phased: !!s.phased, dup: !!s.dup,
-    name: s.kind === 'agentdraft' ? String((s.agd && s.agd.agent) || 'Agent') : s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
+    name: s.kind === 'agentdraft' ? cueAgdLabel_((s.agd && s.agd.agent) || 'Agent') : s.kind === 'gtask' ? cueTaskName_(s) : (s.kind || 'intake') === 'intake' && ((s.x && s.x.client && s.x.client.company) || (s.proposal && s.proposal.client && s.proposal.client.company)) ? cueTaskName_(s) : '',   // the thread title for a phased intake; PC test 22 Oct: a ChatGPT task's is the skill's name, never "Project intake"
     project_saved: (s.project_saved || []).map(x => ({ name: x.name, url: x.url || '', folder: x.folder || '', error: x.error || '' })), notes: s.notes || [], similar: s.similar || [], proposal: s.proposal || null, canvas: s.canvas || null, drafts: s.drafts || [],
     metrics: { ai_calls: m.ai_calls || 0, seconds_to_card: m.seconds_to_card == null ? null : m.seconds_to_card,
       seconds_total: m.seconds_total == null ? null : m.seconds_total, seconds_work: m.seconds_work == null ? null : m.seconds_work, flag: m.flag || '', calls: m.calls || [], canvas: m.canvas || [] } };
