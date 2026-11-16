@@ -3038,7 +3038,12 @@ ZB_ACTIONS_.agent_update = {
     project_id: { type: 'string', re: ZB_PID_RE_ }, handover_ref: { type: 'string', required: true, nonBlank: true, max: 100 },
     summary: { type: 'string', required: true, nonBlank: true, max: 4000 }, gaps: { type: 'string', max: 4000 },
     next_owner: { type: 'string', max: 100 }, next_action: { type: 'string', max: 1000 }, ack_link: { type: 'string', max: 500 },
-    update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked'] } },
+    update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked'] },
+    // AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026: Cue mockup v2 approved 12:23:52Z, "yes" to this field 12:33:39Z): one row per
+    // requirement for Cue's requirements panel. Optional; only the approved fields (Status, Handed to and Kind were removed 12:19:11Z).
+    rows: { type: 'array', maxItems: 100, items: { req_id: { type: 'string', max: 60 }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
+      sourcing: { type: 'string', oneOf: ['In House', 'Outsourced'] }, spec_by: { type: 'string', oneOf: ['AS', 'MM'] }, dimensions: { type: 'string', max: 200 },
+      needs_kiko: { type: 'boolean' }, open_items: { type: 'array', maxItems: 20 } } } },
   run: (r) => { try { return agdUpdate_(r); } catch (e) { return zbGptRefusal_(e); } },
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
     : res && res.update_id ? { ok: true, evidence: { update_id: res.update_id, handover: res.handover } } : { ok: false, error: 'the update save gave no answer' }
