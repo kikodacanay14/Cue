@@ -95,8 +95,8 @@ function cueAlertMsgr_(chatId, name, text) { return cueAlert_('msgr', chatId, 'M
 /** A background job that failed (CueJobs.gs). Opens Cue Admin › Scheduled tasks. */
 function cueAlertJob_(job, err) { return cueAlert_('job', 'job:' + job, 'Job failed: ' + job, err || 'It stopped with an error.', 'Job failed: ' + job, { sec: 'sched' }); }
 /** Called by cueJobRun_ after every job run. A job that keeps failing runs every 5 minutes, which is right at the edge of the
- * 5-minute grouping, so it could sound every run. Built as recommended to Kiko (waiting for his answer, see the PR): the alert
- * goes when a job turns from OK to Failed, and again only after it has run OK once. Only a change is written. */
+ * 5-minute grouping, so it could sound every run. Kiko 16 Nov 2026 17:36:51Z, decision card: "Once, until it works again": the
+ * alert goes when a job turns from OK to Failed, and again only after it has run OK once. Only a change is written. */
 function cueAlertJobRun_(job, err) {
   try {
     const P = PropertiesService.getScriptProperties();

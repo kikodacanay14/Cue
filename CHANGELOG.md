@@ -18,8 +18,8 @@ deploy each wait for Kiko's typed yes.
   and a failed send that never stops the job. Settings calls `cueAlerts`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`.
 - Hooks: the 8 AM update and the 2 PM chasers for your OK (`CueMorning.gs`), a new agent card (`CueAgentDrafts.gs`), a Messenger
   message put in Kiko's chat (`CueMessenger.gs`, linked crew and not-yet-linked people) and a failed job (`CueJobs.gs`).
-- Failed job: built as recommended and waiting for Kiko's answer: a job alerts when it turns from OK to Failed, and again only
-  after it has run OK once, because the 5-minute job tick sits on the edge of the 5-minute grouping.
+- Failed job (Kiko 16 Nov 2026 17:36:51Z, decision card: "Once, until it works again"): a job alerts when it turns from OK to
+  Failed, and again only after it has run OK once, because the 5-minute job tick sits on the edge of the 5-minute grouping.
 - Page: Settings › Jobs › Phone alerts (ALERT-3: Alert, On, Last sent, Open setup page, Send a test alert); a tap on an alert
   opens Cue with `?thread=` at that thread's root.
 - Tests: `test/features/99-phone-alerts.js` (PA1 to PA9) and `alerts/alerts-worker.test.mjs` (CA1 to CA6); 869/869 pass.
