@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.77: agent updates show under the Agents group, with a last-hour line (not deployed)
+## Cue 1.28.77: agent updates show under the Agents group, and an agent's thread reads as a conversation (not deployed)
 
 Asked: Kiko, 16 Nov 2026 15:48:10Z ("BUILD IT NOW"), for agent updates and messages under the Agents group in the top panel, with
 an hourly status. Slot cue-1.28.77, card cue-agent-feed. Built on main after 1.28.76. Display only: no new server calls, no
@@ -10,7 +10,12 @@ schedule, no Canvas change.
   from 2 agents", or "nothing new from the agents. Last one 2h ago") and the five newest agent drafts and updates (agent · type,
   the item and project, a standard status tag, how long ago). A row opens that agent's thread. Folding the Agents group hides it.
 - `src/IndexStyle.html`: `.agstat`, `.agfeed`, `.trow.agf`.
-- Tests: AGF1 to AGF3 added; 856/856 pass.
+- Conversation (Kiko 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or update is a chat
+  bubble from the agent (summary, what is still open, next step; a draft says what it is and that it waits for Kiko), in time order,
+  and Kiko's replies are his own bubbles. Details under a bubble opens the full card (approve, edit, requirements table); a draft that
+  waits for Kiko opens with its card. Cue's "… posted a handover update", "… drafted …" and "You replied …" lines are left out in
+  agent threads because the bubbles say the same. `agentSays`, `agentReplies`, `agentEcho`, `agentBubble`; CSS `.msg.agmsg`.
+- Tests: AGF1 to AGF3 and AGC1 to AGC3 added; 859/859 pass.
 
 ## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
 

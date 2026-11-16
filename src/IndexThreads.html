@@ -953,6 +953,45 @@
     $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
     $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
   }
+  /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
+   * update is a chat bubble from that agent, in time order, and Kiko's replies are his own bubbles. The full card (approve, edit, the
+   * requirements table) opens from Details under the bubble; a draft that waits for Kiko opens with its card. Cue's announcement lines
+   * ("… posted a handover update", "You replied …") are left out because the bubbles say the same. Display only. */
+  var agdOpen = {};
+  function agentSays(r) {
+    var A = r.agd || {}, H = A.handover || {}, rows = H.rows || [], proj = A.project ? ' (' + A.project + ')' : '';
+    if (A.type === 'update') {
+      var need = rows.filter(function (x) { return x && x.needs_kiko; }).length;
+      return [rows.length ? (A.item || 'Requirements') + proj + ': ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's') + (need ? ', ' + need + ' need you.' : '.') : '',
+        H.summary || A.body || (rows.length ? '' : (A.item || '') + proj),
+        H.gaps ? 'Still open: ' + H.gaps : '',
+        H.next_action ? 'Next: ' + H.next_action + (H.next_owner ? ' (' + H.next_owner + ')' : '') : '',
+        H.state && H.state !== 'Delivered' ? 'Handover blocked' + (H.why ? ': ' + H.why : '.') : ''].filter(Boolean).join('\n');
+    }
+    return ['Draft ' + String(A.type_label || 'email') + ': ' + (A.item || '') + proj + '.', A.subject ? 'Subject: ' + A.subject : '',
+      A.status === 'Waiting for Kiko' ? 'It waits for you.' : ''].filter(Boolean).join('\n');
+  }
+  function agentReplies(r) {
+    var A = r.agd || {};
+    return (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
+  }
+  function agentEcho(m) {
+    if (m.who === 'Kiko') return false;
+    return /^.{1,60} (posted a handover update: |drafted an? )/.test(String(m.text || '')) || /^You replied/.test(String(m.text || ''));
+  }
+  function agentBubble(r) {
+    var A = r.agd || {}, st = String(A.status || ''), open = r.id in agdOpen ? agdOpen[r.id] : st === 'Waiting for Kiko';
+    var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
+    var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
+      + '<span class="agtx">' + esc(noTok(agentSays(r))) + '</span>'
+      + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span></div>';
+    var c = open ? cardOf(r) : '';
+    return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
+  }
+  $('tmsgs').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-agd-open]'); if (!b) return;
+    var id = b.getAttribute('data-agd-open'); agdOpen[id] = b.getAttribute('aria-expanded') !== 'true'; renderChat();
+  });
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
@@ -965,15 +1004,20 @@
     /* THREAD-CHAT-2026-11-03 (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; artifact comment: "if
        rejected or done already. the card shouldnt stick anymore"): each task's card sits in the conversation where it was posted
        (when it asked for Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. */
-    var cards = [];
+    var cards = [], agT = !!(x0 && x0.agd);   // AGENT-CHAT-2026-11-16: an agent's thread reads as a conversation
     t.reqs.forEach(function (r) {
+      if (agT && r.agd) {
+        cards.push({ at: Date.parse(r.created) || 0, html: agentBubble(r) });
+        agentReplies(r).forEach(function (x) { cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
+        return;
+      }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
     });
     if (threadTitle(t) === 'Morning') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
-    var min = !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
+    var min = !agT && !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
     cards = cards.map(function (c, i) { c.i = i; return c; }).sort(function (a, b) { return a.at - b.at || a.i - b.i; });
     var put = function (upTo) { var o = ''; for (; ci < cards.length && cards[ci].at <= upTo; ci++) if (!min) o += cards[ci].html; return o; };
-    t.lines.forEach(function (m) { h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
+    t.lines.forEach(function (m) { if (agT && agentEcho(m)) return; h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
     h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
