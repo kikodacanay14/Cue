@@ -1,0 +1,15 @@
+# CUE-ALERTS-2026-11-16 (Kiko 16 Nov 2026: Channel A "Cue's own push" 15:14:25Z, mockups 15:18:24Z, grouping 15:20:47Z,
+# "Yes, build it" 17:22:27Z; ADR-0198). Cue alerts on Kiko's Android phone. NOT deployed: the first deploy needs Kiko's typed go.
+# From this folder, once:
+#   npx wrangler kv namespace create CUE_ALERTS        (put the id it prints below)
+#   npx wrangler deploy
+#   npx wrangler secret put VAPID_JWK       (an ES256 private key as JWK JSON: node gen-vapid.mjs prints one)
+#   npx wrangler secret put CUE_ALERTS_KEY  (any long random text; the same text goes in Cue's Script Property CUE_ALERTS_KEY)
+# Then set Cue's Script Property CUE_ALERTS_URL to this Worker's https address.
+name = "cue-alerts"
+main = "alerts-worker.js"
+compatibility_date = "2026-10-01"
+
+[[kv_namespaces]]
+binding = "CUE_ALERTS"
+id = "REPLACE_WITH_KV_ID"

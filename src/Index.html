@@ -30,7 +30,7 @@
       <div class="sgrp">Approvals</div><button data-s="approvals">For Approval</button>
       <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes and business rules</button><button data-s="tutor">Tutor mode</button>
       <div class="sgrp">Rules</div><button data-s="chasers" hidden>Chaser rules</button><!-- ADMIN-GROUPS-2026-11-05: merged into Jobs › Chasers --><button data-s="triage">Triage</button><button data-s="edits">Edit log</button><button data-s="auto">Auto-send</button><button data-s="templates">Templates</button>
-      <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
+      <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="alerts">Phone alerts</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
       <div class="sgrp" hidden>System</div><button data-s="conn" hidden>Connections</button><button data-s="usage" hidden>AI usage and cost</button>
     </div>
     <div class="smain">
@@ -39,6 +39,8 @@
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="approvals" hidden><div class="label" style="margin-top:0">For Approval</div><div class="small muted">Canvas's list, shown here. Approve and Reject happen in Canvas, under your Canvas sign-in.</div><div id="w-approvals"><div class="small muted">Loading…</div></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
+      <!-- CUE-ALERTS-2026-11-16 (ALERT-3, mockup approved by Kiko 16 Nov 2026 15:18:24Z): drawn by renderAlerts() in IndexPages.html -->
+      <section data-sec="alerts" hidden><div class="label" style="margin-top:0">Phone alerts</div><div id="w-alerts"><div class="small muted">Loading…</div></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <!-- AUTO-SEND-JOURNEY-2026-11-06 (Kiko 5 Nov 16:55Z "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should show the customer journey and show communication per stage"; mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq, Kiko "yes" 6 Nov 01:28Z): drawn by asDraw() in IndexPages.html. -->

@@ -229,6 +229,12 @@
   textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
   .card a { color:var(--act); }
   .card a.btn { color:#fff; } .card a.btn.ghost { color:var(--text); }   /* an Open in Canvas button is a link: keep its label readable */
+  /* CUE-ALERTS-2026-11-16 (ALERT-3 mockup): the On switch is a checkbox drawn as the approved switch; Last sent is centred */
+  #w-alerts input.swc { appearance:none; -webkit-appearance:none; width:40px; height:22px; padding:0; border:0; border-radius:11px; background:var(--line2); position:relative; margin:0; cursor:pointer; vertical-align:middle; }
+  #w-alerts input.swc::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
+  #w-alerts input.swc:checked { background:#23006F; } #w-alerts input.swc:checked::after { left:21px; }
+  #w-alerts input.swc:focus-visible { outline:2px solid #23006F; outline-offset:2px; } #w-alerts input.swc:disabled { opacity:.5; cursor:default; }
+  #w-alerts td.al-c { text-align:center; vertical-align:middle; white-space:nowrap; }
   .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px var(--font); cursor:pointer; background:var(--act); color:#fff; }
   .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
   .btn.bad { background:transparent; color:var(--bad); border:1px solid #E8B9A5; }

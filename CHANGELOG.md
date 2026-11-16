@@ -1,5 +1,29 @@
 # Changelog
 
+## Cue 1.28.79: Cue alerts on Kiko's Android phone (not deployed)
+
+Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
+own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
+(15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot
+cue-1.28.79, card cue-android-notifications. Built on main after 1.28.78. Not merged and not deployed: the merge and the first Worker
+deploy each wait for Kiko's typed yes.
+
+- `alerts/alerts-worker.js` (new Cloudflare Worker `cue-alerts`, not deployed): the one-time setup page (ALERT-1: before Allow, On,
+  Blocked), the service worker, `/code` (a setup code that lasts 10 minutes), `/subscribe`, `/unsubscribe`, `/me`, `/test`,
+  `/send` (Cue only, Bearer `CUE_ALERTS_KEY`), `/next` and `/status`. The push is empty and VAPID-signed (ES256 with WebCrypto);
+  the phone collects the alert text from `/next`, so no encryption library is added. `tag` is the Cue thread, so Android
+  replaces that thread's alert. Setup steps at the top of `alerts/wrangler.toml`; `alerts/gen-vapid.mjs` makes the key.
+- `src/CueAlerts.gs` (new): `cueAlert_` with the five alert types and their On switches (all start On), the 5-minute grouping per
+  thread ("Account Specialist · 2 updates", no second sound), text cleaned of amounts, account numbers, links and file names,
+  and a failed send that never stops the job. Settings calls `cueAlerts`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`.
+- Hooks: the 8 AM update and the 2 PM chasers for your OK (`CueMorning.gs`), a new agent card (`CueAgentDrafts.gs`), a Messenger
+  message put in Kiko's chat (`CueMessenger.gs`, linked crew and not-yet-linked people) and a failed job (`CueJobs.gs`).
+- Failed job: built as recommended and waiting for Kiko's answer: a job alerts when it turns from OK to Failed, and again only
+  after it has run OK once, because the 5-minute job tick sits on the edge of the 5-minute grouping.
+- Page: Settings › Jobs › Phone alerts (ALERT-3: Alert, On, Last sent, Open setup page, Send a test alert); a tap on an alert
+  opens Cue with `?thread=` at that thread's root.
+- Tests: `test/features/99-phone-alerts.js` (PA1 to PA9) and `alerts/alerts-worker.test.mjs` (CA1 to CA6); 869/869 pass.
+
 ## Cue 1.28.78: an agent's old-name and new-name threads are one thread (not deployed)
 
 Asked: Kiko, 16 Nov 2026 15:57Z ("APPROVE 1-8"), item 5 of the role rename: ECII is now Procurement Specialist and ECI is now

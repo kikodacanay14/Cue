@@ -156,6 +156,7 @@
     if (sec === 'usage') loadUsage();
     if (sec === 'approvals') apprFrame();   // ADMIN-GROUPS-2026-11-05
     if (sec === 'sched') loadSched();
+    if (sec === 'alerts') loadAlerts();   // CUE-ALERTS-2026-11-16
     if (sec === 'triage') loadTriage();
     if (sec === 'edits') loadEdits();
     if (sec === 'rn') loadRn();
@@ -203,6 +204,40 @@
     call('cueMsgrSave', [box.querySelector('[data-msgr-url]').value, v], function (r) { settingsData = r; $('w-conn')._h = null; renderSettings(); }, function (x) { b.disabled = false; alertErr(x); }); });
   $('w-tutor').addEventListener('change', function (e) { var c = e.target.closest('[data-tutor]'); if (!c) return; c.disabled = true;
     call('cueTutorSet', [c.checked], function (r) { settingsData = r; $('w-tutor')._h = null; renderSettings(); }, function () { c.disabled = false; c.checked = !c.checked; }); });
+  // ---- Phone alerts (CUE-ALERTS-2026-11-16, ALERT-3; CueAlerts.gs): each alert type's switch, its last sent time, setup and test ----
+  var alertsList = null, alertsErr = '', alertsNote = '';
+  function loadAlerts() { call('cueAlerts', [], alertsDone, alertsFail); }
+  function alertsDone(r) { alertsList = r; alertsErr = ''; $('w-alerts')._h = null; renderAlerts(); }
+  function alertsFail(e) { alertsErr = (e && e.message) || String(e); alertsNote = ''; $('w-alerts')._h = null; renderAlerts(); }
+  function alertWhen(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso), o = { timeZone: 'Asia/Manila' }, day = function (x) { return x.toLocaleDateString('en-GB', Object.assign({ day: 'numeric', month: 'short' }, o)); };
+    var t = d.toLocaleTimeString('en-US', Object.assign({ hour: 'numeric', minute: '2-digit' }, o));
+    return day(d) === day(new Date()) ? t : day(d) + ', ' + t;
+  }
+  function renderAlerts() {
+    var A = alertsList, err = alertsErr ? '<div class="err">' + esc(alertsErr) + '</div>' : '';
+    if (!A) return setHtml($('w-alerts'), err + (alertsErr ? '' : '<div class="small muted">Loading…</div>'));
+    var head = !A.ready ? 'Phone alerts are not connected yet. Once they are, Open setup page on your phone turns them on.'
+      : 'Alerts go to phones turned on at the setup page. ' + (A.phones == null ? 'Could not check how many phones are on.' : A.phones === 1 ? '1 phone is on.' : A.phones + ' phones are on.');
+    setHtml($('w-alerts'), err + '<div class="small muted" style="margin-bottom:8px">' + esc(head) + '</div>'
+      + '<div class="scroll"><table class="alerts-t"><thead><tr><th>Alert</th><th>On</th><th>Last sent</th></tr></thead><tbody>'
+      + A.types.map(function (t) { return '<tr><td>' + esc(t.name) + '</td><td class="al-c"><input type="checkbox" class="swc" role="switch" aria-label="' + esc(t.name) + ' alerts" data-al-on="' + esc(t.id) + '"' + (t.on ? ' checked' : '') + '></td><td class="al-c">' + esc(alertWhen(t.last)) + '</td></tr>'; }).join('')
+      + '</tbody></table></div>'
+      + (alertsNote ? '<div class="small muted" style="margin-top:8px">' + alertsNote + '</div>' : '')
+      + '<div class="actions" style="justify-content:flex-end"><button type="button" class="btn ghost" data-al-act="setup"' + (A.ready ? '' : ' disabled') + '>Open setup page</button>'
+      + '<button type="button" class="btn" data-al-act="test"' + (A.ready && A.phones ? '' : ' disabled') + '>Send a test alert</button></div>');
+  }
+  $('w-alerts').addEventListener('change', function (e) { var c = e.target.closest('[data-al-on]'); if (!c) return; c.disabled = true;
+    call('cueAlertsSet', [c.getAttribute('data-al-on'), c.checked], alertsDone, alertsFail); });
+  $('w-alerts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-al-act]'); if (!b) return; b.disabled = true;
+    if (b.getAttribute('data-al-act') === 'setup') return call('cueAlertsSetup', [], function (r) {
+      alertsNote = 'Open this link on your phone within ' + esc(String(r.minutes)) + ' minutes, then tap Turn on alerts: <a href="' + esc(r.url) + '" target="_blank" rel="noopener">setup page ↗</a>';
+      $('w-alerts')._h = null; renderAlerts(); }, alertsFail);
+    call('cueAlertsTest', [], function (r) { alertsNote = r.sent ? 'Test alert sent to ' + r.sent + (r.sent === 1 ? ' phone.' : ' phones.') : 'No phone took the test alert. Open the setup page on your phone again.';
+      loadAlerts(); }, alertsFail);
+  });
   // ---- Task scheduler (Kiko 22 Oct 00:57Z, CueSchedule.gs): every timed job, Cue's own and Kiko's, in one list ----
   var schedList = null, schedErr = '';
   function loadSched() { call('cueSchedules', [], function (r) { schedList = r; schedErr = ''; renderSched(); }, function (e) { schedErr = (e && e.message) || String(e); renderSched(); }); }
