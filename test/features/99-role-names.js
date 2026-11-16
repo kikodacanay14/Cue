@@ -29,3 +29,19 @@ test('ROLE3 the page: the @ list shows and inserts the new name, the old name st
   assert.ok(!/esc\(A\.agent\)/.test(page), 'every card shows the new name');
   assert.ok(/agdLabel\(x0\.agd\.agent\)/.test(page), 'the thread box names the agent by its new name');
 });
+test('ROLE4 a draft under the new name joins the old-name thread, and replies go out under the newest name (Kiko "APPROVE 1-8", item 5)', () => {
+  const st = { msgs: [] }, drafts = [agdUpd(40)];
+  const t = sandbox({ bridgeFn: b => {
+    if (b.action === 'agent_drafts') return { drafts };
+    if (b.action === 'agent_message') { st.msgs.push(b.args); return { ok: true, message: { message_id: 'DRF-0099', at: '2026-11-16 16:00', text: b.args.text } }; }
+  } });
+  delete t.props.CUE_AGD_STATE; t.ctx.cueAgdTick_();
+  const reqs = () => t.tabs.Requests.rows.slice(1).map(r => { try { return JSON.parse(r.slice(10).join('')); } catch (e) { return null; } }).filter(s => s && s.kind === 'agentdraft');
+  const root = reqs()[0].id;
+  t.ctx.cueAgdSay(root, 'before the rename', 'rolemsg0003');
+  drafts.push(agdUpd(41, { agent: 'Procurement Specialist agent' })); delete t.props.CUE_AGD_STATE; t.ctx.cueAgdTick_();
+  const all = reqs(); assert.strictEqual(all.length, 2); assert.strictEqual(all[1].ref, root, 'the new-name draft joins the old thread');
+  t.ctx.cueAgdSay(root, 'after the rename', 'rolemsg0004');
+  assert.deepStrictEqual(st.msgs.map(m => m.agent), ['ECII agent', 'Procurement Specialist agent']);
+  const ag = JSON.parse(JSON.stringify(t.ctx.cueAgdAgents_())); assert.strictEqual(ag.length, 1); assert.deepStrictEqual([ag[0].agent, ag[0].ref], ['Procurement Specialist agent', root]);
+});

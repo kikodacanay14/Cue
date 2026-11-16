@@ -326,7 +326,7 @@
     var seen = {}, out = [], by = byId();
     state.requests.forEach(function (r) {
       if (!r.agd || !r.agd.agent) return;
-      var k = tagNorm(r.agd.agent), at = String(r.created || '');
+      var k = tagNorm(agdLabel(r.agd.agent)), at = String(r.created || '');
       if (!seen[k]) { seen[k] = { agent: String(r.agd.agent), ref: rootOf(r.id, by), at: at }; out.push(seen[k]); }
       if (at > seen[k].at) seen[k].at = at;
     });

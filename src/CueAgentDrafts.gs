@@ -20,7 +20,9 @@ const CUE_AGD_TYPES_ = ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request'
 
 function cueAgdLoad_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CUE_AGD_.prop) || '{}') || {}; } catch (e) { return {}; } }
 function cueAgdSave_(st) { PropertiesService.getScriptProperties().setProperty(CUE_AGD_.prop, JSON.stringify(st)); }
-const cueAgdKey_ = a => String(a || '').trim().toLowerCase().replace(/\s+/g, ' ');
+// ROLE-NAMES-2026-11-16 item 5 (Kiko "APPROVE 1-8", 16 Nov 2026 15:57Z): the key uses the shown name, so drafts sent as "ECII agent" and
+// as "Procurement Specialist agent" share one thread.
+const cueAgdKey_ = a => cueAgdLabel_(String(a || '')).trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** From cueResume (CueJobs.gs): every 15 minutes. Returns how many new drafts it added, or null when not due. */
 function cueAgdTick_() { return cueAgdRead_(CUE_AGD_.every_min); }
@@ -306,7 +308,7 @@ function cueAgdSay_(ref, text, has, logged, mid, main) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never messages an agent.');
   const L = cueLoad_(ref);
   if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('This is not an agent\'s thread.');
-  const agent = cueStr_(L.s.agd.agent, 40) || 'Agent', t = cueStr_(String(text || '').replace(/\r/g, '').trim(), 4000);
+  const agent = cueAgdNewest_(ref, L.s) || 'Agent', t = cueStr_(String(text || '').replace(/\r/g, '').trim(), 4000);
   // AGENT-TAG-2026-11-15: a message tagged "@agent" in the main chat (main) shows Cue's answer in the main chat too, on rows marked "@<thread>".
   const say = x => { cueChat_('Cue', x, ref); if (main) cueChat_('Cue', x, '@' + ref); };
   if (has) { if (t && !logged) cueChat_('Kiko', t, ref); say('Agents can\'t open files. Send files in the main chat. Nothing was saved.'); return { chat: true, agent_message: false }; }
@@ -338,6 +340,17 @@ function cueAgdSay_(ref, text, has, logged, mid, main) {
  * name goes to that agent exactly as if typed in its thread (cueAgdSay_), and Cue does nothing else with it. Only the start of the
  * message counts, so an email address or "@ 5 PM" later in a line is plain text. One agent per message: a second @ stays plain text.
  * A name that is no agent sends nothing; the page keeps the words in the box. */
+/** ROLE-NAMES-2026-11-16 item 5: the name the agent used on its newest draft in this thread, so a reply reaches the agent under the name it
+ * reads with now (Canvas finds replies by agent name). */
+function cueAgdNewest_(ref, s0) {
+  let best = { at: '', agent: cueStr_(s0.agd.agent, 40) };
+  const R = cueAgdRecords_(cueSheet_('Requests'));
+  Object.keys(R.by).forEach(k => {
+    const s = R.by[k].s, at = String(s.created || '');
+    if ((s.id === ref || s.ref === ref) && s.agd && s.agd.agent && at > best.at) best = { at, agent: cueStr_(s.agd.agent, 40) };
+  });
+  return best.agent;
+}
 /** The agents Kiko can tag: one per agent thread, newest draft first. [{ agent, label, ref, at }]; label is the name Kiko sees. */
 function cueAgdAgents_(rows) {
   rows = rows || cueRows_(cueSheet_('Requests')); const seen = {}, out = [];
@@ -348,7 +361,7 @@ function cueAgdAgents_(rows) {
     const k = cueAgdKey_(s.agd.agent), at = String(s.created || '');
     if (!seen[k]) { seen[k] = { agent: cueStr_(s.agd.agent, 40), label: cueAgdLabel_(cueStr_(s.agd.agent, 40)), ref: s.ref || s.id, at }; out.push(seen[k]); }
     if (!s.ref) seen[k].ref = s.id;   // the agent's first draft is its thread
-    if (at > seen[k].at) seen[k].at = at;
+    if (at > seen[k].at) { seen[k].at = at; seen[k].agent = cueStr_(s.agd.agent, 40); seen[k].label = cueAgdLabel_(seen[k].agent); }   // newest name (ROLE-NAMES item 5)
   });
   return out.sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
 }
