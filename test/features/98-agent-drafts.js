@@ -180,7 +180,7 @@ test('AGU1 an unread handover update becomes a card in its agent\'s thread; Mark
   const b = agdBox({ drafts: [agdUpd(20)], answer: (a, st) => { const d = st.drafts[0]; Object.assign(d, { status: 'Read', decided: '2026-11-13 19:20' }); return { ok: true, draft: Object.assign({}, d) }; } });
   assert.strictEqual(b.t.ctx.cueAgdTick_(), 1);
   const s = b.reqs()[0]; assert.strictEqual(s.status, 'Needs you'); assert.strictEqual(s.agd.handover.state, 'Delivered');
-  assert.ok(b.chat(s.id).some(l => /ECII agent posted a handover update: HO-KIN-07 · Delivered/.test(l)));
+  assert.ok(b.chat(s.id).some(l => /Procurement Specialist agent posted a handover update: HO-KIN-07 · Delivered/.test(l)));
   assert.throws(() => b.t.ctx.cueAgdDecide(s.id, { decision: 'send' }), /An update is marked read or replied to/);
   b.t.ctx.cueAgdDecide(s.id, { decision: 'read' });
   assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read']); assert.strictEqual(bridgeCheck('agent_draft_decide', b.st.decide[0]), '');
@@ -225,7 +225,7 @@ test('AGU5 Kiko replies to an update (card "Updates plus replies"): each reply g
   b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'Skip LightWorks, they are on hold.' });
   assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read', 'reply']); assert.strictEqual(b.st.decide[1].note, 'Skip LightWorks, they are on hold.');
   assert.strictEqual(bridgeCheck('agent_draft_decide', b.st.decide[1]), '');
-  assert.ok(b.chat(id).some(l => /^You replied: "Skip LightWorks, they are on hold\."\. ECII agent reads it on its next run\.$/.test(l)));
+  assert.ok(b.chat(id).some(l => /^You replied: "Skip LightWorks, they are on hold\."\. Procurement Specialist agent reads it on its next run\.$/.test(l)));
   // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): a second reply goes to Canvas too and the card lists both.
   b.st.answer = (a, st) => { const d = st.drafts[0]; Object.assign(d, { status: 'Replied', note: a.note }); return { ok: true, draft: Object.assign({}, d), message: { at: '2026-11-13 19:41', text: a.note } }; };
   b.t.ctx.cueAgdDecide(id, { decision: 'reply', note: 'Ask Bright Events instead.' });

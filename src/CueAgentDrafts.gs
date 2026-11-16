@@ -82,6 +82,12 @@ function cueAgdRow_(r) {
 }
 const cueAgdCueStatus_ = st => CUE_AGD_STATUS_[st] || 'Closed';
 
+/* ROLE-NAMES-2026-11-16 (Kiko 16 Nov 2026 13:13Z "lets change ECII to Procurement Specialist and ECI to Event Specialist"; Cue and
+ * dashboard labels approved "aproved 9 and 10"). Display only: the agent name Canvas stores ("ECII agent") stays the thread key and is
+ * what agent_message sends, so threads and draft_status keep working. Cue shows the new name everywhere Kiko reads it, and a tag with
+ * either name reaches the same agent. Same map in IndexChat.html agdLabel. */
+function cueAgdLabel_(name) { return String(name == null ? '' : name).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist'); }
+
 /** What happened to a draft, as one line in its thread. Pure. */
 function cueAgdLine_(a) {
   const st = a.status;
@@ -90,10 +96,10 @@ function cueAgdLine_(a) {
   if (st === 'Sending') return /^(rfp|accreditation_chaser)$/.test(a.type) ? 'Approved. It goes out from your Gmail within a minute.' : 'Approved. Canvas is sending it.';
   if (st === 'Failed') return 'Not sent: ' + (a.reason || 'Canvas gave no reason') + '.';
   if (st === 'Dropped') return 'Not sent, because it is no longer due. ' + (a.reason || '');
-  if (st === 'Sent back') return 'Sent back to ' + a.agent + (a.note ? ' with your note: "' + a.note + '"' : '') + '.';
+  if (st === 'Sent back') return 'Sent back to ' + cueAgdLabel_(a.agent) + (a.note ? ' with your note: "' + a.note + '"' : '') + '.';
   if (st === 'Rejected') return 'Rejected. Nothing was sent.';
   if (st === 'Read') return 'Marked read.';   // AGENT-UPDATE-2026-11-13
-  if (st === 'Replied') return 'You replied' + (a.note ? ': "' + a.note + '"' : '') + '. ' + a.agent + ' reads it on its next run.';
+  if (st === 'Replied') return 'You replied' + (a.note ? ': "' + a.note + '"' : '') + '. ' + cueAgdLabel_(a.agent) + ' reads it on its next run.';
   return 'Canvas now shows it as ' + st + '.';
 }
 
@@ -112,12 +118,12 @@ function cueAgdSync_(drafts) {
         const now = cueNow_(), d = new Date(now), k = cueAgdKey_(a.agent);
         const id = 'cue-' + Utilities.formatDate(d, 'Asia/Manila', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
         const s = { id, version: CUE_VERSION_, kind: 'agentdraft', created: d.toISOString(), started: now, card_at: now, status: 'Needs you', stage: 'Needs you',
-          text: 'Agent draft ' + a.draft_id + ' · ' + a.agent + ' · ' + a.type_label + ' · ' + a.item, files: [], ref: R.roots[k] || '', agd: a,
+          text: 'Agent draft ' + a.draft_id + ' · ' + cueAgdLabel_(a.agent) + ' · ' + a.type_label + ' · ' + a.item, files: [], ref: R.roots[k] || '', agd: a,
           metrics: { ai_calls: 0, calls: [] }, notes: [] };
         sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
         R.by[a.draft_id] = { row: sh.getLastRow(), s }; if (!s.ref) R.roots[k] = id;
-        said.push([id, upd ? a.agent + ' posted a handover update: ' + a.item + ' · ' + ((a.handover && a.handover.state) || 'Blocked') + (a.project ? ' (' + a.project + ')' : '') + '.'
-          : a.agent + ' drafted ' + (/^[aeiou]/i.test(a.type_label) ? 'an ' : 'a ') + a.type_label.toLowerCase() + ': ' + a.item + (a.project ? ' (' + a.project + ')' : '') + '. It waits for you.']);
+        said.push([id, upd ? cueAgdLabel_(a.agent) + ' posted a handover update: ' + a.item + ' · ' + ((a.handover && a.handover.state) || 'Blocked') + (a.project ? ' (' + a.project + ')' : '') + '.'
+          : cueAgdLabel_(a.agent) + ' drafted ' + (/^[aeiou]/i.test(a.type_label) ? 'an ' : 'a ') + a.type_label.toLowerCase() + ': ' + a.item + (a.project ? ' (' + a.project + ')' : '') + '. It waits for you.']);
         n++; return;
       }
       const s = x.s, was = s.agd.status;
@@ -285,7 +291,7 @@ function cueAgdRewrite_(id, instruction) {
  * message to that agent: Cue saves it once in Canvas (bridge agent_message) and never acts on it, never asks GPT about it and never
  * starts an intake, mail or any other task from it. The agent reads it with draft_status on its next run. Files are not sent: agents
  * can't open them. Only the card buttons decide anything. */
-const CUE_AGM_SAVED_ = agent => 'Saved for ' + agent + ' · it reads it on its next run';
+const CUE_AGM_SAVED_ = agent => 'Saved for ' + cueAgdLabel_(agent) + ' · it reads it on its next run';
 function cueAgdSay(ref, text, mid) { cueOwner_(); return cueAgdSay_(ref, text, false, false, mid); }
 /** Try again under a "Not saved" line: resends that line's own message with its own id (Codex review on Cue PR #386). */
 function cueAgdRetry(ref, mid) {
@@ -332,7 +338,7 @@ function cueAgdSay_(ref, text, has, logged, mid, main) {
  * name goes to that agent exactly as if typed in its thread (cueAgdSay_), and Cue does nothing else with it. Only the start of the
  * message counts, so an email address or "@ 5 PM" later in a line is plain text. One agent per message: a second @ stays plain text.
  * A name that is no agent sends nothing; the page keeps the words in the box. */
-/** The agents Kiko can tag: one per agent thread, newest draft first. [{ agent, ref, at }] */
+/** The agents Kiko can tag: one per agent thread, newest draft first. [{ agent, label, ref, at }]; label is the name Kiko sees. */
 function cueAgdAgents_(rows) {
   rows = rows || cueRows_(cueSheet_('Requests')); const seen = {}, out = [];
   rows.forEach(r => {
@@ -340,24 +346,24 @@ function cueAgdAgents_(rows) {
     let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { return; }
     if (!s || s.kind !== 'agentdraft' || !s.agd || !s.agd.agent) return;
     const k = cueAgdKey_(s.agd.agent), at = String(s.created || '');
-    if (!seen[k]) { seen[k] = { agent: cueStr_(s.agd.agent, 40), ref: s.ref || s.id, at }; out.push(seen[k]); }
+    if (!seen[k]) { seen[k] = { agent: cueStr_(s.agd.agent, 40), label: cueAgdLabel_(cueStr_(s.agd.agent, 40)), ref: s.ref || s.id, at }; out.push(seen[k]); }
     if (!s.ref) seen[k].ref = s.id;   // the agent's first draft is its thread
     if (at > seen[k].at) seen[k].at = at;
   });
   return out.sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
 }
-/** "@Account Specialist skip LightWorks" -> { agent, ref, rest }; "@Nobody hi" -> { miss: 'Nobody hi' }; no leading @ -> null.
- * Capitals and spaces do not matter; the longest name that fits wins. */
+/** "@Account Specialist skip LightWorks" -> { agent, label, ref, rest }; "@Nobody hi" -> { miss: 'Nobody hi' }; no leading @ -> null.
+ * Capitals and spaces do not matter; the longest name that fits wins. Either the shown name or the stored one matches (ROLE-NAMES). */
 function cueAgdTag_(text, agents) {
   const m = String(text || '').match(/^\s*@\s*([\s\S]*)$/); if (!m) return null;
   const body = m[1], low = body.toLowerCase().replace(/\s+/g, ' ');
   let best = null;
-  (agents || cueAgdAgents_()).forEach(a => {
-    const n = String(a.agent || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  (agents || cueAgdAgents_()).forEach(a => [cueAgdLabel_(a.agent), a.agent].forEach(x => {
+    const n = String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
     if (!n || low.slice(0, n.length) !== n || /[\p{L}\p{N}]/u.test(low.charAt(n.length))) return;
     if (!best || n.length > best.n.length) best = { a, n };
-  });
+  }));
   if (!best) return { miss: body.trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40) };
   let i = 0, k = 0; while (k < best.n.length && i < body.length) { if (/\s/.test(body[i])) { while (i < body.length && /\s/.test(body[i])) i++; k++; } else { i++; k++; } }
-  return { agent: best.a.agent, ref: best.a.ref, rest: body.slice(i).replace(/^[\s,:;.\-]+/, '').trim() };
+  return { agent: best.a.agent, label: cueAgdLabel_(best.a.agent), ref: best.a.ref, rest: body.slice(i).replace(/^[\s,:;.\-]+/, '').trim() };
 }

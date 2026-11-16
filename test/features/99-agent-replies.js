@@ -19,7 +19,7 @@ test('AGR1 a line in an agent\'s thread is saved for that agent once; no GPT cal
   assert.strictEqual(b.st.msgs.length, 1); assert.strictEqual(b.st.msgs[0].agent, 'ECII agent'); assert.strictEqual(b.st.msgs[0].text, 'Add project intake for the Globe party, call time 5 AM');
   assert.ok(/^agm:[A-Za-z0-9]{8,}$/.test(b.st.msgs[0].request_id)); assert.strictEqual(bridgeCheck('agent_message', b.st.msgs[0]), '');
   assert.strictEqual(b.t.log.gpt.length, g0, 'no GPT call'); assert.strictEqual(b.t.tabs.Requests.rows.length, n0, 'no new task');
-  assert.deepStrictEqual(b.chat().slice(-2), ['Kiko: Add project intake for the Globe party, call time 5 AM', 'Cue: Saved for ECII agent · it reads it on its next run']);
+  assert.deepStrictEqual(b.chat().slice(-2), ['Kiko: Add project intake for the Globe party, call time 5 AM', 'Cue: Saved for Procurement Specialist agent · it reads it on its next run']);
   b.t.ctx.cueAgdSay(b.id, 'Call time is 6 AM now', 'pagemid0001');
   assert.strictEqual(b.st.msgs[1].request_id, 'agm:pagemid0001', 'the page\'s id for the message is the request id');
   assert.strictEqual(r.chat, true, 'the main-chat send callback treats it as a finished chat (no cueRun)');

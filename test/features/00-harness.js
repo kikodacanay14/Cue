@@ -673,6 +673,6 @@ const test = (n, f) => tests.push([n, f]);
 function pageKindName(r) {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = {}; ['CHANGE', 'READY', 'ARSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS', 'FUNNEL', 'STSTEPS'].forEach(k => { ctx[k] = []; });
-  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
+  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + page.match(/  function agdLabel\(v\) \{[^\n]*\n/)[0] + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
   return ctx.kindName(r);
 }

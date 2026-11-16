@@ -32,7 +32,7 @@ test('TAG2 only a leading @ with a known name counts: unknown names send nothing
   assert.strictEqual(b.st.msgs.length, 0);
   const tag = b.t.ctx.cueAgdTag_, ag = [{ agent: 'ECII agent', ref: 'cue-a' }, { agent: 'ECII agent Two', ref: 'cue-b' }];
   assert.strictEqual(tag('Email john@acme.com the plan', ag), null); assert.strictEqual(tag('Call at @ 5 PM', ag), null);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(tag('@ecii agent two: ask for the LED quote', ag))), { agent: 'ECII agent Two', ref: 'cue-b', rest: 'ask for the LED quote' }, 'the longest name wins');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(tag('@ecii agent two: ask for the LED quote', ag))), { agent: 'ECII agent Two', label: 'Procurement Specialist agent Two', ref: 'cue-b', rest: 'ask for the LED quote' }, 'the longest name wins');
   const r = b.t.ctx.cueSend('@ECII agent tell @Account Specialist the call time is 5 AM', [], '', '', '');
   assert.strictEqual(r.agent, 'ECII agent'); assert.strictEqual(b.st.msgs.length, 1); assert.strictEqual(b.st.msgs[0].text, 'tell @Account Specialist the call time is 5 AM', 'a second @ is plain text');
   const agents = JSON.parse(JSON.stringify(b.t.ctx.cueAgdAgents_().map(a => a.agent))); assert.deepStrictEqual(agents.sort(), ['Account Specialist', 'ECII agent']);

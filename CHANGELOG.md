@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.74: agent names show the new role names (not deployed)
+
+Asked: Kiko, 16 Nov 2026 13:13Z ("lets change ECII to Procurement Specialist and ECI to Event Specialist"); Cue and dashboard labels
+approved "aproved 9 and 10". Slot cue-1.28.74, card role-names-cue-labels. Built on main after 1.28.73.
+
+- Display only. `src/CueAgentDrafts.gs` `cueAgdLabel_` and `src/IndexChat.html` `agdLabel` turn ECII into Procurement Specialist and
+  ECI into Event Specialist (whole words). The name Canvas stores ("ECII agent") stays the thread key and is still what
+  `agent_message` sends, so threads, draft_status and replies keep working. Canvas data, n8n and secrets are unchanged.
+- Thread titles, draft and update cards, the lines Cue writes in a thread, "Saved for ...", the @ list and the thread box show the new
+  name. The @ list inserts the new name; a tag with either name reaches the same agent. Older main-chat rows that carry the old name
+  draw the new tag.
+- Tests: ROLE1 to ROLE3 added; AGU1, AGU5, AGR1 and TAG2 now expect the new name; 846/846 pass.
+
 ## Cue 1.28.73: agent updates with requirement rows open a panel on the left (not deployed)
 
 Asked: Kiko, 16 Nov 2026 11:58:14Z ("maybe something like a card then can be clicked opens that opens a window on the left"). He
