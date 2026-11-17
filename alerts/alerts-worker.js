@@ -81,6 +81,10 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url), p = u.pathname, host = u.host;
     if (req.method === 'GET' && p === '/sw.js') return new Response(SW_JS, { headers: { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' } });
+    if (req.method === 'GET' && p === '/open') {   // a tap on an alert with no link of its own: open Cue (the address Cue last sent), else this setup page
+      const home = await env.CUE_ALERTS.get('cue_home');
+      return new Response(null, { status: 302, headers: { Location: /^https:\/\//.test(home || '') ? home : '/setup', 'Cache-Control': 'no-store' } });
+    }
     if (req.method === 'GET' && p === '/setup') {
       let key = ''; try { key = vapidPublic(env); } catch (e) { return new Response('Cue alerts are not set up yet.', { status: 503 }); }
       return new Response(setupPage(key, String(u.searchParams.get('code') || '').replace(/[^a-f0-9]/g, '').slice(0, 64)),
@@ -107,6 +111,7 @@ export default {
     if (p === '/send') {
       if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
       const a = alertOf(await body(req)), list = await phones(env), res = [];
+      if (a.url) { const home = a.url.split(/[?#]/)[0]; if (home !== (await env.CUE_ALERTS.get('cue_home'))) await env.CUE_ALERTS.put('cue_home', home); }   // where a tap on a link-less alert goes
       for (const [id, sub] of list) res.push(await deliver(env, id, sub, a, host));
       return json({ phones: list.length, sent: res.filter(x => x === 'sent').length, results: res });
     }
@@ -143,7 +148,7 @@ const SW_JS = `self.addEventListener('push', function (e) { e.waitUntil((async f
   for (var i = 0; i < list.length; i++) { var a = list[i];
     await self.registration.showNotification(a.title, { body: a.body, tag: a.tag, renotify: !!a.renotify, silent: !a.renotify, data: { url: a.url } }); }
 })()); });
-self.addEventListener('notificationclick', function (e) { e.notification.close(); var u = (e.notification.data || {}).url; if (u) e.waitUntil(clients.openWindow(u)); });
+self.addEventListener('notificationclick', function (e) { e.notification.close(); var u = (e.notification.data || {}).url || '/open'; e.waitUntil(clients.openWindow(u)); });
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 `;

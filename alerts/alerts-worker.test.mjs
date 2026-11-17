@@ -68,6 +68,14 @@ await t('CA6 the setup page carries the public key and the code, and the service
   assert.ok(/fetch\('\/next'/.test(sw) && /notificationclick/.test(sw) && /renotify: !!a\.renotify/.test(sw));
   assert.strictEqual((await worker.fetch(new Request('https://alerts.example/setup'), Object.assign({}, env, { VAPID_JWK: '' }))).status, 503);
 });
+await t('CA8 a tap on an alert with no link opens Cue (the address Cue last sent), else the setup page', async () => {
+  kv.delete('cue_home');
+  let r = await worker.fetch(new Request('https://alerts.example/open'), env); assert.strictEqual(r.status, 302); assert.strictEqual(r.headers.get('Location'), '/setup');
+  await cue('/send', { title: 'x', body: 'y', url: 'https://script.google.com/macros/s/X/exec?thread=cue-9', tag: 't' });
+  r = await worker.fetch(new Request('https://alerts.example/open'), env); assert.strictEqual(r.headers.get('Location'), 'https://script.google.com/macros/s/X/exec');
+  const sw = await (await worker.fetch(new Request('https://alerts.example/sw.js'), env)).text();
+  assert.ok(/\|\| '\/open'; e\.waitUntil\(clients\.openWindow\(u\)\)/.test(sw), 'no link opens /open');
+});
 await t('CA7 pairing: closed without the window; open once hands Cue\'s key over, then the window is shut', async () => {
   const k = 'k'.repeat(64);
   assert.strictEqual((await call('/pair', { key: k })).status, 403);

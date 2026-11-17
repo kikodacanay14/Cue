@@ -24,6 +24,11 @@ provided scriptURL (.../sw.js) violates the Content Security Policy" (17 Nov 202
 default-src 'none' and no worker-src, so the browser fell back to script-src 'unsafe-inline' and blocked /sw.js. The CSP now adds
 worker-src 'self'. Reproduced and checked in Chromium (old CSP: same error; new CSP: registered). Test CA6 checks the directive.
 
+Worker fix 2 (not deployed): Kiko 17 Nov 2026 10:39:43Z, "it worked but i wasnt able to open the notification". The phone page's
+test alert and the plain "Open Cue to see what is new." line carry no link, so a tap only closed them. A tap on an alert with no
+link now opens /open, which sends the phone to Cue (the address Cue last sent with an alert) or, before Cue has sent one, to the
+setup page. Test CA8.
+
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
 (15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot
