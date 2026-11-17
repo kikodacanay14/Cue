@@ -107,7 +107,7 @@ function cueAgdLine_(a) {
 
 /** Adds a card for each new waiting draft and updates the cards whose Canvas status changed. Returns how many it added. */
 function cueAgdSync_(drafts) {
-  const said = [];
+  const said = [], alerts = [];
   const added = cueLocked_(() => {
     const sh = cueSheet_('Requests'), R = cueAgdRecords_(sh);
     let n = 0;
@@ -124,6 +124,7 @@ function cueAgdSync_(drafts) {
           metrics: { ai_calls: 0, calls: [] }, notes: [] };
         sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s);
         R.by[a.draft_id] = { row: sh.getLastRow(), s }; if (!s.ref) R.roots[k] = id;
+        alerts.push([R.roots[k] || id, id, cueAgdLabel_(a.agent) || 'Agent', upd ? 'Handover update: ' + a.item : a.type_label + ' waits for you: ' + a.item]);   // CUE-ALERTS-2026-11-16
         said.push([id, upd ? cueAgdLabel_(a.agent) + ' posted a handover update: ' + a.item + ' · ' + ((a.handover && a.handover.state) || 'Blocked') + (a.project ? ' (' + a.project + ')' : '') + '.'
           : cueAgdLabel_(a.agent) + ' drafted ' + (/^[aeiou]/i.test(a.type_label) ? 'an ' : 'a ') + a.type_label.toLowerCase() + ': ' + a.item + (a.project ? ' (' + a.project + ')' : '') + '. It waits for you.']);
         n++; return;
@@ -155,6 +156,7 @@ function cueAgdSync_(drafts) {
   said.forEach(([id, line]) => { cueChat_('Cue', line, id); });
   const fresh = said.filter(x => /It waits for you\.$/.test(x[1]));
   if (fresh.length) cueChat_('Cue', fresh.length === 1 ? fresh[0][1] : fresh.length + ' new agent drafts wait for you.', '>' + fresh[0][0]);
+  alerts.forEach(([root, id, agent, line]) => { cueAlertAgent_(root, id, agent, line); });   // CUE-ALERTS-2026-11-16: Agent update (never throws)
   return added;
 }
 

@@ -325,7 +325,7 @@ function cueMsgrOne_(m) {
     const L = cueLoad_(p.chat);
     if (L && L.s.status !== 'Needs you') { L.s.status = 'Needs you'; L.s.stage = 'Needs you'; L.s.card_at = cueNow_(); delete L.s.archived; cueSave_(L.sh, L.row, L.s); }
   });
-  if (text) cueChat_(p.name + ' · Messenger', text, p.chat);
+  if (text) { cueChat_(p.name + ' · Messenger', text, p.chat); cueAlertMsgr_(p.chat, p.name, text); }   // CUE-ALERTS-2026-11-16 (never throws)
   return true;
 }
 /* CUE-MSGR-TRIAGE-2026-11-05: someone not linked as crew. Their first message gets the greeting with two tap buttons, once.
@@ -409,7 +409,7 @@ function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay 
   if (ack) T.m = 'unsure';
   cueMsgrTriSave_(psid, T);
   cueMsgrTriChat_(psid, T, T.st === 'crew' ? 'Crew, not linked yet' : 'Client or inquiry');
-  if (text) cueChat_(T.name + ' · Messenger', text, T.chat);
+  if (text) { cueChat_(T.name + ' · Messenger', text, T.chat); cueAlertMsgr_(T.chat, T.name, text); }   // CUE-ALERTS-2026-11-16 (never throws)
   if (ack) cueChat_('Cue', T.name + ' (crew, not linked yet) sent their details on Messenger: "' + cueStr_(text, 200) + '". Reply in their chat.', T.chat);   // CUE-MSGR-ONE-LINE
   return true;
 }

@@ -1665,6 +1665,9 @@
   paneShow();
   refresh(); loadRules(); loadMyRules();
   // AGENT-DRAFTS-2026-11-13 (A2): new agent drafts when Kiko opens Cue. AGENT-UPDATE-2026-11-13: Canvas's Cue link (?agd=DRF-....) opens that card's thread.
+  // CUE-ALERTS-2026-11-16: a tap on a phone alert opens Cue at its thread (?thread=cue-…); the thread's root opens.
+  try { google.script.url.getLocation(function (l) { var t = String((l && l.parameter && l.parameter.thread) || '');
+    if (/^cue-[0-9A-Za-z-]{6,60}$/.test(t)) refresh(function () { var by = byId(); if (by[t]) goThread(rootOf(t, by)); }); }); } catch (e) {}
   (function agdOpen(go) {
     try { google.script.url.getLocation(function (l) { go(l && l.parameter && /^DRF-\d{4,6}$/.test(String(l.parameter.agd || '')) ? String(l.parameter.agd) : ''); }); } catch (e) { go(''); }
   })(function (agd) {
