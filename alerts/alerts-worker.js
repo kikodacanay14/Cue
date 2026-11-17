@@ -6,6 +6,8 @@
  * Chrome holds a push subscription made on this Worker's own setup page.
  *   GET  /setup?code=…   ALERT-1, the one-time setup page (before Allow, On, Blocked).
  *   GET  /sw.js          The service worker. On a push it asks /next for this phone's alerts and shows them.
+ *   POST /pair           { key }: Cue's Connect alerts hands over the key Cue made. Only while KV "pair_open" exists (set for
+ *                        30 minutes at deploy time), and only once; then the window closes.
  *   POST /code           Cue only (Authorization: Bearer CUE_ALERTS_KEY): makes a one-time setup code that lasts 10 minutes.
  *   POST /subscribe      { code, subscription }: a valid code adds the phone, once; the code is then spent.
  *   POST /unsubscribe    { endpoint }: Turn off. Removes that phone.
@@ -29,7 +31,11 @@ function same(a, b) {   // constant-time compare of two strings
   for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return d === 0;
 }
-const isCue = (req, env) => same(String(req.headers.get('Authorization') || '').replace(/^Bearer /, ''), env.CUE_ALERTS_KEY);
+// Cue's key: the CUE_ALERTS_KEY secret, or the key Cue handed over at /pair (KV "cue_key"), so nobody pastes a key into Cue.
+async function isCue(req, env) {
+  const got = String(req.headers.get('Authorization') || '').replace(/^Bearer /, '');
+  return same(got, env.CUE_ALERTS_KEY) || same(got, await env.CUE_ALERTS.get('cue_key'));
+}
 const rand = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 const subId = async endpoint => hex(await crypto.subtle.digest('SHA-256', enc.encode(String(endpoint)))).slice(0, 32);
 const HOUR = 3600, CODE_TTL = 600;
@@ -82,17 +88,24 @@ export default {
           'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'" } });
     }
     if (req.method === 'GET' && p === '/status') {
-      if (!isCue(req, env)) return json({ error: 'forbidden' }, 403);
+      if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
       return json({ phones: (await phones(env)).length });
     }
     if (req.method !== 'POST') return new Response('Not found', { status: 404 });
+    if (p === '/pair') {   // Connect alerts in Cue: Cue hands over the key it made, once, while the pairing window is open
+      const b = await body(req), key = String(b.key || '');
+      if (!(await env.CUE_ALERTS.get('pair_open'))) return json({ error: 'Pairing is closed.' }, 403);
+      if (!/^[A-Za-z0-9_-]{32,128}$/.test(key)) return json({ error: 'bad key' }, 400);
+      await env.CUE_ALERTS.put('cue_key', key); await env.CUE_ALERTS.delete('pair_open');
+      return json({ paired: true });
+    }
     if (p === '/code') {
-      if (!isCue(req, env)) return json({ error: 'forbidden' }, 403);
+      if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
       const code = rand(16); await env.CUE_ALERTS.put('code:' + code, '1', { expirationTtl: CODE_TTL });
       return json({ code, url: 'https://' + host + '/setup?code=' + code, minutes: CODE_TTL / 60 });
     }
     if (p === '/send') {
-      if (!isCue(req, env)) return json({ error: 'forbidden' }, 403);
+      if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
       const a = alertOf(await body(req)), list = await phones(env), res = [];
       for (const [id, sub] of list) res.push(await deliver(env, id, sub, a, host));
       return json({ phones: list.length, sent: res.filter(x => x === 'sent').length, results: res });

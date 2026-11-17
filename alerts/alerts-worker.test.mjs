@@ -67,5 +67,17 @@ await t('CA6 the setup page carries the public key and the code, and the service
   assert.ok(/fetch\('\/next'/.test(sw) && /notificationclick/.test(sw) && /renotify: !!a\.renotify/.test(sw));
   assert.strictEqual((await worker.fetch(new Request('https://alerts.example/setup'), Object.assign({}, env, { VAPID_JWK: '' }))).status, 503);
 });
+await t('CA7 pairing: closed without the window; open once hands Cue\'s key over, then the window is shut', async () => {
+  const k = 'k'.repeat(64);
+  assert.strictEqual((await call('/pair', { key: k })).status, 403);
+  kv.set('pair_open', '1');
+  assert.strictEqual((await call('/pair', { key: 'short' })).status, 400);
+  assert.strictEqual((await (await call('/pair', { key: k })).json()).paired, true);
+  assert.ok(!kv.has('pair_open'));
+  assert.strictEqual((await call('/pair', { key: 'x'.repeat(64) })).status, 403, 'only once');
+  const r = await worker.fetch(new Request('https://alerts.example/code', { method: 'POST', headers: { Authorization: 'Bearer ' + k } }), Object.assign({}, env, { CUE_ALERTS_KEY: '' }));
+  assert.strictEqual(r.status, 200, 'the paired key works without the secret');
+  assert.strictEqual((await worker.fetch(new Request('https://alerts.example/code', { method: 'POST' }), Object.assign({}, env, { CUE_ALERTS_KEY: '' }))).status, 403, 'no key, no entry');
+});
 function deepEq(a, b, m) { assert.deepStrictEqual(a, b, m); }
 console.log(n + ' alerts worker tests passed');
