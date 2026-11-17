@@ -1,10 +1,10 @@
 # Changelog
 
-## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (not deployed)
+## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (LIVE as Version 259, 17 Nov 2026 ~14:55Z, rollback 258)
 
 Asked: Kiko, 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing"; build yes 17 Nov 2026 13:32Z
 ("build the FSA / AR automation and chaser timing"); 17 Nov 13:40Z "1. 2 days". ADR-0205 in CanvasWorkspace supersedes ADR-0185.
-Ships together with Canvas V553 (CanvasWorkspace branch claude/project-thread-7p71j9), which sends the FSA and AR reminders itself.
+Shipped with Canvas V554 (CanvasWorkspace PR #696; built as V553, renumbered when another release took V553). Deploy run 44107800050 from this branch on main 1327665, which sends the FSA and AR reminders itself.
 Slot cue-1.28.81, card fsa-ar-auto.
 
 - `src/CueSweepSignature.gs`: `cueSignOff_()` returns true, so the signature sweep drafts nothing and makes no `list_unsigned_docs`
