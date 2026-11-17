@@ -730,6 +730,7 @@ function zapBridge(raw, sig) {
   if (String(activeEmail_() || '')) throw new Error('This is only for the Zapier adapter.');
   const s = String(sig || '');   // GPT-DOOR-2026-10-23: no signature = a ChatGPT call, checked by its key instead
   if (!s && zbDeskCall_(raw)) return JSON.stringify(zbDeskDoor_(String(raw || ''), Date.now()));   // SERVICE-DESK-DOOR-2026-11-07
+  if (s && ciCall_(raw)) return JSON.stringify(ciDoor_(String(raw || ''), s, Date.now()));   // CHARTER-INCOMING-2026-11-16 (CharterIncoming.gs)
   return JSON.stringify(s ? zbHandle_(String(raw || ''), s, Date.now(), false) : zbGptDoor_(String(raw || ''), Date.now()));
 }
 
@@ -3038,7 +3039,7 @@ ZB_ACTIONS_.agent_update = {
     project_id: { type: 'string', re: ZB_PID_RE_ }, handover_ref: { type: 'string', required: true, nonBlank: true, max: 100 },
     summary: { type: 'string', required: true, nonBlank: true, max: 4000 }, gaps: { type: 'string', max: 4000 },
     next_owner: { type: 'string', max: 100 }, next_action: { type: 'string', max: 1000 }, ack_link: { type: 'string', max: 500 },
-    update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked'] },
+    update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked', 'Waiting for approval'] },   // AGENT-APPROVAL-WAITING-2026-11-17
     // AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026: Cue mockup v2 approved 12:23:52Z, "yes" to this field 12:33:39Z): one row per
     // requirement for Cue's requirements panel. Optional; only the approved fields (Status, Handed to and Kind were removed 12:19:11Z).
     rows: { type: 'array', maxItems: 100, items: { req_id: { type: 'string', max: 60 }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
@@ -3069,6 +3070,231 @@ ZB_ACTIONS_.agent_message = {
     text: { type: 'string', required: true, nonBlank: true, max: 4000 }, about: { type: 'string', re: /^DRF-\d{4,6}$/ } },
   run: (r) => agdMessage_(r.args)
 };
+
+/* GPT-FREELANCERS-2026-11-16 (Kiko 16 Nov 2026 04:31:18Z "please include freelancers in connector"; answers in thread "Scope
+ * freelancer access in Canvas connector": 04:39:04Z Q5 "A", 04:59:08Z "Q1 read and wreite / Q2 b with socials / Q3 yes",
+ * 05:05:33Z "6 a", 05:16:04Z Q7 "a"; card "Approve, build and ship" 05:19:28Z; card connector-freelancers; spec project files
+ * connector-freelancers/discovery.md). The Rocketeer Database (Support Desk > Freelancers, tab QRY) through the connector:
+ *   - freelancer_lookup (read, both keys): contact details and socials (Q2 b), skills, Messenger linked yes/no, the bank name and
+ *     the account's last 4 digits only (Q5 A), and each event's role, rate, status and FSA/AR (Q3).
+ *   - freelancer_payee_match (read, both keys): the account on a proof of transfer against the freelancer's own; Canvas compares
+ *     the full numbers and answers match yes/no, so the full number on file never leaves Canvas (Q5 A).
+ *   - freelancer_add, freelancer_edit (writes, ChatGPT key only; the read-only key is refused by the door, Q7 a): Support Desk's own
+ *     save (saveRecord), so Canvas checks email and mobile, logs the change and never writes formula columns. Only ZB_FL_EDIT_
+ *     fields; never Raketeer #, bank, government ID, birthday, age, address, emergency contact, gender or Messenger columns
+ *     (Kiko's 2 Nov lock list, ask-cue-changes Q5). An add whose email or mobile is already on a record is refused and names that
+ *     record (Q6 a). An edit whose was-value differs from the sheet is refused (ADR-0170). No deletes.
+ * All four are ChatGPT door only (ZB_GPT_ONLY_): Cue's signed bridge does not get them. Records carry the bank in its own "payout"
+ * object, so zbGptMask_ keeps the mobile (Q2 b) and still masks any long digit run under a bank field. */
+const ZB_FL_FIELDS_ = { raketeer_no: 'Raketeer #', full_name: 'Full Name', first_name: 'First Name:', middle_initial: 'Middle Initial',
+  last_name: 'Last Name', email: 'Email Address', mobile: 'Mobile Number:', facebook: 'Facebook link', instagram: 'Instagram',
+  preferred_channel: 'Preferred channel', skills: 'Offered Skill/s at Blank Space' };
+const ZB_FL_EDIT_ = ['first_name', 'middle_initial', 'last_name', 'full_name', 'email', 'mobile', 'facebook', 'instagram', 'preferred_channel', 'skills'];
+const ZB_FL_MAX_ = 20, ZB_FL_HISTORY_MAX_ = 5;
+const zbFlH_ = h => String(h == null ? '' : h).toLowerCase().replace(/[^a-z0-9#]+/g, ' ').trim();
+const zbFlDigits_ = v => String(v == null ? '' : v).replace(/\D/g, '');
+const zbFlPhone_ = v => { const d = zbFlDigits_(v); return d.length >= 10 ? d.slice(-10) : ''; };
+/** The QRY tab as { headers, col(h), rows: [{ row, values }] }, through Support Desk's own read. */
+function zbFlTable_() {
+  const d = getEntityData('freelancers'), H = d.headers.map(zbFlH_);
+  const col = h => { const i = d.headers.indexOf(h); return i >= 0 ? i : H.indexOf(zbFlH_(h)); };
+  return { headers: d.headers, col, rows: d.rows, keyHeader: d.keyHeader, nameHeader: d.nameHeader };
+}
+const zbFlVal_ = (T, r, h) => { const i = T.col(h); return i >= 0 ? String(r.values[i] == null ? '' : r.values[i]).trim() : ''; };
+/** One record as the connector shows it: approved fields only (never ID, birthday, address, emergency or gender columns). */
+function zbFlOut_(T, r) {
+  const o = {}; Object.keys(ZB_FL_FIELDS_).forEach(k => { o[k] = zbFlVal_(T, r, ZB_FL_FIELDS_[k]); });
+  o.messenger_linked = zbFlVal_(T, r, 'Messenger ID') ? 'yes' : 'no';
+  const acct = zbFlDigits_(zbFlVal_(T, r, 'Account Number')), bank = zbFlVal_(T, r, 'Preferred Bank');
+  o.payout = { bank_name: bank.replace(/\d{5,}/g, ''), account_last4: acct.length >= 4 ? '•••• ' + acct.slice(-4) : '' };
+  return o;
+}
+function zbFlHits_(T, a) {
+  const id = String(a.raketeer_no || '').trim().toUpperCase(), want = String(a.find || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const ph = zbFlPhone_(a.find);
+  return T.rows.filter(r => {
+    if (id) return zbFlVal_(T, r, 'Raketeer #').toUpperCase() === id;
+    if (!want.length) return false;
+    if (ph && zbFlPhone_(zbFlVal_(T, r, 'Mobile Number:')) === ph) return true;
+    const hay = ['Raketeer #', 'Full Name', 'First Name:', 'Last Name', 'Email Address', 'Offered Skill/s at Blank Space']
+      .map(h => zbFlVal_(T, r, h).toLowerCase()).join(' ');
+    return want.every(w => hay.indexOf(w) >= 0);
+  });
+}
+/** Event history (Support Desk's Event and Event Role History): date, event, project, role, status, rate, FSA and AR. */
+function zbFlHistory_(T, r) {
+  const full = zbFlVal_(T, r, 'Full Name'), first = zbFlVal_(T, r, 'First Name:'), last = zbFlVal_(T, r, 'Last Name');
+  const h = getFreelancerHistory([full, first + ' ' + last, first.split(/\s+/)[0] + ' ' + last, last + ' ' + first]);
+  const doc = x => x ? { made: 'yes', file: String(x.name || '') } : { made: 'no', file: '' };
+  return (h.rows || []).map(x => ({ date: x.date, event: x.event, project_id: x.projectId, role: x.role, status: x.status, rate: x.rate,
+    fsa: doc(x.fsa), ar: doc(x.ar) }));
+}
+ZB_ACTIONS_.freelancer_lookup = {
+  kind: 'read', needsProject: false,
+  schema: { find: { type: 'string', max: 120 }, raketeer_no: { type: 'string', max: 40 }, history: { type: 'boolean' } },
+  run: (r) => {
+    const a = r.args || {};
+    if (!String(a.find || '').trim() && !String(a.raketeer_no || '').trim()) return { refused: 'Send find (a name, skill, email or mobile) or raketeer_no.' };
+    const T = zbFlTable_(), hits = zbFlHits_(T, a), rows = hits.slice(0, ZB_FL_MAX_);
+    const withHistory = a.history !== false && rows.length <= ZB_FL_HISTORY_MAX_;
+    return { find: String(a.find || ''), raketeer_no: String(a.raketeer_no || ''), count: hits.length, more: hits.length > rows.length,
+      history_note: withHistory ? '' : 'Event history is shown when ' + ZB_FL_HISTORY_MAX_ + ' or fewer freelancers match. Narrow the search or send raketeer_no.',
+      freelancers: rows.map(x => Object.assign(zbFlOut_(T, x), withHistory ? { events: zbFlHistory_(T, x) } : {})) };
+  }
+};
+ZB_ACTIONS_.freelancer_payee_match = {
+  kind: 'read', needsProject: false,
+  schema: { raketeer_no: { type: 'string', required: true, nonBlank: true, max: 40 }, account_no: { type: 'string', required: true, nonBlank: true, max: 60 },
+    bank: { type: 'string', max: 100 }, account_name: { type: 'string', max: 150 } },
+  run: (r) => {
+    const a = r.args, T = zbFlTable_(), row = zbFlHits_(T, { raketeer_no: a.raketeer_no })[0];
+    if (!row) return { refused: 'No freelancer with Raketeer # ' + String(a.raketeer_no).slice(0, 40) + '.' };
+    const have = zbFlDigits_(zbFlVal_(T, row, 'Account Number')), sent = zbFlDigits_(a.account_no);
+    const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const bankHave = words(zbFlVal_(T, row, 'Preferred Bank').replace(/\d{5,}/g, '')), nameHave = words(zbFlVal_(T, row, 'Account Name:'));
+    const out = { raketeer_no: zbFlVal_(T, row, 'Raketeer #'), full_name: zbFlVal_(T, row, 'Full Name'),
+      payout: { bank_name: zbFlVal_(T, row, 'Preferred Bank').replace(/\d{5,}/g, ''), account_last4: have.length >= 4 ? '•••• ' + have.slice(-4) : '' },
+      account_on_file: have ? 'yes' : 'no', account_match: have && sent ? (have === sent ? 'yes' : 'no') : 'unknown' };
+    if (a.bank != null && String(a.bank).trim()) out.bank_match = bankHave ? (bankHave.indexOf(words(a.bank)) >= 0 || words(a.bank).indexOf(bankHave) >= 0 ? 'yes' : 'no') : 'unknown';
+    if (a.account_name != null && String(a.account_name).trim()) out.account_name_match = nameHave ? (nameHave === words(a.account_name) ? 'yes' : 'no') : 'unknown';
+    out.match = out.account_match === 'yes' && out.bank_match !== 'no' && out.account_name_match !== 'no' ? 'yes' : 'no';
+    return out;
+  }
+};
+const zbFlRecord_ = (o) => { const rec = {}; Object.keys(o).forEach(k => { if (ZB_FL_EDIT_.indexOf(k) >= 0 && o[k] != null) rec[ZB_FL_FIELDS_[k]] = String(o[k]).trim(); }); return rec; };
+/** Q6 a: an add whose email or mobile is already on a record names that record instead. */
+function zbFlDuplicate_(T, email, mobile) {
+  const e = String(email || '').trim().toLowerCase(), p = zbFlPhone_(mobile);
+  return T.rows.filter(r => (e && zbFlVal_(T, r, 'Email Address').toLowerCase() === e) || (p && zbFlPhone_(zbFlVal_(T, r, 'Mobile Number:')) === p))[0] || null;
+}
+const ZB_FL_STR_ = (max) => ({ type: 'string', max });
+ZB_ACTIONS_.freelancer_add = {
+  kind: 'write', needsProject: false,
+  schema: { first_name: { type: 'string', required: true, nonBlank: true, max: 80 }, last_name: { type: 'string', required: true, nonBlank: true, max: 80 },
+    middle_initial: ZB_FL_STR_(10), email: ZB_FL_STR_(200), mobile: ZB_FL_STR_(40), facebook: ZB_FL_STR_(300), instagram: ZB_FL_STR_(300),
+    preferred_channel: ZB_FL_STR_(40), skills: ZB_FL_STR_(500) },
+  run: (r) => {
+    const a = r.args, T = zbFlTable_(), dup = zbFlDuplicate_(T, a.email, a.mobile);
+    if (dup) return { refused: zbFlVal_(T, dup, 'Full Name') + ' (' + zbFlVal_(T, dup, 'Raketeer #') + ') already has this ' +
+      (a.email && zbFlVal_(T, dup, 'Email Address').toLowerCase() === String(a.email).trim().toLowerCase() ? 'email' : 'mobile') +
+      '. Edit that record instead. Nothing was saved.', raketeer_no: zbFlVal_(T, dup, 'Raketeer #') };
+    const rec = zbFlRecord_(a);
+    rec['Full Name'] = [a.first_name, a.middle_initial, a.last_name].map(x => String(x || '').trim()).filter(Boolean).join(' ');
+    let out; try { out = saveRecord('freelancers', null, rec, ''); } catch (e) { return { refused: zbErr_(e).replace(/\s*Nothing was saved\.?\s*$/, '') + ' Nothing was saved.' }; }
+    const T2 = zbFlTable_(), row = T2.rows.filter(x => x.row === out.row)[0];
+    return { saved: true, added: true, freelancer: row ? zbFlOut_(T2, row) : { raketeer_no: out.key || '' } };
+  },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.saved && res.freelancer && String(res.freelancer.last_name || '').toLowerCase() === String(r.args.last_name).trim().toLowerCase()
+      ? { ok: true, evidence: { raketeer_no: res.freelancer.raketeer_no } } : { ok: false, error: 'the new freelancer did not read back' }
+};
+const zbFlFromTo_ = (max) => ({ type: 'object', fields: { from: { type: 'string', max }, to: { type: 'string', required: true, max } } });
+ZB_ACTIONS_.freelancer_edit = {
+  kind: 'write', needsProject: false,
+  schema: { raketeer_no: { type: 'string', required: true, nonBlank: true, max: 40 },
+    changes: { type: 'object', required: true, minKeys: 1, fields: { first_name: zbFlFromTo_(80), middle_initial: zbFlFromTo_(10), last_name: zbFlFromTo_(80),
+      full_name: zbFlFromTo_(200), email: zbFlFromTo_(200), mobile: zbFlFromTo_(40), facebook: zbFlFromTo_(300), instagram: zbFlFromTo_(300),
+      preferred_channel: zbFlFromTo_(40), skills: zbFlFromTo_(500) } } },
+  run: (r) => {
+    const a = r.args, T = zbFlTable_(), row = zbFlHits_(T, { raketeer_no: a.raketeer_no })[0];
+    if (!row) return { refused: 'No freelancer with Raketeer # ' + String(a.raketeer_no).slice(0, 40) + '. Nothing was saved.' };
+    // ADR-0170: a was-value that differs from the sheet is refused, unless the sheet already holds the new value (a repeat).
+    const same = (k, x, y) => k === 'mobile' ? zbFlDigits_(x) === zbFlDigits_(y) : String(x == null ? '' : x).trim().toLowerCase() === String(y == null ? '' : y).trim().toLowerCase();
+    const set = {}, stale = [], was = {};
+    Object.keys(a.changes).forEach(k => {
+      const c = a.changes[k], now = zbFlVal_(T, row, ZB_FL_FIELDS_[k]); was[k] = now;
+      if (same(k, now, c.to)) return;
+      if (c.from != null && !same(k, now, c.from)) { stale.push(k + ' reads "' + now + '", not "' + c.from + '"'); return; }
+      set[k] = c.to;
+    });
+    if (stale.length) return { refused: 'Changed since you read it: ' + stale.join('; ') + '. Read it again. Nothing was saved.' };
+    if (!Object.keys(set).length) return { saved: true, unchanged: true, raketeer_no: zbFlVal_(T, row, 'Raketeer #'), was, now: zbFlOut_(T, row) };
+    try { saveRecord('freelancers', row.row, zbFlRecord_(set), zbFlVal_(T, row, T.nameHeader)); } catch (e) { return { refused: zbErr_(e).replace(/\s*Nothing was saved\.?\s*$/, '') + ' Nothing was saved.' }; }
+    const T2 = zbFlTable_(), row2 = zbFlHits_(T2, { raketeer_no: a.raketeer_no })[0];
+    return { saved: true, raketeer_no: zbFlVal_(T, row, 'Raketeer #'), was, now: row2 ? zbFlOut_(T2, row2) : {} };
+  },
+  check: (r, res) => {
+    if (res && res.refused) return { ok: false, rejected: true, error: res.refused };
+    const n = (res && res.now) || {}, off = Object.keys(r.args.changes).filter(k =>
+      (k === 'mobile' ? zbFlDigits_(n[k]) !== zbFlDigits_(r.args.changes[k].to) : String(n[k] || '').trim().toLowerCase() !== String(r.args.changes[k].to).trim().toLowerCase()));
+    return off.length ? { ok: false, error: 'read back differs: ' + off.map(k => k + ' reads ' + n[k]).join('; ') } : { ok: true, evidence: { raketeer_no: res.raketeer_no } };
+  }
+};
+ZB_GPT_ACTIONS_.push('freelancer_lookup', 'freelancer_payee_match', 'freelancer_add', 'freelancer_edit');
+ZB_GPT_ONLY_.push('freelancer_lookup', 'freelancer_payee_match', 'freelancer_add', 'freelancer_edit');   // never through a signed Cue call
+
+/* GPT-PAY-FOLLOWUPS-2026-11-16 (Kiko 16 Nov 2026 04:33:52Z "let the connector include S4 S6 checks if fullly paid? S7 checks if
+ * fully paid?"; 05:05:33Z "4 yes"; card "Approve, build and ship" 05:19:28Z; card connector-freelancers). Read only, both keys:
+ * for each paid request of a project, whether it is fully paid (spnFullyPaid_, the V542 rule: every request of the quote paid in
+ * full, and the Final requested for installments) and whether S4, S6 and S7 are sent, due, waiting for full payment or not
+ * needed. It sends nothing and makes no AR: the sends stay with V542's automatic notice and Notify supplier (ADR-0186). */
+function zbMtSent_(ref) {   // Template Sends lines for one request: { '<template key>': 'yyyy-MM-dd HH:mm' } of the latest Sent line
+  const out = {};
+  try {
+    const sh = logSheet_().getParent().getSheetByName(MT_TAB_); if (!sh || sh.getLastRow() < 2) return out;
+    sh.getRange(2, 1, sh.getLastRow() - 1, MT_HEAD_.length).getDisplayValues().forEach(r => {
+      if (String(r[7]).trim().toUpperCase() === ref && /^sent$/i.test(String(r[5]).trim()) && String(r[0]) > String(out[r[1]] || '')) out[r[1]] = String(r[0]);
+    });
+  } catch (e) { /* no log: nothing shown as sent */ }
+  return out;
+}
+function zbPayFollowups_(pid, only) {
+  const reqs = arRequests_(pid).filter(q => !only || q.id === only);
+  if (only && !reqs.length) return { refused: only + ' has no Paid transfer on this project yet.' };
+  const s4log = spnStatus_(pid), ars = arStatus_(pid);
+  let qrows = {}, qens = {}; try { qrows = qvatRows_(); qens = qvatEntries_(); } catch (e) { /* VAT from the notices only */ }
+  const vatOf = (q) => {
+    try { if (q.entry && qrows[q.entry] && qens[q.entry]) { const s = qvatState_(q.entry, false, qens, qrows); if (s.vat) return s.vat; } } catch (e) { }
+    const n = spnLog_(pid).filter(x => x.id === q.id && /^(yes|no)$/i.test(x.vat))[0];
+    return n ? (/^yes$/i.test(n.vat) ? 'Yes' : 'No') : '';
+  };
+  return { project_id: pid, requests: reqs.map(q => {
+    const fp = spnFullyPaid_(pid, { id: q.id, q }), sent = zbMtSent_(q.id), s4 = s4log[q.id];
+    const s4sent = s4 ? String(s4.sent || '') : spnNotified_(q.id) ? 'yes (date not logged)' : '';
+    const vat = vatOf(q), biz = arRegBiz_(q), follow = vat === 'Yes' || (vat === 'No' && biz) ? 'S6' : vat === 'No' ? 'S7' : '';
+    const ar = ars.filter(a => arIds_(a.reqs).indexOf(q.id) >= 0)[0];
+    const status = (key, wanted, extra) => {
+      if (sent[key]) return { status: 'sent', sent_at: sent[key] };
+      if (!wanted) return { status: 'not needed' };
+      if (!fp.full) return { status: 'waits for full payment' };
+      return extra || { status: s4sent ? 'not sent' : 'due with the S4 notice' };
+    };
+    return { request_id: q.id, supplier: q.legal || q.supplier || q.payee, entry_id: q.entry, stage: q.stage, structure: q.structure,
+      paid: fp.full ? 'fully paid' : 'partly paid', paid_on_quote: fp.total, vat: vat || 'unknown',
+      s4: s4sent ? { status: 'sent', sent_at: s4sent } : { status: 'due' },
+      s6: follow ? status('S6 Supplier invoice request', follow === 'S6') : { status: 'unknown: VAT not set on the quote' },
+      s7: follow ? status('S7 Supplier acknowledgement receipt', follow === 'S7', ar && ar.signedAt ? { status: 'not needed: AR signed ' + String(ar.signedAt).slice(0, 10) } : null)
+        : { status: 'unknown: VAT not set on the quote' } };
+  }) };
+}
+ZB_ACTIONS_.payment_followups = {
+  kind: 'read', needsProject: true, schema: { request_id: { type: 'string', re: /^AP-[A-Za-z0-9-]{3,40}$/ } },
+  run: (r) => zbPayFollowups_(r.project_id, String((r.args || {}).request_id || '').trim().toUpperCase())
+};
+ZB_GPT_ACTIONS_.push('payment_followups');
+ZB_GPT_ONLY_.push('payment_followups');
+
+/* GPT-EVENT-ROLES-2026-11-16 (Kiko 16 Nov 2026 08:37:36Z "where can agents see the common event roles and how much the rates are
+ * for those"; card "Approve, build and ship" 08:39:19Z; card connector-event-roles; scope project files
+ * connector-event-roles/discovery.md; ADR-0188). Read only, both keys, ChatGPT door only: the role list of Admin > Event Roles
+ * (roleList, the Rocketeer Database Roles tab) with group, responsibilities, day rate and project rate. Updated By and Updated At
+ * are left out. A rate that is not set stays blank. Editing stays in Admin > Event Roles (Business Leads and Managers). */
+function zbEventRoles_(a) {
+  const find = String(a.find || '').trim(), group = String(a.group || '').trim().toLowerCase();
+  const L = roleList(), rate = v => v === '' || v == null ? '' : v;
+  const roles = (L.roles || []).map(r => ({ role: r.role, group: r.group || '', responsibilities: String(r.responsibilities || ''),
+    day_rate: rate(r.rate), project_rate: rate(r.projectRate) }))
+    .filter(r => (!group || r.group.toLowerCase() === group) && zbCatHit_(find, [r.role, r.group, r.responsibilities]));
+  return { find: find, group: String(a.group || '').trim(), groups: L.groups || [], rates: 'PHP; day_rate per event day, project_rate for the whole project; blank = not set',
+    count: roles.length, roles: roles };
+}
+ZB_ACTIONS_.event_roles = {
+  kind: 'read', needsProject: false,
+  schema: { find: { type: 'string', max: 120 }, group: { type: 'string', max: 40 } },
+  run: (r) => zbEventRoles_(r.args || {})
+};
+ZB_GPT_ACTIONS_.push('event_roles');
+ZB_GPT_ONLY_.push('event_roles');
 
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
  * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for

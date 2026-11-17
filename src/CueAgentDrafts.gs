@@ -72,7 +72,7 @@ function cueAgdHand_(h) {
   h = h || {};
   return { handover_ref: cueStr_(h.handover_ref, 100), summary: cueStr_(h.summary, 4000), gaps: cueStr_(h.gaps, 4000), next_owner: cueStr_(h.next_owner, 100),
     next_action: cueStr_(h.next_action, 1000), ack_link: /^https:\/\/[^\s<>"']+$/.test(String(h.ack_link || '')) ? cueStr_(h.ack_link, 500) : '',
-    state: h.state === 'Delivered' ? 'Delivered' : 'Blocked', why: cueStr_(h.why, 300),
+    state: h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked', why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
     rows: Array.isArray(h.rows) ? h.rows.filter(r => r && typeof r === 'object' && cueStr_(r.name, 200).trim()).slice(0, 100).map(cueAgdRow_) : [] };   // AGENT-UPDATE-ROWS-2026-11-16
 }
 /** AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026, mockup v2 approved 12:23:52Z): one requirement row of an update. Only the approved

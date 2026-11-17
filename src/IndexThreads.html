@@ -966,7 +966,7 @@
         H.summary || A.body || (rows.length ? '' : (A.item || '') + proj),
         H.gaps ? 'Still open: ' + H.gaps : '',
         H.next_action ? 'Next: ' + H.next_action + (H.next_owner ? ' (' + H.next_owner + ')' : '') : '',
-        H.state && H.state !== 'Delivered' ? 'Handover blocked' + (H.why ? ': ' + H.why : '.') : ''].filter(Boolean).join('\n');
+        H.state === 'Waiting for approval' ? 'It waits for your approval.' : H.state && H.state !== 'Delivered' ? 'Handover blocked' + (H.why ? ': ' + H.why : '.') : ''].filter(Boolean).join('\n');   // AGENT-APPROVAL-WAITING-2026-11-17
     }
     return ['Draft ' + String(A.type_label || 'email') + ': ' + (A.item || '') + proj + '.', A.subject ? 'Subject: ' + A.subject : '',
       A.status === 'Waiting for Kiko' ? 'It waits for you.' : ''].filter(Boolean).join('\n');

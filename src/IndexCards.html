@@ -795,6 +795,7 @@
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></aside>';
     return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Requirements review</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + esc(agdLabel(A.agent)) + ' · ' + esc(title) + (need ? ' · ' + need + ' need you' : '') + '</b>'
+      + (((A.handover || {}).state === 'Waiting for approval') ? '<span class="tag warn">Waiting for you</span>' : '')   // AGENT-APPROVAL-WAITING-2026-11-17
       + (need ? '<span class="tag crit">' + need + ' need you</span>' : '') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">' + (A.project_id ? esc(A.project_id) + ' · ' : '') + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
@@ -803,17 +804,20 @@
   }
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
+    // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
+    // waiting on Kiko, not a failed handover: Waiting for you (warn), never Blocked.
+    var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
     var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
     if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
-      + '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>'
+      + stTag
       + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
     var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + esc(H.summary || A.body) + '</span>'],
       ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + esc(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
       ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
-    if (!ok && H.why) f.push(['Why Blocked', esc(H.why)]);
+    if (!ok && !wait && H.why) f.push(['Why Blocked', esc(H.why)]);
     h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
     // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): every reply Kiko sent on this update, oldest first.
     var reps = (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
