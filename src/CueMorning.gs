@@ -291,6 +291,7 @@ function cueK0Run_(manual, mode) {
   cueChat_('Cue', K.text, id);
   cueChat_('Cue', mode === 'pm' ? '2 PM chasers: ' + (K.chasers ? K.chasers + ' for your OK (reply "1, 3" or "all").' : 'none due today.')
     : '8 AM update is ready.', '>' + id);
+  cueAlertK0_(mode, id, K);   // CUE-ALERTS-2026-11-16: 8 AM update, and the 2 PM chasers for your OK (never throws)
   if (mode === 'pm') cueK0TeamCue_(day, K.sweep);
   // The bids card under the 8 AM message: a main-chat line "%<bid run id>" that the page draws as the New opportunities card.
   if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'New opportunities: ' + K.bids_new + ' new bid' + (K.bids_new === 1 ? '' : 's') + '.', '%' + K.bids);

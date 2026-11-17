@@ -55,6 +55,7 @@ function cueJobRun_(j, rows) {
   catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error(j.job + ': ' + e); }
   const count = typeof out === 'number' ? out : Array.isArray(out) ? out.length : out && typeof out.added === 'number' ? out.added : '';
   rows.push([started.toISOString(), new Date(cueNow_()).toISOString(), j.job, err ? 'Failed' : 'OK', err, count]);
+  if (typeof globalThis.cueAlertJobRun_ === 'function') cueAlertJobRun_(j.job, err);   // CUE-ALERTS-2026-11-16: Failed job alert (never throws)
 }
 
 const CUE_JOB_KEEP_DAYS_ = 30;   // Kiko 28 Oct 2026 06:08Z: "Yes, keep 30 days"
