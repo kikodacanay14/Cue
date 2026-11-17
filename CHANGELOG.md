@@ -1,11 +1,23 @@
 # Changelog
 
+## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (not deployed)
+
+Asked: Kiko, 17 Nov 2026 06:56:28Z, decision card "Should the AS approval card show 'Waiting for your approval' instead of
+Blocked?": "Show Waiting for approval". Slot cue-1.28.80, card agent-approval-waiting. Needs Canvas V549 (CanvasWorkspace PR #688),
+which adds the status `Waiting for approval` to `agent_update`. Built on main after 1.28.79.
+
+- `src/CueAgentDrafts.gs` `cueAgdHand_`: keeps the state Waiting for approval; anything else that is not Delivered is still Blocked.
+- `src/IndexCards.html`: an update card in that state shows the warn tag "Waiting for you" and no "Why Blocked"; a requirements
+  card shows the same tag beside "N need you".
+- `src/IndexThreads.html` `agentSays`: the agent's bubble says "It waits for your approval." instead of "Handover blocked".
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (V549).
+- Tests: AGW1 added; 870/870 pass on top of 1.28.79.
 ## Cue 1.28.79: Cue alerts on Kiko's Android phone (not deployed)
 
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
 (15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot
-cue-1.28.79, card cue-android-notifications. Built on main after 1.28.78. Not merged and not deployed: the merge and the first Worker
+cue-1.28.79, card cue-android-notifications. Built on main after 1.28.79. Not merged and not deployed: the merge and the first Worker
 deploy each wait for Kiko's typed yes.
 
 - `alerts/alerts-worker.js` (new Cloudflare Worker `cue-alerts`, not deployed): the one-time setup page (ALERT-1: before Allow, On,

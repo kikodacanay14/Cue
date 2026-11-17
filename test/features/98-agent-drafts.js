@@ -216,6 +216,18 @@ test('AGU4 the page: an update card shows the handover, Delivered or Blocked, th
   assert.ok(/class="tag crit">Blocked/.test(hk) && !/Delivered/.test(hk) && /No link sent/.test(hk) && /Why Blocked/.test(hk));
   assert.ok(/if \(\(r\.agd \|\| \{\}\)\.type === 'update'\) return agdUpdHtml\(r\);/.test(page) && /'agd-read': 'read'/.test(page) && /call\('cueAgdOpen', \[agd\]/.test(page));
 });
+test('AGW1 an approval request (Kiko 17 Nov, card "Show Waiting for approval") shows Waiting for you, never Blocked or Why Blocked', () => {
+  assert.strictEqual(agdBox({ drafts: [] }).t.ctx.cueAgdHand_({ state: 'Waiting for approval' }).state, 'Waiting for approval');
+  const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = { editing: {}, agdRows: {}, agdLabel: x => x }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  const b = agdBox({ drafts: [agdUpd(40, { item: 'AS requirements review', handover: { handover_ref: 'AS requirements review', summary: 'Approve the list.', state: 'Waiting for approval' } })] });
+  b.t.ctx.cueAgdTick_();
+  const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
+  assert.ok(/class="tag warn">Waiting for you/.test(h) && !/Blocked/.test(h) && !/Delivered/.test(h), h);
+  v.agd.handover.rows = [{ req_id: 'REQ-01', name: 'Stage', sourcing: 'Outsourced', spec_by: 'AS', dimensions: '', needs_kiko: true, open_items: [] }];
+  const hr = ctx.agdUpdHtml(v); assert.ok(/Requirements review/.test(hr) && /class="tag warn">Waiting for you/.test(hr));
+});
 test('AGU5 Kiko replies to an update (card "Updates plus replies"): each reply goes to Canvas once, after Mark read too; an empty reply is refused; many replies are kept', () => {
   const b = agdBox({ drafts: [agdUpd(30)], answer: (a, st) => { const d = st.drafts[0];
     Object.assign(d, a.decision === 'read' ? { status: 'Read' } : { status: 'Replied', note: a.note }, { decided: '2026-11-13 19:30' }); return { ok: true, draft: Object.assign({}, d) }; } });
