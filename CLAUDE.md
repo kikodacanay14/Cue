@@ -117,3 +117,17 @@ in the task-observer log; the same rule is in the `verify-before-done` skill ("C
 
 After a context compaction, skills loaded earlier are not loaded: `.claude/hooks/after-compact.mjs` reminds the session to
 call them again (observations 0027 and 0105).
+
+## Skills for facts, done and questions (Kiko, 17 Nov 2026)
+
+Kiko named these on 17 Nov 2026 ("superpowers:verification-before-completion, agent-protocols:source-driven-development,
+caveman:investigate-first, verify then done"; "and matt pockok skills"; "add ask-kiko and stories-and-rules").
+
+- Before stating a fact or claiming anything is done: `superpowers:verification-before-completion`,
+  `agent-protocols:source-driven-development`, `caveman:investigate-first` and `verify-before-done`.
+- Matt Pocock skills (adapted from github.com/mattpocock/skills): `grill-me` to stress-test a plan or decision before
+  acting on it, `improve-codebase-architecture` when reviewing a repo's architecture, and `setup-matt-pocock-skills` once
+  per repo before the other two.
+- `ask-kiko` for every question, choice or approval for Kiko.
+- `stories-and-rules` to break an approved ask into Epics and User Stories and pull its business rules out for Kiko's
+  approval before anything is built.
