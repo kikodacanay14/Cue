@@ -32,10 +32,19 @@ regular Questions chat that reads the Feature Board instead.)
 ## Rules
 
 - Ask only what needs Kiko: a business decision, a rule, an approval, missing business facts, or an action only he can
-  take. Decide routine technical choices yourself and say what you decided.
+  take. Decide routine technical choices yourself and say what you decided. A choice is routine only when nothing Kiko
+  or a user can see changes. A change to what is deleted, kept, blocked or sent, or to who may act, is a rule: put it
+  on a card as an open question, never as "a routine call I'm making" (observation 0029).
+- Before drafting any card, check its subject. A sign-in, a typed OK, a code, a setting change or a copy-paste is not a
+  question for Kiko, however small the tap: Kiko takes no such tasks. Write the exact steps for IT in HANDOVER and
+  carry on (observation 0093).
 - Ask about an action Claude would take for him as "May Claude do X? You don't do anything. Yes = Claude does it.
   No = nothing changes." (Feature Board rule, Kiko 27 Oct 2026.)
-- One idea per question. Never fold two decisions into one question.
+- One idea per question. Never fold two decisions into one question. A design choice and a go-ahead never share a
+  card: an option label or consequence about scope or design never says "I build it". An approval card's label names
+  the exact action it approves (observations 0090, 0092).
+- An answer covers only the question it answers. "1 yes" to question 1, or a tap on one design option, approves that
+  question alone, never the rest of the scope, the build, a merge or a deploy.
 - Never guess his answer. If his reply is unclear or lands in the wrong place, restate what you understood as a new
   card with "A. Yes, that's right / B. No" and wait.
 - Never invent options he must accept: always allow "type your own answer".
