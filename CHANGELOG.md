@@ -1,6 +1,10 @@
 # Changelog
 
-## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (not deployed)
+## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (LIVE as Version 256, 17 Nov 2026 13:36Z, rollback 255)
+
+Shipped 17 Nov 2026 by Deploy Cue run 44094200620 (mode=deploy) from main a029334: live Version 255 plus the three 1.28.80 src files
+only (check run 44094049001). Kiko's go: "deploy those cue changes" (17 Nov 2026 13:32:56Z). Codex and CodeRabbit hit their usage
+limits on PR #402; the diff was reviewed by hand, nothing to fix.
 
 Asked: Kiko, 17 Nov 2026 06:56:28Z, decision card "Should the AS approval card show 'Waiting for your approval' instead of
 Blocked?": "Show Waiting for approval". Slot cue-1.28.80, card agent-approval-waiting. Needs Canvas V549 (CanvasWorkspace PR #688),
