@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (not deployed)
+
+Asked: Kiko, 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing"; build yes 17 Nov 2026 13:32Z
+("build the FSA / AR automation and chaser timing"); 17 Nov 13:40Z "1. 2 days". ADR-0205 in CanvasWorkspace supersedes ADR-0185.
+Ships together with Canvas V554 (CanvasWorkspace branch claude/project-thread-7p71j9), which sends the FSA and AR reminders itself.
+Slot cue-1.28.81, card fsa-ar-auto.
+
+- `src/CueSweepSignature.gs`: `cueSignOff_()` returns true, so the signature sweep drafts nothing and makes no `list_unsigned_docs`
+  read; crew would otherwise get a Cue reminder on top of Canvas's. The code stays for a switch back. `fsaFirst` 3 -> 2 days.
+- Tests: G1 and G6 moved to the 2-day start, the sweep tests switch it back on; G7 added (off by default). 872/872 pass.
+
 ## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (not deployed)
 
 Asked: Kiko, 17 Nov 2026 06:56:28Z, decision card "Should the AS approval card show 'Waiting for your approval' instead of
