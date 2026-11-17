@@ -107,3 +107,13 @@ one. Never create `skill-observations/` or `skill-updates/` here: a second log w
 Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
 
 Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
+
+## Facts from a fresh read (Kiko, 17 Nov 2026)
+
+Never state a status, count, role, permission, version or any other fact from memory, from a summary or from an earlier
+turn. Read it fresh in this session (the tracker, the live branch, the code path that decides it, the check run) and cite
+that read in the claim. If it cannot be read, say so instead of stating it. Source: observations 0023, 0059, 0064 and 0066
+in the task-observer log; the same rule is in the `verify-before-done` skill ("Claims to Kiko").
+
+After a context compaction, skills loaded earlier are not loaded: `.claude/hooks/after-compact.mjs` reminds the session to
+call them again (observations 0027 and 0105).
