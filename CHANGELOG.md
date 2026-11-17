@@ -12,7 +12,12 @@ which adds the status `Waiting for approval` to `agent_update`. Built on main af
 - `src/IndexThreads.html` `agentSays`: the agent's bubble says "It waits for your approval." instead of "Handover blocked".
 - `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (V549).
 - Tests: AGW1 added; 870/870 pass on top of 1.28.79.
-## Cue 1.28.79: Cue alerts on Kiko's Android phone (not deployed)
+## Cue 1.28.79: Cue alerts on Kiko's Android phone (LIVE as Version 255, 17 Nov 2026 09:33Z, rollback 254)
+
+Shipped 17 Nov 2026 by Deploy Cue run 44056599717 (mode=deploy) from release branch claude/project-thread-4dqq9p at 191493d:
+live Version 254 (main dc20cca, Cue 1.28.78) plus the 1.28.79 commits only. Cue 1.28.80 is not in this release and must be
+rebuilt on Version 255 before it ships. Kiko's go: "go alerts" (17 Nov 2026 09:22:33Z). The cue-alerts Worker is live at
+https://cue-alerts.kikodacanay14-17a.workers.dev (Cloudflare version d92c5a2b).
 
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
@@ -39,7 +44,7 @@ deploy each wait for Kiko's typed yes.
   `CUE_ALERTS_DEFAULT_`. Tests PA10 and CA7.
 - Tests: `test/features/99-phone-alerts.js` (PA1 to PA9) and `alerts/alerts-worker.test.mjs` (CA1 to CA6); 869/869 pass.
 
-## Cue 1.28.78: an agent's old-name and new-name threads are one thread (not deployed)
+## Cue 1.28.78: an agent's old-name and new-name threads are one thread (LIVE as Version 254, 16 Nov 2026 16:48Z, rollback 253)
 
 Asked: Kiko, 16 Nov 2026 15:57Z ("APPROVE 1-8"), item 5 of the role rename: ECII is now Procurement Specialist and ECI is now
 Event Specialist, and the n8n senders now post the new agent names. Slot cue-1.28.78, card role-names-cue-labels. Built on main after 1.28.77.
