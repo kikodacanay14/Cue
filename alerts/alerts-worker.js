@@ -85,7 +85,7 @@ export default {
       let key = ''; try { key = vapidPublic(env); } catch (e) { return new Response('Cue alerts are not set up yet.', { status: 503 }); }
       return new Response(setupPage(key, String(u.searchParams.get('code') || '').replace(/[^a-f0-9]/g, '').slice(0, 64)),
         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
-          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'" } });
+          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'" } });
     }
     if (req.method === 'GET' && p === '/status') {
       if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
