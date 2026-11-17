@@ -28,12 +28,16 @@ schedule, no Canvas change.
   agent threads because the bubbles say the same. `agentSays`, `agentReplies`, `agentEcho`, `agentBubble`; CSS `.msg.agmsg`.
 - Tests: AGF1 to AGF3 and AGC1 to AGC3 added; 859/859 pass.
 
-## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
+## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (live as Version 252)
 
 Asked: Kiko, 16 Nov 2026 14:55:19Z ("can we still work on how Cue rewords and summarizes things... and formats messages? ...
 bold on headers please", "how come all of a sudden i am getting these Fing Alert?"). Decision card 15:13:40Z: "New type Own work,
 one line". Scope and mockup (`cue-alert-format/mockup-375.png`, `mockup-1280.png` in the project files) approved 15:14:05Z
 ("1 yes": emails only for now). Slot cue-1.28.76, card cue-alert-format. Built on main after 1.28.75.
+
+Live: Deploy Cue run 43895926987 shipped main 8d2236e as Version 252 on 16 Nov 2026 at 15:24:12Z (rollback Version 251). That run
+was started by another session, two minutes after the coordinator asked that nothing be deployed until Kiko said so; Kiko said
+"deploy" on 17 Nov 06:59Z. Version 252 also carried 1.28.75. Version 254 (1.28.78) still carries this release.
 
 - `src/IndexThreads.html` `cueLabels`: the section labels of an email post (New email, New in this conversation, Subject, What they
   sent, What it is for, What they expect, What to do next, and in the email's own chat What they want, From the thread and the
