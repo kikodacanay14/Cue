@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (not deployed)
+
+Asked: Kiko, 17 Nov 2026 06:56:28Z, decision card "Should the AS approval card show 'Waiting for your approval' instead of
+Blocked?": "Show Waiting for approval". Slot cue-1.28.80, card agent-approval-waiting. Needs Canvas V549 (CanvasWorkspace PR #688),
+which adds the status `Waiting for approval` to `agent_update`. Built on main after 1.28.78.
+
+- `src/CueAgentDrafts.gs` `cueAgdHand_`: keeps the state Waiting for approval; anything else that is not Delivered is still Blocked.
+- `src/IndexCards.html`: an update card in that state shows the warn tag "Waiting for you" and no "Why Blocked"; a requirements
+  card shows the same tag beside "N need you".
+- `src/IndexThreads.html` `agentSays`: the agent's bubble says "It waits for your approval." instead of "Handover blocked".
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (V549).
+- Tests: AGW1 added; 861/861 pass.
+
 ## Cue 1.28.78: an agent's old-name and new-name threads are one thread (not deployed)
 
 Asked: Kiko, 16 Nov 2026 15:57Z ("APPROVE 1-8"), item 5 of the role rename: ECII is now Procurement Specialist and ECI is now
