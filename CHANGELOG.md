@@ -19,6 +19,11 @@ live Version 254 (main dc20cca, Cue 1.28.78) plus the 1.28.79 commits only. Cue 
 rebuilt on Version 255 before it ships. Kiko's go: "go alerts" (17 Nov 2026 09:22:33Z). The cue-alerts Worker is live at
 https://cue-alerts.kikodacanay14-17a.workers.dev (Cloudflare version d92c5a2b).
 
+Worker fix after go-live (not deployed): on Kiko's phone, Turn on alerts failed with "Failed to register a ServiceWorker: the
+provided scriptURL (.../sw.js) violates the Content Security Policy" (17 Nov 2026 09:53Z screenshot). The setup page's CSP had
+default-src 'none' and no worker-src, so the browser fell back to script-src 'unsafe-inline' and blocked /sw.js. The CSP now adds
+worker-src 'self'. Reproduced and checked in Chromium (old CSP: same error; new CSP: registered). Test CA6 checks the directive.
+
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
 (15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot

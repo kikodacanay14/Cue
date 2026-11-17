@@ -61,6 +61,7 @@ await t('CA5 a phone the push service no longer knows is removed; Turn off remov
 await t('CA6 the setup page carries the public key and the code, and the service worker shows /next alerts', async () => {
   const r = await worker.fetch(new Request('https://alerts.example/setup?code=ab12<x>'), env); const html = await r.text();
   assert.strictEqual(r.status, 200); assert.ok(/frame-ancestors 'none'/.test(r.headers.get('Content-Security-Policy')));
+  assert.ok(/worker-src 'self'/.test(r.headers.get('Content-Security-Policy')), 'the page may register /sw.js (Kiko phone, 17 Nov 2026)');
   assert.ok(html.includes('"ab12"') && !html.includes('<script>"'), 'code cleaned');
   for (const s of ['Get Cue alerts on this phone', 'Turn on alerts', 'Alerts are on', 'Send a test alert', 'Turn off', 'Alerts are blocked', 'Try again', 'Alerts never show bank details, amounts or files.']) assert.ok(html.includes(s), s);
   const sw = await (await worker.fetch(new Request('https://alerts.example/sw.js'), env)).text();
