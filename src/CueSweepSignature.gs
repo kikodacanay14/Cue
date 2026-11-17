@@ -12,7 +12,7 @@
  * - The file name sorts after CueSweep.gs on purpose: Apps Script runs files in order, and cueKind_ must exist first. */
 
 /* CANVAS-CHASES-2026-11-17 (Kiko 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing", 17 Nov 13:40Z
- * "2 days"; ADR-0204, which supersedes ADR-0185): Canvas sends the FSA and AR reminders itself from Canvas V553 on (no approval, email,
+ * "2 days"; ADR-0205, which supersedes ADR-0185): Canvas sends the FSA and AR reminders itself from Canvas V553 on (no approval, email,
  * SMS and Messenger), so this sweep drafts none (cueSignOff_), or crew would get two reminders. The code stays for a switch back. */
 const CUE_SIGN_ = { closed: /cancel|not awarded|dropped|void|lost/i, from: 'Blank Space Events · Freelancers', fsaFirst: 2 }; // VOICE-2026-10-29: the guide's sign-off; fsaFirst: FSA-REMIND-2026-11-16 (2 days from 17 Nov)
 
