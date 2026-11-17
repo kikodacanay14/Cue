@@ -9,6 +9,9 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - `node test/cue.test.js` runs every test in about 6 s. Run it before every commit; CI (Test Cue) runs it on every PR and push to main.
 - A new feature gets tests in `test/features/` (its own numbered file; `test/cue.test.js` loads them all). Bridge calls must match `test/fixtures/ZapBridge.gs`; refresh that copy
   from Canvas `src/ZapBridge.gs` whenever a Canvas release changes the bridge.
+- `node tools/map.mjs --check` checks the generated `FEATURE-MAP.md`. Never hand-edit the map; `node tools/map.mjs`
+  regenerates it.
+- `node relay/messenger-worker.test.mjs` checks the Cloudflare Worker relay (`relay/`) with mocked requests.
 
 ## How code reaches Kiko
 
@@ -77,9 +80,6 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
   same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
   marks what a mockup or release changes says only New, Changed or Removed, with no counts like "+5".
-- Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
-  short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
-  Mockups follow it too.
 
 ## Always-on skills
 
