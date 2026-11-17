@@ -108,19 +108,26 @@ Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules
 
 Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
 
-## No claims from memory (Kiko, 17 Nov 2026)
+## Facts from a fresh read (Kiko, 17 Nov 2026)
 
-Kiko's words (17 Nov 2026): "yes. can that be added in all Claude.md", answering whether to add a
-no-status-or-count-without-fresh-read rule. Source: task-observer findings 0023, 0059, 0064 and 0066 (Canvas repo,
-`skill-observations/observation-log/`), where Claude stated a status, count or role from memory and was wrong.
+Never state a status, count, role, permission, version or any other fact from memory, from a summary or from an earlier
+turn. Read it fresh in this session (the tracker, the live branch, the code path that decides it, the check run) and cite
+that read in the claim. If it cannot be read, say so instead of stating it. Source: observations 0023, 0059, 0064 and 0066
+in the task-observer log; the same rule is in the `verify-before-done` skill ("Claims to Kiko").
 
-- Never state a status, count, role, file or API fact from memory, an earlier session, a summary or a stale board.
-  Each one needs a fresh read in this session.
-- Every such claim cites that read: a `file:line`, the command and its output, or a link.
-- If it can't be verified, say "unverified" and don't present it as fact.
-- Before stating facts or claiming anything is done, use these skills (Kiko, 17 Nov 2026):
-  `superpowers:verification-before-completion`, `agent-protocols:source-driven-development`,
-  `caveman:investigate-first` and `verify-before-done`.
-- Matt Pocock skills (Kiko, 17 Nov 2026: "and matt pockok skills"), adapted from github.com/mattpocock/skills:
-  `grill-me` to stress-test a plan or decision before acting on it, `improve-codebase-architecture` when reviewing a
-  repo's architecture, and `setup-matt-pocock-skills` once per repo before the other two.
+After a context compaction, skills loaded earlier are not loaded: `.claude/hooks/after-compact.mjs` reminds the session to
+call them again (observations 0027 and 0105).
+
+## Skills for facts, done and questions (Kiko, 17 Nov 2026)
+
+Kiko named these on 17 Nov 2026 ("superpowers:verification-before-completion, agent-protocols:source-driven-development,
+caveman:investigate-first, verify then done"; "and matt pockok skills"; "add ask-kiko and stories-and-rules").
+
+- Before stating a fact or claiming anything is done: `superpowers:verification-before-completion`,
+  `agent-protocols:source-driven-development`, `caveman:investigate-first` and `verify-before-done`.
+- Matt Pocock skills (adapted from github.com/mattpocock/skills): `grill-me` to stress-test a plan or decision before
+  acting on it, `improve-codebase-architecture` when reviewing a repo's architecture, and `setup-matt-pocock-skills` once
+  per repo before the other two.
+- `ask-kiko` for every question, choice or approval for Kiko.
+- `stories-and-rules` to break an approved ask into Epics and User Stories and pull its business rules out for Kiko's
+  approval before anything is built.
