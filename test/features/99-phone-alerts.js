@@ -13,6 +13,7 @@ function paBox(o = {}) {
       if (o.down) return resp(503, { error: 'down' });
       if (p === '/send') return resp(200, { phones: 1, sent: 1, results: ['sent'] });
       if (p === '/status') return resp(200, { phones: 1 });
+      if (p === '/pair') return o.pairClosed ? resp(403, { error: 'Pairing is closed.' }) : resp(200, { paired: true });
       if (p === '/code') return resp(200, { code: 'ab'.repeat(16), url: PA_URL + '/setup?code=' + 'ab'.repeat(16), minutes: 10 });
       return resp(404, {});
     } }));
@@ -119,4 +120,19 @@ test('PA8 Open setup page gets a one-time link and keeps Cue\'s address for the 
 
 test('PA9 the cue-alerts Worker passes its own tests (keys, one-time code, VAPID push, next once, setup page)', () => {
   require('child_process').execFileSync(process.execPath, [path.join(__dirname, '..', 'alerts', 'alerts-worker.test.mjs')], { stdio: 'pipe' });
+});
+
+test('PA10 Connect alerts: Cue makes its own key and keeps it only when the alerts service took it (no paste)', () => {
+  const t = paBox({ props: { CUE_ALERTS_KEY: '', CUE_ALERTS_URL: '' } });
+  assert.strictEqual(t.ctx.cueAlerts().ready, false);
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueAlerts.gs'), 'utf8').includes("const CUE_ALERTS_DEFAULT_ = 'https://cue-alerts.kikodacanay14-17a.workers.dev';"));
+  const c = paBox({ pairClosed: true, props: { CUE_ALERTS_KEY: '' } });
+  assert.throws(() => c.ctx.cueAlertsConnect(), /not open for connecting/);
+  assert.ok(!c.ctx.PropertiesService.getScriptProperties().getProperty('CUE_ALERTS_KEY'));
+  const o = paBox({ props: { CUE_ALERTS_KEY: '' } });
+  assert.strictEqual(o.ctx.cueAlertsConnect().ready, true);
+  const key = o.ctx.PropertiesService.getScriptProperties().getProperty('CUE_ALERTS_KEY');
+  assert.ok(/^[0-9a-f]{64}$/.test(key)); deq([o.sent[0].path, o.sent[0].body], ['/pair', { key }]);
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
+  assert.ok(page.includes('data-al-act="connect">Connect alerts</button>') && page.includes("call('cueAlertsConnect'"));
 });

@@ -218,20 +218,22 @@
   function renderAlerts() {
     var A = alertsList, err = alertsErr ? '<div class="err">' + esc(alertsErr) + '</div>' : '';
     if (!A) return setHtml($('w-alerts'), err + (alertsErr ? '' : '<div class="small muted">Loading…</div>'));
-    var head = !A.ready ? 'Phone alerts are not connected yet. Once they are, Open setup page on your phone turns them on.'
+    var head = !A.ready ? 'Phone alerts are not connected yet. Tap Connect alerts, then Open setup page on your phone.'
       : 'Alerts go to phones turned on at the setup page. ' + (A.phones == null ? 'Could not check how many phones are on.' : A.phones === 1 ? '1 phone is on.' : A.phones + ' phones are on.');
     setHtml($('w-alerts'), err + '<div class="small muted" style="margin-bottom:8px">' + esc(head) + '</div>'
       + '<div class="scroll"><table class="alerts-t"><thead><tr><th>Alert</th><th>On</th><th>Last sent</th></tr></thead><tbody>'
       + A.types.map(function (t) { return '<tr><td>' + esc(t.name) + '</td><td class="al-c"><input type="checkbox" class="swc" role="switch" aria-label="' + esc(t.name) + ' alerts" data-al-on="' + esc(t.id) + '"' + (t.on ? ' checked' : '') + '></td><td class="al-c">' + esc(alertWhen(t.last)) + '</td></tr>'; }).join('')
       + '</tbody></table></div>'
       + (alertsNote ? '<div class="small muted" style="margin-top:8px">' + alertsNote + '</div>' : '')
-      + '<div class="actions" style="justify-content:flex-end"><button type="button" class="btn ghost" data-al-act="setup"' + (A.ready ? '' : ' disabled') + '>Open setup page</button>'
+      + '<div class="actions" style="justify-content:flex-end">' + (A.ready ? '' : '<button type="button" class="btn" data-al-act="connect">Connect alerts</button>')
+      + '<button type="button" class="btn ghost" data-al-act="setup"' + (A.ready ? '' : ' disabled') + '>Open setup page</button>'
       + '<button type="button" class="btn" data-al-act="test"' + (A.ready && A.phones ? '' : ' disabled') + '>Send a test alert</button></div>');
   }
   $('w-alerts').addEventListener('change', function (e) { var c = e.target.closest('[data-al-on]'); if (!c) return; c.disabled = true;
     call('cueAlertsSet', [c.getAttribute('data-al-on'), c.checked], alertsDone, alertsFail); });
   $('w-alerts').addEventListener('click', function (e) {
     var b = e.target.closest('[data-al-act]'); if (!b) return; b.disabled = true;
+    if (b.getAttribute('data-al-act') === 'connect') return call('cueAlertsConnect', [], function (r) { alertsNote = 'Connected. Now open the setup page on your phone.'; alertsDone(r); }, alertsFail);
     if (b.getAttribute('data-al-act') === 'setup') return call('cueAlertsSetup', [], function (r) {
       alertsNote = 'Open this link on your phone within ' + esc(String(r.minutes)) + ' minutes, then tap Turn on alerts: <a href="' + esc(r.url) + '" target="_blank" rel="noopener">setup page ↗</a>';
       $('w-alerts')._h = null; renderAlerts(); }, alertsFail);

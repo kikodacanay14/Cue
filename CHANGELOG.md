@@ -34,6 +34,9 @@ deploy each wait for Kiko's typed yes.
   Failed, and again only after it has run OK once, because the 5-minute job tick sits on the edge of the 5-minute grouping.
 - Page: Settings › Jobs › Phone alerts (ALERT-3: Alert, On, Last sent, Open setup page, Send a test alert); a tap on an alert
   opens Cue with `?thread=` at that thread's root.
+- Connect alerts, no paste (added 17 Nov 2026 on Kiko's "go alerts" 09:22:33Z): Cue makes its own key and hands it to the
+  Worker's `/pair` while a 30-minute window opened at deploy time is open, once. Cue's default Worker address is
+  `CUE_ALERTS_DEFAULT_`. Tests PA10 and CA7.
 - Tests: `test/features/99-phone-alerts.js` (PA1 to PA9) and `alerts/alerts-worker.test.mjs` (CA1 to CA6); 869/869 pass.
 
 ## Cue 1.28.78: an agent's old-name and new-name threads are one thread (not deployed)

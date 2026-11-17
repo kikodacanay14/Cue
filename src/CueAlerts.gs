@@ -4,8 +4,8 @@
  * "Yes, group within 5 min" (15:20:47Z), "Yes, build it" (17:22:27Z).
  *
  * Cue posts each alert to the cue-alerts Cloudflare Worker (alerts/alerts-worker.js), which pushes it to the phones turned on at
- * its setup page. Script Properties: CUE_ALERTS_URL (the Worker's https address) and CUE_ALERTS_KEY (the Worker's secret of the
- * same name). Without both, nothing is sent and nothing fails: Cue runs exactly as before.
+ * its setup page. Script Properties: CUE_ALERTS_KEY, which Cue makes itself and hands to the Worker when Kiko taps Connect alerts (no paste),
+ * and optionally CUE_ALERTS_URL (default CUE_ALERTS_DEFAULT_). Without the key nothing is sent and nothing fails.
  *
  * - Five types (ALERT-3), each with an On switch; all start On.
  * - Grouping (ADR-0198): the first line in a thread alerts at once. More lines in that thread within 5 minutes of the last one
@@ -23,11 +23,13 @@ const CUE_ALERT_TYPES_ = [
 ];
 const CUE_ALERT_GROUP_MS_ = 5 * 60 * 1000;   // ADR-0198, Kiko 16 Nov 2026 15:20:47Z "Yes, group within 5 min"
 const CUE_ALERT_PROP_ = 'CUE_ALERTS_STATE';
+const CUE_ALERTS_DEFAULT_ = 'https://cue-alerts.kikodacanay14-17a.workers.dev';   // the cue-alerts Worker; Script Property CUE_ALERTS_URL overrides it
+const cueAlertUrl_ = () => cueProp_('CUE_ALERTS_URL', CUE_ALERTS_DEFAULT_).replace(/\/+$/, '');
 
 function cueAlertState_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CUE_ALERT_PROP_) || '{}'); } catch (e) { return {}; } }
 function cueAlertSave_(S) { PropertiesService.getScriptProperties().setProperty(CUE_ALERT_PROP_, JSON.stringify(S)); }
 function cueAlertOn_(S, type) { return !(S.off || {})[type]; }
-function cueAlertReady_() { return /^https:\/\/\S+$/.test(cueProp_('CUE_ALERTS_URL', '')) && !!cueProp_('CUE_ALERTS_KEY', ''); }
+function cueAlertReady_() { return /^https:\/\/\S+$/.test(cueAlertUrl_()) && !!cueProp_('CUE_ALERTS_KEY', ''); }
 
 /** No bank details, amounts or files in an alert: peso and other money amounts, long digit runs (account and card numbers),
  * links and file names come out. Then one line, cut to n characters. */
@@ -66,7 +68,7 @@ function cueAlert_(type, tag, title, text, who, open) {
     G[tag] = { at: now, n };
     const head = grouped ? cueAlertClean_(who || title, 60) + ' · ' + n + ' updates' : cueAlertClean_(title, 80);
     open = open || {};
-    const r = UrlFetchApp.fetch(cueProp_('CUE_ALERTS_URL', '').replace(/\/+$/, '') + '/send', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    const r = UrlFetchApp.fetch(cueAlertUrl_() + '/send', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
       headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') },
       payload: JSON.stringify({ title: head, body: cueAlertClean_(text, 160), url: cueAlertLink_(open.thread, open.sec), tag: String(tag || 'cue').slice(0, 80), renotify: !grouped }) });
     const ok = r.getResponseCode() === 200;
@@ -117,10 +119,20 @@ function cueAlerts() {
   const S = cueAlertState_(), ready = cueAlertReady_();
   let phones = null;
   if (ready) try {
-    const r = UrlFetchApp.fetch(cueProp_('CUE_ALERTS_URL', '').replace(/\/+$/, '') + '/status', { headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') }, muteHttpExceptions: true });
+    const r = UrlFetchApp.fetch(cueAlertUrl_() + '/status', { headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') }, muteHttpExceptions: true });
     if (r.getResponseCode() === 200) phones = Number(JSON.parse(r.getContentText()).phones) || 0;
   } catch (e) { console.warn('Cue alerts status: ' + e); }
   return { ready, phones, types: CUE_ALERT_TYPES_.map(t => ({ id: t.id, name: t.name, on: cueAlertOn_(S, t.id), last: (S.last || {})[t.id] || '' })) };
+}
+/** Connect alerts (no paste): Cue makes its own key and hands it to the Worker's /pair, which takes it once while the
+ * pairing window opened at deploy time is open. Cue keeps the key only when the Worker took it. */
+function cueAlertsConnect() {
+  cueOwner_();
+  const key = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const r = UrlFetchApp.fetch(cueAlertUrl_() + '/pair', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify({ key }) });
+  if (r.getResponseCode() !== 200) throw new Error(r.getResponseCode() === 403 ? 'The alerts service is not open for connecting. Ask Claude to open it, then try again.' : 'The alerts service did not answer (' + r.getResponseCode() + '). Try again.');
+  PropertiesService.getScriptProperties().setProperty('CUE_ALERTS_KEY', key);
+  return cueAlerts();
 }
 /** Turns one alert type on or off. */
 function cueAlertsSet(id, on) {
@@ -132,10 +144,10 @@ function cueAlertsSet(id, on) {
 /** A new one-time setup link (10 minutes) for Open setup page. Also keeps this Cue's address, so a tap on an alert opens it. */
 function cueAlertsSetup() {
   cueOwner_();
-  if (!cueAlertReady_()) throw new Error('Phone alerts are not connected yet: Cue needs CUE_ALERTS_URL and CUE_ALERTS_KEY.');
+  if (!cueAlertReady_()) throw new Error('Phone alerts are not connected yet. Tap Connect alerts first.');
   const app = cueAdminAppUrl_();
   if (/^https:\/\/script\.google\.com\/\S+\/exec$/.test(app)) PropertiesService.getScriptProperties().setProperty('CUE_ALERTS_OPEN', app);
-  const r = UrlFetchApp.fetch(cueProp_('CUE_ALERTS_URL', '').replace(/\/+$/, '') + '/code', { method: 'post', headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') }, muteHttpExceptions: true });
+  const r = UrlFetchApp.fetch(cueAlertUrl_() + '/code', { method: 'post', headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') }, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('The alerts service did not answer (' + r.getResponseCode() + '). Try again.');
   const o = JSON.parse(r.getContentText());
   if (!/^https:\/\//.test(String(o.url || ''))) throw new Error('The alerts service gave no setup link. Try again.');
@@ -144,8 +156,8 @@ function cueAlertsSetup() {
 /** Send a test alert: to every phone that is on, outside the switches and the grouping. */
 function cueAlertsTest() {
   cueOwner_();
-  if (!cueAlertReady_()) throw new Error('Phone alerts are not connected yet: Cue needs CUE_ALERTS_URL and CUE_ALERTS_KEY.');
-  const r = UrlFetchApp.fetch(cueProp_('CUE_ALERTS_URL', '').replace(/\/+$/, '') + '/send', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+  if (!cueAlertReady_()) throw new Error('Phone alerts are not connected yet. Tap Connect alerts first.');
+  const r = UrlFetchApp.fetch(cueAlertUrl_() + '/send', { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + cueProp_('CUE_ALERTS_KEY', '') },
     payload: JSON.stringify({ title: 'Cue test alert', body: 'Alerts are working on this phone.', url: cueAlertLink_(''), tag: 'cue-test', renotify: true }) });
   if (r.getResponseCode() !== 200) throw new Error('The test alert did not go out (' + r.getResponseCode() + '). Try again.');
