@@ -12,7 +12,7 @@
   var $ = function (id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // ROLE-NAMES-2026-11-16: the name Kiko sees for an agent; the stored name stays the key (CueAgentDrafts.gs cueAgdLabel_).
-  function agdLabel(v) { return String(v == null ? '' : v).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist'); }
+  function agdLabel(v) { return String(v == null ? '' : v).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist').replace(/\bAS\b/g, 'Account Specialist').replace(/\bMM\b/g, 'Multimedia'); }   // AGENT-FULL-NAMES-2026-11-18 (Kiko 02:15:58Z: "why are the names AS, MM?")
   function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
   function call(fn, args, ok, bad) {
     var r = google.script.run.withSuccessHandler(function (x) { $('dot').style.background = 'var(--ok)'; ok && ok(x); })

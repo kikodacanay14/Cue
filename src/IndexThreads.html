@@ -1003,7 +1003,7 @@
     var A = r.agd || {}, st = String(A.status || ''), open = r.id in agdOpen ? agdOpen[r.id] : st === 'Waiting for Kiko';
     var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
     var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
-      + '<span class="agtx">' + esc(noTok(agentSays(r))) + '</span>'
+      + '<span class="agtx">' + agKv(noTok(agentSays(r))) + '</span>'
       + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span></div>';
     var c = open ? cardOf(r) : '';
     return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
