@@ -869,6 +869,40 @@
       + (rt.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Save corrections</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
   }
+  // AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
+  // main table expands and shows details of the FSAs / ARs / Suppliers. same thing with Finance"; approved 06:06:51Z, mockup cards 3a/3b
+  // https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk). One row per check (Missing, OK); a row opens to the items behind it.
+  var AGD_CHK = { fsa: ['FSAs not signed', ['Crew member', 'Area', 'Event date', 'Amount (₱)', 'FSA']],
+    ar: ['ARs not signed', ['Payee', 'Scope', 'Paid', 'Amount (₱)', 'AR']],
+    accreditation: ['Suppliers not accredited', ['Supplier', 'Scope', 'Award', 'Paid so far (₱)', 'Accreditation']],
+    invoice: ['Payments without invoice', ['Supplier', 'Scope', 'Paid', 'Amount (₱)', 'Proof']] };
+  function agdPeso(a) { if (!a) return '<span class="muted">—</span>'; var p = String(a).split('.'); return p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + ((p[1] || '') + '00').slice(0, 2); }
+  function agdCheckHtml(r, canReply, unread) {
+    var A = r.agd || {}, C = (A.handover || {}).check || {}, id = esc(r.id), none = '<span class="muted">—</span>', who = C.kind === 'finance' ? 'Finance' : 'Admin';
+    var td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; }, rows = C.rows || [];
+    var miss = rows.reduce(function (n, x) { return n + x.items.length; }, 0);
+    var body = rows.map(function (x) {
+      var D = AGD_CHK[x.check], on = agdRowOpen[r.id] === x.check, last = x.check === 'invoice';
+      var det = !on ? '' : '<tr class="agdet"><td colspan="3">' + (x.items.length ? '<div class="agit"><table><thead><tr>' + D[1].map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
+        + x.items.map(function (it) { return '<tr>' + td(it.name ? esc(it.name) : none) + td(it.scope ? esc(it.scope) : none, 1) + td(it.date ? esc(it.date) : none, 1) + td(agdPeso(it.amount), 1)
+          + td(last ? (it.proof ? '<a data-agpic href="https://drive.google.com/file/d/' + esc(it.proof.file_id) + '/view" data-name="' + esc((it.name || '') + ' proof') + '">Open</a>' : none)
+            : '<span class="tag crit">' + esc(it.status || 'Missing') + '</span>', 1) + '</tr>'; }).join('') + '</tbody></table></div>' : '<span class="muted">Nothing missing.</span>') + '</td></tr>';
+      return '<tr class="agrow" data-act="agd-row" data-id="' + id + '" data-row="' + esc(x.check) + '" tabindex="0" aria-expanded="' + on + '">' + td(D[0]) + td(x.items.length, 1) + td(x.ok == null ? none : x.ok, 1) + '</tr>' + det;
+    }).join('');
+    var msg = who === 'Finance' ? 'Finance checked Canvas payments against the invoices on file. ' : 'Admin checked the FSAs, ARs and the suppliers in this project. ';
+    msg += miss ? miss + ' item' + (miss === 1 ? ' is' : 's are') + ' missing something. Open a row for the details.' : 'All clear: nothing is missing.';
+    return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · ' + who + ' check</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + who + ' check' + (A.project ? ' · ' + esc(A.project) : '') + '</b>'
+      + (miss ? '<span class="tag warn">' + miss + ' missing</span>' : '<span class="tag good">All clear</span>') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">' + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
+      + '<p style="margin:8px 0">' + msg + ' Nothing was sent.</p>'
+      + '<div class="agmeta agin"><div><span class="lbl">Project</span>' + (A.project_id || A.project ? esc(A.project_id) + (A.project_id && A.project ? '<br>' : '') + esc(A.project) : none) + '</div>'
+      + '<div><span class="lbl">Run</span>' + (C.run_at ? esc(C.run_at) : none) + '</div><div><span class="lbl">Missing</span>' + miss + '</div></div>'
+      + (rows.length ? '<div class="agit"><table><thead><tr><th>Check</th><th>Missing</th><th>OK</th></tr></thead><tbody>' + body + '</tbody></table></div>' : '')
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + who + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
+      + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
+  }
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
     // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
@@ -876,6 +910,7 @@
     var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
     var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
     if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
+    if (H.check) return agdCheckHtml(r, canReply, unread);   // AGENT-CHECK-CARD-2026-11-18
     if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'

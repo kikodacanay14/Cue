@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.28.93: Admin check and Finance check cards (not deployed)
+
+Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:35:50Z: "what i want to see are Payments without Invoices, no signed FSAs
+and ARs, suppliers that are not accredited in a project"; 05:27:45Z: "I expect separate reports - Admin Check and Finance Check";
+05:32:00Z: "tha main table expands and shows details of the FSAs / ARs / Suppliers. same thing with Finance". Card 3 (mockup v5,
+https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk) approved 06:06:51Z. Slot cue-1.28.93, card agent-check-card.
+
+- Card (`src/IndexCards.html`, `src/IndexStyle.html`): an agent update that carries `check` shows as "Admin check · <project>" or
+  "Finance check · <project>": Project, Run and Missing on top, then one main table (Check, Missing, OK). A row opens to its items:
+  FSAs not signed (Crew member, Area, Event date, Amount, FSA), ARs not signed (Payee, Scope, Paid, Amount, AR), Suppliers not
+  accredited (Supplier, Scope, Award, Paid so far, Accreditation), Payments without invoice (Supplier, Scope, Paid, Amount, Proof).
+  Amounts are centred with commas and two decimals. Nothing missing shows "All clear". Reply and Mark read as on other updates.
+- Payload (`src/CueAgentDrafts.gs`): `check` {kind: admin or finance, run_at, rows: [{check, ok, items: [{name, scope, date, amount,
+  status, proof}]}]}. Admin carries fsa, ar and accreditation; Finance carries invoice. Amounts only as plain decimals; proof only as
+  a Drive file ID.
+- Not in this release: Admin and Finance still have to send this payload.
+- Tests: ACK1 to ACK3 new (`test/features/99-agent-check-card.js`). 905/905 pass. Checked in Chromium at 1000 and 390 px: no sideways scroll; an
+  open row's own table scrolls inside the card.
+
 ## Cue 1.28.92: Email Intake card lists mail that fit no role (not deployed)
 
 Asked: Kiko, 18 Nov 2026 05:47Z, relayed by the Build the BSE automation thread: "when emails come in and no role fits then it doesnt
