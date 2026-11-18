@@ -26,6 +26,15 @@ function cueChanRules_() {
 }
 function cueChanSave_(l) { PropertiesService.getScriptProperties().setProperty('CUE_CHAN_RULES', JSON.stringify(l.slice(-CUE_CHAN_KEEP_))); }
 function cueChanActive_(l, src) { return l.filter(x => x.src === src && !x.off)[0] || null; }
+/** A line's sources: one key, or several joined by "|" (an email: its sender and its type, CUE-JOBS-UPDATES-2026-11-18). */
+function cueChanParts_(src) { return String(src || '').split('|').filter(Boolean); }
+/** Kiko 06:26:46Z "have a prompt that will ask why": an email's rule can be the words Kiko typed for why ("words:rfq videographer"). It
+ * covers an email post (a line with a sender source) whose text has every one of those words, any case. */
+function cueChanWords_(part) { const w = String(part || '').toLowerCase().replace(/^words:/, '').replace(/[^a-z0-9@.&' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80); return w ? 'words:' + w : ''; }
+function cueChanWordsHit_(src, parts, text) {
+  if (!/^words:/.test(src) || !parts.some(p => /^mail:/.test(p))) return false;
+  const t = String(text || '').toLowerCase(); return src.slice(6).split(' ').every(w => t.indexOf(w) >= 0);
+}
 function cueChanIso_(v) { return v instanceof Date ? v.toISOString() : String(v || ''); }
 
 /** The Chat row (number) of the line the page names by its time, who and text (two lines can share a millisecond), among the last
@@ -45,19 +54,22 @@ function cueChanMove(time, who, text, chan) {
     const sh = cueSheet_('Chat'), row = cueChanRow_(sh, time, who, text);
     if (!row) throw new Error('That message is no longer in the chat.');
     const r = sh.getRange(row, 1, 1, 7).getValues()[0], src = String(r[5] || '');
-    const ask = !!src && !cueChanActive_(cueChanRules_(), src);
+    const l = cueChanRules_(), ask = !!src && !cueChanParts_(src).some(p => cueChanActive_(l, p));
     sh.getRange(row, 7, 1, 1).setValues([[chan + (ask ? '?' : '')]]);
     return { ok: true, ask };
   });
 }
 
-/** Answers "Also send future … messages there?" for one moved line. always = true saves the rule for the line's source. */
-function cueChanAnswer(time, who, text, always) {
+/** Answers "Also send future … messages there?" (or, for an email, "Why here?") for one moved line. always = true saves the rule for
+ * the line's source; part picks which one when the line has several (an email's sender or its type). */
+function cueChanAnswer(time, who, text, always, part) {
   cueOwner_();
   return cueLocked_(() => {
     const sh = cueSheet_('Chat'), row = cueChanRow_(sh, time, who, text);
     if (!row) throw new Error('That message is no longer in the chat.');
-    const r = sh.getRange(row, 1, 1, 7).getValues()[0], src = String(r[5] || ''), chan = String(r[6] || '').replace(/\?$/, '');
+    const r = sh.getRange(row, 1, 1, 7).getValues()[0], parts = cueChanParts_(r[5]), chan = String(r[6] || '').replace(/\?$/, '');
+    const words = /^words:/.test(String(part || '')) && parts.some(p => /^mail:/.test(p)) ? cueChanWords_(part) : '';
+    const src = words || (parts.indexOf(String(part || '')) >= 0 ? String(part) : parts[0] || '');   // the reason Kiko picked: sender, kind or his words
     if (!CUE_CHAN_RE_.test(chan)) throw new Error('That message was not moved.');
     sh.getRange(row, 7, 1, 1).setValues([[chan]]);
     if (always && src) {
@@ -87,5 +99,5 @@ function cueAdminChanRules() {
   const l = cueChanRules_(), sh = cueSheet_('Chat'), n = sh.getLastRow() - 1;
   const rows = n > 0 ? sh.getRange(2, 1, n, 7).getValues() : [];
   return l.filter(x => !x.off).map(x => ({ src: x.src, chan: x.chan, at: x.at,
-    moved: rows.filter(r => String(r[5] || '') === x.src && !r[4] && !r[6] && cueChanIso_(r[0]) >= x.at).length })).reverse();
+    moved: rows.filter(r => (cueChanParts_(r[5]).indexOf(x.src) >= 0 || cueChanWordsHit_(x.src, cueChanParts_(r[5]), r[2])) && !r[4] && !r[6] && cueChanIso_(r[0]) >= x.at).length })).reverse();
 }

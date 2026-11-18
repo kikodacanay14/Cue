@@ -37,11 +37,21 @@
   function reviewN(t) {
     return t.reqs.filter(function (r) { if (r.agd) { var a = String(r.agd.status || ''); return a === 'Waiting for Kiko' || a === 'Unread'; } return isNeed(r); }).length;
   }
+  /* CUE-JOBS-UPDATES-2026-11-18 (Kiko 18 Nov 2026 06:15:53Z "the Project Intake should be in Jobs. Add there Updates under Jobs - put
+   * the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in Systems? Same with GitHub?").
+   * Jobs › Updates holds the 8 AM and 2 PM updates (kind k0) and the Sales day threads; a Project intake thread (kind intake, and the
+   * 2 PM funnel follow-ups, kind k0fn, which have no name of their own) sits in Jobs; the ChatGPT and GitHub threads sit in Systems.
+   * Display only.
+   * Kiko 06:53:45Z "combine the Sales and 8am update updates in just 1 update - include morning batch - basically all messages from
+   * morning, afternoon and evening updates in 1 thread"; "why is there an Accenture year-end-party? that usually goes to Team Cue":
+   * the 8 AM and 2 PM updates (k0, k0fn), the Sales day threads and funnel runs, and the Morning batch are now ONE channel, Jobs ›
+   * Updates (job:updates, see chanKey), and a Project intake thread stays in Threads as before. */
+  var SYS_AGENT = /\b(chatgpt|github)\b/i;
   function chanGroup(t, st) {
     if (showArchived) return listGroup(t, st, true);
     if (/^job:/.test(t.chan || '')) return 'job';
     if (/^sys:/.test(t.chan || '')) return 'sys';
-    if (t.reqs[0] && t.reqs[0].agd) return 'agent';
+    if (t.reqs[0] && t.reqs[0].agd) return SYS_AGENT.test(String(t.reqs[0].agd.agent || '')) ? 'sys' : 'agent';
     return 'rest';
   }
   function initials(n) { return String(n || '').replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('') || '·'; }
@@ -79,8 +89,9 @@
     var cvRows = !showArchived && !tq && CUE_HOST.canvas ? canvasRows : [];   // ASK-CUE-ROWS-2026-10-29: Canvas's CRM and To do, under Jobs
     var sum = function (l) { return l.reduce(function (a, x) { return a + (x.n || 0); }, 0); };
     var groups = showArchived ? [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', 'Archived']] : [['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']];
+    var newest = function (a, b) { return !a.st.need !== !b.st.need ? (a.st.need ? -1 : 1) : a.when < b.when ? 1 : -1; };
     groups.forEach(function (g) {
-      var l = G[g[0]].sort(function (a, b) { return !a.st.need !== !b.st.need ? (a.st.need ? -1 : 1) : a.when < b.when ? 1 : -1; });
+      var l = G[g[0]].sort(newest);
       var extra = g[0] === 'job' ? cvRows : [];
       if (!l.length && !extra.length) return;
       var gn = sum(l) + extra.reduce(function (a, r) { return a + (r.n || 0); }, 0);
@@ -538,9 +549,12 @@
   function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
   function rootOf(id, by) { for (var i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }
   // CUE-CHANNELS-2026-11-18: the channel a run belongs to when it is one of many runs of the same job ('' = its own thread).
-  var SUBJ_CHAN = { morning: 'job:sweep', sales: 'job:sales', friday: 'job:friday' };
-  var JOB_KIND = { bids: 'job:bids', sweep: 'job:sweep', status: 'job:status', funnel: 'job:funnel', skillobs: 'job:skillobs', relnotes: 'sys:updates' };
-  var JOB_NAME = { 'job:bids': 'Bid Opportunities', 'job:sweep': 'Morning batch', 'job:status': 'Friday status', 'job:funnel': 'Sales funnel', 'job:sales': 'Sales', 'job:friday': 'Friday events',
+  // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:53:45Z): the morning, afternoon and evening updates share one channel, job:updates.
+  var SUBJ_CHAN = { morning: 'job:updates', sales: 'job:updates', friday: 'job:friday' };
+  var JOB_KIND = { bids: 'job:bids', sweep: 'job:updates', k0: 'job:updates', k0fn: 'job:updates', status: 'job:status', funnel: 'job:updates', skillobs: 'job:skillobs', relnotes: 'sys:updates' };
+  var CHAN_OLD = { 'job:sweep': 'job:updates', 'job:sales': 'job:updates', 'job:funnel': 'job:updates' };   // lines moved or rules made before the merge
+  function chanNow(c) { var k = String(c || ''); return CHAN_OLD[k] || k; }
+  var JOB_NAME = { 'job:bids': 'Bid Opportunities', 'job:updates': 'Updates', 'job:status': 'Friday status', 'job:friday': 'Friday events',
     'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts' };
   function chanKey(r) {
     if (!r) return '';
@@ -561,13 +575,17 @@
     'msgr-crew': 'Messenger crew list', 'msgr-setup': 'Messenger setup', 'mail-type': 'New mail types', 'mail-project': 'New mail on projects', route: 'Could not start',
     reminder: 'Reminders', sched: 'Scheduled tasks', unsched: 'Unscheduled check', servicedesk: 'Service Desk', chaserrules: 'Chaser rule changes',
     closeolder: 'Close older runs', funnel: 'Sales funnel review', ticktick: 'TickTick connection' };
-  function srcName(k) { return SRC_NAME[k] || String(k || ''); }
+  function srcName(k) { k = String(k || ''); return SRC_NAME[k] || (/^mail:/.test(k) ? 'Emails from ' + k.slice(5) : /^type:/.test(k) ? k.slice(5) + ' emails' : /^words:/.test(k) ? 'Emails with "' + k.slice(6) + '"' : k); }   // CUE-JOBS-UPDATES-2026-11-18: one sender's emails, one kind
+  // Kiko 06:26:46Z "have a prompt that will ask why": a rule from the words Kiko typed covers an email post that has all of them.
+  function wordsHit(src, ps, text) { if (!/^words:/.test(String(src || '')) || !ps.some(function (p) { return /^mail:/.test(p); })) return false;
+    var t = String(text || '').toLowerCase(); return String(src).slice(6).split(' ').every(function (w) { return t.indexOf(w) >= 0; }); }
+  function srcParts(s) { return String(s || '').split('|').filter(Boolean); }   // an email's sources: its sender and its type
   function lineChan(m) {
-    if (!m || m.request_id) return '';
-    if (m.mv) return String(m.mv).replace(/\?$/, '');
+    if (!m || (m.request_id && m.request_id.charAt(0) !== '>')) return '';   // CUE-JOBS-UPDATES-2026-11-18: a pointer (an email's post) can move too
+    if (m.mv) return chanNow(String(m.mv).replace(/\?$/, ''));
     if (!m.src) return '';
-    var t = String(m.time || ''), r = (state.chan_rules || []).filter(function (x) { return x.src === m.src && t >= String(x.at || '') && (!x.off || t < String(x.off)); })[0];
-    return r ? String(r.chan || '') : '';
+    var t = String(m.time || ''), ps = srcParts(m.src), r = (state.chan_rules || []).filter(function (x) { return (ps.indexOf(x.src) >= 0 || wordsHit(x.src, ps, m.text)) && t >= String(x.at || '') && (!x.off || t < String(x.off)); })[0];
+    return r ? chanNow(r.chan) : '';
   }
   function chanName(c, th) { var t = th && chanAt(th, c) && th[chanAt(th, c)]; return t && t.reqs.length ? threadTitle(t) : JOB_NAME[c] || c; }
   function chanAt(th, c) { return c === 'sys:alerts' ? 'sys:alerts' : (th && th._jb && th._jb[c]) || ''; }   // the channel's thread, '' when the list has none
@@ -592,6 +610,7 @@
     Object.defineProperty(t, '_jb', { value: jbRoot });   // CUE-DRAG-TO-CHANNEL-2026-11-18: a channel key finds its thread
     allLines().forEach(function (m) {
       var q = askOf(m); if (q) { if (q.where) get(home(q.where)).lines.push(m); return; }   // a question with buttons lives where it was asked
+      if (m.request_id && m.request_id.charAt(0) === '>') { var pc = lineChan(m), pat = pc === 'sys:alerts' ? pc : pc && jbRoot[pc]; if (pat) get(pat).lines.push(m); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post
       if (!m.request_id) {   // CUE-DRAG-TO-CHANNEL-2026-11-18: a General line Kiko moved, or one his rule sends, joins its channel; then the alerts
         var c = lineChan(m), at = c === 'sys:alerts' ? c : c && jbRoot[c];
         if (at) get(at).lines.push(m);
@@ -938,10 +957,8 @@
    * an @agent message and an alert line live in their channel instead. A pointer that answers Kiko's own line stays, as a link. */
   function listed(id, th) { var t = thOf(th, id); return !!(t && t.reqs.length && listShows(t)); }
   function renderMain(th) {
-    var by = byId(), seen = {}, shown = {}, h = '', dayShown = {}, gl = null;
+    var by = byId(), shown = {}, h = '', dayShown = {}, gl = null;
     mvRef = [];   // CUE-DRAG-TO-CHANNEL-2026-11-18
-    // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
-    state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     var prev = null, h0;
     allLines().forEach(function (m) { h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
     genLast = gl;
@@ -961,6 +978,7 @@
       if (m.request_id.charAt(0) === '@') return;   // AGENT-TAG-2026-11-15: Kiko's @agent message and the answer are in the agent's channel too
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to0 = rootOf(m.request_id.slice(1), by), pt = thOf(th, to0), to = pt ? pt.root : to0;
+        var pmc = lineChan(m); if (pmc && chanAt(th, pmc)) { h += movedHtml(m, pmc, th); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post leaves General
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
         // pointers (updates, "Summary for …") live in the thread only.
         // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
@@ -972,12 +990,16 @@
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
-        h += msgHtml(m, pt ? to : '') + mailAskHtml(to) + (pt ? rowHtml(to, pt) : '');
+        h += mvAttr(msgHtml(m, pt ? to : ''), m) + mailAskHtml(to);   // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:21:47Z "remove the Earlier task part? when the message is clicked then show the details"): no thread row; the message opens its thread
         return;
       }
-      var root = rootOf(m.request_id, by); if (seen[root]) return; seen[root] = 1;
+      var root = rootOf(m.request_id, by);
       if (listed(root, th)) return;   // CUE-CHANNELS-2026-11-18: a task's first message is in its channel
-      h += msgHtml(m, th[root] ? root : '') + rowHtml(root, th[root], 1);
+      if (by[root] && MAIL_ONLY[by[root].kind]) return;   // an email's chat: its post in General opens it; its own lines stay there
+      // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:21:47Z "remove the Earlier task part"; 06:22:47Z "it only had 2 messages - there should be
+      // no need to click it these messages could have been placed in the conversation already"): a task the list does not show puts
+      // every one of its lines in General, in time order, with no thread row; tapping one still opens the thread.
+      h += msgHtml(m, th[root] ? root : '');
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
@@ -994,6 +1016,14 @@
   }
   function movedHtml(m, c, th) {
     var nm = chanName(c, th), k = mvKey(m);
+    var ps = srcParts(m.src);
+    // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:24:17Z "there should be a question as to why i moved it there - its probably because of
+    // sender, content"): an email asks why, with its sender and its kind as the reasons; the answer becomes the rule.
+    if (/\?$/.test(String(m.mv || '')) && ps.length > 1) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '. Why here?</b>'
+      + '<div class="small muted">Cue sends later emails the same way. You can remove this in Settings › Channel rules.</div>'
+      + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button>' + ps.map(function (p) {
+        return '<button class="btn" data-mv-ans="1" data-mv-part="' + esc(p) + '">' + esc(/^mail:/.test(p) ? 'This sender' : /^type:/.test(p) ? 'All ' + p.slice(5) + ' emails' : srcName(p)) + '</button>'; }).join('')
+      + (ps.some(function (p) { return /^mail:/.test(p); }) ? '<button class="btn ghost" data-mv-ans="1" data-mv-why="1">Something else…</button>' : '') + '</div></div>';
     if (/\?$/.test(String(m.mv || '')) && m.src) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '</b>'
       + '<div class="small muted">Also send future <b>' + esc(srcName(m.src)) + '</b> messages to ' + esc(nm) + '? You can remove this in Settings › Channel rules.</div>'
       + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button><button class="btn" data-mv-ans="1">Yes, always</button></div></div>';
@@ -1011,12 +1041,19 @@
   $('msgs').addEventListener('click', function (e) {
     var b = e.target.closest('[data-mv-ans]'), box = b && b.closest('.mvask'); if (!box) return;
     var all = b.getAttribute('data-mv-ans') === '1', m = mvLine(box.getAttribute('data-mvk')); if (!m) return;
-    var c = String(m.mv || '').replace(/\?$/, ''), was = m.mv; m.mv = c; justMoved[mvKey(m)] = 1;
-    if (all && m.src) { state.chan_rules = (state.chan_rules || []).map(function (x) { return x.src === m.src && !x.off ? { src: x.src, chan: x.chan, at: x.at, off: m.time } : x; }).concat([{ src: m.src, chan: c, at: m.time }]); }
+    if (b.hasAttribute('data-mv-why')) {   // "Something else…": Kiko types why; later emails with those words follow
+      return ask('Why did you move it here?', 'Type the words that make it belong there, for example RFQ videographer. Later emails that have all of them go there too.', 'RFQ videographer', 'Save', function (v) {
+        var w = String(v || '').toLowerCase().replace(/[^a-z0-9@.&' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80); if (w) mvAnswer(m, true, 'words:' + w); });
+    }
     box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-    call('cueChanAnswer', [m.time, m.who, m.text, all], function () { renderChat(); }, function (er) { m.mv = was; renderChat(); alertErr(er); });
-    renderChat();
+    mvAnswer(m, all, b.getAttribute('data-mv-part') || srcParts(m.src)[0] || '');   // CUE-JOBS-UPDATES-2026-11-18: the reason picked (sender, kind or words)
   });
+  function mvAnswer(m, all, part) {
+    var c = String(m.mv || '').replace(/\?$/, ''), was = m.mv; m.mv = c; justMoved[mvKey(m)] = 1;
+    if (all && part) { state.chan_rules = (state.chan_rules || []).map(function (x) { return x.src === part && !x.off ? { src: x.src, chan: x.chan, at: x.at, off: m.time } : x; }).concat([{ src: part, chan: c, at: m.time }]); }
+    call('cueChanAnswer', [m.time, m.who, m.text, all, part], function () { renderChat(); }, function (er) { m.mv = was; renderChat(); alertErr(er); });
+    renderChat();
+  }
   // PC: drag a line onto a channel. The row under the pointer says "Drop to move here".
   $('msgs').addEventListener('dragstart', function (e) {
     var m = e.target.closest && e.target.closest('[data-mvk][draggable]'); if (!m) return;
@@ -1067,13 +1104,7 @@
     return q ? askHtml(q) : '';
   }
   // The "↳ title · N replies · status · when" line under a message in the chat. Tapping the title opens the thread in the right pane.
-  function rowHtml(root, t, head) {
-    var st = threadState(t), n = t.lines.length - (head ? 1 : 0), last = t.lines[t.lines.length - 1];
-    return '<div class="thread-row"><i class="dot" style="background:' + st.color + '"></i>'
-      + '<button class="tt" data-thread="' + esc(root) + '" aria-label="Open the thread ' + esc(threadTitle(t)) + '">' + esc(threadTitle(t)) + '</button>'
-      + (n > 0 ? '<span>' + n + ' repl' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + (st.need ? '<span class="need">Needs you</span>' : '<span>' + esc(st.text) + '</span>')
-      + (last && last.time ? '<span>' + esc(ago(last.time)) + '</span>' : '') + '</div>';
-  }
+
   // CARD-OVERHAUL-2026-10-30: Today's tasks: a place opens its thread in Canvas; Done for now hides the card until tomorrow.
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#tmsgs [data-cteam], #tmsgs [data-today-done]'); if (!b) return;
@@ -1196,7 +1227,7 @@
       }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
     });
-    if (threadTitle(t) === 'Morning' || t.chan === 'job:sweep') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
+    if (threadTitle(t) === 'Morning' || t.chan === 'job:updates') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
     var min = !agT && !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
     cards = cards.map(function (c, i) { c.i = i; return c; }).sort(function (a, b) { return a.at - b.at || a.i - b.i; });
     var put = function (upTo) { var o = ''; for (; ci < cards.length && cards[ci].at <= upTo; ci++) if (!min) o += cards[ci].html; return o; };

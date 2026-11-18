@@ -77,5 +77,5 @@ test('AM6 the page shows "My suggestion:" and "Proposed reply:" as bold labels, 
   const ctx = {}; vm.runInNewContext(fn + '\nthis.f = cueLabels;', ctx);
   assert.strictEqual(ctx.f('Hi\nMy suggestion: y\nProposed reply:\nz'), 'Hi\n<b>My suggestion:</b> y\n<b>Proposed reply:</b>\nz');
   assert.strictEqual(ctx.f('He said Proposed reply: no'), 'He said Proposed reply: no', 'only at the start of a line');
-  assert.ok(/msgHtml\(m, pt \? to : ''\) \+ mailAskHtml\(to\)/.test(src) && /usereply: 'Use this reply'/.test(src));
+  assert.ok(/mvAttr\(msgHtml\(m, pt \? to : ''\), m\) \+ mailAskHtml\(to\)/.test(src) && /usereply: 'Use this reply'/.test(src));
 });

@@ -33,7 +33,7 @@ test('CO2 Today\'s tasks in the Morning thread: counts by place from Canvas plus
   vm.runInNewContext('out = todayTasksHtml(t);', box); assert.strictEqual(box.out, '', 'Done for now hides it until tomorrow');
   const pages = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
   assert.ok(/b\.items\.forEach\(function \(it\) \{ if \(it\.kind === 'tasks'\) return;/.test(pages), 'the batch card leaves out its task lines');
-  assert.ok(/threadTitle\(t\) === 'Morning' \|\| t\.chan === 'job:sweep'\) \{ var tt = todayTasksHtml\(t\); if \(tt\) cards\.unshift\(/.test(page), 'the card leads the Morning thread');
+  assert.ok(/threadTitle\(t\) === 'Morning' \|\| t\.chan === 'job:updates'\) \{ var tt = todayTasksHtml\(t\); if \(tt\) cards\.unshift\(/.test(page), 'the card leads the Morning thread');
 });
 test('CO3 New mail buttons follow the review (no Mute sender, no Not an inquiry) and a New mail reply is "Reply ready" with Send reply', () => {
   const vm = require('vm'), fs = require('fs'), path = require('path'), src = n => fs.readFileSync(path.join(__dirname, '..', 'src', n), 'utf8');
