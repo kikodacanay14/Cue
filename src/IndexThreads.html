@@ -527,12 +527,17 @@
   function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }
   function rootOf(id, by) { for (var i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; }
   function threads() {
-    var by = byId(), t = {};
+    var by = byId(), t = {}, agRoot = {};
+    // AGENT-ONE-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 02:43:48Z "Roles have 2 channels?"): every agent thread whose name maps to the
+    // same role (agdLabel) joins that role's oldest thread, so old-named drafts show under one channel. Nothing is deleted or re-saved.
+    state.requests.slice().reverse().forEach(function (r) { var b = rootOf(r.id, by), x = by[b] || r;
+      if (x.agd && x.agd.agent) { var k = agdLabel(x.agd.agent).toLowerCase().replace(/ agent$/, ''); if (!agRoot[k]) agRoot[k] = b; } });
+    function home(id) { var b = rootOf(id, by), x = by[b]; return x && x.agd && x.agd.agent ? agRoot[agdLabel(x.agd.agent).toLowerCase().replace(/ agent$/, '')] || b : b; }
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
     allLines().forEach(function (m) {
-      var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
-      if (m.request_id && m.request_id.charAt(0) !== '>' && m.request_id.charAt(0) !== '@') get(rootOf(m.request_id, by)).lines.push(m); });   // "@<thread>": AGENT-TAG main-chat copy
-    state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
+      var q = askOf(m); if (q) { if (q.where) get(home(q.where)).lines.push(m); return; }   // a question with buttons lives where it was asked
+      if (m.request_id && m.request_id.charAt(0) !== '>' && m.request_id.charAt(0) !== '@') get(home(m.request_id)).lines.push(m); });   // "@<thread>": AGENT-TAG main-chat copy
+    state.requests.slice().reverse().forEach(function (r) { get(home(r.id)).reqs.push(r); });   // oldest first
     return t;
   }
   var NEED = { 'Needs you': 1, Failed: 1, 'Done, drafts incomplete': 1, 'Done, check Canvas': 1, 'Done, not all saved': 1, Reopened: 1 }, WORK = { Working: 1, 'Writing to Canvas': 1, 'Making drafts': 1, Saving: 1 };

@@ -12,7 +12,7 @@
   var $ = function (id) { return document.getElementById(id); };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // ROLE-NAMES-2026-11-16: the name Kiko sees for an agent; the stored name stays the key (CueAgentDrafts.gs cueAgdLabel_).
-  function agdLabel(v) { return String(v == null ? '' : v).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist').replace(/\bAS\b/g, 'Account Specialist').replace(/\bMM\b/g, 'Multimedia'); }   // AGENT-FULL-NAMES-2026-11-18 (Kiko 02:15:58Z: "why are the names AS, MM?")
+  function agdLabel(v) { var s = String(v == null ? '' : v), t = s.replace(/^\s*BSE\s*[\u2014-]?\s*/i, ''); if (!t.trim()) return s; var R = [[/email intake/i, 'Email Intake'], [/\bECII\b|procurement|event coordinator ii\b/i, 'Procurement Specialist'], [/\bECI\b|event specialist|event coordinator i\b/i, 'Event Specialist'], [/\bAS\b|account specialist/i, 'Account Specialist'], [/\bMM\b|multimedia/i, 'Multimedia'], [/\bfinance\b/i, 'Finance'], [/\badmin\b/i, 'Admin']]; for (var i = 0; i < R.length; i++) if (R[i][0].test(i === 3 || i === 4 ? t.replace(/\b(as|mm)\b/g, '') : t)) return R[i][1] + (/\sagent\s*$/i.test(s) ? ' agent' : ''); return s; }   // AGENT-ONE-CHANNEL-2026-11-18 (Kiko 02:43:48Z "Roles have 2 channels?"): every name an agent ever used maps to one role name
   function peso(n) { return 'PHP ' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
   function call(fn, args, ok, bad) {
     var r = google.script.run.withSuccessHandler(function (x) { $('dot').style.background = 'var(--ok)'; ok && ok(x); })

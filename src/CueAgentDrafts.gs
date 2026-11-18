@@ -22,7 +22,7 @@ function cueAgdLoad_() { try { return JSON.parse(PropertiesService.getScriptProp
 function cueAgdSave_(st) { PropertiesService.getScriptProperties().setProperty(CUE_AGD_.prop, JSON.stringify(st)); }
 // ROLE-NAMES-2026-11-16 item 5 (Kiko "APPROVE 1-8", 16 Nov 2026 15:57Z): the key uses the shown name, so drafts sent as "ECII agent" and
 // as "Procurement Specialist agent" share one thread.
-const cueAgdKey_ = a => cueAgdLabel_(String(a || '')).trim().toLowerCase().replace(/\s+/g, ' ');
+const cueAgdKey_ = a => cueAgdLabel_(String(a || '')).trim().toLowerCase().replace(/\s+/g, ' ').replace(/ agent$/, '');   // AGENT-ONE-CHANNEL-2026-11-18: "X" and "X agent" are one role
 
 /** From cueResume (CueJobs.gs): every 15 minutes. Returns how many new drafts it added, or null when not due. */
 function cueAgdTick_() { return cueAgdRead_(CUE_AGD_.every_min); }
@@ -88,7 +88,7 @@ const cueAgdCueStatus_ = st => CUE_AGD_STATUS_[st] || 'Closed';
  * dashboard labels approved "aproved 9 and 10"). Display only: the agent name Canvas stores ("ECII agent") stays the thread key and is
  * what agent_message sends, so threads and draft_status keep working. Cue shows the new name everywhere Kiko reads it, and a tag with
  * either name reaches the same agent. Same map in IndexChat.html agdLabel. */
-function cueAgdLabel_(name) { return String(name == null ? '' : name).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist').replace(/\bAS\b/g, 'Account Specialist').replace(/\bMM\b/g, 'Multimedia'); }   // AGENT-FULL-NAMES-2026-11-18 (Kiko 02:15:58Z: "why are the names AS, MM?")
+function cueAgdLabel_(name) { var s = String(name == null ? '' : name), t = s.replace(/^\s*BSE\s*[\u2014-]?\s*/i, ''); if (!t.trim()) return s; var R = [[/email intake/i, 'Email Intake'], [/\bECII\b|procurement|event coordinator ii\b/i, 'Procurement Specialist'], [/\bECI\b|event specialist|event coordinator i\b/i, 'Event Specialist'], [/\bAS\b|account specialist/i, 'Account Specialist'], [/\bMM\b|multimedia/i, 'Multimedia'], [/\bfinance\b/i, 'Finance'], [/\badmin\b/i, 'Admin']]; for (var i = 0; i < R.length; i++) if (R[i][0].test(i === 3 || i === 4 ? t.replace(/\b(as|mm)\b/g, '') : t)) return R[i][1] + (/\sagent\s*$/i.test(s) ? ' agent' : ''); return s; }   // AGENT-ONE-CHANNEL-2026-11-18 (Kiko 02:43:48Z "Roles have 2 channels?"): every name an agent ever used maps to one role name
 
 /** What happened to a draft, as one line in its thread. Pure. */
 function cueAgdLine_(a) {
