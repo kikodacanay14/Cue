@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.99: a ⋯ menu on each message with Reply, Flag and Dismiss (not deployed)
+
+Asked by Kiko, 18 Nov 2026 10:13:48Z: "for the messages we should have a ... and when clicked it would show Reply, Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?"; 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender".
+
+- Each Cue or agent message has one ⋯ button (on hover; always shown on a phone) in place of the separate reply and flag buttons. It opens Reply (when the message belongs to a task), Flag or Unflag, and Dismiss. A flagged message keeps its filled flag beside the ⋯.
+- Dismiss on a General line hides it and asks "Dismissed. Why?": Just this email, This subject, This sender, All <type> emails, or Something else (typed words). Any answer except Just this one saves a rule that hides later messages like it; the rule is listed in Settings › Channel rules as "Hidden (dismissed)" and Remove stops it. Undo brings the line back.
+- Dismiss on any other message (a channel line, an agent message) hides it with Undo in its place; the Dismissed tab of the Cue sheet keeps a copy. A dismissed agent message leaves the channel's number.
+- Nothing is sent and nothing in Canvas changes.
+- Tests: 929/929.
+
 ## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (live as Version 267, 18 Nov 2026 10:08Z; rollback Version 266. Version 266, 09:11Z, carried all of it except 1.28.97's last change, Project and Process Updates, which Version 267 adds)
 
 Release contents (Kiko, 18 Nov 2026 08:41:31Z: "wait lets include the other changes"): this release also carries every change on

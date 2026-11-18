@@ -14,7 +14,7 @@ function tcBox(min) {
     askHtml: m => /^\?ask/.test(m.request_id || '') ? '<div class="actions"><button>Keep</button><button>Undo</button></div>' : '',
     richText: tcEsc, tickText: m => tcEsc(m.text), msgWhen: () => '', replyTitle: () => '', workHtmlOf: () => '', wrongHtml: () => '', requestHtml: () => '',
     cardOf: r => '<div class="card"><b>' + r.id + '</b></div>', todayTasksHtml: () => '', threadTitle: () => 'Email to Infor', threadState: () => ({ need: true, text: 'Needs you' }),
-    $: id => id, setHtml: (id, h) => { out[id] = h; }, bind: () => {}, flagBtn: () => '', lineFlagItem: () => null };
+    $: id => id, setHtml: (id, h) => { out[id] = h; }, bind: () => {}, flagBtn: () => '', moreBtn: () => '', isDismissed: () => false, lineFlagItem: () => null };
   vm.runInNewContext(code, box);
   return box;
 }

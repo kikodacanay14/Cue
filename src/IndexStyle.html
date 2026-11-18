@@ -224,6 +224,15 @@
   .msg .rp.fl svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .msg .rp.fl.on { opacity:1; color:var(--need); border-color:var(--need); } .msg .rp.fl.on svg { fill:currentColor; }
   @media (hover:none) { .msg .rp.fl { opacity:.7; } }
+  /* CUE-MSG-MENU-2026-11-18: the ⋯ button (the filled flag beside it while flagged) and its menu: Reply, Flag or Unflag, Dismiss. */
+  .msg .rp.more { right:-40px; } .msg .rp.more + .rp.fl { right:-76px; }
+  .msg .rp.more svg { width:16px; height:16px; fill:currentColor; stroke:currentColor; stroke-width:1.2; }
+  @media (hover:none) { .msg .rp.more { opacity:.7; } }
+  .msg .msgmenu { position:absolute; right:-40px; top:calc(50% + 20px); z-index:30; min-width:150px; display:flex; flex-direction:column; padding:4px; background:var(--panel); border:1px solid var(--line2); border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,.12); white-space:normal; }
+  .msg .msgmenu[hidden] { display:none; }
+  .msg .msgmenu button { text-align:left; padding:8px 12px; border:0; background:none; color:var(--text); font:inherit; font-size:14px; border-radius:4px; cursor:pointer; }
+  .msg .msgmenu button:hover, .msg .msgmenu button:focus-visible { background:var(--soft); }
+  .msg .msgmenu [data-dismiss] { color:var(--bad); }
   .msg.flg .agft { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:6px; }
   .flagnone { padding:16px 4px; }
   .msg .quote { display:block; border-left:3px solid var(--act); padding:2px 8px; margin:2px 0 6px; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

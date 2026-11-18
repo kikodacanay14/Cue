@@ -29,3 +29,28 @@ function cueFlag(item, on) {
     return cueFlags_();
   });
 }
+
+/* CUE-MSG-MENU-2026-11-18 (Kiko 18 Nov 2026 10:13:48Z "for the messages we should have a ... and when clicked it would show Reply,
+ * Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss"). Dismiss hides one message that is not a
+ * General line (a General line is hidden through the channel move, CueChannels.gs). The Dismissed tab keeps one row per hidden
+ * message, with a copy of what it said; Undo deletes the row. Nothing is sent, and nothing in Canvas changes. Keys as for flags. */
+const CUE_DISMISS_SHOW_ = 500;   // newest dismissed keys the page gets
+
+function cueDismissed_() {
+  const sh = cueSheet_('Dismissed'), n = sh.getLastRow() - 1; if (n < 1) return [];
+  return sh.getRange(2, 1, n, 1).getValues().map(r => String(r[0])).filter(Boolean).reverse().slice(0, CUE_DISMISS_SHOW_);
+}
+
+/** Dismisses (on = true) or brings back one message. item: { key, who, time, text }. Returns the dismissed keys, newest first. */
+function cueDismiss(item, on) {
+  cueOwner_();
+  const it = item || {}, key = String(it.key || '');
+  if (!CUE_FLAG_KEY_RE_.test(key)) throw new Error('Cue could not tell which message to dismiss.');
+  return cueLocked_(() => {
+    const sh = cueSheet_('Dismissed'), n = sh.getLastRow() - 1, keys = n > 0 ? sh.getRange(2, 1, n, 1).getValues().map(r => String(r[0])) : [];
+    const at = keys.indexOf(key);
+    if (on && at < 0) sh.appendRow([key, new Date(cueNow_()).toISOString(), String(it.who || '').slice(0, 80), String(it.time || '').slice(0, 40), String(it.text || '').slice(0, 2000)]);
+    if (!on && at >= 0) sh.deleteRow(at + 2);
+    return cueDismissed_();
+  });
+}
