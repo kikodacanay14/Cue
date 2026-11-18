@@ -15,6 +15,7 @@ const CUE_DEV_ = false;
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
+  Flagged: ['Key', 'Flagged at', 'Kind', 'From', 'Who', 'Time', 'Text', 'Thread'],   // messages Kiko flagged to get back to (CueFlags.gs)
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created', 'Project ID', 'Role'],   // team inbox chats (CueInbox.gs); Project ID: a project chat made from a Canvas project (CueInboxProjects.gs)
   'Inbox Messages': ['Message ID', 'Chat ID', 'Created', 'From', 'Kind', 'Body', 'Status', 'Reply', 'Replied at', 'Reply source', 'Decision', 'Decided at', 'Tool', 'Decided by', 'Reason'],   // team inbox messages (CueInbox.gs)
@@ -1005,22 +1006,22 @@ function cueSettleReopened_(ref) {
   } catch (e) { console.error('Settle reopened: ' + e); }
 }
 /** PC recheck 22 Oct 05:00Z: an older card that a newer task replaced stayed open at Needs you. Closes every task at Needs you
- * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread; failed = also a Failed one. Only for cards that wrote
+ * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread (a string, or line(x) for the closed run); failed = also a Failed one. Only for cards that wrote
  * nothing: callers pick tasks not yet approved. Returns the ids closed. */
 function cueCloseSuperseded_(keep, line, failed) {
-  const closed = [];
+  const closed = [], was = {};
   try {
     cueLocked_(() => {
       const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
       rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
       const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
       Object.keys(by).forEach(k => { const x = by[k]; if ((x.status === 'Needs you' || (failed && x.status === 'Failed')) && keep(x, root(k))) {
-        x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); } });
+        x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); was[k] = x; } });
     });
   } catch (e) { console.error('Close superseded: ' + e); }
   // PC recheck 24 Oct: one line per thread, however many of its runs closed.
   const said = {};
-  if (line) closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', line, k); } });   // CLOSE-OLDER-ONE-LINE-2026-10-31: '' = no per-thread line
+  if (line) closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', typeof line === 'function' ? line(was[k]) : line, k); } });   // CUE-PLAIN-STATUS-2026-11-18: a function names the closed run   // CLOSE-OLDER-ONE-LINE-2026-10-31: '' = no per-thread line
   return closed;
 }
 /** The root of ref's thread is a Bid check (or the thread holds one): Kiko's bid words there are about bids, whatever card is waiting. */
@@ -1040,6 +1041,29 @@ const CUE_STATE_JOB_RE_ = /"kind":"(sweep|k0|k0fn|funnel|bids|status|skillobs|re
 function cueStateJob_(s) {
   if (!s || !CUE_STATE_JOB_RE_.test('"kind":"' + s.kind + '"')) return '';
   return s.kind === 'gtask' ? (s.gt && s.gt.key ? 'gtask:' + s.gt.key : '') : s.kind;
+}
+/* CHANNEL-SEEN-2026-11-18 (Kiko 18 Nov 2026 08:37:10Z "the number in the thread i thought we had that changed already?", 08:38:43Z
+ * "also i have clicked on each of those messages"): Cue keeps, per channel or thread, when Kiko last opened it. The page leaves an
+ * agent update or a job report that came before that time out of the channel's number. Drafts waiting for his Approve or Reject still
+ * count. Cue only: nothing is marked read in Canvas. Kept in script property CUE_CHAN_SEEN, newest 200 keys. */
+const CUE_SEEN_KEEP_ = 200;
+function cueStateFlags_() { try { return cueFlags_(); } catch (e) { console.error('cueFlags_: ' + e); return []; } }   // CUE-FLAG-2026-11-18
+function cueSeenMap_() {
+  try { const o = JSON.parse(cueProp_('CUE_CHAN_SEEN', '{}')); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+}
+function cueSeen(key, iso) {
+  cueOwner_();
+  const k = String(key || ''), t = Date.parse(String(iso || ''));
+  if (!/^[\w:.@-]{1,120}$/.test(k) || !isFinite(t)) throw new Error('Cue could not note that you opened this channel.');
+  const at = new Date(Math.min(t, Date.now() + 60000)).toISOString();
+  return cueLocked_(() => {
+    const m = cueSeenMap_();
+    if (!m[k] || m[k] < at) m[k] = at;
+    const keep = Object.keys(m).sort((a, b) => (m[a] < m[b] ? 1 : m[a] > m[b] ? -1 : 0)).slice(0, CUE_SEEN_KEEP_), out = {};
+    keep.forEach(x => { out[x] = m[x]; });
+    PropertiesService.getScriptProperties().setProperty('CUE_CHAN_SEEN', JSON.stringify(out));
+    return out;
+  });
 }
 function cueState() {
   cueOwner_();
@@ -1093,7 +1117,7 @@ function cueState() {
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
   // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
   let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), flags: chk ? [] : cueStateFlags_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

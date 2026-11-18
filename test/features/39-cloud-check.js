@@ -116,7 +116,7 @@ test('CK10 the chasing sweep in a check run reads only: its own batch, no sweep 
   t.call('cueSend', 'run the chasing sweep now', [], '');
   const st = t.call('cueState').result, b = st.requests.filter(r => r.kind === 'sweep');
   deq(b.length, 1); assert.notStrictEqual(b[0].id, kiko, 'the check opened its own batch, not Kiko\'s');
-  assert.ok(st.chat.some(c => /^Morning batch is ready: /.test(c.text)), JSON.stringify(st.chat.map(c => c.text)));
+  assert.ok(st.chat.some(c => /^Your morning chaser batch is ready for your OK: /.test(c.text)), JSON.stringify(st.chat.map(c => c.text)));
   const items = b[0].batch.items, rfq = items.filter(i => i.kind === 'rfq'), accr = items.filter(i => i.kind === 'accreditation');
   assert.ok(rfq.length && accr.length, 'both kinds found something');
   assert.ok(!rfq.some(i => /accredit|registration|procurement/i.test(i.project + ' ' + i.subject + ' ' + i.body)), JSON.stringify(rfq.map(i => i.project)));

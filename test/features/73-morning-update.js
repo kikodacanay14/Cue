@@ -8,7 +8,7 @@ const k0Main = t => t.tabs.Chat.rows.filter(r => /^>/.test(String(r[3])) || r[3]
 
 test('K1 8 AM (weekdays): Yesterday, Today\'s focus, New opportunities and New clients; no chasers in the morning; the batch posts nothing to the main chat', () => {
   const t = k0Box(); t.ctx.cueSweep();
-  assert.ok(!k0Main(t).some(r => /Morning batch is ready/.test(r[2])), 'R2: the batch line stays in its thread');
+  assert.ok(!k0Main(t).some(r => /morning chaser batch is ready/.test(r[2])), 'R2: the batch line stays in its thread');
   const ai = t.log.gpt.length; t.at('2026-10-21', 8, 0);
   const o = t.ctx.cueK0Run_(false, 'am'); assert.ok(o.request_id); assert.strictEqual(t.log.gpt.length, ai, 'no AI call');
   const x = t.tabs.Chat.rows.filter(r => r[3] === o.request_id)[0][2];
@@ -46,7 +46,7 @@ test('K4 the 8 AM update off in Cue Admin brings the old posts back; on, the bac
   assert.strictEqual(t.ctx.cueJobOn_('sys-newmail'), false); assert.strictEqual(t.ctx.cueJobOn_('sys-crm'), true);
   t.ctx.cueSchedSet('sys-k0', { on: false }); t.ctx.CUE_K0_ON_ = null;
   t.ctx.cueSweep();
-  assert.ok(k0Main(t).some(r => /Morning batch is ready/.test(r[2])), 'old pointer back');
+  assert.ok(k0Main(t).some(r => /morning chaser batch is ready/.test(r[2])), 'old pointer back');
   const page = cuePage(); assert.ok(/data-sc-on|class="tag" title="Posts nothing to the chat/.test(page));
 });
 

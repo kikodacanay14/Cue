@@ -11,7 +11,7 @@ function chThreads(reqs, lines) {
   vm.runInNewContext("function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }\n" + CH_SRC.slice(a, z) + '\nthis.t = threads(); this.chanKey = chanKey;', c);
   return c;
 }
-test('CH1 each scheduled job is one channel: every run joins the oldest run; Project Reviews takes the admin and readiness reviews; Cue Dev and release notes go to Updates', () => {
+test('CH1 each scheduled job is one channel: every run joins the oldest run; every ChatGPT scheduled task joins Jobs › Updates (Kiko 08:49:40Z); Cue Dev and release notes go to Systems › Updates', () => {
   const c = chThreads([
     { id: 'b2', kind: 'bids', created: '2026-11-18' }, { id: 'b1', kind: 'bids', created: '2026-11-17' },
     { id: 'g2', kind: 'gtask', gt: { key: 'admin_payments' }, created: '2026-11-18' }, { id: 'g1', kind: 'gtask', gt: { key: 'production_readiness' }, created: '2026-11-17' },
@@ -21,16 +21,16 @@ test('CH1 each scheduled job is one channel: every run joins the oldest run; Pro
     { id: 'a1', agd: { agent: 'AS' }, created: '2026-11-18' }, { id: 'x1', kind: 'intake', created: '2026-11-18' }],
     [{ who: 'Cue', request_id: 'b2', text: 'new bids' }, { who: 'Cue', request_id: '', text: 'The sweep did not run today' }, { who: 'Cue', request_id: '', text: 'Good morning' }]);
   const byName = (x, y) => x.localeCompare(y), keys = Object.keys(c.t).sort(byName);
-  deq(JSON.parse(JSON.stringify(keys)), ['a1', 'b1', 'g1', 'g3', 'r1', 's1', 'sys:alerts', 'x1'].sort(byName));
-  deq([c.t.b1.chan, c.t.g1.chan, c.t.g3.chan, c.t.s1.chan, c.t.r1.chan, c.t['sys:alerts'].chan, c.t.a1.chan, c.t.x1.chan],
-    ['job:bids', 'job:reviews', 'job:gt:lead_scan', 'job:updates', 'sys:updates', 'sys:alerts', '', '']);
+  deq(JSON.parse(JSON.stringify(keys)), ['a1', 'b1', 'r1', 's1', 'sys:alerts', 'x1'].sort(byName));
+  deq([c.t.b1.chan, c.t.s1.chan, c.t.r1.chan, c.t['sys:alerts'].chan, c.t.a1.chan, c.t.x1.chan], ['job:bids', 'job:updates', 'sys:updates', 'sys:alerts', '', 'proc:projects'], 'a client intake joins Process Updates › Project Updates (Kiko 09:04:16Z)');
+  deq(JSON.parse(JSON.stringify(c.t.s1.reqs.map(r => r.id).sort(byName))), ['g1', 'g2', 'g3', 's1', 's2'], 'the ChatGPT tasks and the Morning batch share Jobs › Updates');
   deq(c.t.b1.reqs.map(r => r.id), ['b1', 'b2'], 'oldest first'); deq(c.t.b1.lines.length, 1, 'a run\'s lines follow it into the channel');
   deq(c.t.r1.reqs.map(r => r.id).sort(byName), ['d1', 'r1'], 'Cue Dev and release notes share Updates');
   deq(c.t['sys:alerts'].lines.map(m => m.text), ['The sweep did not run today'], 'only the failure note goes to Alerts');
   deq(c.t._home('b2'), 'b1', 'a run\'s own id finds its channel');
 });
 test('CH2 the count beside a channel is what is open for Kiko to review: Needs you tasks, agent drafts Waiting for Kiko and Unread updates; zero shows nothing', () => {
-  const a = CH_SRC.indexOf('  function reviewN(t) {'), z = CH_SRC.indexOf('\n  }\n', a) + 4, ctx = {};
+  const a = CH_SRC.indexOf('  function seenOut('), z = CH_SRC.indexOf('\n  }\n', CH_SRC.indexOf('  function reviewN(')) + 4, ctx = { state: {} };
   const b = CH_SRC.indexOf('  var NEED = {'), e = CH_SRC.indexOf('  var OLDK = {');
   vm.runInNewContext(CH_SRC.slice(b, e) + CH_SRC.slice(a, z) + '\nthis.reviewN = reviewN;', ctx);
   deq(ctx.reviewN({ reqs: [{ status: 'Needs you' }, { status: 'Done' }, { agd: { status: 'Waiting for Kiko' } }, { agd: { status: 'Unread' } }, { agd: { status: 'Read' } }, { status: 'Working', nudge: 1 }] }), 4);
@@ -38,7 +38,7 @@ test('CH2 the count beside a channel is what is open for Kiko to review: Needs y
 });
 test('CH3 the list: General first, then Agent Updates, Jobs (CRM and To do from Canvas on top), Systems, Threads; agents show initials; General has no Cue icon', () => {
   assert.ok(CH_SRC.includes(`h += '<button class="trow gen' + (openThread ? '' : ' sel') + '" data-general="1"><i class="dot"`), 'General row, a dot not the Cue logo');
-  assert.ok(CH_SRC.includes("[['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
+  assert.ok(CH_SRC.includes("[['proc', 'Project and Process Updates'], ['agent', 'Agent Updates'], ['sys', 'Systems'], ['rest', 'Threads']]"));
   assert.ok(CH_SRC.includes(`(x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title))`));
   assert.ok(CH_SRC.includes("if (b.hasAttribute('data-general')) return goGeneral();"));
 });

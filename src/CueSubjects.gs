@@ -52,7 +52,7 @@ function cueSchedTidy_(id) {
     const job = cueSubjJob_(L.s), today = cueMnlDay_(cueNow_());
     if (job && CUE_SUBJ_OLD_[L.s.kind]) {
       out.closed = cueCloseSuperseded_(x => x.id !== id && cueSubjJob_(x) === job && !x.phased && !x.approved_at
-        && x.created && cueMnlDay_(Date.parse(x.created)) < today, 'Closed: today\'s run of this job replaced it. Nothing was sent or changed.', true);
+        && x.created && cueMnlDay_(Date.parse(x.created)) < today, x => 'Cue closed ' + cueTaskName_(x) + ' from ' + cueSayWhen_(x.created) + ' because today\'s run of the same job replaced it. Nothing was sent or changed.', true);   // CUE-PLAIN-STATUS-2026-11-18
     }
     const key = cueSubjOf_(job); if (!key) return out;
     const root = cueSubjRoot_(key);

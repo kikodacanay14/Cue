@@ -31,6 +31,16 @@ function cueAddWork_(day, n) {
 // From CuePipeline.gs (HUBSPOT-REMOVAL, Kiko 1 Nov 2026: "Delete the Hubspot code"): moved here unchanged when the pipeline review was deleted.
 const CUE_DAY_ = 864e5, CUE_MNL_ = 8 * 3600e3;   // Manila is UTC+8 all year
 function cueMnlDay_(ms) { return new Date(ms + CUE_MNL_).toISOString().slice(0, 10); }
+/** CUE-PLAIN-STATUS-2026-11-18 (Kiko 18 Nov 08:35Z: "make communications complete sentences ... make sure that there is context"):
+ * a moment as Manila "17 Nov, 1:18 PM" for chat lines; '' when there is no date. */
+function cueSayWhen_(iso) {
+  const ms = typeof iso === 'number' ? iso : Date.parse(iso || ''); if (!ms) return '';
+  const d = new Date(ms + CUE_MNL_), h = d.getUTCHours();
+  return d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + ', '
+    + ((h % 12) || 12) + ':' + String(d.getUTCMinutes()).padStart(2, '0') + (h < 12 ? ' AM' : ' PM');
+}
+/** A sentence's first word in lower case when it is an ordinary word ("No P stage" -> "no P stage"; "P1" stays). */
+function cueLcFirst_(t) { t = String(t || ''); return /^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; }
 /** Working days (Mon-Fri, Manila) from one moment to another: 0 on the same day. */
 function cuePipeWorkDays_(from, to) {
   let n = 0, t = Date.parse(cueMnlDay_(from) + 'T00:00:00Z');

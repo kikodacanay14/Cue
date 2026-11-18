@@ -4,7 +4,7 @@ const AGC_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.
 const AGC = (() => {
   const a = AGC_SRC.indexOf('  var agdOpen = {};'), b = AGC_SRC.indexOf("  $('tmsgs').addEventListener('click', function (e) {\n    var b = e.target.closest && e.target.closest('[data-agd-open]')");
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const ctx = { esc, noTok: t => String(t || ''), msgWhen: () => '16:00', agdLabel: v => String(v).replace(/\bECII\b/g, 'Procurement Specialist'), cardOf: r => '<div class="card">CARD ' + r.id + '</div>' };
+  const ctx = { esc, noTok: t => String(t || ''), msgWhen: () => '16:00', agdLabel: v => String(v).replace(/\bECII\b/g, 'Procurement Specialist'), cardOf: r => '<div class="card">CARD ' + r.id + '</div>', flagBtn: () => '' };
   const CARDS = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8'), k = CARDS.indexOf('  function agKv(');   // AGENT-CARD-LABELS-2026-11-18
   vm.runInNewContext(CARDS.slice(k, CARDS.indexOf('\n  }\n', k) + 4) + AGC_SRC.slice(a, b) + '\nthis.f = { agentSays, agentReplies, agentEcho, agentBubble, agdOpen };', ctx); return ctx.f;
 })();

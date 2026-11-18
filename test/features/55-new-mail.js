@@ -41,10 +41,12 @@ test('NM1 new mail: the first tick only notes where Gmail and info@ are; the nex
   assert.strictEqual(t.props.CUE_NM_HISTORY, '600', 'the window moves once the lines are saved');
   assert.strictEqual(t.tabs['Triage log'].rows.length - 1, 3, 'every line shown is logged, junk included');
   const claimed = t.ctx.cueTriageClaimed_(); assert.ok(claimed['m:n1'] && claimed['m:info:44dd000000000004'] && claimed['m:n2'], 'the Morning batch never shows them again');
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /^2 new emails \(1 to info@\)\. Claude sorts them within 30 minutes\.$/.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /^2 new emails arrived, 1 of them at info@\. Claude will sort them in New mail within 30 minutes\.$/.test(r[2])));
   const chats = s.nm.items.map(x => x.chat_id); assert.ok(chats.every(Boolean) && chats[0] !== chats[1], 'ACC-6: one chat per email');
   chats.forEach(c => assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + c), 'one line in the main chat points to each email chat'));
   assert.ok(!t.log.replies && !t.log.sent && !t.log.gmail.length, 'nothing is drafted or sent');
+  const sortedLine = t.tabs.Chat.rows.filter(r => r[3] === id && /^Claude sorted/.test(r[2])).map(r => r[2]);   // CUE-PLAIN-STATUS-2026-11-18
+  deq(sortedLine, ['Claude sorted 2 new emails in New mail: 1 new inquiry, 1 needs your reply.']);
   t.ctx.__wait(5 * 60e3); assert.strictEqual(t.ctx.cueNmTick_(), ''); assert.strictEqual(t.state(id).nm.items.length, 2, 'the same mail again: nothing added'); assert.strictEqual(t.log.nmSorts, 1);
   const v = t.ctx.cueState().requests.filter(r => r.id === id)[0]; assert.strictEqual(v.nm.items.length, 2); assert.ok(/#all\/11aa000000000001$/.test(v.nm.items[0].url)); assert.strictEqual(v.nm.items[1].url, '');
   assert.ok(!('text' in v.nm.items[1]), 'the page does not get the email text');
@@ -56,7 +58,7 @@ test('NM2 new mail: Claude sorts at most every 30 minutes and only 7 AM to 9 PM;
   assert.strictEqual(t.state(id).nm.items.filter(x => x.group === 'new').length, 1, 'shown at once, unsorted'); assert.strictEqual(t.log.nmSorts, 1, 'within 30 minutes: no call');
   t.setAdded([]); t.ctx.__wait(21 * 60e3); t.ctx.cueNmTick_(); assert.strictEqual(t.log.nmSorts, 2); assert.strictEqual(t.state(id).nm.items.filter(x => x.group === 'new').length, 0);
   const n = nmSandbox({ info: [] }); n.ctx.__wait(11 * 3600e3); const nid = nmRun(n);   // 22:05 Manila
-  assert.ok(!n.log.nmSorts, 'night: no AI'); assert.ok(n.tabs.Chat.rows.some(r => r[3] === nid && /Claude sorts them after 7:00/.test(r[2])));
+  assert.ok(!n.log.nmSorts, 'night: no AI'); assert.ok(n.tabs.Chat.rows.some(r => r[3] === nid && /Claude will sort (it|them) in New mail after 7:00\./.test(r[2])));
   n.ctx.cueNmItem(nid, n.state(nid).nm.items[0].key, 'done');
   n.setAdded(['55ee000000000005']); n.ctx.__wait(9 * 3600e3); const d2 = n.ctx.cueNmTick_();   // 07:10 Manila the next day
   assert.notStrictEqual(d2, nid); const s2 = n.state(d2); assert.strictEqual(s2.day, '2026-10-22'); assert.strictEqual(n.state(nid).status, 'Closed');
@@ -140,4 +142,14 @@ test('NM7 usage: the New mail sort counts as "New mail" on the AI usage page, no
   const { ctx } = sandbox();
   assert.strictEqual(ctx.cueUsageCmd_({}, 'cue-nm-abc123', 'New mail sort'), 'New mail');
   assert.strictEqual(ctx.cueUsageCmd_({}, 'cue-xyz', 'Some step'), 'Other (Some step)');
+});
+test('NM8 CUE-PLAIN-STATUS-2026-11-18 (Kiko 18 Nov 08:35Z "make communications complete sentences ... there is context"): an email is named by sender and subject; times read as Manila "17 Nov, 1:18 PM"', () => {
+  const { ctx } = sandbox();
+  assert.strictEqual(ctx.cueNmWho_({ who: 'Jessica Benavidez', subject: 'RFQ - VIDEOGRAPHER for SITE ID' }), 'Jessica Benavidez ("RFQ - VIDEOGRAPHER for SITE ID")');
+  assert.strictEqual(ctx.cueNmWho_({ sender: 'Leo Cruz <leo@brightlights.example>', subject: '' }), 'Leo Cruz');
+  assert.strictEqual(ctx.cueNmWho_({}), 'an unknown sender');
+  assert.strictEqual(ctx.cueSayWhen_('2026-11-17T05:18:00Z'), '17 Nov, 1:18 PM');
+  assert.strictEqual(ctx.cueSayWhen_('2026-11-17T16:05:00Z'), '18 Nov, 12:05 AM');
+  assert.strictEqual(ctx.cueSayWhen_(''), '');
+  assert.strictEqual(ctx.cueLcFirst_('No P stage changes'), 'no P stage changes'); assert.strictEqual(ctx.cueLcFirst_('P1 follow-ups'), 'P1 follow-ups');
 });

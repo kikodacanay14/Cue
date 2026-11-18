@@ -39,7 +39,8 @@ function cueFunnelStart_(text, how) {
     status: 'Working', stage: CUE_FUNNEL_STEPS_, ref: '', fn: { title: 'Sales funnel' }, metrics: { ai_calls: 0, calls: [] }, notes: [] };
   cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); });
   if (how !== 'daily') cueChat_('Kiko', s.text, '');
-  cueChat_('Cue', (how === 'daily' ? 'Daily sales funnel: ' : '') + 'Reading Canvas\'s P0 to P9 accounts and its deals in its own thread. Nothing is changed by the read.', how === 'daily' && cueK0On_() ? id : '>' + id);   // CUE-K0-2026-10-31 (R2)
+  cueChat_('Cue', 'Cue started ' + (how === 'daily' ? 'the daily' : 'a') + ' sales funnel check. It reads Canvas\'s P0 to P9 accounts and their deals in its own thread and changes nothing in Canvas.',   // CUE-PLAIN-STATUS-2026-11-18
+    how === 'daily' && cueK0On_() ? id : '>' + id);   // CUE-K0-2026-10-31 (R2)
   return { request_id: id, task: '' };
 }
 
@@ -81,10 +82,13 @@ function cueFunnelRead_(s) {
   if (s.status === 'Done') s.ready_at = cueNow_();
   cueMetrics_(s);
   // Each run is a full snapshot, so an older one still waiting is closed (nothing in it was written).
-  cueCloseSuperseded_(x => x.kind === 'funnel' && x.id !== s.id, 'Replaced by a newer funnel. Nothing was changed.');
+  // CUE-PLAIN-STATUS-2026-11-18 (Kiko 08:35Z: "Replaced by a newer funnel. Nothing was changed" needed a click to know what it meant).
+  cueCloseSuperseded_(x => x.kind === 'funnel' && x.id !== s.id, x => 'Cue closed the sales funnel check ' + (cueSayWhen_(x && x.created) ? 'from ' + cueSayWhen_(x.created) : 'that was still open')
+    + ' because a newer check of Canvas\'s P0 to P9 accounts replaced it. Nothing was changed in Canvas.');
   // CRM-UPDATES-2026-10-29: the update itself, in plain lines (Kiko 16:13Z: updates, not a dashboard).
   // The card below shows every line, so the thread's message carries only the first (Kiko 15:39Z: everything appears once).
-  cueChat_('Cue', 'Sales update: ' + F.lines[0] + (F.lines.length > 1 ? ' ' + (F.lines.length - 1) + ' more below.' : ''), s.id);
+  cueChat_('Cue', 'The sales funnel check of Canvas\'s P0 to P9 accounts found ' + cueLcFirst_(String(F.lines[0]).replace(/\.$/, ''))   // CUE-PLAIN-STATUS-2026-11-18
+    + (F.lines.length > 1 ? ', plus ' + (F.lines.length - 1) + ' more point' + (F.lines.length > 2 ? 's' : '') + ' on the card below.' : '.'), s.id);
 }
 
 /** CRM-P-STAGES-2026-10-29: companies per P stage from the P0 tab's rows ({ Priority, Company, 'Contact Count', 'Last Outreach Date',

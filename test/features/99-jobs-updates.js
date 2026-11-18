@@ -11,9 +11,9 @@ test('JU1 (Kiko 06:53:45Z "combine the Sales and 8am update updates in just 1 up
   vm.runInNewContext(JU_SRC.slice(a, z) + '\nthis.k = chanKey; this.n = JOB_NAME; this.now = chanNow;', c);
   deq(['k0', 'k0fn', 'sweep', 'funnel'].map(k => c.k({ kind: k })), ['job:updates', 'job:updates', 'job:updates', 'job:updates']);
   deq([c.k({ kind: 'funnel', subject: { key: 'sales' } }), c.k({ kind: 'gtask', subject: { key: 'morning' } })], ['job:updates', 'job:updates'], 'Sales and Morning day threads');
-  deq(c.n['job:updates'], 'Updates');
+  deq(c.n['job:updates'], 'Routine Checks', 'renamed (Kiko 09:08:03Z)');
   deq(['job:sweep', 'job:sales', 'job:funnel', 'job:bids'].map(x => c.now(x)), ['job:updates', 'job:updates', 'job:updates', 'job:bids'], 'old moves and rules land in Updates');
-  deq(juGroup({ chan: 'job:updates', reqs: [{ kind: 'k0' }] }), 'job');
+  deq(juGroup({ chan: 'job:updates', reqs: [{ kind: 'k0' }] }), 'proc', 'Jobs removed: a job channel sits in Project and Process Updates (Kiko 09:08:03Z)');
   deq(juGroup({ reqs: [{ kind: 'intake' }] }), 'rest', 'Project intake stays in Threads (Kiko: "that usually goes to Team Cue")');
   deq(juGroup({ reqs: [{ kind: 'email' }] }), 'rest');
 });

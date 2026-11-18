@@ -23,8 +23,9 @@ test('K82 job threads (Kiko 3 Nov "Own thread in Team Cue", mockup ok): each upd
   const fn = { id: 'cue-20261021131500-f00d', kind: 'funnel', created: new Date(Date.parse('2026-10-21T13:15:00+08:00')).toISOString(), status: 'Done', fn: { lines: ['Call Ana at Acme: P3 quote due Friday'] } };
   const sh = t.ctx.cueSheet_('Requests'); sh.appendRow([fn.id]); t.ctx.cueSave_(sh, sh.getLastRow(), fn);
   const o = t.ctx.cueK0Run_(false, 'pm'), rows = t.tabs.Chat.rows;
-  const main = rows.filter(r => /^>/.test(String(r[3])) && /^2 PM/.test(r[2]));
-  deq(main.map(r => r[2]), ['2 PM funnel: 1 follow-up.', '2 PM chasers: ' + t.state(o.request_id).k0.items.length + ' for your OK (reply "1, 3" or "all").']);
+  const main = rows.filter(r => /^>/.test(String(r[3])) && /2 PM/.test(r[2]));
+  const nOk = t.state(o.request_id).k0.items.length;
+  deq(main.map(r => r[2]), ['Your 2 PM sales funnel check found 1 follow-up due.', nOk + ' chaser' + (nOk === 1 ? ' is' : 's are') + ' ready for your OK at 2 PM. Reply with their numbers, like "1, 3", or "all", and Cue drafts them.']);
   assert.ok(!rows.some(r => /^>/.test(String(r[3])) && /Chasers for your OK|Call Ana/.test(r[2])), 'the lists stay in their threads');
   const fid = o.request_id + '-fn'; assert.strictEqual(t.state(fid).kind, 'k0fn');
   assert.ok(rows.some(r => r[3] === fid && /your 2 PM funnel follow-ups\n\n- Call Ana at Acme/.test(r[2])));

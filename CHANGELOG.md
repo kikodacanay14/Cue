@@ -1,5 +1,55 @@
 # Changelog
 
+## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (live as Version 267, 18 Nov 2026 10:08Z; rollback Version 266. Version 266, 09:11Z, carried all of it except 1.28.97's last change, Project and Process Updates, which Version 267 adds)
+
+Release contents (Kiko, 18 Nov 2026 08:41:31Z: "wait lets include the other changes"): this release also carries every change on
+main that is not live yet: 1.28.90 (requirements card 1 layout), 1.28.91 (Email Intake routing card), 1.28.92 (Email Intake card
+lists mail that fit no role), 1.28.93 (Admin check and Finance check cards), 1.28.95 (Open requirements rows by number) and 1.28.97 (from the Cue layout
+thread: the counter goes to 0 when a channel is opened, Flag and Unflag a message, scheduled runs under Jobs › Updates), and PR #439 (the 2 PM funnel follow-ups run is named "2 PM funnel follow-ups", not "Project intake"), each
+described below. Built on live 1.28.96 (Version 265) through main.
+
+Asked: Kiko, 18 Nov 2026 08:35:22Z, with a screenshot of "Replaced by a newer funnel. Nothing was changed.": "Please make
+communications complete sentences. Please make sure that there is context to the message. There is no need to breakdown the
+message. It could have been sent in just 1 or 2 sentences in the same chat." Slot cue-1.28.98, card cue-plain-status-lines.
+
+- Wording only. The lines Cue's background jobs post (sales funnel, new email, Claude's sort, morning chaser batch, 2 PM and 8 AM
+  updates, bid check, closing older runs) now say in one or two full sentences what happened and what it is about: which funnel
+  check closed and when, who sent a new email and its subject, what the sort decided. No behaviour, layout, rule or data changed.
+- Tests: wording assertions updated; NM8 new (sender and subject naming, Manila time). 917/917 pass.
+
+## Cue 1.28.97: the counter goes to 0 when a channel is opened, Flag and Unflag a message, scheduled runs under Jobs › Updates (live as Version 266 with 1.28.98)
+
+Asked by Kiko on 18 Nov 2026, on live Version 265:
+
+- 08:37:10Z: "the number in the thread i thought we had that changed already?"
+- 08:47:46Z: "when i enter the channel or the thread the counter goes back to 0. add a feature that allows me to Flag a message. Flagged
+  message now goes to a thread named Flagged - meaning these are the messages i wanna get back to later on"
+- 08:48:00Z: "when an item is Flagged i can also Unflag it"
+- 08:49:40Z: "All results from the scheduled jobs like the ones in the screenshot earlier put them under Jobs > Updates"
+
+Slot cue-1.28.97, card cue-channels-layout.
+
+- **Counter.** Cue records when Kiko opens a channel or thread, in the script property CUE_CHAN_SEEN (the newest 200). Everything from
+  before that time leaves the channel's number, drafts waiting for a decision included. Anything newer counts again. The row stops
+  saying Needs you once nothing counts. Nothing is marked read in Canvas.
+- **Flag.** A flag button sits beside each Cue or agent message: it shows on hover, is always shown on a phone, and is filled while
+  the message is flagged. Kiko's own messages have no flag.
+  - The Flagged channel sits under General. It lists the flagged messages, newest first. Each one shows who sent it, the channel it
+    came from, Open and Unflag.
+  - A new Flagged tab in the Cue sheet keeps one row per flagged message, so the list survives the chat scrolling past it. Unflag
+    deletes the row. Nothing is sent.
+- **Scheduled runs.** Every ChatGPT scheduled task's run now joins Jobs › Updates instead of Threads. This covers Daily personal
+  spending, the weekday records reviews, Repeat-event accounts and Moved-contact reconnection. The page never received those tasks'
+  keys, so they had no channel. Project Reviews is gone as a separate channel because its runs now go to Updates.
+- **Process Updates.** Asked at 09:04:16Z: "you still dont have here the CRM and Project Intake. If you want make a section name it
+  Process Updates then put under it CRM, Project Updates". A new first group, Process Updates, holds Canvas's CRM row (shown inside
+  Canvas) and one Project Updates channel. Every client intake joins that channel, the same way Jobs › Updates works. Canvas's To do
+  row stays in Jobs.
+- **Tests.** New: SEEN1 to SEEN3 and FLAG1 to FLAG3. CH1, CH2, AGG2, THC1, THC2 and AGC2 follow the new code. 922/922 pass.
+  Checked on the page on PC and on a phone.
+
+- Project and Process Updates (Kiko 18 Nov 2026 09:08:03Z "make it Project and Process Update - put there CRM, Project Intake, Bid Opportunities, Routine Checks - all the other jobs) and then remove Jobs"): the Process Updates section is renamed Project and Process Updates and now holds every job channel. CRM heads it, then Project Intake (renamed from Project Updates), Bid Opportunities, Routine Checks (renamed from Updates) and the other jobs newest first, with To do from Canvas last. The Jobs group is gone; the phone's Move to sheet uses the new name.
+
 ## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (live as Version 265, 18 Nov 2026 08:22Z; rollback Version 264)
 
 Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the
