@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (not deployed)
+
+Asked: Kiko, 18 Nov 2026 02:20Z, with a phone screenshot of the Threads pane: "In mobile there is no way to go back to the left
+panel. There should be a button here that does that. Also those Updates - put them in the left panel." Slot cue-1.28.83, card
+cue-mobile-back-updates-left. Deploy waits for Kiko's typed go.
+
+- Root cause of the missing button: `src/IndexPages.html` declared a second `var IC` (the email, text and app icons) in the same
+  page script as the pane's icon set in `src/IndexViewer.html`, so it replaced it. Every pane icon (the X that closes the pane,
+  search, filter, settings, the group chevrons, the reply count icon) drew `undefined`: the buttons were there but blank. The
+  channel icons are now `CH_IC`.
+- `src/IndexThreads.html`, `src/IndexStyle.html`: the pane header starts with a "Chat" back button at 900px and under (it closes the
+  pane, like the X it replaces there). Wide screens are unchanged.
+- `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: the agents' last-hour line and five newest updates moved from
+  under the Agents group in Threads to an "Agent updates" block above the main chat. Its header folds it away (remembered on this
+  device); a row still opens its agent's thread. The agent threads (AS, MM) stay in the Agents group.
+- Tests: AGF3 rewritten for the new place; MB1 and MB2 added (one `var IC`, back button). 874/874 pass.
+
 ## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (LIVE as Version 259, 17 Nov 2026 ~14:55Z, rollback 258)
 
 Asked: Kiko, 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing"; build yes 17 Nov 2026 13:32Z

@@ -52,6 +52,15 @@
   .ibtn:hover, .ibtn[aria-pressed="true"] { background:var(--panel); color:var(--white); } .ibtn:focus-visible { outline:2px solid var(--act); }
   .ibtn svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .pane-x, .pane-wide { display:none; }
+  /* MOBILE-BACK-2026-11-18: the pane's "Chat" back button, shown only where the pane covers or squeezes the chat (900px and under). */
+  .pane-back { all:unset; box-sizing:border-box; cursor:pointer; display:none; align-items:center; gap:4px; min-height:40px; padding:0 12px 0 6px; margin-left:-6px; border-radius:8px; color:var(--act); font:600 15px var(--font); flex:none; }
+  .pane-back svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .pane-back:hover { background:var(--panel); } .pane-back:focus-visible { outline:2px solid var(--act); }
+  /* AGENT-UPDATES-LEFT-2026-11-18: the agents' updates above the main chat; long lists scroll inside so the chat keeps its room. */
+  .agupd { flex:none; padding:6px 12px 4px; border-bottom:1px solid var(--line); background:var(--bg); }
+  .agupd[hidden] { display:none; }
+  .agupd .tgroup { margin:0 0 4px; }
+  .agupd .agbody { max-height:38vh; overflow:auto; }
   .pane.shut { display:none; }   /* PC test 17:42Z: ✕ closes the pane on a wide screen too; ☰ Threads opens it again */
   @media (min-width: 901px) { .pane-wide { display:inline-flex; } }
   .pane.wide { width:65%; max-width:none; }
@@ -167,7 +176,8 @@
     .viewer { width:50%; min-width:0; }
     .pane { width:50%; min-width:0; }
     .pane:not(.open) { display:none; }
-    .pane-x { display:inline-flex; }
+    .pane-x { display:none; }   /* MOBILE-BACK-2026-11-18: the Chat back button does this job on a narrow screen */
+    .pane-back { display:inline-flex; }
   }
   @media (max-width: 640px) {
     .pane.open { position:fixed; inset:0; width:auto; max-width:none; z-index:20; border-left:0; }
