@@ -13,7 +13,7 @@ const tickUpd = (n, state, extra) => agdUpd(n, Object.assign({ project: 'Canvas 
 function tickGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 const tickView = (state, agd) => { const b = agdBox({ drafts: [tickUpd(60, state)] }); b.t.ctx.cueAgdTick_(); const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))); Object.assign(v.agd, agd || {}); return v; };
@@ -44,9 +44,9 @@ test('ART2 a handover that is not an approval request, or one Kiko can no longer
 test('ART3 the decision text: APPROVE line with the ticked ready lines in row order, then one line per answer; no APPROVE line when none ticked', () => {
   const { ctx } = tickGrab(), rows = tickRows;
   assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.agdTickNote(rows, { t: { 'REQ26-31753-02': 1, 'REQ26-31753-01': 1, 'REQ26-31753-04': 1 }, a: { Q2: ' 3 m wide\n2.4 m high ', Q1: '120' } }))),
-    { note: 'APPROVE: REQ26-31753-01, REQ26-31753-02\nQ1: 120\nQ2: 3 m wide\n2.4 m high', ticked: 2, answered: 2 }, 'a waiting line is never approved, even if marked');
+    { note: 'APPROVE: REQ26-31753-01, REQ26-31753-02\nREQ26-31753-01: Execution=Outsourced\nREQ26-31753-02: Execution=Outsourced\nQ1: 120\nQ2: 3 m wide\n2.4 m high', ticked: 2, answered: 2, bad: [] }, 'a waiting line is never approved, even if marked');
   assert.strictEqual(ctx.agdTickNote(rows, { t: {}, a: { Q1: '120', Q2: ' ' } }).note, 'Q1: 120');
-  assert.strictEqual(ctx.agdTickNote(rows, { t: { 'REQ26-31753-01': 1 }, a: {} }).note, 'APPROVE: REQ26-31753-01');
+  assert.strictEqual(ctx.agdTickNote(rows, { t: { 'REQ26-31753-01': 1 }, a: {} }).note, 'APPROVE: REQ26-31753-01\nREQ26-31753-01: Execution=Outsourced');
   assert.strictEqual(ctx.agdTickNote(rows, undefined).note, '');
 });
 test('ART4 a line approved in an earlier reply shows Approved and cannot be ticked again; a plain "approve" approves every line', () => {
@@ -62,7 +62,7 @@ test('ART5 the page: Send decision passes one reply to Canvas with the decision 
   const { page } = tickGrab(), css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8'), chat = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexChat.html'), 'utf8');
   const s = page.indexOf("if (act === 'agd-tick-send')"), d = page.indexOf('if (/^agd-/.test(act))');
   assert.ok(s > d && /call\('cueAgdDecide', \[id, \{ decision: 'reply', note: tn \}\], function \(\) \{ delete agdTick\[id\]; done\(\); \}, fail\)/.test(page));
-  assert.ok(/tn\.length > 2000/.test(page), 'Canvas takes a note of up to 2,000 characters');
+  assert.ok(/tn\.length > 6000/.test(page), 'Canvas takes a note of up to 6,000 characters (AGENT-CARD-EDIT-2026-11-18)');
   assert.ok(/agdTick = \{\}/.test(chat) && /data-agtick-all/.test(page) && /data-agans/.test(page));
   assert.ok(/\.agdp \.agtick \{[^}]*min-width:44px[^}]*min-height:44px/.test(css), '44 px tap target');
   // The reply goes through the same Canvas call as any reply, and the bridge accepts it.

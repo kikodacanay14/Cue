@@ -18,7 +18,7 @@ function aupView(brief) {
 function aupGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUP1 pictures and the brief from Canvas are kept clean: Drive file IDs only, page a whole number, at most 20 per row', () => {
@@ -69,7 +69,10 @@ test('AUP4 card 1 top fields and row values: Project, Event, Client, Brief; Exec
   const lbls = (shut.match(/<div class="agmeta">.*?<\/div><div class="agdtw">/) || [''])[0].match(/class="lbl">[^<]+/g).map(x => x.slice(12));
   assert.deepStrictEqual(lbls, ['Project', 'Event', 'Client', 'Brief']);
   assert.ok(/S-31753672PA<br>Pandamart Likha/.test(shut) && /12 Dec 2026/.test(shut) && /AMI Group &lt;b&gt;/.test(shut), 'values escaped');
-  assert.ok(/<td class="c">In House<\/td><td class="c">2<\/td><td class="c">3<\/td>/.test(shut), shut);
+  // AGENT-CARD-EDIT-2026-11-18: on an approval request the values show in edit boxes, filled with the agent's values.
+  assert.ok(/<option selected>In House<\/option>/.test(shut) && /data-k="qty" aria-label="Qty for Arch" value="2"/.test(shut) && /data-k="occurrence" aria-label="Occurrence \(days\) for Arch" value="3"/.test(shut), shut);
+  const ro = ctx.agdUpdHtml(Object.assign({}, v, { agd: Object.assign({}, v.agd, { handover: Object.assign({}, v.agd.handover, { state: 'Delivered' }) }) }));
+  assert.ok(/<td class="c">In House<\/td><td class="c">2<\/td><td class="c">3<\/td>/.test(ro), 'a handover that asks nothing shows plain values');
   ctx.agdRowOpen[v.id] = 'REQ-1'; const open = ctx.agdUpdHtml(v);
   assert.ok(/Floral &lt;i&gt;arch&lt;\/i&gt;/.test(open) && /4 x 3 m<span class="rid">by MM/.test(open));
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
