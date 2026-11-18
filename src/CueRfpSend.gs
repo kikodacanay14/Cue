@@ -74,11 +74,13 @@ function cueRfpSendTick_() {
  * html (the client welcome) goes as the styled email with its plain text beside it, and logo (the outbox's base64 Canvas logo)
  * rides inline as cid:canvaslogo, so it looks the way it did from info@. */
 function cueRfpSendOne_(x, logo) {
-  const to = (x.to || []).map(cueEmail_).filter(Boolean), cc = (x.cc || []).map(cueEmail_).filter(Boolean);
-  if (!to.length) throw new Error('No supplier email to send it to.');
+  // CLIENT-QUESTION-2026-11-18: an agent's client question with the client's thread is a reply-all in it (cueRfpReplyAll_).
+  const ra = x.kind === 'agentclient' && x.thread_id ? cueRfpReplyAll_(x.thread_id) : null;
+  const to = ra ? ra.to : (x.to || []).map(cueEmail_).filter(Boolean), cc = ra ? ra.cc : (x.cc || []).map(cueEmail_).filter(Boolean);
+  if (!to.length) throw new Error(ra ? 'The client\'s thread has no one to reply to except you.' : 'No ' + (x.kind === 'agentclient' ? 'client' : 'supplier') + ' email to send it to.');
   const b64 = t => Utilities.base64Encode(Utilities.newBlob(String(t)).getBytes());
-  const subject = cueStr_(x.subject, 300).replace(/[\r\n]+/g, ' ');
-  const ref = x.thread_id ? cueRfpLastId_(x.thread_id) : '';
+  const subject = cueStr_(ra ? ra.subject : x.subject, 300).replace(/[\r\n]+/g, ' ');
+  const ref = ra ? ra.ref : x.thread_id ? cueRfpLastId_(x.thread_id) : '';
   const mime = 'To: ' + to.join(', ') + '\r\n' + (cc.length ? 'Cc: ' + cc.join(', ') + '\r\n' : '')
     + 'Subject: =?UTF-8?B?' + b64(subject) + '?=\r\n'
     + (ref ? 'In-Reply-To: ' + ref + '\r\nReferences: ' + ref + '\r\n' : '')
@@ -107,6 +109,25 @@ function cueRfpRich_(text, html, logo) {
   return 'Content-Type: multipart/related; boundary="r' + id + '"\r\n\r\n--r' + id + '\r\n' + alt + '--r' + id + '\r\n'
     + 'Content-Type: image/png; name="canvas.png"\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <canvaslogo>\r\n'
     + 'Content-Disposition: inline; filename="canvas.png"\r\n\r\n' + wrap(png) + '\r\n--r' + id + '--\r\n';
+}
+
+/** CLIENT-QUESTION-2026-11-18 (Kiko 18 Nov 2026 10:22:01Z: "When the client's Gmail thread is known, send a reply-all in that
+ * thread"). Reads the thread in Kiko's Gmail and answers what Gmail's Reply all would: To = the last email's Reply-To (else its From)
+ * plus its To; Cc = its Cc; Kiko left out, each address once. Subject = the thread's subject with "Re: ", so it stays in the thread.
+ * Drafts in the thread are skipped. Throws a plain reason when Gmail can't open the thread; then nothing is sent. */
+function cueRfpReplyAll_(threadId) {
+  let t;
+  try { t = cueGmail_('/threads/' + encodeURIComponent(threadId) + '?format=metadata' + ['From', 'To', 'Cc', 'Reply-To', 'Subject', 'Message-ID'].map(h => '&metadataHeaders=' + h).join('')); }
+  catch (e) { throw new Error('Gmail could not open the client\'s thread (' + cueStr_(String((e && e.message) || e), 150) + '). Nothing was sent.'); }
+  const msgs = (t.messages || []).filter(m => (m.labelIds || []).indexOf('DRAFT') < 0), last = msgs[msgs.length - 1];
+  if (!last) throw new Error('The client\'s thread has no email in your Gmail. Nothing was sent.');
+  const H = n => { const h = ((last.payload && last.payload.headers) || []).filter(x => String(x.name).toLowerCase() === n.toLowerCase())[0]; return h ? String(h.value || '') : ''; };
+  const me = String(cueMe_() || '').toLowerCase(), seen = {};
+  const list = s => (String(s || '').match(/[^\s<>,;"']+@[^\s<>,;"']+/g) || []).map(a => cueEmail_(a).toLowerCase())
+    .filter(a => a && a !== me && !seen[a] && (seen[a] = 1));
+  const from = list(H('Reply-To') || H('From')), to = from.concat(list(H('To'))), cc = list(H('Cc'));
+  const subj = cueStr_(H('Subject'), 290).replace(/[\r\n]+/g, ' ').trim();
+  return { to, cc, subject: /^re:/i.test(subj) ? subj : 'Re: ' + (subj || '(no subject)'), ref: H('Message-ID').replace(/[\r\n]/g, '') };
 }
 
 /** The Message-ID header of the last email in a thread, so the follow-up threads for the supplier too. '' when Gmail can't say. */
