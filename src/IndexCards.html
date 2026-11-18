@@ -780,6 +780,11 @@
       return m ? '<span class="agkv"><b>' + esc(m[1]) + ':</b>' + (m[2] ? ' ' + esc(m[2]) : '') + '</span>' : esc(ln);
     }).join('\n').replace(/<\/span>\n/g, '</span>');
   }
+  // AGENT-NEXT-LINES-2026-11-18 (Kiko 18 Nov 2026 14:47Z "please format this properly a line break after each item"): an agent's next
+  // step that joins several items with ". Note:" shows one item per line; "Waiting for client" starts its own line too. Display only.
+  function agdNextLines(t) {
+    return String(t == null ? '' : t).replace(/[ \t]+(?=(?:Note|Waiting for client)\b)/g, '\n');
+  }
   // AGENT-REQ-TICK-2026-11-18 (Kiko 18 Nov 2026 12:09:30Z "We can approve it by requirement so that other items are already started to be
   // worked on"; 12:10:28Z "please update cue card. maybe do check boxes for each requirement"; mockup approved 12:14:32Z "approved. this
   // still expands to show description and image", https://claude.ai/artifact/EtosX5ZVgNR4TVY8mQ7PZS). On an approval request (Waiting for
@@ -972,7 +977,7 @@
       + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
     var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + agKv(H.summary || A.body) + '</span>'],
-      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + agKv(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
+      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + agKv(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', H.next_action ? '<span style="white-space:pre-wrap">' + agKv(agdNextLines(H.next_action)) + '</span>' : 'Not given'],
       ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
     if (!ok && !wait && H.why) f.push(['Why Blocked', esc(H.why)]);
     h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';

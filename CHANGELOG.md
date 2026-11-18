@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue (next): one line per item in an agent's "Next:" text (not deployed)
+
+Asked by Kiko, 18 Nov 2026 14:47Z, on a screenshot of the Account Specialist's approval bubble: "please format this properly a
+line break after each item". Built on main 6cb665f (live Version 271, 1.28.102). No version slot claimed yet.
+
+- In an agent's bubble, each "Note:" in the "Next:" text now starts its own line, with "Note:" in bold like the other labels.
+  "Waiting for client" also starts its own line when it is not the first item. The words are unchanged.
+- The Details card's "Next action" row shows the same lines (it was one paragraph).
+- Cue now keeps up to 4,000 characters of the next step (was 1,000), the same as the summary and gaps.
+- Still cut: the text Kiko saw stopped at exactly 1,000 characters before it reached Cue. Canvas refuses a next step over 1,000
+  characters, so the AS agent shortens it before sending. Fixing the cut needs Canvas to accept a longer next step (or the AS
+  agent to send its notes in the gaps field, which takes 4,000); this release alone does not fix it.
+- Tests: 945 of 945 pass (new: test/features/99-agent-next-lines.js).
+
 ## Cue 1.28.102: Move in the ⋯ menu on each message; New mail's notes leave the chat (live as Version 271, 18 Nov 2026 14:00Z; rollback Version 270)
 
 Asked by Kiko, 18 Nov 2026 13:45:47Z: "maybe we should just add the Move function inside the ... in Cue". Slot cue-1.28.102,
