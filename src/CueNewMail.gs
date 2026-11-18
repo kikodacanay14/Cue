@@ -241,11 +241,23 @@ function cueNmKnown_(by, items) {
   });
 }
 
+/** CUE-JOBS-UPDATES-2026-11-18 (Kiko 18 Nov 2026 06:20:21Z "im trying to move Jessica Allyns email in General but it wont move"): an
+ * email's line in General names its sender ("mail:jessica@example.com") and its type ("type:Client") as its source, joined by "|", so
+ * a channel rule made from it moves that sender's later emails, or that kind, as Kiko picks; not every email. Neither: the old source. */
+function cueMailSrc_(x, dflt) {
+  const m = String((x && x.sender) || '').toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
+  // Kiko 06:24:17Z "there should be a question as to why i moved it there - its probably because of sender, content": the email's
+  // type (Client, Supplier…, set by the sort with no extra AI call) rides along, so the question can offer "this kind of email" too.
+  const t = String((x && x.type) || '').replace(/[|\n]/g, ' ').trim().slice(0, 40);
+  const parts = (m ? ['mail:' + m[0]] : []).concat(t ? ['type:' + t] : []);
+  return parts.length ? parts.join('|') : dflt;
+}
+
 /** ACC part 2a, after the sort: One line emails each get their own line in Main chat; One line and Ignore emails are marked read;
  * senders Claude typed are kept in Triage; a new type is added (setting One line) and Cue says so once in Main chat. */
 function cueNmTyped_(run, typed, types) {
   if (!typed) return;
-  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), '', 'mail-type'));
+  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), '', cueMailSrc_(x, 'mail-type')));
   cueMtMarkRead_(run, typed.read);
   if (typed.learn.length) { const sh = cueSheet_('Triage rules'), t = new Date(cueNow_()); typed.learn.forEach(p => sh.appendRow([String(p[0]).toLowerCase(), 'type:' + p[1], t, 'typed by Claude'])); }
   if (typed.newTypes.length) {
@@ -258,7 +270,7 @@ function cueNmProject_(proj) {
   if (!proj.length) return;
   const t = new Date(cueNow_()), log = cueSheet_('Triage log');
   proj.forEach(l => {
-    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '', 'mail-project');
+    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '', cueMailSrc_(l, 'mail-project'));
     log.appendRow([t, l.key.replace(/^inbox:/, ''), l.thread_id, l.sender, cueStr_(l.subject, 200), 'project', l.pid, '']);
   });
 }
