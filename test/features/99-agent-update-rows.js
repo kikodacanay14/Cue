@@ -22,8 +22,8 @@ test('AUR1 rows from Canvas are kept clean: only the approved fields, In House o
     { req_id: 'REQ26-2', name: 'Host', sourcing: 'Freelance', spec_by: 'ECII', needs_kiko: 'yes' },
     { req_id: 'REQ26-3', name: ' ' }, null, 'text'] });
   assert.deepStrictEqual(JSON.parse(JSON.stringify(h.rows)), [
-    { req_id: 'REQ26-1', name: 'Stage', sourcing: 'Outsourced', spec_by: 'MM', dimensions: '6 m W', needs_kiko: true, open_items: ['a', '2'], images: [] },
-    { req_id: 'REQ26-2', name: 'Host', sourcing: '', spec_by: '', dimensions: '', needs_kiko: false, open_items: [], images: [] }]);   // AGENT-ROW-PICTURES-2026-11-18 adds images
+    { req_id: 'REQ26-1', name: 'Stage', sourcing: 'Outsourced', spec_by: 'MM', dimensions: '6 m W', needs_kiko: true, open_items: ['a', '2'], images: [], description: '', qty: 0, occurrence: 0 },
+    { req_id: 'REQ26-2', name: 'Host', sourcing: '', spec_by: '', dimensions: '', needs_kiko: false, open_items: [], images: [], description: '', qty: 0, occurrence: 0 }]);   // AGENT-ROW-PICTURES-2026-11-18 adds images; AGENT-CARD1-LAYOUT-2026-11-18 adds description, qty, occurrence
   assert.deepStrictEqual(JSON.parse(JSON.stringify(t.ctx.cueAgdHand_({ summary: 'y' }).rows)), [], 'an update without rows has none');
   const many = t.ctx.cueAgdHand_({ rows: Array.from({ length: 130 }, (_, i) => ({ name: 'R' + i, open_items: Array(30).fill('x') })) });
   assert.strictEqual(many.rows.length, 100); assert.strictEqual(many.rows[0].open_items.length, 20);
@@ -37,10 +37,13 @@ test('AUR2 an update with rows is one short card; the panel is shut until tapped
   ctx.agdRows[v.id] = 1; const open = ctx.agdUpdHtml(v);
   assert.ok(/<aside class="agdp"/.test(open) && /aria-label="Pandamart Likha · 3 requirements"/.test(open));
   const heads = (open.match(/<th[^>]*>[^<]*<\/th>/g) || []).map(x => x.replace(/<[^>]+>/g, ''));
-  assert.deepStrictEqual(heads, ['#', 'Requirement', 'Sourcing', 'Specs by', 'Dimensions', 'Open items', 'Images']);
+  assert.deepStrictEqual(heads, ['#', 'Requirement', 'Execution', 'Qty', 'Occurrence (days)']);   // AGENT-CARD1-LAYOUT-2026-11-18
   assert.ok(!/Status|Handed to|Kind|Fabrication/.test(open), 'Kiko removed Status, Handed to and Kind');
   const order = (open.match(/class="rid">REQ26-11083-\d\d/g) || []).map(x => x.slice(11));   // AGENT-ROW-PICTURES-2026-11-18: rows also carry the ID in data-row assert.deepStrictEqual(order, ['REQ26-11083-04', 'REQ26-11083-05', 'REQ26-11083-01']);
-  assert.ok(/MM to add/.test(open) && /3\.0 m W × 2\.4 m H<span class="rid">from brief, by MM/.test(open) && /Photo wall &lt;b&gt;/.test(open));
+  assert.ok(/Photo wall &lt;b&gt;/.test(open) && !/MM to add|3\.0 m W/.test(open), 'dimensions live in the open row, not the table');
+  ctx.agdRowOpen = { [v.id]: 'REQ26-11083-05' }; const r5 = ctx.agdUpdHtml(v);
+  assert.ok(/3\.0 m W × 2\.4 m H<span class="rid">by MM/.test(r5) && /<li>Final size<\/li>/.test(r5), 'the open row shows dimensions and open items');
+  ctx.agdRowOpen = { [v.id]: 'REQ26-11083-04' }; assert.ok(/MM to add/.test(ctx.agdUpdHtml(v))); ctx.agdRowOpen = {};
   assert.ok(/data-agf="need"/.test(open) && /All 3/.test(open) && /Needs you 2/.test(open));
   assert.ok(/data-act="agd-read"/.test(open) && /data-act="agd-reply"/.test(open) && /data-agd-note=/.test(open), 'Mark read and Reply live in the panel footer');
   assert.ok(!/<input[^>]*data-f=|<select|contenteditable/.test(open), 'view only');

@@ -74,7 +74,8 @@ function cueAgdHand_(h) {
     next_action: cueStr_(h.next_action, 1000), ack_link: /^https:\/\/[^\s<>"']+$/.test(String(h.ack_link || '')) ? cueStr_(h.ack_link, 500) : '',
     state: h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked', why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
     rows: Array.isArray(h.rows) ? h.rows.filter(r => r && typeof r === 'object' && cueStr_(r.name, 200).trim()).slice(0, 100).map(cueAgdRow_) : [],   // AGENT-UPDATE-ROWS-2026-11-16
-    brief: cueAgdFile_(h.brief) ? { file_id: h.brief.file_id, name: cueStr_(h.brief.name, 200), pages: cueAgdNum_(h.brief.pages) } : null };   // AGENT-ROW-PICTURES-2026-11-18: the client brief
+    brief: cueAgdFile_(h.brief) ? { file_id: h.brief.file_id, name: cueStr_(h.brief.name, 200), pages: cueAgdNum_(h.brief.pages) } : null,   // AGENT-ROW-PICTURES-2026-11-18: the client brief
+    event: cueStr_(h.event, 200), client: cueStr_(h.client, 200) };   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
 }
 /** AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z, card 1 approved): a Drive file the agent names. Only a Drive file ID is
  *  kept; Cue builds every link and thumbnail URL itself, so nothing the agent sends becomes a URL. Pure. */
@@ -86,7 +87,8 @@ function cueAgdRow_(r) {
   return { req_id: cueStr_(r.req_id, 60), name: cueStr_(r.name, 200), sourcing: ['In House', 'Outsourced'].indexOf(r.sourcing) >= 0 ? r.sourcing : '',
     spec_by: ['AS', 'MM'].indexOf(r.spec_by) >= 0 ? r.spec_by : '', dimensions: cueStr_(r.dimensions, 200), needs_kiko: r.needs_kiko === true,
     open_items: Array.isArray(r.open_items) ? r.open_items.map(x => cueStr_(x, 300)).filter(x => x.trim()).slice(0, 20) : [],
-    images: Array.isArray(r.images) ? r.images.filter(cueAgdFile_).slice(0, 20).map(x => ({ file_id: x.file_id, name: cueStr_(x.name, 200), page: cueAgdNum_(x.page) })) : [] };   // AGENT-ROW-PICTURES-2026-11-18: MM pictures, with the brief page
+    images: Array.isArray(r.images) ? r.images.filter(cueAgdFile_).slice(0, 20).map(x => ({ file_id: x.file_id, name: cueStr_(x.name, 200), page: cueAgdNum_(x.page) })) : [],   // AGENT-ROW-PICTURES-2026-11-18: MM pictures, with the brief page
+    description: cueStr_(r.description, 2000), qty: cueAgdNum_(r.qty), occurrence: cueAgdNum_(r.occurrence) };   // AGENT-CARD1-LAYOUT-2026-11-18: 0 means not sent
 }
 const cueAgdCueStatus_ = st => CUE_AGD_STATUS_[st] || 'Closed';
 
