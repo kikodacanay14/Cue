@@ -44,7 +44,7 @@ test('FP2 the funnel run reads the P0 tab once through Canvas\'s read_rows: the 
   deq([T.rows[0].eyebrow, T.rows[0].title, T.rows[0].detail, T.rows[0].button, T.rows[0].thread], ['Sales update · from Canvas Accounts', '1 follow-up email due (P1 and P2, 3 business days with no reply)',
     '1 deal waiting for award. 1 project at risk or escalated: Account F (P9).', 'Open update', id + '#fn-' + id]);
   assert.ok(/\/exec\?page=clientdesk$/.test(v.fn.accounts_url), v.fn.accounts_url);
-  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^Sales update: 1 follow-up email due \(P1 and P2, 3 business days with no reply\)\. 2 more below\.$/.test(x[2])), 'the update is posted in its thread');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === id && /^The sales funnel check of Canvas's P0 to P9 accounts found 1 follow-up email due \(P1 and P2, 3 business days with no reply\), plus 2 more points on the card below\.$/.test(x[2])), 'the update is posted in its thread');
   assert.strictEqual(T.rows.length, 1, 'one row: the update (HUBSPOT-REMOVAL-2026-11-01: no task row)');
   assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /P0 to P9 accounts/.test(x[2])));
 });

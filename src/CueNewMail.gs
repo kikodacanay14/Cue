@@ -128,9 +128,10 @@ function cueNmAdd_(run, found) {
     return add.length ? L.s : null;
   });
   if (!s) return '';
-  const n = s.nm.added, fromInfo = s.nm.items.slice(-n).filter(x => x.inbox === 'info').length;
-  cueChat_('Cue', n + ' new email' + (n === 1 ? '' : 's') + (fromInfo ? ' (' + fromInfo + ' to info@)' : '') + '. '
-    + (cueNmSortOpen_(cueNow_()) ? 'Claude sorts them within 30 minutes.' : 'Claude sorts them after 7:00.'), s.id);
+  const n = s.nm.added, fresh = s.nm.items.slice(-n), fromInfo = fresh.filter(x => x.inbox === 'info').length, when = cueNmSortOpen_(cueNow_()) ? 'within 30 minutes' : 'after 7:00';
+  // CUE-PLAIN-STATUS-2026-11-18 (Kiko 08:35Z): say whose email it is, so the line makes sense without a click.
+  cueChat_('Cue', n === 1 ? 'A new email arrived' + (fromInfo ? ' at info@' : '') + ' from ' + cueNmWho_(fresh[0]) + '. Claude will sort it in New mail ' + when + '.'
+    : n + ' new emails arrived' + (fromInfo ? ', ' + fromInfo + ' of them at info@' : '') + '. Claude will sort them in New mail ' + when + '.', s.id);
   return s.id;
 }
 
@@ -215,8 +216,11 @@ function cueNmSort_(run) {
   cueNmTyped_(run, typed, types);
   const c = {}; s.nm.items.forEach(x => { if (by[x.key]) c[x.group] = (c[x.group] || 0) + 1; });
   const parts = [c.inquiry && c.inquiry + ' new inquir' + (c.inquiry === 1 ? 'y' : 'ies'), c.reply && c.reply + ' need' + (c.reply === 1 ? 's' : '') + ' your reply',
-    c.fyi && c.fyi + ' FYI', c.skip && c.skip + ' skipped'].filter(Boolean);
-  if (parts.length) cueChat_('Cue', 'Sorted: ' + parts.join(', ') + '.', s.id);
+    c.fyi && c.fyi + ' for your information only', c.skip && c.skip + ' skipped'].filter(Boolean);
+  // CUE-PLAIN-STATUS-2026-11-18 (Kiko 08:35Z, "Sorted: 1 FYI."): one email is named; several get one count sentence.
+  const one = s.nm.items.filter(x => by[x.key] && CUE_NM_SAID_[x.group]);
+  if (one.length === 1) cueChat_('Cue', 'Claude sorted the email from ' + cueNmWho_(one[0]) + ': it is ' + CUE_NM_SAID_[one[0].group] + '.', s.id);
+  else if (parts.length) cueChat_('Cue', 'Claude sorted ' + one.length + ' new emails in New mail: ' + parts.join(', ') + '.', s.id);
   cueMcFromSort_(run, s.id);   // ACC-6: one chat per Own chat email, with Cue's read (one Haiku call each)
   return s.id;
 }
@@ -386,4 +390,12 @@ function cueNmView_(s) {
       urgent: !!x.urgent, date: x.date, known: x.known || null, removed: x.removed || '', task_id: x.task_id || '', acted: x.acted || '',
       url: x.inbox === 'mine' && /^[0-9a-f]{8,24}$/.test(String(x.thread_id || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + x.thread_id : '' })),
     skipped: N.skipped.map(x => ({ who: x.who || x.sender, subject: x.subject, why: x.why, inbox: x.inbox })) };
+}
+
+/* CUE-PLAIN-STATUS-2026-11-18: what a sorted email is, said in full, and who sent it ("Name (\"Subject\")"). */
+const CUE_NM_SAID_ = { inquiry: 'a new inquiry', reply: 'one that needs your reply', fyi: 'for your information only, with nothing for you to do', skip: 'not for you, so it was skipped' };
+function cueNmWho_(x) {
+  x = x || {};
+  const who = cueStr_(x.who || String(x.sender || '').replace(/\s*<[^>]*>\s*$/, '') || x.sender || 'an unknown sender', 80), subj = cueStr_(x.subject || '', 80);
+  return who + (subj ? ' ("' + subj + '")' : '');
 }

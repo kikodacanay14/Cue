@@ -319,14 +319,15 @@ function cueSweepRun_(s, save) {
   if (!items.length && !stopped.length) {
     s.status = 'Done'; s.stage = 'Done'; s.quiet = true;
     if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, []); } catch (e) { console.error(k.kind + ' posted: ' + e); } } });
-    cueChat_('Cue', 'Morning sweep: nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), cueK0On_() ? s.id : '');   // CUE-K0-2026-10-31: the 8 AM update says it
+    cueChat_('Cue', 'The morning chaser sweep found nothing to chase today.' + (s.notes.length ? ' ' + s.notes.join(' ') : ''), cueK0On_() ? s.id : '');   // CUE-K0-2026-10-31: the 8 AM update says it
     return;
   }
   s.status = 'Needs you'; s.stage = 'Needs you';
   if (!globalThis.CUE_CHECK_ON_) cueKindsOn_(rules).forEach(k => { if (typeof k.posted === 'function') { try { k.posted(ctx, items.filter(it => it.kind === k.kind)); } catch (e) { s.notes.push(k.label + ': ' + String((e && e.message) || e).slice(0, 200)); } } });
   const counts = {}; items.forEach(it => { counts[it.label] = (counts[it.label] || 0) + 1; });
   const what = Object.keys(counts).map(l => counts[l] + ' ' + l).concat(stopped.length ? [stopped.length + ' to decide on (chased the max times)'] : []).join(', ');
-  const line = 'Morning batch is ready: ' + what + (over ? '. ' + over + ' more wait for tomorrow' : '') + '. Approved emails go out at 9:00.';
+  const line = 'Your morning chaser batch is ready for your OK: ' + what + '. The emails you approve go out at 9:00'   // CUE-PLAIN-STATUS-2026-11-18
+    + (over ? ', and ' + over + ' more wait for tomorrow because today\'s batch is full.' : '.');
   if (!cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): with the 8 AM update on, the batch is listed there
   cueChat_('Cue', line, s.id);
 }
@@ -449,12 +450,12 @@ function cueSweepSend_(s) {
 function cueSweepDoneLine_(s) {
   const b = s.batch, sel = b.items.filter(it => it.selected), sent = sel.filter(it => it.sent_id), drafts = sel.filter(it => it.draft_id && !it.sent_id), bad = sel.filter(it => it.error);
   const out = [];
-  if (sent.length) out.push('sent ' + sent.length);
+  if (sent.length) out.push(sent.length + ' email' + (sent.length === 1 ? '' : 's') + ' sent');
   const hooked = it => typeof (cueKinds_().filter(x => x.kind === it.kind)[0] || {}).draft === 'function';
   if (drafts.filter(it => !hooked(it)).length) out.push(drafts.filter(it => !hooked(it)).length + ' in your Gmail Drafts');
   if (drafts.filter(hooked).length) out.push(drafts.filter(hooked).length + ' in info@\'s Drafts');
   if (bad.length) out.push(bad.length + ' did not go through (tap Retry)');
-  const line = 'Morning batch: ' + (out.join(', ') || 'nothing sent') + '.';
+  const line = 'The morning chaser batch is done: ' + (out.join(', ') || 'nothing was sent') + '.';   // CUE-PLAIN-STATUS-2026-11-18
   if (bad.length || !cueK0On_()) cueChat_('Cue', line, '>' + s.id);   // CUE-K0-2026-10-31 (R2): only a failure reaches the main chat
   cueChat_('Cue', line, s.id);
 }
@@ -627,7 +628,7 @@ function cueCloseOlder() {
   // CLOSE-OLDER-ONE-LINE-2026-10-31 (Kiko 31 Oct, screenshot of the chat full of "Closed with "Close older runs"" lines, each with an
   // "Earlier task" row): no line in each closed thread, since each one surfaced in the main chat; one main-chat line says how many.
   const ids = cueCloseSuperseded_(x => (CUE_OLD_KINDS_.indexOf(x.kind) >= 0 || CUE_GONE_KINDS_.indexOf(x.kind) >= 0) && !x.phased && old(x), '', true);
-  if (ids.length) cueChat_('Cue', 'Closed ' + ids.length + ' older run' + (ids.length === 1 ? '' : 's') + '. Nothing was written or sent.', '', 'closeolder');
+  if (ids.length) cueChat_('Cue', 'Closed ' + ids.length + ' scheduled job run' + (ids.length === 1 ? '' : 's') + ' from before today that ' + (ids.length === 1 ? 'was' : 'were') + ' still waiting for you. Nothing was written or sent.', '', 'closeolder');   // CUE-PLAIN-STATUS-2026-11-18
   return { closed: ids.length };
 }
 /** Archive hides a finished task's thread from the lists; it stays in the sheet. on = false brings it back. */

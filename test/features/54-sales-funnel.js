@@ -98,7 +98,7 @@ test('FN1 funnel: chat words start it with no AI call; Canvas\'s steps counted, 
   assert.strictEqual(v.fn.line, '4 Inquiry (1 stuck) · 1 CE sent · 1 Won · 2 Paid');
   assert.strictEqual(t.log.funnel, 1, 'one crm_funnel read');
   assert.ok(!('tasks' in v.fn) && !('deals' in v.fn) && !('task_error' in v.fn), 'no task list');
-  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /^Reading Canvas's P0 to P9 accounts and its deals in its own thread\./.test(x[2])), 'pointer in the main chat');
+  assert.ok(t.tabs.Chat.rows.some(x => x[3] === '>' + id && /^Cue started a sales funnel check\. It reads Canvas's P0 to P9 accounts and their deals in its own thread and changes nothing in Canvas\.$/.test(x[2])), 'pointer in the main chat');
   ['funnel', 'show the sales funnel'].forEach(w => assert.ok(t.ctx.cueFunnelAsked_(w), w));
   ['funnel review', 'review the funnel', 'my hubspot tasks', 'clean up hubspot', 'how is the pipeline'].forEach(w => assert.ok(!t.ctx.cueFunnelAsked_(w), w));
 });
@@ -108,6 +108,9 @@ test('FN3 Today card: one funnel run gives one row pointing at its thread; a new
   deq(T.rows.map(r => [r.eyebrow, r.title, r.button, r.thread]), [['Sales update · from Canvas Accounts', '1 deal waiting for award', 'Open update', id + '#fn-' + id]]);
   t.ctx.__wait(60000); const id2 = t.ctx.cueSend('show the funnel').request_id; t.ctx.cueRun(id2);
   assert.strictEqual(t.state(id).status, 'Closed', 'the older snapshot closes'); assert.strictEqual(t.state(id2).status, 'Needs you');
+  // CUE-PLAIN-STATUS-2026-11-18 (Kiko 08:35Z): the close line says which check closed, when it was made, and why, in full sentences.
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === id && /^Cue closed the sales funnel check from \d{1,2} [A-Z][a-z]{2}, \d{1,2}:\d{2} [AP]M because a newer check of Canvas's P0 to P9 accounts replaced it\. Nothing was changed in Canvas\.$/.test(r[2])),
+    JSON.stringify(t.tabs.Chat.rows.filter(r => r[3] === id).map(r => r[2])));
   const done = n => Object.assign({}, v, { id: 'f' + n, status: 'Done', created: '2026-10-21T0' + n + ':00:00Z' });
   const D = t.ctx.cueTodayFrom_([done(1), done(2), done(3)], '2026-10-21');
   assert.strictEqual((D.done.match(/sales funnel/g) || []).length, 1, D.done);

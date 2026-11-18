@@ -22,7 +22,7 @@ export default {
   steps: [
     { title: 'Run the chasing sweep: Cue finds the lines and words them (one AI call)', run: async h => {
       await h.say('run the chasing sweep now');
-      const said = await h.see(/Morning batch is ready: [^\n]+|Morning sweep: nothing to chase today\.[^\n]*/, 600000);
+      const said = await h.see(/Your morning chaser batch is ready for your OK: [^\n]+|The morning chaser sweep found nothing to chase today\.[^\n]*/, 600000);
       h.quiet = /nothing to chase/.test(said);
       console.log('     ' + said);
       const broke = said.match(/(RFQ chasers|Accreditation chasers): could not check \([^)]*\)/);

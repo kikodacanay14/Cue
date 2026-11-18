@@ -30,7 +30,7 @@ test('S3 batch: one Canvas read, one ChatGPT call for all lines, threads kept, N
   assert.strictEqual(b.status, 'Needs you'); assert.strictEqual(t.log.board, 1); assert.strictEqual(t.log.gpt.length, 1); assert.strictEqual(b.metrics.ai_calls, 1);
   deq(b.batch.items.map(i => [i.who, i.selected, i.send_ok, i.in_thread]), [['Mats Co', true, true, false], ['Sonic Pro', true, true, true], ['No Mail Co', true, false, false]]);
   assert.ok(/GPT nudge for Sonic Pro about Acme Party/.test(b.batch.items[1].body)); assert.ok(!t.log.sent && !t.log.replies && !t.log.gmail.length, 'nothing sent or drafted');
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + b.id && /Morning batch is ready: 3 RFQ chasers/.test(r[2])));
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === '>' + b.id && /^Your morning chaser batch is ready for your OK: 3 RFQ chasers/.test(r[2])));
 });
 test('S4 approved before 9:00: drafts now, sent at 9:00 PH by the resume trigger, then not chased again for `every` days', () => {
   const t = sweepBox(); t.ctx.cueSweep(); const id = batchOf(t).id; t.at('2026-10-21', 7, 40);
@@ -144,8 +144,8 @@ test('C40 "Close older runs" closes only scheduled jobs from before today, plus 
   deq(C.cueCloseOlder(), { closed: 4 });
   deq(['cue-20261020090000-b1d0', 'cue-20261020090100-9700', 'cue-20261020090200-1a7e', 'cue-20261021090300-70da', 'cue-20261021090400-0ld1', 'cue-20261021090500-0ld2'].map(k => C.cueLoad_(k).s.status),
     ['Closed', 'Closed', 'Needs you', 'Needs you', 'Closed', 'Closed'], 'Kiko\'s intake and today\'s runs stay; removed kinds close');
-  const said = t.tabs.Chat.rows.slice(before).filter(x => /older run/.test(x[2]));
-  assert.strictEqual(said.length, 1, 'one line for the tap'); assert.strictEqual(said[0][2], 'Closed 4 older runs. Nothing was written or sent.'); assert.strictEqual(String(said[0][3] || ''), '', 'in the main chat, not a thread');
+  const said = t.tabs.Chat.rows.slice(before).filter(x => /scheduled job run/.test(x[2]));
+  assert.strictEqual(said.length, 1, 'one line for the tap'); assert.strictEqual(said[0][2], 'Closed 4 scheduled job runs from before today that were still waiting for you. Nothing was written or sent.'); assert.strictEqual(String(said[0][3] || ''), '', 'in the main chat, not a thread');
   const html = cuePage();
   assert.ok(/data-act="close-older"/.test(html) && /act === 'close-older'\) \{ b\.disabled = true; return call\('cueCloseOlder'/.test(html));
   const kinds = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'CueSweep.gs'), 'utf8').match(/CUE_OLD_KINDS_ = \[([^\]]+)\]/)[1].replace(/'/g, '').split(/,\s*/);

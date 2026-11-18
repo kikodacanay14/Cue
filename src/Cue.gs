@@ -1005,22 +1005,22 @@ function cueSettleReopened_(ref) {
   } catch (e) { console.error('Settle reopened: ' + e); }
 }
 /** PC recheck 22 Oct 05:00Z: an older card that a newer task replaced stayed open at Needs you. Closes every task at Needs you
- * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread; failed = also a Failed one. Only for cards that wrote
+ * that keep(x, root) picks (x = saved state, root = its thread's root id), with one line in its thread (a string, or line(x) for the closed run); failed = also a Failed one. Only for cards that wrote
  * nothing: callers pick tasks not yet approved. Returns the ids closed. */
 function cueCloseSuperseded_(keep, line, failed) {
-  const closed = [];
+  const closed = [], was = {};
   try {
     cueLocked_(() => {
       const sh = cueSheet_('Requests'), rows = cueRows_(sh), by = {}, at = {};
       rows.forEach((r, i) => { try { const x = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); by[x.id] = x; at[x.id] = i + 2; } catch (e) { /* skip */ } });
       const root = id => { for (let i = 0; i < 8 && by[id] && by[id].ref; i++) id = by[id].ref; return id; };
       Object.keys(by).forEach(k => { const x = by[k]; if ((x.status === 'Needs you' || (failed && x.status === 'Failed')) && keep(x, root(k))) {
-        x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); } });
+        x.closed_from = x.status; x.status = 'Closed'; x.superseded = true; delete x.nudge; cueSave_(sh, at[k], x); closed.push(k); was[k] = x; } });
     });
   } catch (e) { console.error('Close superseded: ' + e); }
   // PC recheck 24 Oct: one line per thread, however many of its runs closed.
   const said = {};
-  if (line) closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', line, k); } });   // CLOSE-OLDER-ONE-LINE-2026-10-31: '' = no per-thread line
+  if (line) closed.forEach(k => { const r = cueRootOf_(k), home = (r && r.s.id) || k; if (!said[home]) { said[home] = 1; cueChat_('Cue', typeof line === 'function' ? line(was[k]) : line, k); } });   // CUE-PLAIN-STATUS-2026-11-18: a function names the closed run   // CLOSE-OLDER-ONE-LINE-2026-10-31: '' = no per-thread line
   return closed;
 }
 /** The root of ref's thread is a Bid check (or the thread holds one): Kiko's bid words there are about bids, whatever card is waiting. */

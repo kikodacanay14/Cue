@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 85 server files, 1693 top-level names, 36 task kinds, 35 word checks before the
+Counts: 85 server files, 1697 top-level names, 36 task kinds, 35 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 109 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -287,6 +287,7 @@ Names used by 5 or more other files, and the file that holds them.
 | `cueSendWith_` | `Cue.gs` | 5 |
 | `cueStyleBody_` | `CueStyle.gs` | 5 |
 | `cueStyleSignOff_` | `CueStyle.gs` | 5 |
+| `cueTaskName_` | `Cue.gs` | 5 |
 | `cueTerm_` | `CueText.gs` | 5 |
 
 ## 6. What the page calls

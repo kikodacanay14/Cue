@@ -89,7 +89,7 @@ test('PA6 the 8 AM update and the 2 PM chasers alert with their thread; the hook
   deq(t.sent.map(x => [x.body.title, x.body.body, x.body.tag]), [['8 AM update: 3 items for your OK', 'Critical today: King\'s Day crew call time unconfirmed', 'cue-k0'],
     ['2 PM chasers: 2 for your OK', 'Reply in Cue with the numbers to draft them.', 'cue-k2']]);
   const src = f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8');
-  assert.ok(/'8 AM update is ready\.', '>' \+ id\);\n  cueAlertK0_\(mode, id, K\);/.test(src('CueMorning.gs')));
+  assert.ok(/'Your 8 AM update for today is ready\.', '>' \+ id\);   \/\/ CUE-PLAIN-STATUS-2026-11-18\n  cueAlertK0_\(mode, id, K\);/.test(src('CueMorning.gs')));
   assert.strictEqual((src('CueMessenger.gs').match(/cueAlertMsgr_\(/g) || []).length, 2, 'linked crew and not-yet-linked people');
   assert.ok(/alerts\.forEach\(\(\[root, id, agent, line\]\) => \{ cueAlertAgent_\(root, id, agent, line\); \}\)/.test(src('CueAgentDrafts.gs')));
   assert.ok(/cueAlertJobRun_\(j\.job, err\)/.test(src('CueJobs.gs')));

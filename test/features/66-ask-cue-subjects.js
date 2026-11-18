@@ -15,7 +15,7 @@ test('SJ1 a scheduled job closes its own waiting runs from earlier days, with on
   assert.strictEqual(sjGet(t, a).status, 'Closed'); assert.strictEqual(sjGet(t, a).closed_from, 'Needs you');
   assert.strictEqual(sjGet(t, b).status, 'Needs you', 'another job is not touched');
   assert.notStrictEqual(sjGet(t, c).status, 'Closed', 'today\'s run stays');
-  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === a && /today's run of this job replaced it\. Nothing was sent or changed/.test(r[2])).length, 1);
+  assert.strictEqual(t.tabs.Chat.rows.filter(r => r[3] === a && /^Cue closed .+ from \d{1,2} [A-Z][a-z]{2}, \d{1,2}:\d{2} [AP]M because today's run of the same job replaced it\. Nothing was sent or changed\.$/.test(r[2])).length, 1);
   assert.ok(!t.log.sent && !t.log.gmail.length, 'nothing sent');
   // An approved run is never closed.
   sjSet(t, c, s => { s.status = 'Needs you'; s.approved_at = Date.now(); });

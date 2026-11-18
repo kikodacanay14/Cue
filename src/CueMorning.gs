@@ -283,18 +283,18 @@ function cueK0Run_(manual, mode) {
       metrics: { ai_calls: 0, calls: [], canvas: [] }, notes: [] };
     cueLocked_(() => { const sh = cueSheet_('Requests'); sh.appendRow([fid]); cueSave_(sh, sh.getLastRow(), f); });
     cueChat_('Cue', K.fn_text, fid);
-    cueChat_('Cue', '2 PM funnel: ' + K.funnel + ' follow-up' + (K.funnel === 1 ? '' : 's') + '.', '>' + fid);
+    cueChat_('Cue', 'Your 2 PM sales funnel check found ' + K.funnel + ' follow-up' + (K.funnel === 1 ? '' : 's') + ' due.', '>' + fid);   // CUE-PLAIN-STATUS-2026-11-18
   }
   s.k0 = { title: K.title, day, mode, items: K.items, sweep: K.sweep || '', bids: K.bids || '', ask: contacts.ask || '', done: {} };
   cueLocked_(() => { const L = cueLoad_(id); L.s.k0 = s.k0; L.s.notes = s.notes; cueSave_(L.sh, L.row, L.s); });
   // The whole update sits in its own thread; the main chat gets one line that opens it.
   cueChat_('Cue', K.text, id);
-  cueChat_('Cue', mode === 'pm' ? '2 PM chasers: ' + (K.chasers ? K.chasers + ' for your OK (reply "1, 3" or "all").' : 'none due today.')
-    : '8 AM update is ready.', '>' + id);
+  cueChat_('Cue', mode === 'pm' ? (K.chasers ? K.chasers + ' chaser' + (K.chasers === 1 ? ' is' : 's are') + ' ready for your OK at 2 PM. Reply with their numbers, like "1, 3", or "all", and Cue drafts them.'
+    : 'No chasers are due at 2 PM today.') : 'Your 8 AM update for today is ready.', '>' + id);   // CUE-PLAIN-STATUS-2026-11-18
   cueAlertK0_(mode, id, K);   // CUE-ALERTS-2026-11-16: 8 AM update, and the 2 PM chasers for your OK (never throws)
   if (mode === 'pm') cueK0TeamCue_(day, K.sweep);
   // The bids card under the 8 AM message: a main-chat line "%<bid run id>" that the page draws as the New opportunities card.
-  if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'New opportunities: ' + K.bids_new + ' new bid' + (K.bids_new === 1 ? '' : 's') + '.', '%' + K.bids);
+  if (mode === 'am' && K.bids && K.bids_new) cueChat_('Cue', 'The morning bid check found ' + K.bids_new + ' new bid opportunit' + (K.bids_new === 1 ? 'y' : 'ies') + '.', '%' + K.bids);   // CUE-PLAIN-STATUS-2026-11-18
   return { request_id: id, items: K.items.length };
 }
 /** CUE-JOB-THREADS-2026-11-03: each chaser due at 2 PM is one line in its project's thread in Team Cue (Canvas Projects log, bridge

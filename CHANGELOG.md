@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (not deployed)
+
+Asked: Kiko, 18 Nov 2026 08:35:22Z, with a screenshot of "Replaced by a newer funnel. Nothing was changed.": "Please make
+communications complete sentences. Please make sure that there is context to the message. There is no need to breakdown the
+message. It could have been sent in just 1 or 2 sentences in the same chat." Slot cue-1.28.98, card cue-plain-status-lines.
+
+- Wording only. The lines Cue's background jobs post (sales funnel, new email, Claude's sort, morning chaser batch, 2 PM and 8 AM
+  updates, bid check, closing older runs) now say in one or two full sentences what happened and what it is about: which funnel
+  check closed and when, who sent a new email and its subject, what the sort decided. No behaviour, layout, rule or data changed.
+- Tests: wording assertions updated; NM8 new (sender and subject naming, Manila time). 917/917 pass.
+
 ## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (live as Version 265, 18 Nov 2026 08:22Z; rollback Version 264)
 
 Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the
