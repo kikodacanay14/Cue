@@ -1,5 +1,23 @@
 # Changelog
 
+## Cue 1.28.90: requirements card 1 layout (not deployed)
+
+Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:39:37Z: "Card 1 put the Project Event Client Brief and then open brief.
+Remove "Picture" and "Card" / Remove the Brief Page, Picture COunt - i just need the dimensions and link"; 04:40:02Z: "Dimension/
+Description can also be in the expanded window"; 05:27:45Z: "Image Link - we dont need this because its in the expanded window
+Description on the left. Image on the right". Mockup card 1 approved at 05:32:00Z ("1. approved"):
+https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk. Slot cue-1.28.90 (1.28.89 is held by another thread), card agent-row-pictures.
+
+- Requirements panel (`src/IndexCards.html`, `src/IndexStyle.html`): Project, Event, Client and Brief sit on top, with Open brief.
+  The table columns are #, Requirement, Execution, Qty and Occurrence (days). Sourcing shows as Execution. The Specs by, Dimensions,
+  Open items and Images columns are gone. An open row shows Description, Dimensions and open items on the left and the MM pictures
+  on the right (stacked on a phone). No brief page badge, page count or picture count.
+- Payload (`src/CueAgentDrafts.gs`): a row may carry `description`, `qty` and `occurrence`; the handover may carry `event` and `client`.
+  Qty and occurrence keep whole numbers above 0 only; anything else shows a dash. Nothing else changes.
+- Not in this release: the approval controls of the mockup (execution choice, Reject, Request changes, Approve list). They belong to
+  the requirements approval flow, which has no Canvas command yet. Agents must send the new fields before they show.
+- Tests: AUP2 and AUR1/AUR2 rewritten, AUP4 new. 892/892 pass. Checked in Chromium at 1280 and 390 px: no sideways scroll.
+
 ## Cue 1.28.89: drag a General message to a channel, and its source can follow (not deployed)
 
 Asked: Kiko, 18 Nov 2026 04:31:41Z: "Messages in General Chat can i drag and drop them to a channel? That would then become a rule

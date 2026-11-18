@@ -790,24 +790,33 @@
     var view = function (fid) { return 'https://drive.google.com/file/d/' + esc(fid) + '/view'; }, B = (A.handover || {}).brief;
     var body = rows.filter(function (x) { return !f || x.needs_kiko; }).map(function (x) {
       var n = (String(x.req_id).match(/(\d+)$/) || ['', ''])[1].slice(-2), k = String(x.req_id || x.name), on = agdRowOpen[r.id] === k, im = x.images || [];
-      var det = !on ? '' : '<tr class="agdet"><td colspan="7"><div class="agdetw">' + (im.length ? '<div class="agpics">' + im.map(function (p) {
-        var lab = (x.req_id || x.name) + (p.page ? ' · brief page ' + p.page : '');
-        return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')">'
-          + (p.page ? '<span class="pg">Page ' + p.page + '</span>' : '') + '</a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
-        : '<span class="muted">No pictures from MM yet.</span>') + '</div></td></tr>';
+      // AGENT-CARD1-LAYOUT-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "Image Link - we dont need this because its in the expanded window
+      // Description on the left. Image on the right"; 04:39:37Z "Remove the Brief Page, Picture COunt"; card 1 approved 05:32:00Z): the open
+      // row shows Description, Dimensions and open items on the left and the MM pictures on the right, with no page badge.
+      var dimv = x.dimensions ? esc(x.dimensions) + (x.spec_by === 'MM' ? '<span class="rid">by MM</span>' : '') : x.spec_by === 'MM' ? '<span class="muted">MM to add</span>' : none;
+      var det = !on ? '' : '<tr class="agdet"><td colspan="5"><div class="agdetw agc1d"><div class="agdims">'
+        + '<div><span class="lbl">Description</span>' + (x.description ? esc(x.description) : none) + '</div>'
+        + '<div><span class="lbl">Dimensions</span>' + dimv + '</div>'
+        + (x.open_items.length ? '<div><span class="lbl">Open items</span><ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul></div>' : '')
+        + '</div><div>' + (im.length ? '<div class="agpics">' + im.map(function (p, i) {
+        var lab = (x.req_id || x.name) + (im.length > 1 ? ' · picture ' + (i + 1) : '');
+        return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')"></a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
+        : '<span class="muted">No pictures from MM yet.</span>') + '</div></div></td></tr>';
       return '<tr class="agrow' + (x.needs_kiko ? ' need' : '') + '" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>')
-        + td(x.sourcing ? esc(x.sourcing) : none, 1) + td(x.spec_by ? esc(x.spec_by) : none, 1)
-        + td(x.spec_by === 'MM' ? (x.dimensions ? esc(x.dimensions) + '<span class="rid">from brief, by MM</span>' : '<span class="muted">MM to add</span>') : none, 1)
-        + td(x.open_items.length ? '<ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' : '<span class="muted">None</span>')
-        + td(im.length ? im.length + ' picture' + (im.length === 1 ? '' : 's') : x.spec_by === 'MM' ? '<span class="ph">Later</span>' : none, 1) + '</tr>' + det;
+        + td(x.sourcing ? esc(x.sourcing) : none, 1) + td(x.qty ? x.qty : none, 1) + td(x.occurrence ? x.occurrence : none, 1) + '</tr>' + det;
     }).join('');
+    // AGENT-CARD1-LAYOUT-2026-11-18 (Kiko 04:39:37Z "Card 1 put the Project Event Client Brief and then open brief"): four fields on top.
+    var H = A.handover || {}, mf = function (l, v) { return '<div><span class="lbl">' + l + '</span>' + v + '</div>'; };
+    var meta = '<div class="agmeta">' + mf('Project', A.project_id || A.project ? esc(A.project_id) + (A.project_id && A.project ? '<br>' : '') + esc(A.project) : none)
+      + mf('Event', H.event ? esc(H.event) : none) + mf('Client', H.client ? esc(H.client) : none)
+      + mf('Brief', B && B.file_id ? esc(B.name || 'Client brief') + '<br><a data-agpic href="' + view(B.file_id) + '" data-name="' + esc(B.name || 'Client brief') + '" aria-label="Open the original client brief">Open brief</a>' : none) + '</div>';
     var p = '<div class="agdshade" data-act="agd-rows" data-id="' + id + '"></div><aside class="agdp" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">'
       + '<div class="agdph"><div class="t"><b>' + esc(title) + '</b><div class="small muted">From ' + esc(agdLabel(A.agent)) + (A.project_id ? ' · ' + esc(A.project_id) : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div></div>'
       + '<button class="ibtn agdx" data-act="agd-rows" data-id="' + id + '" aria-label="Close the panel">✕</button></div>'
       + '<div class="agdf" role="group" aria-label="Show"><button class="filt" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-pressed="' + !f + '">All ' + rows.length + '</button>'
       + '<button class="filt" data-act="agd-rows" data-agf="need" data-id="' + id + '" aria-pressed="' + f + '">Needs you ' + need + '</button></div>'
-      + (B && B.file_id ? '<div class="agbrief"><b>Original client brief</b><a data-agpic href="' + view(B.file_id) + '" data-name="' + esc(B.name || 'Client brief') + '">' + esc(B.name || 'Client brief') + '</a>' + (B.pages ? '<span class="small muted">' + B.pages + ' pages</span>' : '') + '</div>' : '')
-      + '<div class="agdtw"><table><thead><tr><th>#</th><th>Requirement</th><th>Sourcing</th><th>Specs by</th><th>Dimensions</th><th>Open items</th><th>Images</th></tr></thead><tbody>' + body + '</tbody></table></div>'
+      + meta
+      + '<div class="agdtw"><table><thead><tr><th>#</th><th>Requirement</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th></tr></thead><tbody>' + body + '</tbody></table></div>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="agdpf">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(agdLabel(A.agent)) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></aside>';
