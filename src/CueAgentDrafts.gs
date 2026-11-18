@@ -75,7 +75,20 @@ function cueAgdHand_(h) {
     state: h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked', why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
     rows: Array.isArray(h.rows) ? h.rows.filter(r => r && typeof r === 'object' && cueStr_(r.name, 200).trim()).slice(0, 100).map(cueAgdRow_) : [],   // AGENT-UPDATE-ROWS-2026-11-16
     brief: cueAgdFile_(h.brief) ? { file_id: h.brief.file_id, name: cueStr_(h.brief.name, 200), pages: cueAgdNum_(h.brief.pages) } : null,   // AGENT-ROW-PICTURES-2026-11-18: the client brief
-    event: cueStr_(h.event, 200), client: cueStr_(h.client, 200) };   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
+    event: cueStr_(h.event, 200), client: cueStr_(h.client, 200),   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
+    intake: cueAgdIntake_(h) };   // EMAIL-INTAKE-CARD-2026-11-18
+}
+/** EMAIL-INTAKE-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "Email intake routes the emails right away right? can it just send me where it
+ *  routed the email to and i will correct it"; card 2 approved 05:32:00Z). A run's noise list and routed list, headers only: no body or
+ *  attachment. Null when the update carries no run. Pure. */
+function cueAgdIntake_(h) {
+  if (!h.run || typeof h.run !== 'object') return null;
+  const m = x => ({ msg_id: cueStr_(x.msg_id, 100), from: cueStr_(x.from, 200), subject: cueStr_(x.subject, 300), received_at: cueStr_(x.received_at, 40) });
+  const ok = x => x && typeof x === 'object';
+  return { run_id: cueStr_(h.run.run_id, 100), read_at: cueStr_(h.run.read_at, 40), mailbox: cueStr_(h.run.mailbox, 200),
+    total_read: Number.isInteger(h.run.total_read) && h.run.total_read >= 0 ? h.run.total_read : null,
+    skipped: Array.isArray(h.skipped) ? h.skipped.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { noise_kind: cueStr_(x.noise_kind, 40) })) : [],
+    routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40) })) : [] };
 }
 /** AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z, card 1 approved): a Drive file the agent names. Only a Drive file ID is
  *  kept; Cue builds every link and thumbnail URL itself, so nothing the agent sends becomes a URL. Pure. */
