@@ -54,7 +54,7 @@ test('EIC4 mail no role fits is not routed and listed on its own with why (Kiko 
     skipped: [{ msg_id: 'n1', from: 'Fing Alert', subject: 'Fing Alert on WOOFY_892D_2.4G', received_at: '2026-11-17T01:00:00Z', noise_kind: 'no-reply' }],
     routed: [{ msg_id: 'c1', from: 'Ana Reyes', subject: 'Gate pass S-00000001', received_at: '2026-11-17T01:00:00Z', routed_to: 'ECI', why: 'project code S-00000001; best fit: event operations words ("gate pass")', project_id: 'S-00000001' }],
     not_routed: [{ msg_id: 'u1', from: 'Lito Cruz', subject: 'Hello', received_at: '2026-11-17T02:00:00Z', why: 'no role fits', attachments: ['x'] }] });
-  assert.deepStrictEqual(Object.keys(v.agd.handover.intake.not_routed[0]).sort(), ['from', 'msg_id', 'received_at', 'subject', 'why']);
+  assert.deepStrictEqual(Object.keys(v.agd.handover.intake.not_routed[0]).sort((a, b) => a.localeCompare(b)), ['from', 'msg_id', 'received_at', 'subject', 'why']);
   const html = eicGrab().agdUpdHtml(v);
   assert.ok(/class="tag warn">1 not routed/.test(html) && !/Nothing needs you|Nothing waits for you/.test(html), 'not routed mail is called out');
   assert.ok(/1 message fit no role and was not routed\./.test(html) && /<span class="lbl">Not routed<\/span>1 message/.test(html));
