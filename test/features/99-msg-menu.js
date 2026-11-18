@@ -67,3 +67,17 @@ test('MM5 Move in the ⋯ menu (Kiko 18 Nov 2026 13:45:47Z): a draggable General
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/@media \(min-width:641px\) \{ \.mvsheet \{ left:50%;/.test(css), 'a small centred box on a PC');
 });
+test('ML1 New mail notes are not chat messages (Kiko 18 Nov 2026 13:55:17Z "the cue actions, i think theres no need to put them threre?")', () => {
+  const a = MM_SRC.indexOf('  var MAIL_LOG_RE'), z = MM_SRC.indexOf('  function threads() {');
+  const ctx = {}; vm.runInNewContext(MM_SRC.slice(a, z) + '\nthis.isMailLog = isMailLog;', ctx);
+  const cue = t => ({ who: 'Cue', text: t });
+  ['1 new email. Claude sorts them after 7:00.', '1 new email. Claude sorts them within 30 minutes.', '3 new emails. Claude sorts them after 7:00.',
+    'Sorted: 2 FYI, 2 skipped.', 'Sorted: 1 new inquiry.',
+    'A new email arrived from Brave Search API ("Welcome to Brave Search API"). Claude will sort it in New mail within 30 minutes.',
+    '2 new emails arrived, 1 of them at info@. Claude will sort them in New mail after 7:00.',
+    'Claude sorted the email from Jessica Allyn Benavidez: it is a new inquiry.', 'Claude sorted the email from Brave Search API ("Welcome to Brave Search API"): it is not for you, so it was skipped.', 'Claude sorted 3 new emails in New mail: 1 new inquiry, 2 skipped.']
+    .forEach(t => assert.ok(ctx.isMailLog(cue(t)), t));
+  ['Sorted', 'Your reply to Jessica is on the card.', 'New email · Jessica Allyn Benavidez, TELUS Digital · Client'].forEach(t => assert.ok(!ctx.isMailLog(cue(t)), t));
+  assert.ok(!ctx.isMailLog({ who: 'Kiko', text: 'Sorted: 1 FYI.' }), 'Kiko\'s own words always show');
+  assert.ok(MM_SRC.includes("      if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: New mail") && MM_SRC.includes("      if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: not in General either"), 'left out of General, every thread and its preview');
+});

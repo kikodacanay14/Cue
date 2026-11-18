@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.102: Move in the ⋯ menu on each message (not deployed)
+## Cue 1.28.102: Move in the ⋯ menu on each message; New mail's notes leave the chat (not deployed)
 
 Asked by Kiko, 18 Nov 2026 13:45:47Z: "maybe we should just add the Move function inside the ... in Cue". Slot cue-1.28.102,
 card cue-msg-move. Built on main ad1157c (live Version 270, 1.28.101).
@@ -9,7 +9,12 @@ card cue-msg-move. Built on main ad1157c (live Version 270, 1.28.101).
 - Move opens the same "Move to…" list the phone opens on a long press. On a PC it shows as a small box in the middle of the
   screen; on a phone it stays a sheet at the bottom. Picking a channel moves the line and asks "Why here?" as before.
 - Dragging a line onto a channel (PC) and the long press (phone) still work. Messages that cannot move have no Move.
-- Tests: MM5 new; 942/942.
+- New mail's own notes no longer show as chat messages, in General or in any thread: "A new email arrived … Claude will sort
+  it", "1 new email. Claude sorts them …", "Sorted: …" and "Claude sorted the email from …". Kiko, 13:53:47Z: "so i think it
+  shouldnt be documented as if its a message"; 13:55:17Z: "the cue actions, i think theres no need to put them threre?";
+  13:56:04Z: "even the sort updted are not necessary". The New mail card still lists each email and where it was sorted, and the
+  rows stay in the Chat tab. Display only.
+- Tests: MM5 and ML1 new; 943/943.
 
 ## Cue 1.28.101: tick the requirements you approve on the approval card (live as Version 270, 18 Nov 2026 12:32Z; rollback Version 269)
 
