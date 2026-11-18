@@ -19,10 +19,10 @@ test('CO2 Today\'s tasks in the Morning thread: counts by place from Canvas plus
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
   const fn = page.match(/function todayTasksHtml\(t\) \{[\s\S]*?\n  \}\n/)[0];
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  const box = { esc, CUE_HOST: { canvas: {} }, localStorage: { getItem: () => '' }, canvasToday: [
+  const box = { esc, phDay: iso => new Date(Date.parse(iso) + 8 * 3600000).toISOString().slice(0, 10), CUE_HOST: { canvas: {} }, localStorage: { getItem: () => '' }, canvasToday: [
     { k: 'a:Accenture', name: 'Accenture', overdue: 1, today: 1, assigned: 1 }, { k: 'crm', name: 'CRM', overdue: 0, today: 2, assigned: 0 },
     { k: 'todo', name: 'To do', overdue: 0, today: 0, assigned: 0 }] };
-  const t = { reqs: [{ kind: 'sweep', batch: { items: [{ kind: 'tasks', why: 'Overdue since 2026-10-28', project: 'Secret task name' }, { kind: 'tasks', why: 'Due today', project: 'Other' }, { kind: 'rfq', why: 'no quote' }] } }] };
+  const t = { reqs: [{ kind: 'sweep', created: new Date().toISOString(), batch: { items: [{ kind: 'tasks', why: 'Overdue since 2026-10-28', project: 'Secret task name' }, { kind: 'tasks', why: 'Due today', project: 'Other' }, { kind: 'rfq', why: 'no quote' }] } }] };
   vm.runInNewContext(fn + 'out = todayTasksHtml(t);', Object.assign(box, { t }));
   const h = box.out;
   assert.ok(/Today's tasks/.test(h) && /7 tasks today, 2 overdue/.test(h), 'header counts: ' + h.slice(0, 300));
@@ -33,7 +33,7 @@ test('CO2 Today\'s tasks in the Morning thread: counts by place from Canvas plus
   vm.runInNewContext('out = todayTasksHtml(t);', box); assert.strictEqual(box.out, '', 'Done for now hides it until tomorrow');
   const pages = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8');
   assert.ok(/b\.items\.forEach\(function \(it\) \{ if \(it\.kind === 'tasks'\) return;/.test(pages), 'the batch card leaves out its task lines');
-  assert.ok(/threadTitle\(t\) === 'Morning'\) \{ var tt = todayTasksHtml\(t\); if \(tt\) cards\.unshift\(/.test(page), 'the card leads the Morning thread');
+  assert.ok(/threadTitle\(t\) === 'Morning' \|\| t\.chan === 'job:sweep'\) \{ var tt = todayTasksHtml\(t\); if \(tt\) cards\.unshift\(/.test(page), 'the card leads the Morning thread');
 });
 test('CO3 New mail buttons follow the review (no Mute sender, no Not an inquiry) and a New mail reply is "Reply ready" with Send reply', () => {
   const vm = require('vm'), fs = require('fs'), path = require('path'), src = n => fs.readFileSync(path.join(__dirname, '..', 'src', n), 'utf8');

@@ -103,15 +103,17 @@
   function icon(n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
   function ib(attrs, n, label, on) { return '<button class="ibtn" ' + attrs + ' title="' + esc(label) + '" aria-label="' + esc(label) + '"' + (on == null ? '' : ' aria-pressed="' + !!on + '"') + '>' + icon(n) + '</button>'; }
   var tbOpen = false, wide = false, searching = false;
-  $('ptabs').addEventListener('click', function (e) {
+  function paneBtn(e) {
     var b = e.target.closest('button'); if (!b) return;
     var p = b.getAttribute('data-p');
-    if (p === 'pane') return paneClose();
+    if (p === 'pane') return showList();   // CUE-CHANNELS-2026-11-18: the phone's "Channels" back button
     if (p === 'list') { pactive = 'list'; return paneShow(); }
-    if (p === 'close') return paneClose();   // PC test 17:30Z: ✕ closes the pane; "Threads ›" goes back
+    if (p === 'close') return goGeneral();   // CUE-CHANNELS-2026-11-18: ✕ goes back to General
     if (p === 'search') { searching = !searching; $('tsearch').hidden = !searching; if (searching) $('tsearch').focus(); else if (tq) { $('tsearch').value = tq = ''; } return renderChat(); }
     if (p === 'archived') { showArchived = !showArchived; dirty(); return renderChat(); }
     if (p === 'rules') return settingsOpen('rules');
     if (p === 'task') { tbOpen = !tbOpen; return renderChat(); }
     if (p === 'wide') { wide = !wide; $('pane').classList.toggle('wide', wide); return renderChat(); }
-  });
+  }
+  $('ptabs').addEventListener('click', paneBtn); $('lhead').addEventListener('click', paneBtn);
+  $('gen-back').onclick = showList;

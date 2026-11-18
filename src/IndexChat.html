@@ -57,11 +57,11 @@
   var openThread = '', ptabs = [], pactive = 'list', PTABS_MAX = 8, FIXED = { list: 1 };   // Kiko 14:03Z: no Widgets tab; what it showed lives in the Threads list and each thread
   try { var saved = JSON.parse(localStorage.getItem('cue.pane') || 'null'); if (saved && Array.isArray(saved.tabs)) { ptabs = saved.tabs.filter(function (k) { return k.type === 'thread'; }).slice(0, PTABS_MAX); pactive = saved.active || 'list'; } } catch (e) {}
   // In a narrow window the pane opens beside the chat; the Cue bubble (1.3+) widens the window by the pane's width and gives it back on close.
-  var bubble = false, grown = 0, GROW = 440;
+  var bubble = false, grown = 0, GROW = 0;   // CUE-CHANNELS-2026-11-18: the channel opens in place of the chat, so the bubble no longer widens (was 440)
   function paneOpen(on) {
     var narrow = window.innerWidth <= 900, was = $('pane').classList.contains('open');
     $('pane').classList.toggle('open', on); $('pane').classList.toggle('shut', !on);
-    if (on && !was && narrow && bubble && !grown) { grown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
+    if (on && !was && narrow && bubble && !grown && GROW) { grown = GROW; window.postMessage({ cueResize: GROW, screenLeft: screen.availLeft || 0, screenRight: (screen.availLeft || 0) + screen.availWidth }, '*'); }
     if (!on && grown) { window.postMessage({ cueResize: -grown }, '*'); grown = 0; }
   }
   function openPane(it) {
@@ -142,7 +142,8 @@
     var at = String(id).indexOf('#'), spot = at < 0 ? '' : String(id).slice(at + 1).replace(/[^\w-]/g, '');
     if (at >= 0) id = String(id).slice(0, at);
     // PC recheck 14:39Z: the spot is set after the pane's own render, so that render can't use it up before the bottom scroll below.
-    goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id });
+    var th0 = threads(); if (th0._home && !th0[id]) id = th0._home(id);   // CUE-CHANNELS-2026-11-18: a run's id opens its channel
+    goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id }); showConv();
     $('pscroll')._pin = !spot; $('pscroll').scrollTop = $('pscroll').scrollHeight; goSpot = spot; if (toSpot()) $('pscroll')._pin = false;
     if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
     // PC recheck 15:17Z: inside Canvas's slide-in the first scroll can land before the frame has its size again, so the tasks tab kept
@@ -174,12 +175,18 @@
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0];
     if (!it && !FIXED[pactive]) pactive = 'list';
     openThread = it && it.type === 'thread' ? it.id : '';
-    $('page-threads').hidden = pactive !== 'list'; $('page-thread').hidden = !openThread;
-    $('tab-threads').setAttribute('aria-pressed', pactive === 'list'); $('tcomposer').hidden = !openThread;
+    $('page-thread').hidden = !openThread; $('tcomposer').hidden = !openThread || openThread === 'sys:alerts';   // Alerts: Cue's notes, nothing to reply to
+    document.body.classList.toggle('ch-thread', !!openThread);   // CUE-CHANNELS-2026-11-18: the right side shows the open channel, else General
     if (!openThread && fileHost === 'tfiles') hostFiles('files');
     try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}
     lastThread = -1; renderChat();
   }
+  /* CUE-CHANNELS-2026-11-18: General is the main chat. On a phone (640px and under) the channel list fills the screen; tapping a channel
+     opens its conversation over it, and "Channels" goes back to the list. Cue opens on the list there. */
+  function goGeneral() { paneClose(); showConv(); }
+  function showList() { document.body.classList.add('ch-list'); }
+  function showConv() { document.body.classList.remove('ch-list'); var sc = $('scroller'); if (!openThread && sc._pin !== false) sc.scrollTop = sc.scrollHeight; }
+  if (window.matchMedia && matchMedia('(max-width: 640px)').matches) showList();
   // Drive and Google Docs files open in the pane (Kiko 12:59Z); folders, Gmail and other sites still open a new tab.
   function previewUrl(u) {
     var m = /^https:\/\/(drive|docs)\.google\.com\/(?:file|document|spreadsheets|presentation)\/d\/([\w-]{10,})/.exec(u || '') || /^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]{10,})/.exec(u || '');

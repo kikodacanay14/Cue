@@ -1,5 +1,32 @@
 # Changelog
 
+## Cue 1.28.88: channels on the left, the conversation on the right (not deployed)
+
+Asked: Kiko, 18 Nov 2026 04:18:47Z, with a screenshot of Cue inside Canvas: "All the channels and threads put them on the left.
+conversation now goes to the right. Merge all the Agents channels." Follow-ups in the same thread (04:19Z to 04:31Z): the Cue logo
+stays only on Canvas's purple bar; General shows only updates that belong to no channel; the groups are Agent Updates, Jobs (CRM,
+Bid Opportunities, Project Reviews, Morning batch) and Systems (Alerts, Updates); no message shows twice; the number beside a channel
+is what is open for Kiko to review. Mockup approved and "build" at 04:32:32Z. Slot cue-1.28.88, card cue-channels-layout.
+
+- Layout (`src/Index.html`, `src/IndexStyle.html`, `src/IndexChat.html`, `src/IndexViewer.html`): the channel list sits on the left;
+  the right shows General (the main chat) or the open channel. ✕ goes back to General. The dot, Back to Team Cue and K moved to the
+  list header. Inside Canvas, Cue's own header (logo and title) is hidden. On a phone the list fills the screen; a channel opens over
+  it with a "Channels" back button.
+- Channels (`src/IndexThreads.html`): each agent role is one channel (as in 1.28.85). Each scheduled job is one channel: every run
+  joins the job's oldest run (Bid Opportunities, Morning batch, Friday status, Sales funnel, Skill notes; admin and production
+  readiness reviews share Project Reviews). Cue Dev and the release notes share Systems › Updates. Systems › Alerts collects Cue's own
+  lines that belong to no task and say a run or connection did not work (matched by wording, for example "did not run", "was not
+  checked", "sign-in expired"). Display only: nothing is moved or re-saved on the server.
+- No duplicates: General leaves out agent-tag copies, alert lines, pointers to a listed channel, the first message of a listed
+  task and the bids card of a listed run.
+- Counts: the number beside a channel is its Needs you tasks plus agent drafts Waiting for Kiko and Unread updates (New mail keeps
+  its open count); zero shows nothing; a group shows the sum of its channels.
+- Replaced: the agent feed panel above the main chat (1.28.81) is now the Agent Updates group with its last-hour line; the From
+  Canvas heading is gone and CRM and To do sit at the top of Jobs.
+- Tests: CH1 to CH5 new (`test/features/99-channels.js`); AGF3, AGG2, MB2, TC17, TCB2, NM4 and CO2 rewritten for the new layout.
+  891/891 pass. Checked in Chromium with a stubbed server at 1280 px (standalone and inside a Canvas frame) and 375 px (list,
+  General, agent channel, back): no page errors, no sideways scroll.
+
 ## Cue 1.28.87: long links wrap inside every card (not deployed)
 
 Asked: Kiko, 18 Nov 2026 04:11:18Z, with a screenshot of the Account Specialist handover card for S-31753672PA: "and it went out

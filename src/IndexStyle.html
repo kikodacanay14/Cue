@@ -57,10 +57,6 @@
   .pane-back svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .pane-back:hover { background:var(--panel); } .pane-back:focus-visible { outline:2px solid var(--act); }
   /* AGENT-UPDATES-LEFT-2026-11-18: the agents' updates above the main chat; long lists scroll inside so the chat keeps its room. */
-  .agupd { flex:none; padding:6px 12px 4px; border-bottom:1px solid var(--line); background:var(--bg); }
-  .agupd[hidden] { display:none; }
-  .agupd .tgroup { margin:0 0 4px; }
-  .agupd .agbody { max-height:38vh; overflow:auto; }
   .pane.shut { display:none; }   /* PC test 17:42Z: ✕ closes the pane on a wide screen too; ☰ Threads opens it again */
   @media (min-width: 901px) { .pane-wide { display:inline-flex; } }
   .pane.wide { width:65%; max-width:none; }
@@ -595,4 +591,41 @@
   body.agd-pic .viewer { position:fixed; inset:0; width:auto; max-width:none; min-width:0; z-index:46; border-left:0; }
   .agdpf { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); }
   .agdpf input { flex:1; min-width:180px; }
+  /* CUE-CHANNELS-2026-11-18 (Kiko 18 Nov 2026 04:18:47Z: channels and threads on the left, the conversation on the right; mockup
+     approved, "build" 04:32:32Z). Left: the channel list (.clist). Right: General (.left, the main chat) or, once a channel is open
+     (body.ch-thread), that channel's conversation (.pane). On a phone (640px and under) one side shows at a time: body.ch-list
+     shows the list, otherwise the conversation with a "Channels" back button. Inside Canvas the header is hidden, because Canvas's
+     purple bar already carries the Cue logo (Kiko 04:19:17Z "put Cue logo on the purple bar, remove the one below it"). */
+  .clist { width:340px; flex:none; display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); background:var(--side); }
+  .lhead { flex:none; display:flex; align-items:center; gap:6px; min-height:53px; padding:8px 10px 8px 14px; border-bottom:1px solid var(--line); background:var(--head); }
+  .lhead .lt { font-size:15px; font-weight:700; color:var(--white); }
+  .lhead .grow { flex:1; } .lhead #lbtns { display:inline-flex; gap:2px; align-items:center; }
+  .lhead .dot { flex:none; width:9px; height:9px; border-radius:50%; background:var(--ok); margin:0 4px; }
+  .lhead .tcue { min-height:30px; padding:0 10px; font-size:13px; white-space:nowrap; }
+  #lscroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:10px 10px 14px; }
+  .left nav { justify-content:flex-start; align-items:center; gap:8px; padding-left:16px; }
+  .left nav .cname { font-size:15px; font-weight:700; color:var(--white); }
+  .left nav .csub { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .pane, body.v3 .pane, body.in-canvas .pane, body.in-canvas.v3 .pane { display:none; flex:1; width:auto; min-width:0; max-width:none; }
+  body.ch-thread .pane, body.ch-thread .pane.shut { display:flex; }
+  body.ch-thread .left { display:none; }
+  .pane-x { display:inline-flex; }
+  .pane-back { display:none; }
+  .trow .chico { flex:none; width:24px; height:24px; border-radius:50%; display:inline-grid; place-items:center; background:var(--soft); color:var(--act); font-size:11px; font-weight:700; margin-top:1px; }
+  .trow .badge { font-style:normal; align-self:center; margin:0; flex:none; text-align:center; }
+  body.in-canvas header { display:none; }
+  body.in-canvas .lhead { min-height:40px; padding:4px 8px; } body.in-canvas #lscroll { padding:6px 8px 10px; }
+  body.in-canvas .clist { width:340px; } body.in-canvas .lhead .tcue { padding:0 8px; font-size:12px; min-height:28px; }
+  @media (max-width: 900px) {
+    .clist { width:300px; } body.in-canvas .clist { width:320px; }
+    body.ch-thread .pane, body.ch-thread .pane.open, body.ch-thread .pane:not(.open) { display:flex; position:static; width:auto; }
+  }
+  @media (max-width: 640px) {
+    .clist, body.in-canvas .clist { width:auto; flex:1; border-right:0; }
+    body:not(.ch-list) .clist { display:none; }
+    body.ch-list .left, body.ch-list .pane, body.ch-list.ch-thread .pane { display:none; }
+    .pane-back { display:inline-flex; }
+    .pane-x { display:none; }
+    .left nav .csub { display:none; }
+  }
 </style>
