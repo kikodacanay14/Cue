@@ -13,8 +13,25 @@ stayed off because PR #292 took the scope back out.
 - Behaviour is unchanged otherwise: Cue only removes UNREAD (`cueMtMarkRead_`), never archives, labels or deletes, and emails
   with a Canvas Project ID or with their own chat stay unread.
 - Tests: GMOD1 to GMOD3 (new, `test/features/99-gmail-modify.js`); C26 now expects `gmail.modify` among the missing scopes.
-  879/879 pass.
+  881/881 pass (with 1.28.83 merged in).
 
+## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (LIVE as Version 261, 18 Nov 2026 02:38Z, rollback 260)
+
+Asked: Kiko, 18 Nov 2026 02:20Z, with a phone screenshot of the Threads pane: "In mobile there is no way to go back to the left
+panel. There should be a button here that does that. Also those Updates - put them in the left panel." Slot cue-1.28.83, card
+cue-mobile-back-updates-left. Kiko's go: "Go" (18 Nov 2026 02:34:28Z). Deploy Cue run 44224631956 (mode=deploy) from
+branch commit 0f2d918 (live 1.28.82 Version 260 plus this change only; check run 44224507400 showed just the five files below).
+
+- Root cause of the missing button: `src/IndexPages.html` declared a second `var IC` (the email, text and app icons) in the same
+  page script as the pane's icon set in `src/IndexViewer.html`, so it replaced it. Every pane icon (the X that closes the pane,
+  search, filter, settings, the group chevrons, the reply count icon) drew `undefined`: the buttons were there but blank. The
+  channel icons are now `CH_IC`.
+- `src/IndexThreads.html`, `src/IndexStyle.html`: the pane header starts with a "Chat" back button at 900px and under (it closes the
+  pane, like the X it replaces there). Wide screens are unchanged.
+- `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: the agents' last-hour line and five newest updates moved from
+  under the Agents group in Threads to an "Agent updates" block above the main chat. Its header folds it away (remembered on this
+  device); a row still opens its agent's thread. The agent threads (AS, MM) stay in the Agents group.
+- Tests: AGF3 rewritten for the new place; MB1 and MB2 added (one `var IC`, back button). 878/878 pass after merging main (1.28.82).
 ## Cue 1.28.82: agent cards get bold labels, full agent names, and every agent keeps its channel (not deployed)
 
 Asked: Kiko, 18 Nov 2026 02:14:31Z "The titles though need to be in bold and line breaks after the values"; 02:14:49Z "Make it a
@@ -73,6 +90,19 @@ Worker fix 2 (not deployed): Kiko 17 Nov 2026 10:39:43Z, "it worked but i wasnt 
 test alert and the plain "Open Cue to see what is new." line carry no link, so a tap only closed them. A tap on an alert with no
 link now opens /open, which sends the phone to Cue (the address Cue last sent with an alert) or, before Cue has sent one, to the
 setup page. Test CA8.
+
+Worker fix 3 (not deployed): Kiko 18 Nov 2026 02:22:47Z, "This works but its a generic message. Can that be still customized with
+what the update is about? I also want it to show the Cue icon not google chrome". Cue already sends each alert's own title and text;
+the phone showed "Open Cue to see what is new." because Cloudflare KV is only eventually consistent between locations, so the
+phone (Manila) asked /next before the alert Cue stored from Google's servers had reached it. Now:
+- The alert rides inside the push, encrypted for that phone only (RFC 8291 aes128gcm, WebCrypto). Google's push service sees no
+  alert text. A phone set up before this hands its keys over at its next /next or setup-page visit; until then it gets an empty
+  push, and its service worker asks /next again after 2, 5, 10 and 20 seconds before it shows the generic line.
+- Every alert carries the Cue logo (icon) and its white bubble mark (status-bar badge), served by the Worker from
+  `alerts/icons.js` (extension/icons/cue-128.png scaled up).
+- The setup page uses the logo, links a web manifest (name Cue) and offers "Add to home screen" (or the Chrome menu step). Android
+  names an alert after the app that shows it, so alerts say Cue instead of Chrome only once Cue is on the home screen.
+- Tests CA9 to CA12 (the decrypter is first proved on RFC 8291 Appendix A; CA12 runs the service worker). 12 Worker tests, 876/876.
 
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"

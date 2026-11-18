@@ -16,9 +16,14 @@
  *   POST /send           Cue only: { title, body, url, tag, renotify } to every phone. Kept one hour per phone, then an empty push.
  *   POST /next           { endpoint }: the phone's waiting alerts, handed over once.
  *   GET  /status         Cue only: { phones } for Cue Settings' "1 phone is on".
- * The push itself is empty and signed with the Worker's VAPID key (ES256, WebCrypto), so no payload encryption library is needed:
- * the alert text never travels through Google's push service. `tag` is the Cue thread, so Android replaces that thread's alert.
+ *   GET  /icon-192.png, /icon-512.png, /badge.png, /manifest.webmanifest   The Cue logo and the home-screen app (18 Nov 2026).
+ * The push is signed with the Worker's VAPID key (ES256, WebCrypto). CUE-ALERTS-2026-11-18 (Kiko 18 Nov 2026 02:22:47Z: "its a
+ * generic message"): KV is only eventually consistent between Cloudflare locations, so a phone in Manila could ask /next before
+ * an alert Cue stored from Google's US servers had reached it, and showed the generic line. The alert now travels inside the
+ * push, encrypted end to end for that phone (RFC 8291 aes128gcm, WebCrypto only), so Google's push service never reads it. A phone
+ * whose keys are not known yet still gets an empty push and /next, and its service worker hands its keys over then. `tag` is the Cue thread, so Android replaces that thread's alert.
  * Bindings: KV namespace CUE_ALERTS. Secrets: VAPID_JWK (ES256 private key as JWK JSON), CUE_ALERTS_KEY. */
+import { ICON_192, ICON_512, BADGE } from './icons.js';
 const enc = new TextEncoder();
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = s => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
@@ -41,6 +46,8 @@ const subId = async endpoint => hex(await crypto.subtle.digest('SHA-256', enc.en
 const HOUR = 3600, CODE_TTL = 600;
 const clip = (s, n) => { s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 async function body(req) { try { return await req.json(); } catch (e) { return {}; } }
+const goodKeys = k => !!k && unb64uSafe(k.p256dh).length === 65 && unb64uSafe(k.p256dh)[0] === 4 && unb64uSafe(k.auth).length === 16;
+function unb64uSafe(s) { try { return unb64u(s || ''); } catch (e) { return new Uint8Array(0); } }
 const goodEndpoint = e => /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/\S{8,2000}$/.test(String(e || ''));
 
 /** The VAPID public key (uncompressed P-256 point) from the private JWK's x and y. */
@@ -57,11 +64,32 @@ async function vapidAuth(env, endpoint, host) {
   const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(head + '.' + claims));
   return 'vapid t=' + head + '.' + claims + '.' + b64u(sig) + ', k=' + vapidPublic(env);
 }
-/** Keeps one alert for one phone (one hour), then sends that phone an empty push. A phone the push service no longer knows is removed. */
+const cat = (...parts) => { const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of parts) { out.set(x, i); i += x.length; } return out; };
+async function hmac(key, data) { return new Uint8Array(await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), data)); }
+/** RFC 8291 Web Push message encryption (aes128gcm, one record): only the phone that holds the subscription's private key can read it. */
+async function encryptFor(keys, text) {
+  const ua = unb64u(keys.p256dh), auth = unb64u(keys.auth), one = new Uint8Array([1]);
+  const as = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPub = new Uint8Array(await crypto.subtle.exportKey('raw', as.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', ua, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const ecdh = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, as.privateKey, 256));
+  const ikm = await hmac(await hmac(auth, ecdh), cat(enc.encode('WebPush: info\0'), ua, asPub, one));
+  const salt = crypto.getRandomValues(new Uint8Array(16)), prk = await hmac(salt, ikm);
+  const cek = (await hmac(prk, cat(enc.encode('Content-Encoding: aes128gcm\0'), one))).slice(0, 16);
+  const nonce = (await hmac(prk, cat(enc.encode('Content-Encoding: nonce\0'), one))).slice(0, 12);
+  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, cat(enc.encode(text), new Uint8Array([2]))));
+  return cat(salt, new Uint8Array([0, 0, 16, 0, 65]), asPub, ct);   // header: salt, record size 4096, key id length 65, sender key
+}
+/** Sends one alert to one phone. With the phone's keys the alert rides inside the push, encrypted; without them it is kept one hour
+ *  for /next and the push is empty. A phone the push service no longer knows is removed. */
 async function deliver(env, id, sub, alert, host) {
-  await env.CUE_ALERTS.put('p:' + id + ':' + String(Date.now()).padStart(13, '0') + ':' + rand(4), JSON.stringify(alert), { expirationTtl: HOUR });
+  const headers = { TTL: String(HOUR), Urgency: 'high', Authorization: await vapidAuth(env, sub.endpoint, host) };
+  let payload = null;
+  if (goodKeys(sub.keys)) { payload = await encryptFor(sub.keys, JSON.stringify(alert)); headers['Content-Encoding'] = 'aes128gcm'; headers['Content-Type'] = 'application/octet-stream'; headers['Content-Length'] = String(payload.length); }
+  else { await env.CUE_ALERTS.put('p:' + id + ':' + String(Date.now()).padStart(13, '0') + ':' + rand(4), JSON.stringify(alert), { expirationTtl: HOUR }); headers['Content-Length'] = '0'; }
   try {
-    const r = await fetch(sub.endpoint, { method: 'POST', headers: { TTL: String(HOUR), Urgency: 'high', 'Content-Length': '0', Authorization: await vapidAuth(env, sub.endpoint, host) } });
+    const r = await fetch(sub.endpoint, payload ? { method: 'POST', headers, body: payload } : { method: 'POST', headers });
     if (r.status === 404 || r.status === 410) { await env.CUE_ALERTS.delete('sub:' + id); return 'gone'; }
     return r.ok ? 'sent' : 'failed ' + r.status;
   } catch (e) { return 'failed'; }
@@ -81,6 +109,8 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url), p = u.pathname, host = u.host;
     if (req.method === 'GET' && p === '/sw.js') return new Response(SW_JS, { headers: { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' } });
+    if (req.method === 'GET' && ICONS[p]) return new Response(Uint8Array.from(atob(ICONS[p]), c => c.charCodeAt(0)), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
+    if (req.method === 'GET' && p === '/manifest.webmanifest') return new Response(JSON.stringify(MANIFEST), { headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=3600' } });
     if (req.method === 'GET' && p === '/open') {   // a tap on an alert with no link of its own: open Cue (the address Cue last sent), else this setup page
       const home = await env.CUE_ALERTS.get('cue_home');
       return new Response(null, { status: 302, headers: { Location: /^https:\/\//.test(home || '') ? home : '/setup', 'Cache-Control': 'no-store' } });
@@ -89,7 +119,7 @@ export default {
       let key = ''; try { key = vapidPublic(env); } catch (e) { return new Response('Cue alerts are not set up yet.', { status: 503 }); }
       return new Response(setupPage(key, String(u.searchParams.get('code') || '').replace(/[^a-f0-9]/g, '').slice(0, 64)),
         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
-          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'" } });
+          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; worker-src 'self'; img-src 'self'; manifest-src 'self'; frame-ancestors 'none'" } });
     }
     if (req.method === 'GET' && p === '/status') {
       if (!(await isCue(req, env))) return json({ error: 'forbidden' }, 403);
@@ -122,12 +152,15 @@ export default {
       if (!goodEndpoint(s.endpoint)) return json({ error: 'bad subscription' }, 400);
       await env.CUE_ALERTS.delete('code:' + code);
       const id = await subId(s.endpoint), at = new Date().toISOString();
-      await env.CUE_ALERTS.put('sub:' + id, JSON.stringify({ endpoint: s.endpoint, at, ua: clip(req.headers.get('User-Agent'), 200) }));
+      await env.CUE_ALERTS.put('sub:' + id, JSON.stringify(Object.assign({ endpoint: s.endpoint, at, ua: clip(req.headers.get('User-Agent'), 200) }, goodKeys(s.keys) ? { keys: { p256dh: s.keys.p256dh, auth: s.keys.auth } } : {})));
       return json({ on: true, at });
     }
     if (!goodEndpoint(b.endpoint)) return json({ error: 'bad endpoint' }, 400);
     const id = await subId(b.endpoint), raw = await env.CUE_ALERTS.get('sub:' + id), sub = raw ? JSON.parse(raw) : null;
     if (!sub || sub.endpoint !== b.endpoint) return json({ on: false, alerts: [] }, p === '/unsubscribe' ? 200 : 404);
+    if ((p === '/me' || p === '/next') && goodKeys(b.keys) && (!sub.keys || sub.keys.p256dh !== b.keys.p256dh || sub.keys.auth !== b.keys.auth)) {   // a phone set up before 18 Nov hands its keys over
+      sub.keys = { p256dh: b.keys.p256dh, auth: b.keys.auth }; await env.CUE_ALERTS.put('sub:' + id, JSON.stringify(sub));
+    }
     if (p === '/me') return json({ on: true, at: sub.at });
     if (p === '/unsubscribe') { await env.CUE_ALERTS.delete('sub:' + id); return json({ on: false }); }
     if (p === '/test') return json({ result: await deliver(env, id, sub, alertOf({ title: 'Cue test alert', body: 'Alerts are working on this phone.', tag: 'cue-test', url: '' }), host) });
@@ -140,28 +173,42 @@ export default {
   }
 };
 
-// The phone's service worker. Chrome requires every push to show a notification, so an empty /next still shows one line.
-const SW_JS = `self.addEventListener('push', function (e) { e.waitUntil((async function () {
-  var sub = await self.registration.pushManager.getSubscription(), list = [];
-  try { var r = await fetch('/next', { method: 'POST', body: JSON.stringify({ endpoint: sub && sub.endpoint }) }); list = (await r.json()).alerts || []; } catch (x) {}
-  if (!list.length) return self.registration.showNotification('Cue', { body: 'Open Cue to see what is new.', tag: 'cue' });
-  for (var i = 0; i < list.length; i++) { var a = list[i];
-    await self.registration.showNotification(a.title, { body: a.body, tag: a.tag, renotify: !!a.renotify, silent: !a.renotify, data: { url: a.url } }); }
+// The phone's service worker. The alert comes inside the push (encrypted for this phone). An empty push asks /next, and asks
+// again for up to about 40 seconds while the alert reaches this Cloudflare location. Chrome requires every push to show a
+// notification, so only when nothing arrives does it show the one generic line.
+const SW_JS = `var LOOK = { icon: '/icon-192.png', badge: '/badge.png' };
+function show(a) { return self.registration.showNotification(a.title || 'Cue', { body: a.body || '', tag: a.tag || 'cue', renotify: !!a.renotify, silent: !a.renotify, icon: LOOK.icon, badge: LOOK.badge, data: { url: a.url || '' } }); }
+self.addEventListener('push', function (e) { e.waitUntil((async function () {
+  var a = null; try { a = e.data && e.data.json(); } catch (x) {}
+  if (a && a.title) return show(a);
+  var sub = await self.registration.pushManager.getSubscription(), list = [], j = sub ? sub.toJSON() : {}, waits = [0, 2000, 5000, 10000, 20000];
+  for (var w = 0; w < waits.length && !list.length; w++) {
+    if (waits[w]) await new Promise(function (ok) { setTimeout(ok, waits[w]); });
+    try { var r = await fetch('/next', { method: 'POST', body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys }) }); list = (await r.json()).alerts || []; } catch (x) {}
+  }
+  if (!list.length) return self.registration.showNotification('Cue', { body: 'Open Cue to see what is new.', tag: 'cue', icon: LOOK.icon, badge: LOOK.badge });
+  for (var i = 0; i < list.length; i++) await show(list[i]);
 })()); });
 self.addEventListener('notificationclick', function (e) { e.notification.close(); var u = (e.notification.data || {}).url || '/open'; e.waitUntil(clients.openWindow(u)); });
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 `;
 
+const ICONS = { '/icon-192.png': ICON_192, '/icon-512.png': ICON_512, '/badge.png': BADGE };
+// Add to Home screen makes Cue its own app on the phone, so Android names alerts "Cue" instead of "Chrome".
+const MANIFEST = { name: 'Cue', short_name: 'Cue', start_url: '/setup', scope: '/', display: 'standalone', background_color: '#F7F3EA', theme_color: '#23006F',
+  icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] };
+
 // ALERT-1, as approved (mockup-375.png): Cue tokens from src/IndexStyle.html, Quicksand, three states.
 function setupPage(key, code) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cue alerts</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#23006F"><link rel="icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--font:'Quicksand',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--bg:#F7F3EA;--head:#FFFFFF;--panel:#FFFFFF;--line:#E2DCCF;--line2:#CFC7B5;--muted:#5B5766;--text:#16151B;--act:#23006F;--bad:#C2410C}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:500 15px/1.5 var(--font)}
 header{background:var(--head);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:10px 16px}
-.logo{width:32px;height:32px;border-radius:50%;flex:none;background:linear-gradient(135deg,#23006F 2%,#56009C 34%,#F000AA 62%,#F06A25 84%,#F4F12C 100%)}
+.logo{width:32px;height:32px;border-radius:50%;flex:none;display:block}
 header h1{margin:0;font:700 18px/1.1 var(--font)}
 main{padding:18px 16px 22px;display:flex;flex-direction:column;gap:12px;max-width:560px;min-height:calc(100vh - 54px)}
 h2{margin:0;font:700 16px/1.3 var(--font);color:var(--act)}p{margin:0;font-size:14px}.muted{color:var(--muted);font-size:13px}
@@ -173,13 +220,17 @@ h2{margin:0;font:700 16px/1.3 var(--font);color:var(--act)}p{margin:0;font-size:
 .tag.good{background:#E5F3EA;color:#1E7A46}.tag.crit{background:#FBE9E7;color:#B3261E}
 ol{margin:0;padding-left:20px;font-size:14px}.err{color:var(--bad);font-size:13px}[hidden]{display:none!important}
 </style></head><body>
-<header><div class="logo" aria-hidden="true"></div><h1>Cue</h1></header>
+<header><img class="logo" src="/icon-192.png" alt="" width="32" height="32"><h1>Cue</h1></header>
 <main>
  <section id="off" hidden><h2>Get Cue alerts on this phone</h2>
   <p style="margin-top:12px">Cue will tell you here when something needs you: the 8 AM update, items for your OK, agent updates, Messenger messages for you and failed jobs.</p>
   <p class="muted" style="margin-top:12px">Alerts never show bank details, amounts or files. Tap an alert to open that thread in Cue.</p></section>
  <section id="on" hidden><h2>Alerts are on <span class="tag good">On</span></h2>
   <div class="card" style="margin-top:12px"><p><b>This phone</b></p><p class="muted" id="since"></p></div>
+  <div class="card" id="app" style="margin-top:12px" hidden><p><b>Show alerts as Cue</b></p>
+   <p class="muted">Add Cue to your home screen once. Your alerts then say Cue instead of Chrome.</p>
+   <p class="muted" id="app-how" hidden>In Chrome, tap ⋮ › Add to Home screen.</p>
+   <div class="btns" id="install-row" style="margin-top:10px" hidden><button type="button" class="btn" id="install">Add to home screen</button></div></div>
   <p class="muted" style="margin-top:12px">Change which alerts you get in Cue Settings › Jobs › Phone alerts.</p></section>
  <section id="blocked" hidden><h2>Alerts are blocked <span class="tag crit">Blocked</span></h2>
   <p style="margin-top:12px">Chrome is set to block alerts from this page. To turn them on:</p>
@@ -203,7 +254,7 @@ ol{margin:0;padding-left:20px;font-size:14px}.err{color:var(--bad);font-size:13p
     if (Notification.permission === 'denied') return show('blocked');
     reg().then(function (r) { return r.pushManager.getSubscription(); }).then(function (s) {
       if (!s) return show('off');
-      return post('/me', { endpoint: s.endpoint }).then(function (m) { show(m.on ? 'on' : 'off', m.at); }, function () { show('off'); });
+      var j = s.toJSON(); return post('/me', { endpoint: j.endpoint, keys: j.keys }).then(function (m) { show(m.on ? 'on' : 'off', m.at); }, function () { show('off'); });
     }).catch(function () { show('off'); });
   }
   $('turn-on').onclick = function () { var b = this; b.disabled = true; err('');
@@ -226,6 +277,11 @@ ol{margin:0;padding-left:20px;font-size:14px}.err{color:var(--bad);font-size:13p
       .then(function (r) { b.disabled = false; if (r.result !== 'sent') err('The test alert did not go out. Try again.'); }, function () { b.disabled = false; err('The test alert did not go out. Try again.'); });
   };
   $('again').onclick = function () { start(); };
+  var ask = null, app = matchMedia('(display-mode: standalone)').matches || navigator.standalone;   // already on the home screen: no card
+  $('app').hidden = !!app; $('app-how').hidden = !!app;
+  addEventListener('beforeinstallprompt', function (ev) { ev.preventDefault(); ask = ev; $('install-row').hidden = false; $('app-how').hidden = true; });
+  addEventListener('appinstalled', function () { $('app').hidden = true; });
+  $('install').onclick = function () { if (!ask) return; ask.prompt(); ask.userChoice.then(function (c) { if (c.outcome === 'accepted') $('app').hidden = true; ask = null; $('install-row').hidden = true; }); };
   start();
 })();
 </script></body></html>`;
