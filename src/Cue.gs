@@ -1041,6 +1041,28 @@ function cueStateJob_(s) {
   if (!s || !CUE_STATE_JOB_RE_.test('"kind":"' + s.kind + '"')) return '';
   return s.kind === 'gtask' ? (s.gt && s.gt.key ? 'gtask:' + s.gt.key : '') : s.kind;
 }
+/* CHANNEL-SEEN-2026-11-18 (Kiko 18 Nov 2026 08:37:10Z "the number in the thread i thought we had that changed already?", 08:38:43Z
+ * "also i have clicked on each of those messages"): Cue keeps, per channel or thread, when Kiko last opened it. The page leaves an
+ * agent update or a job report that came before that time out of the channel's number. Drafts waiting for his Approve or Reject still
+ * count. Cue only: nothing is marked read in Canvas. Kept in script property CUE_CHAN_SEEN, newest 200 keys. */
+const CUE_SEEN_KEEP_ = 200;
+function cueSeenMap_() {
+  try { const o = JSON.parse(cueProp_('CUE_CHAN_SEEN', '{}')); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+}
+function cueSeen(key, iso) {
+  cueOwner_();
+  const k = String(key || ''), t = Date.parse(String(iso || ''));
+  if (!/^[\w:.@-]{1,120}$/.test(k) || !isFinite(t)) throw new Error('Cue could not note that you opened this channel.');
+  const at = new Date(Math.min(t, Date.now() + 60000)).toISOString();
+  return cueLocked_(() => {
+    const m = cueSeenMap_();
+    if (!m[k] || m[k] < at) m[k] = at;
+    const keep = Object.keys(m).sort((a, b) => (m[a] < m[b] ? 1 : m[a] > m[b] ? -1 : 0)).slice(0, CUE_SEEN_KEEP_), out = {};
+    keep.forEach(x => { out[x] = m[x]; });
+    PropertiesService.getScriptProperties().setProperty('CUE_CHAN_SEEN', JSON.stringify(out));
+    return out;
+  });
+}
 function cueState() {
   cueOwner_();
   const chk = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';   // a cloud check sees only its own tasks and lines; Kiko never sees them
@@ -1093,7 +1115,7 @@ function cueState() {
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
   // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
   let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

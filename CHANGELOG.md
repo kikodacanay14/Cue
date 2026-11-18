@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.97: opening a channel takes its updates and reports out of its number (not deployed)
+
+Asked: Kiko, 18 Nov 2026 08:37:10Z, on live Version 265: "the number in the thread i thought we had that changed already?"; 08:38:43Z
+"also i have clicked on each of those messages"; 08:40:28Z "there is no mark read on each". Slot cue-1.28.97, card cue-channels-layout.
+
+- Cause: the number beside a channel counted every agent update not marked read in Canvas, every draft waiting for Approve or Reject,
+  and every job run still marked Needs you. Opening a message changed none of these; only the Mark read button (inside a card or its
+  requirements panel) or a decision did, so the numbers stayed after Kiko opened every item.
+- Fix: Cue notes when Kiko opens a channel (script property CUE_CHAN_SEEN, newest 200). Agent updates and job reports from before that
+  time leave the channel's number, and the row stops saying Needs you once nothing counts. Drafts waiting for Approve or Reject, task
+  threads, and anything newer than the last open still count. Cue only: nothing is marked read in Canvas.
+- Tests: SEEN1 to SEEN3 new; CH2 and AGG2 follow the new code. 910/910 pass on this release branch.
+
 ## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (not deployed)
 
 Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the

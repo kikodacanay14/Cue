@@ -30,7 +30,7 @@ test('CH1 each scheduled job is one channel: every run joins the oldest run; Pro
   deq(c.t._home('b2'), 'b1', 'a run\'s own id finds its channel');
 });
 test('CH2 the count beside a channel is what is open for Kiko to review: Needs you tasks, agent drafts Waiting for Kiko and Unread updates; zero shows nothing', () => {
-  const a = CH_SRC.indexOf('  function reviewN(t) {'), z = CH_SRC.indexOf('\n  }\n', a) + 4, ctx = {};
+  const a = CH_SRC.indexOf('  function seenOut('), z = CH_SRC.indexOf('\n  }\n', CH_SRC.indexOf('  function reviewN(')) + 4, ctx = { state: {} };
   const b = CH_SRC.indexOf('  var NEED = {'), e = CH_SRC.indexOf('  var OLDK = {');
   vm.runInNewContext(CH_SRC.slice(b, e) + CH_SRC.slice(a, z) + '\nthis.reviewN = reviewN;', ctx);
   deq(ctx.reviewN({ reqs: [{ status: 'Needs you' }, { status: 'Done' }, { agd: { status: 'Waiting for Kiko' } }, { agd: { status: 'Unread' } }, { agd: { status: 'Read' } }, { status: 'Working', nudge: 1 }] }), 4);
