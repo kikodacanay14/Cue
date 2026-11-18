@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.85: one channel per role (not deployed)
+
+Asked: Kiko, 18 Nov 2026 02:43:48Z "Roles have 2 channels?" (screenshot after Version 260). Slot cue-1.28.85, card
+agent-cards-labels-names-channels.
+
+- Cause: 1.28.82 brought back older agent threads, and older runs had sent other names for the same role ("BSE Account Specialist",
+  "Multimedia Specialist", "BSE — MM — CARD RESUME", "BSE Finance Specialist", "Admin Specialist", "BSE Event Coordinator II").
+- `cueAgdLabel_` (CueAgentDrafts.gs) and `agdLabel` (IndexChat.html): every name an agent used maps to one role name (Account
+  Specialist, Multimedia, Finance, Admin, Procurement Specialist, Event Specialist, Email Intake); " agent" at the end is kept for
+  display. `cueAgdKey_` drops a trailing " agent", so new drafts join the role's thread.
+- `threads()` (IndexThreads.html): agent threads of the same role show as one thread, under the role's oldest thread. Display only:
+  nothing is deleted or re-saved.
+- Tests: ROLE7 (new); ROLE1 and TAG2 expect the role name. 879/879 pass.
+
 ## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (LIVE as Version 261, 18 Nov 2026 02:38Z, rollback 260)
 
 Asked: Kiko, 18 Nov 2026 02:20Z, with a phone screenshot of the Threads pane: "In mobile there is no way to go back to the left
@@ -17,20 +31,6 @@ branch commit 0f2d918 (live 1.28.82 Version 260 plus this change only; check run
   under the Agents group in Threads to an "Agent updates" block above the main chat. Its header folds it away (remembered on this
   device); a row still opens its agent's thread. The agent threads (AS, MM) stay in the Agents group.
 - Tests: AGF3 rewritten for the new place; MB1 and MB2 added (one `var IC`, back button). 878/878 pass after merging main (1.28.82).
-## Cue 1.28.83: one channel per role (not deployed)
-
-Asked: Kiko, 18 Nov 2026 02:43:48Z "Roles have 2 channels?" (screenshot after Version 260). Slot cue-1.28.83, card
-agent-cards-labels-names-channels.
-
-- Cause: 1.28.82 brought back older agent threads, and older runs had sent other names for the same role ("BSE Account Specialist",
-  "Multimedia Specialist", "BSE — MM — CARD RESUME", "BSE Finance Specialist", "Admin Specialist", "BSE Event Coordinator II").
-- `cueAgdLabel_` (CueAgentDrafts.gs) and `agdLabel` (IndexChat.html): every name an agent used maps to one role name (Account
-  Specialist, Multimedia, Finance, Admin, Procurement Specialist, Event Specialist, Email Intake); " agent" at the end is kept for
-  display. `cueAgdKey_` drops a trailing " agent", so new drafts join the role's thread.
-- `threads()` (IndexThreads.html): agent threads of the same role show as one thread, under the role's oldest thread. Display only:
-  nothing is deleted or re-saved.
-- Tests: ROLE7 (new); ROLE1 and TAG2 expect the role name. 879/879 pass.
-
 ## Cue 1.28.82: agent cards get bold labels, full agent names, and every agent keeps its channel (LIVE as Version 260, 18 Nov 2026 02:25Z, rollback 259)
 
 Asked: Kiko, 18 Nov 2026 02:14:31Z "The titles though need to be in bold and line breaks after the values"; 02:14:49Z "Make it a
