@@ -1,12 +1,14 @@
 # Changelog
 
-## Cue 1.28.100: agents can draft a question to the client; your Send sends it from your Gmail (not deployed)
+## Cue 1.28.100: agents can draft a question to the client; your Send sends it from your Gmail (live as Version 268, 18 Nov 2026 12:12Z; rollback Version 267)
 
 Asked: Kiko, 18 Nov 2026 10:22:01Z: "Add Agent Drafts type client_question. When the client's Gmail thread is known, send a
 reply-all in that thread. Otherwise send a new email to the project's main client contact (PROJ Contacts, else Client Desk). If
 there's no contact, refuse. It is sent only on Kiko's Send tap, from his Gmail via the RFP Outbox. Send back carries Kiko's
 answer to the agent and sends nothing." Slot cue-1.28.100, card agent-client-question, CanvasWorkspace ADR-0217. Needs the
-Canvas client_question release; ship Cue first.
+Canvas client_question release; ship Cue first. Kiko typed "go ship cue 1.28.100" at 12:11:13Z; Deploy Cue run
+44301757544 (check run 44301618244 showed only CueAgentDrafts.gs, CueRfpSend.gs and IndexCards.html differ from Version 267).
+It does not carry 1.28.99, which another thread rebuilds on top of it.
 
 - A client question shows as a card in the agent's thread, From: Your Gmail. A reply-all card says so and has no subject box,
   because it keeps the thread's own subject. The note box reads "Your answer for the agent, or what should change".
