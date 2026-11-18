@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.87: long links wrap inside every card (not deployed)
+
+Asked: Kiko, 18 Nov 2026 04:11:18Z, with a screenshot of the Account Specialist handover card for S-31753672PA: "and it went out
+of the card". The coordinator asked for the fix in the default card design. Slot cue-1.28.87, card card-long-links-wrap.
+
+- `src/IndexStyle.html`: every `.card` wraps long links and unbroken text inside itself (`overflow-wrap:anywhere`) and never grows
+  past its pane. Tables other than the facts table keep their own column widths, so the requirements table still scrolls in its
+  own box.
+- Checked in Chromium on a handover card with two long Drive links: at 390 px the page was 705 px wide before and 390 px after;
+  1280 px fits. The requirements table measures the same before and after.
+- Test: `test/features/99-card-long-links-wrap.js` (CWR1).
+
 ## Cue 1.28.84: Cue marks ignored, daily-list and muted-sender emails as read in Kiko's Gmail (not deployed)
 
 Asked: Kiko, 18 Nov 2026 02:31:01Z, chose "Yes, add Gmail permission" on the card "Let Cue mark ignored and daily-list emails
