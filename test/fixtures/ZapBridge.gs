@@ -773,13 +773,20 @@ function zbGptGuide_(part) {
  * so it stays read only whatever the client sends. It starts with "ro-" so the connector can show read tools only. */
 const ZB_GPT_RO_PROP_ = 'GPT_DOOR_READ_KEY', ZB_GPT_RO_PREFIX_ = 'ro-';
 /** 'full' (the ChatGPT key), 'read' (the read-only key) or '' (neither). Keys under 24 characters never match. */
-function zbGptKeyKind_(key, full, ro) {
+function zbGptKeyKind_(key, full, ro, board) {
   if (typeof key !== 'string' || !key) return '';
   const h = zbHash_(key);
   if (String(full || '').length >= 24 && zbSafeEq_(h, zbHash_(full))) return 'full';
   if (String(ro || '').length >= 24 && zbSafeEq_(h, zbHash_(ro))) return 'read';
+  if (String(board || '').length >= 24 && zbSafeEq_(h, zbHash_(board))) return 'board';   // BOARD-KEY-2026-11-17
   return '';
 }
+/* BOARD-KEY-2026-11-17 (Kiko 17 Nov 2026 13:55Z, test only: "a SEPARATE least-privilege read-only dashboard credential ... Scope
+ * is board reads only: project identity/status and required requirement/pricing fields"). A third door key, Script Property
+ * GPT_DOOR_BOARD_KEY (starts with "bd-"), for the KKD dashboard's Project board. It opens one action, board_intake, and nothing
+ * else; board_intake is not open to the ChatGPT key or the read-only key. Not live until Kiko approves the release and saves
+ * the key in Admin > System Config > API keys. */
+const ZB_GPT_BOARD_PROP_ = 'GPT_DOOR_BOARD_KEY', ZB_GPT_BOARD_PREFIX_ = 'bd-', ZB_BOARD_ONLY_ = ['board_intake'];
 /** True when a door action only reads (a fixed kind 'read'; an action that decides its kind per call counts as a save). */
 function zbGptIsRead_(action) {
   const a = zbOwn_(ZB_ACTIONS_, action) ? ZB_ACTIONS_[action] : null;
@@ -799,11 +806,20 @@ function zbGptDoorRun_(raw, now, seen) {
   seen.action = r.action;
   const props = PropertiesService.getScriptProperties();
   const secret = String(props.getProperty('GPT_DOOR_KEY') || ''), roKey = String(props.getProperty(ZB_GPT_RO_PROP_) || '');
-  if (secret.length < 24 && roKey.length < 24) return zbOut_('Rejected', {}, { error: 'The ChatGPT door is off. Kiko saves a ChatGPT key in Admin > System Config > API keys.' });
-  const which = zbGptKeyKind_(r.key, secret, roKey);
+  const boardKey = String(props.getProperty(ZB_GPT_BOARD_PROP_) || '');   // BOARD-KEY-2026-11-17
+  if (secret.length < 24 && roKey.length < 24 && boardKey.length < 24) return zbOut_('Rejected', {}, { error: 'The ChatGPT door is off. Kiko saves a ChatGPT key in Admin > System Config > API keys.' });
+  const which = zbGptKeyKind_(r.key, secret, roKey, boardKey);
   if (!which) return zbOut_('Rejected', {}, { error: 'bad key' });
   const extra = Object.keys(r).filter(k => ZB_GPT_KEYS_.indexOf(k) < 0);
   if (extra.length) return zbOut_('Rejected', r, { error: 'unexpected field: ' + extra[0].slice(0, 40) });
+  if (which === 'board') {   // BOARD-KEY-2026-11-17: the board key opens board_intake only
+    seen.task = 'board key';
+    if (ZB_BOARD_ONLY_.indexOf(String(r.action)) < 0) return zbOut_('Rejected', r, { error: 'this key opens board_intake only' });
+    if (r.project_id || r.expected_project_number) return zbOut_('Rejected', r, { error: 'board_intake takes no project' });
+    const bq = { command_id: 'board-' + Utilities.getUuid(), task_id: 'board', action: 'board_intake', args: {} };
+    seen.q = bq;
+    return zbGptMask_(zbHandle_(JSON.stringify(bq), '', now, true));
+  }
   if (ZB_GPT_ACTIONS_.indexOf(String(r.action)) < 0) return zbOut_('Rejected', r, { error: 'this action is not open to ChatGPT' });
   if (which === 'read' && !zbGptIsRead_(r.action)) { seen.ro = true; return zbOut_('Rejected', r, { error: 'this key is read only: ' + String(r.action).slice(0, 60) + ' is a save' }); }
   seen.ro = which === 'read';
@@ -2523,6 +2539,36 @@ ZB_ACTIONS_.supplier_add = {
 };
 ZB_GPT_ACTIONS_.push('supplier_add');
 
+/* GPT-CLIENT-ADD-2026-11-17 (Kiko 17 Nov 2026 07:37Z "check and add" to "does the connector support adding contacts for supplier,
+ * client, crew?"; 07:47Z "go ahead" to the scope, project files connector-contacts/scope.md, card connector-client-add).
+ * client_add is Accounts › "+ Add client" / "+ Add contact" through the connector: the same save (accountsAdd_, AccountsAdd.gs),
+ * so the same rules and no new ones. A company already on the list (name, legal name, business style or alias) is used; a new one
+ * gets a P0 row at p_stage (P0 unless sent). A contact whose email (or, with no email, name in that company) is already in P0
+ * Contacts is not added again, so a repeat adds nothing twice. Every row goes to CRM Auto Added with Source "ChatGPT", so Accounts
+ * › Auto add lists it with Undo. A write, so the read-only key is refused at the door; not open to Cue's signed bridge. */
+const ZB_CLIENT_PERSON_ = { name: { type: 'string', required: true, nonBlank: true, max: 120 }, email: { type: 'string', max: 160 },
+  mobile: { type: 'string', max: 40 }, position: { type: 'string', max: 120 } };
+ZB_ACTIONS_.client_add = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, company: { type: 'string', required: true, nonBlank: true, max: 160 },
+    p_stage: { type: 'string', oneOf: ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9'] },
+    contacts: { type: 'array', maxItems: 20, items: ZB_CLIENT_PERSON_ } },
+  run: (r) => {
+    const a = r.args;
+    let res; try {
+      res = accountsAdd_({ co: a.company, p: a.p_stage || 'P0', contacts: (a.contacts || []).map(k => ({ n: k.name, e: k.email, ph: k.mobile, t: k.position })) },
+        'ChatGPT', ACC_VIA_.chatgpt);
+    } catch (e) {   // the window's own checks run before anything is written; any other error is not a refusal
+      const m = zbErr_(e); if (/^(Fill in |Enter a full email|Add up to )/.test(m)) return { refused: m + ' Nothing was saved.' }; throw e;
+    }
+    return { saved: true, company: res.co, new_company: res.newCo, p_stage: res.p || '',
+      added: res.added.map(o => ({ name: o.n, email: o.e, mobile: o.ph, position: o.t })), already_on_list: res.known.map(o => ({ name: o.n, email: o.e })) };
+  },
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
+    : res && res.saved ? { ok: true, evidence: { company: res.company, new_company: res.new_company, added: res.added.length } } : { ok: false, error: 'not saved' }
+};
+ZB_GPT_ACTIONS_.push('client_add');   // ZB_GPT_ONLY_ gets it after its declaration, next to the freelancer actions
+
 /* SUP-AGENT-FINDINGS-2026-11-13 (Kiko 13 Nov 2026 05:26:59Z: "can you add a read only field in Supplier Database so that agent
  * can put its findings? It will include Accreditation details"; 05:29Z: "zapier thru connector", "yes" (lookups return it), "free
  * text"; 05:32Z approved the mockup). supplier_findings_add puts one dated entry at the top of the supplier's Agent Findings cell
@@ -2941,6 +2987,10 @@ ZB_ACTIONS_.inventory = {
   run: (r) => zbInventory_(r.args || {})
 };
 ZB_GPT_ACTIONS_.push('supplier_lookup', 'price_list', 'inventory');
+// N8N-EMAIL-LOOKUPS-2026-11-18 (Kiko 18 Nov 2026 06:33Z, Email Intake step 05 "what do you use to search the database"): the
+// three read-only checks that find a sender by email address (a supplier's contact emails, a client's contacts, a Client
+// Desk contact) open to the n8n door. Reads only; no write is added. Ships with the Email Intake install bundle.
+ZB_GPT_ACTIONS_.push('supplier_check', 'client_check', 'contact_new_check');
 
 /* GPT-PROJECT-STATUS-2026-11-13 (Kiko 13 Nov 2026 02:29:59Z: "please update canvas connector to include updating of project
  * status"). ChatGPT sets a project's PROJECT STATUS through the same save as the Projects page and Finance Desk
@@ -3222,6 +3272,7 @@ ZB_ACTIONS_.freelancer_edit = {
 };
 ZB_GPT_ACTIONS_.push('freelancer_lookup', 'freelancer_payee_match', 'freelancer_add', 'freelancer_edit');
 ZB_GPT_ONLY_.push('freelancer_lookup', 'freelancer_payee_match', 'freelancer_add', 'freelancer_edit');   // never through a signed Cue call
+ZB_GPT_ONLY_.push('client_add');   // GPT-CLIENT-ADD-2026-11-17: never through a signed Cue call
 
 /* GPT-PAY-FOLLOWUPS-2026-11-16 (Kiko 16 Nov 2026 04:33:52Z "let the connector include S4 S6 checks if fullly paid? S7 checks if
  * fully paid?"; 05:05:33Z "4 yes"; card "Approve, build and ship" 05:19:28Z; card connector-freelancers). Read only, both keys:
@@ -3295,6 +3346,112 @@ ZB_ACTIONS_.event_roles = {
 };
 ZB_GPT_ACTIONS_.push('event_roles');
 ZB_GPT_ONLY_.push('event_roles');
+
+/* GPT-SUPPLIER-EDIT-2026-11-17 (Kiko 17 Nov 2026 19:59Z "they need write also", 20:01Z "also provide read access on RFP log";
+ * decision card "Approve as written" 20:02:53Z; scope: project files connector-supplier-edit/scope.md; card
+ * connector-supplier-contact-edit).
+ * - supplier_contacts: a supplier's contacts (Supplier Database > Supplier Contacts, the Support Desk read getSupplierContacts
+ *   through supplierProfile), the phone masked to its last 4 digits.
+ * - supplier_contact_edit: Support Desk's own contact save (saveSupplierContact: Contact Person required, a changed email checked,
+ *   the row must still be that person, audit log). Each change is {from, to}; a from that no longer matches is refused and nothing is
+ *   saved. phone.from is the masked value as read. A repeat after a save (every field already holds its to) saves nothing again.
+ * - save_ce_requirements lines take an optional from per line, as scope_edit does: a line whose cell no longer holds from refuses
+ *   the whole save. A field that already holds its new value is not checked, so a retry after a save passes.
+ * - rfp_log without project_id: every RFP sent since `since` (default 30 days back), newest first, at most 100; supplier filters. */
+const ZB_SC_MAP_ = { contact_person: 'Contact Person', phone: 'Contact Number', email: 'Email Address', position: 'Position' };
+const zbDigits_ = v => String(v == null ? '' : v).replace(/\D/g, '');
+const zbMaskPhone_ = v => { const d = zbDigits_(v); return d ? '••••' + d.slice(-4) : ''; };
+function zbSupContactsOf_(name) {
+  const p = supplierProfile(String(name || '').trim());
+  if (!p.found) return { p, list: [] };
+  if (p.contactError) throw new Error(p.contactError);
+  const f = (p.contacts && p.contacts.fields) || [];
+  const list = ((p.contacts && p.contacts.rows) || []).map(x => { const o = { row: x.row };
+    Object.keys(ZB_SC_MAP_).forEach(k => { const i = f.indexOf(ZB_SC_MAP_[k]); o[k] = i < 0 ? '' : String(x.values[i] == null ? '' : x.values[i]).trim(); });
+    return o; });
+  return { p, list, fields: f };
+}
+const zbScView_ = o => ({ row: o.row, contact_person: o.contact_person, position: o.position, email: o.email, phone: zbMaskPhone_(o.phone) });
+ZB_ACTIONS_.supplier_contacts = {
+  kind: 'read', needsProject: false,
+  schema: { supplier: { type: 'string', required: true, nonBlank: true, max: 150 } },
+  run: (r) => { const x = zbSupContactsOf_(r.args.supplier);
+    if (!x.p.found) return { found: false, supplier: String(r.args.supplier).trim(), contacts: [] };
+    return { found: true, supplier: x.p.name, contacts: x.list.map(zbScView_) }; }
+};
+// Does what Canvas holds match what the caller read? Phone matches its masked form or its digits; email ignores case.
+function zbScSame_(k, held, sent) {
+  const a = String(held == null ? '' : held).trim(), b = String(sent == null ? '' : sent).trim();
+  if (k === 'phone') return a === b || zbMaskPhone_(a) === b || zbDigits_(a) === zbDigits_(b);
+  if (k === 'email') return a.toLowerCase() === b.toLowerCase();
+  return a.replace(/\s+/g, ' ') === b.replace(/\s+/g, ' ');
+}
+ZB_ACTIONS_.supplier_contact_edit = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, supplier: { type: 'string', required: true, nonBlank: true, max: 150 },
+    row: { type: 'number', required: true, min: 2 }, contact: { type: 'string', required: true, nonBlank: true, max: 120 },
+    changes: { type: 'object', required: true, minKeys: 1, fields: { contact_person: zbFromTo_('string'), phone: zbFromTo_('string'),
+      email: zbFromTo_('string'), position: zbFromTo_('string') } } },
+  run: (r) => { const a = r.args; try {
+    const x = zbSupContactsOf_(a.supplier);
+    if (!x.p.found) return { refused: a.supplier + ' is not in the Supplier Database. Nothing was saved.' };
+    const want = String(a.contact).trim(), c = x.list.find(o => o.row === a.row && o.contact_person === want) || (x.list.filter(o => o.contact_person === want).length === 1 ? x.list.find(o => o.contact_person === want) : null);
+    if (!c) return { refused: 'That contact is no longer on this supplier, or someone changed it. Read supplier_contacts again. Nothing was saved.' };
+    const keys = Object.keys(a.changes), done = keys.every(k => zbScSame_(k, c[k], a.changes[k].to));
+    if (done) return { saved: true, repeat: true, supplier: x.p.name, row: c.row, was: zbScView_(c), now: zbScView_(c) };
+    const stale = keys.filter(k => a.changes[k].from != null && !zbScSame_(k, c[k], a.changes[k].from) && !zbScSame_(k, c[k], a.changes[k].to));
+    if (stale.length) return { refused: stale.map(k => k + ' is now ' + (k === 'phone' ? zbMaskPhone_(c[k]) : c[k] || 'blank')).join('; ') + ' in Canvas, not what you read. Read supplier_contacts again. Nothing was saved.' };
+    const next = Object.assign({}, c); keys.forEach(k => { next[k] = String(a.changes[k].to).trim(); });
+    const values = x.fields.map(h => { const k = Object.keys(ZB_SC_MAP_).find(q => ZB_SC_MAP_[q] === h); return k ? next[k] : ''; });
+    saveSupplierContact(c.row, x.p.id, x.p.name, values, c.contact_person);
+    const back = zbSupContactsOf_(x.p.name).list.find(o => o.row === c.row) || {};
+    const off = keys.filter(k => !zbScSame_(k, back[k], a.changes[k].to));
+    return { saved: true, supplier: x.p.name, row: c.row, was: zbScView_(c), now: zbScView_(back), off };
+  } catch (e) { const m = zbErr_(e); return { refused: /Nothing was saved\.?\s*$/.test(m) ? m : m + ' Nothing was saved.' }; } },
+  check: (r, res) => zbRefusedOr_(res, () => { if (res.repeat) return { ok: true, evidence: { row: res.row } };
+    const off = res.off || [];
+    return off.length ? { ok: false, error: 'read back differs: ' + off.join(', ') } : { ok: true, evidence: { row: res.row } }; })
+};
+ZB_GPT_ACTIONS_.push('supplier_contacts', 'supplier_contact_edit');
+ZB_GPT_ONLY_.push('supplier_contacts', 'supplier_contact_edit');   // never through a signed Cue call
+
+(function () {   // save_ce_requirements: optional from per line
+  const a = ZB_ACTIONS_.save_ce_requirements, item = a.schema.lines.items, set = item.set.fields, from = {};
+  Object.keys(set).forEach(k => { from[k] = set[k].type === 'number' ? { type: 'number', clearable: true } : { type: 'string', max: set[k].max }; });
+  item.from = { type: 'object', minKeys: 1, fields: from };
+  const run0 = a.run, check0 = a.check;
+  a.run = (r, proj, prior) => {
+    const lines = (r.args.lines || []).filter(l => l.from);
+    if (lines.length && !(prior && prior.lines && prior.lines.ok)) {
+      const stale = zbCeStale_(r.project_id, lines);
+      if (stale.length) return { refused: stale.join('; ') + '. Read ce_lines again. Nothing was saved.' };
+    }
+    return run0(r, proj, prior); };
+  a.check = (r, res, prior) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : check0(r, res, prior);
+})();
+/** Lines whose cells no longer hold what the caller read (from). A field that already holds its new value (set) is a retry, not stale. */
+function zbCeStale_(pid, lines) {
+  const R = table_(SRC.SCOPES, 'Requirements'), mine = by_(R, 'project id', pid), ic = col_(R, 'requirement id'), out = [];
+  const txt = v => String(v == null ? '' : v).replace(/\r/g, '').trim();
+  const same = (x, y) => { x = txt(x); y = txt(y); if (x === y) return true; const nx = Number(x.replace(/[,₱\s]/g, '')), ny = Number(y.replace(/[,₱\s]/g, ''));
+    return x !== '' && y !== '' && isFinite(nx) && isFinite(ny) && Math.abs(nx - ny) < 0.005; };
+  lines.forEach(l => {
+    const row = R.rows.find(x => mine(x) && txt(x[ic]) === l.reqId);
+    if (!row) { out.push(l.reqId + ' is not a CE line of this project'); return; }
+    Object.keys(l.from).forEach(k => { const c = col_(R, k); if (c < 0) return;
+      if (l.set && Object.prototype.hasOwnProperty.call(l.set, k) && same(row[c], l.set[k])) return;
+      const cut = { description: 600, category: 200, 'ce section': 50 }[k];   // ce_lines gives these cut to this length
+      if (!(cut ? txt(row[c]).slice(0, cut) === txt(l.from[k]).slice(0, cut) : same(row[c], l.from[k]))) out.push(l.reqId + ' ' + k + ' is now ' + (txt(row[c]) || 'blank')); });
+  });
+  return out;
+}
+
+(function () {   // rfp_log: project_id optional, supplier and since filters
+  const a = ZB_ACTIONS_.rfp_log;
+  a.schema = { project_id: { type: 'string', re: ZB_PID_RE_ }, scope_id: { type: 'string', max: 40 },
+    supplier: { type: 'string', max: 150 }, since: ZB_CRM_DAY_ };
+  a.run = (r) => r.args.project_id && !r.args.supplier && !r.args.since ? agdRfpLog_(r.args) : agdRfpFind_(r.args);
+})();
 
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
  * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for
@@ -4131,3 +4288,29 @@ ZB_ACTIONS_.status_copy = {
     to: { type: 'string', max: 500 }, sent_at: { type: 'string', max: 40 }, html: { type: 'string', max: 60000 }, text: { type: 'string', max: 20000 } },
   run: (r) => wrSave_(r.args)
 };
+
+/* BOARD-KEY-2026-11-17 (Kiko 17 Nov 2026 13:55Z, test only): the KKD dashboard's Project board in one read. Every project in
+ * Admin > Directory (no search, no 10-project limit, every status), with its Requirements rows: only the fields the board shows
+ * (REQ ID, category, description, qty, occurrence, execution, unit price) and whether the row is marked 'removed from ce'.
+ * No unit cost, discount, supplier, client contact or money other than the CE unit price. Read only. */
+const ZB_BOARD_LINES_MAX_ = 300;
+function zbBoardIntake_() {
+  const projects = getProjectsAll_().filter(p => p.id && !/^#/.test(String(p.id).trim()));
+  const R = table_(SRC.SCOPES, 'Requirements'), pc = col_(R, 'project id'), c = {};
+  ['requirement id', 'category', 'description', 'quantity', 'occurence', 'execution', 'unit price', 'removed from ce'].forEach(k => { c[k] = col_(R, k); });
+  if (pc < 0 || c['requirement id'] < 0) throw new Error('The Requirements tab has no Project ID or Requirement ID column.');
+  const by = {};
+  R.rows.forEach(r => {
+    const pid = norm_(r[pc]), id = String(r[c['requirement id']] || '').trim(); if (!pid || !id) return;
+    const b = by[pid] = by[pid] || { seen: {}, lines: [] }; if (b.seen[id]) return; b.seen[id] = 1;
+    const v = k => c[k] >= 0 ? r[c[k]] : '';
+    b.lines.push({ req_id: id, category: String(v('category') || '').trim().slice(0, 200), description: String(v('description') || '').trim().slice(0, 300),
+      qty: zbCeNum_(v('quantity')), occurrence: zbCeNum_(v('occurence')), execution: String(v('execution') || '').trim().slice(0, 40),
+      unit_price: zbCeNum_(v('unit price')), removed: String(v('removed from ce') || '').trim() !== '' });
+  });
+  return { fetched_at: new Date().toISOString(), project_count: projects.length, columns_found: Object.keys(c).filter(k => c[k] >= 0),
+    projects: projects.map(p => { const b = by[norm_(p.id)] || { lines: [] };
+      return { project_id: String(p.id).trim(), name: String(p.name || ''), status: String(p.status || ''), admin_status: String(p.adminStatus || ''),
+        lines: b.lines.slice(0, ZB_BOARD_LINES_MAX_), lines_total: b.lines.length, lines_more: b.lines.length > ZB_BOARD_LINES_MAX_ }; }) };
+}
+ZB_ACTIONS_.board_intake = { kind: 'read', needsProject: false, schema: {}, run: () => zbBoardIntake_() };
