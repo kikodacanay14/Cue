@@ -1164,7 +1164,11 @@
   function mvTag(m) { mvRef.push({ time: m.time, who: m.who, text: m.text }); return ' data-mvk="' + (mvRef.length - 1) + '"'; }   // the server finds the row by time, who and text
   function mvAttr(html, m) {
     if (m.who === 'Kiko' || !m.time || askOf(m) || !state.chat.some(function (x) { return x === m; })) return html;   // only Cue's lines that the server already has
-    return html.replace('<div class="msg ', '<div draggable="true"' + mvTag(m) + ' class="msg ');
+    var tag = mvTag(m), k = mvRef.length - 1;
+    // CUE-MSG-MOVE-2026-11-18 (Kiko 18 Nov 2026 13:45:47Z "maybe we should just add the Move function inside the ... in Cue"):
+    // a line that can be dragged also gets Move in its ⋯ menu, after Reply; it opens the same "Move to…" list as the phone's long press.
+    html = html.replace(/(<div class="msgmenu" role="menu" hidden>(?:<button role="menuitem" data-reply[^>]*>Reply<\/button>)?)/, '$1<button role="menuitem" data-mv-open="' + k + '">Move</button>');
+    return html.replace('<div class="msg ', '<div draggable="true"' + tag + ' class="msg ');
   }
   function movedHtml(m, c, th) {
     var nm = chanName(c, th), k = mvKey(m);
@@ -1264,6 +1268,11 @@
     job.sort(function (a, b) { return a.n.localeCompare(b.n); });
     return [['Project and Process Updates', job], ['Systems', sys]];   // PROCESS-UPDATES-2026-11-18: Jobs removed (Kiko 09:08:03Z)
   }
+  document.addEventListener('click', function (e) {   // CUE-MSG-MOVE-2026-11-18: ⋯ › Move
+    var b = e.target.closest && e.target.closest('[data-mv-open]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault(); menusShut(null);
+    var o = mvRef[Number(b.getAttribute('data-mv-open'))]; if (o) mvSheet(o);
+  }, true);
   function mvSheet(o) {
     var h = '<div class="mvdim" data-mv-x="1"></div><div class="mvsheet" role="dialog" aria-label="Move to"><div class="hd">Move to…</div>';
     mvTargets().forEach(function (g) { if (!g[1].length) return; h += '<div class="grp">' + g[0] + '</div>' + g[1].map(function (x) { return '<button class="op" data-mv-to="' + esc(x.c) + '">' + esc(x.n) + '</button>'; }).join(''); });

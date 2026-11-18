@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.102: Move in the ⋯ menu on each message (not deployed)
+
+Asked by Kiko, 18 Nov 2026 13:45:47Z: "maybe we should just add the Move function inside the ... in Cue". Slot cue-1.28.102,
+card cue-msg-move. Built on main ad1157c (live Version 270, 1.28.101).
+
+- A message that can move to a channel (Cue's own lines in General) now shows Reply, Move, Flag and Dismiss in its ⋯ menu.
+- Move opens the same "Move to…" list the phone opens on a long press. On a PC it shows as a small box in the middle of the
+  screen; on a phone it stays a sheet at the bottom. Picking a channel moves the line and asks "Why here?" as before.
+- Dragging a line onto a channel (PC) and the long press (phone) still work. Messages that cannot move have no Move.
+- Tests: MM5 new; 942/942.
+
 ## Cue 1.28.101: tick the requirements you approve on the approval card (live as Version 270, 18 Nov 2026 12:32Z; rollback Version 269)
 
 Asked: Kiko, 18 Nov 2026 12:09:30Z: "We can approve it by requirement so that other items are already started to be worked on";
