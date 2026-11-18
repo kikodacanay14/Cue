@@ -31,7 +31,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 2 |
 | `help` | Help answer |  | Info | `CueHelp.gs` | intake (default) | 2 |
 | `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
-| `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 1 |
+| `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 0 |
 | `mail` | Page only (not in the command list) |  | Info | none | none | 1 |
 | `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
 | `msgr` | Page only (not in the command list) |  | Info | none | none | 2 |

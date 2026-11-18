@@ -1,5 +1,4 @@
-// Part of test/cue.test.js. Feature: CUE-JOBS-UPDATES-2026-11-18 (src/IndexThreads.html updThread/chanGroup/renderThreadList,
-// src/IndexStyle.html .tgroup.tsub). Kiko 18 Nov 2026 06:15:53Z "the Project Intake should be in Jobs. Add there Updates under Jobs - put
+// Part of test/cue.test.js. Feature: CUE-JOBS-UPDATES-2026-11-18 (src/IndexThreads.html chanGroup/chanKey/chanNow). Kiko 18 Nov 2026 06:15:53Z "the Project Intake should be in Jobs. Add there Updates under Jobs - put
 // the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in Systems? Same with GitHub?".
 const JU_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
 function juGroup(t) {
@@ -7,26 +6,26 @@ function juGroup(t) {
   vm.runInNewContext(JU_SRC.slice(a, z) + '\nthis.g = chanGroup;', c);
   return c.g(Object.assign({ chan: '', reqs: [] }, t), {});
 }
-test('JU1 Jobs › Updates takes the 8 AM and 2 PM updates and the Sales day threads; Project intake and the 2 PM funnel follow-ups go to Jobs', () => {
-  deq(juGroup({ reqs: [{ kind: 'k0' }] }), 'jobupd', '8 AM / 2 PM update');
-  deq(juGroup({ reqs: [{ kind: 'funnel', subject: { key: 'sales' } }] }), 'jobupd', 'Sales · Wed 18 Nov');
-  deq(juGroup({ chan: 'job:sales', reqs: [{ kind: 'gtask' }] }), 'jobupd', 'the Sales channel');
-  deq(juGroup({ reqs: [{ kind: 'intake' }] }), 'job', 'Project intake');
-  deq(juGroup({ reqs: [{ kind: 'k0fn' }] }), 'job', '2 PM funnel follow-ups (named Project intake)');
-  deq(juGroup({ chan: 'job:bids', reqs: [{ kind: 'bids' }] }), 'job', 'other job channels unchanged');
-  deq(juGroup({ reqs: [{ kind: 'email' }] }), 'rest', 'other threads stay in Threads');
+test('JU1 (Kiko 06:53:45Z "combine the Sales and 8am update updates in just 1 update - include morning batch") one Updates channel holds the 8 AM and 2 PM updates, the funnel follow-ups, the Sales day threads, the funnel runs and the Morning batch; a Project intake stays in Threads', () => {
+  const a = JU_SRC.indexOf('  var SUBJ_CHAN = '), z = JU_SRC.indexOf('\n  }\n', JU_SRC.indexOf('  function chanKey(')) + 4, c = { agdLabel: x => x };
+  vm.runInNewContext(JU_SRC.slice(a, z) + '\nthis.k = chanKey; this.n = JOB_NAME; this.now = chanNow;', c);
+  deq(['k0', 'k0fn', 'sweep', 'funnel'].map(k => c.k({ kind: k })), ['job:updates', 'job:updates', 'job:updates', 'job:updates']);
+  deq([c.k({ kind: 'funnel', subject: { key: 'sales' } }), c.k({ kind: 'gtask', subject: { key: 'morning' } })], ['job:updates', 'job:updates'], 'Sales and Morning day threads');
+  deq(c.n['job:updates'], 'Updates');
+  deq(['job:sweep', 'job:sales', 'job:funnel', 'job:bids'].map(c.now), ['job:updates', 'job:updates', 'job:updates', 'job:bids'], 'old moves and rules land in Updates');
+  deq(juGroup({ chan: 'job:updates', reqs: [{ kind: 'k0' }] }), 'job');
+  deq(juGroup({ reqs: [{ kind: 'intake' }] }), 'rest', 'Project intake stays in Threads (Kiko: "that usually goes to Team Cue")');
+  deq(juGroup({ reqs: [{ kind: 'email' }] }), 'rest');
 });
 test('JU2 ChatGPT and GitHub sit in Systems; the other agents stay in Agent Updates', () => {
   deq(juGroup({ reqs: [{ agd: { agent: 'ChatGPT' } }] }), 'sys');
   deq(juGroup({ reqs: [{ agd: { agent: 'GitHub' } }] }), 'sys');
   deq(juGroup({ reqs: [{ agd: { agent: 'BSE — Account Specialist' } }] }), 'agent');
 });
-test('JU3 the Updates heading sits inside Jobs after Canvas\'s rows, folds on its own, and adds its count to Jobs', () => {
-  assert.ok(JU_SRC.includes("upd = g[0] === 'job' ? G.jobupd.sort(newest) : []"));
-  assert.ok(JU_SRC.includes("var gn = sum(l) + sum(upd) +"));
-  assert.ok(/h \+= extra\.map[\s\S]{0,600}if \(upd\.length\) \{[\s\S]{0,200}data-tgroup="jobupd"/.test(JU_SRC));
+test('JU3 no Updates sub-heading inside Jobs any more: Updates is one channel row', () => {
+  assert.ok(!/jobupd|updThread/.test(JU_SRC));
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
-  assert.ok(/\.tgroup\.tsub \{/.test(css));
+  assert.ok(!/\.tgroup\.tsub|\.tsubl/.test(css));
 });
 test('JU4 an email\'s line in General names its sender as its source, so a rule moves only that sender\'s emails; the rules list names it', () => {
   const code = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueNewMail.gs'), 'utf8'), c = {};

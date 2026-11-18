@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.94: Jobs › Updates, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (not deployed)
+## Cue 1.28.94: one Updates channel in Jobs, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (not deployed)
 
 Asked: Kiko, 18 Nov 2026, thread "Fix Cue layout and merge agent channels". 06:15:53Z "the Project Intake should be in Jobs. Add there
 Updates under Jobs - put the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in
@@ -8,10 +8,13 @@ Systems? Same with GitHub?"; 06:19:02Z "the K avatar is flattened already - put 
 part? when the message is clicked then show the details"; 06:22:47Z "these messages could have been placed in the conversation
 already"; 06:20:21Z "im trying to move Jessica Allyns email in General but it wont move"; 06:23:42Z "the text just gets highlighted";
 06:24:17Z "there should be a question as to why i moved it there - its probably because of sender, content"; 06:26:36Z "Ask me",
-06:26:46Z "have a prompt that will ask why". Slot cue-1.28.94, card cue-jobs-updates.
+06:26:46Z "have a prompt that will ask why"; 06:53:45Z "combine the Sales and 8am update updates in just 1 update - include morning
+batch - basically all messages from morning, afternoon and evening updates in 1 thread" and "why is there an Accenture year-end-party?
+that usually goes to Team Cue". Slot cue-1.28.94, card cue-jobs-updates.
 
-- Channel list: Jobs gets an Updates heading holding the 8 AM and 2 PM updates and the Sales day threads. Project intake threads (and
-  the 2 PM funnel follow-ups, which still show that name) sit in Jobs. ChatGPT and GitHub sit in Systems. Each stays its own row.
+- Channel list: Jobs gets ONE Updates channel (job:updates) holding the 8 AM and 2 PM updates, the 2 PM funnel follow-ups, the Sales
+  day threads and funnel runs, and the Morning batch. Lines moved, or rules made, to the old Morning batch, Sales or Sales funnel
+  channels read as Updates. Project intake threads stay in Threads. ChatGPT and GitHub sit in Systems.
 - K (Settings) moves from the list header to the foot of the channel list, with the word Settings.
 - General: no "Earlier task" row under messages. A task the list does not show puts all its lines in General, in time order; tapping
   one still opens the thread. An email's chat keeps its own lines; its post in General opens it.

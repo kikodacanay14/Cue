@@ -79,11 +79,11 @@ test('DC4 the page: a moved line and a line its rule covers join the channel (no
     { who: 'Cue', request_id: '', text: 'Reminder: call the venue', src: 'reminder', time: '2026-11-18T05:30:00.000Z', mv: 'job:funnel' },
     { who: 'Cue', request_id: '', text: 'The sweep did not run: x', src: 'sweep', time: '2026-11-18T05:40:00.000Z' }];
   const c = dcThreads(reqs, L, [{ src: 'msgr-setup', chan: 'job:bids', at: '2026-11-18T05:00:00.000Z', off: '2026-11-18T08:00:00.000Z' }]);
-  deq(L.map(m => c.lineChan(m)), ['', 'job:bids', '', 'sys:updates', 'job:funnel', '']);
+  deq(L.map(m => c.lineChan(m)), ['', 'job:bids', '', 'sys:updates', 'job:updates', ''], 'a line moved to Sales funnel before 1.28.94 now reads as Updates');
   deq(c.t.b1.lines.map(m => m.text), ['Messenger welcome screen not set (new)']);
   deq(c.t.r1.lines.map(m => m.text), ['Unscheduled check: everything is scheduled.']);
   deq(c.t['sys:alerts'].lines.map(m => m.text), ['The sweep did not run: x'], 'the old and the after-off Messenger lines are General, not alerts');
-  deq([c.chanAt(c.t, 'job:funnel'), c.chanAt(c.t, 'sys:alerts'), c.chanAt(c.t, 'job:bids')], ['', 'sys:alerts', 'b1'], 'Sales funnel has no channel yet, so its line stays in General');
+  deq([c.chanAt(c.t, 'job:updates'), c.chanAt(c.t, 'sys:alerts'), c.chanAt(c.t, 'job:bids')], ['', 'sys:alerts', 'b1'], 'Updates has no channel yet, so its line stays in General');
 });
 
 test('DC5 General: a moved line leaves only the approved question (Just this one / Yes, always, bottom right) or "Moved to X."; only Cue\'s saved lines can be dragged; drop targets are Jobs and Systems rows', () => {
