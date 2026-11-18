@@ -34,12 +34,12 @@ https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk. Slot cue-1.28.90 (1.28.89 is 
   the requirements approval flow, which has no Canvas command yet. Agents must send the new fields before they show.
 - Tests: AUP2 and AUR1/AUR2 rewritten, AUP4 new. 892/892 pass. Checked in Chromium at 1280 and 390 px: no sideways scroll.
 
-## Cue 1.28.89: drag a General message to a channel, and its source can follow (not deployed)
+## Cue 1.28.89: drag a General message to a channel, and its source can follow (live as Version 263, 18 Nov 2026 05:57Z; rollback Version 262)
 
 Asked: Kiko, 18 Nov 2026 04:31:41Z: "Messages in General Chat can i drag and drop them to a channel? That would then become a rule
 that messages like those should be moved to that channel". "yes scope it" 04:41:26Z; on the decision card at 05:08:40Z Kiko chose
 "By where it came from" (Cue tags each new General message with its source; a rule matches that source exactly; new messages only).
-Mockup approved "okay" 05:20:38Z; "ok build" 05:30:13Z. Slot cue-1.28.89, card cue-drag-to-channel. Deploy waits for Kiko's typed go.
+Mockup approved "okay" 05:20:38Z; "ok build" 05:30:13Z. Slot cue-1.28.89, card cue-drag-to-channel. Kiko typed "go ship cue 1.28.89" at 05:54:42Z. Shipped alone from release branch claude/project-thread-el9q3v-release-1.28.89 (live 1.28.88 plus this change), Deploy Cue run 44247762272; 1.28.90 and 1.28.91 are not live.
 
 - Source tag (`src/Cue.gs` cueChat_, 18 posting spots in Cue.gs, CueBids, CueEditLog, CueMessenger, CueNewMail, CueRoute,
   CueSchedule, CueServiceDesk, CueSweep, CueSweepFunnel, CueTickTick): each line Cue posts to General itself names where it came
