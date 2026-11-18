@@ -17,8 +17,8 @@ function aupView(brief) {
 }
 function aupGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUP1 pictures and the brief from Canvas are kept clean: Drive file IDs only, page a whole number, at most 20 per row', () => {
@@ -47,7 +47,7 @@ test('AUP2 the panel keeps the table; a row opens to show its details left and p
   ctx.agdRowOpen[v.id] = 'REQ26-11083-04'; const open = ctx.agdUpdHtml(v);
   assert.ok(/data-row="REQ26-11083-04"[^>]*aria-expanded="true"/.test(open) && /data-row="REQ26-11083-05"[^>]*aria-expanded="false"/.test(open));
   assert.strictEqual((open.match(/class="agdet"/g) || []).length, 1, 'one row open');
-  assert.ok(/<td colspan="5"><div class="agdetw agc1d"><div class="agdims">.*Description.*Dimensions.*<\/div><div><div class="agpics">/.test(open), 'details on the left, pictures on the right');
+  assert.ok(/<td colspan="6"><div class="agdetw agc1d"><div class="agdims">.*Description.*Dimensions.*<\/div><div><div class="agpics">/.test(open), 'details on the left, pictures on the right');
   assert.ok(/src="https:\/\/drive\.google\.com\/thumbnail\?id=a1b2c3d4e5f6g7h8i9j041&amp;sz=w320"/.test(open) && /onerror="cueThumb\(this,'a1b2c3d4e5f6g7h8i9j041'\)"/.test(open));
   assert.ok(!/class="pg"|Page 4|brief page/.test(open), 'no page badge');
   assert.ok(/data-agpic[^>]*href="https:\/\/drive\.google\.com\/file\/d\/a1b2c3d4e5f6g7h8i9j042\/view"[^>]*data-name="REQ26-11083-04 · picture 2"/.test(open));

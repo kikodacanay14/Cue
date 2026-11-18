@@ -14,7 +14,7 @@ function ackView(check) {
 function ackGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const v = page.indexOf('  var AGD_CHK = '), chk = page.slice(v, page.indexOf('] };\n', v) + 5);
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {} }; vm.createContext(ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
   vm.runInContext(chk + ['esc', 'agKv', 'agdLabel', 'agdPeso', 'agdRowsHtml', 'agdIntakeHtml', 'agdCheckHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
   return ctx;
 }
