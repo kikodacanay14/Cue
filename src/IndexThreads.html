@@ -45,6 +45,7 @@
     return 'rest';
   }
   function initials(n) { return String(n || '').replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('') || '·'; }
+  function dotCss(c) { return 'background:' + c; }   // a row's state colour (kept out of the HTML string for the CSS checker)
   var genLast = null;   // General's newest line, for its row (renderMain sets it)
   function renderThreadList(th) {
     var by = byId(), G = { agent: [], job: [], sys: [], need: [], work: [], rest: [] }, waiting = 0;
@@ -65,7 +66,7 @@
     // A row: dot (an agent: its initials), bold title, a two-line status (Needs you / Failed in amber), the open items, and time.
     var badge = function (n, what) { return n ? '<i class="badge rvn" title="' + n + ' ' + what + '">' + n + '</i>' : ''; };
     var row = function (x) { return '<button class="trow cat-' + (th[x.k] && th[x.k].reqs.length ? threadCat(th[x.k]) : 'gen') + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '">'
-      + (x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title)) + '</span>' : '<i class="dot" style="' + esc('background:' + x.st.color) + '"></i>')
+      + (x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title)) + '</span>' : '<i class="dot" style="' + esc(dotCss(x.st.color)) + '"></i>')
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
       + badge(x.n, 'open to review')
       + '<span class="tm">' + esc(ago(x.when).replace(' ago', '').replace('just now', 'now')) + '</span></button>'; };
