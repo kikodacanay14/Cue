@@ -1247,7 +1247,10 @@
   // AGENT-REPLIES-2026-11-14: in an agent's thread the box writes to that agent, and the note under it says Cue does not act on it.
   function agentBox(t) {
     var x0 = t && t.reqs[0], ag = x0 && x0.agd ? agdLabel(x0.agd.agent) || 'the agent' : '';
-    $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
+    // PROCESS-UPDATES-2026-11-18: in a channel that holds several runs (Project Updates, Jobs › Updates) a reply goes to the newest run
+    // (threadRef), so the box names it.
+    var last = !ag && t && t.chan && t.reqs.length > 1 ? t.reqs[t.reqs.length - 1] : null;
+    $('tbox').placeholder = ag ? 'Message ' + ag : last ? 'Reply to the newest: ' + String(replyTitle(last.id) || kindName(last)).slice(0, 60) : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
     $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
   }
   /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
