@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.84: Cue marks ignored, daily-list and muted-sender emails as read in Kiko's Gmail (not deployed)
+
+Asked: Kiko, 18 Nov 2026 02:31:01Z, chose "Yes, add Gmail permission" on the card "Let Cue mark ignored and daily-list emails
+as read in Gmail?" (Cue Dev Team thread). Slot cue-1.28.84, card acc-8-read. The mark-read code (AC-8) shipped in 1.28.3 but
+stayed off because PR #292 took the scope back out.
+
+- `src/appsscript.json`: adds the Gmail scope `gmail.modify`. Every other scope stays. Google asks Kiko once to tap Allow; until
+  then Apps Script triggers that run the head code wait for that authorization, so Kiko opens Cue and taps Allow right after
+  this reaches /dev.
+- `src/Cue.gs` `CUE_NEEDS_`: the "Fix Google access" check and cueSetup's access line now include `gmail.modify`.
+- Behaviour is unchanged otherwise: Cue only removes UNREAD (`cueMtMarkRead_`), never archives, labels or deletes, and emails
+  with a Canvas Project ID or with their own chat stay unread.
+- Tests: GMOD1 to GMOD3 (new, `test/features/99-gmail-modify.js`); C26 now expects `gmail.modify` among the missing scopes.
+  885/885 pass (with 1.28.83, 1.28.85 and 1.28.86 merged in).
+
 ## Cue 1.28.86: requirement rows open to show the MM pictures (not deployed)
 
 Asked: Kiko, 18 Nov 2026 02:46:35Z "Can you propose a card also where i can view the image and not a link?"; 02:58:28Z "I prefer the
