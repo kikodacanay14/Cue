@@ -4,7 +4,7 @@ Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1).
 the script again. `test/cue.test.js` fails when this file is out of date.
 
 Counts: 85 server files, 1691 top-level names, 36 task kinds, 35 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 109 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
+chat call, 19 background jobs in the 5-minute trigger, 109 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -141,7 +141,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 78 | 52 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 5 | 11 |
-| `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
+| `CueAdminCanvas.gs` | `mobile`, `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
 | `CueAgent.gs` | `contains` |  | 0 | 0 | 1 | 7 |
 | `CueAgentDrafts.gs` | `occurrence`, `subject` | Requests | 1 | 0 | 3 | 6 |
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 38 | 3 |
@@ -189,7 +189,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueMailAlerts.gs` | `subject` |  | 0 | 0 | 2 | 6 |
 | `CueMailChat.gs` | `phone` | Requests | 0 | 1 | 3 | 9 |
 | `CueMailTypes.gs` |  | Triage rules, Triage types | 0 | 0 | 4 | 4 |
-| `CueMessenger.gs` |  | Chat, Requests | 0 | 0 | 6 | 7 |
+| `CueMessenger.gs` | `mobile` | Chat, Requests | 0 | 0 | 6 | 7 |
 | `CueMorning.gs` | `client_status`, `pay_day_due` | Requests | 0 | 0 | 10 | 13 |
 | `CueMsgTemplates.gs` |  |  | 0 | 0 | 1 | 6 |
 | `CueNewMail.gs` | `get_project_board`, `inbox_new`, `mail_waiting` | Requests, Triage log, Triage rules | 0 | 0 | 7 | 8 |
