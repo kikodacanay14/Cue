@@ -14,6 +14,8 @@ card cue-msg-move. Built on main ad1157c (live Version 270, 1.28.101).
   shouldnt be documented as if its a message"; 13:55:17Z: "the cue actions, i think theres no need to put them threre?";
   13:56:04Z: "even the sort updted are not necessary". The New mail card still lists each email and where it was sorted, and the
   rows stay in the Chat tab. Display only.
+- The one-line note an email type posts ("[Platform notices] Brave Search API: …") leaves the chat too (coordinator, 13:57Z,
+  on Kiko's "even the sort updted are not necessary"). The email types' settings are unchanged.
 - Tests: MM5 and ML1 new; 943/943.
 
 ## Cue 1.28.101: tick the requirements you approve on the approval card (live as Version 270, 18 Nov 2026 12:32Z; rollback Version 269)

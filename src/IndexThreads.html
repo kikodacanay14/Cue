@@ -731,7 +731,12 @@
    * to put them threre?"). Cue's own New mail notes (an email arrived, Claude sorted it) show in no thread and no preview; the New
    * mail card already shows each email and where it was sorted. The rows stay in the Chat tab. Display only. */
   var MAIL_LOG_RE = /^(?:\d+ new emails?\. Claude sorts them (?:after 7:00|within 30 minutes)\.|Sorted: .+\.|(?:A new email arrived|\d+ new emails arrived)[\s\S]*Claude will sort (?:it|them) in New mail (?:within 30 minutes|after 7:00)\.|Claude sorted (?:the email from [\s\S]+: it is [\s\S]+|\d+ new emails in New mail: [\s\S]+)\.)$/;
-  function isMailLog(m) { return m.who === 'Cue' && MAIL_LOG_RE.test(String(m.text || '')); }
+  // 13:57Z: the one-line note an email type posts (its "One line" setting, "[Platform notices] Brave Search API: …") leaves the chat too.
+  function isMailLog(m) {
+    if (m.who !== 'Cue') return false;
+    var t = String(m.text || '');
+    return MAIL_LOG_RE.test(t) || (!m.request_id && /(^|\|)type:|^mail-type$/.test(m.src || '') && /^\[[^\]\n]{1,40}\] [\s\S]+: [\s\S]+$/.test(t));
+  }
   function threads() {
     var by = byId(), t = {}, agRoot = {};
     // AGENT-ONE-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 02:43:48Z "Roles have 2 channels?"): every agent thread whose name maps to the

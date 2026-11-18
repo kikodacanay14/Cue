@@ -79,5 +79,8 @@ test('ML1 New mail notes are not chat messages (Kiko 18 Nov 2026 13:55:17Z "the 
     .forEach(t => assert.ok(ctx.isMailLog(cue(t)), t));
   ['Sorted', 'Your reply to Jessica is on the card.', 'New email · Jessica Allyn Benavidez, TELUS Digital · Client'].forEach(t => assert.ok(!ctx.isMailLog(cue(t)), t));
   assert.ok(!ctx.isMailLog({ who: 'Kiko', text: 'Sorted: 1 FYI.' }), 'Kiko\'s own words always show');
+  assert.ok(ctx.isMailLog({ who: 'Cue', text: '[Platform notices] Brave Search API: welcome email; no reply needed.', src: 'mail:a@b.com|type:Platform notices' }), 'a type\'s one-line note');
+  assert.ok(ctx.isMailLog({ who: 'Cue', text: '[FYI] X: y', src: 'mail-type' }));
+  assert.ok(!ctx.isMailLog({ who: 'Cue', text: '[Platform notices] Brave: y', src: 'bids' }), 'only lines the email types posted');
   assert.ok(MM_SRC.includes("      if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: New mail") && MM_SRC.includes("      if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: not in General either"), 'left out of General, every thread and its preview');
 });
