@@ -6,7 +6,8 @@ const AGC = (() => {
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ctx = { esc, noTok: t => String(t || ''), msgWhen: () => '16:00', agdLabel: v => String(v).replace(/\bECII\b/g, 'Procurement Specialist'), cardOf: r => '<div class="card">CARD ' + r.id + '</div>', flagBtn: () => '', moreBtn: () => '', isDismissed: () => false };
   const CARDS = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8'), k = CARDS.indexOf('  function agKv(');   // AGENT-CARD-LABELS-2026-11-18
-  vm.runInNewContext(CARDS.slice(k, CARDS.indexOf('\n  }\n', k) + 4) + AGC_SRC.slice(a, b) + '\nthis.f = { agentSays, agentReplies, agentEcho, agentBubble, agdOpen };', ctx); return ctx.f;
+  const n = CARDS.indexOf('  function agdNextLines(');   // AGENT-NEXT-LINES-2026-11-18
+  vm.runInNewContext(CARDS.slice(k, CARDS.indexOf('\n  }\n', k) + 4) + CARDS.slice(n, CARDS.indexOf('\n  }\n', n) + 4) + AGC_SRC.slice(a, b) + '\nthis.f = { agentSays, agentReplies, agentEcho, agentBubble, agdOpen };', ctx); return ctx.f;
 })();
 test('AGC1 an update reads as the agent talking: summary, open items, next step; a rows update says how many need Kiko', () => {
   const u = { id: 'u', agd: { agent: 'Account Specialist', type: 'update', item: 'Likha', project: 'Pandamart', handover: { summary: 'All 11 reviewed.', gaps: 'Entrance size', next_action: 'MM adds sizes', next_owner: 'MM', state: 'Delivered' } } };
