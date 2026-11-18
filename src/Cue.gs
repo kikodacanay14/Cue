@@ -1035,6 +1035,12 @@ function cueDrafts(id) { cueOwner_(); return cueView_(cueIntakeDrafts_(id)); }
 function cueFolders(id) { cueOwner_(); return cueView_(cueIntakeFolders_(id)); }
 
 /** What the page shows: recent requests (with the intake card when there is one), the chat, and the budget metric. */
+const CUE_STATE_JOB_RE_ = /"kind":"(sweep|k0|k0fn|funnel|bids|status|skillobs|relnotes|gtask)"/;
+/** The scheduled job a request is a run of ('' = none): its kind, or gtask:<key> for a ChatGPT task. */
+function cueStateJob_(s) {
+  if (!s || !CUE_STATE_JOB_RE_.test('"kind":"' + s.kind + '"')) return '';
+  return s.kind === 'gtask' ? (s.gt && s.gt.key ? 'gtask:' + s.gt.key : '') : s.kind;
+}
 function cueState() {
   cueOwner_();
   const chk = globalThis.CUE_CHECK_ON_ ? cueCheckTag_() : '';   // a cloud check sees only its own tasks and lines; Kiko never sees them
@@ -1055,6 +1061,24 @@ function cueState() {
       if (!s || s.kind !== 'agentdraft' || !s.agd || !s.agd.agent || String(s.check || '') || have[s.id]) continue;
       const k = cueAgdKey_(s.agd.agent); if (agentSeen[k]) continue;
       agentSeen[k] = 1; have[s.id] = 1; list.push(cueView_(s));
+    }
+  }
+  // JOB-CHANNELS-KEEP-2026-11-18 (Kiko 18 Nov 2026 08:06:01Z "why is there still a separate Thread for Sales -Wed Nov 18? and where
+  // are the threads under CRM???"): the newest 20 requests left out the scheduled jobs on a busy agent day, so Jobs showed only CRM and
+  // a Sales run whose first run of the day had dropped out showed under Threads. Every job keeps its newest run here, and the run its
+  // day thread hangs on, like the agents above.
+  if (!chk) {
+    const have = {}, jobSeen = {}, need = {}; list.forEach(x => { have[x.id] = 1; const j = cueStateJob_(x); if (j) jobSeen[j] = 1; if (x.ref) need[x.ref] = 1; });
+    const parse = r => { let s = null; try { s = JSON.parse(r.slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; } return s && !String(s.check || '') ? s : null; };
+    for (let i = 0; i < rows.length; i++) {
+      if (!CUE_STATE_JOB_RE_.test(String(rows[i][10] || '').slice(0, 600))) continue;
+      const s = parse(rows[i]); if (!s || have[s.id]) continue;
+      const j = cueStateJob_(s); if (!j || jobSeen[j]) continue;
+      jobSeen[j] = 1; have[s.id] = 1; list.push(cueView_(s)); if (s.ref) need[s.ref] = 1;
+    }
+    for (let i = 0; i < rows.length; i++) {
+      const id = String(rows[i][0] || ''); if (!need[id] || have[id]) continue;
+      const s = parse(rows[i]); if (s) { have[s.id] = 1; list.push(cueView_(s)); }
     }
   }
   let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
