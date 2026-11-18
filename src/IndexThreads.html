@@ -7,7 +7,7 @@
     var back = '<button class="pane-back" data-p="pane" aria-label="Back to the channels">' + icon('back') + '<span>Channels</span></button>';
     if (!it) h = back;
     else {
-      var t = thOf(th, it.id), name = t ? threadTitle(t) : 'Thread';
+      var t = thOf(th, it.id), name = it.id === 'sys:flagged' ? 'Flagged' : t ? threadTitle(t) : 'Thread';   // CUE-FLAG-2026-11-18
       var busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
       h = back + '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
@@ -37,17 +37,68 @@
   /* CHANNEL-SEEN-2026-11-18 (Kiko 18 Nov 2026 08:37:10Z "the number in the thread i thought we had that changed already?", 08:38:43Z
    * "also i have clicked on each of those messages"): opening a channel takes its agent updates and job reports out of its number
    * (state.seen, kept by cueSeen); drafts waiting for Kiko's Approve or Reject, and tasks in other threads, still count. Cue only. */
-  function seenOut(t, k, r) {
-    var at = (state.seen || {})[k]; if (!at || !r.created || String(r.created) > String(at)) return false;
-    if (r.agd) return String(r.agd.status || '') === 'Unread';
-    return /^(job|sys):/.test(t.chan || '');
-  }
+  // Kiko 08:47:46Z "when i enter the channel or the thread the counter goes back to 0": every item from before the last open is out.
+  function seenOut(t, k, r) { var at = (state.seen || {})[k]; return !!at && !!r.created && String(r.created) <= String(at); }
   function reviewN(t, k) {
     return t.reqs.filter(function (r) {
       if (k && seenOut(t, k, r)) return false;
       if (r.agd) { var a = String(r.agd.status || ''); return a === 'Waiting for Kiko' || a === 'Unread'; } return isNeed(r);
     }).length;
   }
+  /* CUE-FLAG-2026-11-18 (Kiko 18 Nov 2026 08:47:46Z "add a feature that allows me to Flag a message. Flagged message now goes to a
+   * thread named Flagged - meaning these are the messages i wanna get back to later on"; 08:48:00Z "when an item is Flagged i can also
+   * Unflag it"). A flag button beside each Cue or agent message (on hover; always shown on a phone, and while flagged). Flagged sits
+   * under General and lists the flagged messages, newest first, each with Open (its thread) and Unflag. CueFlags.gs keeps the list. */
+  var flagMap = {};
+  function isFlagged(key) { return (state.flags || []).some(function (f) { return f.key === key; }); }
+  function lineFlagItem(m) {
+    if (!m || m.who === 'Kiko' || !m.time || !state.chat.some(function (x) { return x === m; })) return null;   // only Cue's saved lines
+    return { key: 'l:' + m.time + '|' + String(m.who).slice(0, 80), who: m.who, time: m.time, text: noTok(String(m.text || '')), m: m };
+  }
+  function flagBtn(it) {
+    if (!it) return ''; flagMap[it.key] = it; var on = isFlagged(it.key);
+    return '<button class="rp fl' + (on ? ' on' : '') + '" data-flag="' + esc(it.key) + '" aria-pressed="' + on + '" title="' + (on ? 'Unflag' : 'Flag to get back to later')
+      + '" aria-label="' + (on ? 'Unflag this message' : 'Flag this message') + '">' + icon('flag') + '</button>';
+  }
+  function flagWhere(it) {   // the channel or thread the message sits in, for "Open" in Flagged
+    var th = threads();
+    if (it.key.charAt(0) === 'r') { var rid = it.key.slice(2), k0 = th._home ? th._home(rid) : rid; return { thread: k0, from: th[k0] ? threadTitle(th[k0]) : it.from }; }
+    var m = it.m || {}, c = lineChan(m);
+    if (c) { var k = chanAt(th, c); return { thread: k, from: chanName(c, th) }; }
+    var rq = String(m.request_id || '').replace(/^[>@↩]/, '');
+    if (rq) { var k2 = th._home ? th._home(rq) : rq; if (th[k2]) return { thread: k2, from: threadTitle(th[k2]) }; }
+    return { thread: '', from: 'General' };
+  }
+  function flagToggle(key) {
+    var it = flagMap[key] || (state.flags || []).filter(function (f) { return f.key === key; })[0]; if (!it) return;
+    var on = !isFlagged(key), was = (state.flags || []).slice(), w = on ? flagWhere(it) : {};
+    var item = { key: key, from: w.from || it.from || '', who: it.who, time: it.time, text: String(it.text || '').slice(0, 2000), thread: w.thread || '' };
+    state.flags = on ? [Object.assign({ at: new Date().toISOString() }, item)].concat(was) : was.filter(function (f) { return f.key !== key; });
+    renderChat();
+    call('cueFlag', [item, on], function (l) { if (Array.isArray(l)) state.flags = l; renderChat(); }, function (e) { state.flags = was; renderChat(); alertErr(e); });
+  }
+  function flagRowHtml() {
+    var l = state.flags || [], n = l.length;
+    return '<button class="trow gen flagrow' + (openThread === 'sys:flagged' ? ' sel' : '') + '" data-thread="sys:flagged"><i class="dot" style="background:var(--need)"></i><span class="tx"><b>Flagged</b><span>'
+      + esc(n ? n + (n === 1 ? ' message' : ' messages') + ' to get back to' : 'Flag a message to get back to it later') + '</span></span>'
+      + '<span class="tm">' + esc(n ? ago(l[0].at).replace(' ago', '').replace('just now', 'now') : '') + '</span></button>';
+  }
+  function flaggedHtml() {
+    var l = state.flags || [];
+    if (!l.length) return '<div class="muted flagnone">Nothing flagged. Hover a message (on a phone, tap the flag beside it) and press the flag to keep it here.</div>';
+    return l.map(function (f) {
+      return '<div class="msg cue flg"' + (msgWhen(f.time) ? ' data-t="' + esc(msgWhen(f.time)) + '"' : '') + '><span class="who">' + esc(f.who) + (f.from && f.from !== f.who ? ' · ' + esc(f.from) : '') + '</span>'
+        + '<span class="agtx">' + esc(f.text) + '</span><span class="agft"><span class="small muted">Flagged ' + esc(ago(f.at)) + '</span>'
+        + (f.thread ? '<button class="linkbtn" data-flag-open="' + esc(f.thread) + '">Open</button>' : f.from === 'General' ? '<button class="linkbtn" data-flag-open="">Open</button>' : '')
+        + '<button class="btn ghost sm" data-flag="' + esc(f.key) + '">Unflag</button></span></div>';
+    }).join('');
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-flag], [data-flag-open]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    if (b.hasAttribute('data-flag')) return flagToggle(b.getAttribute('data-flag'));
+    var k = b.getAttribute('data-flag-open'); if (k) goThread(k); else goGeneral();
+  }, true);
   var seenSent = {};
   function markSeen(k) {   // note that Kiko opened channel k now; one call per channel per 30 s
     if (!k || !/^[\w:.@-]{1,120}$/.test(k)) return;
@@ -89,7 +140,7 @@
       var nmOpen = t.reqs.filter(function (r) { return r.kind === 'newmail' && r.nm && r.status !== 'Closed'; }).reduce(function (a, r) { return a + nmOpenCount(r); }, 0);
       var rn = reviewN(t, k), grp = chanGroup(t, st);
       if (k === openThread && pactive === 't:' + k && rn !== reviewN(t)) markSeen(k);   // CHANNEL-SEEN: what arrives while it is open counts as seen
-      if (!rn && st.need && (t.chan || grp === 'agent' || grp === 'sys')) st = { color: 'var(--muted)', text: '' };   // CHANNEL-SEEN: all seen, no Needs you
+      if (!rn && st.need) st = { color: 'var(--muted)', text: '' };   // CHANNEL-SEEN: all seen, no Needs you
       G[grp].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: Math.max(rn, nmOpen), ag: !!(t.reqs[0] && t.reqs[0].agd) && !t.chan,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
@@ -107,6 +158,7 @@
     else if (!tq || 'general'.indexOf(tq) >= 0) h += '<button class="trow gen' + (openThread ? '' : ' sel') + '" data-general="1"><i class="dot" style="background:var(--act)"></i><span class="tx"><b>General</b><span>'
       + esc(genLast ? (genLast.who + ': ' + noTok(genLast.text)).slice(0, 200) : 'Cue updates that belong to no channel') + '</span></span>'
       + '<span class="tm">' + esc(genLast ? ago(genLast.time).replace(' ago', '').replace('just now', 'now') : '') + '</span></button>';
+    if (!showArchived && (!tq || 'flagged'.indexOf(tq) >= 0)) h += flagRowHtml();   // CUE-FLAG-2026-11-18: under General
     var cvRows = !showArchived && !tq && CUE_HOST.canvas ? canvasRows : [];   // ASK-CUE-ROWS-2026-10-29: Canvas's CRM and To do, under Jobs
     var sum = function (l) { return l.reduce(function (a, x) { return a + (x.n || 0); }, 0); };
     var groups = showArchived ? [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', 'Archived']] : [['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']];
@@ -581,7 +633,10 @@
     if (!r) return '';
     if (r.agd && r.agd.agent) return /^cue dev\b/i.test(agdLabel(r.agd.agent)) ? 'sys:updates' : '';
     if (r.subject && r.subject.key && SUBJ_CHAN[r.subject.key]) return SUBJ_CHAN[r.subject.key];   // CUE-SUBJECTS-2026-10-30 day threads: every day in one channel
-    if (r.kind === 'gtask' && r.gt && r.gt.key) return /^(admin_|production_readiness$)/.test(r.gt.key) ? 'job:reviews' : 'job:gt:' + r.gt.key;
+    // SCHEDULED-TO-UPDATES-2026-11-18 (Kiko 18 Nov 2026 08:49:40Z "All results from the scheduled jobs like the ones in the screenshot
+    // earlier put them under Jobs > Updates"): every ChatGPT scheduled task's run (Daily personal spending, the weekday records reviews,
+    // Repeat-event accounts) joins Jobs › Updates. The page never had the task's key, so these runs sat under Threads.
+    if (r.kind === 'gtask') return 'job:updates';
     return JOB_KIND[r.kind] || '';
   }
   // Systems › Alerts: Cue's own lines that belong to no task and say a run or a connection did not work (for example "The sweep did not
@@ -798,7 +853,7 @@
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
     var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
     return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + body + askHtml(m)
-      + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + '</div>';
+      + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + flagBtn(lineFlagItem(m)) + '</div>';
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
   function replyTitle(id) {
@@ -946,7 +1001,7 @@
     if (!$('page-chat').hidden && (atBottom || grew)) { sc._pin = true; sc.scrollTop = sc.scrollHeight; }
     var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
-      var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
+      var t = openThread === 'sys:flagged' ? { root: openThread, lines: [], reqs: [], flagged: true } : thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;   // CUE-FLAG-2026-11-18
       lastThread = tn; renderThread(t); agentBox(t);
       if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
@@ -1220,7 +1275,8 @@
     var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
     var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
       + '<span class="agtx">' + agKv(noTok(agentSays(r))) + '</span>'
-      + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span></div>';
+      + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span>'
+      + flagBtn({ key: 'r:' + r.id, from: agdLabel(A.agent), who: agdLabel(A.agent), time: r.created || '', text: noTok(agentSays(r)), thread: '' }) + '</div>';
     var c = open ? cardOf(r) : '';
     return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
   }
@@ -1229,6 +1285,7 @@
     var id = b.getAttribute('data-agd-open'); agdOpen[id] = b.getAttribute('aria-expanded') !== 'true'; renderChat();
   });
   function renderThread(t) {
+    if (t.flagged) { setHtml($('tdock'), ''); setHtml($('tmsgs'), flaggedHtml()); return; }   // CUE-FLAG-2026-11-18
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
     var kiko = t.lines.some(function (m) { return m.who === 'Kiko'; });

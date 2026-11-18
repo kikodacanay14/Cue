@@ -1,17 +1,31 @@
 # Changelog
 
-## Cue 1.28.97: opening a channel takes its updates and reports out of its number (not deployed)
+## Cue 1.28.97: the counter goes to 0 when a channel is opened, Flag and Unflag a message, scheduled runs under Jobs › Updates (not deployed)
 
-Asked: Kiko, 18 Nov 2026 08:37:10Z, on live Version 265: "the number in the thread i thought we had that changed already?"; 08:38:43Z
-"also i have clicked on each of those messages"; 08:40:28Z "there is no mark read on each". Slot cue-1.28.97, card cue-channels-layout.
+Asked by Kiko on 18 Nov 2026, on live Version 265:
 
-- Cause: the number beside a channel counted every agent update not marked read in Canvas, every draft waiting for Approve or Reject,
-  and every job run still marked Needs you. Opening a message changed none of these; only the Mark read button (inside a card or its
-  requirements panel) or a decision did, so the numbers stayed after Kiko opened every item.
-- Fix: Cue notes when Kiko opens a channel (script property CUE_CHAN_SEEN, newest 200). Agent updates and job reports from before that
-  time leave the channel's number, and the row stops saying Needs you once nothing counts. Drafts waiting for Approve or Reject, task
-  threads, and anything newer than the last open still count. Cue only: nothing is marked read in Canvas.
-- Tests: SEEN1 to SEEN3 new; CH2 and AGG2 follow the new code. 910/910 pass on this release branch.
+- 08:37:10Z: "the number in the thread i thought we had that changed already?"
+- 08:47:46Z: "when i enter the channel or the thread the counter goes back to 0. add a feature that allows me to Flag a message. Flagged
+  message now goes to a thread named Flagged - meaning these are the messages i wanna get back to later on"
+- 08:48:00Z: "when an item is Flagged i can also Unflag it"
+- 08:49:40Z: "All results from the scheduled jobs like the ones in the screenshot earlier put them under Jobs > Updates"
+
+Slot cue-1.28.97, card cue-channels-layout.
+
+- **Counter.** Cue records when Kiko opens a channel or thread, in the script property CUE_CHAN_SEEN (the newest 200). Everything from
+  before that time leaves the channel's number, drafts waiting for a decision included. Anything newer counts again. The row stops
+  saying Needs you once nothing counts. Nothing is marked read in Canvas.
+- **Flag.** A flag button sits beside each Cue or agent message: it shows on hover, is always shown on a phone, and is filled while
+  the message is flagged. Kiko's own messages have no flag.
+  - The Flagged channel sits under General. It lists the flagged messages, newest first. Each one shows who sent it, the channel it
+    came from, Open and Unflag.
+  - A new Flagged tab in the Cue sheet keeps one row per flagged message, so the list survives the chat scrolling past it. Unflag
+    deletes the row. Nothing is sent.
+- **Scheduled runs.** Every ChatGPT scheduled task's run now joins Jobs › Updates instead of Threads. This covers Daily personal
+  spending, the weekday records reviews, Repeat-event accounts and Moved-contact reconnection. The page never received those tasks'
+  keys, so they had no channel. Project Reviews is gone as a separate channel because its runs now go to Updates.
+- **Tests.** New: SEEN1 to SEEN3 and FLAG1 to FLAG3. CH1, CH2, AGG2, THC1, THC2 and AGC2 follow the new code. 922/922 pass.
+  Checked on the page on PC and on a phone.
 
 ## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (live as Version 265, 18 Nov 2026 08:22Z; rollback Version 264)
 
