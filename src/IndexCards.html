@@ -782,7 +782,10 @@
   }
   function agdRowsHtml(r, canReply, unread) {
     var A = r.agd || {}, rows = ((A.handover || {}).rows || []).slice(), id = esc(r.id), need = rows.filter(function (x) { return x.needs_kiko; }).length, f = agdRows[r.id] === 'need';
-    rows.sort(function (x, y) { return (y.needs_kiko ? 1 : 0) - (x.needs_kiko ? 1 : 0); });
+    // AGENT-ROWS-BY-NUMBER-2026-11-18 (Kiko 18 Nov 2026 08:02:18Z "can this be sorted by number?"): rows that need Kiko still come
+    // first (16 Nov rule); within each group rows go by requirement number (01, 02, 03 ...). A row with no number goes last.
+    var rnum = function (x) { var m = String(x.req_id || '').match(/(\d+)$/); return m ? +m[1] : Infinity; };
+    rows.sort(function (x, y) { return (y.needs_kiko ? 1 : 0) - (x.needs_kiko ? 1 : 0) || rnum(x) - rnum(y) || 0; });
     var title = (A.project || A.project_id || A.item) + ' · ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's');
     var td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; }, none = '<span class="muted">—</span>';
     // AGENT-ROW-PICTURES-2026-11-18 (Kiko 02:58:28Z "when a table row is clicked it expands and shows the images. When another row is

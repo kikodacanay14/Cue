@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.28.95: the Open requirements panel lists rows by requirement number (not deployed)
+
+Asked: Kiko, 18 Nov 2026 08:02:18Z, "can this be sorted by number?" (his Open requirements panel showed 06, 08, 09, 01, 02).
+
+- Rows in the Open requirements panel now go by requirement number: 01, 02, 03 and so on. Rows that need Kiko still come first, as
+  approved on 16 Nov; within each group the numbers go up. A row with no number goes last.
+- Test AUR4 (new) checks the order. AUR2's order check had been folded into a comment line and never ran; it runs again.
+- Tests: node test/cue.test.js 914/914 passed.
+
 ## Cue 1.28.94: one Updates channel in Jobs, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (live as Version 264, 18 Nov 2026 07:43Z; rollback Version 263)
 
 Asked: Kiko, 18 Nov 2026, thread "Fix Cue layout and merge agent channels". 06:15:53Z "the Project Intake should be in Jobs. Add there
