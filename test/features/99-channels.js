@@ -20,12 +20,12 @@ test('CH1 each scheduled job is one channel: every run joins the oldest run; Pro
     { id: 'd1', agd: { agent: 'Cue Dev Team' }, created: '2026-11-18' }, { id: 'r1', kind: 'relnotes', created: '2026-11-17' },
     { id: 'a1', agd: { agent: 'AS' }, created: '2026-11-18' }, { id: 'x1', kind: 'intake', created: '2026-11-18' }],
     [{ who: 'Cue', request_id: 'b2', text: 'new bids' }, { who: 'Cue', request_id: '', text: 'The sweep did not run today' }, { who: 'Cue', request_id: '', text: 'Good morning' }]);
-  const keys = Object.keys(c.t).sort();
-  deq(JSON.parse(JSON.stringify(keys)), ['a1', 'b1', 'g1', 'g3', 'r1', 's1', 'sys:alerts', 'x1'].sort());
+  const byName = (x, y) => x.localeCompare(y), keys = Object.keys(c.t).sort(byName);
+  deq(JSON.parse(JSON.stringify(keys)), ['a1', 'b1', 'g1', 'g3', 'r1', 's1', 'sys:alerts', 'x1'].sort(byName));
   deq([c.t.b1.chan, c.t.g1.chan, c.t.g3.chan, c.t.s1.chan, c.t.r1.chan, c.t['sys:alerts'].chan, c.t.a1.chan, c.t.x1.chan],
     ['job:bids', 'job:reviews', 'job:gt:lead_scan', 'job:sweep', 'sys:updates', 'sys:alerts', '', '']);
   deq(c.t.b1.reqs.map(r => r.id), ['b1', 'b2'], 'oldest first'); deq(c.t.b1.lines.length, 1, 'a run\'s lines follow it into the channel');
-  deq(c.t.r1.reqs.map(r => r.id).sort(), ['d1', 'r1'], 'Cue Dev and release notes share Updates');
+  deq(c.t.r1.reqs.map(r => r.id).sort(byName), ['d1', 'r1'], 'Cue Dev and release notes share Updates');
   deq(c.t['sys:alerts'].lines.map(m => m.text), ['The sweep did not run today'], 'only the failure note goes to Alerts');
   deq(c.t._home('b2'), 'b1', 'a run\'s own id finds its channel');
 });
