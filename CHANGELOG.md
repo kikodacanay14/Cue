@@ -1,12 +1,13 @@
 # Changelog
 
-## Cue 1.28.88: channels on the left, the conversation on the right (not deployed)
+## Cue 1.28.88: channels on the left, the conversation on the right (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 04:18:47Z, with a screenshot of Cue inside Canvas: "All the channels and threads put them on the left.
 conversation now goes to the right. Merge all the Agents channels." Follow-ups in the same thread (04:19Z to 04:31Z): the Cue logo
 stays only on Canvas's purple bar; General shows only updates that belong to no channel; the groups are Agent Updates, Jobs (CRM,
 Bid Opportunities, Project Reviews, Morning batch) and Systems (Alerts, Updates); no message shows twice; the number beside a channel
-is what is open for Kiko to review. Mockup approved and "build" at 04:32:32Z. Slot cue-1.28.88, card cue-channels-layout.
+is what is open for Kiko to review. Mockup approved and "build" at 04:32:32Z. Slot cue-1.28.88, card cue-channels-layout. Kiko typed "go ship cue 1.28.88" at 05:04:33Z; Deploy Cue run 44241755970 made it
+live as Version 262 at 05:06Z (rollback Version 261); 1.28.84 to 1.28.87 went live in the same Version.
 
 - Layout (`src/Index.html`, `src/IndexStyle.html`, `src/IndexChat.html`, `src/IndexViewer.html`): the channel list sits on the left;
   the right shows General (the main chat) or the open channel. ✕ goes back to General. The dot, Back to Team Cue and K moved to the
@@ -27,7 +28,7 @@ is what is open for Kiko to review. Mockup approved and "build" at 04:32:32Z. Sl
   891/891 pass. Checked in Chromium with a stubbed server at 1280 px (standalone and inside a Canvas frame) and 375 px (list,
   General, agent channel, back): no page errors, no sideways scroll.
 
-## Cue 1.28.87: long links wrap inside every card (not deployed)
+## Cue 1.28.87: long links wrap inside every card (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 04:11:18Z, with a screenshot of the Account Specialist handover card for S-31753672PA: "and it went out
 of the card". The coordinator asked for the fix in the default card design. Slot cue-1.28.87, card card-long-links-wrap.
@@ -39,7 +40,7 @@ of the card". The coordinator asked for the fix in the default card design. Slot
   1280 px fits. The requirements table measures the same before and after.
 - Test: `test/features/99-card-long-links-wrap.js` (CWR1).
 
-## Cue 1.28.84: Cue marks ignored, daily-list and muted-sender emails as read in Kiko's Gmail (not deployed)
+## Cue 1.28.84: Cue marks ignored, daily-list and muted-sender emails as read in Kiko's Gmail (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 02:31:01Z, chose "Yes, add Gmail permission" on the card "Let Cue mark ignored and daily-list emails
 as read in Gmail?" (Cue Dev Team thread). Slot cue-1.28.84, card acc-8-read. The mark-read code (AC-8) shipped in 1.28.3 but
@@ -54,7 +55,7 @@ stayed off because PR #292 took the scope back out.
 - Tests: GMOD1 to GMOD3 (new, `test/features/99-gmail-modify.js`); C26 now expects `gmail.modify` among the missing scopes.
   885/885 pass (with 1.28.83, 1.28.85 and 1.28.86 merged in).
 
-## Cue 1.28.86: requirement rows open to show the MM pictures (not deployed)
+## Cue 1.28.86: requirement rows open to show the MM pictures (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 02:46:35Z "Can you propose a card also where i can view the image and not a link?"; 02:58:28Z "I prefer the
 table earlier that we have. Why not when a table row is clicked it expands and shows the images. When another row is clicked previous
@@ -72,7 +73,7 @@ https://claude.ai/artifact/XCUNnJjumLDtuApXXmhK68, card 1). Slot cue-1.28.86, ca
 - Needs Canvas: the `agent_update` bridge schema must accept `rows[].images` and `brief` before real pictures show (CanvasWorkspace PR).
 - Tests: AUP1 to AUP3 (new); AUR1, AUR2 and the agent-draft render contexts know the new fields. 882/882 pass.
 
-## Cue 1.28.85: one channel per role (not deployed)
+## Cue 1.28.85: one channel per role (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 02:43:48Z "Roles have 2 channels?" (screenshot after Version 260). Slot cue-1.28.85, card
 agent-cards-labels-names-channels.
