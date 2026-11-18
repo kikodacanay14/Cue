@@ -98,7 +98,8 @@
     back: '<path d="M15 5l-7 7 7 7"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>',
     chev: '<path d="M6 9l6 6 6-6"/>',
-    reply: '<path d="M9 10L4 15l5 5"/><path d="M4 15h11a5 5 0 0 0 5-5V4"/>'
+    reply: '<path d="M9 10L4 15l5 5"/><path d="M4 15h11a5 5 0 0 0 5-5V4"/>',
+    flag: '<path d="M6 21V4"/><path d="M6 4h11l-2.5 4.5L17 13H6"/>'   // CUE-FLAG-2026-11-18
   };
   function icon(n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
   function ib(attrs, n, label, on) { return '<button class="ibtn" ' + attrs + ' title="' + esc(label) + '" aria-label="' + esc(label) + '"' + (on == null ? '' : ' aria-pressed="' + !!on + '"') + '>' + icon(n) + '</button>'; }
