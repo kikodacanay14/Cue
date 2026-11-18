@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.82: agent cards get bold labels, full agent names, and every agent keeps its channel (not deployed)
+
+Asked: Kiko, 18 Nov 2026 02:14:31Z "The titles though need to be in bold and line breaks after the values"; 02:14:49Z "Make it a
+default design in all cards"; 02:15:58Z "why are the names AS, MM?"; 02:16:48Z "there used to be channels per agent. How come others
+disappeared?". Slot cue-1.28.82, card agent-cards-labels-names-channels.
+
+- `src/IndexCards.html` `agKv()`: in every agent message and update card (summary, gaps), a line that starts "Label: value" shows the
+  label in bold and ends with a line break. Other lines and links stay as written; text is escaped first.
+- `src/IndexThreads.html`: the agent bubble uses `agKv()`. `src/IndexStyle.html`: `.agkv` block style.
+- `src/CueAgentDrafts.gs` `cueAgdLabel_` and `src/IndexChat.html` `agdLabel`: AS shows as Account Specialist and MM as Multimedia
+  (display only, whole words; the stored agent name is unchanged).
+- `src/Cue.gs` `cueState`: the list loads the newest 20 requests, so a busy agent pushed other agents' threads out. Each agent now
+  keeps its newest draft in the list.
+- Tests: ACL1-2 (new), ROLE5-6 (new), AGC/AGU/AGW/AUR fixtures load `agKv`, AUR2 expects the full name. 876/876 pass.
+
 ## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (LIVE as Version 259, 17 Nov 2026 ~14:55Z, rollback 258)
 
 Asked: Kiko, 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing"; build yes 17 Nov 2026 13:32Z

@@ -45,3 +45,17 @@ test('ROLE4 a draft under the new name joins the old-name thread, and replies go
   assert.deepStrictEqual(st.msgs.map(m => m.agent), ['ECII agent', 'Procurement Specialist agent']);
   const ag = JSON.parse(JSON.stringify(t.ctx.cueAgdAgents_())); assert.strictEqual(ag.length, 1); assert.deepStrictEqual([ag[0].agent, ag[0].ref], ['Procurement Specialist agent', root]);
 });
+test('ROLE5 AGENT-FULL-NAMES-2026-11-18 (Kiko 18 Nov 2026 02:15:58Z "why are the names AS, MM?"): AS shows as Account Specialist and MM as Multimedia, whole words only, server and page alike', () => {
+  const t = sandbox(), page = cuePage(), ctx = {}; vm.createContext(ctx);
+  vm.runInContext(page.match(/  function agdLabel\(v\) \{[^\n]*\n/)[0], ctx);
+  [['AS', 'Account Specialist'], ['MM', 'Multimedia'], ['AS agent', 'Account Specialist agent'], ['MMX', 'MMX'], ['MASS', 'MASS'], ['Dot', 'Dot']]
+    .forEach(([a, b]) => { assert.strictEqual(t.ctx.cueAgdLabel_(a), b, a); assert.strictEqual(ctx.agdLabel(a), b, 'page: ' + a); });
+});
+test('ROLE6 AGENT-CHANNELS-2026-11-18 (Kiko 02:16:48Z "there used to be channels per agent. How come others disappeared?"): a busy agent no longer pushes the others out of the list', () => {
+  const drafts = [agdDraft(1, { agent: 'Finance agent' }), agdUpd(2, { agent: 'ECII agent' })].concat(Array.from({ length: 25 }, (_, i) => agdUpd(10 + i, { agent: 'AS', item: 'L' + i })));
+  const b = agdBox({ drafts }); b.t.ctx.cueAgdTick_();
+  const st = JSON.parse(JSON.stringify(b.t.ctx.cueState()));
+  const agents = {}; st.requests.forEach(r => { if (r.agd && r.agd.agent) agents[r.agd.agent] = 1; });
+  ['Finance agent', 'ECII agent', 'AS'].forEach(a => assert.ok(agents[a], a + ' keeps a thread: ' + Object.keys(agents)));
+  assert.ok(st.requests.length <= 20 + 3, 'only one extra request per agent');
+});

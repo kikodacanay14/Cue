@@ -1042,6 +1042,18 @@ function cueState() {
     let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
     if (s && String(s.check || '') === chk) list.push(cueView_(s));
   }
+  // AGENT-CHANNELS-2026-11-18 (Kiko 18 Nov 2026 02:16:48Z: "there used to be channels per agent. How come others disappeared?"): the
+  // list keeps only the newest 20 requests, so a busy agent pushed the others' threads out. Every agent keeps its newest draft here.
+  if (!chk) {
+    const have = {}, agentSeen = {}; list.forEach(x => { have[x.id] = 1; if (x.agd && x.agd.agent) agentSeen[cueAgdKey_(x.agd.agent)] = 1; });
+    for (let i = 0; i < rows.length; i++) {
+      if (!/^Agent draft DRF-/.test(String(rows[i][4] || ''))) continue;
+      let s = null; try { s = JSON.parse(rows[i].slice(10, 10 + CUE_CELLS_).join('')); } catch (e) { s = null; }
+      if (!s || s.kind !== 'agentdraft' || !s.agd || !s.agd.agent || String(s.check || '') || have[s.id]) continue;
+      const k = cueAgdKey_(s.agd.agent); if (agentSeen[k]) continue;
+      agentSeen[k] = 1; have[s.id] = 1; list.push(cueView_(s));
+    }
+  }
   let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
   const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 5).getValues().filter(r => String(r[4] || '') === chk)

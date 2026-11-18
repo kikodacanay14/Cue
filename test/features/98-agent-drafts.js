@@ -207,7 +207,7 @@ test('AGU3 the Cue link (?agd=DRF-....) reads Canvas at once and names the card 
 test('AGU4 the page: an update card shows the handover, Delivered or Blocked, the AS link, Mark read and Reply', () => {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdUpdHtml'), ctx);
   const b = agdBox({ drafts: [agdUpd(20), agdUpd(23, { item: 'HO-KIN-09', handover: { handover_ref: 'HO-KIN-09', summary: 'Not handed over.', gaps: 'AS did not answer.', state: 'Blocked', why: 'No AS acknowledgment link was sent.' } })] });
   b.t.ctx.cueAgdTick_();
   const [d, k] = b.reqs().map(s => JSON.parse(JSON.stringify(b.t.ctx.cueView_(s)))), hd = ctx.agdUpdHtml(d), hk = ctx.agdUpdHtml(k);
@@ -220,7 +220,7 @@ test('AGW1 an approval request (Kiko 17 Nov, card "Show Waiting for approval") s
   assert.strictEqual(agdBox({ drafts: [] }).t.ctx.cueAgdHand_({ state: 'Waiting for approval' }).state, 'Waiting for approval');
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdLabel: x => x }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   const b = agdBox({ drafts: [agdUpd(40, { item: 'AS requirements review', handover: { handover_ref: 'AS requirements review', summary: 'Approve the list.', state: 'Waiting for approval' } })] });
   b.t.ctx.cueAgdTick_();
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
@@ -244,7 +244,7 @@ test('AGU5 Kiko replies to an update (card "Updates plus replies"): each reply g
   assert.deepStrictEqual(b.st.decide.map(a => a.decision), ['read', 'reply', 'reply']);
   assert.deepStrictEqual(b.reqs()[0].agd.replies.map(x => x.text), ['Skip LightWorks, they are on hold.', 'Ask Bright Events instead.'].slice(b.reqs()[0].agd.replies.length === 2 ? 0 : 1));
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = {}; vm.createContext(ctx); vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml'), ctx);
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdUpdHtml'), ctx);
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
   assert.ok(/Your replies<\/b>/.test(h) && /Ask Bright Events instead\./.test(h) && /data-act="agd-reply"/.test(h) && !/data-act="agd-read"/.test(h), h);
   const fresh = agdBox({ drafts: [agdUpd(31)] }); fresh.t.ctx.cueAgdTick_();
