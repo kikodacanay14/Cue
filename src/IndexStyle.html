@@ -686,6 +686,8 @@
   .mvsheet .grp { font:700 12px var(--font); text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:10px 4px 2px; }
   .mvsheet .op { display:flex; align-items:center; width:100%; min-height:44px; padding:0 4px; border:0; border-bottom:1px solid var(--line); background:none; font:500 14px var(--font); color:var(--text); text-align:left; cursor:pointer; }
   .mvsheet .op.x { justify-content:center; color:var(--muted); border:0; }
+  /* CUE-MSG-MOVE-2026-11-18: on a PC, ⋯ › Move opens the list as a small centred box, not a full-width sheet */
+  @media (min-width:641px) { .mvsheet { left:50%; right:auto; top:50%; bottom:auto; transform:translate(-50%,-50%); width:360px; border-radius:14px; } }
   table.chr { width:100%; border-collapse:collapse; font-size:13px; }
   table.chr th { font-size:14px; font-weight:700; text-align:center; vertical-align:middle; padding:8px; border-bottom:2px solid var(--line2); }
   table.chr td { padding:8px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:center; } table.chr td.l { text-align:left; }
