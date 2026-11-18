@@ -30,7 +30,7 @@
       <div class="sgrp">Approvals</div><button data-s="approvals">For Approval</button>
       <div class="sgrp">How Cue thinks</div><button data-s="rules" aria-current="true">Memory, rules and personality</button><button data-s="procs">Processes and business rules</button><button data-s="tutor">Tutor mode</button>
       <div class="sgrp">Rules</div><button data-s="chasers" hidden>Chaser rules</button><!-- ADMIN-GROUPS-2026-11-05: merged into Jobs › Chasers --><button data-s="triage">Triage</button><button data-s="edits">Edit log</button><button data-s="auto">Auto-send</button><button data-s="templates">Templates</button>
-      <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
+      <div class="sgrp">Jobs</div><button data-s="jobchasers">Chasers</button><button data-s="sendnotice">Send a notice</button><button data-s="sched">Scheduled tasks</button><button data-s="alerts">Phone alerts</button><button data-s="rn">Release notes</button><button data-s="log">Log</button>
       <div class="sgrp" hidden>System</div><button data-s="conn" hidden>Connections</button><button data-s="usage" hidden>AI usage and cost</button>
     </div>
     <div class="smain">
@@ -39,6 +39,8 @@
       <section data-sec="chasers" hidden><div class="label" id="rules-label" style="margin-top:0">Chaser rules</div><div id="w-rules"></div></section>
       <section data-sec="approvals" hidden><div class="label" style="margin-top:0">For Approval</div><div class="small muted">Canvas's list, shown here. Approve and Reject happen in Canvas, under your Canvas sign-in.</div><div id="w-approvals"><div class="small muted">Loading…</div></div></section>
       <section data-sec="conn" hidden><div class="label" style="margin-top:0">Connections</div><div id="w-conn"></div></section>
+      <!-- CUE-ALERTS-2026-11-16 (ALERT-3, mockup approved by Kiko 16 Nov 2026 15:18:24Z): drawn by renderAlerts() in IndexPages.html -->
+      <section data-sec="alerts" hidden><div class="label" style="margin-top:0">Phone alerts</div><div id="w-alerts"><div class="small muted">Loading…</div></div></section>
       <section data-sec="sched" hidden><div class="label" style="margin-top:0">Scheduled tasks</div><div id="w-sched"><div class="small muted">Loading…</div></div></section>
       <section data-sec="tutor" hidden><div class="label" style="margin-top:0">Tutor mode</div><div id="w-tutor"></div></section>
       <!-- AUTO-SEND-JOURNEY-2026-11-06 (Kiko 5 Nov 16:55Z "Auto-Send - should contain all the communications that are automatically sent either mail, sms, fb - should show the customer journey and show communication per stage"; mockup https://claude.ai/artifact/2bL1ZBzGqZgV3Ct9iFSMHq, Kiko "yes" 6 Nov 01:28Z): drawn by asDraw() in IndexPages.html. -->
@@ -81,13 +83,16 @@
     <div class="replybar" id="replybar" hidden><span class="small muted">Replying to</span> <b id="replyto"></b><button class="btn ghost sm" id="replyx" aria-label="Cancel the reply">×</button></div>
     <div class="files" id="files" aria-live="polite"></div>
     <div class="small muted" id="hint" role="status" hidden></div>
+    <ul class="taglist" id="taglist" role="listbox" aria-label="Agents" hidden></ul>
     <div class="row">
       <button class="btn ghost attach" id="attach" title="Attach photos, PDFs or text files" aria-label="Attach files">📎</button>
       <button class="btn ghost attach" id="snap" hidden title="Snap the page you were looking at (Alt+Shift+S works too)" aria-label="Snap the page you were looking at">📷</button>
       <input type="file" id="picker" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.eml,.txt,.csv">
-      <textarea id="box" placeholder="Ask Cue, or paste an inquiry. 📎 adds briefs, photos and plans." aria-label="Message"></textarea>
+      <textarea id="box" placeholder="Ask Cue, or type @ for an agent. 📎 adds briefs, photos and plans." aria-label="Message"></textarea>
       <button class="btn" id="send">Send</button>
     </div>
+    <div class="small muted" id="taghelp" hidden>Type @ to send a message to one agent. Without @, Cue answers as today. ↑ ↓ to move · Enter or tap to pick · Esc to close</div>
+    <div class="small" id="tagerr" role="alert" hidden></div>
     <div class="chips">
       <button class="chip" id="chip-intake" hidden>Start an intake with that message</button>
       <button class="chip" id="chip-batch" hidden title="Hold these and wait for more files for the same task">More coming</button>
@@ -115,6 +120,7 @@
       <textarea id="tbox" placeholder="Reply in this thread" aria-label="Reply in this thread"></textarea>
       <button class="ibtn" id="tsend" title="Send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M20 5v7a3 3 0 0 1-3 3H5"/><path d="M9 11l-4 4 4 4"/></svg></button>
     </div>
+    <div class="small muted" id="tagnote" hidden></div>
     <div class="rtools"><button class="ibtn" id="tattach" title="Attach files to this thread" aria-label="Attach files to this thread"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
       <button class="chip" id="tchip-batch" hidden title="Hold these and wait for more files for the same task">More coming</button></div>
   </div>

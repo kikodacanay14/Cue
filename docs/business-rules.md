@@ -512,3 +512,59 @@ Closed to that tab".
   Refused, and a For Kiko row whose State is Done or Answered, to the Closed tab of the BSE AI Team spreadsheet. The moved row keeps
   its ID, chat, kind, request text, answer, state, note, sender and Message ID, plus the time it moved and the tab it came from.
 - Assumption (not asked): "Closed" means those finished states; open rows (New, Sending, Open, still-undecided Sent) stay put.
+
+### CUE-056: Everything Kiko types in an agent's thread is a message to that agent; Cue never acts on it
+
+**Status: APPROVED by Kiko, 14 Nov 2026**, in the "Let agents read Kiko's replies" thread: 08:44:34Z "Yes. How do we go about agents
+cant read replies"; decision card 15:36:53Z "No, all goes to the agent" (question: can you talk to Cue inside an agent's thread?);
+mockup card 16:46:11Z "Approve, build it". CanvasWorkspace ADR-0183 and rule R-AGD11 hold the Canvas side.
+
+- In an agent's thread (a thread of kind `agentdraft`), every line Kiko sends goes to that agent and nothing else runs: no word
+  checks, no GPT call, no intake, mail or other task. Cue saves it once in Canvas through the bridge action `agent_message` and
+  shows "Saved for <agent> · it reads it on its next run", or "Not saved: <why>." with Try again.
+- A Reply in the main chat on a Cue bubble about an agent's thread goes to that agent the same way.
+- An update card takes as many replies as Kiko sends (1.28.68 allowed one); each is also a message to the agent, and the card lists
+  them under "Your replies".
+- Files in an agent's thread are not sent (agents can't open them); the thread says so and nothing is saved.
+- Each message has one id, made once and reused by every retry (Try again, or sending the same text again after a failed send), so
+  Canvas saves it once. Try again resends the message that failed, never a later one (Codex review on Cue PR #386, fixed in 1.28.70).
+- Agents read the messages with `draft_status` (agent, since = newest message_id read); Canvas V540 and V541.
+
+Evidence: `test/features/99-agent-replies.js` AGR1 to AGR6. Built: Cue 1.28.69 (live as Version 248, 14 Nov 2026 17:21Z), review
+fixes in 1.28.70 (live as Version 249, 17:52Z). Manual gap: not yet run live in Kiko's browser, and no agent has read a message yet.
+
+### CUE-057: A main-chat message that starts with @ and an agent's name goes to that agent only
+
+**Status: APPROVED by Kiko, 15 Nov 2026**, in the "Scope @-tag routing to agents in Cue" thread: 08:30:07Z "is it possible for me to
+type in the new Cue and tag the agent name like @ Account Specialist and Cue sends the message to the Account Specialist agent";
+scope and mockup (project files `agent-tags/scope.md`, `agent-tags/mockup/`) approved on the decision card 09:24:50Z "Approve, one
+agent per message"; "build" 11:26:04Z (build on /dev only; going live needs a separate yes). Builds on CUE-056.
+
+- In the main chat, "@" as the first character opens a list of the agents that have a thread in Cue, newest draft first. Picking
+  one writes "@<agent> " in the box.
+- A message whose first word is "@" and an agent's name (capitals and spaces do not matter, the longest name wins) goes to that
+  agent exactly as CUE-056 describes: saved once in Canvas with `agent_message`, shown in the agent's thread, and nothing else runs.
+  The main chat shows Kiko's line with the agent as a tag, then "Saved for <agent> · it reads it on its next run · Open thread" or
+  "Not saved: <why>." with Try again. Cue's assistant never reads these lines.
+- Only the start of the message counts: an @ later in a line (an email address, "@ 5 PM") is plain text, and untagged messages work
+  as before. One agent per message: a second @ in the same message is plain text.
+- A name that is no agent sends nothing: the words stay in the box with "No agent is called "<name>". Pick one from the list, or
+  delete the @ to ask Cue. Nothing was sent." A tag with no words after it asks for the message.
+- Files with a tag are not sent (CUE-056). A tag wins over a Reply on a Cue bubble.
+
+Evidence: `test/features/99-agent-tag.js` TAG1 to TAG5. Built: Cue 1.28.71 (live as Version 250, 15 Nov 2026 12:46Z). Manual gap: not yet
+run live in Kiko's browser.
+
+### CUE-058: The FSA reminder starts 3 days after the FSA goes out
+
+**Status: APPROVED by Kiko, 16 Nov 2026**, in the "Confirm FSA reminder start timing" thread: 02:50:02Z "FSA (the initial
+notification) / FSA Reminder - Automatic: Start - 3 days after initial, (when does the chaser start)"; "yes" 03:44:20Z; "ship"
+03:57:37Z. Changes the start of the R5/R6 signature chaser (Kiko 21 Oct 2026 08:08Z) for FSAs only. CanvasWorkspace ADR-0185.
+
+- An unsigned FSA is chased from 3 days after its Generated date in Canvas, then every 2 days, at most 3. Each reminder is a draft
+  Kiko approves; Canvas sends it from freelancers@.
+- An FSA with no Generated date keeps the old start (the day after the event's last day). AR reminders are unchanged.
+- Before the event the line reads "FSA sent <date>. Event ends <date>."
+
+Evidence: `test/features/20-signature-chasers.js` G6. Built: Cue 1.28.72 (live as Version 251, 16 Nov 2026 03:58Z). Manual gap: no
+live reminder seen yet.

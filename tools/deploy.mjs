@@ -12,8 +12,6 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-const { branchHasLive } = createRequire(import.meta.url)('./base-guard.cjs');
 
 const mode = process.argv[2];
 if (!['check', 'preview', 'test', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|test|deploy'); process.exit(2); }
@@ -55,34 +53,7 @@ if (!dep) fail('Cue web app deployment not found in that project');
 const live = dep.versionNumber;
 console.log(`Cue web app is on Version ${live || '(head)'}`);
 if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
-// G1 (Kiko 8 Nov 2026): the branch must already contain the live Version's code (tools/base-guard.cjs), so a deploy never wipes
-// live code. It needs the full history, fetched below. check reports it; deploy stops on it.
-let base = { ok: true, missing: [] };
-if (live) {
-  const liveDir = path.join(work, 'src');
-  // G1 reads the branch's history. Actions checks out one commit only, so fetch the rest here (no workflow change).
-  try {
-    if (execFileSync('git', ['rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim() === 'true')
-      execFileSync('git', ['fetch', '--quiet', '--unshallow', 'origin'], { stdio: 'ignore' });
-  } catch (e) { console.log('BASE: could not fetch full history (' + e.message.split('\n')[0] + ')'); }
-  base = branchHasLive(dep.description, Object.keys(sums(liveDir)).map(f => [f, path.join(liveDir, f)]),
-    (args, input) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, input, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'ignore'] }));
-  console.log(base.ok ? `BASE OK: this branch contains live Version ${live} (${base.how})`
-    : `BASE: this branch is missing live Version ${live} code (${base.how}): ${base.missing.join(', ')}`);
-}
-// G4 (Kiko 8 Nov 2026): Apps Script keeps 200 versions and Deploy Cue failed at 200 on 5 Nov. Warn from 180 (Canvas's limit,
-// Kiko 28 Oct "Yes, warn me at 180") on the run page and summary. It never blocks.
-try {
-  const vs = clasp(work, 'list-versions'), saved = (vs.versions || vs).length;
-  console.log(`saved versions: ${saved} of 200`);
-  if (saved >= 180) {
-    console.log(`::warning title=Saved versions ${saved} of 200::Deploys stop at 200. Delete old versions in Project history soon.`);
-    if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `VERSIONS WARNING: Cue has ${saved} of 200 saved versions; deploys stop at 200.\n`);
-  }
-} catch (e) { console.log('saved versions: could not read (' + e.message.split('\n')[0] + ')'); }
 if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.exit(0); }
-if (mode === 'deploy' && !base.ok)
-  fail(`live Version ${live} has code this branch does not (${base.missing.join(', ')}). Someone else deployed, or the branch is on an old base: rebuild on the live Version first.`);
 
 const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));

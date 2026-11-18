@@ -34,18 +34,18 @@ test('ML4 the main chat post for a new email says who, when, what they sent, wha
     want: 'They want a quote.', history: 'Nothing earlier.', next: 'Send the revised quote.', phone: '', position: '', company: '' } });
   const id = nmRun(t), ana = t.state(id).nm.items.filter(x => x.sender === 'ana@client.example')[0];
   const post = t.tabs.Chat.rows.filter(r => r[3] === '>' + ana.chat_id).map(r => r[2])[0] || '';
-  const lines = post.split('\n');
-  assert.ok(/^New email: Ana Reyes <ana@client\.example> · Client · 2026-10-21$/.test(lines[0]), lines[0]);   // the test double prints the day; Apps Script prints "21 Oct, 11:40 AM" (d MMM, h:mm a, Manila)
+  const lines = post.split('\n\n');   // CUE-ALERT-FORMAT-2026-11-16: a blank line between sections
+  assert.ok(/^New email · Ana Reyes · Client · 2026-10-21$/.test(lines[0]), lines[0]);   // CUE-ALERT-FORMAT-2026-11-16: name only, the address is in the email's chat   // the test double prints the day; Apps Script prints "21 Oct, 11:40 AM" (d MMM, h:mm a, Manila)
   deq(lines.slice(1), ['Subject: Booth count', 'What they sent: A request to add 2 booths to the order.', 'What it is for: The booth order for their November launch.',
     'What they expect: A revised quote by Friday.', 'What to do next: Send the revised quote.']);   // CUE-ASSISTANT: no why and no reply from the read, so no extra lines
   assert.strictEqual(t.log.mcReads, 1, 'still one AI call per email');
-  assert.ok(t.tabs.Chat.rows.some(r => r[3] === ana.chat_id && /^Ana Reyes · Client/.test(r[2])), 'the chat itself still starts with Cue\'s full read');
+  assert.ok(t.tabs.Chat.rows.some(r => r[3] === ana.chat_id && /^Ana Reyes <ana@client\.example> · Client/.test(r[2])), 'the chat itself still starts with Cue\'s full read');
 });
 
 test('ML5 when the read comes back empty, the post still says who, when and what the email says, and leaves out what only the read knows', () => {
   const t = tySandbox({ mcRead: {} });
   const id = nmRun(t), ana = t.state(id).nm.items.filter(x => x.sender === 'ana@client.example')[0];
   const post = t.tabs.Chat.rows.filter(r => r[3] === '>' + ana.chat_id).map(r => r[2])[0] || '';
-  assert.ok(/^New email: Ana Reyes/.test(post) && /\nWhat they sent: \S/.test(post), post);
+  assert.ok(/^New email · Ana Reyes/.test(post) && /\nWhat they sent: \S/.test(post), post);
   assert.ok(!/What they expect|What to do next/.test(post));
 });

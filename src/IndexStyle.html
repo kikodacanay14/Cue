@@ -73,6 +73,16 @@
   .trow .chip { flex:none; display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border:1px solid var(--line2); border-radius:9999px; color:var(--text); font-size:13px; font-weight:600; min-height:0; background:none; }
   .trow .chip svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; }
   .trow .tm { flex:none; color:var(--muted); font-size:13px; white-space:nowrap; padding-top:3px; min-width:26px; text-align:right; }
+  /* AGENT-FEED-2026-11-16: the last-hour line and the newest agent updates under the Agents header */
+  /* AGENT-CHAT-2026-11-16: an agent's message in its own thread */
+  #tmsgs .msg.agmsg .agtx { display:block; white-space:pre-wrap; }
+  #tmsgs .msg.agmsg .agft { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:6px; }
+  #tmsgs .msg.agmsg .agft .tag { margin:0; }
+  .agcard { margin-top:-4px; }
+  .agstat { margin:2px 12px 4px; color:var(--muted); font-size:13px; }
+  .agfeed { margin:0 0 6px 12px; border-left:2px solid var(--line2); }
+  .trow.agf { align-items:center; padding:6px 10px; } .trow.agf .tx b { font-size:13.5px; } .trow.agf .tx span { -webkit-line-clamp:1; }
+  .trow.agf .tag { flex:none; margin:0; } .trow.agf .tm { padding-top:0; }
   .tmore { all:unset; cursor:pointer; display:block; width:100%; text-align:center; color:var(--act); font-size:13px; font-weight:600; padding:6px; }
   /* Kiko 14:54Z: three panes. Files and images open in a viewer on the right of the threads pane, like Claude's: name and ✕,
      Download / Open externally / More, zoom − Fit + with a % readout, rotate, fullscreen, then the type and "1 of N" at the foot. */
@@ -170,6 +180,16 @@
   .msg { max-width:85%; padding:10px 14px; border-radius:6px; white-space:pre-wrap; word-wrap:break-word; }
   .msg label.tick { display:inline-flex; gap:8px; align-items:flex-start; cursor:pointer; } .msg label.tick input { margin-top:3px; flex:none; accent-color:var(--act); }   /* CUE-CONTACT-NEW-2026-10-29: ticks on the new contacts card */
   .msg.me { align-self:flex-end; background:var(--soft); }
+  /* AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): the save status under Kiko's line in an agent's thread. */
+  .agm { align-self:flex-end; margin:-6px 2px 0; max-width:85%; } .err.agm { margin-top:0; }
+  /* AGENT-TAG-2026-11-15: the @ agent list above the main chat's box (approved mockup agent-tags/mockup). */
+  .composer .in { position:relative; }
+  .taglist { position:absolute; left:16px; bottom:calc(100% - 4px); z-index:6; width:min(360px, calc(100% - 32px)); margin:0; padding:6px; list-style:none; background:var(--panel); border:1px solid var(--line2); border-radius:10px; box-shadow:0 6px 20px rgba(22,21,27,.12); }
+  .taglist li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:6px; cursor:pointer; }
+  .taglist li b { font-weight:700; font-size:14px; } .taglist li.on, .taglist li:hover { background:var(--soft); }
+  #box.bad { border-color:var(--bad); } #taghelp, #tagerr { margin:6px 2px 0; } #tagerr { color:var(--bad); }
+  .linkbtn { all:unset; cursor:pointer; color:var(--act); text-decoration:underline; text-underline-offset:2px; } .linkbtn:focus-visible { outline:2px solid var(--act); }
+  #tagnote { margin-top:6px; }
   .msg.cue { align-self:flex-start; background:var(--panel); border:1px solid var(--line); }
   .msg.plan { border-left:4px solid var(--need); }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex:none; }
@@ -209,6 +229,12 @@
   textarea:focus, input:focus, select:focus, button:focus-visible { outline:2px solid var(--act); outline-offset:1px; }
   .card a { color:var(--act); }
   .card a.btn { color:#fff; } .card a.btn.ghost { color:var(--text); }   /* an Open in Canvas button is a link: keep its label readable */
+  /* CUE-ALERTS-2026-11-16 (ALERT-3 mockup): the On switch is a checkbox drawn as the approved switch; Last sent is centred */
+  #w-alerts input.swc { appearance:none; -webkit-appearance:none; width:40px; height:22px; padding:0; border:0; border-radius:11px; background:var(--line2); position:relative; margin:0; cursor:pointer; vertical-align:middle; }
+  #w-alerts input.swc::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
+  #w-alerts input.swc:checked { background:#23006F; } #w-alerts input.swc:checked::after { left:21px; }
+  #w-alerts input.swc:focus-visible { outline:2px solid #23006F; outline-offset:2px; } #w-alerts input.swc:disabled { opacity:.5; cursor:default; }
+  #w-alerts td.al-c { text-align:center; vertical-align:middle; white-space:nowrap; }
   .btn { border:0; border-radius:9999px; min-height:44px; padding:0 18px; font:700 14px var(--font); cursor:pointer; background:var(--act); color:#fff; }
   .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line2); }
   .btn.bad { background:transparent; color:var(--bad); border:1px solid #E8B9A5; }
@@ -480,6 +506,7 @@
   .kv .fk { font-size:inherit; }   /* bid card field lines keep the style Kiko picked (06:15Z): accent name, 600, same size */
   .card .actions, dialog .actions { justify-content:flex-end; }   /* buttons sit at the bottom right of their card */
   .tag { border-radius:4px; font-weight:600; cursor:default; }   /* a label is a flat tag with square corners; buttons stay round pills */
+  .tag.warn { border:1px solid transparent; padding:2px 10px; margin:1px 2px 1px 0; font-size:12px; border-radius:4px; }   /* AGENT-DRAFTS-2026-11-13: the warning box (.warn) gave the warn pill its border and padding, so it looked like a button */
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; vertical-align:middle; }
   .btn svg, .tag svg, .fk svg, .label svg, summary svg { vertical-align:middle; flex:none; }
   #settings .ic { vertical-align:middle; }
@@ -516,4 +543,26 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   }
+  /* AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026, mockup v2 approved 12:23:52Z): an agent update's requirements panel. It slides in
+     from the left over the chat ("opens a window on the left", 11:58:14Z); view only. Same table rules as every Cue table. */
+  .agdshade { position:fixed; inset:0; z-index:44; background:rgba(22,21,27,.28); }
+  .agdp { position:fixed; top:0; bottom:0; left:0; z-index:45; width:min(860px, 94vw); display:flex; flex-direction:column; background:var(--side); border-right:1px solid var(--line); box-shadow:8px 0 24px rgba(22,21,27,.18); animation:agdin .22s ease; }
+  @keyframes agdin { from { transform:translateX(-100%); } to { transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .agdp { animation:none; } }
+  .agdph { display:flex; align-items:flex-start; gap:10px; padding:14px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .agdph .t { flex:1; min-width:0; } .agdph .t b { font-size:18px; color:var(--white); }
+  .agdph .agdx { width:44px; height:44px; border:1px solid var(--line); background:var(--panel); font-size:18px; }
+  .agdf { display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--line); }
+  .agdf .filt { font:600 13px var(--font); min-height:36px; padding:6px 12px; border-radius:9999px; border:1px solid var(--line2); background:var(--panel); color:var(--text); cursor:pointer; }
+  .agdf .filt[aria-pressed="true"] { background:var(--act); border-color:var(--act); color:#fff; }
+  .agdtw { flex:1; min-height:0; overflow:auto; }
+  .agdp table { width:100%; min-width:620px; border-collapse:collapse; }
+  .agdp th { position:sticky; top:0; background:var(--panel); text-align:center; vertical-align:middle; padding:8px; border-bottom:1px solid var(--line2); }
+  .agdp td { vertical-align:middle; padding:8px; border-bottom:1px solid var(--line); } .agdp td.c { text-align:center; }
+  .agdp tr.need td { background:rgba(251,233,231,.55); }
+  .agdp .rn { display:block; font-weight:600; } .agdp .rid { display:block; font-size:12px; color:var(--muted); }
+  .agdp ul.oi { margin:0; padding-left:16px; }
+  .agdp .ph { display:inline-grid; place-items:center; width:44px; height:32px; border:1px dashed var(--line2); border-radius:6px; font-size:12px; color:var(--muted); }
+  .agdpf { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); }
+  .agdpf input { flex:1; min-width:180px; }
 </style>

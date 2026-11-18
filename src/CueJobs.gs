@@ -32,6 +32,7 @@ function cueJobs_() {
     { job: 'Client accreditation mail', fn: 'cueAcTick_', row: 'sys-accred' },
     { job: '8 AM update after the morning batch', fn: 'cueK0Retry_' },   // CUE-K0-2026-10-31: the update waits while the 07:00 batch still drafts         // CLIENT-ACCRED-THREADS-2026-10-29: replies into each company's Accreditation thread, every 30 min
     { job: 'New PhilGEPS read', fn: 'cueBidsPgTick_' },             // CUE-BIDS-PG-2026-11-01: the public bulletin board, hourly 7 AM to 7 PM, no AI
+    { job: 'Agent drafts', fn: 'cueAgdTick_' },                     // AGENT-DRAFTS-2026-11-13: agents' drafts from Canvas as cards, one thread per agent, every 15 min, no AI
     { job: 'Service Desk reports', fn: 'cueSdTick_' },              // SERVICE-DESK-2026-11-07: Canvas bug reports to Kiko's chat, every 15 min, no AI
     { job: 'Schedules', fn: 'cueSchedTick_', last: true }          // last, after the tasks: a task it starts runs on the next tick in its own 6 minutes
   ];
@@ -54,6 +55,7 @@ function cueJobRun_(j, rows) {
   catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error(j.job + ': ' + e); }
   const count = typeof out === 'number' ? out : Array.isArray(out) ? out.length : out && typeof out.added === 'number' ? out.added : '';
   rows.push([started.toISOString(), new Date(cueNow_()).toISOString(), j.job, err ? 'Failed' : 'OK', err, count]);
+  if (typeof globalThis.cueAlertJobRun_ === 'function') cueAlertJobRun_(j.job, err);   // CUE-ALERTS-2026-11-16: Failed job alert (never throws)
 }
 
 const CUE_JOB_KEEP_DAYS_ = 30;   // Kiko 28 Oct 2026 06:08Z: "Yes, keep 30 days"

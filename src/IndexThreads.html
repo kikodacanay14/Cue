@@ -31,7 +31,7 @@
     if (b.hasAttribute('data-tmore')) { tmore = !tmore; renderChat(); }
   });
   function renderThreadList(th) {
-    var by = byId(), G = { need: [], work: [], rest: [] }, waiting = 0;
+    var by = byId(), G = { agent: [], need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
       var t = th[k]; if (!t.reqs.length || !(by[k] || t.reqs[0]).archived !== !showArchived || !listShows(t)) return;
       var title = threadTitle(t), st = threadState(t); if (st.need) waiting++;
@@ -40,7 +40,7 @@
       var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
       var failed = lastReq.status === 'Failed';
       var nmOpen = t.reqs.filter(function (r) { return r.kind === 'newmail' && r.nm && r.status !== 'Closed'; }).reduce(function (a, r) { return a + nmOpenCount(r); }, 0);
-      G[st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest'].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length, nm: nmOpen,
+      G[listGroup(t, st, showArchived)].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: t.lines.length, nm: nmOpen,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });
@@ -58,16 +58,19 @@
         + '<span class="tx"><b>' + esc(r.name) + '</b><span>' + esc(r.sub || (r.k === 'crm' ? 'Nothing to follow up' : 'Nothing to do right now')) + '</span></span>'
         + (r.n ? '<i class="badge" style="flex:none;font-style:normal;align-self:center" title="' + r.n + ' waiting">' + r.n + '</i>' : '') + '</button>';
     }).join('');
-    [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
-      var l = G[g[0]].sort(function (a, b) { return a.when < b.when ? 1 : -1; }); if (!l.length) return;
-      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + ' <span class="n">' + l.length + '</span></span></button>';
+    [['agent', 'Agents'], ['need', 'Waiting on you'], ['work', 'Working on'], ['rest', showArchived ? 'Archived' : 'Recent']].forEach(function (g) {
+      // AGENT-GROUP-2026-11-16: agents waiting on Kiko first, then newest; the Agents count is how many wait on him
+      var l = G[g[0]].sort(function (a, b) { return g[0] === 'agent' && !a.st.need !== !b.st.need ? (a.st.need ? -1 : 1) : a.when < b.when ? 1 : -1; }); if (!l.length) return;
+      var gn = g[0] === 'agent' ? l.filter(function (x) { return x.st.need; }).length : l.length;
+      h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + (gn ? ' <span class="n">' + gn + '</span>' : '') + '</span></button>';
       // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
       if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
+      if (g[0] === 'agent') h += agentFeedHtml(agentFeed(state.requests, Date.now(), by));   // AGENT-FEED-2026-11-16
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
-    setHtml($('tlist'), h + (tq && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
+    setHtml($('tlist'), h + (tq && !G.agent.length && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
       + (showArchived ? '<button class="tmore" data-act="show-archived" data-id="">Back to recent</button>' : ''));
     bind();
   }
@@ -159,6 +162,14 @@
 
   function sendFrom(box, host, ref) {
     var t = box.value.trim(), withFiles = fileHost === host && pending.length; if (!t && !withFiles) return;
+    if (ref && (byId()[ref] || {}).agd) return agentSay(t, !!withFiles, ref, box);   // AGENT-REPLIES-2026-11-14: an agent's thread
+    // AGENT-TAG-2026-11-15: "@name" that is no agent stays in the box. A tagged message goes straight to the server, before the
+    // batch, expense, upload and learn paths (Codex review on Cue PR #390), so nothing but the agent ever gets it.
+    if (!ref && box === $('box') && tagMatch(t)) {
+      if (!tagCheck(t)) return;
+      if (withFiles) return tagErr('Agents can\'t open files. Remove the files, or delete the @ to send them to Cue. Nothing was sent.');
+      return send(t, [], '', '', undefined, box, true);
+    }
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
     var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
     var b = batchOf(ref);
@@ -244,10 +255,22 @@
   });
   $('send').onclick = function () { sendFrom($('box'), 'files', ''); };   // Enter shares this path, so a reply goes with either
   $('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };
+  document.addEventListener('click', function (e) {   // AGENT-REPLIES-2026-11-14: Try again under a line Canvas did not save
+    var b = e.target.closest && e.target.closest('[data-agm-retry]'); if (!b) return;
+    var ref = b.getAttribute('data-agm-retry'), mid = b.getAttribute('data-agm-mid') || '';
+    if (!ref || !mid) return;   // Codex review on Cue PR #386: Try again resends the message that failed, by its own id, never the latest line
+    b.disabled = true;
+    var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    call('cueAgdRetry', [ref, mid], function (r) {
+      // saved: a text box still holding this message's id forgets it, so the same words sent later are a new message (Codex on #388)
+      if (r && r.agent_message) [].forEach.call(document.querySelectorAll('textarea[data-agm-mid],input[data-agm-mid]'), function (x) { if (x.getAttribute('data-agm-mid') === mid) agmMid(x, ''); });
+      refresh(function () { unbox(dots); });
+    }, function (e) { unbox(dots); alertErr(e, ref); refresh(); });
+  });
   var lastTalk = '';
   $('chip-intake').onclick = function () { $('chip-intake').hidden = true; send(lastTalk, [], 'intake'); };
   // box: the text box this came from (the chat's, the thread's or a card's), cleared now and given the text back if sending fails.
-  function send(t, files, mode, ref, mine, box) {
+  function send(t, files, mode, ref, mine, box, tagged) {
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
@@ -255,11 +278,13 @@
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
-    if (mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (!tagged && mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
+    if (!tagged && mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
-    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || ''], function (r) {
+    var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
+    call('cueSend', [t, files, mode, ref, (mine && mine.reply) || '', mid], function (r) {
+      agmKeep(mine && mine.box, t, mid, r);
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
       if (r.canvas && !PHONE) canvasOpen(r.canvas);   // CUE-CANVAS: show the Canvas page now (a phone taps the button in the chat)
@@ -267,7 +292,92 @@
       refresh(swap);
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
-    }, function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
+    }, function (e) { unbox(mine, dots); back(mine, t); agmMid(mine && mine.box, t, mid); alertErr(e, ref); });
+  }
+  // AGENT-REPLIES-2026-11-14 (Codex review on Cue PR #386): one id per message. When a send fails and the text goes back in the box, the
+  // box keeps the id with it, so sending the same text again reuses it and Canvas still saves it once. agmMid(box, '') forgets it.
+  // The id is forgotten only after Canvas confirmed the save; "Not saved" keeps it, so the same text sent again is still one message.
+  function agmKeep(box, t, mid, r) { if (r && r.agent_message === false) agmMid(box, t, mid); else agmMid(box, ''); }
+  function agmMid(box, t, keep) {
+    var a = box && box.setAttribute ? box : null;
+    if (keep !== undefined) { if (a) { a.setAttribute('data-agm-mid', keep); a.setAttribute('data-agm-text', t); } return keep; }
+    if (!t) { if (a) { a.removeAttribute('data-agm-mid'); a.removeAttribute('data-agm-text'); } return ''; }
+    if (a && a.getAttribute('data-agm-text') === t && a.getAttribute('data-agm-mid')) return a.getAttribute('data-agm-mid');
+    var s = ''; while (s.length < 20) s += Math.random().toString(36).slice(2); return s.replace(/[^a-z0-9]/g, '').slice(0, 20);
+  }
+  // AGENT-REPLIES-2026-11-14 (Kiko's card 14 Nov 15:36:53Z "No, all goes to the agent"; mockup approved 16:46:11Z): a line in an
+  // agent's thread is saved for that agent and nothing else runs. Files stay here: agents can't open them.
+  function agentSay(t, withFiles, ref, box) {
+    if (withFiles) { pending = []; renderFiles(); return addLocal('Cue', 'Agents can\'t open files. Send files in the main chat. Nothing was saved.', ref); }
+    var mine = { who: 'Kiko', text: t, request_id: ref, time: '', box: box, sent: Date.now() };
+    outbox.push(mine); if (box) box.value = ''; renderChat();
+    var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
+    var mid = agmMid(box, t);
+    call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
+  }
+  /* AGENT-TAG-2026-11-15 (Kiko 15 Nov 2026 08:30:07Z "tag the agent name like @ Account Specialist"; mockup approved 09:24:50Z, card
+   * "Approve, one agent per message"; "build" 11:26:04Z). In the main chat, "@" as the first character opens the list of agents (one per
+   * agent thread, newest draft first). Picking one writes "@Name " in the box; the server sends the rest to that agent only
+   * (CueAgentDrafts.gs cueAgdTag_). A name that is no agent sends nothing: the words stay in the box with a red note. */
+  var tagState = { open: false, list: [], i: 0 };
+  function tagNorm(x) { return String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function tagAgents() {
+    if (state.agents) return state.agents;   // the server's full list (every request, not only the 20 the page holds)
+    var seen = {}, out = [], by = byId();
+    state.requests.forEach(function (r) {
+      if (!r.agd || !r.agd.agent) return;
+      var k = tagNorm(agdLabel(r.agd.agent)), at = String(r.created || '');
+      if (!seen[k]) { seen[k] = { agent: String(r.agd.agent), ref: rootOf(r.id, by), at: at }; out.push(seen[k]); }
+      if (at > seen[k].at) seen[k].at = at;
+    });
+    return out.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+  }
+  // The same match as the server: the longest agent name that the text starts with, ending at a word break.
+  function tagMatch(t) {
+    var m = String(t || '').match(/^\s*@\s*([\s\S]*)$/); if (!m) return null;
+    var low = tagNorm(m[1]) + ' ', best = null;
+    tagAgents().forEach(function (a) { [agdLabel(a.agent), a.agent].forEach(function (x) { var n = tagNorm(x); if (n && low.slice(0, n.length) === n && !/[\p{L}\p{N}]/u.test(low.charAt(n.length)) && (!best || n.length > best.n.length)) best = { a: a, n: n }; }); });
+    if (!best) return { miss: m[1].trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40) };
+    return { agent: best.a.agent, label: agdLabel(best.a.agent), rest: tagNorm(m[1]).slice(best.n.length).replace(/^[\s,:;.\-]+/, '') };
+  }
+  function tagErr(msg) { var e = $('tagerr'); e.textContent = msg || ''; e.hidden = !msg; $('box').classList.toggle('bad', !!msg); }
+  function tagCheck(t) {
+    var g = tagMatch(t); if (!g) return true;
+    if (g.miss !== undefined) { tagErr('No agent is called "' + g.miss + '". Pick one from the list, or delete the @ to ask Cue. Nothing was sent.'); return false; }
+    if (!g.rest && !(fileHost === 'files' && pending.length)) { tagErr('Type your message after ' + g.label + '.'); return false; }
+    tagErr(''); return true;
+  }
+  function tagOpen() {
+    var v = $('box').value, m = v.match(/^@([^\n]*)$/), q = m ? tagNorm(m[1]) : null;
+    var list = q === null ? [] : tagAgents().filter(function (a) { return [agdLabel(a.agent), a.agent].some(function (x) { var n = tagNorm(x); return n.slice(0, q.length) === q && q.length <= n.length && !(q === n && / $/.test(v)); }); });
+    tagState.open = list.length > 0; tagState.list = list; tagState.i = Math.min(tagState.i, Math.max(list.length - 1, 0));
+    var ul = $('taglist'); ul.hidden = !tagState.open; $('taghelp').hidden = !tagState.open;
+    ul.innerHTML = list.map(function (a, i) {
+      return '<li role="option" data-tag-pick="' + i + '" aria-selected="' + (i === tagState.i) + '"' + (i === tagState.i ? ' class="on"' : '') + '><b>' + esc(agdLabel(a.agent)) + '</b><span class="small muted">' + (a.at ? 'last draft ' + esc(msgWhen(a.at)) : '') + '</span></li>';
+    }).join('');
+  }
+  function tagPick(i) { var a = tagState.list[i]; if (!a) return; $('box').value = '@' + agdLabel(a.agent) + ' '; tagState.i = 0; tagOpen(); tagErr(''); $('box').focus(); }
+  function tagKey(e) {
+    if (!tagState.open) return false;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); tagState.i = (tagState.i + (e.key === 'ArrowDown' ? 1 : tagState.list.length - 1)) % tagState.list.length; tagOpen(); return true; }
+    if (tagState.open && (e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.isComposing) { e.preventDefault(); tagPick(tagState.i); return true; }
+    if (e.key === 'Escape') { tagState.open = false; $('taglist').hidden = $('taghelp').hidden = true; return true; }
+    return false;
+  }
+  $('box').addEventListener('input', function () { tagState.i = 0; tagOpen(); if (!$('tagerr').hidden) tagErr(''); });
+  $('taglist').addEventListener('mousedown', function (e) { var li = e.target.closest && e.target.closest('[data-tag-pick]'); if (!li) return; e.preventDefault(); tagPick(+li.getAttribute('data-tag-pick')); });
+  // The main chat's copy of a tagged message: Kiko's line with the agent as a tag, then the save status with Open thread.
+  function tagHtml(m, by) {
+    var ref = m.request_id.slice(1), t = String(m.text || ''), known = tagAgents().filter(function (a) { return a.ref === ref; })[0];
+    var ag = String(((by[ref] || {}).agd || {}).agent || (known && known.agent) || '');
+    if (m.who === 'Kiko') {
+      var lb = agdLabel(ag), pre = !ag ? '' : t.indexOf('@' + lb) === 0 ? '@' + lb : t.indexOf('@' + ag) === 0 ? '@' + ag : '';   // older rows carry the stored name
+      var rest = pre ? t.slice(pre.length).trim() : t;
+      return '<div class="msg me"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + '><span class="who">Kiko</span>' + (ag ? '<span class="tag">@' + esc(lb) + '</span> ' : '') + esc(rest) + '</div>';
+    }
+    var h = msgHtml({ who: m.who, text: t, request_id: ref, time: m.time }, '', true);
+    // Open thread only when the page holds the thread's requests; an older one would open without its cards and its agent-only box (Codex on #390).
+    return by[ref] && /^<div class="small muted agm">Saved for /.test(h) ? h.replace(/<\/div>$/, ' · <button class="linkbtn" data-thread="' + esc(ref) + '">Open thread</button></div>') : h;
   }
   // Kiko 18:00Z: a pasted memory list or phrasebook goes to the server to be learned, never to expense(). Mirrors cueMemPaste_ (CueTeach.gs).
   function memPaste(t) {
@@ -368,7 +478,7 @@
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
-  $('box').addEventListener('keydown', function (e) { if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
+  $('box').addEventListener('keydown', function (e) { if (tagKey(e)) return; if (e.key === 'Escape' && replyTo) { setReply(''); return; } if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('send').click(); } });
   $('tbox').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('tsend').click(); } });
 
   function refresh(after) { call('cueState', [], function (s) { state = s; if (after) after(); render(); myRulesCheck(); arPoll(); schedule(); }, function () { if (after) after(); schedule(); }); }
@@ -401,7 +511,7 @@
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [] }); }
     allLines().forEach(function (m) {
       var q = askOf(m); if (q) { if (q.where) get(rootOf(q.where, by)).lines.push(m); return; }   // a question with buttons lives where it was asked
-      if (m.request_id && m.request_id.charAt(0) !== '>') get(rootOf(m.request_id, by)).lines.push(m); });
+      if (m.request_id && m.request_id.charAt(0) !== '>' && m.request_id.charAt(0) !== '@') get(rootOf(m.request_id, by)).lines.push(m); });   // "@<thread>": AGENT-TAG main-chat copy
     state.requests.slice().reverse().forEach(function (r) { get(rootOf(r.id, by)).reqs.push(r); });   // oldest first
     return t;
   }
@@ -422,6 +532,39 @@
     if (th.reqs.some(function (r) { return !MAIL_ONLY[r.kind]; })) return true;
     return th.reqs.some(function (r) { return r.kind === 'mail'; })
       && th.lines.some(function (m) { return m.who === 'Kiko' && !MAIL_DONE.test(String(m.text || '').trim()); });
+  }
+  // AGENT-GROUP-2026-11-16 (Kiko 16 Nov 2026 14:34:51Z "in Cue theres that area on top with the CRM - i want the agent chats to have a
+  // place there"; design approved 14:36:42Z): an agent's thread (made from its drafts) gets its own Agents group under From Canvas,
+  // out of Waiting on you and Recent. The Archived view keeps the old groups.
+  function listGroup(th, st, archived) {
+    if (!archived && th.reqs[0] && th.reqs[0].agd) return 'agent';
+    return st.need ? 'need' : st.text === 'Working' ? 'work' : 'rest';
+  }
+  /* AGENT-FEED-2026-11-16 (Kiko 16 Nov 2026 15:48:10Z "BUILD IT NOW", asking for agent updates and messages under the Agents group
+   * with an hourly status): under the Agents header, one line on the last hour (how many drafts and updates, from how many agents)
+   * and the five newest agent drafts and updates, newest first. A row opens its agent's thread. Display only: no new calls, no schedule. */
+  function agentFeed(reqs, now, by) {
+    var all = (reqs || []).filter(function (r) { return r && r.agd && r.agd.agent && r.created; })
+      .sort(function (a, b) { return a.created < b.created ? 1 : a.created > b.created ? -1 : 0; });
+    var hour = all.filter(function (r) { var t = Date.parse(r.created); return t <= now && now - t < 3600000; }), who = {};
+    hour.forEach(function (r) { who[String(r.agd.agent).toLowerCase()] = 1; });
+    return { n: hour.length, agents: Object.keys(who).length, last: all.length ? all[0].created : '',
+      items: all.slice(0, 5).map(function (r) {
+        var a = r.agd, st = String(a.status || '');
+        return { k: rootOf(r.id, by || {}), agent: agdLabel(a.agent), kind: a.type === 'update' ? 'Update' : String(a.type_label || 'Draft'),
+          item: String(a.item || '') + (a.project ? ' (' + a.project + ')' : ''), at: r.created,
+          tag: st === 'Waiting for Kiko' ? ['Needs you', 'warn'] : st === 'Unread' ? ['Unread', 'warn'] : st === 'Failed' ? ['Failed', 'crit']
+            : /^(Sent|Saved|Read|Replied)$/.test(st) ? [st, 'good'] : [st || 'New', 'accent'] };
+      }) };
+  }
+  function agentFeedHtml(f) {
+    if (!f.items.length) return '';
+    var s = f.n ? 'Last hour: ' + f.n + (f.n === 1 ? ' update' : ' updates') + ' from ' + f.agents + (f.agents === 1 ? ' agent.' : ' agents.')
+      : 'Last hour: nothing new from the agents. Last one ' + ago(f.last) + '.';
+    return '<p class="agstat">' + esc(s) + '</p><div class="agfeed" aria-label="Latest from the agents">' + f.items.map(function (x) {
+      return '<button class="trow agf" data-thread="' + esc(x.k) + '"><span class="tx"><b>' + esc(x.agent) + ' · ' + esc(x.kind) + '</b><span>' + esc(noTok(x.item).slice(0, 200)) + '</span></span>'
+        + '<span class="tag ' + x.tag[1] + '">' + esc(x.tag[0]) + '</span><span class="tm">' + esc(ago(x.at).replace(' ago', '').replace('just now', 'now')) + '</span></button>';
+    }).join('') + '</div>';
   }
   function threadState(th) {
     var need = th.reqs.filter(isNeed).length, work = th.reqs.some(function (r) { return WORK[r.status] || running[r.id]; });
@@ -462,6 +605,7 @@
       gtask: { name: 'ChatGPT task', family: 'draft', steps: null, card: function () { return true; } },
       vendor: { name: 'Supplier search', family: 'draft', steps: VENDOR, card: function (r) { return !!r.vendor; } },
       workflow: { name: 'Workflow map', family: 'approve', steps: WORKFLOW, card: function (r) { return !!(r.workflow && r.workflow.map); } },
+      agentdraft: { name: function (r) { return (r.agd && r.agd.agent) ? agdLabel(r.agd.agent) : 'Agent draft'; }, family: 'draft', steps: null, card: function (r) { return !!r.agd; } },   // AGENT-DRAFTS-2026-11-13: one thread per agent
       tri: { name: function (r) { return ((r.tri && r.tri.type) || 'Task') + ': ' + ((r.tri && r.tri.description) || ''); }, family: 'approve', steps: null, card: function (r) { return !!r.tri; } },
       supplier: { name: 'Supplier registration', family: 'approve', steps: SUPPLIER, card: function (r) { return !!r.supplier; } },
       personal: { name: 'Personal expense', family: 'approve', steps: PERSONAL, card: function (r) { return !!r.personal; } },
@@ -497,6 +641,8 @@
   function lineKind(m) {
     if (m.who === 'Kiko') return '';
     var t = String(m.text || ''), q = askOf(m);
+    if (/^Saved for .{1,40} · it reads it on its next run$/.test(t) || t === 'Sending to Canvas…') return 'agm';   // AGENT-REPLIES-2026-11-14
+    if (/^Not saved: /.test(t)) return 'agmx';
     if (q && /^Learned: "/.test(t)) return 'learn';
     return !q && ACT_RE.test(t) ? 'act' : '';
   }
@@ -507,6 +653,12 @@
   function msgHtml(m, thread, inThread) {   // Kiko 08:32Z: like Claude, the task's message and its title open the thread too
     if (typeof thread !== 'string') thread = '';   // map() passes an index
     var lk = inThread === true ? lineKind(m) : '';
+    // AGENT-REPLIES-2026-11-14: under Kiko's line in an agent's thread, the save status as a small line (approved mockup), not a bubble.
+    if (lk === 'agm') return '<div class="small muted agm">' + esc(m.text) + '</div>';
+    if (lk === 'agmx') {   // the line ends with its message's id, [agm:<id>]: Try again resends that message (Codex review on Cue PR #386)
+      var mx = String(m.text || '').match(/^([\s\S]*?)\s*\[agm:([A-Za-z0-9]{8,40})\]$/);
+      return '<div class="err agm">' + esc(mx ? mx[1] : m.text) + (mx ? ' <button class="linkbtn" data-agm-retry="' + esc(m.request_id || '') + '" data-agm-mid="' + mx[2] + '">Try again</button>' : '') + '</div>';
+    }
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
     // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
@@ -636,7 +788,9 @@
   }
   // CUE-ASSISTANT-2026-11-03: "My suggestion:" and "Proposed reply:" at the start of a line read as labels (bold text, never a
   // button), so the proposed response stands out from what the message reports. No fixed "Why you" label (Kiko 3 Nov 23:36Z).
-  function cueLabels(h) { return h.replace(/(^|\n)(My suggestion:|Proposed reply:)/g, '$1<b>$2</b>'); }
+  // CUE-ALERT-FORMAT-2026-11-16 (Kiko 16 Nov 14:55Z: "bold on headers please"; mockup approved 15:14Z): the section labels of an email
+  // post (CueMailChat.gs cueMcLeft_ and cueMcText_) are bold too. Only at the start of a line, so a word inside a sentence never is.
+  function cueLabels(h) { return h.replace(/(^|\n)(My suggestion:|Proposed reply:|New email(?=:| ·)|New in this conversation(?=:| ·)|Subject:|What they sent:|What it is for:|What they expect:|What to do next:|What they want:|From the thread and the project&#39;s emails:|Suggested next step:)/g, '$1<b>$2</b>'); }
   function fileLink(f) { return '<a class="flink" data-name="' + esc(f.name) + '" href="https://drive.google.com/file/d/' + esc(f.id) + '/view" target="_blank" rel="noopener">' + esc(f.name) + '</a>'; }
 
   var lastChat = -1, lastThread = -1;
@@ -662,7 +816,7 @@
     var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
       var t = thOf(th, openThread) || { root: openThread, lines: [], reqs: [] }, tn = t.lines.length, tg = tn !== lastThread;
-      lastThread = tn; renderThread(t);
+      lastThread = tn; renderThread(t); agentBox(t);
       if (toSpot()) ps._pin = false; else if (pBottom || tg) { ps._pin = true; ps.scrollTop = ps.scrollHeight; }
     }
     renderPaneTabs(th); renderThreadList(th);
@@ -701,6 +855,7 @@
       if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
       // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
       if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
+      if (m.request_id.charAt(0) === '@') { h += tagHtml(m, by); return; }   // AGENT-TAG-2026-11-15: a message Kiko tagged to an agent
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to = rootOf(m.request_id.slice(1), by), pt = th[to];
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
@@ -792,6 +947,51 @@
     var m = /^(<div class="card[^"]*"[^>]*>)/.exec(c);
     return m ? m[1] + FOLD_BTN + c.slice(m[1].length) : '<div class="tcardw">' + FOLD_BTN + c + '</div>';
   }
+  // AGENT-REPLIES-2026-11-14: in an agent's thread the box writes to that agent, and the note under it says Cue does not act on it.
+  function agentBox(t) {
+    var x0 = t && t.reqs[0], ag = x0 && x0.agd ? agdLabel(x0.agd.agent) || 'the agent' : '';
+    $('tbox').placeholder = ag ? 'Message ' + ag : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
+    $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
+  }
+  /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
+   * update is a chat bubble from that agent, in time order, and Kiko's replies are his own bubbles. The full card (approve, edit, the
+   * requirements table) opens from Details under the bubble; a draft that waits for Kiko opens with its card. Cue's announcement lines
+   * ("… posted a handover update", "You replied …") are left out because the bubbles say the same. Display only. */
+  var agdOpen = {};
+  function agentSays(r) {
+    var A = r.agd || {}, H = A.handover || {}, rows = H.rows || [], proj = A.project ? ' (' + A.project + ')' : '';
+    if (A.type === 'update') {
+      var need = rows.filter(function (x) { return x && x.needs_kiko; }).length;
+      return [rows.length ? (A.item || 'Requirements') + proj + ': ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's') + (need ? ', ' + need + ' need you.' : '.') : '',
+        H.summary || A.body || (rows.length ? '' : (A.item || '') + proj),
+        H.gaps ? 'Still open: ' + H.gaps : '',
+        H.next_action ? 'Next: ' + H.next_action + (H.next_owner ? ' (' + H.next_owner + ')' : '') : '',
+        H.state === 'Waiting for approval' ? 'It waits for your approval.' : H.state && H.state !== 'Delivered' ? 'Handover blocked' + (H.why ? ': ' + H.why : '.') : ''].filter(Boolean).join('\n');   // AGENT-APPROVAL-WAITING-2026-11-17
+    }
+    return ['Draft ' + String(A.type_label || 'email') + ': ' + (A.item || '') + proj + '.', A.subject ? 'Subject: ' + A.subject : '',
+      A.status === 'Waiting for Kiko' ? 'It waits for you.' : ''].filter(Boolean).join('\n');
+  }
+  function agentReplies(r) {
+    var A = r.agd || {};
+    return (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
+  }
+  function agentEcho(m) {
+    if (m.who === 'Kiko') return false;
+    return /^.{1,60} (posted a handover update: |drafted an? )/.test(String(m.text || '')) || /^You replied/.test(String(m.text || ''));
+  }
+  function agentBubble(r) {
+    var A = r.agd || {}, st = String(A.status || ''), open = r.id in agdOpen ? agdOpen[r.id] : st === 'Waiting for Kiko';
+    var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
+    var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
+      + '<span class="agtx">' + esc(noTok(agentSays(r))) + '</span>'
+      + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span></div>';
+    var c = open ? cardOf(r) : '';
+    return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
+  }
+  $('tmsgs').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-agd-open]'); if (!b) return;
+    var id = b.getAttribute('data-agd-open'); agdOpen[id] = b.getAttribute('aria-expanded') !== 'true'; renderChat();
+  });
   function renderThread(t) {
     // Kiko 06:50Z: the thread holds everything: each run's request and files, the conversation, and the full card (drafts expand in place).
     // Kiko 06:51Z: the progress tracker sits at the top of the thread.
@@ -804,15 +1004,20 @@
     /* THREAD-CHAT-2026-11-03 (Kiko 30 Oct 10:15Z: "how come Cards dont get move as well in the conversation"; artifact comment: "if
        rejected or done already. the card shouldnt stick anymore"): each task's card sits in the conversation where it was posted
        (when it asked for Kiko, else when the task started) and scrolls with the chat, instead of always sitting at the bottom. */
-    var cards = [];
+    var cards = [], agT = !!(x0 && x0.agd);   // AGENT-CHAT-2026-11-16: an agent's thread reads as a conversation
     t.reqs.forEach(function (r) {
+      if (agT && r.agd) {
+        cards.push({ at: Date.parse(r.created) || 0, html: agentBubble(r) });
+        agentReplies(r).forEach(function (x) { cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
+        return;
+      }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
     });
     if (threadTitle(t) === 'Morning') { var tt = todayTasksHtml(t); if (tt) cards.unshift({ at: cards.length ? cards[0].at : Infinity, html: foldIn(tt) }); }   // CARD-OVERHAUL-2026-10-30: Today's tasks leads the Morning thread
-    var min = !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
+    var min = !agT && !!cardMin[t.root] && cards.length > 0, st = threadState(t), ci = 0;
     cards = cards.map(function (c, i) { c.i = i; return c; }).sort(function (a, b) { return a.at - b.at || a.i - b.i; });
     var put = function (upTo) { var o = ''; for (; ci < cards.length && cards[ci].at <= upTo; ci++) if (!min) o += cards[ci].html; return o; };
-    t.lines.forEach(function (m) { h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
+    t.lines.forEach(function (m) { if (agT && agentEcho(m)) return; h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
     h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
     if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';

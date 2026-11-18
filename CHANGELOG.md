@@ -1,5 +1,282 @@
 # Changelog
 
+## Cue 1.28.81: Canvas chases FSAs and ARs, so Cue's signature chaser is off (LIVE as Version 259, 17 Nov 2026 ~14:55Z, rollback 258)
+
+Asked: Kiko, 16 Nov 2026 03:19Z "Chasers - automatic - 2 days after initial and 3 counts of chasing"; build yes 17 Nov 2026 13:32Z
+("build the FSA / AR automation and chaser timing"); 17 Nov 13:40Z "1. 2 days". ADR-0205 in CanvasWorkspace supersedes ADR-0185.
+Shipped with Canvas V554 (CanvasWorkspace PR #696; built as V553, renumbered when another release took V553). Deploy run 44107800050 from this branch on main 1327665, which sends the FSA and AR reminders itself.
+Slot cue-1.28.81, card fsa-ar-auto.
+
+- `src/CueSweepSignature.gs`: `cueSignOff_()` returns true, so the signature sweep drafts nothing and makes no `list_unsigned_docs`
+  read; crew would otherwise get a Cue reminder on top of Canvas's. The code stays for a switch back. `fsaFirst` 3 -> 2 days.
+- Tests: G1 and G6 moved to the 2-day start, the sweep tests switch it back on; G7 added (off by default). 872/872 pass.
+
+## Cue 1.28.80: an agent's approval request shows Waiting for you, never Blocked (LIVE as Version 256, 17 Nov 2026 13:36Z, rollback 255)
+
+Shipped 17 Nov 2026 by Deploy Cue run 44094200620 (mode=deploy) from main a029334: live Version 255 plus the three 1.28.80 src files
+only (check run 44094049001). Kiko's go: "deploy those cue changes" (17 Nov 2026 13:32:56Z). Codex and CodeRabbit hit their usage
+limits on PR #402; the diff was reviewed by hand, nothing to fix.
+
+Asked: Kiko, 17 Nov 2026 06:56:28Z, decision card "Should the AS approval card show 'Waiting for your approval' instead of
+Blocked?": "Show Waiting for approval". Slot cue-1.28.80, card agent-approval-waiting. Needs Canvas V549 (CanvasWorkspace PR #688),
+which adds the status `Waiting for approval` to `agent_update`. Built on main after 1.28.79.
+
+- `src/CueAgentDrafts.gs` `cueAgdHand_`: keeps the state Waiting for approval; anything else that is not Delivered is still Blocked.
+- `src/IndexCards.html`: an update card in that state shows the warn tag "Waiting for you" and no "Why Blocked"; a requirements
+  card shows the same tag beside "N need you".
+- `src/IndexThreads.html` `agentSays`: the agent's bubble says "It waits for your approval." instead of "Handover blocked".
+- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (V549).
+- Tests: AGW1 added; 870/870 pass on top of 1.28.79.
+## Cue 1.28.79: Cue alerts on Kiko's Android phone (LIVE as Version 255, 17 Nov 2026 09:33Z, rollback 254)
+
+Shipped 17 Nov 2026 by Deploy Cue run 44056599717 (mode=deploy) from release branch claude/project-thread-4dqq9p at 191493d:
+live Version 254 (main dc20cca, Cue 1.28.78) plus the 1.28.79 commits only. Cue 1.28.80 is not in this release and must be
+rebuilt on Version 255 before it ships. Kiko's go: "go alerts" (17 Nov 2026 09:22:33Z). The cue-alerts Worker is live at
+https://cue-alerts.kikodacanay14-17a.workers.dev (Cloudflare version d92c5a2b).
+
+Worker fix after go-live (not deployed): on Kiko's phone, Turn on alerts failed with "Failed to register a ServiceWorker: the
+provided scriptURL (.../sw.js) violates the Content Security Policy" (17 Nov 2026 09:53Z screenshot). The setup page's CSP had
+default-src 'none' and no worker-src, so the browser fell back to script-src 'unsafe-inline' and blocked /sw.js. The CSP now adds
+worker-src 'self'. Reproduced and checked in Chromium (old CSP: same error; new CSP: registered). Test CA6 checks the directive.
+
+Worker fix 2 (not deployed): Kiko 17 Nov 2026 10:39:43Z, "it worked but i wasnt able to open the notification". The phone page's
+test alert and the plain "Open Cue to see what is new." line carry no link, so a tap only closed them. A tap on an alert with no
+link now opens /open, which sends the phone to Cue (the address Cue last sent with an alert) or, before Cue has sent one, to the
+setup page. Test CA8.
+
+Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
+own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
+(15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot
+cue-1.28.79, card cue-android-notifications. Built on main after 1.28.79. Not merged and not deployed: the merge and the first Worker
+deploy each wait for Kiko's typed yes.
+
+- `alerts/alerts-worker.js` (new Cloudflare Worker `cue-alerts`, not deployed): the one-time setup page (ALERT-1: before Allow, On,
+  Blocked), the service worker, `/code` (a setup code that lasts 10 minutes), `/subscribe`, `/unsubscribe`, `/me`, `/test`,
+  `/send` (Cue only, Bearer `CUE_ALERTS_KEY`), `/next` and `/status`. The push is empty and VAPID-signed (ES256 with WebCrypto);
+  the phone collects the alert text from `/next`, so no encryption library is added. `tag` is the Cue thread, so Android
+  replaces that thread's alert. Setup steps at the top of `alerts/wrangler.toml`; `alerts/gen-vapid.mjs` makes the key.
+- `src/CueAlerts.gs` (new): `cueAlert_` with the five alert types and their On switches (all start On), the 5-minute grouping per
+  thread ("Account Specialist · 2 updates", no second sound), text cleaned of amounts, account numbers, links and file names,
+  and a failed send that never stops the job. Settings calls `cueAlerts`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`.
+- Hooks: the 8 AM update and the 2 PM chasers for your OK (`CueMorning.gs`), a new agent card (`CueAgentDrafts.gs`), a Messenger
+  message put in Kiko's chat (`CueMessenger.gs`, linked crew and not-yet-linked people) and a failed job (`CueJobs.gs`).
+- Failed job (Kiko 16 Nov 2026 17:36:51Z, decision card: "Once, until it works again"): a job alerts when it turns from OK to
+  Failed, and again only after it has run OK once, because the 5-minute job tick sits on the edge of the 5-minute grouping.
+- Page: Settings › Jobs › Phone alerts (ALERT-3: Alert, On, Last sent, Open setup page, Send a test alert); a tap on an alert
+  opens Cue with `?thread=` at that thread's root.
+- Connect alerts, no paste (added 17 Nov 2026 on Kiko's "go alerts" 09:22:33Z): Cue makes its own key and hands it to the
+  Worker's `/pair` while a 30-minute window opened at deploy time is open, once. Cue's default Worker address is
+  `CUE_ALERTS_DEFAULT_`. Tests PA10 and CA7.
+- Tests: `test/features/99-phone-alerts.js` (PA1 to PA9) and `alerts/alerts-worker.test.mjs` (CA1 to CA6); 869/869 pass.
+
+## Cue 1.28.78: an agent's old-name and new-name threads are one thread (LIVE as Version 254, 16 Nov 2026 16:48Z, rollback 253)
+
+Asked: Kiko, 16 Nov 2026 15:57Z ("APPROVE 1-8"), item 5 of the role rename: ECII is now Procurement Specialist and ECI is now
+Event Specialist, and the n8n senders now post the new agent names. Slot cue-1.28.78, card role-names-cue-labels. Built on main after 1.28.77.
+
+- `src/CueAgentDrafts.gs`: the agent thread key uses the shown name, so a draft from "Procurement Specialist agent" joins the
+  existing "ECII agent" thread instead of opening a second one. A reply in that thread goes to Canvas under the name the agent
+  used on its newest draft (`cueAgdNewest_`), because Canvas finds an agent's replies by its name. The @ list keeps one entry per
+  agent, with its newest name. `src/IndexThreads.html` groups the page's fallback agent list the same way.
+- Tests: ROLE4 added; 860/860 pass on top of 1.28.77.
+
+## Cue 1.28.77: agent updates show under the Agents group, and an agent's thread reads as a conversation (not deployed)
+
+Asked: Kiko, 16 Nov 2026 15:48:10Z ("BUILD IT NOW"), for agent updates and messages under the Agents group in the top panel, with
+an hourly status. Slot cue-1.28.77, card cue-agent-feed. Built on main after 1.28.76. Display only: no new server calls, no
+schedule, no Canvas change.
+
+- `src/IndexThreads.html` `agentFeed`, `agentFeedHtml`: under the Agents header, one line on the last hour ("Last hour: 3 updates
+  from 2 agents", or "nothing new from the agents. Last one 2h ago") and the five newest agent drafts and updates (agent · type,
+  the item and project, a standard status tag, how long ago). A row opens that agent's thread. Folding the Agents group hides it.
+- `src/IndexStyle.html`: `.agstat`, `.agfeed`, `.trow.agf`.
+- Conversation (Kiko 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or update is a chat
+  bubble from the agent (summary, what is still open, next step; a draft says what it is and that it waits for Kiko), in time order,
+  and Kiko's replies are his own bubbles. Details under a bubble opens the full card (approve, edit, requirements table); a draft that
+  waits for Kiko opens with its card. Cue's "… posted a handover update", "… drafted …" and "You replied …" lines are left out in
+  agent threads because the bubbles say the same. `agentSays`, `agentReplies`, `agentEcho`, `agentBubble`; CSS `.msg.agmsg`.
+- Tests: AGF1 to AGF3 and AGC1 to AGC3 added; 859/859 pass.
+
+## Cue 1.28.76: new-email posts get bold headers, spacing and plainer wording; Own work type (not deployed)
+
+Asked: Kiko, 16 Nov 2026 14:55:19Z ("can we still work on how Cue rewords and summarizes things... and formats messages? ...
+bold on headers please", "how come all of a sudden i am getting these Fing Alert?"). Decision card 15:13:40Z: "New type Own work,
+one line". Scope and mockup (`cue-alert-format/mockup-375.png`, `mockup-1280.png` in the project files) approved 15:14:05Z
+("1 yes": emails only for now). Slot cue-1.28.76, card cue-alert-format. Built on main after 1.28.75.
+
+- `src/IndexThreads.html` `cueLabels`: the section labels of an email post (New email, New in this conversation, Subject, What they
+  sent, What it is for, What they expect, What to do next, and in the email's own chat What they want, From the thread and the
+  project's emails, Suggested next step) are drawn bold, only at the start of a line.
+- `src/CueMailChat.gs`: a blank line between sections in the main-chat post and the email's own chat. The main-chat post shows the
+  sender's name and company (from the signature the same read already finds), not the email address; the address moves to the first
+  line of the email's own chat. The read (still one Claude Haiku call, same fields) is told to write to Kiko as "you", never "Kiko"
+  or "his", not to repeat the sender's name or company, to keep each field to one sentence of at most 20 words, and to give a day
+  with its date ("Wednesday 18 Nov"); today's Manila date now goes with the email.
+- Why the alerts: no Cue code in the email path changed since 4 Nov. Every email whose type is Own chat gets a full post, and
+  Freelancer is Own chat. Kiko's own Crescendo engagement email was sorted as Freelancer.
+- New type **Own work** (`src/CueMailTypes.gs`, `src/CueTriage.gs`): the sort is told it means Kiko's own outside jobs, contracts or
+  engagements with other companies, not BSE business, and Freelancer means BSE crew. Own work is One line even when the Triage
+  types tab does not list it yet (no "new kind of email" question); a row Kiko saves in Cue Admin › Triage wins. A sender Cue
+  already learned under another type keeps that type until it is moved in Cue Admin › Triage.
+- Tests: AF1 to AF5 added; ML4, ML5, ACC4, ACC7, ACC9, AM1, AM1b and AM6 updated to the new layout; 853/853 pass.
+
+## Cue 1.28.75: agent chats get their own Agents group in the top panel (not deployed)
+
+Asked: Kiko, 16 Nov 2026 14:34:51Z ("in Cue theres that area on top with the CRM - i want the agent chats to have a place there");
+design approved 14:36:42Z ("approge agent group"). Slot cue-1.28.75, card cue-agents-group. Built on main after 1.28.74.
+
+- Display only. `src/IndexThreads.html`: new `listGroup` puts every agent thread (made from agent drafts) in an **Agents** group
+  under From Canvas and above Waiting on you, so agent chats no longer mix with job runs in Waiting on you and Recent. Same row,
+  dot, chip and time as the other groups; a row opens the agent's thread. Agents waiting on Kiko come first, then newest; the
+  Agents header counts the agents waiting on him. "N threads are waiting on you" still counts them. The Archived view, search,
+  Close older runs, agent logic, routing and Canvas are unchanged.
+- Tests: AGG1 and AGG2 added (fail before, pass after); 848/848 pass.
+
+## Cue 1.28.74: agent names show the new role names (not deployed)
+
+Asked: Kiko, 16 Nov 2026 13:13Z ("lets change ECII to Procurement Specialist and ECI to Event Specialist"); Cue and dashboard labels
+approved "aproved 9 and 10". Slot cue-1.28.74, card role-names-cue-labels. Built on main after 1.28.73.
+
+- Display only. `src/CueAgentDrafts.gs` `cueAgdLabel_` and `src/IndexChat.html` `agdLabel` turn ECII into Procurement Specialist and
+  ECI into Event Specialist (whole words). The name Canvas stores ("ECII agent") stays the thread key and is still what
+  `agent_message` sends, so threads, draft_status and replies keep working. Canvas data, n8n and secrets are unchanged.
+- Thread titles, draft and update cards, the lines Cue writes in a thread, "Saved for ...", the @ list and the thread box show the new
+  name. The @ list inserts the new name; a tag with either name reaches the same agent. Older main-chat rows that carry the old name
+  draw the new tag.
+- Tests: ROLE1 to ROLE3 added; AGU1, AGU5, AGR1 and TAG2 now expect the new name; 846/846 pass.
+
+## Cue 1.28.73: agent updates with requirement rows open a panel on the left (not deployed)
+
+Asked: Kiko, 16 Nov 2026 11:58:14Z ("maybe something like a card then can be clicked opens that opens a window on the left"). He
+removed Status, Handed to and Kind at 12:19:11Z, approved mockup v2 at 12:23:52Z (https://claude.ai/artifact/5m4yWBitssjLnRPEG2PncG)
+and said "ok" at 12:25:28Z to: panel on the left, the agent sets Needs you per row, view only. Slot cue-1.28.73, card
+agent-update-rows-panel. Built on live 1.28.72 (Version 251).
+
+- `src/CueAgentDrafts.gs`: an update's handover keeps an optional `rows` list (at most 100): req_id, name, sourcing (In House or
+  Outsourced), spec_by (AS or MM), dimensions, needs_kiko (true only when sent as true), open_items (at most 20). Other fields are dropped.
+- `src/IndexCards.html`, `src/IndexChat.html`, `src/IndexStyle.html`: an update with rows is one short card ("AS agent · Pandamart
+  Likha · 11 requirements · 5 need you") with Open requirements. The panel slides in from the left over the chat: All / Needs you,
+  columns #, Requirement, Sourcing, Specs by, Dimensions ("MM to add" until MM fills it), Open items, Images (later); rows that need
+  Kiko first; Reply and Mark read in its footer; ✕, the shade or Esc closes it. Updates without rows look as before.
+- Needs Canvas first: `agent_update` in ZapBridge takes no `rows` yet, so no update carries rows until that Canvas change (Kiko's
+  separate go) ships and Cue refreshes `test/fixtures/ZapBridge.gs`.
+- Tests: AUR1 to AUR3 added; 843/843 pass.
+
+## Cue 1.28.72: the FSA reminder starts 3 days after the FSA goes out (LIVE as Version 251, 16 Nov 2026 03:58Z, rollback 250)
+
+Asked: Kiko, 16 Nov 2026 02:50:02Z ("FSA (the initial notification) / FSA Reminder - Automatic: Start - 3 days after initial,
+(when does the chaser start)"). Claude showed that the signature chaser started the day after the event ended; Kiko said "yes"
+at 03:44:20Z to starting it from the day the FSA was sent. Built on live 1.28.71 (Version 250), slot cue-1.28.72, card
+fsa-reminder-start. No Canvas change: Canvas already gives each FSA's Generated date in `list_unsigned_docs`.
+
+- `src/CueSweepSignature.gs`: an unsigned FSA is chased from 3 days after its Generated date (the day Canvas made and emailed it),
+  then every 2 days, at most 3, as before. An FSA with no Generated date keeps the old start (the day after the event). ARs are
+  unchanged. Before the event, the line says "FSA sent <date>. Event ends <date>." instead of "Event ended".
+- The Chaser rules card's "First after" for FSA / AR signatures still sets the AR start; the FSA start is fixed at 3 days.
+- Tests: G1 to G5 keep their dates (fixture FSAs made 12 Nov); G6 added; 840/840 pass. Rule CUE-058, CanvasWorkspace ADR-0185.
+- Kiko said "ship" on 16 Nov 2026 at 03:57:37Z. Deploy Cue run 43801202211 shipped main 3977f36 as Version 251.
+
+## Cue 1.28.71: tag an agent with @ in the main chat (LIVE as Version 250, 15 Nov 2026 12:46Z, rollback 249)
+
+Asked: Kiko, 15 Nov 2026 08:30:07Z ("is it possible for me to type in the new Cue and tag the agent name like @ Account Specialist and
+Cue sends the message to the Account Specialist agent"); scope and mockup approved on the card 09:24:50Z ("Approve, one agent per
+message"); "build" 11:26:04Z, on /dev only (going live needs a separate yes). Rule CUE-057, CanvasWorkspace ADR for this decision.
+Built on live 1.28.70 (Version 249), slot cue-1.28.71, card cue-agent-tag. No Canvas change: it uses `agent_message` (Canvas V540).
+
+- `src/Cue.gs`, `src/CueAgentDrafts.gs`: a main-chat message that starts with "@" and an agent's name goes to that agent only, the
+  same way as a line typed in its thread (`cueAgdTag_`, `cueAgdAgents_`). The main chat keeps it on rows marked "@<thread>", which
+  Cue's assistant never reads. Unknown names send nothing; files are refused; Try again answers in the main chat too.
+- `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: "@" opens the agent list above the box (arrows, Enter or tap to
+  pick, Esc to close); a name that is no agent keeps the words in the box with a red note; the main chat shows the agent as a tag
+  with "Saved for <agent> · it reads it on its next run · Open thread". The box placeholder mentions @.
+- Codex review on PR #390: a tagged message now skips the batch, expense, upload and learn paths on the page, and the page gets
+  every agent from the server (not only the 20 latest requests).
+- Tests TAG1 to TAG5 added; 839/839 pass.
+- Kiko said "ship @ tag" on 15 Nov 2026 at 12:46:07Z. Deploy Cue run 43715537330 shipped main 4538019 as Version 250.
+
+## Cue 1.28.70: agent messages are saved once, and Try again resends the right one (LIVE as Version 249, 14 Nov 2026 17:52Z, rollback 248)
+
+Asked: no new ask. These fix six findings of the Codex review on Cue PR #386 (14 Nov 2026 17:07Z), which arrived after 1.28.69 had
+shipped. All are within Kiko's approved design for agent threads (14 Nov 2026 card 15:36:53Z, mockup 16:46:11Z; CUE-056). Built on
+live 1.28.69 (Version 248), slot cue-1.28.70, card agent-kiko-replies. No Canvas change.
+
+- `src/CueAgentDrafts.gs`, `src/Cue.gs`, `src/IndexThreads.html`: each message has one id, made once by the page and kept on the box
+  when a send fails or Canvas answers "Not saved", so a retry at any later time is saved once in Canvas (1.28.69 used a 10-minute
+  time window).
+- Try again under "Not saved" resends that line's own message (`cueAgdRetry`), never Kiko's latest line in the thread.
+- A Reply in the main chat on an agent's bubble no longer shows a false error after it was saved (the result now ends the send).
+- A second reply on an update keeps a reply sent with 1.28.68, and uses Canvas's own reply list when it sends one.
+- A card left on Sending by a run that died settles to Canvas's status once Canvas shows the reply.
+- `docs/business-rules.md`: CUE-056 records the agent-thread rule. Tests AGR4 to AGR6 added, AGR1 to AGR3 and RB4 updated; 834/834 pass.
+- Two more Codex findings on PR #388 fixed before merge: a "Not saved" answer keeps the id too, and a saved Try again frees it.
+  Deploy Cue run 43623362296.
+
+## Cue 1.28.69: Kiko's messages in an agent's thread reach the agent (LIVE as Version 248, 14 Nov 2026 17:21Z, rollback 247)
+
+Asked: Kiko, 14 Nov 2026 08:44:34Z ("How do we go about agents cant read replies"), card 15:36:53Z "No, all goes to the agent"
+(everything typed in an agent's thread goes to that agent; Cue never acts on it), mockup approved on the card at 16:46:11Z
+("Approve, build it"). CanvasWorkspace ADR-0183 and rule R-AGD11. Built on live 1.28.68 (Version 247), slot cue-1.28.69, card
+agent-kiko-replies. Needs Canvas V540 (live 14 Nov 2026 17:01Z) for the bridge action `agent_message`; the fixture is from V541 (live 17:12Z). Deploy Cue run 43620528551.
+
+- `src/Cue.gs` and `src/CueAgentDrafts.gs`: a message typed in an agent's thread no longer goes to Cue's assistant. It is saved
+  on Canvas for that agent (`agent_message`, one request id per message so a retry never saves twice) and the thread shows
+  "Saved for <agent> · it reads it on its next run", or "Not saved: <why>." with Try again. Files are not sent to agents.
+- `src/IndexCards.html`: an update card takes as many replies as Kiko sends and lists them under "Your replies".
+- `src/IndexThreads.html`, `src/Index.html`, `src/IndexStyle.html`: the box in an agent's thread says "Message <agent>" with the
+  note "Messages here go to <agent> only. Cue does not act on them. Ask Cue in the main chat."
+- Bridge fixture refreshed from Canvas. Tests AGR1 to AGR3 and AGU5 updated; 831/831 pass.
+
+## Cue 1.28.68: agents' handover updates in Cue, with Mark read and Reply (LIVE as Version 247, 13 Nov 2026 11:39Z, rollback 246)
+
+Asked: Kiko, 13 Nov 2026 11:06:33Z ("can Cue also support general updates not just drafts"), "Updates plus replies" on the
+project-chat card, spec 11:10:27Z (agent and project, handover reference, summary, gaps, next owner and action, AS acknowledgment
+link, unique update key; "failed handovers should appear as Blocked, never Delivered"), card 11:15:52Z "Yes, no link means
+Blocked" (CanvasWorkspace ADR-0180). Built on live 1.28.67 (Version 246), slot cue-1.28.68, card agent-handover-updates. Needs
+Canvas V537 for the bridge action `agent_update` and the read and reply decisions.
+
+- `src/CueAgentDrafts.gs`: unread handover updates from Canvas get a card in the agent's thread and a chat line ("X posted a
+  handover update: REF · Delivered/Blocked"). Anything not exactly Delivered shows Blocked. `?agd=DRF-xxxx` opens the update.
+- `src/IndexCards.html`: the update card shows Delivered or Blocked, Unread or Read, the facts, the AS link, Mark read and a Reply
+  box (one reply).
+- Bridge fixture refreshed from Canvas. Tests AGU1 to AGU5; 828/828 pass.
+
+## Cue 1.28.67: agents' drafts wait for Kiko in Cue, one thread per agent (LIVE as Version 246, 13 Nov 2026 09:42Z, rollback 245)
+
+Asked: Kiko, 13 Nov 2026 08:13:49Z ("they return a draft to me and then i approve"), 08:19:47Z (Edit then Send, Rewrite with
+Cue, Send back to agent), 08:34:57Z (approved the two card screens; "can it show in Cue as a separate thread from each agent?"),
+"Build it" on the spec at 08:45:56Z (CanvasWorkspace ADR-0177, docs/specs/agent-drafts.md). Built on live 1.28.66 (Version 245),
+slot cue-1.28.67, card agent-email-drafts. Needs Canvas V535 (live 09:08Z) for the bridge actions `agent_drafts` and
+`agent_draft_decide`.
+
+- New `src/CueAgentDrafts.gs`: every 15 minutes (job "Agent drafts") and when Kiko opens Cue, Cue reads Canvas's open and recent
+  agent drafts (read) and adds a card for each new waiting one, in one thread per agent named after the agent. No AI call.
+- The email card: Send (after an optional Edit), Rewrite with Cue (Kiko's note, one AI call, nothing sent), Send back to agent
+  (his note goes to the agent) and Reject. The requirements card: each requirement editable, Qty and Days, Save to Canvas; no
+  Execution column, since Canvas's requirement lines have no such field.
+- Kiko's tap goes to Canvas once (`agent_draft_decide`). Canvas re-checks the item is still due, sends through its own sender and
+  records the result; Cue only shows it (Sent, Saved, Not sent, Failed with the reason, Sent back, Rejected). An RFP or
+  accreditation chaser shows Sending until Kiko's Gmail sends it, then Sent with an Open in Gmail button.
+- A refusal (a number in the text, Canvas busy) keeps the card waiting with the reason. A tap whose run died is offered again
+  after 5 minutes; Canvas never sends a draft twice.
+- test/fixtures/ZapBridge.gs refreshed from Canvas V535. Tests: 98-agent-drafts.js (AGD1 to AGD10); 823 pass.
+
+## Cue 1.28.66: live clean-up: label names, payments due tomorrow, RFQ price leak, no RFQ to a kind of business (LIVE as Version 245, 13 Nov 2026 01:18Z, rollback 244)
+
+Asked: Kiko chose "clean-up first" for the live Cue release order (CDT-Q8, 11 Nov 2026); the Account Manager set the scope
+(1.28.43, 1.28.44, 1.28.46 and 1.28.49) in the release plan https://claude.ai/artifact/68BtA2ATTfVnsYtxWF59Xb. Release branch
+cut from live Version 244 (5f84416), slot cue-1.28.66. Brand v2 (1.28.45) is left out: it was backed out of main (#378).
+
+- 1.28.43: labels use the standard names and the crit pill (`tag crit` replaces `tag flag`); the live "Urgent" wording stays.
+- 1.28.44: the morning report lists payments due tomorrow (`pay_day_due` from the Canvas bridge, already live in Canvas).
+- 1.28.46: RFQ drafts leave out a price or rate written in a spec, the inquiry or a drawing (CUE-048, R2); the intake-real
+  check tests R1 to R3 on real inquiries. It only reports; no block was added.
+- 1.28.49: an RFQ goes only to a named supplier, never to a kind of business, and the card says when web research finds no
+  suppliers (CUE-049, approved by Kiko 10 Nov 2026 04:16Z).
+
+Tests: 813/813 (`node test/cue.test.js`; live 5f84416 runs 799).
+
+Shipped 13 Nov 2026 from f62d612, which adds the version line (CUE_VERSION_ said Cue 1.28.51). Deploy Cue run 43343802855. QA CONDITIONAL PASS 01:16Z; Tech Lead approved under Rest Mode (Decisions row 234). PC66-01 to 03 are checked on the first live intake, PC66-04 on the Mon 16 Nov 8 AM update.
+
 ## Main only: back out Cue 1.28.45 brand v2.0 (not a release, not deployed)
 
 Asked by the Cue Dev Team release plan (Account Manager, 11 Nov 2026, release L1 clean-up) after the UX Lead answered CDT-Q1 on 11 Nov 2026 15:34 UTC: back out the unshipped brand v2.0 change (DM Sans, Archivo Black, lavender ground, v2.0 band colours) and adopt DS-01 v1.0.0 later as its own scoped change with mockups Kiko approves. Brand v2.0 never went live; live Cue 1.28.65 (Version 244) still wears the Quicksand and Steagal look.
@@ -164,97 +441,41 @@ Kiko, 11 Nov 2026 (design approved in CanvasWorkspace docs/specs/team-inbox-desi
 - Not done in this release: S7 Google sign-in (held), claude.ai pull endpoint (held), brand check run in a browser on the live Apps Script page (gap: the page is only checked as a file in the repo; see the PR body).
 - Feature Board card "team-inbox" still to be created by Kiko (the board is public and cannot be written from here).
 
-## Cue 1.28.51: Cue tells Kiko about each new Canvas bug report (live as Version 232, 10 Nov 2026 06:07:17Z, rollback 230, from release branch claude/project-thread-d3jc54-rel12851 = live 1.28.50 plus this change; built here as 1.28.49, which never shipped)
+## Cue 1.28.51: a chat line for each new Canvas bug report (not deployed)
 
-Kiko, 7 Nov 2026 11:47Z: "i want a report a bug function. this will take a screenshot of the window accessed and have a
-paragraph form. after submitting it will go to service desk". 11:59Z, answer 3 on how Kiko hears about a report: "can be thru Cue".
+Kiko, 7 Nov 2026 11:47Z asked for a Report a bug function in Canvas; 11:59Z "3. can be thru Cue" (Kiko hears about each report
+through Cue); "build" 13:11Z; "Deploy" 10 Nov 2026 04:08Z. Canvas side live as main V523 (10 Nov 2026 05:53:55Z). Release branch
+= live 1.28.50 (claude/project-thread-c8aunt-rel12850) plus this change only; built and tested as 1.28.49 in Cue PR #350, which
+never shipped.
 
-- New background job "Service Desk reports" (src/CueServiceDesk.gs), every 15 minutes, no AI: it reads Canvas's newest bug
-  reports through the new read-only bridge action service_desk_new and posts one chat line per report it has not told Kiko
-  about yet: who sent it, the page and project, the first 300 characters, whether a picture came with it, and an "Open
-  BUG-xxxx in Service Desk" button. Cue remembers the highest report number it told (script property CUE_SD_STATE).
-- Needs the Canvas release that adds Report a bug and service_desk_new (CanvasWorkspace PR #580, slot main-526); until then
-  the read fails in Job Runs every 15 minutes, so ship Canvas first.
-- service_desk_new added to the cloud check's allowed reads; test/fixtures/ZapBridge.gs gains service_desk_new.
-- Tests: test/features/89-service-desk.js (SD1-SD3).
-## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (live as Version 230, 10 Nov 2026, rollback 227, from release branch claude/project-thread-c8aunt-rel12850 = live 1.28.47 plus this change)
+- New background job "Service Desk reports" (src/CueServiceDesk.gs, every 15 minutes): reads Canvas's read-only bridge action
+  `service_desk_new` and posts one Cue chat line per new report: who sent it, the page, the project, the first 300 characters,
+  whether a picture came with it, and an Open in Service Desk button. Check versions skip it.
+- `CUE_CHECK_READS_` lists `service_desk_new`; `test/fixtures/ZapBridge.gs` refreshed from live Canvas V523.
+- Tests SD1 to SD3 (test/features/89-service-desk.js).
+
+## Cue 1.28.50: fixed-width digits, reduced motion and the Urgent tag (not deployed)
 
 Kiko, 8 Nov 2026 06:31Z, "fix them", after the live web-guidelines check of Cue on KKD; 10 Nov 2026 04:07Z he picked
-"Ship what's built now". Main still carries 1.28.43 to 1.28.46 and 1.28.49, which are not live.
+"Ship what's built now". Release branch = live 1.28.47 (claude/project-thread-h0rk83-rel12847) plus this change only.
 
 - Tables and tags use fixed-width digits (`font-variant-numeric: tabular-nums`) so amounts and counts line up.
 - Motion stops when the system asks for reduced motion (`prefers-reduced-motion: reduce`).
 - The urgent tag on Morning batch lines reads "Urgent", matching the Canvas pill casing.
-- Tests: UR9 added, A6d updated. 724/724 on the release branch; Deploy Cue run 42754158740.
+- Tests: UR9 added, A6d updated. 724/724 pass on the release branch.
 
-## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (live as Version 227, 7 Nov 2026 16:31Z, rollback 223, from release branch claude/project-thread-h0rk83-rel12847 = 1.28.42 plus this change)
+## Cue 1.28.47: Message on FB from Canvas sends a paper again on Messenger (not deployed)
 
 Kiko, 7 Nov 2026 10:55Z to 10:59Z (Canvas Resources › FSA and AR as status plus a ⋯ menu with "Message on FB"; mock-up approved
-10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`).
+10:59:58Z, "build" 15:23Z). Canvas side: CanvasWorkspace `src/DocMenu.gs` and `zbMsgrDue_` (msgr_due now lists `now_at`), live as Canvas V511.
+Release branch claude/project-thread-h0rk83-rel12847 = live 1.28.42 (16bd3cb) plus this change only; 1.28.43 to 1.28.46 stay on
+main, not deployed, so they are not shipped here.
 
 - `cueMsgrRun_`: a paper Canvas lists with `now_at` (staff tapped Message on FB) goes out on the next Messenger tick even when it
   went on Messenger before. The 24-hour window rule is unchanged: outside it, the paper is skipped as before.
 - The msgr_mark for such a send has its own request id (`msgr:<doc>:<id>:<now_at>`), so the bridge runs it again and Canvas clears
   the ask.
 - Tests: `test/features/91-msgr-now.js` (MN1 to MN3). 735 tests pass.
-
-## Cue 1.28.46: RFQ drafts leave out a price written in a spec or drawing; intake-real check on real inquiries (not deployed)
-
-Kiko, 7 Nov 2026, spec intake-real-check (approved 13:59Z; rules R1 "an RFQ never names the client" and R2 "never states a price
-or budget" approved 13:37Z, R3 "never mentions other suppliers" approved 13:59Z; docs/business-rules.md CUE-048).
-
-- RFQ prompts (intake phase 4 and vendor RFQs): a price or rate written in a spec, the inquiry or a drawing is left out of the
-  item. Check Cue run 2 on a real inquiry found the Landlite RFQ quoting "P4,800 each" from the client's drawing.
-- Intake check door (`cueIcDeep_`, check deployment only) returns the phase 1 event, line keys and supplier "new" marks, so the
-  check can test R1 to R3, TBC for blank details, suppliers phase 3 named, and client and event read back from the inquiry.
-- `test/checks/intake-real.check.mjs` checks every RFQ draft against R1 to R3 and goes on as a new project when Canvas has a
-  match, so phases 2 to 4 always run. It only reports; no block was added to Cue.
-- Check Cue run 3 (7 Nov 2026 14:27Z, 1f26883) on 3 real inquiries (Gmail, screenshot, PDF): passed, 5 AI calls each,
-  nothing written to Canvas, nothing sent.
-
-Tests: IR7 to IR10 added; 731/731 (`node test/cue.test.js`).
-
-## Cue 1.28.45: Cue wears brand v2.0 (DM Sans, lavender ground, v2.0 email look) (never deployed; backed out of main by #378 on 11 Nov 2026)
-
-Kiko, 7 Nov 2026 12:56Z, after the brand UI audit (https://claude.ai/artifact/P5mGj3reKjyVZWkRdePM7T): "i want alll of those to
-be fixed. please monitor each and do regular checks". Design system v2.0 (5 Nov 2026) is the reference.
-
-- Web app: DM Sans for text and Archivo Black for the welcome line only (Google Fonts link in Index.html); the embedded Steagal
-  font is removed. The Settings heading uses DM Sans 700 instead of the display face. Page ground is lavender #F6F2FC (was cream
-  #F7F3EA), Admin included.
-- Version 1.0 colours removed from screens: the Project and CRM thread tabs and row edges use electric blue #2810DC and orange
-  #F06A25 (were sky #559FEF and #CD5023); Canvas in the activity list is purple #23006F, Kiko pink #F000AA; the Messages
-  audience dots use the v2.0 email colours (clients cyan #55D7E5, suppliers #CD5023, crew #B00C98).
-- Chaser emails follow the v2.0 email look Kiko approved on 6 Nov 2026: client banner cyan #55D7E5 with ink text, crew magenta
-  #B00C98, supplier orange #CD5023; the action button is the yellow #E9D151 pill with ink text; the font is DM Sans with Arial as
-  the email-client fallback (Quicksand removed).
-- Chrome bubble: the settings page uses DM Sans and the yellow #F4F12C button with ink text; the selection box and focus ring are
-  electric blue.
-- Brand lock and mockup-review skills now name v2.0 (DM Sans, Archivo Black, lavender ground) instead of Steagal and Quicksand.
-
-Tests: 727/727 (with main merged) (`node test/cue.test.js`); CIC4, PY1, SF6 and CT4 updated for the lavender ground and the cyan client banner.
-## Cue 1.28.44: Payments for tomorrow in the Monday and Wednesday 8 AM update (not deployed)
-
-Kiko, 7 Nov 2026, SOP answer: "payment days are Tuesday and Thursday. The payment report runs Monday and Wednesday."; 12:45Z
-"approve all"; Canvas spec `docs/specs/payment-days.md` approved 13:11Z ("yes").
-
-- On Monday and Wednesday the 8 AM update has a "Payments for tomorrow" section: each payment request whose pay day is the next
-  day and that still has a balance (Request ID, project, payee, balance, "Urgent" when the Payment Date Required is before the
-  pay day, and the approval status when it is not Approved), then the total. Other days have no section.
-- It reads Canvas through the new bridge read `pay_day_due` (needs the Canvas release that adds it). A failed read is named under
-  "Could not read" and the rest of the update still goes. No AI call.
-- `test/fixtures/ZapBridge.gs` refreshed from Canvas `src/ZapBridge.gs` (adds `pay_day_due`).
-- Tests: `test/features/90-pay-report.js` (PY1 to PY5). 727/727 pass.
-
-## Cue 1.28.43: labels use the Canvas variant names (not deployed)
-
-Kiko, 7 Nov 2026 12:34Z, on the audit finding that Cue's `.tag.new` class showed the warn colour while a "New" label must be
-accent: "use a label"; 12:45Z: "approve all".
-
-- Every Cue label now uses the Canvas Brand.html variant names: `accent` / `plain` (the base tag), `warn`, `good` and `crit`.
-  `tag new` became `tag warn`, `tag pref` became `tag good`, `tag flag` became `tag crit`. Colours and sizes are unchanged.
-- The old names stay in `src/IndexStyle.html` as aliases with the same colours, so nothing renders differently.
-- Tests: `test/features/89-label-names.js` (LN1, LN2). 722/722 pass.
 
 ## Cue 1.28.42: Messenger papers show page 1 with a View and sign button; payment notices get a View details button (live as Version 223, 6 Nov 2026 08:57:59Z, rollback 222)
 
@@ -3348,4 +3569,3 @@ Register a supplier (command C5; spec `canvas-integration/specs/supplier-registr
 - Speed budget: at most 5 AI calls and 180 s, with runs over budget flagged.
 - Cue bubble Chrome extension 1.0.0.
 - Moved here from CanvasWorkspace (integrations/cue, commit 397d1f2).
-

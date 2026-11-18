@@ -1,0 +1,18 @@
+# CUE-ALERTS-2026-11-16 (Kiko 16 Nov 2026: Channel A "Cue's own push" 15:14:25Z, mockups 15:18:24Z, grouping 15:20:47Z,
+# "Yes, build it" 17:22:27Z; ADR-0198). Cue alerts on Kiko's Android phone.
+# Deployed 17 Nov 2026 on KKD after Kiko's "go alerts" (09:22:33Z): https://cue-alerts.kikodacanay14-17a.workers.dev, version d92c5a2b.
+# From this folder, once:
+#   npx wrangler kv namespace create CUE_ALERTS        (put the id it prints below)
+#   npx wrangler deploy
+#   npx wrangler secret put VAPID_JWK       (an ES256 private key as JWK JSON: node gen-vapid.mjs prints one)
+#   npx wrangler kv key put --binding CUE_ALERTS --remote pair_open 1 --ttl 1800
+#       (opens a 30-minute window; then Kiko taps Connect alerts in Cue Settings › Jobs › Phone alerts, and Cue hands its key over.
+#        No paste. CUE_ALERTS_KEY as a secret is optional.)
+# Cue's default address for this Worker is CUE_ALERTS_DEFAULT_ in src/CueAlerts.gs; Script Property CUE_ALERTS_URL overrides it.
+name = "cue-alerts"
+main = "alerts-worker.js"
+compatibility_date = "2026-10-01"
+
+[[kv_namespaces]]
+binding = "CUE_ALERTS"
+id = "3d84e6878b684a528230487e1fc3f5ed"   # made 17 Nov 2026 (cue-alerts CUE_ALERTS)

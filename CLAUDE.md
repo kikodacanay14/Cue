@@ -16,27 +16,13 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 2. **/dev (preview)**: when Test Cue passes on main, Deploy Cue runs `mode=preview` by itself and puts main on the /dev test
    link. Repo variable `CUE_AUTO_PREVIEW = off` pauses this (set it while a PC check must not see new code). Apps Script
    triggers run the head code, so the 07:00 jobs and schedules run main's code once it is previewed.
-3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by a Claude session
-   (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's). This is Claude's own safety step, not a step
-   for Kiko.
-4. **Live (/exec)**: the session that built and tested the release runs Deploy Cue `mode=deploy` itself, once the PC check
-   (when one applies) passes. Kiko is not asked for a go once he has approved the scope and design (Kiko 8 Nov 2026 01:03Z:
-   "whats important for me is that requirements are properly scoped, that you get to ask necessary questions to understand
-   the requirements, and that the design follows business rules, UI and UX logic and business branding guidelines. Once those
-   conditions are met, i am okay not having to say yes in the rest of deployment process"; applied to Cue at 01:06Z and
-   confirmed on a decision card at 01:08Z). Work that skipped scoping, or was built differently from the approved design,
-   still needs Kiko's yes before it goes live. Record the release in CanvasWorkspace `deploy-queue.md` and update the `cue` entry of CanvasWorkspace `live.json` in
-   the same commit (G2, Kiko 8 Nov 2026). Before building, read `live.json` and build on that Version. Claim the
-   `1.28.x` number yourself first in the shared `slots` list (CanvasWorkspace CLAUDE.md, "How code goes live", G3). Deploy Cue refuses
-   a branch that lacks the live code (G1, `tools/base-guard.cjs`); `mode=check` prints the result as a `BASE` line. Never ship main live
-   while it carries a change that failed or has not had its check: cut a release branch from the last live commit plus the
-   tested commits instead.
+3. **PC check**: changes to intake, Canvas writes or routing are checked on /dev in Kiko's Chrome by the "Live Cue testing on
+   PC" thread (Preview, Save drafts and Reject taps only; irreversible taps stay Kiko's).
+4. **Live (/exec)**: only the "Cue and Canvas deploys" thread runs Deploy Cue `mode=deploy`, and only after the PC check passes
+   and Kiko says go. Other threads hand their build to it. Never ship main live while it carries a change that failed or has not
+   had its check: cut a release branch from the last live commit plus the tested commits instead.
 5. Every release gets a block at the top of `CHANGELOG.md` ("## Cue X.Y.Z: what changed (not deployed)", who asked and when,
    what changed, test count). Update `README.md` when a file, command or flow it describes changes.
-6. **Live UI check** (Kiko 8 Nov 2026 06:11Z: "every build that is deployed should go through this in live production. use
-   KKD to do remote and test"): after each Cue release goes live, the session that shipped it runs the web-design-guidelines
-   skill against the changed views in live `/exec` on Kiko's PC KKD through Remote Control, read-only, and reports findings
-   by view. Cue's UI rules and the Canvas brand win where the Vercel list differs.
 
 ## Never
 
@@ -47,7 +33,7 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - RFQs and CEs go from Kiko's own Gmail, never from info@. GPT and Claude never write to Canvas; Canvas writes only after
   Kiko approves, through the bridge, once.
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
-- Don't hold a Cue release for a Canvas release, and don't hold a Canvas release for a Cue feature (Kiko 7 Nov 2026).
+- Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
 
 ## Feature Board (Kiko, 3 Nov 2026)
 
@@ -64,25 +50,20 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 ## Working style
 
 - Kiko approves a spec before any build. Specs live in the project files under `canvas-integration/specs/`.
-- Terms and decisions: the glossary (`docs/glossary.md`) and the decision records (`docs/adr/`, indexed in
-  `docs/adr/README.md`) for Canvas and Cue live in CanvasWorkspace (Kiko, 8 Nov 2026: "can you make me a glossary and ADR",
-  then "Yes" to keeping them current). A Cue change that records a new Kiko decision adds its ADR there, and one that
-  introduces a new term adds its glossary entry there, in a CanvasWorkspace PR opened with the Cue PR. A replaced decision
-  is marked Superseded, never deleted.
 - While an approval about new access to people's data (mail, files, accounts) or a new standing job is pending, write
   none of that access code. Prepare only the parts that grant nothing (UI copy, the spec, read-side filtering).
 - Any price in a spec comes from the vendor's own pricing page (WebSearch, then WebFetch). A figure from anywhere else is
   marked unverified in the spec itself. BSE uses Google Workspace Business Standard.
+- Usage rule (Kiko, 2 Nov 2026: "Hold off any UI or UX improvements if Usage is lower than 30$"): no UI or UX improvement while
+  Kiko's remaining Claude usage is under $30. Claude cannot see the balance, so it asks Kiko before starting UI or UX work; bug fixes
+  and requested features are not held.
 - Kiko watches usage cost: keep AI calls per feature low (a major function makes 3 to 5 calls and finishes within 3 minutes),
   batch questions, and keep idle threads quiet.
-
-## UI rules
-
 - Tables (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are
   always aligned center"; 14:51Z: "middle align tables for short columns and the headers"): centre every table header, every
   number cell (amount, count, percent) and every short column (each filled cell 12 characters or fewer: status, P-stage, date,
-  yes/no, code, days, labels), on pages, Cue Admin, emails, reports and mockups. Long text stays left (its own alignment), and
-  every cell sits in the middle of its row.
+  yes/no, code), on pages, Cue Admin, emails, reports and mockups. Long text keeps its own alignment, and every cell sits in
+  the middle of its row.
 - UI rules: three panes (chat, threads, viewer), no Widgets page, no Due/Priority/Remind row, a thread's name opens it, and cards
   minimize to a bar above the chatbox.
 - UI rules for every card and table (Kiko, 30 Oct 2026 06:12Z: "Tables: Headers are always aligned Center. Columns with
@@ -96,13 +77,15 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   dont just make up"): every label, badge or status pill is the Canvas Brand.html pill. In Cue that is `.tag` (src/IndexStyle.html,
   same shape and colours): plain = accent, `new` = warn, `pref` = good, `flag` = crit. Never style a label per page. A label that
   marks what a mockup or release changes says only New, Changed or Removed, with no counts like "+5".
+- Tables (Kiko, 29 Oct 2026 14:32Z and 14:51Z: "middle align tables for short columns and the headers"): headers are centred,
+  short columns (numbers, codes, dates, days, labels) are centred, long text stays left, and cells sit in the middle of the row.
+  Mockups follow it too.
 
 ## Always-on skills
 
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
-- Any question, choice or approval for Kiko: use the ask-kiko skill (`.claude/skills/ask-kiko/SKILL.md`) for every one, including one-line yes/no checks. The question card goes last in the reply (Kiko, 7 Nov 2026, approving this line).
 
 ## Task observer
 
@@ -125,12 +108,47 @@ Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules
 
 Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
 
-## Agent skills
+## Facts from a fresh read (Kiko, 17 Nov 2026)
 
-### Issue tracker
+Never state a status, count, role, permission, version or any other fact from memory, from a summary or from an earlier
+turn. Read it fresh in this session (the tracker, the live branch, the code path that decides it, the check run) and cite
+that read in the claim. If it cannot be read, say so instead of stating it. Source: observations 0023, 0059, 0064 and 0066
+in the task-observer log; the same rule is in the `verify-before-done` skill ("Claims to Kiko").
 
-Tickets live as Feature Board cards (collection `features`), not GitHub Issues. See `docs/agents/issue-tracker.md`.
+After a context compaction, skills loaded earlier are not loaded: `.claude/hooks/after-compact.mjs` reminds the session to
+call them again (observations 0027 and 0105).
 
-### Domain docs
+## Skills for facts, done and questions (Kiko, 17 Nov 2026)
 
-Single-context: `docs/business-rules.md` and `docs/decisions.md` are the decision record. See `docs/agents/domain.md`.
+Kiko named these on 17 Nov 2026 ("superpowers:verification-before-completion, agent-protocols:source-driven-development,
+caveman:investigate-first, verify then done"; "and matt pockok skills"; "add ask-kiko and stories-and-rules").
+
+- Before stating a fact or claiming anything is done: `superpowers:verification-before-completion`,
+  `agent-protocols:source-driven-development`, `caveman:investigate-first` and `verify-before-done`.
+- Matt Pocock skills (adapted from github.com/mattpocock/skills): `grill-me` to stress-test a plan or decision before
+  acting on it, `improve-codebase-architecture` when reviewing a repo's architecture, and `setup-matt-pocock-skills` once
+  per repo before the other two.
+- `ask-kiko` for every question, choice or approval for Kiko.
+- `stories-and-rules` to break an approved ask into Epics and User Stories and pull its business rules out for Kiko's
+  approval before anything is built.
+
+## Updated skills (Kiko saved 17 Nov 2026)
+
+Kiko saved these skill updates on 17 Nov 2026 and asked for them in every CLAUDE.md ("please include the updated skills
+... in all repos and in both computers"). Load the skill before the work it covers; the skill text wins over this summary.
+Source: the skill observer cleanup, observations 0023 to 0106 in the task-observer log.
+
+- **scope-then-design**: tables centre money, counts, percents, short columns and headers. Canvas and Cue screens use
+  DM Sans; a newer design document that names other fonts does not replace that unless Kiko says so (0073). Before
+  calling anything new or unbuilt, search the trackers and the live branch (0023, 0043).
+- **mockup-review**: before drawing, read the source table and specs in full, use the approved logo file byte for byte,
+  and start from the live app's stylesheet (0032, 0034, 0077, 0105, 0106). For a see or edit ask, the mockup is the
+  working screen, not a sketch (0032).
+- **brand-ui-check**: money columns centred (0063); a logo check against the approved asset (0077); the report opens
+  with `design-critique` and `ui-consistency:verifying` loaded or skipped (why), and splits findings into "caused by this
+  change" and "known baseline gaps" (0065).
+- **verify-before-done** ("Claims to Kiko"): numbers and status from a fresh read (0064, 0023, 0043); roles and
+  permissions from the code path that decides them, overrides included (0059, 0066); check access to outside resources
+  (0046); test the real target, not a fake (0058); diagnose the code that actually ran (0060); a gate claim covers every
+  step of the gate (0072); walk stateful screens step by step (0081); merge and deploy gates read main's checks after the
+  merge (0094, 0097); acceptance cases come from the governing row (0076).

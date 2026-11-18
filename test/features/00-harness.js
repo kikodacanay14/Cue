@@ -128,7 +128,7 @@ function inboxRoute(box, u, log) {
 
 function sandbox(o = {}) {
   const props = { CUE_SHEET_ID: 'cue', OPENAI_API_KEY: 'sk-test', ANTHROPIC_API_KEY: 'sk-ant-test', ZAD_SECRET: SECRET, CUE_BRIDGE_URL: URL,
-    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_AC_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_SD_STATE: JSON.stringify({ at: Date.parse('2026-10-21T03:00:00Z') }), CUE_CN_STATE: JSON.stringify({ kind: 'rewind', from: 0, to: Date.parse('2026-10-21T03:00:00Z'), token: '', done: true }),   // the Gmail contacts job (CN tests) is idle unless a test clears this
+    CUE_PHASED: o.phased ? 'on' : 'off', CUE_CRMTICK_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_AC_AT: String(Date.parse('2026-10-21T03:00:00Z')), CUE_SD_STATE: JSON.stringify({ at: Date.parse('2026-10-21T03:00:00Z') }), CUE_AGD_STATE: JSON.stringify({ at: Date.parse('2026-10-21T03:00:00Z') }), CUE_CN_STATE: JSON.stringify({ kind: 'rewind', from: 0, to: Date.parse('2026-10-21T03:00:00Z'), token: '', done: true }),   // the Gmail contacts job (CN tests) is idle unless a test clears this
     CUE_MEMORY_SEEDED: '1', CUE_SKILLS_SEEDED: '1', CUE_ROLES_SET: '1',   // the role chats have their own tests (A12)
     CUE_TUTOR: o.tutor ? 'on' : 'off',   // tutor mode has its own tests (TU)   // the seeded intake rules and skills have their own tests (TC5, SK1)
        // the one-card intake tests below run with the switch off; PH tests turn it on
@@ -673,6 +673,6 @@ const test = (n, f) => tests.push([n, f]);
 function pageKindName(r) {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = {}; ['CHANGE', 'READY', 'ARSTEPS', 'VENDOR', 'WORKFLOW', 'SUPPLIER', 'PERSONAL', 'EXPENSE', 'CECOST', 'STYLE', 'TEACH', 'MAILSTEPS', 'FUNNEL', 'STSTEPS'].forEach(k => { ctx[k] = []; });
-  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
+  vm.createContext(ctx); vm.runInContext('var kindsMemo = null;\n' + page.match(/  function agdLabel\(v\) \{[^\n]*\n/)[0] + grab('kindOf') + '\n' + page.match(/  function kindName\(r\) \{[^\n]*\n/)[0], ctx);
   return ctx.kindName(r);
 }

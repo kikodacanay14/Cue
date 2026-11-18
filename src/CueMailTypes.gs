@@ -16,7 +16,10 @@ const CUE_MT_SETTINGS_ = ['Own chat', 'One line', 'Ignore'];
 // Starting types and settings (assumption 7; settings are defaults Kiko changes in Cue Admin › Triage).
 const CUE_MT_DEFAULTS_ = [['Client', 'Own chat'], ['Supplier', 'Own chat'], ['Freelancer', 'Own chat'], ['Personal', 'Own chat'],
   ['Government', 'Own chat'], ['Bank', 'One line'], ['Bills and dues', 'One line'], ['Platform notices', 'One line'],
-  ['Newsletters and promos', 'Ignore'], ['Other', 'Own chat']];
+  ['Newsletters and promos', 'Ignore'], ['Other', 'Own chat'], ['Own work', 'One line']];
+// CUE-ALERT-FORMAT-2026-11-16 (Kiko 16 Nov 2026 15:13Z, decision card: "New type Own work, one line"): emails about Kiko's own
+// outside jobs get one line, not a full alert. The type is added as One line when the tab does not list it yet; a row Kiko saves wins.
+const CUE_MT_OWN_WORK_ = 'Own work';
 
 /** The types and their settings: { Type: Setting }, in list order. The tab's rows win; the starting list fills an empty tab. */
 function cueMtTypes_() {
@@ -25,6 +28,7 @@ function cueMtTypes_() {
   try { rows = cueTriageTab_('Triage types'); } catch (e) { rows = []; }
   rows.forEach(r => { const t = cueMtName_(r[0]); if (t) out[t] = CUE_MT_SETTINGS_.indexOf(String(r[1])) >= 0 ? String(r[1]) : 'Own chat'; });
   if (!Object.keys(out).length) CUE_MT_DEFAULTS_.forEach(d => { out[d[0]] = d[1]; });
+  if (!Object.keys(out).some(k => k.toLowerCase() === CUE_MT_OWN_WORK_.toLowerCase())) out[CUE_MT_OWN_WORK_] = 'One line';   // CUE-ALERT-FORMAT-2026-11-16
   return out;
 }
 /** A type name as Cue keeps it: trimmed, at most 40 characters, first letter capital. '' when empty. */

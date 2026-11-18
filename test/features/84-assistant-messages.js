@@ -11,19 +11,19 @@ test('AM1 a new email\'s main-chat post carries the read\'s reason (as a plain s
   const t = tySandbox({ mcRead: AM_READ });
   const id = nmRun(t), ana = amAna(t, id);
   const post = t.tabs.Chat.rows.filter(r => r[3] === '>' + ana.chat_id).map(r => r[2])[0] || '';
-  assert.ok(/\nAna is asking for you by name, and the event is in 3 days\.\nProposed reply:\nHi Ana,/.test(post), post);
+  assert.ok(/\n\nAna is asking for you by name, and the event is in 3 days\.\n\nProposed reply:\nHi Ana,/.test(post), post);
   assert.ok(!/Why you/.test(post), 'Kiko 3 Nov 23:36Z: no fixed label');
-  assert.ok(/\nWhat to do next: Confirm a time\./.test(post), 'Kiko\'s 10:15Z context lines stay');
+  assert.ok(/\n\nWhat to do next: Confirm a time\./.test(post), 'Kiko\'s 10:15Z context lines stay');
   assert.strictEqual(t.log.mcReads, 1, 'still one AI call per email');
   const chat = t.tabs.Chat.rows.filter(r => r[3] === ana.chat_id).map(r => r[2])[0] || '';
-  assert.ok(/\nAna is asking for you by name/.test(chat) && /\nProposed reply:\nHi Ana,/.test(chat) && /Reply here: "draft a reply saying/.test(chat), chat);
+  assert.ok(/\n\nAna is asking for you by name/.test(chat) && /\n\nProposed reply:\nHi Ana,/.test(chat) && /Reply here: "draft a reply saying/.test(chat), chat);
 });
 
 test('AM1b when the read sees nothing worth adding, no reason line is made up by code', () => {
   const t = tySandbox({ mcRead: Object.assign({}, AM_READ, { why: '' }) });
   const ana = amAna(t, nmRun(t));
   const post = t.tabs.Chat.rows.filter(r => r[3] === '>' + ana.chat_id).map(r => r[2])[0] || '';
-  assert.ok(/\nWhat to do next: Confirm a time\.\nProposed reply:\n/.test(post), post);
+  assert.ok(/\n\nWhat to do next: Confirm a time\.\n\nProposed reply:\n/.test(post), post);
 });
 
 test('AM2 the proposed reply gets Use this reply and Skip buttons in the email\'s chat; no reply means no buttons', () => {

@@ -760,6 +760,126 @@
     return h + '<div class="actions"><button class="btn" data-act="approve-tri" data-id="' + id + '">Approve and add to Canvas</button><button class="btn bad" data-act="reject" data-id="' + id + '">Close</button></div>'
       + '<div class="small muted">Nothing is added to Canvas until you approve. A row with the same description already in the project is not added twice.</div>' + metricLine(r) + '</div>';
   }
+  // AGENT-DRAFTS-2026-11-13 (CueAgentDrafts.gs): one agent's draft, the two screens Kiko approved on 13 Nov 2026 08:34:57Z. The email
+  // card: Send (after an optional Edit), Rewrite with Cue (his note, one AI call), Send back to agent, Reject. A requirements list:
+  // Save to Canvas instead of Send, each requirement editable. Canvas sends or saves once, from its own records.
+  var AGD_FROM = { payment_sent: 'AccountsPayables@', signature_chaser: 'freelancers@', accreditation_chaser: 'Your Gmail, suppliers@ in CC', rfp: 'Your Gmail' };
+  var AGD_PILL = { 'Waiting for Kiko': ['warn', 'Waiting for you'], Sending: ['', 'Sending'], Sent: ['good', 'Sent'], Saved: ['good', 'Saved'], Failed: ['crit', 'Failed'],
+    Rejected: ['', 'Rejected'], 'Sent back': ['', 'Sent back'], Dropped: ['', 'Not sent: no longer due'] };
+  // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:10:27Z): an agent's handover update. Read only, with Mark read; nothing is sent.
+  // A failed handover shows Blocked (crit), never Delivered (Kiko: "failed handovers should appear as Blocked, never Delivered").
+  // AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026 11:58:14Z, mockup v2 approved 12:23:52Z, "ok" 12:25:28Z): an update with requirement
+  // rows is one short card; Open requirements slides a view-only panel in from the left over the chat. Columns as Kiko trimmed them
+  // (12:19:11Z): #, Requirement, Sourcing, Specs by, Dimensions, Open items, Images (later). Rows that need Kiko come first.
+  function agdRowsHtml(r, canReply, unread) {
+    var A = r.agd || {}, rows = ((A.handover || {}).rows || []).slice(), id = esc(r.id), need = rows.filter(function (x) { return x.needs_kiko; }).length, f = agdRows[r.id] === 'need';
+    rows.sort(function (x, y) { return (y.needs_kiko ? 1 : 0) - (x.needs_kiko ? 1 : 0); });
+    var title = (A.project || A.project_id || A.item) + ' · ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's');
+    var td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; }, none = '<span class="muted">—</span>';
+    var body = rows.filter(function (x) { return !f || x.needs_kiko; }).map(function (x) {
+      var n = (String(x.req_id).match(/(\d+)$/) || ['', ''])[1].slice(-2);
+      return '<tr' + (x.needs_kiko ? ' class="need"' : '') + '>' + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>')
+        + td(x.sourcing ? esc(x.sourcing) : none, 1) + td(x.spec_by ? esc(x.spec_by) : none, 1)
+        + td(x.spec_by === 'MM' ? (x.dimensions ? esc(x.dimensions) + '<span class="rid">from brief, by MM</span>' : '<span class="muted">MM to add</span>') : none, 1)
+        + td(x.open_items.length ? '<ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' : '<span class="muted">None</span>')
+        + td(x.spec_by === 'MM' ? '<span class="ph">Later</span>' : none, 1) + '</tr>';
+    }).join('');
+    var p = '<div class="agdshade" data-act="agd-rows" data-id="' + id + '"></div><aside class="agdp" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">'
+      + '<div class="agdph"><div class="t"><b>' + esc(title) + '</b><div class="small muted">From ' + esc(agdLabel(A.agent)) + (A.project_id ? ' · ' + esc(A.project_id) : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div></div>'
+      + '<button class="ibtn agdx" data-act="agd-rows" data-id="' + id + '" aria-label="Close the panel">✕</button></div>'
+      + '<div class="agdf" role="group" aria-label="Show"><button class="filt" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-pressed="' + !f + '">All ' + rows.length + '</button>'
+      + '<button class="filt" data-act="agd-rows" data-agf="need" data-id="' + id + '" aria-pressed="' + f + '">Needs you ' + need + '</button></div>'
+      + '<div class="agdtw"><table><thead><tr><th>#</th><th>Requirement</th><th>Sourcing</th><th>Specs by</th><th>Dimensions</th><th>Open items</th><th>Images</th></tr></thead><tbody>' + body + '</tbody></table></div>'
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="agdpf">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(agdLabel(A.agent)) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
+      + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></aside>';
+    return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Requirements review</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + esc(agdLabel(A.agent)) + ' · ' + esc(title) + (need ? ' · ' + need + ' need you' : '') + '</b>'
+      + (((A.handover || {}).state === 'Waiting for approval') ? '<span class="tag warn">Waiting for you</span>' : '')   // AGENT-APPROVAL-WAITING-2026-11-17
+      + (need ? '<span class="tag crit">' + need + ' need you</span>' : '') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">' + (A.project_id ? esc(A.project_id) + ' · ' : '') + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="actions"><button class="btn ghost" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-expanded="' + !!agdRows[r.id] + '">Open requirements</button></div>'
+      + (agdRows[r.id] ? p : '') + '</div>';
+  }
+  function agdUpdHtml(r) {
+    var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
+    // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
+    // waiting on Kiko, not a failed handover: Waiting for you (warn), never Blocked.
+    var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
+    var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
+    if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
+    var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
+      + stTag
+      + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
+    var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + esc(H.summary || A.body) + '</span>'],
+      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + esc(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
+      ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
+    if (!ok && !wait && H.why) f.push(['Why Blocked', esc(H.why)]);
+    h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
+    // AGENT-REPLIES-2026-11-14 (mockup approved 14 Nov 16:46:11Z): every reply Kiko sent on this update, oldest first.
+    var reps = (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []);
+    if (reps.length) h += '<div class="small" style="margin-top:8px"><b>Your replies</b></div>' + reps.map(function (x) { return '<div class="small" style="margin-top:2px">' + (x.at ? esc(String(x.at).slice(11, 16) || x.at) + ' · ' : '') + esc(x.text) + '</div>'; }).join('')
+      + '<div class="small muted">' + esc(agdLabel(A.agent)) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
+      + esc(agdLabel(A.agent)) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
+    if (unread) h += '<div class="actions"><button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button></div>';
+    else if (r.status === 'Sending') h += '<div class="small muted" style="margin-top:6px">Passing it to Canvas…</div>';
+    return h + '</div>';
+  }
+  function agdCardHtml(r) {
+    if ((r.agd || {}).type === 'update') return agdUpdHtml(r);
+    var A = r.agd || {}, id = esc(r.id), wait = A.waiting && r.status !== 'Sending', req = A.type === 'requirements', ed = !!editing[r.id];
+    var pill = AGD_PILL[A.status] || ['', A.status || ''];
+    var when = A.created ? ' · ' + esc(A.created) : '';
+    var h = '<div class="card' + (wait ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent draft · ' + esc(A.type_label || '') + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(req ? (A.project || A.project_id) + (A.project && A.project_id ? ' · ' + A.project_id : '') : A.item) + '</b>'
+      + '<span class="tag' + (pill[0] ? ' ' + pill[0] : '') + '">' + esc(pill[1]) + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + when + ' · ' + esc(A.draft_id) + (req ? ' · existing project' : '') + '</div>';
+    if (req) {
+      h += '<div class="scroll" style="margin-top:8px"><table><tr><th>#</th><th>Requirement</th><th>Qty</th><th>Days</th></tr>'
+        + (A.lines || []).map(function (l, i) {
+          return '<tr data-agl="' + id + '" data-i="' + i + '"><td style="text-align:center">' + (i + 1) + '</td><td>'
+            + (wait ? '<input type="text" data-f="item" value="' + esc(l.item) + '" style="width:100%">' : esc(l.item))
+            + (l.description ? '<div class="small muted">' + esc(l.description) + '</div>' : '') + '</td>'
+            + '<td style="text-align:center">' + esc(l.qty) + '</td><td style="text-align:center">' + esc(l.occurrence || 1) + '</td></tr>'; }).join('')
+        + '</table></div>';
+      if (wait) h += '<div class="small muted" style="margin-top:6px">Saving adds these ' + (A.lines || []).length + ' lines to the project in Canvas. Nothing else changes.</div>';
+    } else {
+      var due = wait ? '<span class="tag good">Yes</span> <span class="small muted">checked when the agent saved it; Canvas checks again when you tap Send</span>' : '';
+      var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || 'None')], ['Item', esc(A.item)],
+        ['To', esc(A.recipient || 'Canvas fills it in from its records')], ['From', esc(AGD_FROM[A.type] || 'Canvas, the same sender as today')]];
+      if (due) f.push(['Still due', due]);
+      h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
+      var own = A.type === 'fsa_send' || A.type === 'ar_send';
+      h += '<div class="card" style="margin:8px 0 0;background:var(--input)">'
+        + (ed && wait ? (own ? '' : '<label class="small"><b>Subject</b><input type="text" data-agd-subject="' + id + '" value="' + esc(A.subject) + '" style="width:100%"></label>')
+            + '<textarea data-agd-body="' + id + '" rows="10" style="width:100%;margin-top:6px">' + esc(A.body) + '</textarea>'
+          : '<div class="small"><b>Subject:</b> ' + (own ? '<span class="muted">Canvas\'s own subject</span>' : esc(A.subject)) + '</div>'
+            + '<div class="small" style="white-space:pre-wrap;margin-top:6px">' + esc(A.body) + '</div>')
+        + (own ? '<div class="small muted" style="margin-top:6px">These are the opening words. Canvas adds the ' + (A.type === 'fsa_send' ? 'FSA sign link' : 'receipt') + ' as it does today.</div>' : '')
+        + (A.type === 'rfp' ? '<div class="small muted" style="margin-top:6px">Canvas adds "Hi" and the contact\'s name at the top and your sign-off at the bottom.</div>' : '') + '</div>';
+      if (A.edited) h += '<div class="small muted" style="margin-top:4px">' + (A.rewritten ? 'Rewritten by Cue from your note.' : 'Edited by you.') + ' Canvas sends these words.</div>';
+    }
+    if (!wait) {
+      if (A.reason) h += '<div class="small" style="margin-top:6px">' + esc(A.reason) + '</div>';
+      if (A.note) h += '<div class="small muted" style="margin-top:4px">Your note: ' + esc(A.note) + '</div>';
+      if (A.gmail_url) h += '<div class="actions"><a class="btn ghost" style="text-decoration:none" href="' + esc(A.gmail_url) + '" target="_blank" rel="noopener">Open in Gmail</a></div>';
+    }
+    if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    if (wait) {
+      h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="'
+        + (req ? 'What should change? e.g. add a stage, make the host bilingual' : 'What should change? e.g. firmer, mention the due date') + '">'
+        + '<button class="btn ghost sm" data-act="agd-rewrite" data-id="' + id + '">Rewrite with Cue</button></div>'
+        + '<div class="actions">' + (req ? '<button class="btn" data-act="agd-save" data-id="' + id + '">Save to Canvas</button>'
+          : '<button class="btn" data-act="agd-send" data-id="' + id + '">Send</button>' + (ed ? '<button class="btn ghost" data-act="cancel-edit" data-id="' + id + '">Cancel edit</button>' : '<button class="btn ghost" data-act="edit" data-id="' + id + '">Edit</button>'))
+        + '<button class="btn ghost" data-act="agd-back" data-id="' + id + '">Send back to agent</button><button class="btn bad" data-act="agd-reject" data-id="' + id + '">Reject</button></div>';
+    } else if (r.status === 'Sending') h += '<div class="small muted" style="margin-top:6px">Passing it to Canvas…</div>';
+    return h + '</div>';
+  }
   function workflowCardHtml(r) {
     var W = r.workflow || {}, m = W.map, waiting = r.status === 'Needs you';
     var h = '<div class="card' + (NEED[r.status] ? ' need' : '') + '"><div class="label" style="margin-top:0">Workflow map</div><b style="font-size:17px;color:var(--white)">' + esc((m && m.name) || W.name || 'Workflow') + '</b>';
@@ -1062,6 +1182,7 @@
     var c = card && card.querySelector('[data-arcount="' + attr + '"]'); if (!c) return;
     var all = card.querySelectorAll('input[' + attr + ']:not([disabled])'), on = Array.prototype.filter.call(all, function (x) { return x.checked; }).length;
     c.textContent = on + ' ticked of ' + all.length; }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && Object.keys(agdRows).length) { agdRows = {}; render(); } });   // AGENT-UPDATE-ROWS-2026-11-16: Esc closes the panel
   document.addEventListener('click', function (e) { var t = e.target.closest && e.target.closest('[data-artick]'); if (!t) return; e.preventDefault();
     var card = t.closest('.card'), attr = t.getAttribute('data-arattr'), on = t.getAttribute('data-artick') === '1';
     Array.prototype.forEach.call(card.querySelectorAll('input[' + attr + ']'), function (x) { if (!x.disabled) x.checked = on; }); arRecount(card, attr); });
@@ -1132,6 +1253,7 @@
     if (r.kind === 'memory' || r.kind === 'process') return teachCardHtml(r);
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r);
     if (r.kind === 'workflow') return workflowCardHtml(r);
+    if (r.kind === 'agentdraft' && r.agd) return agdCardHtml(r);   // AGENT-DRAFTS-2026-11-13
     if (r.kind === 'tri') return triCardHtml(r);
     if (r.kind === 'vendor') return vendorCardHtml(r);
     if (r.kind === 'relnotes' && r.rn) return rnCardHtml(r);   // CUE-RELNOTES-2026-10-27
@@ -1286,6 +1408,9 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
+        if (act === 'agd-rows') {   // AGENT-UPDATE-ROWS-2026-11-16: open, filter or close the requirements panel; nothing goes to Canvas
+          var agf = b.getAttribute('data-agf'); if (agf) agdRows[id] = agf; else delete agdRows[id]; render();
+          if (agf) setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] .agdx'); if (x) x.focus(); }, 0); return; }
         if (act === 'toggle-work') { if (openWork[id]) delete openWork[id]; else openWork[id] = 1; return render(); }
         if (act === 'edit') { editing[id] = 1; return render(); }
         if (act === 'ph-add-row') { phAdd[id] = (phAdd[id] || 0) + 1; return render(); }
@@ -1321,6 +1446,19 @@
           var what = window.prompt('What should Cue change in this email? For example: make it firmer, or mention we can move to Friday.', '');
           if (!what || !what.trim()) return;
           b.disabled = true; return call('cueSweepRewrite', [id, b.getAttribute('data-key'), what], done, fail);
+        }
+        if (/^agd-/.test(act)) {   // AGENT-DRAFTS-2026-11-13: Kiko's tap on an agent's draft; Canvas decides it once
+          var agn = scope.querySelector('[data-agd-note="' + id + '"]'), agNote = agn ? agn.value.trim() : '';
+          if (act === 'agd-rewrite') { if (!agNote) return alertErr(new Error('Type what Cue should change in the box, then tap Rewrite with Cue.'), id);
+            b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }
+          if (act === 'agd-reply' && !agNote) return alertErr(new Error('Type your reply in the box, then tap Reply.'), id);
+          if (act === 'agd-back' && !agNote) return alertErr(new Error('Type what the agent should change in the box, then tap Send back to agent.'), id);
+          var ago = { decision: { 'agd-send': 'send', 'agd-save': 'save', 'agd-back': 'send_back', 'agd-reject': 'reject', 'agd-read': 'read', 'agd-reply': 'reply' }[act], note: act === 'agd-read' ? '' : agNote };
+          if (act === 'agd-send') { var asj = scope.querySelector('[data-agd-subject="' + id + '"]'), abd = scope.querySelector('[data-agd-body="' + id + '"]');
+            if (asj) ago.subject = asj.value; if (abd) ago.body = abd.value; }
+          if (act === 'agd-save') { ago.lines = []; scope.querySelectorAll('[data-agl="' + id + '"]').forEach(function (tr) { var it = tr.querySelector('[data-f="item"]');
+            ago.lines[Number(tr.getAttribute('data-i'))] = { item: it ? it.value : null }; }); }
+          b.disabled = true; running[id] = 1; schedule(); return call('cueAgdDecide', [id, ago], done, fail);
         }
         if (act === 'sweep-act') { b.disabled = true; return call('cueSweepAct', [id, b.getAttribute('data-key')], done, fail); }
         // New mail (CueNewMail.gs): Start intake and Draft reply start a task and run it now; the draft card shows in this same thread.
@@ -1530,6 +1668,18 @@
   }
   paneShow();
   refresh(); loadRules(); loadMyRules();
+  // AGENT-DRAFTS-2026-11-13 (A2): new agent drafts when Kiko opens Cue. AGENT-UPDATE-2026-11-13: Canvas's Cue link (?agd=DRF-....) opens that card's thread.
+  // CUE-ALERTS-2026-11-16: a tap on a phone alert opens Cue at its thread (?thread=cue-…); the thread's root opens.
+  try { google.script.url.getLocation(function (l) { var t = String((l && l.parameter && l.parameter.thread) || '');
+    if (/^cue-[0-9A-Za-z-]{6,60}$/.test(t)) refresh(function () { var by = byId(); if (by[t]) goThread(rootOf(t, by)); }); }); } catch (e) {}
+  (function agdOpen(go) {
+    try { google.script.url.getLocation(function (l) { go(l && l.parameter && /^DRF-\d{4,6}$/.test(String(l.parameter.agd || '')) ? String(l.parameter.agd) : ''); }); } catch (e) { go(''); }
+  })(function (agd) {
+    call('cueAgdOpen', [agd], function (o) {
+      if (o && o.id) return refresh(function () { goThread(rootOf(o.id, byId())); });
+      if (o && o.added) refresh();
+    }, function () {});
+  });
 })();
 /* TABLE-ALIGN (Kiko 29 Oct 2026 14:32Z and 14:51Z; same test as Canvas Brand.html bs-talign): tags number cells with bs-num so the style above centres them. A column whose filled cells are all numbers (a "—"
    or blank counts as empty) is tagged whole, so its dashes line up too; outside such a column a lone number cell is tagged by itself.

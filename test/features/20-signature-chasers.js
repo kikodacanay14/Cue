@@ -2,15 +2,15 @@
 // FSA / AR signature chasers (CueSweepSignature.gs, spec 06-freelancer-signatures.md)
 const SIGN_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueSweepSignature.gs'), 'utf8');
 const UNSIGNED = [
-  { doc: 'FSA', id: 'FSA-1', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ana Cruz', email: 'ana@example.test', role: 'Usher', generated: '2026-11-01 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
+  { doc: 'FSA', id: 'FSA-1', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ana Cruz', email: 'ana@example.test', role: 'Usher', generated: '2026-11-12 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
   { doc: 'AR', id: 'AR-1', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ana Cruz', email: 'ana@example.test', role: 'Usher', generated: '2026-11-05 09:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
   { doc: 'AR', id: 'AR-2', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Ben Lim', email: 'ben@example.test', role: 'Host', generated: '2026-11-20 09:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' },
   { doc: 'FSA', id: 'FSA-9', project_id: 'S-40000000XX', project: 'Cancelled Gala', name: 'Cy Go', email: 'cy@example.test', role: 'Host', generated: '2026-11-01 10:00', event_date: '2026-11-10', event_days: 1, event_end: '2026-11-10', project_status: 'Cancelled', admin_status: '' },
-  { doc: 'FSA', id: 'FSA-7', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Dee Paz', email: '', role: 'Crew', generated: '2026-11-01 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' }];
-function signBox(o = {}) { const t = sweepBox(Object.assign({ unsigned: UNSIGNED }, o), null); return t; }
+  { doc: 'FSA', id: 'FSA-7', project_id: 'S-31628060SP', project: 'Synthetic Expo', name: 'Dee Paz', email: '', role: 'Crew', generated: '2026-11-12 10:00', event_date: '2026-11-13', event_days: 2, event_end: '2026-11-14', project_status: 'For Event Proper', admin_status: 'Open' }];
+function signBox(o = {}) { const t = sweepBox(Object.assign({ unsigned: UNSIGNED }, o), null); t.ctx.cueSignOff_ = () => false; return t; } // the sweep kept for a switch back (CANVAS-CHASES-2026-11-17)
 test('G1 nothing before the day after the event; then one line per freelancer, no AI call, no board read, fixed template', () => {
-  const t = signBox(); t.at('2026-11-14', 7, 0); t.ctx.cueSweep();
-  assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'event still on (its last day)'); assert.strictEqual(t.log.unsigned, 1);
+  const t = signBox(); t.at('2026-11-13', 7, 0); t.ctx.cueSweep(); // 1 day after the FSA went out (2-day start from 17 Nov 2026)
+  assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'event still on, FSA sent yesterday'); assert.strictEqual(t.log.unsigned, 1);
   t.at('2026-11-15', 7, 0); t.ctx.cueSweep(); const b = batchOf(t);
   assert.strictEqual(t.log.gpt.length, 0, 'no AI call'); assert.ok(!t.log.board, 'no project board read'); assert.strictEqual(b.metrics.ai_calls, 0);
   deq(b.batch.items.map(i => [i.who, i.selected, i.no_email]), [['Ana Cruz', true, false], ['Dee Paz', false, true]]);
@@ -51,4 +51,21 @@ test('G5 Drafts only: the reminder goes to Kiko\'s own Gmail Drafts and Canvas s
   const t = signBox({ unsigned: UNSIGNED.slice(0, 1) }); t.at('2026-11-15', 10, 0); t.ctx.cueSweep();
   t.ctx.cueApprove(batchOf(t).id, { send: false });
   assert.strictEqual(t.log.gmail.length, 1); assert.ok(/ana@example\.test/.test(t.log.gmail[0])); assert.ok(!t.log.reminders);
+});
+test('G6 FSA-REMIND-2026-11-16 (2 days from 17 Nov 2026): an FSA is chased from 2 days after it went out (its Generated date), before the event; no date keeps the after-the-event start; ARs unchanged', () => {
+  const fsa = Object.assign({}, UNSIGNED[0], { generated: '2026-11-01 10:00' }), ar = UNSIGNED[1];
+  const t = signBox({ unsigned: [fsa] });
+  t.at('2026-11-02', 7, 0); t.ctx.cueSweep(); assert.ok(t.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), '1 day after: too early');
+  t.at('2026-11-03', 7, 0); t.ctx.cueSweep(); const it = batchOf(t).batch.items[0];
+  assert.strictEqual(it.who, 'Ana Cruz');
+  assert.ok(/FSA sent 2026-11-01\. Event ends 2026-11-14\./.test(it.why), it.why); assert.strictEqual(it.subject, 'Please sign your FSA · Synthetic Expo');
+  const u = signBox({ unsigned: [Object.assign({}, fsa, { generated: '' })] });
+  u.at('2026-11-03', 7, 0); u.ctx.cueSweep(); assert.ok(u.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'no Generated date: waits for the event');
+  u.at('2026-11-15', 7, 0); u.ctx.cueSweep(); assert.ok(/Event ended 2026-11-14\./.test(batchOf(u).batch.items[0].why));
+  const v = signBox({ unsigned: [ar] });
+  v.at('2026-11-14', 7, 0); v.ctx.cueSweep(); assert.ok(v.tabs.Chat.rows.some(r => /nothing to chase today/.test(r[2])), 'AR: still after the event');
+});
+test('G7 CANVAS-CHASES-2026-11-17: Canvas chases FSAs and ARs itself, so Cue drafts no signature chaser and reads nothing', () => {
+  const t = sweepBox({ unsigned: UNSIGNED }, null); t.at('2026-11-15', 7, 0); t.ctx.cueSweep();
+  const b = batchOf(t); assert.ok(!b || !b.batch.items.some(i => /^signature:/.test(i.key)), 'no signature line'); assert.ok(!t.log.unsigned, 'no list_unsigned_docs read');
 });
