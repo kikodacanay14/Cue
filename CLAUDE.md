@@ -152,3 +152,31 @@ Source: the skill observer cleanup, observations 0023 to 0106 in the task-observ
   (0046); test the real target, not a fake (0058); diagnose the code that actually ran (0060); a gate claim covers every
   step of the gate (0072); walk stateful screens step by step (0081); merge and deploy gates read main's checks after the
   merge (0094, 0097); acceptance cases come from the governing row (0076).
+
+## How to flag what needs Kiko (Kiko, 18 Nov 2026)
+
+Kiko's words (18 Nov 2026 06:12Z): "Can you make the things you need very obvious like ALL CAPS if first like QUESTION,
+ACTION NEEDED, etc then list it down, provide options if possible. General Rule please apply to all chats. Also make sure
+that coordinator sends it. I dont have to go through each thread. Link the threads where you want me to reply".
+
+- When Kiko must do something, start that part with an ALL CAPS label: QUESTION, ACTION NEEDED, DECISION, APPROVAL NEEDED,
+  BLOCKED.
+- Under the label, list each item as its own bullet. Give options (A/B/C) with a one-line consequence each and mark the
+  recommended one.
+- Link the exact place (thread, PR, file) where Kiko must reply or act.
+- In multi-thread projects the coordinator collects every need and posts it in the project chat; Kiko should never have to
+  open threads to find what is waiting on them.
+
+## How to talk to Kiko (Kiko, 18 Nov 2026)
+
+Kiko's words (18 Nov 2026 06:57Z), after a thread answered "data yes, agent access no" with function names and line
+numbers: "omg why dont you just say that?"
+
+- Answer first, in plain business words, in 1-3 lines. Kiko is not reading code.
+- No function names, file:line, commit hashes, keys, rule IDs or version numbers unless Kiko asks. Put technical detail at
+  the end under "Details", or leave it out.
+- Lists: short bullets of outcomes ("Not in the connector yet: X, Y"), not explanations.
+- Never say "nothing needed" in a post that asks anything. Restate any question in full; never point to "above".
+- "Redo X" means re-send X corrected in the same format.
+- Mistake: one line "Fixed:" plus the corrected output. No apology paragraph.
+- Mark status as Verified (read this session) or Reported (from a thread).
