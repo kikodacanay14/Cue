@@ -3325,6 +3325,53 @@ ZB_ACTIONS_.payment_followups = {
 ZB_GPT_ACTIONS_.push('payment_followups');
 ZB_GPT_ONLY_.push('payment_followups');
 
+/* FINANCE-CHECK-READS-2026-11-18 (Kiko 18 Nov 2026 07:28:37Z "please work on the pending items", after the Finance Check card's three
+ * lists were found not yet in the connector; card fin-check-reads). Two reads for the n8n Finance agent and the connector. Both are
+ * read only, both keys, and add no rule: they list what Canvas's own checks already find.
+ * - finance_invoice_gaps: every request with money transferred whose expected receipt is the supplier's invoice and that has no
+ *   invoice on Transfers (Finance > Tax check, financeTaxCheck: VAT supplier or a fee on the quote = invoice). `missing` lists them
+ *   with the newest invoice request email, if any. `unknown` lists paid requests whose supplier has no TIN Status, so Canvas can't
+ *   tell whether an invoice is due; they are never counted as fine. Liquidated or not is shown, not filtered.
+ * - finance_unsigned_docs: every current FSA (FSA Agreements) and AR (AR Receipts) not signed, across projects. Replaced ones are
+ *   left out; an AR held until paid is listed with that status. No emails, Raketeer numbers or signatures leave Canvas.
+ * project_id narrows either one to a project. */
+function zbFinInvoiceGaps_(pid) {
+  const want = String(pid || '').trim(), qs = financeData().requests.filter(q => q.pid && Number(q.transferred) > 0 && (!want || norm_(q.pid) === norm_(want)));
+  const Q = {}; qs.forEach(q => { Q[String(q.id).trim().toUpperCase()] = q; });
+  const T = qs.length ? financeTaxCheck(qs.map(q => q.id)) : {}, missing = [], unknown = [];
+  Object.keys(T).forEach(id => { const t = T[id], q = Q[id]; if (!t || !q) return;
+    const line = { request_id: q.id, project_id: q.pid, project: q.project || '', supplier: t.supplier || q.supplier || q.payee || '',
+      transferred: Number(q.transferred) || 0, liquidation: q.liq || '' };
+    if (t.expect === 'Invoice' && !(t.invoices || []).length) missing.push(Object.assign(line, { why: t.expectWhy || '',
+      invoice_requested: t.irqs && t.irqs[0] ? String(t.irqs[0].sent) : '' }));
+    else if (!t.expect) unknown.push(Object.assign(line, { why: t.expectWhy || '' }));
+  });
+  const by = (a, b) => String(a.project).localeCompare(String(b.project)) || String(a.supplier).localeCompare(String(b.supplier)) || String(a.request_id).localeCompare(String(b.request_id));
+  return { project_id: want, checked: qs.length, missing: missing.sort(by), unknown: unknown.sort(by) };
+}
+function zbFinUnsignedDocs_(pid) {
+  const want = String(pid || '').trim(), mine = x => !want || norm_(x) === norm_(want), out = [];
+  const open = (st, at) => !adSigned_(st) && !String(at || '').trim() && !/replaced/i.test(String(st || ''));
+  fsaRows_(fsaTab_(false)).forEach(o => { const x = o.r; if (!mine(x[FSA_C_['Project ID']]) || !open(x[FSA_C_['Status']], x[FSA_C_['Signed at']])) return;
+    out.push({ kind: 'FSA', id: x[FSA_C_['FSA ID']], project_id: x[FSA_C_['Project ID']], project: x[FSA_C_['Project']], name: x[FSA_C_['Name']],
+      role: x[FSA_C_['Role']], status: x[FSA_C_['Status']], generated: x[FSA_C_['Generated']], emailed: '', request_ids: '' }); });
+  arRows_(arTab_(false)).forEach(o => { const x = o.r; if (!mine(x[AR_C_['Project ID']]) || !open(x[AR_C_['Status']], x[AR_C_['Signed at']])) return;
+    out.push({ kind: 'AR', id: x[AR_C_['AR ID']], project_id: x[AR_C_['Project ID']], project: x[AR_C_['Project']], name: x[AR_C_['Name']],
+      role: x[AR_C_['Role or Scope']], status: x[AR_C_['Status']], generated: x[AR_C_['Generated']],
+      emailed: String(x[AR_C_['Emailed']] || '').split(/\n/).map(s => s.split(' · ')[0].trim()).filter(Boolean).pop() || '', request_ids: x[AR_C_['Request ID']] }); });
+  out.sort((a, b) => String(a.project).localeCompare(String(b.project)) || a.kind.localeCompare(b.kind) || String(a.name).localeCompare(String(b.name)));
+  return { project_id: want, fsa: out.filter(d => d.kind === 'FSA').length, ar: out.filter(d => d.kind === 'AR').length, docs: out };
+}
+ZB_ACTIONS_.finance_invoice_gaps = {
+  kind: 'read', needsProject: false, schema: { project_id: { type: 'string', re: ZB_PID_RE_ } },
+  run: (r) => zbFinInvoiceGaps_((r.args || {}).project_id || r.project_id)
+};
+ZB_ACTIONS_.finance_unsigned_docs = {
+  kind: 'read', needsProject: false, schema: { project_id: { type: 'string', re: ZB_PID_RE_ } },
+  run: (r) => zbFinUnsignedDocs_((r.args || {}).project_id || r.project_id)
+};
+ZB_GPT_ACTIONS_.push('finance_invoice_gaps', 'finance_unsigned_docs');
+
 /* GPT-EVENT-ROLES-2026-11-16 (Kiko 16 Nov 2026 08:37:36Z "where can agents see the common event roles and how much the rates are
  * for those"; card "Approve, build and ship" 08:39:19Z; card connector-event-roles; scope project files
  * connector-event-roles/discovery.md; ADR-0188). Read only, both keys, ChatGPT door only: the role list of Admin > Event Roles
