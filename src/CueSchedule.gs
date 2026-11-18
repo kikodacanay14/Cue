@@ -244,7 +244,7 @@ function cueSchedRunOne_(x, manual) {
   globalThis.CUE_SCHED_RUNNING_ = true;   // cueOwner_ lets Cue's own scheduled run through (a trigger has no page user)
   try {
     if (x.run === 'remind') {
-      cueChat_('Cue', '⏰ Reminder: ' + x.command.replace(/^remind\s+me\s+(?:to\s+|about\s+|that\s+)?/i, ''), '');
+      cueChat_('Cue', '⏰ Reminder: ' + x.command.replace(/^remind\s+me\s+(?:to\s+|about\s+|that\s+)?/i, ''), '', 'reminder');
       return { result: 'Reminded', task: '' };
     }
     if (x.run === 'sweep') {
@@ -296,7 +296,7 @@ function cueSchedRunOne_(x, manual) {
       return o ? { result: 'Started', task: id(o) } : { result: 'Already ran today', task: '' };
     }
     // 'say': exactly what Kiko would get by typing the command (tutor mode, if on, shows its plan card first).
-    cueChat_('Cue', '⏰ ' + x.name + (manual ? ' (Run now)' : ' (scheduled ' + x.time + ')') + ':', '');
+    cueChat_('Cue', '⏰ ' + x.name + (manual ? ' (Run now)' : ' (scheduled ' + x.time + ')') + ':', '', 'sched');
     const o = cueSendWith_(x.command, [], '', '', null);
     return { result: o && o.request_id ? 'Started' : 'Answered in chat', task: id(o) };
   } finally { globalThis.CUE_SCHED_RUNNING_ = false; }
@@ -485,7 +485,7 @@ function cueUnschedMuted_() { try { return JSON.parse(cueProp_('CUE_UNSCHED_MUTE
 /** Posts the card when something is found (or, from Run now, says all is scheduled). Returns how many items it listed. */
 function cueUnschedCheck_(manual) {
   const mute = cueUnschedMuted_(), items = cueUnschedFind_().filter(x => mute.indexOf(x.key) < 0);
-  if (!items.length) { if (manual) cueChat_('Cue', 'Unscheduled check: everything is scheduled.', ''); return 0; }
+  if (!items.length) { if (manual) cueChat_('Cue', 'Unscheduled check: everything is scheduled.', '', 'unsched'); return 0; }
   const jobs = items.filter(x => !x.task), tasks = items.filter(x => x.task);
   const q = '⚠️ Unscheduled check: ' + items.length + ' to look at.'
     + (jobs.length ? '\nScheduled tasks that will not run:\n' + jobs.map(x => '- ' + x.line).join('\n') + '\nFix them in Settings > Scheduled tasks.' : '')

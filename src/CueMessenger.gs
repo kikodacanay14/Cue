@@ -300,7 +300,7 @@ function cueMsgrOne_(m) {
       messenger_name: prof.name || '', gender: prof.gender || '', linked_at: at, last_message: at }) || {};
     if (!r.ok) {
       cueMsgrSend_(psid, CUE_MSGR_SAY_.badLink);
-      cueChat_('Cue', 'Messenger: someone opened a crew Messenger link that did not work (' + cueStr_(r.error || 'not saved', 160) + '). Nothing was saved.', '');
+      cueChat_('Cue', 'Messenger: someone opened a crew Messenger link that did not work (' + cueStr_(r.error || 'not saved', 160) + '). Nothing was saved.', '', 'msgr-link');
       return true;
     }
     p = Object.assign(p || { psid }, { email: r.email, name: prof.name || (p && p.name) || r.email, last: at });
@@ -388,7 +388,7 @@ function cueMsgrTriage_(psid, at, text, tap, replied) {   // replied: the relay 
       line = 'Messenger: new message from someone not linked as crew' + (text ? ': "' + cueStr_(text, 200) + '"' : '')
         + (r.ok ? '. Cue asked them to pick I\'m crew or Client or inquiry; if they pick, they get their own chat here.'
           : '. The greeting was not sent (' + r.error + '); Cue tries again on their next message.');
-      cueChat_('Cue', line, '');
+      cueChat_('Cue', line, '', 'msgr-triage');
     }
     if (!r.ok) return true;   // 5 Nov 04:29Z: a refused greeting saves no triage state, so the next message tries again
     cueMsgrTriSave_(psid, Object.assign({ st: 'asked', first: text, last: at }, line ? { told: line } : {}));
@@ -489,7 +489,7 @@ function cueMsgrCrewRestore_() {
   });
   if (!out.failed) P.setProperty('CUE_CREW_RESTORE_DONE', '1');
   if (out.listed.length) cueChat_('Cue', 'Put ' + out.listed.length + ' Messenger crew on Canvas\'s Link list (they wrote before tapping "I\'m crew"): '
-    + out.listed.join(', ') + '. Link them on the Freelancers page or the project\'s Communication Config. Nobody was messaged.', '');
+    + out.listed.join(', ') + '. Link them on the Freelancers page or the project\'s Communication Config. Nobody was messaged.', '', 'msgr-crew');
   return out;
 }
 /** People staff linked (Link) or turned down (Not mine) in Canvas, from msgr_due: told once, then msgr_told. */
@@ -632,7 +632,7 @@ function cueMsgrProfileSet_() {
   if (!err) P.setProperty('CUE_MSGR_PROFILE_V', CUE_MSGR_PROFILE_V_);
   else if (P.getProperty('CUE_MSGR_PROFILE_ERR') !== CUE_MSGR_PROFILE_V_) {   // one Ask Cue line per version, not one per hourly retry
     P.setProperty('CUE_MSGR_PROFILE_ERR', CUE_MSGR_PROFILE_V_);
-    cueChat_('Cue', 'Messenger welcome screen not set (' + err + '). Cue tries again every hour.', '');
+    cueChat_('Cue', 'Messenger welcome screen not set (' + err + '). Cue tries again every hour.', '', 'msgr-setup');
   }
   return { ok: !err, error: err };
 }

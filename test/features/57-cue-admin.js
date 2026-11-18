@@ -36,7 +36,7 @@ test('AD4 the page groups the sections as in the approved mockup and has the two
   // ADMIN-GROUPS-2026-11-05 (Kiko 5 Nov 16:40Z): For Approval first; System (Connections, AI usage and cost) is shown in Canvas Admin, so its group is hidden here
   deq([...nav.matchAll(/class="sgrp">([^<]+)</g)].map(m => m[1]), ['Approvals', 'How Cue thinks', 'Rules', 'Jobs']);
   assert.ok(nav.includes('<div class="sgrp" hidden>System</div>'), 'System group kept, hidden');
-  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['approvals', 'rules', 'procs', 'tutor', 'chasers', 'triage', 'edits', 'auto', 'templates', 'jobchasers', 'sendnotice', 'sched', 'alerts', 'rn', 'log', 'conn', 'usage']);   // alerts: Phone alerts (CUE-ALERTS-2026-11-16); release line: AI relay is not live yet, so it has no button here
+  deq([...nav.matchAll(/data-s="([a-z]+)"/g)].map(m => m[1]), ['approvals', 'rules', 'procs', 'tutor', 'chasers', 'chanrules', 'triage', 'edits', 'auto', 'templates', 'jobchasers', 'sendnotice', 'sched', 'alerts', 'rn', 'log', 'conn', 'usage']);   // chanrules: Channel rules (CUE-DRAG-TO-CHANNEL-2026-11-18); alerts: Phone alerts (CUE-ALERTS-2026-11-16); release line: AI relay is not live yet, so it has no button here
   ['triage', 'edits', 'rn'].forEach(s => assert.ok(page.includes('<section data-sec="' + s + '" hidden>'), s));
   assert.ok(/view === 'admin'/.test(page) && /'\?view=admin'/.test(page), 'admin view and the Settings button link');
 });

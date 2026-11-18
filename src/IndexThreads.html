@@ -65,7 +65,8 @@
     });
     // A row: dot (an agent: its initials), bold title, a two-line status (Needs you / Failed in amber), the open items, and time.
     var badge = function (n, what) { return n ? '<i class="badge rvn" title="' + n + ' ' + what + '">' + n + '</i>' : ''; };
-    var row = function (x) { return '<button class="trow cat-' + (th[x.k] && th[x.k].reqs.length ? threadCat(th[x.k]) : 'gen') + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '">'
+    var row = function (x) { var dc = th[x.k] && /^(job|sys):/.test(th[x.k].chan || '') ? ' data-chan="' + esc(th[x.k].chan) + '"' : '';   // CUE-DRAG-TO-CHANNEL-2026-11-18: a drop target
+      return '<button class="trow cat-' + (th[x.k] && th[x.k].reqs.length ? threadCat(th[x.k]) : 'gen') + (openThread === x.k ? ' sel' : '') + '" data-thread="' + esc(x.k) + '"' + dc + '>'
       + (x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title)) + '</span>' : '<i class="dot" style="' + esc(dotCss(x.st.color)) + '"></i>')
       + '<span class="tx"><b>' + esc(x.title) + '</b><span>' + (x.flag ? '<em>' + esc(x.flag) + '</em> · ' : '') + esc(String(x.line || '').slice(0, 200)) + '</span></span>'
       + badge(x.n, 'open to review')
@@ -551,7 +552,25 @@
   // Systems › Alerts: Cue's own lines that belong to no task and say a run or a connection did not work (for example "The sweep did not
   // run", "New PhilGEPS was not checked today"). They show here instead of General, never in both.
   var ALERT_RE = /\b(did not run|didn't run|was not checked|not checked today|failed|stopped|could not reach|couldn't reach|sign-?in (?:has )?expired|is not connected|not signed in)\b/i;
-  function alertLines() { return allLines().filter(function (m) { return m.who === 'Cue' && !m.request_id && !askOf(m) && ALERT_RE.test(String(m.text || '')); }); }
+  function alertLines() { return allLines().filter(function (m) { return m.who === 'Cue' && !m.request_id && !askOf(m) && !lineChan(m) && ALERT_RE.test(String(m.text || '')); }); }
+  /* CUE-DRAG-TO-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 04:31:41Z "Messages in General Chat can i drag and drop them to a channel? That
+   * would then become a rule that messages like those should be moved to that channel"; 05:08:40Z "By where it came from"; mockup
+   * approved 05:20:38Z). A General line's channel: the one Kiko moved it to (mv, "?" while the question under it is open), else the
+   * channel rule for its source (src) that was in use when the line came. CueChannels.gs keeps both. */
+  var SRC_NAME = { sweep: 'Sweep did not run', bids: 'PhilGEPS check', editlog: 'Edit log undo', 'msgr-link': 'Messenger link errors', 'msgr-triage': 'Messenger new people',
+    'msgr-crew': 'Messenger crew list', 'msgr-setup': 'Messenger setup', 'mail-type': 'New mail types', 'mail-project': 'New mail on projects', route: 'Could not start',
+    reminder: 'Reminders', sched: 'Scheduled tasks', unsched: 'Unscheduled check', servicedesk: 'Service Desk', chaserrules: 'Chaser rule changes',
+    closeolder: 'Close older runs', funnel: 'Sales funnel review', ticktick: 'TickTick connection' };
+  function srcName(k) { return SRC_NAME[k] || String(k || ''); }
+  function lineChan(m) {
+    if (!m || m.request_id) return '';
+    if (m.mv) return String(m.mv).replace(/\?$/, '');
+    if (!m.src) return '';
+    var t = String(m.time || ''), r = (state.chan_rules || []).filter(function (x) { return x.src === m.src && t >= String(x.at || '') && (!x.off || t < String(x.off)); })[0];
+    return r ? String(r.chan || '') : '';
+  }
+  function chanName(c, th) { var t = th && chanAt(th, c) && th[chanAt(th, c)]; return t && t.reqs.length ? threadTitle(t) : JOB_NAME[c] || c; }
+  function chanAt(th, c) { return c === 'sys:alerts' ? 'sys:alerts' : (th && th._jb && th._jb[c]) || ''; }   // the channel's thread, '' when the list has none
   function threads() {
     var by = byId(), t = {}, agRoot = {};
     // AGENT-ONE-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 02:43:48Z "Roles have 2 channels?"): every agent thread whose name maps to the
@@ -570,11 +589,17 @@
     }
     function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [], chan: by[root] ? chanKey(by[root]) : '' }); }
     Object.defineProperty(t, '_home', { value: home });   // thOf: a run's own id finds its channel
+    Object.defineProperty(t, '_jb', { value: jbRoot });   // CUE-DRAG-TO-CHANNEL-2026-11-18: a channel key finds its thread
     allLines().forEach(function (m) {
       var q = askOf(m); if (q) { if (q.where) get(home(q.where)).lines.push(m); return; }   // a question with buttons lives where it was asked
+      if (!m.request_id) {   // CUE-DRAG-TO-CHANNEL-2026-11-18: a General line Kiko moved, or one his rule sends, joins its channel; then the alerts
+        var c = lineChan(m), at = c === 'sys:alerts' ? c : c && jbRoot[c];
+        if (at) get(at).lines.push(m);
+        else if (m.who === 'Cue' && ALERT_RE.test(String(m.text || ''))) get('sys:alerts').lines.push(m);
+        return;
+      }
       if (m.request_id && m.request_id.charAt(0) !== '>' && m.request_id.charAt(0) !== '@') get(home(m.request_id)).lines.push(m); });   // "@<thread>": AGENT-TAG main-chat copy
     state.requests.slice().reverse().forEach(function (r) { get(home(r.id)).reqs.push(r); });   // oldest first
-    alertLines().forEach(function (m) { get('sys:alerts').lines.push(m); });
     if (t['sys:alerts']) t['sys:alerts'].chan = 'sys:alerts';
     return t;
   }
@@ -914,6 +939,7 @@
   function listed(id, th) { var t = thOf(th, id); return !!(t && t.reqs.length && listShows(t)); }
   function renderMain(th) {
     var by = byId(), seen = {}, shown = {}, h = '', dayShown = {}, gl = null;
+    mvRef = [];   // CUE-DRAG-TO-CHANNEL-2026-11-18
     // A thread Cue announced with a pointer line is shown by that line, not by its first message (Kiko 06:53Z).
     state.chat.forEach(function (m) { if (m.request_id && m.request_id.charAt(0) === '>') seen[rootOf(m.request_id.slice(1), by)] = 1; });
     var prev = null, h0;
@@ -922,7 +948,12 @@
     function one(m) {
       if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
-      if (!m.request_id) { if (!(m.who === 'Cue' && ALERT_RE.test(String(m.text || '')))) h += msgHtml(m); return; }   // an alert line lives in Systems › Alerts
+      if (!m.request_id) {
+        var mc = lineChan(m);   // CUE-DRAG-TO-CHANNEL-2026-11-18: a moved line leaves General; the question or a short note stays in its place
+        if (mc && chanAt(th, mc)) { h += movedHtml(m, mc, th); return; }
+        if (!(m.who === 'Cue' && ALERT_RE.test(String(m.text || '')))) h += mvAttr(msgHtml(m), m);   // an alert line lives in Systems › Alerts
+        return;
+      }
       // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message; it lives in Bid Opportunities now.
       if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br && !listed(br.id, th)) h += k0BidsHtml(br); return; }
       // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
@@ -950,6 +981,84 @@
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
+  }
+  /* CUE-DRAG-TO-CHANNEL-2026-11-18 (approved mockup /mnt/project-files/cue-drag-to-channel/mockup/): Cue's own General lines can be
+   * dragged onto a Jobs or Systems channel in the list (PC) or long-pressed for a "Move to…" sheet (phone). In the line's place
+   * General shows "Moved to X" and, when the line has a source, asks once whether future lines from it go there too. */
+  var justMoved = {}, mvRef = [];   // justMoved: lines moved in this visit with nothing to ask ("Moved to X." until Cue is reopened)
+  function mvKey(m) { return String(m.time || '') + '|' + String(m.who || '') + '|' + String(m.text || ''); }
+  function mvTag(m) { mvRef.push({ time: m.time, who: m.who, text: m.text }); return ' data-mvk="' + (mvRef.length - 1) + '"'; }   // the server finds the row by time, who and text
+  function mvAttr(html, m) {
+    if (m.who === 'Kiko' || !m.time || askOf(m) || !state.chat.some(function (x) { return x === m; })) return html;   // only Cue's lines that the server already has
+    return html.replace('<div class="msg ', '<div draggable="true"' + mvTag(m) + ' class="msg ');
+  }
+  function movedHtml(m, c, th) {
+    var nm = chanName(c, th), k = mvKey(m);
+    if (/\?$/.test(String(m.mv || '')) && m.src) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '</b>'
+      + '<div class="small muted">Also send future <b>' + esc(srcName(m.src)) + '</b> messages to ' + esc(nm) + '? You can remove this in Settings › Channel rules.</div>'
+      + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button><button class="btn" data-mv-ans="1">Yes, always</button></div></div>';
+    return justMoved[k] ? '<div class="small muted mvnote">Moved to ' + esc(nm) + '.</div>' : '';
+  }
+  function mvFind(o) { return o && state.chat.filter(function (x) { return x.time === o.time && x.who === o.who && x.text === o.text; })[0]; }
+  function mvLine(k) { return mvFind(mvRef[Number(k)]); }
+  var mvDrag = null;   // the line being dragged (kept apart from the list a poll may redraw meanwhile)
+  function chanMove(o, c) {
+    var m = mvFind(o); if (!m || !c) return;
+    var was = m.mv; m.mv = c + (m.src ? '?' : ''); if (!m.src) justMoved[mvKey(m)] = 1; renderChat();
+    call('cueChanMove', [m.time, m.who, m.text, c], function (r) { m.mv = c + (r && r.ask ? '?' : ''); if (!(r && r.ask)) justMoved[mvKey(m)] = 1; renderChat(); },
+      function (e) { m.mv = was; delete justMoved[mvKey(m)]; renderChat(); alertErr(e); });
+  }
+  $('msgs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-mv-ans]'), box = b && b.closest('.mvask'); if (!box) return;
+    var all = b.getAttribute('data-mv-ans') === '1', m = mvLine(box.getAttribute('data-mvk')); if (!m) return;
+    var c = String(m.mv || '').replace(/\?$/, ''), was = m.mv; m.mv = c; justMoved[mvKey(m)] = 1;
+    if (all && m.src) { state.chan_rules = (state.chan_rules || []).map(function (x) { return x.src === m.src && !x.off ? { src: x.src, chan: x.chan, at: x.at, off: m.time } : x; }).concat([{ src: m.src, chan: c, at: m.time }]); }
+    box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+    call('cueChanAnswer', [m.time, m.who, m.text, all], function () { renderChat(); }, function (er) { m.mv = was; renderChat(); alertErr(er); });
+    renderChat();
+  });
+  // PC: drag a line onto a channel. The row under the pointer says "Drop to move here".
+  $('msgs').addEventListener('dragstart', function (e) {
+    var m = e.target.closest && e.target.closest('[data-mvk][draggable]'); if (!m) return;
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'Cue message'); mvDrag = mvRef[Number(m.getAttribute('data-mvk'))] || null; m.classList.add('mvdrag'); document.body.classList.add('mving');
+  });
+  $('msgs').addEventListener('dragend', function (e) {
+    var m = e.target.closest && e.target.closest('[data-mvk]'); if (m) m.classList.remove('mvdrag'); document.body.classList.remove('mving');
+    document.querySelectorAll('#tlist .mvdrop').forEach(function (x) { x.classList.remove('mvdrop'); });
+  });
+  $('tlist').addEventListener('dragover', function (e) {
+    var r = e.target.closest('[data-chan]'); if (!r || !document.body.classList.contains('mving')) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('#tlist .mvdrop').forEach(function (x) { if (x !== r) x.classList.remove('mvdrop'); }); r.classList.add('mvdrop');
+  });
+  $('tlist').addEventListener('dragleave', function (e) { var r = e.target.closest('[data-chan]'); if (r && !r.contains(e.relatedTarget)) r.classList.remove('mvdrop'); });
+  $('tlist').addEventListener('drop', function (e) {
+    var r = e.target.closest('[data-chan]'); if (!r) return; e.preventDefault(); r.classList.remove('mvdrop'); document.body.classList.remove('mving');
+    var o = mvDrag; mvDrag = null; if (o) chanMove(o, r.getAttribute('data-chan'));
+  });
+  // Phone: a long press on a line opens "Move to…" with the Jobs and Systems channels.
+  var mvPress = 0;
+  document.addEventListener('touchstart', function (e) {
+    var m = e.target.closest && e.target.closest('#msgs [data-mvk][draggable]'); if (!m) return;
+    mvPress = setTimeout(function () { mvPress = 0; mvSheet(mvRef[Number(m.getAttribute('data-mvk'))]); }, 500);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(function (k) { document.addEventListener(k, function () { if (mvPress) { clearTimeout(mvPress); mvPress = 0; } }, { passive: true }); });
+  function mvTargets() {
+    var th = threads(), job = [], sys = [{ c: 'sys:alerts', n: 'Alerts' }];
+    Object.keys(th).forEach(function (k) { var c = th[k].chan || ''; if (!th[k].reqs.length || !listShows(th[k])) return;
+      if (/^job:/.test(c)) job.push({ c: c, n: threadTitle(th[k]) }); else if (/^sys:/.test(c) && c !== 'sys:alerts') sys.push({ c: c, n: threadTitle(th[k]) }); });
+    job.sort(function (a, b) { return a.n.localeCompare(b.n); });
+    return [['Jobs', job], ['Systems', sys]];
+  }
+  function mvSheet(o) {
+    var h = '<div class="mvdim" data-mv-x="1"></div><div class="mvsheet" role="dialog" aria-label="Move to"><div class="hd">Move to…</div>';
+    mvTargets().forEach(function (g) { if (!g[1].length) return; h += '<div class="grp">' + g[0] + '</div>' + g[1].map(function (x) { return '<button class="op" data-mv-to="' + esc(x.c) + '">' + esc(x.n) + '</button>'; }).join(''); });
+    var box = document.createElement('div'); box.id = 'mvbox'; box.innerHTML = h + '<button class="op x" data-mv-x="1">Cancel</button></div>';
+    var old = $('mvbox'); if (old) old.remove(); document.body.appendChild(box);
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mv-to],[data-mv-x]'); if (!b) return; box.remove();
+      if (o && b.hasAttribute('data-mv-to')) chanMove(o, b.getAttribute('data-mv-to'));
+    });
   }
   // CUE-ASSISTANT-2026-11-03 (mockup approved by Kiko 3 Nov 14:57Z): a new email's post in the main chat carries the buttons of its
   // proposed reply (Use this reply, Skip), from the open question in the email's own chat. Nothing shows once it is answered.

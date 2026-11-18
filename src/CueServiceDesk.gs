@@ -29,7 +29,7 @@ function cueSdTick_() {
   const r = cueBridge_({ id: 'sd-' + now.toString(36) }, 'service_desk_new', {}) || {};
   const seen = Number(st.n) || 0;
   const fresh = (r.items || []).filter(x => x && /^BUG-\d+$/.test(String(x.id)) && Number(x.n) > seen).sort((a, b) => a.n - b.n);
-  fresh.forEach(x => cueChat_('Cue', cueSdLine_(x), ''));
+  fresh.forEach(x => cueChat_('Cue', cueSdLine_(x), '', 'servicedesk'));
   if (fresh.length) { st.n = fresh[fresh.length - 1].n; cueSdSave_(st); }
   return fresh.length;
 }
