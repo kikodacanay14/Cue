@@ -13,7 +13,7 @@
     viewShow();
   }
   function viewClose() {
-    $('viewer').hidden = true; $('viewer').classList.remove('max'); document.body.classList.remove('v3'); $('v-stage').innerHTML = ''; vlist = [];
+    $('viewer').hidden = true; $('viewer').classList.remove('max'); document.body.classList.remove('v3'); document.body.classList.remove('agd-pic');   // AGENT-ROW-PICTURES-2026-11-18 $('v-stage').innerHTML = ''; vlist = [];
     if (vgrown) { window.postMessage({ cueResize: -vgrown }, '*'); vgrown = 0; }
   }
   function viewShow() {

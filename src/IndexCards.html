@@ -785,19 +785,28 @@
     rows.sort(function (x, y) { return (y.needs_kiko ? 1 : 0) - (x.needs_kiko ? 1 : 0); });
     var title = (A.project || A.project_id || A.item) + ' · ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's');
     var td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; }, none = '<span class="muted">—</span>';
+    // AGENT-ROW-PICTURES-2026-11-18 (Kiko 02:58:28Z "when a table row is clicked it expands and shows the images. When another row is
+    // clicked previous row closes"; card 1 approved 03:03:36Z): a row opens to show its MM pictures; one open row per card.
+    var view = function (fid) { return 'https://drive.google.com/file/d/' + esc(fid) + '/view'; }, B = (A.handover || {}).brief;
     var body = rows.filter(function (x) { return !f || x.needs_kiko; }).map(function (x) {
-      var n = (String(x.req_id).match(/(\d+)$/) || ['', ''])[1].slice(-2);
-      return '<tr' + (x.needs_kiko ? ' class="need"' : '') + '>' + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>')
+      var n = (String(x.req_id).match(/(\d+)$/) || ['', ''])[1].slice(-2), k = String(x.req_id || x.name), on = agdRowOpen[r.id] === k, im = x.images || [];
+      var det = !on ? '' : '<tr class="agdet"><td colspan="7"><div class="agdetw">' + (im.length ? '<div class="agpics">' + im.map(function (p) {
+        var lab = (x.req_id || x.name) + (p.page ? ' · brief page ' + p.page : '');
+        return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')">'
+          + (p.page ? '<span class="pg">Page ' + p.page + '</span>' : '') + '</a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
+        : '<span class="muted">No pictures from MM yet.</span>') + '</div></td></tr>';
+      return '<tr class="agrow' + (x.needs_kiko ? ' need' : '') + '" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>')
         + td(x.sourcing ? esc(x.sourcing) : none, 1) + td(x.spec_by ? esc(x.spec_by) : none, 1)
         + td(x.spec_by === 'MM' ? (x.dimensions ? esc(x.dimensions) + '<span class="rid">from brief, by MM</span>' : '<span class="muted">MM to add</span>') : none, 1)
         + td(x.open_items.length ? '<ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' : '<span class="muted">None</span>')
-        + td(x.spec_by === 'MM' ? '<span class="ph">Later</span>' : none, 1) + '</tr>';
+        + td(im.length ? im.length + ' picture' + (im.length === 1 ? '' : 's') : x.spec_by === 'MM' ? '<span class="ph">Later</span>' : none, 1) + '</tr>' + det;
     }).join('');
     var p = '<div class="agdshade" data-act="agd-rows" data-id="' + id + '"></div><aside class="agdp" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">'
       + '<div class="agdph"><div class="t"><b>' + esc(title) + '</b><div class="small muted">From ' + esc(agdLabel(A.agent)) + (A.project_id ? ' · ' + esc(A.project_id) : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div></div>'
       + '<button class="ibtn agdx" data-act="agd-rows" data-id="' + id + '" aria-label="Close the panel">✕</button></div>'
       + '<div class="agdf" role="group" aria-label="Show"><button class="filt" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-pressed="' + !f + '">All ' + rows.length + '</button>'
       + '<button class="filt" data-act="agd-rows" data-agf="need" data-id="' + id + '" aria-pressed="' + f + '">Needs you ' + need + '</button></div>'
+      + (B && B.file_id ? '<div class="agbrief"><b>Original client brief</b><a data-agpic href="' + view(B.file_id) + '" data-name="' + esc(B.name || 'Client brief') + '">' + esc(B.name || 'Client brief') + '</a>' + (B.pages ? '<span class="small muted">' + B.pages + ' pages</span>' : '') + '</div>' : '')
       + '<div class="agdtw"><table><thead><tr><th>#</th><th>Requirement</th><th>Sourcing</th><th>Specs by</th><th>Dimensions</th><th>Open items</th><th>Images</th></tr></thead><tbody>' + body + '</tbody></table></div>'
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="agdpf">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(agdLabel(A.agent)) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
@@ -1191,7 +1200,18 @@
     var c = card && card.querySelector('[data-arcount="' + attr + '"]'); if (!c) return;
     var all = card.querySelectorAll('input[' + attr + ']:not([disabled])'), on = Array.prototype.filter.call(all, function (x) { return x.checked; }).length;
     c.textContent = on + ' ticked of ' + all.length; }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && Object.keys(agdRows).length) { agdRows = {}; render(); } });   // AGENT-UPDATE-ROWS-2026-11-16: Esc closes the panel
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && Object.keys(agdRows).length) { if (document.body.classList.contains('agd-pic')) return; agdRows = {}; render(); } }, true);   // AGENT-UPDATE-ROWS-2026-11-16: Esc closes the panel; AGENT-ROW-PICTURES-2026-11-18: runs first, and leaves an open picture to the viewer's own Esc
+  // AGENT-ROW-PICTURES-2026-11-18: Enter or Space on a requirement row opens it, like a tap.
+  document.addEventListener('keydown', function (e) { var t = e.target; if ((e.key === 'Enter' || e.key === ' ') && t && t.matches && t.matches('tr[data-act="agd-row"]')) { e.preventDefault(); t.click(); } });
+  // AGENT-ROW-PICTURES-2026-11-18: a picture or the brief in the requirements panel opens in Cue's viewer, above the panel; its
+  // "1 of N" steps through the pictures of the open row. Runs before the chat's own Drive-link handler.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-agpic]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    e.preventDefault(); e.stopPropagation();
+    var box = a.closest('.agpics') || a.parentNode, list = Array.prototype.slice.call(box.querySelectorAll('a[data-agpic]'));
+    document.body.classList.add('agd-pic');
+    viewOpen(list.map(function (x) { return { preview: x.href.replace(/\/view$/, '/preview'), url: x.href, name: x.getAttribute('data-name') || 'Picture' }; }), list.indexOf(a));
+  }, true);
   document.addEventListener('click', function (e) { var t = e.target.closest && e.target.closest('[data-artick]'); if (!t) return; e.preventDefault();
     var card = t.closest('.card'), attr = t.getAttribute('data-arattr'), on = t.getAttribute('data-artick') === '1';
     Array.prototype.forEach.call(card.querySelectorAll('input[' + attr + ']'), function (x) { if (!x.disabled) x.checked = on; }); arRecount(card, attr); });
@@ -1417,6 +1437,8 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
+        if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
+          setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] tr[data-row="' + k.replace(/["\\]/g, '\\$&') + '"]'); if (x) x.focus(); }, 0); return; }
         if (act === 'agd-rows') {   // AGENT-UPDATE-ROWS-2026-11-16: open, filter or close the requirements panel; nothing goes to Canvas
           var agf = b.getAttribute('data-agf'); if (agf) agdRows[id] = agf; else delete agdRows[id]; render();
           if (agf) setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] .agdx'); if (x) x.focus(); }, 0); return; }

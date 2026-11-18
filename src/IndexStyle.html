@@ -575,6 +575,19 @@
   .agdp .rn { display:block; font-weight:600; } .agdp .rid { display:block; font-size:12px; color:var(--muted); }
   .agdp ul.oi { margin:0; padding-left:16px; }
   .agdp .ph { display:inline-grid; place-items:center; width:44px; height:32px; border:1px dashed var(--line2); border-radius:6px; font-size:12px; color:var(--muted); }
+  /* AGENT-ROW-PICTURES-2026-11-18 (Kiko 02:58:28Z, card 1 approved 03:03:36Z): a requirement row opens to show its MM pictures; one open at a time. */
+  .agdp tr.agrow { cursor:pointer; } .agdp tr.agrow:hover td { background:var(--panel); } .agdp tr.agrow:focus-visible { outline:2px solid var(--act); outline-offset:-2px; }
+  .agdp tr.agrow[aria-expanded="true"] td { background:var(--soft); border-bottom-color:transparent; }
+  .agdp tr.agdet td { background:var(--panel); padding:10px 12px; }
+  .agdp .agdetw { position:sticky; left:0; max-width:calc(min(860px, 94vw) - 26px); }   /* stays in view when the table scrolls sideways on a phone */
+  .agdp .agpics { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; margin-bottom:6px; }
+  .agdp .agpics a { position:relative; display:block; aspect-ratio:16/9; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--side); cursor:zoom-in; }
+  .agdp .agpics a:focus-visible { outline:2px solid var(--act); outline-offset:2px; }
+  .agdp .agpics img { display:block; width:100%; height:100%; object-fit:cover; }
+  .agdp .agpics .pg { position:absolute; left:6px; bottom:6px; padding:1px 7px; border-radius:4px; background:rgba(22,21,27,.78); color:#fff; font-size:12px; font-weight:600; }
+  .agbrief { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .agbrief a { color:var(--act); font-weight:600; text-decoration:underline; text-underline-offset:2px; min-height:32px; display:inline-flex; align-items:center; }
+  body.agd-pic .viewer { position:fixed; inset:0; width:auto; max-width:none; min-width:0; z-index:46; border-left:0; }
   .agdpf { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); }
   .agdpf input { flex:1; min-width:180px; }
 </style>
