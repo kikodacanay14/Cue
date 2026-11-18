@@ -829,12 +829,48 @@
       + '<div class="actions"><button class="btn ghost" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-expanded="' + !!agdRows[r.id] + '">Open requirements</button></div>'
       + (agdRows[r.id] ? p : '') + '</div>';
   }
+  // EMAIL-INTAKE-CARD-2026-11-18 (Kiko 18 Nov 2026 04:34:50Z "the Email intake review list - please apply the filter"; 05:27:45Z "Email
+  // intake routes the emails right away right? can it just send me where it routed the email to and i will correct it"; card 2 approved
+  // 05:32:00Z, mockup https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk). One card per run: noise skipped and listed, every other message
+  // routed with where and why. A routed row opens to show sender, time and project. Correcting a route waits for Email Intake's re-route
+  // command, so those buttons are shown off until it exists.
+  function agdIntakeHtml(r, canReply, unread) {
+    var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id), sk = I.skipped || [], rt = I.routed || [], none = '<span class="muted">—</span>';
+    var pl = function (n) { return n + ' message' + (n === 1 ? '' : 's'); }, td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; };
+    var msg = 'Email Intake read ' + pl(I.total_read != null ? I.total_read : sk.length + rt.length) + (I.read_at ? ' (' + esc(I.read_at) + ')' : '') + '. '
+      + (sk.length ? sk.length + ' ' + (sk.length === 1 ? 'was' : 'were') + ' noise and skipped. ' : '')
+      + (rt.length ? 'It routed ' + pl(rt.length) + ' right away. Check where each one went.' : 'Nothing was routed.') + ' Nothing waits for you.';
+    var rows = rt.map(function (x, i) {
+      var k = x.msg_id || String(i), on = agdRowOpen[r.id] === k;
+      return '<tr class="agrow" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + td(i + 1, 1)
+        + td(x.subject ? esc(x.subject) : none) + td(x.routed_to ? esc(agdLabel(x.routed_to)) : none, 1) + td(x.why ? esc(x.why) : none, 1) + '</tr>'
+        + (on ? '<tr class="agdet"><td colspan="4"><div class="agmeta agin">' + [['From', x.from], ['Received', x.received_at], ['Project', x.project_id]].map(function (f) {
+          return '<div><span class="lbl">' + f[0] + '</span>' + (f[1] ? esc(f[1]) : none) + '</div>'; }).join('') + '</div></td></tr>' : '');
+    }).join('');
+    var skt = sk.length ? '<details class="agnz"><summary>Show the ' + pl(sk.length).replace('message', 'skipped message') + '</summary><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Noise type</th></tr></thead><tbody>'
+      + sk.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.noise_kind ? esc(x.noise_kind) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div></details>' : '';
+    return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Email Intake</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">Email Intake · ' + (rt.length ? 'routed' : 'run summary') + '</b>'
+      + '<span class="tag good">Nothing needs you</span><span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + '<div class="small muted" style="margin-top:4px">' + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
+      + '<p style="margin:8px 0">' + msg + '</p>'
+      + '<div class="agmeta agin"><div><span class="lbl">Run</span>' + (I.run_id ? esc(I.run_id) : none) + (I.mailbox ? '<br>' + esc(I.mailbox) : '') + '</div>'
+      + '<div><span class="lbl">Skipped as noise</span>' + pl(sk.length) + '</div><div><span class="lbl">Routed</span>' + pl(rt.length) + '</div></div>'
+      + (rt.length ? '<div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Routed to</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')
+      + skt + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '<div class="small muted" style="margin-top:8px">Changing a receiver or moving a skipped message comes once Email Intake has its re-route command.</div>'
+      + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to Email Intake"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
+      + (sk.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Not noise? Move</button>' : '')
+      + (rt.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Save corrections</button>' : '')
+      + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
+  }
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
     // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
     // waiting on Kiko, not a failed handover: Waiting for you (warn), never Blocked.
     var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
     var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
+    if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
     if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'

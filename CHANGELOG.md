@@ -1,5 +1,21 @@
 # Changelog
 
+## Cue 1.28.91: Email Intake routing card (not deployed)
+
+Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:34:50Z: "the Email intake review list - please apply the filter";
+05:27:45Z: "Email intake routes the emails right away right? can it just send me where it routed the email to and i will correct it".
+Card 2 approved 05:32:00Z: https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk. Field names agreed with the Build the BSE automation
+thread at 05:40Z. Slot cue-1.28.91, card email-intake-card.
+
+- Card (`src/IndexCards.html`, `src/IndexStyle.html`): an agent update that carries an Email Intake run shows as "Email Intake ·
+  routed" (or "run summary" when nothing was routed). It has the run, skipped and routed counts, a table of routed messages (#, Message,
+  Routed to, Why), and the skipped noise in a folded list (#, Message, Noise type). A routed row opens to show From, Received and Project.
+- Payload (`src/CueAgentDrafts.gs`): the handover may carry `run` {run_id, read_at, mailbox, total_read}, `skipped[]` and `routed[]`
+  (headers only: msg_id, from, subject, received_at, plus noise_kind or routed_to, why, project_id). Bodies and attachments are dropped.
+  At most 200 per list.
+- Not in this release: Save corrections and Not noise? Move show but stay off. Email Intake has no re-route command yet.
+- Tests: EIC1 to EIC3 new (`test/features/99-email-intake-card.js`). 895/895 pass. Checked in Chromium at 1000 and 390 px: no sideways scroll.
+
 ## Cue 1.28.90: requirements card 1 layout (not deployed)
 
 Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:39:37Z: "Card 1 put the Project Event Client Brief and then open brief.
