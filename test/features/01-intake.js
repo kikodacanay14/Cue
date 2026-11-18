@@ -312,7 +312,7 @@ test('C26 missing Gmail access: a plain message, and Fix Google access resets on
   const t = sandbox({ read: CHANGE_READ, gmailScope: true, scopes: ['spreadsheets', 'gmail.compose', 'drive.file'] });
   const v = t.ctx.cueRun(t.ctx.cueSend('JBL mats changed, requote please', [], 'intake').request_id);
   assert.strictEqual(v.status, 'Failed'); assert.ok(/does not have Gmail access yet/.test(v.error), v.error);
-  const a = t.ctx.cueFixAccess(); deq(a.missing, ['gmail.readonly']); assert.strictEqual(a.reset, true); assert.strictEqual(t.log.invalidated, 1);
+  const a = t.ctx.cueFixAccess(); deq(a.missing, ['gmail.readonly', 'gmail.modify']); assert.strictEqual(a.reset, true); assert.strictEqual(t.log.invalidated, 1);
   assert.strictEqual(a.url, 'https://script.google.com/macros/s/CUE/exec'); assert.ok(/access_token/.test(JSON.stringify(t.log.tokeninfo)));
   const ok = sandbox({ scopes: ['spreadsheets', 'https://mail.google.com/', 'drive.file'] }).ctx.cueFixAccess();
   assert.strictEqual(ok.reset, false, 'full Gmail scope covers readonly and compose'); deq(ok.missing, []);

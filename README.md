@@ -123,6 +123,8 @@ Team inbox: the Inbox page was removed in 1.28.64. Role chats (`src/CueInboxRole
    - external requests
    - triggers
    - Gmail compose (drafts, and sending a draft after Approve and send)
+   - Gmail read (search Kiko's mailbox) and Gmail modify (only to mark ignored, daily-list and muted-sender emails read; never
+     archive, label or delete; added in 1.28.84)
    - your email address
 5. **Deploy.** Deploy → Web app, execute as **Me**, access **Only myself**.
 6. **First test.** Run it with Kiko watching, on one real inquiry. Check the card, the AI calls and the seconds, then approve and confirm the project and lines in Canvas.

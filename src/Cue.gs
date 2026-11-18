@@ -127,7 +127,7 @@ function cueTriggers_() {
  * Running cueSetup did not bring up Google's Allow screen for the newer scopes, so Gmail said "insufficient authentication
  * scopes". cueFixAccess asks Google which scopes Cue's token really has and, when some are missing, resets Cue's
  * authorization (ScriptApp.invalidateAuth) so the next open of Cue asks for all of them. Keys in Script Properties stay. */
-const CUE_NEEDS_ = ['gmail.readonly', 'gmail.compose', 'drive.file'];
+const CUE_NEEDS_ = ['gmail.readonly', 'gmail.compose', 'gmail.modify', 'drive.file'];   // gmail.modify: AC-8 mark read (Kiko 18 Nov 2026 02:31Z)
 function cueAccess_() {
   const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { method: 'post', payload: { access_token: ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
   let have = []; try { have = String(JSON.parse(res.getContentText()).scope || '').split(/\s+/).filter(String); } catch (e) { have = []; }
