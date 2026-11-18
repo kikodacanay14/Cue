@@ -88,7 +88,7 @@ const cueAgdCueStatus_ = st => CUE_AGD_STATUS_[st] || 'Closed';
  * dashboard labels approved "aproved 9 and 10"). Display only: the agent name Canvas stores ("ECII agent") stays the thread key and is
  * what agent_message sends, so threads and draft_status keep working. Cue shows the new name everywhere Kiko reads it, and a tag with
  * either name reaches the same agent. Same map in IndexChat.html agdLabel. */
-function cueAgdLabel_(name) { return String(name == null ? '' : name).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist'); }
+function cueAgdLabel_(name) { return String(name == null ? '' : name).replace(/\bECII\b/g, 'Procurement Specialist').replace(/\bECI\b/g, 'Event Specialist').replace(/\bAS\b/g, 'Account Specialist').replace(/\bMM\b/g, 'Multimedia'); }   // AGENT-FULL-NAMES-2026-11-18 (Kiko 02:15:58Z: "why are the names AS, MM?")
 
 /** What happened to a draft, as one line in its thread. Pure. */
 function cueAgdLine_(a) {

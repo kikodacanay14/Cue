@@ -771,6 +771,15 @@
   // AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026 11:58:14Z, mockup v2 approved 12:23:52Z, "ok" 12:25:28Z): an update with requirement
   // rows is one short card; Open requirements slides a view-only panel in from the left over the chat. Columns as Kiko trimmed them
   // (12:19:11Z): #, Requirement, Sourcing, Specs by, Dimensions, Open items, Images (later). Rows that need Kiko come first.
+  // AGENT-CARD-LABELS-2026-11-18 (Kiko 18 Nov 2026 02:14:31Z: "The titles though need to be in bold and line breaks after the values";
+  // 02:14:49Z: "Make it a default design in all cards"). Every agent message and card text: a line that starts "Label: value" shows the
+  // label in bold and the value on its own line block, so each pair ends with a line break. Other lines stay as written. Escapes first.
+  function agKv(t) {
+    return String(t == null ? '' : t).split('\n').map(function (ln) {
+      var m = ln.match(/^([A-Z][A-Za-z0-9 \/()&'.,-]{0,40}):(?:\s+(.*))?$/);
+      return m ? '<span class="agkv"><b>' + esc(m[1]) + ':</b>' + (m[2] ? ' ' + esc(m[2]) : '') + '</span>' : esc(ln);
+    }).join('\n').replace(/<\/span>\n/g, '</span>');
+  }
   function agdRowsHtml(r, canReply, unread) {
     var A = r.agd || {}, rows = ((A.handover || {}).rows || []).slice(), id = esc(r.id), need = rows.filter(function (x) { return x.needs_kiko; }).length, f = agdRows[r.id] === 'need';
     rows.sort(function (x, y) { return (y.needs_kiko ? 1 : 0) - (x.needs_kiko ? 1 : 0); });
@@ -814,8 +823,8 @@
       + stTag
       + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">From ' + esc(agdLabel(A.agent)) + (A.door ? ' (' + esc(A.door) + ')' : '') + (A.created ? ' · ' + esc(A.created) : '') + ' · ' + esc(A.draft_id) + '</div>';
-    var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + esc(H.summary || A.body) + '</span>'],
-      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + esc(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
+    var f = [['Project', A.project ? esc(A.project) + (A.project_id ? ' · ' + esc(A.project_id) : '') : esc(A.project_id || '')], ['Summary', '<span style="white-space:pre-wrap">' + agKv(H.summary || A.body) + '</span>'],
+      ['Unresolved gaps', H.gaps ? '<span style="white-space:pre-wrap">' + agKv(H.gaps) + '</span>' : 'None'], ['Next owner', esc(H.next_owner || 'Not given')], ['Next action', esc(H.next_action || 'Not given')],
       ['AS acknowledgment', H.ack_link ? '<a href="' + esc(H.ack_link) + '" target="_blank" rel="noopener">Open the acknowledgment</a>' : 'No link sent']];
     if (!ok && !wait && H.why) f.push(['Why Blocked', esc(H.why)]);
     h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';

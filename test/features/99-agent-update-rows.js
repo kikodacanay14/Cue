@@ -12,7 +12,7 @@ const aurUpd = (n, rows) => agdUpd(n, { project: 'Pandamart Likha', project_id: 
 function aurGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUR1 rows from Canvas are kept clean: only the approved fields, In House or Outsourced, AS or MM, Needs you only when true, at most 100', () => {
@@ -31,7 +31,7 @@ test('AUR1 rows from Canvas are kept clean: only the approved fields, In House o
 test('AUR2 an update with rows is one short card; the panel is shut until tapped and lists every row, the ones that need Kiko first', () => {
   const b = agdBox({ drafts: [aurUpd(50, aurRows)] }); b.t.ctx.cueAgdTick_();
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), { ctx } = aurGrab(), shut = ctx.agdUpdHtml(v);
-  assert.ok(/AS agent · Pandamart Likha · 3 requirements · 2 need you/.test(shut), shut);
+  assert.ok(/Account Specialist agent · Pandamart Likha · 3 requirements · 2 need you/.test(shut), shut);   // AGENT-FULL-NAMES-2026-11-18
   assert.ok(/class="tag crit">2 need you/.test(shut) && /class="tag warn">Unread/.test(shut) && /data-act="agd-rows"/.test(shut) && /Open requirements/.test(shut));
   assert.ok(!/class="facts"/.test(shut) && !/class="agdp"/.test(shut) && !/data-act="agd-read"/.test(shut), 'short card: no facts table, no panel, no buttons');
   ctx.agdRows[v.id] = 1; const open = ctx.agdUpdHtml(v);
