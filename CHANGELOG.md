@@ -1,5 +1,24 @@
 # Changelog
 
+## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (not deployed)
+
+Asked by Kiko, 18 Nov 2026 14:53Z (Dot's audit, finding 7): "The structured card displays execution type, quantity and occurrence as
+text. Kiko requested that he be able to edit them. Add and verify editing and the approved values' return to the agent." Slot
+cue-1.28.103, card agent-card-fields-edit-1118, Cue PR #447. Kiko typed the release line 22:11:10Z: "Release card fields and editing".
+Needs the matching Canvas change (agent_update keeps description, qty, occurrence, event and client; replies up to 6,000
+characters), live as Canvas Version 566 since 18 Nov 2026 22:18Z. Built on main 693ed68, so this release also carries the line-break
+change below (Cue PR #446, merged to main, not live before).
+
+- On a requirements approval card, every line Kiko can tick shows Execution as a list (In House, Outsourced) and Qty and Occurrence
+  (days) as number boxes, filled with the agent's values. A line waiting for an answer stays as text.
+- Send decision keeps the "APPROVE: ..." line and the "Qn: answer" lines, and adds one line per ticked requirement with the values
+  Kiko approved: "REQ-ID: Execution=Outsourced; Qty=2; Occurrence=3". A value the line has none of is left out. Format agreed with
+  the AS and step 12A threads (18 Nov 2026 14:56Z).
+- Qty and Occurrence must be whole numbers of 1 or more; otherwise Send decision names the line and sends nothing.
+- An approved line shows the values Kiko approved, read back from his reply.
+- A decision may now run to 6,000 characters (was 2,000), so a long list with values fits in one reply.
+- Tests: 950 of 950 pass (5 new in test/features/99-agent-card-edit.js). test/fixtures/ZapBridge.gs refreshed from live Canvas V566.
+
 ## Cue (next): one line per item in an agent's "Next:" text (not deployed)
 
 Asked by Kiko, 18 Nov 2026 14:47Z, on a screenshot of the Account Specialist's approval bubble: "please format this properly a

@@ -64,9 +64,9 @@ function cueAgdFrom_(d) {
   return { draft_id: String(d.draft_id), agent: cueStr_(d.agent, 40) || 'Agent', door: cueStr_(d.door, 20), type: CUE_AGD_TYPES_.indexOf(d.type) >= 0 ? d.type : 'unknown',
     type_label: cueStr_(d.type_label || d.type, 40), project_id: cueStr_(d.project_id, 20), project: cueStr_(d.project, 200), item: cueStr_(d.item, 300),
     recipient: cueStr_(d.recipient, 300), subject: cueStr_(d.subject, 250), body: cueStr_(d.body, 6000), lines, created: cueStr_(d.created, 30),
-    status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 2000), reason: cueStr_(d.reason, 600),
+    status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 6000), reason: cueStr_(d.reason, 600),
     handover: d.type === 'update' ? cueAgdHand_(d.handover) : null,   // AGENT-UPDATE-2026-11-13
-    replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 2000) })) : [] };   // AGENT-REPLIES-2026-11-14
+    replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 6000) })) : [] };   // AGENT-REPLIES-2026-11-14; AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
 }
 /** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
 function cueAgdHand_(h) {
@@ -216,7 +216,7 @@ function cueAgdDecide_(id, o) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never decides an agent draft.');
   const dec = String(o.decision || '');
   if (['send', 'save', 'send_back', 'reject', 'read', 'reply'].indexOf(dec) < 0) throw new Error('Pick Send, Save, Send back or Reject.');
-  const note = cueStr_(String(o.note || '').trim(), 2000);
+  const note = cueStr_(String(o.note || '').trim(), 6000);   // AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
   if (dec === 'send_back' && !note) throw new Error('Say what ' + 'the agent should change, then tap Send back.');
   if (dec === 'reply' && !note) throw new Error('Type your reply, then tap Reply.');
   const L = cueLocked_(() => {

@@ -794,18 +794,35 @@
   // reply-checks thread, 18 Nov 2026 12:11Z).
   function agdQs(x) { return (x.open_items || []).map(function (o) { return String(o).match(/^(Q\d+): ([\s\S]*)$/); }).filter(Boolean); }
   function agdApproved(A) {
-    var reps = (A.replies && A.replies.length) ? A.replies : (A.note ? [{ text: A.note }] : []), ok = {}, all = false;
+    var reps = (A.replies && A.replies.length) ? A.replies : (A.note ? [{ text: A.note }] : []), ok = {}, all = false, vals = {};
     reps.forEach(function (x) { var t = String(x.text || ''); if (/^\s*approve\s*\.?\s*$/i.test(t)) all = true;
-      var m = t.match(/^APPROVE:[ \t]*(.*)$/m); if (m) m[1].split(',').forEach(function (k) { k = k.trim(); if (k) ok[k] = 1; }); });
-    return { all: all, ok: ok };
+      var m = t.match(/^APPROVE:[ \t]*(.*)$/m); if (m) m[1].split(',').forEach(function (k) { k = k.trim(); if (k) ok[k] = 1; });
+      // AGENT-CARD-EDIT-2026-11-18: "REQ-ID: Execution=...; Qty=...; Occurrence=..." lines are the values Kiko approved for that line.
+      t.split('\n').forEach(function (l) { var v = l.match(/^([A-Za-z0-9][\w.\-]*): ((?:Execution|Qty|Occurrence)=.*)$/); if (!v || /^Q\d+$/.test(v[1])) return;
+        var o = vals[v[1]] = {}; v[2].split(';').forEach(function (p) { var kv = p.split('='), k = { Execution: 'sourcing', Qty: 'qty', Occurrence: 'occurrence' }[String(kv[0]).trim()];
+          if (k && kv.length > 1) o[k] = kv.slice(1).join('=').trim(); }); }); });
+    return { all: all, ok: ok, vals: vals };
+  }
+  // AGENT-CARD-EDIT-2026-11-18 (Kiko 18 Nov 2026 14:53:25Z, Dot audit finding 7: "Kiko requested that he be able to edit them. Add and
+  // verify editing and the approved values' return to the agent"): on a line Kiko can tick, Execution, Qty and Occurrence can be changed
+  // (T.e). After the APPROVE line, each ticked line gets one line with the values Kiko approved, "REQ-ID: Execution=Outsourced; Qty=2;
+  // Occurrence=3" (a value the line has none of is left out). Format agreed with the AS and step 12A threads, 18 Nov 2026 14:56Z.
+  // Qty and Occurrence must be whole numbers of 1 or more; a line that breaks this is named in bad and nothing is sent.
+  function agdEditVal(x, T, k) {
+    var e = ((T || {}).e || {})[x.req_id]; return e && e[k] != null ? String(e[k]).trim() : (x[k] ? String(x[k]) : '');
   }
   function agdTickNote(rows, T) {
     T = T || { t: {}, a: {} };
-    var ids = rows.filter(function (x) { return x.req_id && T.t[x.req_id] && !agdQs(x).length; }).map(function (x) { return x.req_id; }), n = [];
+    var tk = rows.filter(function (x) { return x.req_id && T.t[x.req_id] && !agdQs(x).length; }), ids = tk.map(function (x) { return x.req_id; }), n = [], bad = [];
     if (ids.length) n.push('APPROVE: ' + ids.join(', '));
-    var qs = []; rows.forEach(function (x) { agdQs(x).forEach(function (m) { qs.push(m[1]); }); });
-    qs.sort(function (a, b) { return +a.slice(1) - +b.slice(1); }).forEach(function (q) { var v = String(T.a[q] || '').trim(); if (v) n.push(q + ': ' + v); });
-    return { note: n.join('\n'), ticked: ids.length, answered: n.length - (ids.length ? 1 : 0) };
+    tk.forEach(function (x) { var ex = agdEditVal(x, T, 'sourcing'), q = agdEditVal(x, T, 'qty'), o = agdEditVal(x, T, 'occurrence'), p = [];
+      if (ex && ['In House', 'Outsourced'].indexOf(ex) < 0) bad.push(x.req_id);
+      [q, o].forEach(function (v) { if (v && !/^[1-9]\d{0,3}$/.test(v)) bad.push(x.req_id); });
+      if (ex) p.push('Execution=' + ex); if (q) p.push('Qty=' + q); if (o) p.push('Occurrence=' + o);
+      if (p.length) n.push(x.req_id + ': ' + p.join('; ')); });
+    var qs = [], answered = 0; rows.forEach(function (x) { agdQs(x).forEach(function (m) { qs.push(m[1]); }); });
+    qs.sort(function (a, b) { return +a.slice(1) - +b.slice(1); }).forEach(function (q) { var v = String(T.a[q] || '').trim(); if (v) { n.push(q + ': ' + v); answered++; } });
+    return { note: n.join('\n'), ticked: ids.length, answered: answered, bad: bad.filter(function (v, i, a) { return a.indexOf(v) === i; }) };
   }
   function agdRowsHtml(r, canReply, unread) {
     var A = r.agd || {}, rows = ((A.handover || {}).rows || []).slice(), id = esc(r.id), need = rows.filter(function (x) { return x.needs_kiko; }).length, f = agdRows[r.id] === 'need';
@@ -826,6 +843,19 @@
         + (w ? ' disabled' : (T.t[x.req_id] ? ' checked' : '')) + ' aria-label="Approve ' + esc(x.name) + (w ? ' (waits for your answer)' : '') + '"></label></td>';
     };
     var td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; }, none = '<span class="muted">—</span>';
+    // AGENT-CARD-EDIT-2026-11-18: a line Kiko can tick shows Execution as a list and Qty and Occurrence as number boxes; a tap on them does
+    // not open or close the row. An approved line shows the values Kiko approved (from his reply), else the agent's.
+    var LBL = { sourcing: 'Execution', qty: 'Qty', occurrence: 'Occurrence (days)' };
+    var agdCell = function (x, k) {
+      if (tk && x.req_id && !agdQs(x).length && !isAp(x)) {
+        var v = agdEditVal(x, T, k), at = ' data-agedit="' + id + '" data-req="' + esc(x.req_id) + '" data-k="' + k + '" aria-label="' + LBL[k] + ' for ' + esc(x.name) + '"';
+        return '<td class="c" onclick="event.stopPropagation()">' + (k === 'sourcing'
+          ? '<select class="aged"' + at + '>' + (v ? '' : '<option value="" selected>—</option>') + ['In House', 'Outsourced'].map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>'
+          : '<input class="aged num" type="number" min="1" step="1" inputmode="numeric"' + at + ' value="' + esc(v) + '">') + '</td>';
+      }
+      var a = isAp(x) && (ap.vals || {})[x.req_id], w = a && a[k] != null ? a[k] : x[k];
+      return td(w ? esc(w) : none, 1);
+    };
     // AGENT-ROW-PICTURES-2026-11-18 (Kiko 02:58:28Z "when a table row is clicked it expands and shows the images. When another row is
     // clicked previous row closes"; card 1 approved 03:03:36Z): a row opens to show its MM pictures; one open row per card.
     var view = function (fid) { return 'https://drive.google.com/file/d/' + esc(fid) + '/view'; }, B = (A.handover || {}).brief;
@@ -845,7 +875,7 @@
         : '<span class="muted">No pictures from MM yet.</span>') + '</div></div></td></tr>';
       return '<tr class="agrow' + (x.needs_kiko ? ' need' : '') + '" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + tickTd(x) + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>'
           + (tk && !isAp(x) && agdQs(x).length ? '<span class="agwq">Waits for your answer</span>' : ''))
-        + td(x.sourcing ? esc(x.sourcing) : none, 1) + td(x.qty ? x.qty : none, 1) + td(x.occurrence ? x.occurrence : none, 1) + '</tr>' + det;
+        + agdCell(x, 'sourcing') + agdCell(x, 'qty') + agdCell(x, 'occurrence') + '</tr>' + det;
     }).join('');
     // AGENT-CARD1-LAYOUT-2026-11-18 (Kiko 04:39:37Z "Card 1 put the Project Event Client Brief and then open brief"): four fields on top.
     var H = A.handover || {}, mf = function (l, v) { return '<div><span class="lbl">' + l + '</span>' + v + '</div>'; };
@@ -1574,6 +1604,8 @@
     document.querySelectorAll('[data-agtick-all]').forEach(function (x) { x.onchange = function () { var rid = x.getAttribute('data-agtick-all'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} }, A = agdOf(rid), ap = agdApproved(A);
       ((A.handover || {}).rows || []).forEach(function (r) { if (r.req_id && !agdQs(r).length && !(ap.all || ap.ok[r.req_id])) { if (x.checked) T.t[r.req_id] = 1; else delete T.t[r.req_id]; } });
       render(); setTimeout(function () { var y = document.querySelector('[data-agtick-all="' + rid + '"]'); if (y) y.focus(); }, 0); }; });
+    document.querySelectorAll('[data-agedit]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agedit'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };   // AGENT-CARD-EDIT-2026-11-18
+      T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
     document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       T.a[x.getAttribute('data-q')] = x.value; agdSync(rid); }; });
     document.querySelectorAll('[data-act]').forEach(function (b) {
@@ -1645,7 +1677,9 @@
           if (act === 'agd-tick-send') {   // AGENT-REQ-TICK-2026-11-18: one reply carrying the ticked lines and the answers
             var tA = agdOf(id), tn = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).note;
             if (!tn) return alertErr(new Error('Tick a line or type an answer, then tap Send decision.'), id);
-            if (tn.length > 2000) return alertErr(new Error('This decision is too long to send in one go (over 2,000 characters). Shorten an answer, or send part of it first.'), id);
+            var tb = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).bad;   // AGENT-CARD-EDIT-2026-11-18
+            if (tb.length) return alertErr(new Error('Qty and Occurrence must be whole numbers of 1 or more. Check ' + tb.join(', ') + ', then tap Send decision.'), id);
+            if (tn.length > 6000) return alertErr(new Error('This decision is too long to send in one go (over 6,000 characters). Shorten an answer, or send part of it first.'), id);   // AGENT-CARD-EDIT-2026-11-18: Canvas takes 6,000
             b.disabled = true; running[id] = 1; schedule();
             return call('cueAgdDecide', [id, { decision: 'reply', note: tn }], function () { delete agdTick[id]; done(); }, fail);
           }

@@ -431,7 +431,8 @@ const ZB_ACTIONS_ = {
     schema: { project_id: { type: 'string', re: ZB_PID_RE_ }, project_hint: { type: 'string', max: 200 },
       fields: { type: 'object', required: true, fields: { kind: { type: 'string', max: 40 }, amount: { type: 'number', min: 0 }, date: { type: 'string', max: 10 },
         ref: { type: 'string', max: 120 }, payee: { type: 'string', max: 200 }, supplier: { type: 'string', max: 200 }, item: { type: 'string', max: 300 },
-        category: { type: 'string', max: 200 }, text: { type: 'string', max: 4000 } } } },
+        category: { type: 'string', max: 200 }, text: { type: 'string', max: 4000 },
+        account_no: { type: 'string', max: 40 } } } },   // EI07-ACCOUNT-MATCH-2026-11-18: compared server-side, never returned
     run: (r) => aiExpenseEvidence_(r.args)
   },
   record_expense: {
@@ -3048,7 +3049,8 @@ ZB_ACTIONS_.draft_add = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
     type: { type: 'string', required: true, oneOf: ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'signature_chaser', 'ar_chaser',
-      'invoice_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'client_question'] },   // CLIENT-QUESTION-2026-11-18 (AgentDrafts.gs)
+      'invoice_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'client_question',   // CLIENT-QUESTION-2026-11-18 (AgentDrafts.gs)
+      'evidence_file'] },   // EI07-CUE-EVIDENCE-2026-11-18: Finance asks Cue to file and link emailed evidence (AgentDrafts.gs)
     project_id: { type: 'string', re: ZB_PID_RE_ }, item: { type: 'string', max: 300 }, supplier: { type: 'string', max: 150 },
     thread_id: { type: 'string', re: /^[0-9a-f]{6,32}$/i },   // CLIENT-QUESTION-2026-11-18: the client's Gmail thread in Kiko's mailbox, when known
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 },
@@ -3081,6 +3083,39 @@ ZB_ACTIONS_.agent_send = {
     : res && res.draft_id ? { ok: true, evidence: { draft_id: res.draft_id, status: res.status } } : { ok: false, error: 'the send gave no answer' }
 };
 ZB_GPT_ACTIONS_.push('agent_send');
+
+/* EI07-REQUEST-EVIDENCE-2026-11-18 (PROPOSED, not deployed; Kiko 18 Nov 09:24:48Z, 09:41:25Z, 09:42:38Z): the Finance agent files
+ * emailed evidence into the project's Admin drive folder and links it on the payment request's transfer line with Kiko's fields
+ * (RequestEvidence.gs). request_evidence is its read-back. Never records a payment; filled cells are never changed. */
+const ZB_RQE_TEXT_ = { type: 'string', max: 200 };
+ZB_ACTIONS_.attach_request_evidence = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, payment_request: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ },
+    role: { type: 'string', required: true, oneOf: ['proof', 'receipt'] },
+    name: { type: 'string', required: true, nonBlank: true, max: 150 },
+    mime: { type: 'string', required: true, oneOf: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'] },
+    data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ },
+    fields: { type: 'object', required: true, fields: { payee: ZB_RQE_TEXT_, bank: ZB_RQE_TEXT_, confirmation_number: ZB_RQE_TEXT_,
+      invoice_number: ZB_RQE_TEXT_, legal_name: ZB_RQE_TEXT_, amount: ZB_RQE_TEXT_ } } },
+  run: (r) => { try { return requestEvidenceAttach_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.url ? { ok: true, evidence: { url: res.url, linked: !!res.linked, missing: res.missing, conflicts: res.conflicts } }
+    : { ok: false, rejected: true, error: String((res && (res.refused || res.error)) || 'refused') }
+};
+ZB_ACTIONS_.request_evidence = {
+  kind: 'read', needsProject: true,
+  schema: { payment_request: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ } },
+  run: (r) => requestEvidenceRead_(r.project_id, r.args.payment_request)
+};
+// Kiko 14:10:24Z: he reviews afterwards and asks to unlink a wrong one; unlink takes off only what the agent added.
+ZB_ACTIONS_.unlink_request_evidence = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, payment_request: { type: 'string', required: true, re: /^AP-[A-Za-z0-9-]{3,40}$/ },
+    url: { type: 'string', required: true, nonBlank: true, max: 500, re: /^https:\/\/(drive|docs)\.google\.com\// } },
+  run: (r) => { try { return requestEvidenceUnlink_(r.project_id, r.args); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => res && res.unlinked ? { ok: true, evidence: { cleared: res.cleared, kept: res.kept } }
+    : { ok: false, rejected: true, error: String((res && (res.refused || res.why || res.error)) || 'refused') }
+};
+ZB_GPT_ACTIONS_.push('attach_request_evidence', 'request_evidence', 'unlink_request_evidence');
 ZB_GPT_ONLY_.push('agent_send');   // never through a signed Cue call: Cue has its own senders
 // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:06:33Z "can Cue also support general updates not just drafts", 11:10:27Z the handover
 // fields): an agent's handover update for its Cue thread. Nothing is sent or changed; Kiko marks it read in Cue.
@@ -3097,12 +3132,16 @@ ZB_ACTIONS_.agent_update = {
     rows: { type: 'array', maxItems: 100, items: { req_id: { type: 'string', max: 60 }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
       sourcing: { type: 'string', oneOf: ['In House', 'Outsourced'] }, spec_by: { type: 'string', oneOf: ['AS', 'MM'] }, dimensions: { type: 'string', max: 200 },
       needs_kiko: { type: 'boolean' }, open_items: { type: 'array', maxItems: 20 },
+      // AGENT-UPDATE-CARD-FIELDS-2026-11-18 (Kiko 18 Nov 2026 14:53:25Z, Dot audit finding 6): the fields Cue's card already shows
+      // (AGENT-CARD1-LAYOUT-2026-11-18) were refused here as unexpected. qty and occurrence (days) are whole numbers of 1 or more.
+      description: { type: 'string', max: 2000 }, qty: { type: 'number', min: 1 }, occurrence: { type: 'number', min: 1 },
       // AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z "The cue card 1 that showed the images is approved", mockup
       // https://claude.ai/artifact/XCUNnJjumLDtuApXXmhK68 card 1): MM's pictures for the row, each a private Drive file with its brief page.
       images: { type: 'array', maxItems: 20, items: { file_id: { type: 'string', required: true, re: ZB_DRIVE_ID_RE_ }, name: { type: 'string', max: 200 },
         page: { type: 'number', min: 1 } } } } },
     brief: { type: 'object', fields: { file_id: { type: 'string', required: true, re: ZB_DRIVE_ID_RE_ }, name: { type: 'string', max: 200 },
-      pages: { type: 'number', min: 1 } } } },   // AGENT-ROW-PICTURES-2026-11-18: the client brief the pages refer to
+      pages: { type: 'number', min: 1 } } },   // AGENT-ROW-PICTURES-2026-11-18: the client brief the pages refer to
+    event: { type: 'string', max: 200 }, client: { type: 'string', max: 200 } },   // AGENT-UPDATE-CARD-FIELDS-2026-11-18: Event and Client on top of Cue's card
   run: (r) => { try { return agdUpdate_(r); } catch (e) { return zbGptRefusal_(e); } },
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
     : res && res.update_id ? { ok: true, evidence: { update_id: res.update_id, handover: res.handover } } : { ok: false, error: 'the update save gave no answer' }
@@ -3117,7 +3156,7 @@ ZB_ACTIONS_.agent_draft_decide = {
   kind: 'queue', needsProject: false,
   schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, draft_id: { type: 'string', required: true, re: /^DRF-\d{4,6}$/ },
     decision: { type: 'string', required: true, oneOf: ['send', 'save', 'send_back', 'reject', 'read', 'reply'] },   // AGENT-UPDATE-2026-11-13: read = Mark read on an agent update; reply = Kiko's reply to it (note)
-    subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 2000 },
+    subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 6000 },   // AGENT-CARD-EDIT-2026-11-18: 6,000 for a decision with approved values
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
   run: (r) => agdDecide_(r.args)
 };
@@ -3362,13 +3401,16 @@ function zbFinUnsignedDocs_(pid) {
   const open = (st, at) => !adSigned_(st) && !String(at || '').trim() && !/replaced/i.test(String(st || ''));
   fsaRows_(fsaTab_(false)).forEach(o => { const x = o.r; if (!mine(x[FSA_C_['Project ID']]) || !open(x[FSA_C_['Status']], x[FSA_C_['Signed at']])) return;
     out.push({ kind: 'FSA', id: x[FSA_C_['FSA ID']], project_id: x[FSA_C_['Project ID']], project: x[FSA_C_['Project']], name: x[FSA_C_['Name']],
-      role: x[FSA_C_['Role']], status: x[FSA_C_['Status']], generated: x[FSA_C_['Generated']], emailed: '', request_ids: '' }); });
+      role: x[FSA_C_['Role']], status: x[FSA_C_['Status']], generated: x[FSA_C_['Generated']], emailed: '', request_ids: '', type: 'crew' }); });
   arRows_(arTab_(false)).forEach(o => { const x = o.r; if (!mine(x[AR_C_['Project ID']]) || !open(x[AR_C_['Status']], x[AR_C_['Signed at']])) return;
     out.push({ kind: 'AR', id: x[AR_C_['AR ID']], project_id: x[AR_C_['Project ID']], project: x[AR_C_['Project']], name: x[AR_C_['Name']],
       role: x[AR_C_['Role or Scope']], status: x[AR_C_['Status']], generated: x[AR_C_['Generated']],
-      emailed: String(x[AR_C_['Emailed']] || '').split(/\n/).map(s => s.split(' · ')[0].trim()).filter(Boolean).pop() || '', request_ids: x[AR_C_['Request ID']] }); });
+      emailed: String(x[AR_C_['Emailed']] || '').split(/\n/).map(s => s.split(' · ')[0].trim()).filter(Boolean).pop() || '', request_ids: x[AR_C_['Request ID']],
+      type: /^supplier$/i.test(String(x[AR_C_['Kind']] || '').trim()) ? 'supplier' : 'crew' }); });   // CONNECTOR-REPORTS-2026-11-18: AR Kind Resource = crew
   out.sort((a, b) => String(a.project).localeCompare(String(b.project)) || a.kind.localeCompare(b.kind) || String(a.name).localeCompare(String(b.name)));
-  return { project_id: want, fsa: out.filter(d => d.kind === 'FSA').length, ar: out.filter(d => d.kind === 'AR').length, docs: out };
+  const ars = out.filter(d => d.kind === 'AR');
+  return { project_id: want, fsa: out.filter(d => d.kind === 'FSA').length, ar: ars.length, ar_crew: ars.filter(d => d.type === 'crew').length,
+    ar_supplier: ars.filter(d => d.type === 'supplier').length, docs: out };
 }
 ZB_ACTIONS_.finance_invoice_gaps = {
   kind: 'read', needsProject: false, schema: { project_id: { type: 'string', re: ZB_PID_RE_ } },
@@ -3504,9 +3546,138 @@ function zbCeStale_(pid, lines) {
 (function () {   // rfp_log: project_id optional, supplier and since filters
   const a = ZB_ACTIONS_.rfp_log;
   a.schema = { project_id: { type: 'string', re: ZB_PID_RE_ }, scope_id: { type: 'string', max: 40 },
-    supplier: { type: 'string', max: 150 }, since: ZB_CRM_DAY_ };
-  a.run = (r) => r.args.project_id && !r.args.supplier && !r.args.since ? agdRfpLog_(r.args) : agdRfpFind_(r.args);
+    supplier: { type: 'string', max: 150 }, since: ZB_CRM_DAY_, thread_ids: { type: 'array', minItems: 1, maxItems: 50 } };   // RFQ-LINK-2026-11-18
+  a.run = (r) => r.args.project_id && !r.args.supplier && !r.args.since && !r.args.thread_ids ? agdRfpLog_(r.args) : agdRfpFind_(r.args);
 })();
+
+/* CONNECTOR-REPORTS-2026-11-18 (Kiko 18 Nov 2026 12:39:46Z, seven connector and reporting items; scope and design approved on the
+ * decision card "Yes, items 1 to 7" 12:47:09Z; crew report details: Kiko 12:46:34Z, decision card "Seven, with email" 12:49:32Z;
+ * scope: project files connector-reporting-asks/scope.md; card connector-reporting-reads). Five reads, all read only, both keys:
+ * - finance_daily_totals: per project and calendar date (Manila), the amount requested (requests filed that day) and the amount
+ *   transferred (Paid Transfers rows dated that day; a return row is negative, so returns are netted out).
+ * - paid_request_details: per paid request of a project, the payee, supplier and Business Legal Name, and each Paid transfer with
+ *   bank, account name, account number masked to its last 4, confirmation number, date, amount and proof link, plus the receipt:
+ *   invoice number, invoice amount, invoice link and receipt / liquidation link.
+ * - requirement_financials: per requirement, the Expenses Summary numbers (Canvas.html expReqSummary): Contract Value (CE value),
+ *   Planned (awarded quotes), Requested, Paid, Unpaid and Not yet requested, with the project total.
+ * - crew_registration_gaps: crew on a project's Resources who are not Registered: not in the Rocketeer Database, or listed with a
+ *   blank among the seven details (the six of the Registered check plus email). Names only, never a value.
+ * finance_unsigned_docs gains each document's type (crew or supplier), and supplier_lookup gains date_added and date_accredited
+ * (blank = unknown), which saveRecord_ now stamps (SUP-DATES-2026-11-18 in Code.gs). */
+const zbR2_ = v => Math.round((Number(v) || 0) * 100) / 100;
+const zbMaskAcct_ = v => { const d = zbDigits_(v); return d ? '••••' + d.slice(-4) : ''; };
+function zbFinDaily_(pid) {
+  const want = String(pid || '').trim(), P = {};
+  const proj = q => P[q.pid] || (P[q.pid] = { project_id: q.pid, project: q.project || q.pid, requested: 0, transferred: 0, days: {} });
+  const day = (o, d) => o.days[d] || (o.days[d] = { date: d, requested: 0, requests: 0, transferred: 0, transfers: 0 });
+  financeData().requests.filter(q => q.pid && (!want || norm_(q.pid) === norm_(want))).forEach(q => {
+    const o = proj(q), d = adYmd_(q.at) || 'no date', x = day(o, d);
+    x.requested += Number(q.amount) || 0; x.requests++; o.requested += Number(q.amount) || 0;
+    (q.transfers || []).filter(t => t.paid && Number(t.amount)).forEach(t => {
+      const y = day(o, adYmd_(t.date) || 'no date'); y.transferred += Number(t.amount); y.transfers++; o.transferred += Number(t.amount); });
+  });
+  const projects = Object.keys(P).map(k => { const o = P[k];
+    return { project_id: o.project_id, project: o.project, requested: zbR2_(o.requested), transferred: zbR2_(o.transferred),
+      days: Object.keys(o.days).sort().map(d => { const x = o.days[d]; return { date: d, requested: zbR2_(x.requested), requests: x.requests,
+        transferred: zbR2_(x.transferred), transfers: x.transfers }; }) }; })
+    .sort((a, b) => String(a.project).localeCompare(String(b.project)));
+  return { project_id: want, dates: 'yyyy-MM-dd, Manila; requested = requests filed that day; transferred = Paid transfers that day, returns netted',
+    projects: projects };
+}
+function zbPaidDetails_(pid, only) {
+  const pr = table_(SRC.SCOPES, 'Payment Request'), xf = table_(SRC.SCOPES, 'Transfers');
+  const at = (t, r, n) => { const i = col_(t, n); return i < 0 ? '' : arCell_(r[i]); };
+  const R = {}, order = [];
+  pr.rows.forEach(r => { if (norm_(at(pr, r, 'project id')) !== norm_(pid)) return;
+    const id = at(pr, r, 'request id').toUpperCase(); if (!id || R[id] || (only && id !== only)) return;
+    R[id] = { request_id: id, payee: at(pr, r, 'payee'), supplier: at(pr, r, "supplier's name"), legal_name: at(pr, r, 'business legal name'), transfers: [] };
+    order.push(id); });
+  const rows = [];
+  xf.rows.forEach((r, i) => { const id = at(xf, r, 'request id').toUpperCase(); if (R[id] && norm_(at(xf, r, 'status')) === 'paid') rows.push({ id, r, row: xf.rowNums[i] }); });
+  const nums = rows.map(x => x.row), L = h => col_(xf, h) < 0 ? {} : finLinks_('Transfers', h, nums, xf);
+  const proof = L('proof of transfer'), inv = L('invoice'), rec = L('receipt / liquidation');
+  const link = (M, x, h) => { const l = (M[x.row] || []).find(y => y && y.url); if (l) return l.url; const t = at(xf, x.r, h); return /^https?:\/\//i.test(t) ? t : ''; };
+  rows.forEach(x => { const t = h => at(xf, x.r, h);
+    R[x.id].transfers.push({ date: adYmd_(t('payment date')) || t('payment date'), amount: zbR2_(sNum_(t('paid amount'))), bank: t('bank'),
+      account_name: t('account name'), account_number: zbMaskAcct_(t('account number')), confirmation: t('confirmation number'),
+      proof: link(proof, x, 'proof of transfer') || (norm_(t('proof of transfer')) === 'cash' ? 'Cash' : ''),
+      receipt: { invoice_number: t('invoice number'), invoice_amount: t('invoice amount') === '' ? '' : zbR2_(sNum_(t('invoice amount'))),
+        invoice: link(inv, x, 'invoice'), receipt: link(rec, x, 'receipt / liquidation') } }); });
+  const requests = order.map(id => R[id]).filter(q => q.transfers.length);
+  if (only && !requests.length) return { refused: only + ' has no Paid transfer on this project yet.' };
+  return { project_id: pid, account_numbers: 'last 4 digits only', requests: requests };
+}
+/* Same maths as Canvas.html expReqSummary / compute / scopeFacts (EXP-SUMMARY-REQ-2026-11-07, PAYABLES-OWED-2026-11-07): Planned
+ * = the scope's awarded quotes (an In House card's Inrush entry counts as awarded; an In House Manpower card with no award counts
+ * every quote with an amount); Requested = its payment request lines; Unpaid = each line's amount less its share of the paid
+ * transfers; Paid = Requested - Unpaid; Not yet requested = Planned - Requested, never below 0. Requests with no scope are their
+ * own row. Change one, change both. */
+function zbReqFin_(pid) {
+  ZB_KEEP_CE_ = true; let p; try { p = getProject(pid, ['scopes']); } finally { ZB_KEEP_CE_ = false; }
+  const low = s => String(s == null ? '' : s).trim().toLowerCase(), num = v => num_(v);
+  const yes = s => ['true', 'yes', 'y', '1', '✓', 'paid', 'done', 'complete', 'completed'].indexOf(low(s)) >= 0;
+  const inHouse = s => low(s.execution).replace(/[\s-]+/g, '') === 'inhouse', hasAmt = e => String(e.amount == null ? '' : e.amount).trim() !== '';
+  const reqAmt = {}, paidAmt = {}, PB = p.paidByRequest || {};
+  (p.payments || []).forEach(r => { const id = r['request id'] || '(no id)'; reqAmt[id] = (reqAmt[id] || 0) + num(r.amount); });
+  const txIds = {}; (p.transfers || []).forEach(x => { if (x['request id']) txIds[x['request id']] = 1; });
+  Object.keys(txIds).forEach(id => { paidAmt[id] = id in PB ? num(PB[id]) : (p.transfers || []).filter(x => x['request id'] === id && low(x.status) === 'paid').reduce((a, x) => a + num(x['paid amount']), 0); });
+  const rowLeft = r => { const id = r['request id'], amt = num(r.amount), req = reqAmt[id || '(no id)'] || 0, pd = id ? paidAmt[id] || 0 : 0;
+    return Math.max(0, pd > 0 && req > 0 ? amt - amt * Math.min(1, pd / req) : amt); };
+  const fig = (planned, reqs) => { const requested = reqs.reduce((a, r) => a + num(r.amount), 0), unpaid = reqs.reduce((a, r) => a + rowLeft(r), 0);
+    return { n: reqs.length, planned: planned, requested: requested, paid: requested - unpaid, unpaid: unpaid, left: Math.max(0, planned - requested) }; };
+  const add = (a, b) => ({ n: a.n + b.n, planned: a.planned + b.planned, requested: a.requested + b.requested, paid: a.paid + b.paid, unpaid: a.unpaid + b.unpaid, left: a.left + b.left });
+  const zero = { n: 0, planned: 0, requested: 0, paid: 0, unpaid: 0, left: 0 }, bySlot = {};
+  (p.entries || []).forEach(e => { (bySlot[e['scope id']] = bySlot[e['scope id']] || []).push(e); });
+  const scopes = (p.scopes || []).filter(s => s['scope id']).map(s => { const ents = bySlot[s['scope id']] || [];
+    const mix = inHouse(s) && /manpower/i.test(String(s['expense type'] || '')) && !ents.some(e => yes(e.awarded)) && ents.some(hasAmt);
+    const won = mix ? ents.filter(hasAmt) : ents.filter(e => yes(e.awarded) || (inHouse(s) && low(String(e.supplier || '').replace(/\s+/g, ' ')) === 'inrush'));
+    return { s: s, v: fig(won.reduce((a, e) => a + num(e.amount), 0), (p.payments || []).filter(r => r['scope id'] === s['scope id'])) }; });
+  const ids = (p.requirements || []).map(r => r['requirement id']).filter(Boolean);
+  const out = (p.requirements || []).filter(r => r['requirement id']).map(r => { const items = scopes.filter(x => x.s['requirement id'] === r['requirement id']);
+    const ce = String(r['unit price'] == null ? '' : r['unit price']).trim() === '' ? null : num(r['unit price']);
+    return { requirement_id: r['requirement id'], requirement: r.category || r['requirement id'], ce: ce, scopes: items.length, v: items.reduce((a, x) => add(a, x.v), zero) }; });
+  const loose = scopes.filter(x => ids.indexOf(x.s['requirement id']) < 0);
+  if (loose.length) out.push({ requirement_id: '', requirement: 'No requirement', ce: null, scopes: loose.length, v: loose.reduce((a, x) => add(a, x.v), zero) });
+  const noScope = (p.payments || []).filter(r => !r['scope id']);
+  if (noScope.length) { const v = fig(0, noScope); v.left = 0; out.push({ requirement_id: '', requirement: 'No scope card', ce: null, scopes: 0, v: v }); }
+  const view = o => ({ requirement_id: o.requirement_id, requirement: o.requirement, scopes: o.scopes, request_lines: o.v.n,
+    contract_value: o.ce == null ? '' : zbR2_(o.ce), planned: zbR2_(o.v.planned), requested: zbR2_(o.v.requested), not_yet_requested: zbR2_(o.v.left),
+    paid: zbR2_(o.v.paid), unpaid: zbR2_(o.v.unpaid) });
+  const tot = out.reduce((a, o) => add(a, o.v), zero), ceTot = out.reduce((a, o) => a + (o.ce || 0), 0);
+  return { project_id: pid, money: 'PHP; contract_value = the CE value (blank = no CE value); spent = paid', requirements: out.map(view),
+    total: view({ requirement_id: '', requirement: 'Total', scopes: scopes.length, ce: ceTot, v: tot }) };
+}
+/* Crew registration gaps: the Registered check of AutoDocs.gs (adReg_, AD_REG_: Raketeer #, mobile, address, bank, account name,
+ * account number) plus email (Kiko's decision card 12:49:32Z), per person on the Resources of active projects (or one project).
+ * The crew-email "Registered" line itself is unchanged. A name the Rocketeer Database can't tell apart is listed as two matches. */
+const zbCrewReg_ = () => AD_REG_.slice(0, 2).concat([['email', 'email']], AD_REG_.slice(2));   // a function: AutoDocs.gs may load after this file
+function zbCrewGaps_(pid) {
+  const want = String(pid || '').trim(), P = {}, q = fsaQry_(), seen = {}, out = [], REG = zbCrewReg_();
+  getProjectsAll_().forEach(p => { P[norm_(p.id)] = p; });
+  const T = table_(SRC.TRI, 'Resource'), iP = col_(T, 'project id'), iR = col_(T, 'resource'), iRole = col_(T, 'role');
+  if (iP < 0 || iR < 0) return { project_id: want, checked: 0, people: [] };
+  let checked = 0;
+  T.rows.forEach(r => { const p = P[norm_(r[iP])];
+    if (!p || (want ? norm_(p.id) !== norm_(want) : !ciActive_(p)) || (iRole >= 0 && FSA_SKIP_ROLE_.test(String(r[iRole] || '').trim()))) return;
+    splitResources_(r[iR]).forEach(name => { name = String(name || '').trim().replace(/\s+/g, ' ');
+      const k = norm_(p.id) + '|' + normName_(name); if (!name || seen[k]) return; seen[k] = 1; checked++;
+      const m = fsaPerson_(name, q), row = { project_id: p.id, project: p.name || p.id, name: name };
+      if (m.many) out.push(Object.assign(row, { registered: false, status: 'Two matches', missing: [], note: 'More than one person in the Rocketeer Database fits this name. Check by hand.' }));
+      else if (!m.p) out.push(Object.assign(row, { registered: false, status: 'Not registered', missing: [] }));
+      else { const miss = REG.filter(f => adRegBlank_(m.p[f[0]])).map(f => f[1]);
+        if (miss.length) out.push(Object.assign(row, { registered: false, status: 'Incomplete details', missing: miss })); } }); });
+  out.sort((a, b) => String(a.project).localeCompare(String(b.project)) || String(a.name).localeCompare(String(b.name)));
+  return { project_id: want, details_checked: REG.map(f => f[1]), checked: checked, not_registered: out.filter(x => x.status === 'Not registered').length,
+    incomplete: out.filter(x => x.status === 'Incomplete details').length, people: out };
+}
+ZB_ACTIONS_.finance_daily_totals = { kind: 'read', needsProject: false, schema: { project_id: { type: 'string', re: ZB_PID_RE_ } },
+  run: (r) => zbFinDaily_((r.args || {}).project_id || r.project_id) };
+ZB_ACTIONS_.paid_request_details = { kind: 'read', needsProject: true, schema: { request_id: { type: 'string', re: /^AP-[A-Za-z0-9-]{3,40}$/ } },
+  run: (r) => zbPaidDetails_(r.project_id, String((r.args || {}).request_id || '').trim().toUpperCase()) };
+ZB_ACTIONS_.requirement_financials = { kind: 'read', needsProject: true, schema: {}, run: (r) => zbReqFin_(r.project_id) };
+ZB_ACTIONS_.crew_registration_gaps = { kind: 'read', needsProject: false, schema: { project_id: { type: 'string', re: ZB_PID_RE_ } },
+  run: (r) => zbCrewGaps_((r.args || {}).project_id || r.project_id) };
+ZB_GPT_ACTIONS_.push('finance_daily_totals', 'paid_request_details', 'requirement_financials', 'crew_registration_gaps');
 
 /* HELP-QA-2026-10-27 (Kiko 01:48Z "Can you store How to questions? and What is questions?", 02:00Z "Yes, Canvas tab", 02:34Z
  * "Yes, build it"; spec specs/help-qa-bank.md). The "Help Q&A" tab in the activity book holds How to and What is answers for
