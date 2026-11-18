@@ -88,7 +88,7 @@ test('DC4 the page: a moved line and a line its rule covers join the channel (no
 
 test('DC5 General: a moved line leaves only the approved question (Just this one / Yes, always, bottom right) or "Moved to X."; only Cue\'s saved lines can be dragged; drop targets are Jobs and Systems rows', () => {
   const m = DC_SRC.slice(DC_SRC.indexOf('  function renderMain(th) {'), DC_SRC.indexOf('  function renderMain(th) {') + 2500);
-  assert.ok(/if \(mc && chanAt\(th, mc\)\) \{ h \+= movedHtml\(m, mc, th\); return; \}/.test(m));
+  assert.ok(/if \(mc && \(chanAt\(th, mc\) \|\| mc === 'sys:dismissed'\)\) \{ h \+= movedHtml\(m, mc, th\); return; \}/.test(m));
   assert.ok(DC_SRC.includes("'<div class=\"card mvask\"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '</b>'") && DC_SRC.includes("Also send future <b>' + esc(srcName(m.src)) + '</b> messages to ' + esc(nm) + '? You can remove this in Settings › Channel rules.</div>'"));
   assert.ok(DC_SRC.includes('<button class="btn ghost" data-mv-ans="0">Just this one</button><button class="btn" data-mv-ans="1">Yes, always</button>'));
   assert.ok(/\.card\.mvask \.actions \{ justify-content:flex-end; \}/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8')));

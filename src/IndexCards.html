@@ -763,7 +763,7 @@
   // AGENT-DRAFTS-2026-11-13 (CueAgentDrafts.gs): one agent's draft, the two screens Kiko approved on 13 Nov 2026 08:34:57Z. The email
   // card: Send (after an optional Edit), Rewrite with Cue (his note, one AI call), Send back to agent, Reject. A requirements list:
   // Save to Canvas instead of Send, each requirement editable. Canvas sends or saves once, from its own records.
-  var AGD_FROM = { payment_sent: 'AccountsPayables@', signature_chaser: 'freelancers@', accreditation_chaser: 'Your Gmail, suppliers@ in CC', rfp: 'Your Gmail' };
+  var AGD_FROM = { payment_sent: 'AccountsPayables@', signature_chaser: 'freelancers@', accreditation_chaser: 'Your Gmail, suppliers@ in CC', rfp: 'Your Gmail', client_question: 'Your Gmail' };   // CLIENT-QUESTION-2026-11-18: client_question
   var AGD_PILL = { 'Waiting for Kiko': ['warn', 'Waiting for you'], Sending: ['', 'Sending'], Sent: ['good', 'Sent'], Saved: ['good', 'Saved'], Failed: ['crit', 'Failed'],
     Rejected: ['', 'Rejected'], 'Sent back': ['', 'Sent back'], Dropped: ['', 'Not sent: no longer due'] };
   // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:10:27Z): an agent's handover update. Read only, with Mark read; nothing is sent.
@@ -1012,13 +1012,16 @@
       if (due) f.push(['Still due', due]);
       h += '<table class="facts" style="margin-top:8px">' + f.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') + '</table>';
       var own = A.type === 'fsa_send' || A.type === 'ar_send';
+      // CLIENT-QUESTION-2026-11-18: a reply-all keeps the client thread's own subject, so it shows no subject box.
+      var ra = A.type === 'client_question' && /^Reply-all/.test(A.recipient || '');
       h += '<div class="card" style="margin:8px 0 0;background:var(--input)">'
-        + (ed && wait ? (own ? '' : '<label class="small"><b>Subject</b><input type="text" data-agd-subject="' + id + '" value="' + esc(A.subject) + '" style="width:100%"></label>')
+        + (ed && wait ? (own || ra ? '' : '<label class="small"><b>Subject</b><input type="text" data-agd-subject="' + id + '" value="' + esc(A.subject) + '" style="width:100%"></label>')
             + '<textarea data-agd-body="' + id + '" rows="10" style="width:100%;margin-top:6px">' + esc(A.body) + '</textarea>'
-          : '<div class="small"><b>Subject:</b> ' + (own ? '<span class="muted">Canvas\'s own subject</span>' : esc(A.subject)) + '</div>'
+          : '<div class="small"><b>Subject:</b> ' + (own ? '<span class="muted">Canvas\'s own subject</span>' : ra ? '<span class="muted">Re: the thread\'s own subject</span>' : esc(A.subject)) + '</div>'
             + '<div class="small" style="white-space:pre-wrap;margin-top:6px">' + esc(A.body) + '</div>')
         + (own ? '<div class="small muted" style="margin-top:6px">These are the opening words. Canvas adds the ' + (A.type === 'fsa_send' ? 'FSA sign link' : 'receipt') + ' as it does today.</div>' : '')
-        + (A.type === 'rfp' ? '<div class="small muted" style="margin-top:6px">Canvas adds "Hi" and the contact\'s name at the top and your sign-off at the bottom.</div>' : '') + '</div>';
+        + (A.type === 'rfp' ? '<div class="small muted" style="margin-top:6px">Canvas adds "Hi" and the contact\'s name at the top and your sign-off at the bottom.</div>' : '')
+        + (ra ? '<div class="small muted" style="margin-top:6px">Goes to everyone on the last email in the client\'s thread, as Reply all does.</div>' : '') + '</div>';
       if (A.edited) h += '<div class="small muted" style="margin-top:4px">' + (A.rewritten ? 'Rewritten by Cue from your note.' : 'Edited by you.') + ' Canvas sends these words.</div>';
     }
     if (!wait) {
@@ -1029,7 +1032,7 @@
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
     if (wait) {
       h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="'
-        + (req ? 'What should change? e.g. add a stage, make the host bilingual' : 'What should change? e.g. firmer, mention the due date') + '">'
+        + (req ? 'What should change? e.g. add a stage, make the host bilingual' : A.type === 'client_question' ? 'Your answer for the agent, or what should change' : 'What should change? e.g. firmer, mention the due date') + '">'
         + '<button class="btn ghost sm" data-act="agd-rewrite" data-id="' + id + '">Rewrite with Cue</button></div>'
         + '<div class="actions">' + (req ? '<button class="btn" data-act="agd-save" data-id="' + id + '">Save to Canvas</button>'
           : '<button class="btn" data-act="agd-send" data-id="' + id + '">Send</button>' + (ed ? '<button class="btn ghost" data-act="cancel-edit" data-id="' + id + '">Cancel edit</button>' : '<button class="btn ghost" data-act="edit" data-id="' + id + '">Edit</button>'))

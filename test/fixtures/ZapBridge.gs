@@ -3048,8 +3048,9 @@ ZB_ACTIONS_.draft_add = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
     type: { type: 'string', required: true, oneOf: ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'signature_chaser', 'ar_chaser',
-      'invoice_chaser', 'accreditation_chaser', 'rfp', 'requirements'] },
+      'invoice_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'client_question'] },   // CLIENT-QUESTION-2026-11-18 (AgentDrafts.gs)
     project_id: { type: 'string', re: ZB_PID_RE_ }, item: { type: 'string', max: 300 }, supplier: { type: 'string', max: 150 },
+    thread_id: { type: 'string', re: /^[0-9a-f]{6,32}$/i },   // CLIENT-QUESTION-2026-11-18: the client's Gmail thread in Kiko's mailbox, when known
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 },
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ }, replaces: { type: 'string', re: /^DRF-\d{4,6}$/ } },
   run: (r) => { try { return agdAdd_(r); } catch (e) { return zbGptRefusal_(e); } },

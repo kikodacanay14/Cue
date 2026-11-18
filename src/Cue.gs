@@ -15,6 +15,7 @@ const CUE_DEV_ = false;
 const CUE_TABS_ = {
   Requests: ['ID', 'Created', 'Status', 'Stage', 'Text', 'AI calls', 'Seconds to card', 'Seconds total', 'Flag', 'Updated', 'Data 1', 'Data 2', 'Data 3', 'Data 4', 'Data 5', 'Data 6', 'Data 7', 'Data 8', 'Data 9', 'Data 10'],
   Chat: ['Time', 'Who', 'Text', 'Request'],
+  Dismissed: ['Key', 'Dismissed at', 'Who', 'Time', 'Text'],   // messages Kiko dismissed, not General lines (CueFlags.gs, CUE-MSG-MENU-2026-11-18)
   Flagged: ['Key', 'Flagged at', 'Kind', 'From', 'Who', 'Time', 'Text', 'Thread'],   // messages Kiko flagged to get back to (CueFlags.gs)
   'AI Runs': ['Time', 'Request', 'Step', 'Provider', 'Model', 'Input tokens', 'Output tokens', 'Cost (USD)', 'Seconds', 'Status', 'Note'],
   'Inbox Chats': ['Chat ID', 'Provider', 'Label', 'Status', 'OpenAI response ID', 'Read token hash', 'Created', 'Project ID', 'Role'],   // team inbox chats (CueInbox.gs); Project ID: a project chat made from a Canvas project (CueInboxProjects.gs)
@@ -1047,6 +1048,7 @@ function cueStateJob_(s) {
  * agent update or a job report that came before that time out of the channel's number. Drafts waiting for his Approve or Reject still
  * count. Cue only: nothing is marked read in Canvas. Kept in script property CUE_CHAN_SEEN, newest 200 keys. */
 const CUE_SEEN_KEEP_ = 200;
+function cueStateDismissed_() { try { return cueDismissed_(); } catch (e) { console.error('cueDismissed_: ' + e); return []; } }   // CUE-MSG-MENU-2026-11-18
 function cueStateFlags_() { try { return cueFlags_(); } catch (e) { console.error('cueFlags_: ' + e); return []; } }   // CUE-FLAG-2026-11-18
 function cueSeenMap_() {
   try { const o = JSON.parse(cueProp_('CUE_CHAN_SEEN', '{}')); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
@@ -1117,7 +1119,7 @@ function cueState() {
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
   // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
   let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), flags: chk ? [] : cueStateFlags_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), flags: chk ? [] : cueStateFlags_(), dismissed: chk ? [] : cueStateDismissed_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

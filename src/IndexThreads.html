@@ -42,6 +42,7 @@
   function reviewN(t, k) {
     return t.reqs.filter(function (r) {
       if (k && seenOut(t, k, r)) return false;
+      if (isDismissed('r:' + r.id)) return false;   // CUE-MSG-MENU-2026-11-18: a dismissed message is out of the count
       if (r.agd) { var a = String(r.agd.status || ''); return a === 'Waiting for Kiko' || a === 'Unread'; } return isNeed(r);
     }).length;
   }
@@ -98,6 +99,51 @@
     e.stopPropagation(); e.preventDefault();
     if (b.hasAttribute('data-flag')) return flagToggle(b.getAttribute('data-flag'));
     var k = b.getAttribute('data-flag-open'); if (k) goThread(k); else goGeneral();
+  }, true);
+  /* CUE-MSG-MENU-2026-11-18 (Kiko 18 Nov 2026 10:13:48Z "for the messages we should have a ... and when clicked it would show Reply,
+   * Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?").
+   * One ⋯ button beside each Cue or agent message (on hover; always shown on a phone) opens Reply (when the message names a task),
+   * Flag or Unflag, and Dismiss. While a message is flagged its filled flag stays beside the ⋯. Dismiss hides the message:
+   * a General line goes to the hidden sys:dismissed channel and is asked "Why?" like a move (its answer can become a channel rule
+   * that hides later messages like it, listed in Settings › Channel rules); any other message is hidden by its key (CueFlags.gs
+   * cueDismiss) with Undo in its place. */
+  function isDismissed(key) { return !!key && (state.dismissed || []).indexOf(key) >= 0; }
+  function moreBtn(o) {   // o: { reply: task id or '', flag: flag item or null }
+    var f = o.flag, on = !!f && isFlagged(f.key); if (f) flagMap[f.key] = f;
+    if (!o.reply && !f) return '';
+    return '<button class="rp more" data-more="1" aria-haspopup="menu" aria-expanded="false" title="More" aria-label="More for this message">' + icon('more') + '</button>'
+      + (on ? flagBtn(f) : '')
+      + '<div class="msgmenu" role="menu" hidden>'
+      + (o.reply ? '<button role="menuitem" data-reply="' + esc(o.reply) + '">Reply</button>' : f ? '<button role="menuitem" data-reply-q="' + esc(f.key) + '">Reply</button>' : '')
+      + (f ? '<button role="menuitem" data-flag="' + esc(f.key) + '">' + (on ? 'Unflag' : 'Flag') + '</button>'
+        + '<button role="menuitem" data-dismiss="' + esc(f.key) + '">Dismiss</button>' : '') + '</div>';
+  }
+  function menusShut(keep) { document.querySelectorAll('.msgmenu').forEach(function (x) { if (x !== keep) { x.hidden = true; var b = x.parentNode && x.parentNode.querySelector('[data-more]'); if (b) b.setAttribute('aria-expanded', 'false'); } }); }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-more]');
+    if (!b) { menusShut(null); return; }
+    e.stopPropagation(); e.preventDefault();
+    var mn = b.parentNode.querySelector('.msgmenu'); if (!mn) return;
+    menusShut(mn); mn.hidden = !mn.hidden; b.setAttribute('aria-expanded', String(!mn.hidden));
+  }, true);
+  var undoDis = {};   // keys dismissed in this visit: their place shows "Dismissed. Undo" until Cue is reopened
+  function dismissKey(key, on) {
+    var it = flagMap[key] || {}, was = (state.dismissed || []).slice();
+    state.dismissed = on ? [key].concat(was.filter(function (k) { return k !== key; })) : was.filter(function (k) { return k !== key; });
+    if (on) undoDis[key] = 1; else delete undoDis[key];
+    renderChat(); renderThreadList(threads());
+    call('cueDismiss', [{ key: key, who: it.who || '', time: it.time || '', text: String(it.text || '').slice(0, 2000) }, on], function (l) { if (Array.isArray(l)) state.dismissed = l; renderChat(); },
+      function (er) { state.dismissed = was; renderChat(); alertErr(er); });
+  }
+  function dismissedHtml(key) { return undoDis[key] ? '<div class="small muted mvnote">Dismissed. <button class="linkbtn" data-undismiss="' + esc(key) + '">Undo</button></div>' : ''; }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-dismiss], [data-undismiss], [data-dis-undo]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault(); menusShut(null);
+    if (b.hasAttribute('data-undismiss')) return dismissKey(b.getAttribute('data-undismiss'), false);
+    if (b.hasAttribute('data-dis-undo')) return chanUndo(mvRef[Number(b.getAttribute('data-dis-undo'))]);
+    var msg = b.closest('.msg'), mk = msg && msg.getAttribute('data-mvk');
+    if (mk && msg.hasAttribute('draggable')) return chanMove(mvRef[Number(mk)], 'sys:dismissed');   // a General line: hidden channel, then "Why?"
+    dismissKey(b.getAttribute('data-dismiss'), true);
   }, true);
   var seenSent = {};
   function markSeen(k) {   // note that Kiko opened channel k now; one call per channel per 30 s
@@ -400,6 +446,7 @@
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
       var rp = !ref && box === $('box') && !files.length ? replyTo : ''; if (rp) setReply('');
+      if (!rp && replyQ && box === $('box')) { t = withQuote(replyQ, t); setReply(''); }   // CUE-MSG-MENU-2026-11-18: the quoted message goes first
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
@@ -639,7 +686,7 @@
   var CHAN_OLD = { 'job:sweep': 'job:updates', 'job:sales': 'job:updates', 'job:funnel': 'job:updates' };   // lines moved or rules made before the merge
   function chanNow(c) { var k = String(c || ''); return CHAN_OLD[k] || k; }
   var JOB_NAME = { 'job:bids': 'Bid Opportunities', 'job:updates': 'Routine Checks', 'job:status': 'Friday status', 'job:friday': 'Friday events',
-    'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts', 'proc:projects': 'Project Intake' };
+    'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts', 'proc:projects': 'Project Intake', 'sys:dismissed': 'Hidden (dismissed)' };
   function chanKey(r) {
     if (!r) return '';
     if (r.agd && r.agd.agent) return /^cue dev\b/i.test(agdLabel(r.agd.agent)) ? 'sys:updates' : '';
@@ -704,6 +751,7 @@
       if (m.request_id && m.request_id.charAt(0) === '>') { var pc = lineChan(m), pat = pc === 'sys:alerts' ? pc : pc && jbRoot[pc]; if (pat) get(pat).lines.push(m); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post
       if (!m.request_id) {   // CUE-DRAG-TO-CHANNEL-2026-11-18: a General line Kiko moved, or one his rule sends, joins its channel; then the alerts
         var c = lineChan(m), at = c === 'sys:alerts' ? c : c && jbRoot[c];
+        if (c === 'sys:dismissed') return;   // CUE-MSG-MENU-2026-11-18: dismissed, shown nowhere
         if (at) get(at).lines.push(m);
         else if (m.who === 'Cue' && ALERT_RE.test(String(m.text || ''))) get('sys:alerts').lines.push(m);
         return;
@@ -860,6 +908,7 @@
       var mx = String(m.text || '').match(/^([\s\S]*?)\s*\[agm:([A-Za-z0-9]{8,40})\]$/);
       return '<div class="err agm">' + esc(mx ? mx[1] : m.text) + (mx ? ' <button class="linkbtn" data-agm-retry="' + esc(m.request_id || '') + '" data-agm-mid="' + mx[2] + '">Try again</button>' : '') + '</div>';
     }
+    var fit = lineFlagItem(m); if (fit && isDismissed(fit.key)) return dismissedHtml(fit.key);   // CUE-MSG-MENU-2026-11-18
     var pq = askOf(m), plan = pq && pq.open && pq.choices.indexOf('go') >= 0;   // tutor mode: the plan card stands out like a card that needs Kiko
     // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): a Cue bubble that names a task gets ↩ Reply
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
@@ -868,7 +917,7 @@
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
     var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
     return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + body + askHtml(m)
-      + (rid ? '<button class="rp" data-reply="' + esc(rid) + '" title="Reply" aria-label="Reply to this message">\u21a9</button>' : '') + flagBtn(lineFlagItem(m)) + '</div>';
+      + moreBtn({ reply: rid, flag: fit }) + '</div>';   // CUE-MSG-MENU-2026-11-18: ⋯ holds Reply, Flag and Dismiss
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
   function replyTitle(id) {
@@ -876,15 +925,26 @@
     var t = line ? String(line.text || '').split('\n')[0] : '', r = byId()[id];
     return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
   }
-  var replyTo = '';   // the task id Kiko is replying to from the main chat box
-  function setReply(id) {
-    replyTo = id || ''; var bar = $('replybar'); if (!bar) return;
-    bar.hidden = !replyTo; $('replyto').textContent = replyTo ? replyTitle(replyTo) : '';
-    if (replyTo) $('box').focus();
+  var replyTo = '', replyQ = '';   // the task id Kiko is replying to from the main chat box; or the quoted message (no task)
+  function setReply(id, q) {
+    replyTo = id || ''; replyQ = !replyTo && q ? q : ''; var bar = $('replybar'); if (!bar) return;
+    bar.hidden = !replyTo && !replyQ; $('replyto').textContent = replyTo ? replyTitle(replyTo) : replyQ;
+    if (replyTo || replyQ) $('box').focus();
   }
+  /* CUE-MSG-MENU-2026-11-18 (Kiko 10:22:25Z "how come there is no reply?"): Reply is on every Cue and agent message. A message that
+   * names no task is quoted: in the main chat the "Replying to" strip shows it and Kiko's message goes out with the quote first; in a
+   * channel the quote line is put at the top of its reply box. */
+  function quoteOf(key) { var it = flagMap[key] || {}; return (String(it.who || 'Cue') + ': ' + String(it.text || '').replace(/\s+/g, ' ')).slice(0, 160); }
+  function withQuote(q, t) { return 'Replying to ' + q + '\n\n' + t; }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-reply], #replyx'); if (!b) return;
-    e.stopPropagation(); setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
+    var b = e.target.closest && e.target.closest('[data-reply], [data-reply-q], #replyx'); if (!b) return;
+    e.stopPropagation();
+    if (b.hasAttribute('data-reply-q')) {
+      var q = quoteOf(b.getAttribute('data-reply-q'));
+      if (b.closest('#tmsgs')) { var tb = $('tbox'); tb.value = withQuote(q, tb.value.replace(/^Replying to [^\n]*\n\n/, '')); tb.focus(); tb.setSelectionRange(tb.value.length, tb.value.length); return; }
+      return setReply('', q);
+    }
+    setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
   }, true);
   var pressT = 0;   // a long press on a phone
   document.addEventListener('touchstart', function (e) {
@@ -1059,7 +1119,7 @@
       var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) {
         var mc = lineChan(m);   // CUE-DRAG-TO-CHANNEL-2026-11-18: a moved line leaves General; the question or a short note stays in its place
-        if (mc && chanAt(th, mc)) { h += movedHtml(m, mc, th); return; }
+        if (mc && (chanAt(th, mc) || mc === 'sys:dismissed')) { h += movedHtml(m, mc, th); return; }
         if (!(m.who === 'Cue' && ALERT_RE.test(String(m.text || '')))) h += mvAttr(msgHtml(m), m);   // an alert line lives in Systems › Alerts
         return;
       }
@@ -1070,7 +1130,7 @@
       if (m.request_id.charAt(0) === '@') return;   // AGENT-TAG-2026-11-15: Kiko's @agent message and the answer are in the agent's channel too
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to0 = rootOf(m.request_id.slice(1), by), pt = thOf(th, to0), to = pt ? pt.root : to0;
-        var pmc = lineChan(m); if (pmc && chanAt(th, pmc)) { h += movedHtml(m, pmc, th); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post leaves General
+        var pmc = lineChan(m); if (pmc && (chanAt(th, pmc) || pmc === 'sys:dismissed')) { h += movedHtml(m, pmc, th); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post leaves General
         // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
         // pointers (updates, "Summary for …") live in the thread only.
         // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
@@ -1109,6 +1169,7 @@
   function movedHtml(m, c, th) {
     var nm = chanName(c, th), k = mvKey(m);
     var ps = srcParts(m.src);
+    if (c === 'sys:dismissed') return disAskHtml(m, ps, k);   // CUE-MSG-MENU-2026-11-18
     // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:24:17Z "there should be a question as to why i moved it there - its probably because of
     // sender, content"): an email asks why, with its sender and its kind as the reasons; the answer becomes the rule.
     if (/\?$/.test(String(m.mv || '')) && ps.length > 1) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '. Why here?</b>'
@@ -1120,6 +1181,29 @@
       + '<div class="small muted">Also send future <b>' + esc(srcName(m.src)) + '</b> messages to ' + esc(nm) + '? You can remove this in Settings › Channel rules.</div>'
       + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button><button class="btn" data-mv-ans="1">Yes, always</button></div></div>';
     return justMoved[k] ? '<div class="small muted mvnote">Moved to ' + esc(nm) + '.</div>' : '';
+  }
+  // CUE-MSG-MENU-2026-11-18 (Kiko 10:14:18Z "it will then ask a reason why right?"): a dismissed General line asks why, with the same
+  // reasons as a move; any answer but Just this one hides later messages like it (a rule in Settings › Channel rules). Undo brings it back.
+  function disAskHtml(m, ps, k) {
+    var tag = mvTag(m), u = '<button class="linkbtn" data-dis-undo="' + (mvRef.length - 1) + '">Undo</button>';
+    // Kiko 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender": an email's subject
+    // is a reason too; its words become the rule (later emails with all of them are hidden). Order: just this, subject, sender, kind.
+    var sm = ps.some(function (p) { return /^mail:/.test(p); }) && String(m.text || '').match(/(?:^|\n)Subject:\s*(.+)/);
+    var subj = sm ? sm[1].replace(/^((re|fwd?|fw)\s*:\s*)+/i, '').toLowerCase().replace(/[^a-z0-9@.&' ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+    if (subj) subj = 'words:' + subj;
+    var btn = function (p) { return '<button class="btn" data-mv-ans="1" data-mv-part="' + esc(p) + '">' + esc(/^mail:/.test(p) ? 'This sender' : /^type:/.test(p) ? 'All ' + p.slice(5) + ' emails' : 'All ' + srcName(p) + ' messages') + '</button>'; };
+    if (/\?$/.test(String(m.mv || '')) && ps.length) return '<div class="card mvask"' + tag + '><b>Dismissed. Why?</b>'
+      + '<div class="small muted">Cue hides later messages the same way. You can remove this in Settings › Channel rules. ' + u + '</div>'
+      + '<div class="actions"><button class="btn ghost" data-mv-ans="0">' + (subj ? 'Just this email' : 'Just this one') + '</button>'
+      + (subj ? '<button class="btn" data-mv-ans="1" data-mv-part="' + esc(subj) + '">This subject</button>' : '')
+      + ps.filter(function (p) { return /^mail:/.test(p); }).map(btn).join('') + ps.filter(function (p) { return !/^mail:/.test(p); }).map(btn).join('')
+      + (ps.some(function (p) { return /^mail:/.test(p); }) ? '<button class="btn ghost" data-mv-ans="1" data-mv-why="1">Something else…</button>' : '') + '</div></div>';
+    return justMoved[k] ? '<div class="small muted mvnote"' + tag + '>Dismissed. ' + u + '</div>' : '';
+  }
+  function chanUndo(o) {
+    var m = mvFind(o); if (!m) return;
+    var was = m.mv; delete m.mv; delete justMoved[mvKey(m)]; renderChat();
+    call('cueChanUndo', [m.time, m.who, m.text], function () { renderChat(); }, function (e) { m.mv = was; renderChat(); alertErr(e); });
   }
   function mvFind(o) { return o && state.chat.filter(function (x) { return x.time === o.time && x.who === o.who && x.text === o.text; })[0]; }
   function mvLine(k) { return mvFind(mvRef[Number(k)]); }
@@ -1134,7 +1218,8 @@
     var b = e.target.closest('[data-mv-ans]'), box = b && b.closest('.mvask'); if (!box) return;
     var all = b.getAttribute('data-mv-ans') === '1', m = mvLine(box.getAttribute('data-mvk')); if (!m) return;
     if (b.hasAttribute('data-mv-why')) {   // "Something else…": Kiko types why; later emails with those words follow
-      return ask('Why did you move it here?', 'Type the words that make it belong there, for example RFQ videographer. Later emails that have all of them go there too.', 'RFQ videographer', 'Save', function (v) {
+      var dis = /^sys:dismissed/.test(String(m.mv || ''));   // CUE-MSG-MENU-2026-11-18
+      return ask(dis ? 'Why dismiss it?' : 'Why did you move it here?', dis ? 'Type the words that make it unwanted, for example newsletter. Later emails that have all of them are hidden too.' : 'Type the words that make it belong there, for example RFQ videographer. Later emails that have all of them go there too.', dis ? 'newsletter' : 'RFQ videographer', 'Save', function (v) {
         var w = String(v || '').toLowerCase().replace(/[^a-z0-9@.&' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80); if (w) mvAnswer(m, true, 'words:' + w); });
     }
     box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
@@ -1289,12 +1374,13 @@
     return /^.{1,60} (posted a handover update: |drafted an? )/.test(String(m.text || '')) || /^You replied/.test(String(m.text || ''));
   }
   function agentBubble(r) {
+    if (isDismissed('r:' + r.id)) return dismissedHtml('r:' + r.id);   // CUE-MSG-MENU-2026-11-18
     var A = r.agd || {}, st = String(A.status || ''), open = r.id in agdOpen ? agdOpen[r.id] : st === 'Waiting for Kiko';
     var tag = st === 'Waiting for Kiko' ? '<span class="tag warn">Needs you</span>' : st === 'Unread' ? '<span class="tag warn">Unread</span>' : st === 'Failed' ? '<span class="tag crit">Failed</span>' : '';
     var h = '<div class="msg cue agmsg"' + (msgWhen(r.created) ? ' data-t="' + esc(msgWhen(r.created)) + '"' : '') + '><span class="who">' + esc(agdLabel(A.agent)) + '</span>'
       + '<span class="agtx">' + agKv(noTok(agentSays(r))) + '</span>'
       + '<span class="agft">' + tag + '<button class="linkbtn" data-agd-open="' + esc(r.id) + '" aria-expanded="' + !!open + '">' + (open ? 'Hide details' : 'Details') + '</button></span>'
-      + flagBtn({ key: 'r:' + r.id, from: agdLabel(A.agent), who: agdLabel(A.agent), time: r.created || '', text: noTok(agentSays(r)), thread: '' }) + '</div>';
+      + moreBtn({ reply: '', flag: { key: 'r:' + r.id, from: agdLabel(A.agent), who: agdLabel(A.agent), time: r.created || '', text: noTok(agentSays(r)), thread: '' } }) + '</div>';
     var c = open ? cardOf(r) : '';
     return h + (c ? '<div class="tcardw agcard">' + c + '</div>' : '');
   }

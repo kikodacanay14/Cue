@@ -5,7 +5,7 @@
 Asked: Kiko, 18 Nov 2026 12:09:30Z: "We can approve it by requirement so that other items are already started to be worked on";
 12:10:28Z: "please update cue card. maybe do check boxes for each requirement". Mockup
 https://claude.ai/artifact/EtosX5ZVgNR4TVY8mQ7PZS approved 12:14:32Z: "approved. this still expands to show description and image".
-Slot cue-1.28.101, card agent-req-tick. Built on main 176f0ca.
+Slot cue-1.28.101, card agent-req-tick. Built on main 176f0ca; main merged in after 1.28.99 and 1.28.100 went live.
 
 - On an agent's approval request (Waiting for approval), the Open requirements panel shows a tick box on each requirement and one
   at the top that ticks every line that is ready. Boxes start unticked.
@@ -15,7 +15,34 @@ Slot cue-1.28.101, card agent-req-tick. Built on main 176f0ca.
   out when nothing is ticked), then "Q1: answer" per answer. A line approved in an earlier reply shows Approved; a plain reply
   "approve" approves every line. Nothing goes to the client.
 - Tapping a row still opens it to show description and pictures; tapping the tick box does not.
-- Tests: ART1 to ART5 new; AUP2 expects the extra tick column. 930/930 pass.
+- Tests: ART1 to ART5 new; AUP2 expects the extra tick column. 930/930 on its own; 941/941 with 1.28.99 and 1.28.100 merged in.
+
+## Cue 1.28.99: a ⋯ menu on each message with Reply, Flag and Dismiss (live as Version 269, 18 Nov 2026 12:16Z; rollback Version 268)
+
+Asked by Kiko, 18 Nov 2026 10:13:48Z: "for the messages we should have a ... and when clicked it would show Reply, Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?"; 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender".
+
+- Each Cue or agent message has one ⋯ button (on hover; always shown on a phone) in place of the separate reply and flag buttons. It opens Reply, Flag or Unflag, and Dismiss. Reply on a message that belongs to a task answers that task as before; on any other message (Kiko 10:22:25Z "how come there is no reply?") it quotes the message, and Kiko's message goes out with "Replying to <who>: <message>" first. A flagged message keeps its filled flag beside the ⋯.
+- Dismiss on a General line hides it and asks "Dismissed. Why?": Just this email, This subject, This sender, All <type> emails, or Something else (typed words). Any answer except Just this one saves a rule that hides later messages like it; the rule is listed in Settings › Channel rules as "Hidden (dismissed)" and Remove stops it. Undo brings the line back.
+- Dismiss on any other message (a channel line, an agent message) hides it with Undo in its place; the Dismissed tab of the Cue sheet keeps a copy. A dismissed agent message leaves the channel's number.
+- Nothing is sent and nothing in Canvas changes.
+- Tests: 929/929 on its own; 936/936 together with 1.28.100, which went live first as Version 268 and is included in this release.
+
+## Cue 1.28.100: agents can draft a question to the client; your Send sends it from your Gmail (live as Version 268, 18 Nov 2026 12:12Z; rollback Version 267)
+
+Asked: Kiko, 18 Nov 2026 10:22:01Z: "Add Agent Drafts type client_question. When the client's Gmail thread is known, send a
+reply-all in that thread. Otherwise send a new email to the project's main client contact (PROJ Contacts, else Client Desk). If
+there's no contact, refuse. It is sent only on Kiko's Send tap, from his Gmail via the RFP Outbox. Send back carries Kiko's
+answer to the agent and sends nothing." Slot cue-1.28.100, card agent-client-question, CanvasWorkspace ADR-0217. Needs the
+Canvas client_question release; ship Cue first. Kiko typed "go ship cue 1.28.100" at 12:11:13Z; Deploy Cue run
+44301757544 (check run 44301618244 showed only CueAgentDrafts.gs, CueRfpSend.gs and IndexCards.html differ from Version 267).
+It does not carry 1.28.99, which another thread rebuilds on top of it.
+
+- A client question shows as a card in the agent's thread, From: Your Gmail. A reply-all card says so and has no subject box,
+  because it keeps the thread's own subject. The note box reads "Your answer for the agent, or what should change".
+- The RFP sender sends a client question from your Gmail. With the client's thread it is a reply-all: everyone on the last
+  email (Reply-To, else From, plus To; Cc kept), you left out, under "Re:" the thread subject. A thread Gmail can't open, or
+  one with nobody but you, fails with the reason and sends nothing.
+- Bridge copy refreshed (draft_add client_question, thread_id). Tests: CQ1 to CQ7 new; 932/932 pass.
 
 ## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (live as Version 267, 18 Nov 2026 10:08Z; rollback Version 266. Version 266, 09:11Z, carried all of it except 1.28.97's last change, Project and Process Updates, which Version 267 adds)
 

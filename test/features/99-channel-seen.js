@@ -17,7 +17,7 @@ test('SEEN2 the number goes to 0 when Kiko opens the channel or thread (Kiko 08:
   const b = CS_SRC.indexOf('  var NEED = {'), e = CS_SRC.indexOf('  var OLDK = {');
   const a = CS_SRC.indexOf('  function seenOut('), z = CS_SRC.indexOf('\n  }\n', CS_SRC.indexOf('  function reviewN(')) + 4;
   const ctx = { state: { seen: { ag: '2026-11-18T08:00:00Z', 'job:updates': '2026-11-18T08:00:00Z', task1: '2026-11-18T08:00:00Z' } } };
-  vm.runInNewContext(CS_SRC.slice(b, e) + CS_SRC.slice(a, z) + '\nthis.reviewN = reviewN;', ctx);
+  vm.runInNewContext(CS_SRC.slice(b, e) + CS_SRC.slice(a, z) + '\nfunction isDismissed() { return false; }\nthis.reviewN = reviewN;', ctx);
   const old = '2026-11-18T07:00:00Z', fresh = '2026-11-18T08:30:00Z';
   const agent = { reqs: [{ agd: { status: 'Unread' }, created: old }, { agd: { status: 'Unread' }, created: old }, { agd: { status: 'Waiting for Kiko' }, created: old }, { agd: { status: 'Unread' }, created: fresh }] };
   assert.strictEqual(ctx.reviewN(agent), 4, 'before opening: every open item');

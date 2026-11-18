@@ -45,7 +45,7 @@ test('JU5 General shows no "Earlier task" thread row under a message; the messag
 test('JU6 an email\'s post in General can be dragged; once moved it joins the channel and leaves General; the email chat\'s own lines stay in that chat; a press and move never selects text', () => {
   assert.ok(JU_SRC.includes("if (!m || (m.request_id && m.request_id.charAt(0) !== '>')) return '';"), 'a pointer line can have a channel');
   assert.ok(JU_SRC.includes("if (m.request_id && m.request_id.charAt(0) === '>') { var pc = lineChan(m), pat = pc === 'sys:alerts' ? pc : pc && jbRoot[pc]; if (pat) get(pat).lines.push(m); return; }"));
-  assert.ok(JU_SRC.includes("var pmc = lineChan(m); if (pmc && chanAt(th, pmc)) { h += movedHtml(m, pmc, th); return; }"));
+  assert.ok(JU_SRC.includes("var pmc = lineChan(m); if (pmc && (chanAt(th, pmc) || pmc === 'sys:dismissed')) { h += movedHtml(m, pmc, th); return; }"));
   assert.ok(JU_SRC.includes("if (by[root] && MAIL_ONLY[by[root].kind]) return;"));
   const mc = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueMailChat.gs'), 'utf8');
   assert.ok(mc.includes("'>' + id, cueMailSrc_(it, '')]") && mc.includes("pointers.forEach(p => cueChat_(p[0], p[1], p[2], p[3]));"), 'the post names its sender');
