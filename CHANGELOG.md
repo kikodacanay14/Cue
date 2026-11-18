@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.101: tick the requirements you approve on the approval card (not deployed)
+## Cue 1.28.101: tick the requirements you approve on the approval card (live as Version 270, 18 Nov 2026 12:32Z; rollback Version 269)
 
 Asked: Kiko, 18 Nov 2026 12:09:30Z: "We can approve it by requirement so that other items are already started to be worked on";
 12:10:28Z: "please update cue card. maybe do check boxes for each requirement". Mockup
