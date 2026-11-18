@@ -574,12 +574,16 @@
     'msgr-crew': 'Messenger crew list', 'msgr-setup': 'Messenger setup', 'mail-type': 'New mail types', 'mail-project': 'New mail on projects', route: 'Could not start',
     reminder: 'Reminders', sched: 'Scheduled tasks', unsched: 'Unscheduled check', servicedesk: 'Service Desk', chaserrules: 'Chaser rule changes',
     closeolder: 'Close older runs', funnel: 'Sales funnel review', ticktick: 'TickTick connection' };
-  function srcName(k) { k = String(k || ''); return SRC_NAME[k] || (/^mail:/.test(k) ? 'Emails from ' + k.slice(5) : k); }   // CUE-JOBS-UPDATES-2026-11-18: one sender's emails
+  function srcName(k) { k = String(k || ''); return SRC_NAME[k] || (/^mail:/.test(k) ? 'Emails from ' + k.slice(5) : /^type:/.test(k) ? k.slice(5) + ' emails' : /^words:/.test(k) ? 'Emails with "' + k.slice(6) + '"' : k); }   // CUE-JOBS-UPDATES-2026-11-18: one sender's emails, one kind
+  // Kiko 06:26:46Z "have a prompt that will ask why": a rule from the words Kiko typed covers an email post that has all of them.
+  function wordsHit(src, ps, text) { if (!/^words:/.test(String(src || '')) || !ps.some(function (p) { return /^mail:/.test(p); })) return false;
+    var t = String(text || '').toLowerCase(); return String(src).slice(6).split(' ').every(function (w) { return t.indexOf(w) >= 0; }); }
+  function srcParts(s) { return String(s || '').split('|').filter(Boolean); }   // an email's sources: its sender and its type
   function lineChan(m) {
     if (!m || (m.request_id && m.request_id.charAt(0) !== '>')) return '';   // CUE-JOBS-UPDATES-2026-11-18: a pointer (an email's post) can move too
     if (m.mv) return String(m.mv).replace(/\?$/, '');
     if (!m.src) return '';
-    var t = String(m.time || ''), r = (state.chan_rules || []).filter(function (x) { return x.src === m.src && t >= String(x.at || '') && (!x.off || t < String(x.off)); })[0];
+    var t = String(m.time || ''), ps = srcParts(m.src), r = (state.chan_rules || []).filter(function (x) { return (ps.indexOf(x.src) >= 0 || wordsHit(x.src, ps, m.text)) && t >= String(x.at || '') && (!x.off || t < String(x.off)); })[0];
     return r ? String(r.chan || '') : '';
   }
   function chanName(c, th) { var t = th && chanAt(th, c) && th[chanAt(th, c)]; return t && t.reqs.length ? threadTitle(t) : JOB_NAME[c] || c; }
@@ -1011,6 +1015,14 @@
   }
   function movedHtml(m, c, th) {
     var nm = chanName(c, th), k = mvKey(m);
+    var ps = srcParts(m.src);
+    // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:24:17Z "there should be a question as to why i moved it there - its probably because of
+    // sender, content"): an email asks why, with its sender and its kind as the reasons; the answer becomes the rule.
+    if (/\?$/.test(String(m.mv || '')) && ps.length > 1) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '. Why here?</b>'
+      + '<div class="small muted">Cue sends later emails the same way. You can remove this in Settings › Channel rules.</div>'
+      + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button>' + ps.map(function (p) {
+        return '<button class="btn" data-mv-ans="1" data-mv-part="' + esc(p) + '">' + esc(/^mail:/.test(p) ? 'This sender' : /^type:/.test(p) ? 'All ' + p.slice(5) + ' emails' : srcName(p)) + '</button>'; }).join('')
+      + (ps.some(function (p) { return /^mail:/.test(p); }) ? '<button class="btn ghost" data-mv-ans="1" data-mv-why="1">Something else…</button>' : '') + '</div></div>';
     if (/\?$/.test(String(m.mv || '')) && m.src) return '<div class="card mvask"' + mvTag(m) + '><b>Moved to ' + esc(nm) + '</b>'
       + '<div class="small muted">Also send future <b>' + esc(srcName(m.src)) + '</b> messages to ' + esc(nm) + '? You can remove this in Settings › Channel rules.</div>'
       + '<div class="actions"><button class="btn ghost" data-mv-ans="0">Just this one</button><button class="btn" data-mv-ans="1">Yes, always</button></div></div>';
@@ -1028,12 +1040,19 @@
   $('msgs').addEventListener('click', function (e) {
     var b = e.target.closest('[data-mv-ans]'), box = b && b.closest('.mvask'); if (!box) return;
     var all = b.getAttribute('data-mv-ans') === '1', m = mvLine(box.getAttribute('data-mvk')); if (!m) return;
-    var c = String(m.mv || '').replace(/\?$/, ''), was = m.mv; m.mv = c; justMoved[mvKey(m)] = 1;
-    if (all && m.src) { state.chan_rules = (state.chan_rules || []).map(function (x) { return x.src === m.src && !x.off ? { src: x.src, chan: x.chan, at: x.at, off: m.time } : x; }).concat([{ src: m.src, chan: c, at: m.time }]); }
+    if (b.hasAttribute('data-mv-why')) {   // "Something else…": Kiko types why; later emails with those words follow
+      return ask('Why did you move it here?', 'Type the words that make it belong there, for example RFQ videographer. Later emails that have all of them go there too.', 'RFQ videographer', 'Save', function (v) {
+        var w = String(v || '').toLowerCase().replace(/[^a-z0-9@.&' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80); if (w) mvAnswer(m, true, 'words:' + w); });
+    }
     box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-    call('cueChanAnswer', [m.time, m.who, m.text, all], function () { renderChat(); }, function (er) { m.mv = was; renderChat(); alertErr(er); });
-    renderChat();
+    mvAnswer(m, all, b.getAttribute('data-mv-part') || srcParts(m.src)[0] || '');   // CUE-JOBS-UPDATES-2026-11-18: the reason picked (sender, kind or words)
   });
+  function mvAnswer(m, all, part) {
+    var c = String(m.mv || '').replace(/\?$/, ''), was = m.mv; m.mv = c; justMoved[mvKey(m)] = 1;
+    if (all && part) { state.chan_rules = (state.chan_rules || []).map(function (x) { return x.src === part && !x.off ? { src: x.src, chan: x.chan, at: x.at, off: m.time } : x; }).concat([{ src: part, chan: c, at: m.time }]); }
+    call('cueChanAnswer', [m.time, m.who, m.text, all, part], function () { renderChat(); }, function (er) { m.mv = was; renderChat(); alertErr(er); });
+    renderChat();
+  }
   // PC: drag a line onto a channel. The row under the pointer says "Drop to move here".
   $('msgs').addEventListener('dragstart', function (e) {
     var m = e.target.closest && e.target.closest('[data-mvk][draggable]'); if (!m) return;

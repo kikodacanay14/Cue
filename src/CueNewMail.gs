@@ -242,11 +242,15 @@ function cueNmKnown_(by, items) {
 }
 
 /** CUE-JOBS-UPDATES-2026-11-18 (Kiko 18 Nov 2026 06:20:21Z "im trying to move Jessica Allyns email in General but it wont move"): an
- * email's line in General names its sender as its source ("mail:jessica@example.com"), so a channel rule made from it moves that
- * sender's later emails only, not every email. No address: the old shared source. */
+ * email's line in General names its sender ("mail:jessica@example.com") and its type ("type:Client") as its source, joined by "|", so
+ * a channel rule made from it moves that sender's later emails, or that kind, as Kiko picks; not every email. Neither: the old source. */
 function cueMailSrc_(x, dflt) {
   const m = String((x && x.sender) || '').toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
-  return m ? 'mail:' + m[0] : dflt;
+  // Kiko 06:24:17Z "there should be a question as to why i moved it there - its probably because of sender, content": the email's
+  // type (Client, Supplier…, set by the sort with no extra AI call) rides along, so the question can offer "this kind of email" too.
+  const t = String((x && x.type) || '').replace(/[|\n]/g, ' ').trim().slice(0, 40);
+  const parts = (m ? ['mail:' + m[0]] : []).concat(t ? ['type:' + t] : []);
+  return parts.length ? parts.join('|') : dflt;
 }
 
 /** ACC part 2a, after the sort: One line emails each get their own line in Main chat; One line and Ignore emails are marked read;

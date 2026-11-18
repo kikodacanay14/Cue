@@ -1,5 +1,28 @@
 # Changelog
 
+## Cue 1.28.94: Jobs › Updates, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (not deployed)
+
+Asked: Kiko, 18 Nov 2026, thread "Fix Cue layout and merge agent channels". 06:15:53Z "the Project Intake should be in Jobs. Add there
+Updates under Jobs - put the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in
+Systems? Same with GitHub?"; 06:19:02Z "the K avatar is flattened already - put it somewhere else"; 06:21:47Z "remove the Earlier task
+part? when the message is clicked then show the details"; 06:22:47Z "these messages could have been placed in the conversation
+already"; 06:20:21Z "im trying to move Jessica Allyns email in General but it wont move"; 06:23:42Z "the text just gets highlighted";
+06:24:17Z "there should be a question as to why i moved it there - its probably because of sender, content"; 06:26:36Z "Ask me",
+06:26:46Z "have a prompt that will ask why". Slot cue-1.28.94, card cue-jobs-updates.
+
+- Channel list: Jobs gets an Updates heading holding the 8 AM and 2 PM updates and the Sales day threads. Project intake threads (and
+  the 2 PM funnel follow-ups, which still show that name) sit in Jobs. ChatGPT and GitHub sit in Systems. Each stays its own row.
+- K (Settings) moves from the list header to the foot of the channel list, with the word Settings.
+- General: no "Earlier task" row under messages. A task the list does not show puts all its lines in General, in time order; tapping
+  one still opens the thread. An email's chat keeps its own lines; its post in General opens it.
+- An email's post in General can be dragged (or long-pressed on a phone) to a channel. Draggable lines no longer select text on a
+  press and move. Cue asks "Why here?": This sender, All <type> emails, Just this one, or Something else… (Kiko types the words; later
+  emails whose post has all of them follow). Email posts carry their sender and type as their source (Chat column F, "mail:…|type:…").
+- Display and rules only: nothing is sent, deleted or written to Canvas.
+
+Tests: `node test/cue.test.js` 913/913 (new JU1 to JU8; CH5, AGG2, TCB2, AM6 and DC1 updated). Checked in Chromium with a stubbed
+server at 1280 and 375 px, no page errors. Screenshots in the project files under `cue-jobs-updates/built/`.
+
 ## Cue 1.28.93: Admin check and Finance check cards (not deployed)
 
 Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:35:50Z: "what i want to see are Payments without Invoices, no signed FSAs

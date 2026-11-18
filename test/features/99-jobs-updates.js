@@ -32,9 +32,11 @@ test('JU4 an email\'s line in General names its sender as its source, so a rule 
   const code = fs.readFileSync(path.join(__dirname, '..', 'src', 'CueNewMail.gs'), 'utf8'), c = {};
   vm.runInNewContext(code.slice(code.indexOf('function cueMailSrc_('), code.indexOf('\n}\n', code.indexOf('function cueMailSrc_(')) + 3) + '\nthis.f = cueMailSrc_;', c);
   deq(c.f({ sender: 'Jessica Allyn <Jessica.Allyn@Example.com>' }, 'mail-type'), 'mail:jessica.allyn@example.com');
+  deq(c.f({ sender: 'jessica@telus.com', type: 'Client' }, ''), 'mail:jessica@telus.com|type:Client', 'sender and kind');
+  deq(c.f({ sender: '', type: 'Client' }, ''), 'type:Client');
   deq(c.f({ sender: '' }, 'mail-type'), 'mail-type');
   assert.ok(code.includes("cueChat_('Cue', cueMtLine_(x), '', cueMailSrc_(x, 'mail-type'))") && code.includes("cueChat_('Cue', cueMtProjectLine_(l, l.pid), '', cueMailSrc_(l, 'mail-project'))"));
-  assert.ok(JU_SRC.includes("(/^mail:/.test(k) ? 'Emails from ' + k.slice(5) : k)"));
+  assert.ok(JU_SRC.includes(`(/^mail:/.test(k) ? 'Emails from ' + k.slice(5) : /^type:/.test(k) ? k.slice(5) + ' emails' : /^words:/.test(k) ? 'Emails with "' + k.slice(6) + '"' : k)`));
 });
 test('JU5 General shows no "Earlier task" thread row under a message; the message itself opens its thread', () => {
   assert.ok(!JU_SRC.includes('function rowHtml(') && !JU_SRC.includes('rowHtml('), 'the row is gone');
@@ -50,4 +52,35 @@ test('JU6 an email\'s post in General can be dragged; once moved it joins the ch
   assert.ok(mc.includes("'>' + id, cueMailSrc_(it, '')]") && mc.includes("pointers.forEach(p => cueChat_(p[0], p[1], p[2], p[3]));"), 'the post names its sender');
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/#msgs \.msg\[draggable\] \{ cursor:grab; -webkit-user-select:none; user-select:none;/.test(css));
+});
+test('JU7 an email asks why it was moved: This sender or All <type> emails or Just this one; the rule takes the reason picked and moves only lines that carry it', () => {
+  const t = sandbox(), rows = () => t.tabs.Chat.rows.slice(1);
+  t.ctx.cueChat_('Cue', 'New email · Jessica Allyn · Client', '>cue-1', 'mail:jessica@telus.com|type:Client');
+  const m = t.ctx.cueState().chat[0];
+  deq(JSON.parse(JSON.stringify(t.ctx.cueChanMove(m.time, 'Cue', m.text, 'job:bids'))), { ok: true, ask: true });
+  t.ctx.cueChanAnswer(m.time, 'Cue', m.text, true, 'mail:jessica@telus.com');
+  let R = JSON.parse(t.props.CUE_CHAN_RULES); deq(R.map(x => [x.src, x.chan]), [['mail:jessica@telus.com', 'job:bids']]);
+  t.ctx.cueChat_('Cue', 'New email · Jessica Allyn · Client (2)', '>cue-2', 'mail:jessica@telus.com|type:Client');
+  t.ctx.cueChat_('Cue', 'New email · Ben · Client', '>cue-3', 'mail:ben@x.com|type:Client');
+  deq(JSON.parse(JSON.stringify(t.ctx.cueAdminChanRules())).map(x => [x.src, x.moved]), [['mail:jessica@telus.com', 1]], 'only Jessica\'s later email');
+  const m2 = t.ctx.cueState().chat[2];
+  deq(JSON.parse(JSON.stringify(t.ctx.cueChanMove(m2.time, 'Cue', m2.text, 'sys:updates'))).ask, true, 'Ben is not covered yet, so it asks');
+  t.ctx.cueChanAnswer(m2.time, 'Cue', m2.text, true, 'nonsense');
+  R = JSON.parse(t.props.CUE_CHAN_RULES); deq(R[1].src, 'mail:ben@x.com', 'an unknown reason falls back to the first source');
+  assert.ok(JU_SRC.includes("'. Why here?</b>'") && JU_SRC.includes("'This sender'") && JU_SRC.includes("'All ' + p.slice(5) + ' emails'"));
+  assert.ok(JU_SRC.includes("call('cueChanAnswer', [m.time, m.who, m.text, all, part]"));
+  assert.ok(JU_SRC.includes('data-mv-why="1">Something else…</button>') && JU_SRC.includes("if (w) mvAnswer(m, true, 'words:' + w);"), 'Something else asks why and saves the words');
+});
+test('JU8 "Something else…": the words Kiko typed become the rule; a later email post with all of them moves, another email or a plain line does not', () => {
+  const t = sandbox();
+  t.ctx.cueChat_('Cue', 'New email · Jessica · RFQ - VIDEOGRAPHER for SITE ID', '>cue-1', 'mail:jessica@telus.com|type:Client');
+  const m = t.ctx.cueState().chat[0];
+  t.ctx.cueChanMove(m.time, 'Cue', m.text, 'job:bids'); t.ctx.cueChanAnswer(m.time, 'Cue', m.text, true, 'words:RFQ  Videographer!');
+  deq(JSON.parse(t.props.CUE_CHAN_RULES).map(x => x.src), ['words:rfq videographer']);
+  t.ctx.cueChat_('Cue', 'New email · Ben · rfq for a videographer', '>cue-2', 'mail:ben@x.com|type:Supplier');
+  t.ctx.cueChat_('Cue', 'New email · Ana · RFQ for sound', '>cue-3', 'mail:ana@x.com|type:Client');
+  t.ctx.cueChat_('Cue', 'RFQ videographer reminder', '', 'reminder');
+  deq(JSON.parse(JSON.stringify(t.ctx.cueAdminChanRules())).map(x => [x.src, x.moved]), [['words:rfq videographer', 1]]);
+  const c = {}; vm.runInNewContext(JU_SRC.slice(JU_SRC.indexOf('  function wordsHit('), JU_SRC.indexOf('  function srcParts(')) + '\nthis.f = wordsHit;', c);
+  deq([c.f('words:rfq videographer', ['mail:b@x.com'], 'RFQ for a Videographer'), c.f('words:rfq videographer', ['reminder'], 'RFQ videographer'), c.f('words:rfq videographer', ['mail:b@x.com'], 'RFQ sound')], [true, false, false]);
 });
