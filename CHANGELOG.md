@@ -59,6 +59,19 @@ test alert and the plain "Open Cue to see what is new." line carry no link, so a
 link now opens /open, which sends the phone to Cue (the address Cue last sent with an alert) or, before Cue has sent one, to the
 setup page. Test CA8.
 
+Worker fix 3 (not deployed): Kiko 18 Nov 2026 02:22:47Z, "This works but its a generic message. Can that be still customized with
+what the update is about? I also want it to show the Cue icon not google chrome". Cue already sends each alert's own title and text;
+the phone showed "Open Cue to see what is new." because Cloudflare KV is only eventually consistent between locations, so the
+phone (Manila) asked /next before the alert Cue stored from Google's servers had reached it. Now:
+- The alert rides inside the push, encrypted for that phone only (RFC 8291 aes128gcm, WebCrypto). Google's push service sees no
+  alert text. A phone set up before this hands its keys over at its next /next or setup-page visit; until then it gets an empty
+  push, and its service worker asks /next again after 2, 5, 10 and 20 seconds before it shows the generic line.
+- Every alert carries the Cue logo (icon) and its white bubble mark (status-bar badge), served by the Worker from
+  `alerts/icons.js` (extension/icons/cue-128.png scaled up).
+- The setup page uses the logo, links a web manifest (name Cue) and offers "Add to home screen" (or the Chrome menu step). Android
+  names an alert after the app that shows it, so alerts say Cue instead of Chrome only once Cue is on the home screen.
+- Tests CA9 to CA12 (the decrypter is first proved on RFC 8291 Appendix A; CA12 runs the service worker). 12 Worker tests, 876/876.
+
 Asked: Kiko, 16 Nov 2026 14:47:12Z ("also the Cue notifications in android can we do that now?"). Decisions on cards: "A. Cue's
 own push" (15:14:25Z), the three mockups ALERT-1 to ALERT-3 "Approve all three" (15:18:24Z), "Yes, group within 5 min"
 (15:20:47Z, ADR-0198), "Yes, build it" (17:22:27Z). Spec: canvas-integration/specs/cue-android-notifications.md. Slot
