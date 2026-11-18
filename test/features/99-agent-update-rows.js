@@ -39,7 +39,8 @@ test('AUR2 an update with rows is one short card; the panel is shut until tapped
   const heads = (open.match(/<th[^>]*>[^<]*<\/th>/g) || []).map(x => x.replace(/<[^>]+>/g, ''));
   assert.deepStrictEqual(heads, ['#', 'Requirement', 'Execution', 'Qty', 'Occurrence (days)']);   // AGENT-CARD1-LAYOUT-2026-11-18
   assert.ok(!/Status|Handed to|Kind|Fabrication/.test(open), 'Kiko removed Status, Handed to and Kind');
-  const order = (open.match(/class="rid">REQ26-11083-\d\d/g) || []).map(x => x.slice(11));   // AGENT-ROW-PICTURES-2026-11-18: rows also carry the ID in data-row assert.deepStrictEqual(order, ['REQ26-11083-04', 'REQ26-11083-05', 'REQ26-11083-01']);
+  const order = (open.match(/class="rid">REQ26-11083-\d\d/g) || []).map(x => x.slice(12));   // AGENT-ROW-PICTURES-2026-11-18: rows also carry the ID in data-row
+  assert.deepStrictEqual(order, ['REQ26-11083-04', 'REQ26-11083-05', 'REQ26-11083-01']);
   assert.ok(/Photo wall &lt;b&gt;/.test(open) && !/MM to add|3\.0 m W/.test(open), 'dimensions live in the open row, not the table');
   ctx.agdRowOpen = { [v.id]: 'REQ26-11083-05' }; const r5 = ctx.agdUpdHtml(v);
   assert.ok(/3\.0 m W × 2\.4 m H<span class="rid">by MM/.test(r5) && /<li>Final size<\/li>/.test(r5), 'the open row shows dimensions and open items');
@@ -56,4 +57,13 @@ test('AUR3 the page: Open requirements and ✕ toggle the panel before any Canva
   assert.ok(a > 0 && a < d, 'the toggle runs before the Canvas decision branch');
   assert.ok(/agdRows = \{\}/.test(page) && /e\.key === 'Escape'/.test(page) && /data-agf/.test(page));
   assert.ok(/\.agdp \{[^}]*position:fixed[^}]*left:0/.test(css) && /\.agdp th \{[^}]*text-align:center/.test(css));
+});
+test('AUR4 rows go by requirement number (01, 02, 03 ...) within each group; the ones that need Kiko stay first', () => {
+  // AGENT-ROWS-BY-NUMBER-2026-11-18 (Kiko 18 Nov 2026 08:02:18Z "can this be sorted by number?"; his panel showed 06, 08, 09, 01, 02).
+  const mk = (n, need) => ({ req_id: 'REQ26-11087-' + n, name: 'R' + n, sourcing: 'Outsourced', spec_by: 'AS', needs_kiko: need, open_items: [] });
+  const ids = rows => { const b = agdBox({ drafts: [aurUpd(51, rows)] }); b.t.ctx.cueAgdTick_();
+    const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), { ctx } = aurGrab(); ctx.agdRows[v.id] = 1;
+    return (ctx.agdUpdHtml(v).match(/class="rid">REQ26-11087-\d+/g) || []).map(x => x.slice(24)); };
+  assert.deepStrictEqual(ids(['06', '08', '09', '01', '02', '10', '03'].map(n => mk(n, false))), ['01', '02', '03', '06', '08', '09', '10']);
+  assert.deepStrictEqual(ids([mk('06', false), mk('09', true), mk('01', false), mk('04', true)]), ['04', '09', '01', '06']);
 });
