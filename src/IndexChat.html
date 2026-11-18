@@ -1,5 +1,5 @@
 (function () {
-  var state = { requests: [], chat: [], metrics: {} }, editing = {}, agdRows = {}, polling = null, running = {};
+  var state = { requests: [], chat: [], metrics: {} }, editing = {}, agdRows = {}, agdRowOpen = {}, polling = null, running = {};
   // Expenses (Kiko 07:27Z): their files stay here, never in Cue uploads, until Approve sends them to the project's Admin folder.
   var held = {}, expRoute = {}, EXP_RE = /\b(record (an? |this |the )?(expense|payment)|expenses?|receipts?|official receipt|proof of (payment|transfer)|liquidat\w*|reimburs\w*|paid (to|for|via|in cash|cash|by))\b/i;
   var EXPENSE = [['GPT reading', 'GPT', 'GPT reads your line and the files'], ['Checking Canvas', 'Canvas', 'Canvas finds the project and its records'],
