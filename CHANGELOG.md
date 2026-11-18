@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.28.101: tick the requirements you approve on the approval card (not deployed)
+
+Asked: Kiko, 18 Nov 2026 12:09:30Z: "We can approve it by requirement so that other items are already started to be worked on";
+12:10:28Z: "please update cue card. maybe do check boxes for each requirement". Mockup
+https://claude.ai/artifact/EtosX5ZVgNR4TVY8mQ7PZS approved 12:14:32Z: "approved. this still expands to show description and image".
+Slot cue-1.28.101, card agent-req-tick. Built on main 176f0ca; main merged in after 1.28.99 and 1.28.100 went live.
+
+- On an agent's approval request (Waiting for approval), the Open requirements panel shows a tick box on each requirement and one
+  at the top that ticks every line that is ready. Boxes start unticked.
+- A line with an open question (an open item that starts "Q1: ") is greyed out and says "Waits for your answer". The questions
+  sit under the table, each with an answer box. Answering does not approve the line.
+- Send decision passes one reply to the agent, in the format agreed with the reply-checks thread: "APPROVE: REQ-ID, REQ-ID" (left
+  out when nothing is ticked), then "Q1: answer" per answer. A line approved in an earlier reply shows Approved; a plain reply
+  "approve" approves every line. Nothing goes to the client.
+- Tapping a row still opens it to show description and pictures; tapping the tick box does not.
+- Tests: ART1 to ART5 new; AUP2 expects the extra tick column. 930/930 on its own; 941/941 with 1.28.99 and 1.28.100 merged in.
+
 ## Cue 1.28.99: a ⋯ menu on each message with Reply, Flag and Dismiss (live as Version 269, 18 Nov 2026 12:16Z; rollback Version 268)
 
 Asked by Kiko, 18 Nov 2026 10:13:48Z: "for the messages we should have a ... and when clicked it would show Reply, Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?"; 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender".

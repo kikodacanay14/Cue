@@ -11,8 +11,8 @@ const aurUpd = (n, rows) => agdUpd(n, { project: 'Pandamart Likha', project_id: 
   handover: { handover_ref: 'REQ-REVIEW-01', summary: '3 requirements reviewed.', gaps: 'Entrance specs open.', state: 'Delivered', rows } });
 function aurGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUR1 rows from Canvas are kept clean: only the approved fields, In House or Outsourced, AS or MM, Needs you only when true, at most 100', () => {
