@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 85 server files, 1687 top-level names, 36 task kinds, 35 word checks before the
+Counts: 85 server files, 1688 top-level names, 36 task kinds, 35 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 109 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -31,7 +31,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 2 |
 | `help` | Help answer |  | Info | `CueHelp.gs` | intake (default) | 2 |
 | `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
-| `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 0 |
+| `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 1 |
 | `mail` | Page only (not in the command list) |  | Info | none | none | 1 |
 | `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
 | `msgr` | Page only (not in the command list) |  | Info | none | none | 2 |

@@ -17,6 +17,6 @@ test('AGG2 CUE-CHANNELS-2026-11-18: the groups are Agent Updates, Jobs, Systems 
   assert.ok(/G\[chanGroup\(t, st\)\]\.push\(/.test(AGG_SRC));
   assert.ok(/if \(st\.need\) waiting\+\+;/.test(AGG_SRC), 'waiting threads still counted');
   assert.ok(/!a\.st\.need !== !b\.st\.need \? \(a\.st\.need \? -1 : 1\)/.test(AGG_SRC), 'waiting on Kiko first');
-  assert.ok(/var gn = sum\(l\) \+ extra\.reduce\(/.test(AGG_SRC), 'the group number is the sum of its channels');
+  assert.ok(/var gn = sum\(l\) \+ sum\(upd\) \+ extra\.reduce\(/.test(AGG_SRC), 'the group number is the sum of its channels');
   assert.ok(/data-thread="' \+ esc\(x\.k\)/.test(AGG_SRC), 'a row opens its channel');
 });

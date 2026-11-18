@@ -170,7 +170,7 @@ function cueMcFromSort_(run, nmId) {
         conv.s.mc.message_ids.push(it.message_id); conv.s.mc.key = it.key;
         if (conv.s.status !== 'Needs you') { conv.s.closed_from = conv.s.status; conv.s.status = 'Needs you'; conv.s.stage = 'Needs you'; delete conv.s.archived; }
         conv.s.card_at = cueNow_(); cueSave_(sh, conv.row, conv.s); it.chat_id = conv.s.id; done[conv.s.id] = text; asks[conv.s.id] = { key: it.key, read: reads[it.key] }; n++;
-        pointers.push(['Cue', cueMcLeft_(it, reads[it.key], true), '>' + conv.s.id]);
+        pointers.push(['Cue', cueMcLeft_(it, reads[it.key], true), '>' + conv.s.id, cueMailSrc_(it, '')]);   // CUE-JOBS-UPDATES-2026-11-18: the sender is its source
         return;
       }
       const id = cueMcId_();
@@ -181,12 +181,12 @@ function cueMcFromSort_(run, nmId) {
         metrics: { ai_calls: 1, calls: [] }, notes: [] };
       sh.appendRow([id]); cueSave_(sh, sh.getLastRow(), s); open.unshift({ row: sh.getLastRow(), s });
       it.chat_id = id; done[id] = text; asks[id] = { key: it.key, read: reads[it.key] }; n++;
-      pointers.push(['Cue', cueMcLeft_(it, reads[it.key]), '>' + id]);
+      pointers.push(['Cue', cueMcLeft_(it, reads[it.key]), '>' + id, cueMailSrc_(it, '')]);
     });
     cueNmStatus_(L.s); cueSave_(L.sh, L.row, L.s);
     Object.keys(done).forEach(id => pointers.push(['Cue', done[id], id]));
   });
-  pointers.forEach(p => cueChat_(p[0], p[1], p[2]));
+  pointers.forEach(p => cueChat_(p[0], p[1], p[2], p[3]));
   Object.keys(asks).forEach(id => { try { cueMcAskReply_(id, asks[id].key, asks[id].read); } catch (e) { console.warn('Proposed reply buttons: ' + e); } });
   // ACC-14: Cue offers an edit when a known contact's signature differs. The chat ids were set on the reloaded lines, so read them back.
   const L2 = cueLoad_(nmId), ids = {}; ((L2 && L2.s.nm.items) || []).forEach(x => { ids[x.key] = x.chat_id; });

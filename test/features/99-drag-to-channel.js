@@ -26,7 +26,7 @@ test('DC1 Cue tags its own General posts with where they came from (column F); o
   deq(chat.map(m => m.src || ''), ['msgr-setup', '', '']);
   // every General post Cue writes itself names its source
   const code = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
-  const keys = [...code.matchAll(/cueChat_\('Cue',(?:(?!cueChat_\(|\n\s*(?:function|const|let|if|return)\b)[\s\S])*?'', '([a-z-]+)'\)/g)].map(m => m[1]);
+  const keys = [...code.matchAll(/cueChat_\('Cue',(?:(?!cueChat_\(|\n\s*(?:function|const|let|if|return)\b)[\s\S])*?'', (?:cueMailSrc_\(\w+, )?'([a-z-]+)'\)/g)].map(m => m[1]);
   deq([...new Set(keys)].sort((x, y) => x.localeCompare(y)), ['bids', 'chaserrules', 'closeolder', 'editlog', 'funnel', 'mail-project', 'mail-type', 'msgr-crew', 'msgr-link', 'msgr-setup', 'msgr-triage',
     'reminder', 'route', 'sched', 'servicedesk', 'sweep', 'ticktick', 'unsched']);
   const names = DC_SRC.slice(DC_SRC.indexOf('  var SRC_NAME = {'), DC_SRC.indexOf('  function srcName('));
