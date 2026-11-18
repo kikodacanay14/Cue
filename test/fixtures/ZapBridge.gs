@@ -3546,8 +3546,8 @@ function zbCeStale_(pid, lines) {
 (function () {   // rfp_log: project_id optional, supplier and since filters
   const a = ZB_ACTIONS_.rfp_log;
   a.schema = { project_id: { type: 'string', re: ZB_PID_RE_ }, scope_id: { type: 'string', max: 40 },
-    supplier: { type: 'string', max: 150 }, since: ZB_CRM_DAY_ };
-  a.run = (r) => r.args.project_id && !r.args.supplier && !r.args.since ? agdRfpLog_(r.args) : agdRfpFind_(r.args);
+    supplier: { type: 'string', max: 150 }, since: ZB_CRM_DAY_, thread_ids: { type: 'array', minItems: 1, maxItems: 50 } };   // RFQ-LINK-2026-11-18
+  a.run = (r) => r.args.project_id && !r.args.supplier && !r.args.since && !r.args.thread_ids ? agdRfpLog_(r.args) : agdRfpFind_(r.args);
 })();
 
 /* CONNECTOR-REPORTS-2026-11-18 (Kiko 18 Nov 2026 12:39:46Z, seven connector and reporting items; scope and design approved on the
