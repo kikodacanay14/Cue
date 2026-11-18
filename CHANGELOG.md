@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.99: a ⋯ menu on each message with Reply, Flag and Dismiss (live as Version 269, 18 Nov 2026 12:16Z; rollback Version 268)
+
+Asked by Kiko, 18 Nov 2026 10:13:48Z: "for the messages we should have a ... and when clicked it would show Reply, Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?"; 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender".
+
+- Each Cue or agent message has one ⋯ button (on hover; always shown on a phone) in place of the separate reply and flag buttons. It opens Reply, Flag or Unflag, and Dismiss. Reply on a message that belongs to a task answers that task as before; on any other message (Kiko 10:22:25Z "how come there is no reply?") it quotes the message, and Kiko's message goes out with "Replying to <who>: <message>" first. A flagged message keeps its filled flag beside the ⋯.
+- Dismiss on a General line hides it and asks "Dismissed. Why?": Just this email, This subject, This sender, All <type> emails, or Something else (typed words). Any answer except Just this one saves a rule that hides later messages like it; the rule is listed in Settings › Channel rules as "Hidden (dismissed)" and Remove stops it. Undo brings the line back.
+- Dismiss on any other message (a channel line, an agent message) hides it with Undo in its place; the Dismissed tab of the Cue sheet keeps a copy. A dismissed agent message leaves the channel's number.
+- Nothing is sent and nothing in Canvas changes.
+- Tests: 929/929 on its own; 936/936 together with 1.28.100, which went live first as Version 268 and is included in this release.
+
 ## Cue 1.28.100: agents can draft a question to the client; your Send sends it from your Gmail (live as Version 268, 18 Nov 2026 12:12Z; rollback Version 267)
 
 Asked: Kiko, 18 Nov 2026 10:22:01Z: "Add Agent Drafts type client_question. When the client's Gmail thread is known, send a

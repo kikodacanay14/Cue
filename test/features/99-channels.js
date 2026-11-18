@@ -32,7 +32,7 @@ test('CH1 each scheduled job is one channel: every run joins the oldest run; eve
 test('CH2 the count beside a channel is what is open for Kiko to review: Needs you tasks, agent drafts Waiting for Kiko and Unread updates; zero shows nothing', () => {
   const a = CH_SRC.indexOf('  function seenOut('), z = CH_SRC.indexOf('\n  }\n', CH_SRC.indexOf('  function reviewN(')) + 4, ctx = { state: {} };
   const b = CH_SRC.indexOf('  var NEED = {'), e = CH_SRC.indexOf('  var OLDK = {');
-  vm.runInNewContext(CH_SRC.slice(b, e) + CH_SRC.slice(a, z) + '\nthis.reviewN = reviewN;', ctx);
+  vm.runInNewContext(CH_SRC.slice(b, e) + CH_SRC.slice(a, z) + '\nfunction isDismissed() { return false; }\nthis.reviewN = reviewN;', ctx);
   deq(ctx.reviewN({ reqs: [{ status: 'Needs you' }, { status: 'Done' }, { agd: { status: 'Waiting for Kiko' } }, { agd: { status: 'Unread' } }, { agd: { status: 'Read' } }, { status: 'Working', nudge: 1 }] }), 4);
   assert.ok(CH_SRC.includes(`var badge = function (n, what) { return n ? '<i class="badge rvn"`), 'zero shows no badge');
 });

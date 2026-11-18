@@ -60,6 +60,19 @@ function cueChanMove(time, who, text, chan) {
   });
 }
 
+/** CUE-MSG-MENU-2026-11-18: Undo on a dismissed General line. Clears the line's hidden channel (sys:dismissed) so it is back in
+ * General. A rule saved with it stays until Kiko removes it in Settings › Channel rules. */
+function cueChanUndo(time, who, text) {
+  cueOwner_();
+  return cueLocked_(() => {
+    const sh = cueSheet_('Chat'), row = cueChanRow_(sh, time, who, text);
+    if (!row) throw new Error('That message is no longer in the chat.');
+    if (!/^sys:dismissed\??$/.test(String(sh.getRange(row, 7, 1, 1).getValues()[0][0] || ''))) throw new Error('That message was not dismissed.');
+    sh.getRange(row, 7, 1, 1).setValues([['']]);
+    return { ok: true };
+  });
+}
+
 /** Answers "Also send future … messages there?" (or, for an email, "Why here?") for one moved line. always = true saves the rule for
  * the line's source; part picks which one when the line has several (an email's sender or its type). */
 function cueChanAnswer(time, who, text, always, part) {

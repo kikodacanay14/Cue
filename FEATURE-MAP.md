@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 86 server files, 1706 top-level names, 36 task kinds, 35 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 111 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
+Counts: 86 server files, 1711 top-level names, 36 task kinds, 35 word checks before the
+chat call, 19 background jobs in the 5-minute trigger, 113 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -171,7 +171,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueExpense.gs` | `expense_evidence`, `occurrence`, `record_expense` | Requests | 1 | 1 | 3 | 5 |
 | `CueFiles.gs` | `save_project_file` |  | 0 | 0 | 16 | 3 |
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
-| `CueFlags.gs` |  | Flagged | 0 | 0 | 2 | 2 |
+| `CueFlags.gs` |  | Dismissed, Flagged | 0 | 0 | 2 | 2 |
 | `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 8 |
 | `CueGmail.gs` |  |  | 0 | 0 | 30 | 4 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
@@ -303,12 +303,12 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueAlerts.gs`: `cueAlerts`, `cueAlertsConnect`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClarifyCancel`, `cueBidsClarifySend`, `cueBidsClose`, `cueBidsDecide`, `cueBidsStartIntake`
-- `CueChannels.gs`: `cueAdminChanRules`, `cueChanAnswer`, `cueChanMove`, `cueChanRuleDel`
+- `CueChannels.gs`: `cueAdminChanRules`, `cueChanAnswer`, `cueChanMove`, `cueChanRuleDel`, `cueChanUndo`
 - `CueEditLog.gs`: `cueAdminEditUndo`, `cueAdminEdits`
 - `CueExpense.gs`: `cueExpense`
 - `CueFiles.gs`: `cueFileData`, `cueUpload`
 - `CueFinance.gs`: `cueFinSave`, `cueFinSheet`
-- `CueFlags.gs`: `cueFlag`
+- `CueFlags.gs`: `cueDismiss`, `cueFlag`
 - `CueFunnel.gs`: `cueFunnelDone`
 - `CueGptTasks.gs`: `cueGtAct`, `cueGtClose`, `cueGtDraftAll`
 - `CueHelp.gs`: `cueHelpAct`
