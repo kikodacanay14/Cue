@@ -2,6 +2,11 @@
 
 ## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (not deployed)
 
+Release contents (Kiko, 18 Nov 2026 08:41:31Z: "wait lets include the other changes"): this release also carries every change on
+main that is not live yet: 1.28.90 (requirements card 1 layout), 1.28.91 (Email Intake routing card), 1.28.92 (Email Intake card
+lists mail that fit no role), 1.28.93 (Admin check and Finance check cards) and 1.28.95 (Open requirements rows by number), each
+described below. Built on live 1.28.96 (Version 265) through main.
+
 Asked: Kiko, 18 Nov 2026 08:35:22Z, with a screenshot of "Replaced by a newer funnel. Nothing was changed.": "Please make
 communications complete sentences. Please make sure that there is context to the message. There is no need to breakdown the
 message. It could have been sent in just 1 or 2 sentences in the same chat." Slot cue-1.28.98, card cue-plain-status-lines.
