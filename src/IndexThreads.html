@@ -553,7 +553,7 @@
   var SUBJ_CHAN = { morning: 'job:updates', sales: 'job:updates', friday: 'job:friday' };
   var JOB_KIND = { bids: 'job:bids', sweep: 'job:updates', k0: 'job:updates', k0fn: 'job:updates', status: 'job:status', funnel: 'job:updates', skillobs: 'job:skillobs', relnotes: 'sys:updates' };
   var CHAN_OLD = { 'job:sweep': 'job:updates', 'job:sales': 'job:updates', 'job:funnel': 'job:updates' };   // lines moved or rules made before the merge
-  function chanNow(c) { c = String(c || ''); return CHAN_OLD[c] || c; }
+  function chanNow(c) { var k = String(c || ''); return CHAN_OLD[k] || k; }
   var JOB_NAME = { 'job:bids': 'Bid Opportunities', 'job:updates': 'Updates', 'job:status': 'Friday status', 'job:friday': 'Friday events',
     'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts' };
   function chanKey(r) {
