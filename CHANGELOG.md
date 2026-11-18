@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.102: Move in the ⋯ menu on each message; New mail's notes leave the chat (not deployed)
+## Cue 1.28.102: Move in the ⋯ menu on each message; New mail's notes leave the chat (live as Version 271, 18 Nov 2026 14:00Z; rollback Version 270)
 
 Asked by Kiko, 18 Nov 2026 13:45:47Z: "maybe we should just add the Move function inside the ... in Cue". Slot cue-1.28.102,
 card cue-msg-move. Built on main ad1157c (live Version 270, 1.28.101).
