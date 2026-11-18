@@ -4,7 +4,7 @@
 test('ROLE1 the shown name maps ECII to Procurement Specialist and ECI to Event Specialist, whole words only, the same on server and page', () => {
   const t = sandbox(), page = cuePage(), ctx = {}; vm.createContext(ctx);
   vm.runInContext(page.match(/  function agdLabel\(v\) \{[^\n]*\n/)[0], ctx);
-  const cases = [['ECII agent', 'Procurement Specialist agent'], ['ECII RFP agent', 'Procurement Specialist RFP agent'], ['ECI agent', 'Event Specialist agent'],
+  const cases = [['ECII agent', 'Procurement Specialist agent'], ['ECII RFP agent', 'Procurement Specialist agent'], ['ECI agent', 'Event Specialist agent'],
     ['Account Specialist', 'Account Specialist'], ['ECIIX agent', 'ECIIX agent'], ['', ''], [null, '']];
   cases.forEach(([a, b]) => { assert.strictEqual(t.ctx.cueAgdLabel_(a), b, String(a)); assert.strictEqual(ctx.agdLabel(a), b, 'page: ' + a); });
 });
@@ -58,4 +58,21 @@ test('ROLE6 AGENT-CHANNELS-2026-11-18 (Kiko 02:16:48Z "there used to be channels
   const agents = {}; st.requests.forEach(r => { if (r.agd && r.agd.agent) agents[r.agd.agent] = 1; });
   ['Finance agent', 'ECII agent', 'AS'].forEach(a => assert.ok(agents[a], a + ' keeps a thread: ' + Object.keys(agents)));
   assert.ok(st.requests.length <= 20 + 3, 'only one extra request per agent');
+});
+test('ROLE7 AGENT-ONE-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 02:43:48Z "Roles have 2 channels?"): every name an agent used maps to one role, and the page shows one thread per role', () => {
+  const t = sandbox(), page = cuePage(), ctx = {}; vm.createContext(ctx);
+  vm.runInContext(page.match(/  function agdLabel\(v\) \{[^\n]*\n/)[0], ctx);
+  [['BSE Account Specialist', 'Account Specialist'], ['AS', 'Account Specialist'], ['Multimedia Specialist', 'Multimedia'], ['MM', 'Multimedia'],
+   ['BSE \u2014 MM \u2014 CARD RESUME', 'Multimedia'], ['BSE Finance Specialist', 'Finance'], ['Finance', 'Finance'], ['Admin Specialist', 'Admin'],
+   ['BSE Event Coordinator II', 'Procurement Specialist'], ['Procurement Specialist', 'Procurement Specialist'], ['Email Intake', 'Email Intake'],
+   ['Cue Dev', 'Cue Dev'], ['ChatGPT', 'ChatGPT'], ['Finance agent', 'Finance agent']]
+    .forEach(([a, b]) => { assert.strictEqual(t.ctx.cueAgdLabel_(a), b, a); assert.strictEqual(ctx.agdLabel(a), b, 'page: ' + a); });
+  assert.ok(/const cueAgdKey_ = a => cueAgdLabel_\(String\(a \|\| ''\)\)[^\n]*\.replace\(\/ agent\$\/, ''\)/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueAgentDrafts.gs'), 'utf8')), 'X and X agent share one key');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8'), a = src.indexOf('  function rootOf('), z = src.indexOf('\n  }\n', src.indexOf('  function threads(')) + 4;
+  const reqs = [{ id: 'n1', agd: { agent: 'AS' }, created: '2026-11-18' }, { id: 'o2', agd: { agent: 'BSE Account Specialist' }, created: '2026-11-13' },
+    { id: 'o1', agd: { agent: 'BSE Account Specialist' }, ref: 'o2', created: '2026-11-13' }, { id: 'm1', agd: { agent: 'Multimedia Specialist' }, created: '2026-11-13' }, { id: 'x1', kind: 'intake', created: '2026-11-18' }];
+  const c = { state: { requests: reqs }, agdLabel: ctx.agdLabel, allLines: () => [{ request_id: 'n1', text: 'hi' }], askOf: () => null };
+  vm.runInNewContext("function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }\n" + src.slice(a, z) + '\nthis.t = threads();', c);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(Object.keys(c.t).sort())), ['m1', 'o2', 'x1'], 'AS and BSE Account Specialist share the oldest thread');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(c.t.o2.reqs.map(r => r.id).sort())), ['n1', 'o1', 'o2']); assert.strictEqual(c.t.o2.lines.length, 1, 'lines follow their request');
 });
