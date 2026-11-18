@@ -33,7 +33,7 @@ test('MM3 the ⋯ menu: Reply only when the message names a task, Flag or Unflag
   assert.ok(/data-more="1"/.test(h) && /data-i="more"/.test(h) && /<div class="msgmenu" role="menu" hidden>/.test(h));
   assert.ok(h.indexOf('>Reply<') < h.indexOf('>Flag<') && h.indexOf('>Flag<') < h.indexOf('>Dismiss<'), 'Reply, Flag, Dismiss in that order');
   assert.ok(!/class="rp fl/.test(h), 'no flag beside the ⋯ until flagged');
-  assert.ok(!/>Reply</.test(ctx.moreBtn({ reply: '', flag: it })), 'Reply only for a message that names a task');
+  assert.ok(/data-reply-q="l:2026-11-18T08:00:00.000Z\|Cue">Reply</.test(ctx.moreBtn({ reply: '', flag: it })), 'Reply on every message: no task means a quoted reply (Kiko 10:22:25Z)');
   deq(ctx.moreBtn({ reply: '', flag: null }), '', 'Kiko\'s own line: no ⋯');
   ctx.state.flags = [{ key: it.key }]; h = ctx.moreBtn({ reply: '', flag: it });
   assert.ok(/class="rp fl on"/.test(h) && />Unflag</.test(h));
@@ -47,6 +47,7 @@ test('MM4 wiring: a dismissed message shows nowhere (General, channels, agent bu
   assert.ok(MM_SRC.includes("if (mk && msg.hasAttribute('draggable')) return chanMove(mvRef[Number(mk)], 'sys:dismissed');"), 'a General line uses the move, so it asks why');
   assert.ok(/<b>Dismissed\. Why\?<\/b>/.test(MM_SRC) && /Just this one/.test(MM_SRC) && /'This sender'/.test(MM_SRC) && MM_SRC.includes("'Why dismiss it?'"));
   assert.ok(MM_SRC.includes("'sys:dismissed': 'Hidden (dismissed)'"), 'Settings › Channel rules names it');
+  assert.ok(MM_SRC.includes("if (!rp && replyQ && box === $('box')) { t = withQuote(replyQ, t); setReply(''); }") && MM_SRC.includes("function withQuote(q, t) { return 'Replying to ' + q + '\\n\\n' + t; }"), 'a quoted reply goes out with the quote first');
   assert.ok(MM_SRC.includes("This subject</button>") && MM_SRC.includes("(subj ? 'Just this email' : 'Just this one')"), 'Kiko 10:17:14Z: just that email, the subject, the sender');
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/\.msg \.msgmenu \{ position:absolute;/.test(css) && /\.msg \.rp\.more \+ \.rp\.fl \{ right:-76px; \}/.test(css));

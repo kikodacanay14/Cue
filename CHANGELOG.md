@@ -4,7 +4,7 @@
 
 Asked by Kiko, 18 Nov 2026 10:13:48Z: "for the messages we should have a ... and when clicked it would show Reply, Flag or (whats a term for do not include anymore)"; 10:14:18Z "im okay with dismiss - it will then ask a reason why right?"; 10:17:14Z "it can be just that email or hide everything about the topic or subject or the sender".
 
-- Each Cue or agent message has one ⋯ button (on hover; always shown on a phone) in place of the separate reply and flag buttons. It opens Reply (when the message belongs to a task), Flag or Unflag, and Dismiss. A flagged message keeps its filled flag beside the ⋯.
+- Each Cue or agent message has one ⋯ button (on hover; always shown on a phone) in place of the separate reply and flag buttons. It opens Reply, Flag or Unflag, and Dismiss. Reply on a message that belongs to a task answers that task as before; on any other message (Kiko 10:22:25Z "how come there is no reply?") it quotes the message, and Kiko's message goes out with "Replying to <who>: <message>" first. A flagged message keeps its filled flag beside the ⋯.
 - Dismiss on a General line hides it and asks "Dismissed. Why?": Just this email, This subject, This sender, All <type> emails, or Something else (typed words). Any answer except Just this one saves a rule that hides later messages like it; the rule is listed in Settings › Channel rules as "Hidden (dismissed)" and Remove stops it. Undo brings the line back.
 - Dismiss on any other message (a channel line, an agent message) hides it with Undo in its place; the Dismissed tab of the Cue sheet keeps a copy. A dismissed agent message leaves the channel's number.
 - Nothing is sent and nothing in Canvas changes.

@@ -114,7 +114,7 @@
     return '<button class="rp more" data-more="1" aria-haspopup="menu" aria-expanded="false" title="More" aria-label="More for this message">' + icon('more') + '</button>'
       + (on ? flagBtn(f) : '')
       + '<div class="msgmenu" role="menu" hidden>'
-      + (o.reply ? '<button role="menuitem" data-reply="' + esc(o.reply) + '">Reply</button>' : '')
+      + (o.reply ? '<button role="menuitem" data-reply="' + esc(o.reply) + '">Reply</button>' : f ? '<button role="menuitem" data-reply-q="' + esc(f.key) + '">Reply</button>' : '')
       + (f ? '<button role="menuitem" data-flag="' + esc(f.key) + '">' + (on ? 'Unflag' : 'Flag') + '</button>'
         + '<button role="menuitem" data-dismiss="' + esc(f.key) + '">Dismiss</button>' : '') + '</div>';
   }
@@ -446,6 +446,7 @@
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
       var rp = !ref && box === $('box') && !files.length ? replyTo : ''; if (rp) setReply('');
+      if (!rp && replyQ && box === $('box')) { t = withQuote(replyQ, t); setReply(''); }   // CUE-MSG-MENU-2026-11-18: the quoted message goes first
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
@@ -924,15 +925,26 @@
     var t = line ? String(line.text || '').split('\n')[0] : '', r = byId()[id];
     return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
   }
-  var replyTo = '';   // the task id Kiko is replying to from the main chat box
-  function setReply(id) {
-    replyTo = id || ''; var bar = $('replybar'); if (!bar) return;
-    bar.hidden = !replyTo; $('replyto').textContent = replyTo ? replyTitle(replyTo) : '';
-    if (replyTo) $('box').focus();
+  var replyTo = '', replyQ = '';   // the task id Kiko is replying to from the main chat box; or the quoted message (no task)
+  function setReply(id, q) {
+    replyTo = id || ''; replyQ = !replyTo && q ? q : ''; var bar = $('replybar'); if (!bar) return;
+    bar.hidden = !replyTo && !replyQ; $('replyto').textContent = replyTo ? replyTitle(replyTo) : replyQ;
+    if (replyTo || replyQ) $('box').focus();
   }
+  /* CUE-MSG-MENU-2026-11-18 (Kiko 10:22:25Z "how come there is no reply?"): Reply is on every Cue and agent message. A message that
+   * names no task is quoted: in the main chat the "Replying to" strip shows it and Kiko's message goes out with the quote first; in a
+   * channel the quote line is put at the top of its reply box. */
+  function quoteOf(key) { var it = flagMap[key] || {}; return (String(it.who || 'Cue') + ': ' + String(it.text || '').replace(/\s+/g, ' ')).slice(0, 160); }
+  function withQuote(q, t) { return 'Replying to ' + q + '\n\n' + t; }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-reply], #replyx'); if (!b) return;
-    e.stopPropagation(); setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
+    var b = e.target.closest && e.target.closest('[data-reply], [data-reply-q], #replyx'); if (!b) return;
+    e.stopPropagation();
+    if (b.hasAttribute('data-reply-q')) {
+      var q = quoteOf(b.getAttribute('data-reply-q'));
+      if (b.closest('#tmsgs')) { var tb = $('tbox'); tb.value = withQuote(q, tb.value.replace(/^Replying to [^\n]*\n\n/, '')); tb.focus(); tb.setSelectionRange(tb.value.length, tb.value.length); return; }
+      return setReply('', q);
+    }
+    setReply(b.id === 'replyx' ? '' : b.getAttribute('data-reply'));
   }, true);
   var pressT = 0;   // a long press on a phone
   document.addEventListener('touchstart', function (e) {
