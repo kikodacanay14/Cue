@@ -1,5 +1,22 @@
 # Changelog
 
+## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (LIVE as Version 261, 18 Nov 2026 02:38Z, rollback 260)
+
+Asked: Kiko, 18 Nov 2026 02:20Z, with a phone screenshot of the Threads pane: "In mobile there is no way to go back to the left
+panel. There should be a button here that does that. Also those Updates - put them in the left panel." Slot cue-1.28.83, card
+cue-mobile-back-updates-left. Kiko's go: "Go" (18 Nov 2026 02:34:28Z). Deploy Cue run 44224631956 (mode=deploy) from
+branch commit 0f2d918 (live 1.28.82 Version 260 plus this change only; check run 44224507400 showed just the five files below).
+
+- Root cause of the missing button: `src/IndexPages.html` declared a second `var IC` (the email, text and app icons) in the same
+  page script as the pane's icon set in `src/IndexViewer.html`, so it replaced it. Every pane icon (the X that closes the pane,
+  search, filter, settings, the group chevrons, the reply count icon) drew `undefined`: the buttons were there but blank. The
+  channel icons are now `CH_IC`.
+- `src/IndexThreads.html`, `src/IndexStyle.html`: the pane header starts with a "Chat" back button at 900px and under (it closes the
+  pane, like the X it replaces there). Wide screens are unchanged.
+- `src/Index.html`, `src/IndexThreads.html`, `src/IndexStyle.html`: the agents' last-hour line and five newest updates moved from
+  under the Agents group in Threads to an "Agent updates" block above the main chat. Its header folds it away (remembered on this
+  device); a row still opens its agent's thread. The agent threads (AS, MM) stay in the Agents group.
+- Tests: AGF3 rewritten for the new place; MB1 and MB2 added (one `var IC`, back button). 878/878 pass after merging main (1.28.82).
 ## Cue 1.28.82: agent cards get bold labels, full agent names, and every agent keeps its channel (not deployed)
 
 Asked: Kiko, 18 Nov 2026 02:14:31Z "The titles though need to be in bold and line breaks after the values"; 02:14:49Z "Make it a

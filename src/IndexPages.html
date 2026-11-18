@@ -290,7 +290,7 @@
   // ---- Jobs › Chasers (CUE-ADMIN-2-2026-10-29, Kiko 03:21Z "What Job Chaser it is > (expand) Jobs that are scheduled to run and on which
   // platform > (expand) draft of email"): per chaser, today's lines and the ones lined up, each with its draft. Read only. ----
   // CUE-ADMIN-3-2026-10-29 (Kiko 03:27Z "use icons for email, text, app notif"): the same three icons on every Cue Admin page
-  var IC = { mail: '<svg class="ic" viewBox="0 0 24 24" aria-label="Email" role="img"><path d="M3 6h18v12H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  var CH_IC = { mail: '<svg class="ic" viewBox="0 0 24 24" aria-label="Email" role="img"><path d="M3 6h18v12H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     sms: '<svg class="ic" viewBox="0 0 24 24" aria-label="Text" role="img"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
     app: '<svg class="ic" viewBox="0 0 24 24" aria-label="App notice" role="img"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
   var jc = null, jcErr = '';
@@ -302,7 +302,7 @@
   // A chaser Cue runs opens to its email template; its chases still come in the morning batch.
   function jcHtml(k) {
     var J = jc || {};
-    return '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1">' + IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>') + '<div class="adesc">' + esc(k.about) + '</div></div></div>'
+    return '<div class="card"><div class="arow" style="gap:10px;margin-bottom:6px"><div style="flex:1">' + CH_IC.mail + '<b>' + esc(k.label) + '</b>' + (k.on ? '' : ' <span class="apill">Off</span>') + '<div class="adesc">' + esc(k.about) + '</div></div></div>'
       + '<div class="adesc">From ' + esc(k.from) + ' · To ' + esc(k.to) + '</div>'
       + '<div class="adesc">These come to you in the morning batch (made at ' + esc(J.build || '') + '; the emails you approve go at ' + esc(J.send || '') + '). ' + (k.ai ? 'ChatGPT writes each email from this template\'s brief; this exact wording is used when ChatGPT can\'t.' : 'Sent in this exact wording.') + ' You can edit every one on the batch card before you approve.</div>'
       + '<div class="jdraft">' + (k.subject ? '<b>' + tvar(esc(k.subject)) + '</b>\n\n' : '') + tvar(esc(k.body)) + '</div></div>';
@@ -474,7 +474,7 @@
     var n = function (f, v, lo, hi, lab) { return '<input type="number" data-rule="' + esc(k.kind + '.' + f) + '" value="' + esc(v) + '" min="' + lo + '" max="' + hi + '" aria-label="' + esc(lab) + '">'; };
     var unit = R ? '<span class="chm-u">' + (R.unit === 'working' ? 'working days' : 'days') + '</span>' : '';
     var head = '<tr class="chm-r' + (open ? ' open' : '') + '"><td data-l="Chaser"><button type="button" class="chm-name" data-chm-open="' + esc(grp + '|' + key) + '" aria-expanded="' + open + '">' + esc(cue ? k.label : k[1]) + '</button><span class="adesc">' + esc(cue ? k.about : k[2]) + (cue ? ' To ' + esc(k.to) + '.' : '') + '</span></td>'
-      + '<td data-l="Sent from">' + esc(cue ? k.from : 'Canvas') + '</td><td class="c" data-l="How">' + IC.mail + (cue ? '' : IC.sms) + '</td>';
+      + '<td data-l="Sent from">' + esc(cue ? k.from : 'Canvas') + '</td><td class="c" data-l="How">' + CH_IC.mail + (cue ? '' : CH_IC.sms) + '</td>';
     if (R) head += '<td class="c" data-l="First after">' + n('first', R.first, 1, 60, 'First after') + unit + '</td><td class="c" data-l="Then every">' + n('every', R.every, 1, 60, 'Then every') + unit + '</td><td class="c" data-l="Stop after">' + n('max', R.max, 1, 10, 'Stop after') + '<span class="chm-u">chases</span></td>'
       + '<td class="c" data-l="On"><input type="checkbox" data-rule="' + esc(k.kind) + '.on"' + (R.on ? ' checked' : '') + ' aria-label="On"></td><td class="c" data-l="Lined up">In the morning batch</td>';
     else head += '<td colspan="3" class="c chm-span" data-l="Timing">' + (cue ? 'Each morning, in the 8 AM update' : 'Canvas\'s own timing') + '</td><td class="c" data-l="On">' + (cue ? (k.on ? '<span class="tag good">On</span>' : '<span class="tag">Off</span>') : '<span class="tag good">On</span>') + '</td><td class="c" data-l="Lined up">' + (cue ? 'In the morning batch' : (d ? (d[key] || []).length : '…')) + '</td>';
@@ -570,7 +570,7 @@
   function snPeople() {
     var d = SNW.d, P = $('snPeople'), own = SNW.kind === 'own';
     var on = d.people.filter(function (p) { return p.on; }).length, noMob = d.people.filter(function (p) { return p.on && !p.mobile; }).length;
-    P.innerHTML = '<div class="logf" style="margin:6px 0"><span class="stabs"><button type="button" data-sn-em="1" aria-pressed="' + d.email + '"' + (own ? '' : ' disabled') + '>' + IC.mail + ' Email</button><button type="button" data-sn-tx="1" aria-pressed="' + d.textOn + '">' + IC.sms + ' Text</button></span>'
+    P.innerHTML = '<div class="logf" style="margin:6px 0"><span class="stabs"><button type="button" data-sn-em="1" aria-pressed="' + d.email + '"' + (own ? '' : ' disabled') + '>' + CH_IC.mail + ' Email</button><button type="button" data-sn-tx="1" aria-pressed="' + d.textOn + '">' + CH_IC.sms + ' Text</button></span>'
       + '<span class="adesc">' + on + ' of ' + d.people.length + ' ticked' + (d.textOn && noMob ? ' · ' + noMob + ' with no mobile' : '') + '</span></div>'
       + (d.people.length ? '<table class="rnw"><thead><tr><th></th><th>Name</th><th>Part</th><th>Email</th><th>Mobile</th><th>Last sent</th></tr></thead><tbody>'
         + d.people.map(function (p, i) { return '<tr><td><input type="checkbox" data-sn-i="' + i + '"' + (p.on ? ' checked' : '') + ' aria-label="' + esc(p.name) + '"></td><td>' + esc(p.name) + (p.contact ? '<div class="adesc">' + esc(p.contact) + '</div>' : '')
@@ -800,7 +800,7 @@
         + '<input type="search" data-log="q" placeholder="Search a name, project, subject or error" value="' + esc(logF.q) + '" aria-label="Search"><span class="adesc">' + L.length + ' of ' + D.rows.length + '</span></div>' : '')
       + (logData && !L.length ? '<div class="card small muted">Nothing matches.</div>' : '')
       + L.slice(0, 300).map(function (x) {
-        var icon = x.from === 'Canvas' ? (x.channel === 'text' ? IC.sms : IC.mail) : '<span class="ic">⚙</span>';
+        var icon = x.from === 'Canvas' ? (x.channel === 'text' ? CH_IC.sms : CH_IC.mail) : '<span class="ic">⚙</span>';
         var sub = x.from === 'Canvas' ? [x.subject, x.project].filter(Boolean).join(' · ') + (x.error ? (x.subject || x.project ? ' · ' : '') + x.error : '')
           : x.error ? x.error : x.count !== '' ? x.count + ' done' + (x.secs !== '' ? ' · ' + x.secs + ' s' : '') : '';
         return '<div class="card arow logrow"><span class="adesc logt">' + esc(x.day) + ' ' + esc(x.time) + '</span><span class="apill">' + esc(x.from) + '</span>' + icon
@@ -977,7 +977,7 @@
     Object.keys(K).forEach(function (k) {
       var x = K[k];
       var ab = (rules.about || {})[k];   // CUE-ADMIN-2-2026-10-29 (Kiko 03:17Z "a small copy what that chaser is about")
-      h += '<tr><td>' + IC.mail + '<b>' + esc(x.label) + '</b>' + (ab ? '<div class="adesc">' + esc(ab.about) + '</div><div class="adesc">From ' + esc(ab.from) + '</div><div class="adesc">To ' + esc(ab.to) + '</div>' : '') + '<div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
+      h += '<tr><td>' + CH_IC.mail + '<b>' + esc(x.label) + '</b>' + (ab ? '<div class="adesc">' + esc(ab.about) + '</div><div class="adesc">From ' + esc(ab.from) + '</div><div class="adesc">To ' + esc(ab.to) + '</div>' : '') + '<div class="small muted">' + (x.unit === 'working' ? 'working days' : 'days') + '</div></td><td><input type="checkbox" data-rule="' + k + '.on"' + (x.on ? ' checked' : '') + ' aria-label="' + esc(x.label) + ' on"></td>'
         + '<td>' + n(k + '.first', x.first, 1, 60) + '</td><td>' + n(k + '.every', x.every, 1, 60) + '</td><td>' + n(k + '.max', x.max, 1, 10) + '</td></tr>';
       if (x.soon_first != null) h += '<tr><td class="small muted">↳ event within 7 days</td><td></td><td>' + n(k + '.soon_first', x.soon_first, 1, 60) + '</td><td>' + n(k + '.soon_every', x.soon_every, 1, 60) + '</td><td></td></tr>';
     });

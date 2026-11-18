@@ -1,17 +1,20 @@
   function renderPaneTabs(th) {
     var it = ptabs.filter(function (k) { return k.key === pactive; })[0], h;
     var x = '<span class="pane-x">' + ib('data-p="pane"', 'x', 'Close this pane') + '</span>';
+    // MOBILE-BACK-2026-11-18 (Kiko 18 Nov 2026 02:20Z, phone screenshot: "In mobile there is no way to go back to the left panel. There
+    // should be a button here that does that"): on a narrow screen the pane header starts with a "Chat" back button that closes the pane.
+    var back = '<button class="pane-back" data-p="pane" aria-label="Back to the chat">' + icon('back') + '<span>Chat</span></button>';
     if (!it) {
       // CUE-ONE-THREADS-2026-11-01 (Kiko 1 Nov, screenshot: "two words here that says Threads. remove the 2nd", and the 7 vs 6 counts):
       // the pane header no longer repeats "Threads" and its count; the ☰ Threads button carries the one count (needThreadsN).
-      h = '<span class="grow"></span>'
+      h = back + '<span class="grow"></span>'
         + ib('data-p="search"', 'search', 'Search threads', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent threads' : 'Show archived threads', showArchived)
         + ib('data-p="rules"', 'more', 'Settings') + x;
     } else {
       var t = thOf(th, it.id), name = t ? threadTitle(t) : 'Thread';
       var last = t && t.reqs[t.reqs.length - 1], busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
       // CRUMB-NO-THREADS-2026-10-31 (Kiko 31 Oct: "remove the 2nd Threads >"): the thread's name only; the ☰ Threads tab opens the list.
-      h = '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      h = back + '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
       var open = t && t.reqs.some(function (r) { return !CLOSED[r.status]; });
       h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
@@ -66,14 +69,31 @@
       // Kiko 24 Oct: one tap closes the scheduled jobs' runs from before today (bids, ChatGPT tasks, reviews); Kiko's own tasks stay.
       if (g[0] === 'need' && !showArchived && l.some(function (x) { return oldRun(th[x.k]); })) h += '<div class="actions" style="margin:4px 0 8px"><button class="btn ghost" data-act="close-older" data-id="">Close older runs</button></div>';
       if (tshut[g[0]]) return;
-      if (g[0] === 'agent') h += agentFeedHtml(agentFeed(state.requests, Date.now(), by));   // AGENT-FEED-2026-11-16
       var cut = g[0] === 'rest' && !tmore && !tq ? 8 : l.length;
       h += l.slice(0, cut).map(row).join('') + (l.length > 8 && g[0] === 'rest' && !tq ? '<button class="tmore" data-tmore="1">' + (tmore ? 'Show less' : 'Show more (' + (l.length - 8) + ')') + '</button>' : '');
     });
     setHtml($('tlist'), h + (tq && !G.agent.length && !G.need.length && !G.work.length && !G.rest.length ? '<div class="muted small">No thread matches.</div>' : '')
       + (showArchived ? '<button class="tmore" data-act="show-archived" data-id="">Back to recent</button>' : ''));
     bind();
+    renderAgentUpd(by);
   }
+  // AGENT-UPDATES-LEFT-2026-11-18 (Kiko 18 Nov 2026 02:20Z "those Updates - put them in the left panel"): the last-hour line and the five
+  // newest agent updates (AGENT-FEED-2026-11-16) show above the main chat instead of under the Agents group. The header folds them away;
+  // the fold is remembered on this device. A row still opens its agent's thread. Display only, as before.
+  var agShut = false; try { agShut = localStorage.getItem('cue.agupd') === 'shut'; } catch (e) {}
+  function renderAgentUpd(by) {
+    var f = agentFeed(state.requests, Date.now(), by), el = $('agupd'), body = agentFeedHtml(f);
+    el.hidden = showArchived || !body;
+    if (el.hidden) return setHtml(el, '');
+    var unread = f.items.filter(function (x) { return x.tag[1] !== 'good'; }).length;
+    setHtml(el, '<button class="tgroup" data-agupd="1" aria-expanded="' + !agShut + '">' + icon('chev') + '<span>Agent updates' + (unread ? ' <span class="n">' + unread + '</span>' : '') + '</span></button>'
+      + (agShut ? '' : '<div class="agbody">' + body + '</div>'));
+  }
+  $('agupd').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-agupd')) { agShut = !agShut; try { localStorage.setItem('cue.agupd', agShut ? 'shut' : 'open'); } catch (x) {} return renderAgentUpd(byId()); }
+    if (b.hasAttribute('data-thread')) goThread(b.getAttribute('data-thread'));
+  });
   $('tab-threads').onclick = function () { openPane({ key: 'list' }); };
 
   // Attachments: photos, PDFs and text files, read here and sent with the message. Photos over 500 KB are shrunk to 1800 px JPEG first.

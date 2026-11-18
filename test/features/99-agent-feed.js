@@ -37,6 +37,10 @@ test('AGF2 the status line says nothing new when the last hour is quiet, the fee
   assert.ok(AGF.agentFeedHtml(AGF.agentFeed([], AGF_NOW, {})).length === 0);
   assert.ok(AGF.agentFeedHtml(AGF.agentFeed([agfReq('a', 5, { agent: 'Admin', type: 'update', item: 'z', status: 'Unread' })], AGF_NOW, {})).includes('Last hour: 1 update from 1 agent.'));
 });
-test('AGF3 the feed sits under the Agents header only, and is hidden when the group is folded', () => {
-  assert.ok(/if \(tshut\[g\[0\]\]\) return;\n      if \(g\[0\] === 'agent'\) h \+= agentFeedHtml\(agentFeed\(state\.requests, Date\.now\(\), by\)\);/.test(AGF_SRC));
+test('AGF3 the feed moved out of the Agents group into the left panel above the main chat (Kiko 18 Nov 2026 02:20Z)', () => {
+  assert.ok(!/h \+= agentFeedHtml/.test(AGF_SRC), 'the Threads list no longer draws the feed');
+  assert.ok(/function renderAgentUpd\(by\) \{\n    var f = agentFeed\(state\.requests, Date\.now\(\), by\), el = \$\('agupd'\), body = agentFeedHtml\(f\);/.test(AGF_SRC), 'renderAgentUpd draws it into #agupd');
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');
+  assert.ok(/<\/nav>\n[\s\S]{0,400}<div class="agupd" id="agupd" hidden><\/div>\n<div id="scroller">/.test(page), '#agupd sits in the left panel, between its nav and the chat');
+  assert.ok(/data-agupd="1" aria-expanded="' \+ !agShut/.test(AGF_SRC) && /localStorage\.setItem\('cue\.agupd'/.test(AGF_SRC), 'the header folds the list and remembers it');
 });
