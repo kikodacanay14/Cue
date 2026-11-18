@@ -9,7 +9,7 @@ const edRows = [
 function edGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdQs', 'agdEditVal', 'agdTickNote', 'agdQsHtml', 'agdTallyText', 'agdRowsHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
+  vm.runInContext(['esc', 'agKv', 'agdQs', 'agdEditVal', 'agdTickNote', 'agdQsHtml', 'agdTallyText', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdUpdHtml'].map(grab).join('\n'), ctx);
   return { page, ctx };
 }
 const edView = (agd) => { const b = agdBox({ drafts: [agdUpd(70, { project: 'Canvas', project_id: 'S-31753672CA', agent: 'AS agent',
