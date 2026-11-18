@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.28.92: Email Intake card lists mail that fit no role (not deployed)
+
+Asked: Kiko, 18 Nov 2026 05:47Z, relayed by the Build the BSE automation thread: "when emails come in and no role fits then it doesnt
+get routed". Slot cue-1.28.92, card email-intake-card.
+
+- The Email Intake handover may carry `not_routed[]` (msg_id, from, subject, received_at, why). The card lists them under "Not routed"
+  (#, Message, From, Why), counts them in the run facts and tags the card "N not routed" in place of "Nothing needs you".
+- Tests: EIC4 new, using the Build thread's 17 Nov sample. 896/896 pass.
+
 ## Cue 1.28.91: Email Intake routing card (not deployed)
 
 Asked: Kiko, 18 Nov 2026, Cue cards for agents thread. 04:34:50Z: "the Email intake review list - please apply the filter";

@@ -835,11 +835,13 @@
   // routed with where and why. A routed row opens to show sender, time and project. Correcting a route waits for Email Intake's re-route
   // command, so those buttons are shown off until it exists.
   function agdIntakeHtml(r, canReply, unread) {
-    var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id), sk = I.skipped || [], rt = I.routed || [], none = '<span class="muted">—</span>';
+    var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id), sk = I.skipped || [], rt = I.routed || [], nr = I.not_routed || [], none = '<span class="muted">—</span>';
     var pl = function (n) { return n + ' message' + (n === 1 ? '' : 's'); }, td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; };
     var msg = 'Email Intake read ' + pl(I.total_read != null ? I.total_read : sk.length + rt.length) + (I.read_at ? ' (' + esc(I.read_at) + ')' : '') + '. '
       + (sk.length ? sk.length + ' ' + (sk.length === 1 ? 'was' : 'were') + ' noise and skipped. ' : '')
-      + (rt.length ? 'It routed ' + pl(rt.length) + ' right away. Check where each one went.' : 'Nothing was routed.') + ' Nothing waits for you.';
+      + (rt.length ? 'It routed ' + pl(rt.length) + ' right away. Check where each one went.' : 'Nothing was routed.')
+      + (nr.length ? ' ' + pl(nr.length) + ' fit no role and ' + (nr.length === 1 ? 'was' : 'were') + ' not routed.' : ' Nothing waits for you.');
+    // Kiko 18 Nov 2026 05:47Z "when emails come in and no role fits then it doesnt get routed": those are listed on their own, with why.
     var rows = rt.map(function (x, i) {
       var k = x.msg_id || String(i), on = agdRowOpen[r.id] === k;
       return '<tr class="agrow" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + td(i + 1, 1)
@@ -847,17 +849,20 @@
         + (on ? '<tr class="agdet"><td colspan="4"><div class="agmeta agin">' + [['From', x.from], ['Received', x.received_at], ['Project', x.project_id]].map(function (f) {
           return '<div><span class="lbl">' + f[0] + '</span>' + (f[1] ? esc(f[1]) : none) + '</div>'; }).join('') + '</div></td></tr>' : '');
     }).join('');
+    var nrt = nr.length ? '<div class="small" style="margin-top:8px;font-weight:700">Not routed</div><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>From</th><th>Why</th></tr></thead><tbody>'
+      + nr.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.from ? esc(x.from) : none) + td(x.why ? esc(x.why) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div>' : '';
     var skt = sk.length ? '<details class="agnz"><summary>Show the ' + pl(sk.length).replace('message', 'skipped message') + '</summary><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Noise type</th></tr></thead><tbody>'
       + sk.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.noise_kind ? esc(x.noise_kind) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div></details>' : '';
     return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Email Intake</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">Email Intake · ' + (rt.length ? 'routed' : 'run summary') + '</b>'
-      + '<span class="tag good">Nothing needs you</span><span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
+      + (nr.length ? '<span class="tag warn">' + nr.length + ' not routed</span>' : '<span class="tag good">Nothing needs you</span>') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
       + '<div class="small muted" style="margin-top:4px">' + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
       + '<p style="margin:8px 0">' + msg + '</p>'
       + '<div class="agmeta agin"><div><span class="lbl">Run</span>' + (I.run_id ? esc(I.run_id) : none) + (I.mailbox ? '<br>' + esc(I.mailbox) : '') + '</div>'
-      + '<div><span class="lbl">Skipped as noise</span>' + pl(sk.length) + '</div><div><span class="lbl">Routed</span>' + pl(rt.length) + '</div></div>'
+      + '<div><span class="lbl">Skipped as noise</span>' + pl(sk.length) + '</div><div><span class="lbl">Routed</span>' + pl(rt.length) + '</div>'
+      + (nr.length ? '<div><span class="lbl">Not routed</span>' + pl(nr.length) + '</div>' : '') + '</div>'
       + (rt.length ? '<div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Routed to</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')
-      + skt + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + nrt + skt + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="small muted" style="margin-top:8px">Changing a receiver or moving a skipped message comes once Email Intake has its re-route command.</div>'
       + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to Email Intake"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
       + (sk.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Not noise? Move</button>' : '')

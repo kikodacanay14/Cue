@@ -49,3 +49,15 @@ test('EIC3 a run that routed nothing is the quiet summary: no routed table, no S
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/\.agit th \{[^}]*text-align:center/.test(css) && /\.agit td\.c \{ text-align:center/.test(css), 'headers and short columns centred');
 });
+test('EIC4 mail no role fits is not routed and listed on its own with why (Kiko 05:47Z); the Build thread sample from 17 Nov renders', () => {
+  const v = eicView({ run: { run_id: 'scan-1763362271', read_at: '2026-11-17T07:11:41Z', mailbox: 'kikodacanay@blankspaceevent.com', total_read: 7 },
+    skipped: [{ msg_id: 'n1', from: 'Fing Alert', subject: 'Fing Alert on WOOFY_892D_2.4G', received_at: '2026-11-17T01:00:00Z', noise_kind: 'no-reply' }],
+    routed: [{ msg_id: 'c1', from: 'Ana Reyes', subject: 'Gate pass S-00000001', received_at: '2026-11-17T01:00:00Z', routed_to: 'ECI', why: 'project code S-00000001; best fit: event operations words ("gate pass")', project_id: 'S-00000001' }],
+    not_routed: [{ msg_id: 'u1', from: 'Lito Cruz', subject: 'Hello', received_at: '2026-11-17T02:00:00Z', why: 'no role fits', attachments: ['x'] }] });
+  assert.deepStrictEqual(Object.keys(v.agd.handover.intake.not_routed[0]).sort(), ['from', 'msg_id', 'received_at', 'subject', 'why']);
+  const html = eicGrab().agdUpdHtml(v);
+  assert.ok(/class="tag warn">1 not routed/.test(html) && !/Nothing needs you|Nothing waits for you/.test(html), 'not routed mail is called out');
+  assert.ok(/1 message fit no role and was not routed\./.test(html) && /<span class="lbl">Not routed<\/span>1 message/.test(html));
+  assert.ok(/<td>Hello<\/td><td>Lito Cruz<\/td><td class="c">no role fits<\/td>/.test(html));
+  assert.ok(/<td class="c">Event Specialist<\/td>/.test(html) && /gate pass/.test(html), 'ECI shows as Event Specialist');
+});
