@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (not deployed)
+## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (live as Version 272, 18 Nov 2026 22:21Z; rollback Version 271)
 
 Asked by Kiko, 18 Nov 2026 14:53Z (Dot's audit, finding 7): "The structured card displays execution type, quantity and occurrence as
 text. Kiko requested that he be able to edit them. Add and verify editing and the approved values' return to the agent." Slot
@@ -19,7 +19,7 @@ change below (Cue PR #446, merged to main, not live before).
 - A decision may now run to 6,000 characters (was 2,000), so a long list with values fits in one reply.
 - Tests: 950 of 950 pass (5 new in test/features/99-agent-card-edit.js). test/fixtures/ZapBridge.gs refreshed from live Canvas V566.
 
-## Cue (next): one line per item in an agent's "Next:" text (not deployed)
+## Cue 1.28.103 (carried): one line per item in an agent's "Next:" text (live as Version 272 with 1.28.103, 18 Nov 2026 22:21Z; rollback Version 271)
 
 Asked by Kiko, 18 Nov 2026 14:47Z, on a screenshot of the Account Specialist's approval bubble: "please format this properly a
 line break after each item". Built on main 6cb665f (live Version 271, 1.28.102). No version slot claimed yet.
