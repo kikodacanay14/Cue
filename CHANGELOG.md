@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (not deployed)
+## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (live as Version 265, 18 Nov 2026 08:22Z; rollback Version 264)
 
 Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the
 threads under CRM???". Slot cue-1.28.96, card cue-jobs-updates.
