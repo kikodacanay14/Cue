@@ -109,6 +109,6 @@ function cueFunnelReview_(manual) {
   const head = (manual ? 'Sales funnel review' : 'Monday sales funnel review') + ' (' + day + ')';
   const text = lines.length ? head + ':\n' + lines.map(x => '• ' + x).join('\n')
     : head + ': ChatGPT did not answer (' + ((a && a.error) || 'no reply') + '). This week: ' + data.steps.filter(x => x.step !== 'Lost').map(x => x.step + ' ' + x.count + (x.stuck ? ' (' + x.stuck + ' stuck)' : '')).join(', ') + '.';
-  cueChat_('Cue', text, '');
+  cueChat_('Cue', text, '', 'funnel');
   return { lines: lines.length, text };
 }

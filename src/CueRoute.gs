@@ -96,7 +96,7 @@ function cueRouteStart_(text, cmd, forced) {
   if (cmd === 'money') return cueFinance_(text, '');
   if (cmd === 'intake') return cueSendWith_(text, [], 'intake', '', null);
   const talk = forced || cueTalk_(text, '', cmd);
-  if (!cueRouteFilled_(talk, cmd)) { cueChat_('Cue', 'I could not start a ' + CUE_ROUTE_CMDS_[cmd].toLowerCase() + ' from that message. Say what you need and I will.', ''); return { chat: true }; }
+  if (!cueRouteFilled_(talk, cmd)) { cueChat_('Cue', 'I could not start a ' + CUE_ROUTE_CMDS_[cmd].toLowerCase() + ' from that message. Say what you need and I will.', '', 'route'); return { chat: true }; }
   return cueSendWith_(text, [], '', '', talk);
 }
 const cueRouteFilled_ = (t, cmd) => !!t && !!({ readiness: t.readiness, ar: t.start_ar, vendor: t.vendor, workflow: t.workflow, email: t.email })[cmd];

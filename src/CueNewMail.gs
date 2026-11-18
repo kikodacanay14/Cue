@@ -245,7 +245,7 @@ function cueNmKnown_(by, items) {
  * senders Claude typed are kept in Triage; a new type is added (setting One line) and Cue says so once in Main chat. */
 function cueNmTyped_(run, typed, types) {
   if (!typed) return;
-  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), ''));
+  typed.oneLine.forEach(x => cueChat_('Cue', cueMtLine_(x), '', 'mail-type'));
   cueMtMarkRead_(run, typed.read);
   if (typed.learn.length) { const sh = cueSheet_('Triage rules'), t = new Date(cueNow_()); typed.learn.forEach(p => sh.appendRow([String(p[0]).toLowerCase(), 'type:' + p[1], t, 'typed by Claude'])); }
   if (typed.newTypes.length) {
@@ -258,7 +258,7 @@ function cueNmProject_(proj) {
   if (!proj.length) return;
   const t = new Date(cueNow_()), log = cueSheet_('Triage log');
   proj.forEach(l => {
-    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '');
+    cueChat_('Cue', cueMtProjectLine_(l, l.pid), '', 'mail-project');
     log.appendRow([t, l.key.replace(/^inbox:/, ''), l.thread_id, l.sender, cueStr_(l.subject, 200), 'project', l.pid, '']);
   });
 }
