@@ -73,6 +73,6 @@ test('ROLE7 AGENT-ONE-CHANNEL-2026-11-18 (Kiko 18 Nov 2026 02:43:48Z "Roles have
     { id: 'o1', agd: { agent: 'BSE Account Specialist' }, ref: 'o2', created: '2026-11-13' }, { id: 'm1', agd: { agent: 'Multimedia Specialist' }, created: '2026-11-13' }, { id: 'x1', kind: 'intake', created: '2026-11-18' }];
   const c = { state: { requests: reqs }, agdLabel: ctx.agdLabel, allLines: () => [{ request_id: 'n1', text: 'hi' }], askOf: () => null };
   vm.runInNewContext("function byId() { var o = {}; state.requests.forEach(function (r) { o[r.id] = r; }); return o; }\n" + src.slice(a, z) + '\nthis.t = threads();', c);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(Object.keys(c.t).sort())), ['m1', 'o2', 'x1'], 'AS and BSE Account Specialist share the oldest thread');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(c.t.o2.reqs.map(r => r.id).sort())), ['n1', 'o1', 'o2']); assert.strictEqual(c.t.o2.lines.length, 1, 'lines follow their request');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(Object.keys(c.t).sort((x, y) => x.localeCompare(y)))), ['m1', 'o2', 'x1'], 'AS and BSE Account Specialist share the oldest thread');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(c.t.o2.reqs.map(r => r.id).sort((x, y) => x.localeCompare(y)))), ['n1', 'o1', 'o2']); assert.strictEqual(c.t.o2.lines.length, 1, 'lines follow their request');
 });
