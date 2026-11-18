@@ -5,7 +5,7 @@
 Release contents (Kiko, 18 Nov 2026 08:41:31Z: "wait lets include the other changes"): this release also carries every change on
 main that is not live yet: 1.28.90 (requirements card 1 layout), 1.28.91 (Email Intake routing card), 1.28.92 (Email Intake card
 lists mail that fit no role), 1.28.93 (Admin check and Finance check cards), 1.28.95 (Open requirements rows by number) and 1.28.97 (from the Cue layout
-thread: the counter goes to 0 when a channel is opened, Flag and Unflag a message, scheduled runs under Jobs › Updates), each
+thread: the counter goes to 0 when a channel is opened, Flag and Unflag a message, scheduled runs under Jobs › Updates), and PR #439 (the 2 PM funnel follow-ups run is named "2 PM funnel follow-ups", not "Project intake"), each
 described below. Built on live 1.28.96 (Version 265) through main.
 
 Asked: Kiko, 18 Nov 2026 08:35:22Z, with a screenshot of "Replaced by a newer funnel. Nothing was changed.": "Please make
