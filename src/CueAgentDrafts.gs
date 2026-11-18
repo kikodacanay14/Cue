@@ -16,7 +16,8 @@ const CUE_AGD_ = { every_min: 15, open_min: 2, prop: 'CUE_AGD_STATE', days: 3, i
 // Canvas's status on the left, the card's Cue status on the right.
 const CUE_AGD_STATUS_ = { 'Waiting for Kiko': 'Needs you', Sending: 'Sending', Sent: 'Done', Saved: 'Done', Failed: 'Failed', Rejected: 'Rejected',
   'Sent back': 'Closed', Dropped: 'Closed', Unread: 'Needs you', Read: 'Done', Replied: 'Done' };   // Replied: Kiko's card "Updates plus replies"   // AGENT-UPDATE-2026-11-13: an agent's update
-const CUE_AGD_TYPES_ = ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'invoice_chaser', 'ar_chaser', 'signature_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'update'];
+const CUE_AGD_TYPES_ = ['fsa_send', 'ar_send', 'payment_sent', 'invoice_request', 'invoice_chaser', 'ar_chaser', 'signature_chaser', 'accreditation_chaser', 'rfp', 'requirements', 'update',
+  'client_question'];   // CLIENT-QUESTION-2026-11-18: goes from Kiko's Gmail on his Send (CueRfpSend.gs), a reply-all when the client's thread is known
 
 function cueAgdLoad_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CUE_AGD_.prop) || '{}') || {}; } catch (e) { return {}; } }
 function cueAgdSave_(st) { PropertiesService.getScriptProperties().setProperty(CUE_AGD_.prop, JSON.stringify(st)); }
@@ -133,7 +134,7 @@ function cueAgdLine_(a) {
   const st = a.status;
   if (st === 'Sent') return 'Sent' + (a.recipient ? ' to ' + a.recipient : '') + '.';
   if (st === 'Saved') return 'Saved to Canvas. ' + (a.reason || '');
-  if (st === 'Sending') return /^(rfp|accreditation_chaser)$/.test(a.type) ? 'Approved. It goes out from your Gmail within a minute.' : 'Approved. Canvas is sending it.';
+  if (st === 'Sending') return /^(rfp|accreditation_chaser|client_question)$/.test(a.type) ? 'Approved. It goes out from your Gmail within a minute.' : 'Approved. Canvas is sending it.';
   if (st === 'Failed') return 'Not sent: ' + (a.reason || 'Canvas gave no reason') + '.';
   if (st === 'Dropped') return 'Not sent, because it is no longer due. ' + (a.reason || '');
   if (st === 'Sent back') return 'Sent back to ' + cueAgdLabel_(a.agent) + (a.note ? ' with your note: "' + a.note + '"' : '') + '.';
