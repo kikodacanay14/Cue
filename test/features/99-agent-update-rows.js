@@ -11,7 +11,7 @@ const aurUpd = (n, rows) => agdUpd(n, { project: 'Pandamart Likha', project_id: 
   handover: { handover_ref: 'REQ-REVIEW-01', summary: '3 requirements reviewed.', gaps: 'Entrance specs open.', state: 'Delivered', rows } });
 function aurGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {} }; vm.createContext(ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {} }; vm.createContext(ctx);
   vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
@@ -22,8 +22,8 @@ test('AUR1 rows from Canvas are kept clean: only the approved fields, In House o
     { req_id: 'REQ26-2', name: 'Host', sourcing: 'Freelance', spec_by: 'ECII', needs_kiko: 'yes' },
     { req_id: 'REQ26-3', name: ' ' }, null, 'text'] });
   assert.deepStrictEqual(JSON.parse(JSON.stringify(h.rows)), [
-    { req_id: 'REQ26-1', name: 'Stage', sourcing: 'Outsourced', spec_by: 'MM', dimensions: '6 m W', needs_kiko: true, open_items: ['a', '2'] },
-    { req_id: 'REQ26-2', name: 'Host', sourcing: '', spec_by: '', dimensions: '', needs_kiko: false, open_items: [] }]);
+    { req_id: 'REQ26-1', name: 'Stage', sourcing: 'Outsourced', spec_by: 'MM', dimensions: '6 m W', needs_kiko: true, open_items: ['a', '2'], images: [] },
+    { req_id: 'REQ26-2', name: 'Host', sourcing: '', spec_by: '', dimensions: '', needs_kiko: false, open_items: [], images: [] }]);   // AGENT-ROW-PICTURES-2026-11-18 adds images
   assert.deepStrictEqual(JSON.parse(JSON.stringify(t.ctx.cueAgdHand_({ summary: 'y' }).rows)), [], 'an update without rows has none');
   const many = t.ctx.cueAgdHand_({ rows: Array.from({ length: 130 }, (_, i) => ({ name: 'R' + i, open_items: Array(30).fill('x') })) });
   assert.strictEqual(many.rows.length, 100); assert.strictEqual(many.rows[0].open_items.length, 20);
@@ -39,7 +39,7 @@ test('AUR2 an update with rows is one short card; the panel is shut until tapped
   const heads = (open.match(/<th[^>]*>[^<]*<\/th>/g) || []).map(x => x.replace(/<[^>]+>/g, ''));
   assert.deepStrictEqual(heads, ['#', 'Requirement', 'Sourcing', 'Specs by', 'Dimensions', 'Open items', 'Images']);
   assert.ok(!/Status|Handed to|Kind|Fabrication/.test(open), 'Kiko removed Status, Handed to and Kind');
-  const order = (open.match(/REQ26-11083-\d\d/g) || []); assert.deepStrictEqual(order, ['REQ26-11083-04', 'REQ26-11083-05', 'REQ26-11083-01']);
+  const order = (open.match(/class="rid">REQ26-11083-\d\d/g) || []).map(x => x.slice(11));   // AGENT-ROW-PICTURES-2026-11-18: rows also carry the ID in data-row assert.deepStrictEqual(order, ['REQ26-11083-04', 'REQ26-11083-05', 'REQ26-11083-01']);
   assert.ok(/MM to add/.test(open) && /3\.0 m W × 2\.4 m H<span class="rid">from brief, by MM/.test(open) && /Photo wall &lt;b&gt;/.test(open));
   assert.ok(/data-agf="need"/.test(open) && /All 3/.test(open) && /Needs you 2/.test(open));
   assert.ok(/data-act="agd-read"/.test(open) && /data-act="agd-reply"/.test(open) && /data-agd-note=/.test(open), 'Mark read and Reply live in the panel footer');

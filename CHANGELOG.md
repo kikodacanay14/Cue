@@ -15,6 +15,24 @@ stayed off because PR #292 took the scope back out.
 - Tests: GMOD1 to GMOD3 (new, `test/features/99-gmail-modify.js`); C26 now expects `gmail.modify` among the missing scopes.
   882/882 pass (with 1.28.83 and 1.28.85 merged in).
 
+## Cue 1.28.86: requirement rows open to show the MM pictures (not deployed)
+
+Asked: Kiko, 18 Nov 2026 02:46:35Z "Can you propose a card also where i can view the image and not a link?"; 02:58:28Z "I prefer the
+table earlier that we have. Why not when a table row is clicked it expands and shows the images. When another row is clicked previous
+row closes and another one expands"; 03:03:36Z "The cue card 1 that showed the images is approved" (mockup
+https://claude.ai/artifact/XCUNnJjumLDtuApXXmhK68, card 1). Slot cue-1.28.86, card agent-row-pictures.
+
+- `cueAgdHand_` and `cueAgdRow_` (CueAgentDrafts.gs): an update may carry `brief` ({file_id, name, pages}) and per row `images`
+  ([{file_id, name, page}], at most 20). Only Drive file IDs are kept; Cue builds every link and thumbnail URL itself.
+- `agdRowsHtml` (IndexCards.html): the requirements table stays. Tapping a row (or Enter or Space) opens it under the row with that
+  requirement's pictures and their brief page; tapping another row closes the first. The Images cell counts the pictures. The
+  client brief link sits above the table.
+- A picture or the brief opens in Cue's viewer above the panel (`body.agd-pic`); its 1 of N steps through the open row's pictures.
+  Esc closes the viewer first, then the panel. Thumbnails use Drive's thumbnail as Kiko with the `cueThumb` fallback, so files stay
+  private and no sharing changes.
+- Needs Canvas: the `agent_update` bridge schema must accept `rows[].images` and `brief` before real pictures show (CanvasWorkspace PR).
+- Tests: AUP1 to AUP3 (new); AUR1, AUR2 and the agent-draft render contexts know the new fields. 882/882 pass.
+
 ## Cue 1.28.85: one channel per role (not deployed)
 
 Asked: Kiko, 18 Nov 2026 02:43:48Z "Roles have 2 channels?" (screenshot after Version 260). Slot cue-1.28.85, card
