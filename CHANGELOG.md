@@ -1,10 +1,11 @@
 # Changelog
 
-## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (not deployed)
+## Cue 1.28.83: back to the chat on a phone, and agent updates in the left panel (LIVE as Version 261, 18 Nov 2026 02:38Z, rollback 260)
 
 Asked: Kiko, 18 Nov 2026 02:20Z, with a phone screenshot of the Threads pane: "In mobile there is no way to go back to the left
 panel. There should be a button here that does that. Also those Updates - put them in the left panel." Slot cue-1.28.83, card
-cue-mobile-back-updates-left. Deploy waits for Kiko's typed go.
+cue-mobile-back-updates-left. Kiko's go: "Go" (18 Nov 2026 02:34:28Z). Deploy Cue run 44224631956 (mode=deploy) from
+branch commit 0f2d918 (live 1.28.82 Version 260 plus this change only; check run 44224507400 showed just the five files below).
 
 - Root cause of the missing button: `src/IndexPages.html` declared a second `var IC` (the email, text and app icons) in the same
   page script as the pane's icon set in `src/IndexViewer.html`, so it replaced it. Every pane icon (the X that closes the pane,
