@@ -43,6 +43,33 @@ https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk. Slot cue-1.28.90 (1.28.89 is 
   the requirements approval flow, which has no Canvas command yet. Agents must send the new fields before they show.
 - Tests: AUP2 and AUR1/AUR2 rewritten, AUP4 new. 892/892 pass. Checked in Chromium at 1280 and 390 px: no sideways scroll.
 
+## Cue 1.28.89: drag a General message to a channel, and its source can follow (live as Version 263, 18 Nov 2026 05:57Z; rollback Version 262)
+
+Asked: Kiko, 18 Nov 2026 04:31:41Z: "Messages in General Chat can i drag and drop them to a channel? That would then become a rule
+that messages like those should be moved to that channel". "yes scope it" 04:41:26Z; on the decision card at 05:08:40Z Kiko chose
+"By where it came from" (Cue tags each new General message with its source; a rule matches that source exactly; new messages only).
+Mockup approved "okay" 05:20:38Z; "ok build" 05:30:13Z. Slot cue-1.28.89, card cue-drag-to-channel. Kiko typed "go ship cue 1.28.89" at 05:54:42Z. Shipped alone from release branch claude/project-thread-el9q3v-release-1.28.89 (live 1.28.88 plus this change), Deploy Cue run 44247762272; 1.28.90 and 1.28.91 are not live.
+
+- Source tag (`src/Cue.gs` cueChat_, 18 posting spots in Cue.gs, CueBids, CueEditLog, CueMessenger, CueNewMail, CueRoute,
+  CueSchedule, CueServiceDesk, CueSweep, CueSweepFunnel, CueTickTick): each line Cue posts to General itself names where it came
+  from in Chat column F (for example `msgr-setup`, `unsched`, `reminder`, `ticktick`). Older lines have no tag: they can be moved
+  but cannot start a rule.
+- Moves and rules (`src/CueChannels.gs`, new): `cueChanMove` writes the channel into Chat column G ("?" while the question is open);
+  `cueChanAnswer` closes the question and, for "Yes, always", saves a rule for the source in script property `CUE_CHAN_RULES`;
+  `cueChanRuleDel` stops a rule (its entry keeps an end time, so lines it already moved stay put); `cueAdminChanRules` lists the
+  rules in use with how many lines each has moved. A line is found by its time, who and text. Display only: nothing is sent,
+  deleted or written to Canvas. All four are never run by the cloud check.
+- Page (`src/IndexThreads.html`, `src/IndexStyle.html`): Cue's own General lines can be dragged onto a Jobs or Systems channel
+  (the row says "Drop to move here"); on a phone a 500 ms press opens "Move to…" with Jobs and Systems. In the line's place
+  General shows "Moved to X" with "Also send future <source> messages to X?" (Just this one / Yes, always), or "Moved to X." for a
+  line with no source. A moved line and a line its rule covers show in that channel only, never also in General or Alerts.
+- Settings (`src/Index.html`, `src/IndexPages.html`): Rules › Channel rules, before Triage: Source, Goes to, Added, Moved, Remove
+  (Remove asks first). Headers and short columns centred.
+- Card buttons follow the standard card rule (primary first, bottom right), so "Yes, always" sits left of "Just this one".
+- Tests: DC1 to DC6 new (`test/features/99-drag-to-channel.js`); AD4 lists the new section. 897/897 pass. Checked in Chromium with
+  a stubbed server at 1280 px (drag onto Alerts, question, Yes, always, Alerts channel, mouse drag of an untagged line) and 375 px
+  (long press, Move to…, question): no page errors, no sideways scroll.
+
 ## Cue 1.28.88: channels on the left, the conversation on the right (live as Version 262, 18 Nov 2026 05:06Z)
 
 Asked: Kiko, 18 Nov 2026 04:18:47Z, with a screenshot of Cue inside Canvas: "All the channels and threads put them on the left.

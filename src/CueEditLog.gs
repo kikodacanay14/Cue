@@ -51,7 +51,7 @@ function cueAdminEditUndo(n) {
   const o = { book: String(r[1]), tab: String(r[2]), keycol: String(r[3]), key: String(r[4]), add: false, set: {}, was: {}, undo: 'row ' + n };
   o.set[col] = String(r[6]); o.was[col] = String(r[7]);
   cueEditCard_(o, '');
-  cueChat_('Cue', 'Undo asked from Cue Admin: putting ' + col + ' back to "' + cueStr_(r[6], 120) + '". Reply "approve" to save it.', '');
+  cueChat_('Cue', 'Undo asked from Cue Admin: putting ' + col + ' back to "' + cueStr_(r[6], 120) + '". Reply "approve" to save it.', '', 'editlog');
   return { ok: true };
 }
 

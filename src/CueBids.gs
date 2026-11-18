@@ -800,7 +800,7 @@ function cueBidsFinish_(s) {
   // CUE-COWORK-1030-2026-11-01: the 10:30 run speaks in the main chat only when there is something: new notices (as the New
   // opportunities card) or Cowork did not run (Kiko: "if its not, let me know").
   if (s.how === 'cowork') {
-    if (B.cowork && !B.cowork.ran) cueChat_('Cue', 'New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on, Claude open and PhilGEPS signed in?', '');
+    if (B.cowork && !B.cowork.ran) cueChat_('Cue', 'New PhilGEPS was not checked today: Cowork on KKD did not run. Is KKD on, Claude open and PhilGEPS signed in?', '', 'bids');
     if (nNew) { cueChat_('Cue', 'New PhilGEPS: ' + nNew + ' new bid' + (nNew === 1 ? '' : 's') + ' from Cowork.', '>' + s.id); cueChat_('Cue', 'New opportunities: ' + nNew + ' new.', '%' + s.id); }
   }
 }

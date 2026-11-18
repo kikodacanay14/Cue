@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 84 server files, 1672 top-level names, 36 task kinds, 35 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 105 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
+Counts: 85 server files, 1685 top-level names, 36 task kinds, 35 word checks before the
+chat call, 19 background jobs in the 5-minute trigger, 109 page-to-server functions, 69 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -138,7 +138,7 @@ not calls per run. "Used by" and "Uses" count other files.
 
 | File | Canvas bridge actions | Sheet tabs | GPT sites | Claude sites | Used by | Uses |
 |---|---|---|---|---|---|---|
-| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 77 | 51 |
+| `Cue.gs` | `search_projects` | Chat, Requests | 0 | 0 | 78 | 52 |
 | `CueAccred.gs` | `subject` | Requests | 0 | 0 | 4 | 7 |
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 5 | 11 |
 | `CueAdminCanvas.gs` | `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
@@ -155,7 +155,8 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueCanvas.gs` | `find_similar_projects`, `phone`, `search_projects` |  | 0 | 0 | 18 | 5 |
 | `CueCeCost.gs` | `ce_lines`, `ce_update_costs`, `search_projects`, `unit_cost` | Requests | 1 | 0 | 3 | 8 |
 | `CueChange.gs` | `list_project_files` | Requests | 1 | 0 | 4 | 7 |
-| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `client_status`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `service_desk_new`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 39 |
+| `CueChannels.gs` |  | Chat | 0 | 0 | 2 | 1 |
+| `CueCheck.gs` | `accreditation_gaps`, `ar_email`, `canvas_link`, `ce_lines`, `claim_plan`, `client_check`, `client_status`, `crew_docs`, `crew_docs_job`, `crew_docs_send`, `expense_evidence`, `finance_snapshot`, `find_similar_projects`, `get_project`, `get_project_board`, `get_readiness`, `inbox_new`, `intake_evidence`, `list_project_files`, `list_unsigned_docs`, `mail_waiting`, `overdue_billings`, `rfp_outbox`, `search_projects`, `send_doc_reminder`, `send_payment_chasers`, `service_desk_new`, `status_digest`, `supplier_check`, `supplier_lookup` | Requests | 0 | 0 | 5 | 40 |
 | `CueCheckKey.gs` |  |  | 0 | 0 | 2 | 0 |
 | `CueCheckPost.gs` |  |  | 0 | 0 | 0 | 2 |
 | `CueCommands.gs` |  |  | 0 | 0 | 3 | 37 |
@@ -229,15 +230,15 @@ Names used by 5 or more other files, and the file that holds them.
 
 | Helper | Lives in | Used by files |
 |---|---|---|
-| `cueNow_` | `Cue.gs` | 68 |
+| `cueNow_` | `Cue.gs` | 69 |
 | `cueStr_` | `CueText.gs` | 65 |
-| `cueChat_` | `Cue.gs` | 45 |
-| `cueSheet_` | `Cue.gs` | 45 |
+| `cueChat_` | `Cue.gs` | 46 |
+| `cueSheet_` | `Cue.gs` | 46 |
+| `cueLocked_` | `Cue.gs` | 43 |
 | `cueBridge_` | `CueBridge.gs` | 42 |
-| `cueLocked_` | `Cue.gs` | 42 |
+| `cueOwner_` | `Cue.gs` | 37 |
 | `cueLoad_` | `Cue.gs` | 36 |
-| `cueOwner_` | `Cue.gs` | 36 |
-| `cueProp_` | `Cue.gs` | 35 |
+| `cueProp_` | `Cue.gs` | 36 |
 | `cueSave_` | `Cue.gs` | 34 |
 | `cueAiAll_` | `CueAi.gs` | 33 |
 | `cueEmail_` | `CueText.gs` | 28 |
@@ -300,6 +301,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueAlerts.gs`: `cueAlerts`, `cueAlertsConnect`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClarifyCancel`, `cueBidsClarifySend`, `cueBidsClose`, `cueBidsDecide`, `cueBidsStartIntake`
+- `CueChannels.gs`: `cueAdminChanRules`, `cueChanAnswer`, `cueChanMove`, `cueChanRuleDel`
 - `CueEditLog.gs`: `cueAdminEditUndo`, `cueAdminEdits`
 - `CueExpense.gs`: `cueExpense`
 - `CueFiles.gs`: `cueFileData`, `cueUpload`

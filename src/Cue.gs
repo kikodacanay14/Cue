@@ -219,9 +219,12 @@ function cueChatRepeat_(sh, who, text, id) {
   } catch (e) { console.warn('Chat repeat check: ' + e); }
   return false;
 }
-function cueChat_(who, text, id) {
+// CUE-DRAG-TO-CHANNEL-2026-11-18: src names where a General line came from (column F, e.g. 'msgr-setup'), so Kiko's channel rule
+// (CueChannels.gs) can send the next lines from the same place to a channel. Only Cue's own General posts carry one.
+function cueChat_(who, text, id, src) {
   try { const sh = cueSheet_('Chat'), t = String(text).slice(0, 9000); if (cueChatRepeat_(sh, who, t, String(id || ''))) return; } catch (e) { console.warn('Chat repeat check: ' + e); }
-  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || ''].concat(globalThis.CUE_CHECK_ON_ ? [cueCheckTag_()] : [])); } catch (e) { console.error('Chat log: ' + e); }
+  const tag = globalThis.CUE_CHECK_ON_ ? [cueCheckTag_()] : [];
+  try { cueSheet_('Chat').appendRow([new Date(cueNow_()), who, String(text).slice(0, 9000), id || ''].concat(src ? [tag[0] || '', String(src)] : tag)); } catch (e) { console.error('Chat log: ' + e); }
   if (/^>cue-/.test(String(id || ''))) try { cuePlogTask_(String(id).slice(1), text); } catch (e) { console.error('Project log (task): ' + e); }   // CUE-PROJECT-LOG-2026-10-27
 }
 
@@ -621,7 +624,7 @@ function cueTalk_(t, ref, force, opt) {
     if (Object.keys(set).length) { try { cueTaskSet_(where, set); } catch (e) { cueChat_('Cue', 'I could not set that: ' + e.message, where); } }
   }
   let sweep = '';
-  if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, ''); } }
+  if (r.ok && r.data.run_sweep) { try { sweep = cueSweepNow().id; } catch (e) { cueChat_('Cue', 'The sweep did not run: ' + e.message, '', 'sweep'); } }
   const ready = r.ok && !start ? String(r.data.readiness || '').trim().slice(0, 200) : '';
   const ar = r.ok ? cueStr_(r.data.start_ar, 200).trim() : '';
   const v = r.ok && !start && r.data.vendor && r.data.vendor.job ? r.data.vendor : null;
@@ -1056,15 +1059,17 @@ function cueState() {
   }
   let batches = {}; try { batches = cueBatchView_(cueBatchAll_()); } catch (e) { console.error('cueBatchAll_: ' + e); }   // image batches (1.27.5), before the chat so a dropped-batch line shows now
   const ch = cueSheet_('Chat'), n = ch.getLastRow() - 1;
-  const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 5).getValues().filter(r => String(r[4] || '') === chk)
-    .map(r => ({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) })) : [];
+  // CUE-DRAG-TO-CHANNEL-2026-11-18: column F is the line's source and G the channel Kiko moved it to (CueChannels.gs).
+  const chat = n > 0 ? ch.getRange(Math.max(2, n - 298), 1, Math.min(n, 300), 7).getValues().filter(r => String(r[4] || '') === chk)
+    .map(r => cueChanLine_({ time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), who: String(r[1]), text: String(r[2]), request_id: String(r[3]) }, r)) : [];
+  let chanRules = []; try { chanRules = cueChanRules_(); } catch (e) { console.error('cueChanRules_: ' + e); }
   const done = list.filter(x => x.metrics.seconds_total != null);
   const avg = k => done.length ? Math.round(done.reduce((a, x) => a + (Number(x.metrics[k]) || 0), 0) / done.length * 10) / 10 : null;
   const up = cueProp_('CUE_UPLOADS_FOLDER', '');
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
   // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
   let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 

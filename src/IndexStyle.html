@@ -638,4 +638,25 @@
     .pane-x { display:none; }
     .left nav .csub { display:none; }
   }
+  /* CUE-DRAG-TO-CHANNEL-2026-11-18 (approved mockup 05:20:38Z): a General line Kiko can move, the channel row it is dropped on, the
+     question left in its place, the phone's "Move to…" sheet, and Cue Admin › Channel rules. */
+  #msgs .msg[draggable] { cursor:grab; }
+  #msgs .msg.mvdrag { outline:2px dashed var(--act); outline-offset:3px; opacity:.55; }
+  body.mving #tlist .trow[data-chan] { outline:1px dashed var(--line2); outline-offset:-2px; }
+  #tlist .trow.mvdrop { box-shadow:inset 0 0 0 2px var(--act) !important; background:var(--soft) !important; }
+  #tlist .trow.mvdrop .tx > span { display:none; }
+  #tlist .trow.mvdrop .tx::after { content:'Drop to move here'; display:block; font:700 13px var(--font); color:var(--act); }
+  .card.mvask { max-width:560px; border-color:var(--act); }
+  .card.mvask b { display:block; font-size:14px; } .card.mvask .small b { display:inline; font-size:inherit; }
+  .card.mvask .actions { justify-content:flex-end; }
+  .mvnote { margin:6px 0; }
+  .mvdim { position:fixed; inset:0; background:rgba(22,21,27,.35); z-index:65; }
+  .mvsheet { position:fixed; left:0; right:0; bottom:0; z-index:70; max-height:80vh; overflow:auto; background:var(--panel); border-radius:14px 14px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.2); padding:10px 14px 18px; font-family:var(--font); }
+  .mvsheet .hd { font:700 14px var(--font); padding:6px 4px 10px; border-bottom:1px solid var(--line); }
+  .mvsheet .grp { font:700 12px var(--font); text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:10px 4px 2px; }
+  .mvsheet .op { display:flex; align-items:center; width:100%; min-height:44px; padding:0 4px; border:0; border-bottom:1px solid var(--line); background:none; font:500 14px var(--font); color:var(--text); text-align:left; cursor:pointer; }
+  .mvsheet .op.x { justify-content:center; color:var(--muted); border:0; }
+  table.chr { width:100%; border-collapse:collapse; font-size:13px; }
+  table.chr th { font-size:14px; font-weight:700; text-align:center; vertical-align:middle; padding:8px; border-bottom:2px solid var(--line2); }
+  table.chr td { padding:8px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:center; } table.chr td.l { text-align:left; }
 </style>

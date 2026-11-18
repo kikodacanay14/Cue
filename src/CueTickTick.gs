@@ -54,12 +54,12 @@ function cueTtCallback_(p) {
     headers: { Authorization: 'Basic ' + Utilities.base64Encode(cueKey_('CUE_TICKTICK_CLIENT_ID') + ':' + cueKey_('CUE_TICKTICK_CLIENT_SECRET')) },
     payload: { code: String(p.code || ''), grant_type: 'authorization_code', scope: 'tasks:write tasks:read', redirect_uri: cueTtRedirect_() } });
   const d = (() => { try { return JSON.parse(res.getContentText()); } catch (e) { return {}; } })();
-  if (res.getResponseCode() >= 300 || !d.access_token) { cueChat_('Cue', 'TickTick did not connect (' + res.getResponseCode() + '). Type "connect ticktick" to try again.', ''); return page('TickTick did not connect. Go back to Cue and try again.'); }
+  if (res.getResponseCode() >= 300 || !d.access_token) { cueChat_('Cue', 'TickTick did not connect (' + res.getResponseCode() + '). Type "connect ticktick" to try again.', '', 'ticktick'); return page('TickTick did not connect. Go back to Cue and try again.'); }
   P.setProperty('CUE_TICKTICK_TOKEN', String(d.access_token));
   const f = cueTtFlush_();
   cueChat_('Cue', 'TickTick is connected.' + (f.done.length ? ' Added the to-do' + (f.done.length === 1 ? '' : 's') + ' you kept: ' + f.done.map(x => '"' + x + '"').join(', ') + '.' : '')
     + (f.left ? ' ' + f.left + ' kept to-do' + (f.left === 1 ? '' : 's') + ' did not go in; ask me to add ' + (f.left === 1 ? 'it' : 'them') + ' again.' : '')
-    + ' Ask me to add a to-do, or "what\'s on my TickTick".', '');
+    + ' Ask me to add a to-do, or "what\'s on my TickTick".', '', 'ticktick');
   return page('TickTick is connected. You can close this tab and go back to Cue.');
 }
 
