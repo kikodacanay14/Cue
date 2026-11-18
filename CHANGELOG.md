@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.94: one Updates channel in Jobs, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (not deployed)
+## Cue 1.28.94: one Updates channel in Jobs, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (live as Version 264, 18 Nov 2026 07:43Z; rollback Version 263)
 
 Asked: Kiko, 18 Nov 2026, thread "Fix Cue layout and merge agent channels". 06:15:53Z "the Project Intake should be in Jobs. Add there
 Updates under Jobs - put the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in
