@@ -38,7 +38,7 @@ test('CH2 the count beside a channel is what is open for Kiko to review: Needs y
 });
 test('CH3 the list: General first, then Agent Updates, Jobs (CRM and To do from Canvas on top), Systems, Threads; agents show initials; General has no Cue icon', () => {
   assert.ok(CH_SRC.includes(`h += '<button class="trow gen' + (openThread ? '' : ' sel') + '" data-general="1"><i class="dot"`), 'General row, a dot not the Cue logo');
-  assert.ok(CH_SRC.includes("[['proc', 'Process Updates'], ['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
+  assert.ok(CH_SRC.includes("[['proc', 'Project and Process Updates'], ['agent', 'Agent Updates'], ['sys', 'Systems'], ['rest', 'Threads']]"));
   assert.ok(CH_SRC.includes(`(x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title))`));
   assert.ok(CH_SRC.includes("if (b.hasAttribute('data-general')) return goGeneral();"));
 });
