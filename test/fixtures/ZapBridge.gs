@@ -3083,6 +3083,7 @@ ZB_GPT_ACTIONS_.push('agent_send');
 ZB_GPT_ONLY_.push('agent_send');   // never through a signed Cue call: Cue has its own senders
 // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:06:33Z "can Cue also support general updates not just drafts", 11:10:27Z the handover
 // fields): an agent's handover update for its Cue thread. Nothing is sent or changed; Kiko marks it read in Cue.
+const ZB_DRIVE_ID_RE_ = /^[\w-]{10,100}$/;   // AGENT-ROW-PICTURES-2026-11-18: a Drive file ID, as Cue's cueAgdFile_ checks it
 ZB_ACTIONS_.agent_update = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
@@ -3094,7 +3095,13 @@ ZB_ACTIONS_.agent_update = {
     // requirement for Cue's requirements panel. Optional; only the approved fields (Status, Handed to and Kind were removed 12:19:11Z).
     rows: { type: 'array', maxItems: 100, items: { req_id: { type: 'string', max: 60 }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
       sourcing: { type: 'string', oneOf: ['In House', 'Outsourced'] }, spec_by: { type: 'string', oneOf: ['AS', 'MM'] }, dimensions: { type: 'string', max: 200 },
-      needs_kiko: { type: 'boolean' }, open_items: { type: 'array', maxItems: 20 } } } },
+      needs_kiko: { type: 'boolean' }, open_items: { type: 'array', maxItems: 20 },
+      // AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z "The cue card 1 that showed the images is approved", mockup
+      // https://claude.ai/artifact/XCUNnJjumLDtuApXXmhK68 card 1): MM's pictures for the row, each a private Drive file with its brief page.
+      images: { type: 'array', maxItems: 20, items: { file_id: { type: 'string', required: true, re: ZB_DRIVE_ID_RE_ }, name: { type: 'string', max: 200 },
+        page: { type: 'number', min: 1 } } } } },
+    brief: { type: 'object', fields: { file_id: { type: 'string', required: true, re: ZB_DRIVE_ID_RE_ }, name: { type: 'string', max: 200 },
+      pages: { type: 'number', min: 1 } } } },   // AGENT-ROW-PICTURES-2026-11-18: the client brief the pages refer to
   run: (r) => { try { return agdUpdate_(r); } catch (e) { return zbGptRefusal_(e); } },
   check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused }
     : res && res.update_id ? { ok: true, evidence: { update_id: res.update_id, handover: res.handover } } : { ok: false, error: 'the update save gave no answer' }
