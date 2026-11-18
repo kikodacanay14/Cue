@@ -601,11 +601,12 @@
     var jbRoot = {};
     state.requests.slice().reverse().forEach(function (r) { var b = rootOf(r.id, by), x = by[b] || r, k = chanKey(x); if (k && !jbRoot[k]) jbRoot[k] = b; });
     function home(id) {
-      var b = rootOf(id, by), x = by[b], k = x && chanKey(x);
+      var b = rootOf(id, by), x = by[b] || by[id], k = x && chanKey(x);   // JOB-CHANNELS-KEEP-2026-11-18: a run whose root is not in the list still finds its channel
       if (k) return jbRoot[k] || b;
       return x && x.agd && x.agd.agent ? agRoot[agdLabel(x.agd.agent).toLowerCase().replace(/ agent$/, '')] || b : b;
     }
-    function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [], chan: by[root] ? chanKey(by[root]) : '' }); }
+    var jbKey = {}; Object.keys(jbRoot).forEach(function (k) { jbKey[jbRoot[k]] = k; });   // JOB-CHANNELS-KEEP-2026-11-18: a channel whose first run is not in the list keeps its channel
+    function get(root) { return t[root] || (t[root] = { root: root, lines: [], reqs: [], chan: jbKey[root] || (by[root] ? chanKey(by[root]) : '') }); }
     Object.defineProperty(t, '_home', { value: home });   // thOf: a run's own id finds its channel
     Object.defineProperty(t, '_jb', { value: jbRoot });   // CUE-DRAG-TO-CHANNEL-2026-11-18: a channel key finds its thread
     allLines().forEach(function (m) {

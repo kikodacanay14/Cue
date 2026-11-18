@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (not deployed)
+
+Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the
+threads under CRM???". Slot cue-1.28.96, card cue-jobs-updates.
+
+- Cause: the page gets only the newest 20 tasks. On 18 Nov the agents filled them, so Bid Opportunities, Project Reviews and Updates
+  dropped out of Jobs (only Canvas's CRM row was left), and the Sales follow-ups run, whose first run of the day had dropped out, fell
+  back to its own row under Threads.
+- Fix: the list also keeps each scheduled job's newest run and the run its day thread hangs on (like each agent's newest draft), and
+  a run whose first run is not in the list still joins its channel.
+- Tests: JCK1 and JCK2 new. 907/907 pass on this release branch.
+
 ## Cue 1.28.94: one Updates channel in Jobs, Systems for ChatGPT and GitHub, no "Earlier task" rows, and emails can be moved with a reason (not deployed)
 
 Asked: Kiko, 18 Nov 2026, thread "Fix Cue layout and merge agent channels". 06:15:53Z "the Project Intake should be in Jobs. Add there
