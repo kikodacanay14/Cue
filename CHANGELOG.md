@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (live as Version 266, 18 Nov 2026 09:12Z; rollback Version 265; shipped together with 1.28.90-93, 1.28.95 and 1.28.97)
+## Cue 1.28.98: Cue's job status lines are full sentences that say what they are about (live as Version 266, 18 Nov 2026 09:11Z; rollback Version 265; shipped together with 1.28.90-93, 1.28.95 and 1.28.97)
 
 Release contents (Kiko, 18 Nov 2026 08:41:31Z: "wait lets include the other changes"): this release also carries every change on
 main that is not live yet: 1.28.90 (requirements card 1 layout), 1.28.91 (Email Intake routing card), 1.28.92 (Email Intake card
