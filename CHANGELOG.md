@@ -41,6 +41,10 @@ Slot cue-1.28.97, card cue-channels-layout.
 - **Scheduled runs.** Every ChatGPT scheduled task's run now joins Jobs › Updates instead of Threads. This covers Daily personal
   spending, the weekday records reviews, Repeat-event accounts and Moved-contact reconnection. The page never received those tasks'
   keys, so they had no channel. Project Reviews is gone as a separate channel because its runs now go to Updates.
+- **Process Updates.** Asked at 09:04:16Z: "you still dont have here the CRM and Project Intake. If you want make a section name it
+  Process Updates then put under it CRM, Project Updates". A new first group, Process Updates, holds Canvas's CRM row (shown inside
+  Canvas) and one Project Updates channel. Every client intake joins that channel, the same way Jobs › Updates works. Canvas's To do
+  row stays in Jobs.
 - **Tests.** New: SEEN1 to SEEN3 and FLAG1 to FLAG3. CH1, CH2, AGG2, THC1, THC2 and AGC2 follow the new code. 922/922 pass.
   Checked on the page on PC and on a phone.
 

@@ -22,7 +22,7 @@ test('CH1 each scheduled job is one channel: every run joins the oldest run; eve
     [{ who: 'Cue', request_id: 'b2', text: 'new bids' }, { who: 'Cue', request_id: '', text: 'The sweep did not run today' }, { who: 'Cue', request_id: '', text: 'Good morning' }]);
   const byName = (x, y) => x.localeCompare(y), keys = Object.keys(c.t).sort(byName);
   deq(JSON.parse(JSON.stringify(keys)), ['a1', 'b1', 'r1', 's1', 'sys:alerts', 'x1'].sort(byName));
-  deq([c.t.b1.chan, c.t.s1.chan, c.t.r1.chan, c.t['sys:alerts'].chan, c.t.a1.chan, c.t.x1.chan], ['job:bids', 'job:updates', 'sys:updates', 'sys:alerts', '', '']);
+  deq([c.t.b1.chan, c.t.s1.chan, c.t.r1.chan, c.t['sys:alerts'].chan, c.t.a1.chan, c.t.x1.chan], ['job:bids', 'job:updates', 'sys:updates', 'sys:alerts', '', 'proc:projects'], 'a client intake joins Process Updates › Project Updates (Kiko 09:04:16Z)');
   deq(JSON.parse(JSON.stringify(c.t.s1.reqs.map(r => r.id).sort(byName))), ['g1', 'g2', 'g3', 's1', 's2'], 'the ChatGPT tasks and the Morning batch share Jobs › Updates');
   deq(c.t.b1.reqs.map(r => r.id), ['b1', 'b2'], 'oldest first'); deq(c.t.b1.lines.length, 1, 'a run\'s lines follow it into the channel');
   deq(c.t.r1.reqs.map(r => r.id).sort(byName), ['d1', 'r1'], 'Cue Dev and release notes share Updates');
@@ -38,7 +38,7 @@ test('CH2 the count beside a channel is what is open for Kiko to review: Needs y
 });
 test('CH3 the list: General first, then Agent Updates, Jobs (CRM and To do from Canvas on top), Systems, Threads; agents show initials; General has no Cue icon', () => {
   assert.ok(CH_SRC.includes(`h += '<button class="trow gen' + (openThread ? '' : ' sel') + '" data-general="1"><i class="dot"`), 'General row, a dot not the Cue logo');
-  assert.ok(CH_SRC.includes("[['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
+  assert.ok(CH_SRC.includes("[['proc', 'Process Updates'], ['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
   assert.ok(CH_SRC.includes(`(x.ag ? '<span class="chico" aria-hidden="true">' + esc(initials(x.title))`));
   assert.ok(CH_SRC.includes("if (b.hasAttribute('data-general')) return goGeneral();"));
 });
