@@ -152,7 +152,8 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
   assert.ok(/\n    return h;[^\n]*\n  \}\n$/.test(wf), 'workflowCardHtml returns its card');
   const close = page.match(/function paneClose\(\) \{[\s\S]*?\n  \}\n/)[0];
   assert.ok(/ptabs = \[\]; pactive = 'list'/.test(close) && /paneOpen\(false\)/.test(close));
-  assert.ok(/data-p'\);[\s\S]{0,80}if \(p === 'pane'\) return paneClose\(\);/.test(page) && /if \(p === 'close'\) return paneClose\(\);/.test(page));
+  // CUE-CHANNELS-2026-11-18: ✕ goes back to General, which closes the channel through paneClose; the phone's back button shows the list.
+  assert.ok(/data-p'\);[\s\S]{0,80}if \(p === 'pane'\) return showList\(\);/.test(page) && /if \(p === 'close'\) return goGeneral\(\);/.test(page) && /function goGeneral\(\) \{ paneClose\(\); showConv\(\); \}/.test(page));
   const fn = page.match(/function allLines\(\) \{[\s\S]*?\n  \}\n/)[0], now = Date.parse('2026-10-21T18:30:00Z'), box = {};
   vm.runInNewContext(fn + 'out = allLines().length;', Object.assign(box, { state: { chat: [{ who: 'Kiko', text: 'hi', request_id: '', time: '2026-10-21T18:30:01Z' }] },
     outbox: [{ who: 'Kiko', text: 'hi', request_id: '', time: '', sent: now }, { who: 'Kiko', text: 'other', request_id: '', time: '', sent: now }] }));

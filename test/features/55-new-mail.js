@@ -121,7 +121,7 @@ test('NM4 new mail: old Gmail history starts again from now; one inbox failing n
   const r = nmSandbox(); r.ctx.cueResume(); r.ctx.__wait(5 * 60e3); r.ctx.cueResume(); assert.ok(r.tabs.Requests.rows.slice(1).some(x => /"kind":"newmail"/.test(x.slice(10, 14).join(''))));
   assert.strictEqual(bridgeCheck('inbox_new', { since: 1, max: 40 }), ''); assert.ok(bridgeCheck('inbox_new', {}));
   const page = cuePage();
-  assert.ok(/function nmCardHtml\(r\)/.test(page) && /call\('cueNmItem', \[id, b\.getAttribute\('data-key'\), nmw\]/.test(page) && /'New mail · ' \+ r\.nm\.day/.test(page) && /<i class="badge"/.test(page));
+  assert.ok(/function nmCardHtml\(r\)/.test(page) && /call\('cueNmItem', \[id, b\.getAttribute\('data-key'\), nmw\]/.test(page) && /'New mail · ' \+ r\.nm\.day/.test(page) && /<i class="badge rvn"/.test(page));
 });
 
 test('NM6 cloud check door: cueNmCheck reads the last day of both inboxes and filters it, and saves nothing', () => {

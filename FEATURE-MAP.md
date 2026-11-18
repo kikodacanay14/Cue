@@ -28,7 +28,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `final` | Page only (not in the command list) |  |  | none | none | 1 |
 | `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 3 |
 | `funnel` | Sales funnel |  | Info | `CueFunnel.gs` | intake (default) | 1 |
-| `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 1 |
+| `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 2 |
 | `help` | Help answer |  | Info | `CueHelp.gs` | intake (default) | 2 |
 | `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
 | `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 0 |

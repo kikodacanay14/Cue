@@ -23,6 +23,6 @@ test('TCB2 From Canvas rows: only CRM and To do, cleaned, listed on top, and a t
   ctx.set([{ k: 'crm', name: 'CRM', sub: 'Call back Unilever', n: '5' }, { k: 'mail', name: 'x' }, null, { k: 'todo', sub: 'Release payment', n: -2 }]);
   deq(JSON.parse(JSON.stringify(ctx.get())), [{ k: 'crm', name: 'CRM', sub: 'Call back Unilever', n: 5 }, { k: 'todo', name: 'To do', sub: 'Release payment', n: 0 }]);
   assert.ok(page.indexOf("if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows))") > 0, 'only from Canvas');
-  assert.ok(page.indexOf("if (!showArchived && !tq && CUE_HOST.canvas && canvasRows.length) h += '<div class=\"tgroup cvs\"><span>From Canvas</span></div>'") > 0, 'listed on top');
+  assert.ok(page.indexOf("var cvRows = !showArchived && !tq && CUE_HOST.canvas ? canvasRows : [];") > 0 && page.indexOf("var extra = g[0] === 'job' ? cvRows : [];") > 0, 'listed at the top of Jobs (CUE-CHANNELS-2026-11-18)');
   assert.ok(page.indexOf("CUE_HOST.canvas.postMessage({ canvasWs: 'cueTeam', k: b.getAttribute('data-cteam') }, '*')") > 0, 'tap asks Canvas');
 });

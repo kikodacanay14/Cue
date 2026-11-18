@@ -12,12 +12,11 @@ test('AGG1 an agent\'s thread goes to the Agents group whatever its state; other
   deq([AGG_FN(job, { need: 1, text: 'Needs you' }, false), AGG_FN(job, { text: 'Working' }, false), AGG_FN(job, { text: 'Closed' }, false)], ['need', 'work', 'rest']);
   deq([AGG_FN(ag, { need: 1, text: 'Needs you' }, true), AGG_FN(ag, { text: 'Closed' }, true)], ['need', 'rest'], 'the Archived view keeps the old groups');
 });
-test('AGG2 the Agents group sits under From Canvas, before Waiting on you, needs-you first, counts only waiting agents, and the welcome count still counts them', () => {
-  const cvs = AGG_SRC.indexOf('<span>From Canvas</span>'), grp = AGG_SRC.indexOf("[['agent', 'Agents'], ['need', 'Waiting on you']");
-  assert.ok(cvs > 0 && grp > cvs, 'Agents comes after From Canvas and before Waiting on you');
-  assert.ok(/G\[listGroup\(t, st, showArchived\)\]\.push\(/.test(AGG_SRC));
-  assert.ok(/var title = threadTitle\(t\), st = threadState\(t\); if \(st\.need\) waiting\+\+;/.test(AGG_SRC), 'Welcome back count unchanged: every waiting thread, agents included');
-  assert.ok(/g\[0\] === 'agent' && !a\.st\.need !== !b\.st\.need \? \(a\.st\.need \? -1 : 1\)/.test(AGG_SRC), 'agents waiting on Kiko first');
-  assert.ok(/var gn = g\[0\] === 'agent' \? l\.filter\(function \(x\) \{ return x\.st\.need; \}\)\.length : l\.length;/.test(AGG_SRC));
-  assert.ok(/data-thread="' \+ esc\(x\.k\)/.test(AGG_SRC), 'a row opens its thread, the same row as the other groups');
+test('AGG2 CUE-CHANNELS-2026-11-18: the groups are Agent Updates, Jobs, Systems and Threads; needs-you first; a group number sums its channels; the welcome count still counts every waiting thread', () => {
+  assert.ok(AGG_SRC.includes("[['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
+  assert.ok(/G\[chanGroup\(t, st\)\]\.push\(/.test(AGG_SRC));
+  assert.ok(/if \(st\.need\) waiting\+\+;/.test(AGG_SRC), 'waiting threads still counted');
+  assert.ok(/!a\.st\.need !== !b\.st\.need \? \(a\.st\.need \? -1 : 1\)/.test(AGG_SRC), 'waiting on Kiko first');
+  assert.ok(/var gn = sum\(l\) \+ extra\.reduce\(/.test(AGG_SRC), 'the group number is the sum of its channels');
+  assert.ok(/data-thread="' \+ esc\(x\.k\)/.test(AGG_SRC), 'a row opens its channel');
 });

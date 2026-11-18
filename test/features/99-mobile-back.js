@@ -8,13 +8,13 @@ test('MB1 the page script declares the icon set IC once, and it holds the back, 
   ['back', 'x', 'chev', 'search', 'more', 'reply'].forEach(k => assert.ok(new RegExp('\\n    ' + k + ": '<").test(viewer), 'IC.' + k));
   assert.ok(/var CH_IC = \{ mail:/.test(MB_PAGE) && !/\bIC\.(mail|sms|app)\b/.test(MB_PAGE.replace(/CH_IC\./g, '')), 'channel icons renamed CH_IC');
 });
-test('MB2 the pane header starts with a Chat back button that closes the pane, shown at 900px and under in place of the X', () => {
+test('MB2 CUE-CHANNELS-2026-11-18: on a phone the channel header starts with a Channels back button to the list, in place of the X; General has one too', () => {
   const th = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
-  assert.ok(th.includes(`var back = '<button class="pane-back" data-p="pane" aria-label="Back to the chat">' + icon('back') + '<span>Chat</span></button>';`));
-  assert.ok(th.includes(`h = back + '<span class="grow"></span>'`) && th.includes(`h = back + '<span class="crumb">`), 'list and thread headers both start with it');
+  assert.ok(th.includes(`var back = '<button class="pane-back" data-p="pane" aria-label="Back to the channels">' + icon('back') + '<span>Channels</span></button>';`));
+  assert.ok(th.includes(`h = back + '<span class="crumb">`), 'a channel header starts with it');
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
-  assert.ok(/\.pane-back \{ all:unset;[^}]*display:none;/.test(css), 'hidden on a wide screen');
-  assert.ok(/@media \(max-width: 900px\) \{[^@]*\.pane-x \{ display:none; \}[^@]*\.pane-back \{ display:inline-flex; \}/.test(css), 'shown on a narrow screen');
+  assert.ok(/\n  \.pane-back \{ display:none; \}/.test(css), 'hidden on a wide screen');
+  assert.ok(/@media \(max-width: 640px\) \{[^@]*\.pane-back \{ display:inline-flex; \}[^@]*\.pane-x \{ display:none; \}/.test(css), 'shown on a phone');
   const viewer = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexViewer.html'), 'utf8');
-  assert.ok(viewer.includes("if (p === 'pane') return paneClose();"), 'data-p="pane" closes the pane');
+  assert.ok(viewer.includes("if (p === 'pane') return showList();") && viewer.includes("$('gen-back').onclick = showList;"), 'back shows the list');
 });
