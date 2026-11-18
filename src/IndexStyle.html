@@ -590,6 +590,14 @@
   .agmeta a { color:var(--act); font-weight:600; text-decoration:underline; text-underline-offset:2px; min-height:32px; display:inline-flex; align-items:center; }
   .agdp .agc1d { display:grid; grid-template-columns:minmax(0, 220px) minmax(0, 1fr); gap:16px; align-items:start; } .agdp .agdims { display:grid; gap:10px; }
   @media (max-width:600px) { .agdp .agc1d { grid-template-columns:1fr; } }
+  /* EMAIL-INTAKE-CARD-2026-11-18 (Kiko, card 2 approved 05:32:00Z): run facts, routed table and the skipped list on the card itself. */
+  .card .agin { margin:8px 0; border:1px solid var(--line); border-radius:8px; }
+  .agit { margin:8px 0; overflow-x:auto; } .agit table { width:100%; border-collapse:collapse; }
+  .agit th { background:var(--panel); text-align:center; vertical-align:middle; padding:8px; border-bottom:1px solid var(--line2); font-weight:700; }
+  .agit td { vertical-align:middle; padding:8px; border-bottom:1px solid var(--line); } .agit td.c { text-align:center; }
+  .agit tr.agrow { cursor:pointer; } .agit tr.agrow:hover td { background:var(--panel); } .agit tr.agrow:focus-visible { outline:2px solid var(--act); outline-offset:-2px; }
+  .agit tr.agrow[aria-expanded="true"] td { background:var(--soft); } .agit tr.agdet td { background:var(--panel); }
+  .agnz { margin:8px 0; } .agnz summary { cursor:pointer; font-weight:600; min-height:32px; display:flex; align-items:center; }
   body.agd-pic .viewer { position:fixed; inset:0; width:auto; max-width:none; min-width:0; z-index:46; border-left:0; }
   .agdpf { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); }
   .agdpf input { flex:1; min-width:180px; }
