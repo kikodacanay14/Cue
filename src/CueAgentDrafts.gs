@@ -88,7 +88,8 @@ function cueAgdIntake_(h) {
   return { run_id: cueStr_(h.run.run_id, 100), read_at: cueStr_(h.run.read_at, 40), mailbox: cueStr_(h.run.mailbox, 200),
     total_read: Number.isInteger(h.run.total_read) && h.run.total_read >= 0 ? h.run.total_read : null,
     skipped: Array.isArray(h.skipped) ? h.skipped.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { noise_kind: cueStr_(x.noise_kind, 40) })) : [],
-    routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40) })) : [] };
+    routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40) })) : [],
+    not_routed: Array.isArray(h.not_routed) ? h.not_routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { why: cueStr_(x.why, 300) })) : [] };   // Kiko 05:47Z: no role fits, not routed
 }
 /** AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z, card 1 approved): a Drive file the agent names. Only a Drive file ID is
  *  kept; Cue builds every link and thumbnail URL itself, so nothing the agent sends becomes a URL. Pure. */
