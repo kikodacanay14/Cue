@@ -14,7 +14,7 @@ test('AGG1 an agent\'s thread goes to the Agents group whatever its state; other
 });
 test('AGG2 CUE-CHANNELS-2026-11-18: the groups are Agent Updates, Jobs, Systems and Threads; needs-you first; a group number sums its channels; the welcome count still counts every waiting thread', () => {
   assert.ok(AGG_SRC.includes("[['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']]"));
-  assert.ok(/G\[chanGroup\(t, st\)\]\.push\(/.test(AGG_SRC));
+  assert.ok(/grp = chanGroup\(t, st\)/.test(AGG_SRC) && /G\[grp\]\.push\(/.test(AGG_SRC));
   assert.ok(/if \(st\.need\) waiting\+\+;/.test(AGG_SRC), 'waiting threads still counted');
   assert.ok(/!a\.st\.need !== !b\.st\.need \? \(a\.st\.need \? -1 : 1\)/.test(AGG_SRC), 'waiting on Kiko first');
   assert.ok(/var gn = sum\(l\) \+ extra\.reduce\(/.test(AGG_SRC), 'the group number is the sum of its channels');

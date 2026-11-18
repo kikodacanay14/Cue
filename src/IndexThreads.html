@@ -34,8 +34,26 @@
    * "Systems - Alerts, Updates"; 04:27:02Z the number beside a channel "should be the number of items open and i need to review"; mockup
    * approved and "build" 04:32:32Z). The list: General, Agent Updates (one channel per role), Jobs, Systems, Threads. A group's number is
    * the sum of its channels' numbers; a zero shows nothing. The Archived view keeps its old groups. */
-  function reviewN(t) {
-    return t.reqs.filter(function (r) { if (r.agd) { var a = String(r.agd.status || ''); return a === 'Waiting for Kiko' || a === 'Unread'; } return isNeed(r); }).length;
+  /* CHANNEL-SEEN-2026-11-18 (Kiko 18 Nov 2026 08:37:10Z "the number in the thread i thought we had that changed already?", 08:38:43Z
+   * "also i have clicked on each of those messages"): opening a channel takes its agent updates and job reports out of its number
+   * (state.seen, kept by cueSeen); drafts waiting for Kiko's Approve or Reject, and tasks in other threads, still count. Cue only. */
+  function seenOut(t, k, r) {
+    var at = (state.seen || {})[k]; if (!at || !r.created || String(r.created) > String(at)) return false;
+    if (r.agd) return String(r.agd.status || '') === 'Unread';
+    return /^(job|sys):/.test(t.chan || '');
+  }
+  function reviewN(t, k) {
+    return t.reqs.filter(function (r) {
+      if (k && seenOut(t, k, r)) return false;
+      if (r.agd) { var a = String(r.agd.status || ''); return a === 'Waiting for Kiko' || a === 'Unread'; } return isNeed(r);
+    }).length;
+  }
+  var seenSent = {};
+  function markSeen(k) {   // note that Kiko opened channel k now; one call per channel per 30 s
+    if (!k || !/^[\w:.@-]{1,120}$/.test(k)) return;
+    var now = new Date().toISOString(); state.seen = state.seen || {}; state.seen[k] = now;
+    if (seenSent[k] && Date.now() - seenSent[k] < 30000) return; seenSent[k] = Date.now();
+    try { call('cueSeen', [k, now], function (m) { if (m && typeof m === 'object') state.seen = Object.assign({}, m, state.seen); }, function () {}); } catch (e) {}
   }
   /* CUE-JOBS-UPDATES-2026-11-18 (Kiko 18 Nov 2026 06:15:53Z "the Project Intake should be in Jobs. Add there Updates under Jobs - put
    * the Sales - Wed 18 Nov there and 8 AM update"; 06:17:36Z "ChatGPT is a system right? shouldnt it be in Systems? Same with GitHub?").
@@ -69,7 +87,10 @@
       var cue = t.lines.filter(function (m) { return m.who !== 'Kiko'; }).slice(-1)[0];
       var failed = lastReq.status === 'Failed';
       var nmOpen = t.reqs.filter(function (r) { return r.kind === 'newmail' && r.nm && r.status !== 'Closed'; }).reduce(function (a, r) { return a + nmOpenCount(r); }, 0);
-      G[chanGroup(t, st)].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: Math.max(reviewN(t), nmOpen), ag: !!(t.reqs[0] && t.reqs[0].agd) && !t.chan,
+      var rn = reviewN(t, k), grp = chanGroup(t, st);
+      if (k === openThread && pactive === 't:' + k && rn !== reviewN(t)) markSeen(k);   // CHANNEL-SEEN: what arrives while it is open counts as seen
+      if (!rn && st.need && (t.chan || grp === 'agent' || grp === 'sys')) st = { color: 'var(--muted)', text: '' };   // CHANNEL-SEEN: all seen, no Needs you
+      G[grp].push({ k: k, title: title, st: st, when: (last && last.time) || lastReq.created || '', n: Math.max(rn, nmOpen), ag: !!(t.reqs[0] && t.reqs[0].agd) && !t.chan,
         flag: st.need ? 'Needs you' : failed ? 'Failed' : '',
         line: noTok(failed && lastReq.error ? lastReq.error : st.need ? (cue ? cue.text : 'Waiting for you') : st.text === 'Working' ? (lastReq.stage || (cue ? cue.text : 'Working')) : cue ? cue.text : st.text) });
     });

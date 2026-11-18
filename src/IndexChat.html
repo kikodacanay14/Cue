@@ -144,6 +144,7 @@
     // PC recheck 14:39Z: the spot is set after the pane's own render, so that render can't use it up before the bottom scroll below.
     var th0 = threads(); if (th0._home && !th0[id]) id = th0._home(id);   // CUE-CHANNELS-2026-11-18: a run's id opens its channel
     goSpot = ''; openPane({ key: 't:' + id, type: 'thread', id: id }); showConv();
+    markSeen(id);   // CHANNEL-SEEN-2026-11-18: opening a channel takes its updates and reports out of its number
     $('pscroll')._pin = !spot; $('pscroll').scrollTop = $('pscroll').scrollHeight; goSpot = spot; if (toSpot()) $('pscroll')._pin = false;
     if (!matchMedia('(max-width: 900px)').matches) $('tbox').focus({ preventScroll: true });
     // PC recheck 15:17Z: inside Canvas's slide-in the first scroll can land before the frame has its size again, so the tasks tab kept
