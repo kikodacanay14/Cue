@@ -45,10 +45,11 @@ test('FLAG3 wiring: Flagged opens as a list with no reply box; the flag sits on 
   assert.ok(FL_SRC.includes("flagBtn({ key: 'r:' + r.id,"));
   assert.ok(FL_SRC.includes("if (!showArchived && (!tq || 'flagged'.indexOf(tq) >= 0)) h += flagRowHtml();"));
 });
-test('PU1 Process Updates: first group with CRM and one Project Updates channel for client intakes; a reply box in a many-run channel names the run it goes to', () => {
-  assert.ok(FL_SRC.includes("if (r.kind === 'intake') return 'proc:projects';") && FL_SRC.includes("'proc:projects': 'Project Updates'"));
-  assert.ok(FL_SRC.includes("[['proc', 'Process Updates'], ['agent', 'Agent Updates'],"));
-  assert.ok(FL_SRC.includes("var extra = cvRows.filter(function (r) { return g[0] === (r.k === 'crm' ? 'proc' : 'job'); });"), 'CRM in Process Updates, To do in Jobs');
+test('PU1 Project and Process Updates: first group with CRM, Project Intake, Bid Opportunities, Routine Checks and the other jobs; Jobs removed; for client intakes; a reply box in a many-run channel names the run it goes to', () => {
+  assert.ok(FL_SRC.includes("if (r.kind === 'intake') return 'proc:projects';") && FL_SRC.includes("'proc:projects': 'Project Intake'"));
+  assert.ok(FL_SRC.includes("[['proc', 'Project and Process Updates'], ['agent', 'Agent Updates'], ['sys', 'Systems'],"));
+  assert.ok(FL_SRC.includes("var extra = g[0] === 'proc' ? cvRows : [];"), 'CRM and To do in Project and Process Updates');
+  assert.ok(FL_SRC.includes("if (/^(proc|job):/.test(t.chan || '')) return 'proc';") && FL_SRC.includes("var PROC_FIRST = ['proc:projects', 'job:bids', 'job:updates'];"), 'every job channel joins it, Project Intake, Bid Opportunities, Routine Checks first');
   assert.ok(FL_SRC.includes("'Reply to the newest: ' + String(replyTitle(last.id) || kindName(last)).slice(0, 60)"));
   assert.ok(/function threadRef\(\) \{[^\n]*th\.reqs\[th\.reqs\.length - 1\]/.test(FL_SRC), 'the reply goes to that same newest run');
 });

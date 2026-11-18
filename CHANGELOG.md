@@ -48,6 +48,8 @@ Slot cue-1.28.97, card cue-channels-layout.
 - **Tests.** New: SEEN1 to SEEN3 and FLAG1 to FLAG3. CH1, CH2, AGG2, THC1, THC2 and AGC2 follow the new code. 922/922 pass.
   Checked on the page on PC and on a phone.
 
+- Project and Process Updates (Kiko 18 Nov 2026 09:08:03Z "make it Project and Process Update - put there CRM, Project Intake, Bid Opportunities, Routine Checks - all the other jobs) and then remove Jobs"): the Process Updates section is renamed Project and Process Updates and now holds every job channel. CRM heads it, then Project Intake (renamed from Project Updates), Bid Opportunities, Routine Checks (renamed from Updates) and the other jobs newest first, with To do from Canvas last. The Jobs group is gone; the phone's Move to sheet uses the new name.
+
 ## Cue 1.28.96: the scheduled jobs stay in Jobs on a busy day, and the Sales day thread joins Updates (live as Version 265, 18 Nov 2026 08:22Z; rollback Version 264)
 
 Asked: Kiko, 18 Nov 2026 08:06:01Z, on live Version 264: "why is there still a separate Thread for Sales -Wed Nov 18? and where are the
