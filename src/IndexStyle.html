@@ -597,6 +597,7 @@
   .agit td { vertical-align:middle; padding:8px; border-bottom:1px solid var(--line); } .agit td.c { text-align:center; }
   .agit tr.agrow { cursor:pointer; } .agit tr.agrow:hover td { background:var(--panel); } .agit tr.agrow:focus-visible { outline:2px solid var(--act); outline-offset:-2px; }
   .agit tr.agrow[aria-expanded="true"] td { background:var(--soft); } .agit tr.agdet td { background:var(--panel); }
+  .agit tr.agdet > td { max-width:0; }   /* AGENT-CHECK-CARD-2026-11-18: an open row's own table scrolls inside it, the main table keeps its width */
   .agnz { margin:8px 0; } .agnz summary { cursor:pointer; font-weight:600; min-height:32px; display:flex; align-items:center; }
   body.agd-pic .viewer { position:fixed; inset:0; width:auto; max-width:none; min-width:0; z-index:46; border-left:0; }
   .agdpf { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); }

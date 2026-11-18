@@ -76,7 +76,23 @@ function cueAgdHand_(h) {
     rows: Array.isArray(h.rows) ? h.rows.filter(r => r && typeof r === 'object' && cueStr_(r.name, 200).trim()).slice(0, 100).map(cueAgdRow_) : [],   // AGENT-UPDATE-ROWS-2026-11-16
     brief: cueAgdFile_(h.brief) ? { file_id: h.brief.file_id, name: cueStr_(h.brief.name, 200), pages: cueAgdNum_(h.brief.pages) } : null,   // AGENT-ROW-PICTURES-2026-11-18: the client brief
     event: cueStr_(h.event, 200), client: cueStr_(h.client, 200),   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
-    intake: cueAgdIntake_(h) };   // EMAIL-INTAKE-CARD-2026-11-18
+    intake: cueAgdIntake_(h),   // EMAIL-INTAKE-CARD-2026-11-18
+    check: cueAgdCheck_(h.check) };   // AGENT-CHECK-CARD-2026-11-18
+}
+/** AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 04:35:50Z "what i want to see are Payments without Invoices, no signed FSAs and ARs,
+ *  suppliers that are not accredited in a project"; 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
+ *  main table expands and shows details of the FSAs / ARs / Suppliers. same thing with Finance"; card 3 approved 06:06:51Z). One report:
+ *  Admin (fsa, ar, accreditation) or Finance (invoice). Each row is one check with its Missing items and OK count. Null when absent. Pure. */
+const CUE_AGD_CHECKS_ = { admin: ['fsa', 'ar', 'accreditation'], finance: ['invoice'] };
+function cueAgdCheck_(c) {
+  if (!c || typeof c !== 'object' || !CUE_AGD_CHECKS_[c.kind]) return null;
+  const ok = x => x && typeof x === 'object';
+  return { kind: c.kind, run_at: cueStr_(c.run_at, 40),
+    rows: (Array.isArray(c.rows) ? c.rows : []).filter(r => ok(r) && CUE_AGD_CHECKS_[c.kind].indexOf(r.check) >= 0).slice(0, 10).map(r => ({
+      check: r.check, ok: Number.isInteger(r.ok) && r.ok >= 0 ? r.ok : null,
+      items: (Array.isArray(r.items) ? r.items : []).filter(ok).slice(0, 200).map(x => ({ name: cueStr_(x.name, 200), scope: cueStr_(x.scope, 200),
+        date: cueStr_(x.date, 40), amount: /^-?\d+(\.\d+)?$/.test(String(x.amount)) ? String(x.amount) : '', status: cueStr_(x.status, 60),
+        proof: cueAgdFile_(x.proof) ? { file_id: x.proof.file_id } : null })) })) };
 }
 /** EMAIL-INTAKE-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "Email intake routes the emails right away right? can it just send me where it
  *  routed the email to and i will correct it"; card 2 approved 05:32:00Z). A run's noise list and routed list, headers only: no body or
