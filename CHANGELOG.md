@@ -13,7 +13,7 @@ stayed off because PR #292 took the scope back out.
 - Behaviour is unchanged otherwise: Cue only removes UNREAD (`cueMtMarkRead_`), never archives, labels or deletes, and emails
   with a Canvas Project ID or with their own chat stay unread.
 - Tests: GMOD1 to GMOD3 (new, `test/features/99-gmail-modify.js`); C26 now expects `gmail.modify` among the missing scopes.
-  882/882 pass (with 1.28.83 and 1.28.85 merged in).
+  885/885 pass (with 1.28.83, 1.28.85 and 1.28.86 merged in).
 
 ## Cue 1.28.86: requirement rows open to show the MM pictures (not deployed)
 
