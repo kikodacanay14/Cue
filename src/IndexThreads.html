@@ -118,6 +118,7 @@
   var SYS_AGENT = /\b(chatgpt|github)\b/i;
   function chanGroup(t, st) {
     if (showArchived) return listGroup(t, st, true);
+    if (/^proc:/.test(t.chan || '')) return 'proc';   // PROCESS-UPDATES-2026-11-18
     if (/^job:/.test(t.chan || '')) return 'job';
     if (/^sys:/.test(t.chan || '')) return 'sys';
     if (t.reqs[0] && t.reqs[0].agd) return SYS_AGENT.test(String(t.reqs[0].agd.agent || '')) ? 'sys' : 'agent';
@@ -127,7 +128,7 @@
   function dotCss(c) { return 'background:' + c; }   // a row's state colour (kept out of the HTML string for the CSS checker)
   var genLast = null;   // General's newest line, for its row (renderMain sets it)
   function renderThreadList(th) {
-    var by = byId(), G = { agent: [], job: [], sys: [], need: [], work: [], rest: [] }, waiting = 0;
+    var by = byId(), G = { proc: [], agent: [], job: [], sys: [], need: [], work: [], rest: [] }, waiting = 0;
     Object.keys(th).forEach(function (k) {
       var t = th[k];
       if (k === 'sys:alerts') { if (showArchived || !t.lines.length) return; }
@@ -161,11 +162,13 @@
     if (!showArchived && (!tq || 'flagged'.indexOf(tq) >= 0)) h += flagRowHtml();   // CUE-FLAG-2026-11-18: under General
     var cvRows = !showArchived && !tq && CUE_HOST.canvas ? canvasRows : [];   // ASK-CUE-ROWS-2026-10-29: Canvas's CRM and To do, under Jobs
     var sum = function (l) { return l.reduce(function (a, x) { return a + (x.n || 0); }, 0); };
-    var groups = showArchived ? [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', 'Archived']] : [['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']];
+    var groups = showArchived ? [['need', 'Waiting on you'], ['work', 'Working on'], ['rest', 'Archived']] : [['proc', 'Process Updates'], ['agent', 'Agent Updates'], ['job', 'Jobs'], ['sys', 'Systems'], ['rest', 'Threads']];   // PROCESS-UPDATES-2026-11-18: first
     var newest = function (a, b) { return !a.st.need !== !b.st.need ? (a.st.need ? -1 : 1) : a.when < b.when ? 1 : -1; };
     groups.forEach(function (g) {
       var l = G[g[0]].sort(newest);
-      var extra = g[0] === 'job' ? cvRows : [];
+      // PROCESS-UPDATES-2026-11-18 (Kiko 18 Nov 2026 09:04:16Z "make a section name it Process Updates then put under it CRM, Project
+      // Updates"): Canvas's CRM row sits there; its To do row stays in Jobs.
+      var extra = cvRows.filter(function (r) { return g[0] === (r.k === 'crm' ? 'proc' : 'job'); });
       if (!l.length && !extra.length) return;
       var gn = sum(l) + extra.reduce(function (a, r) { return a + (r.n || 0); }, 0);
       h += '<button class="tgroup" data-tgroup="' + g[0] + '" aria-expanded="' + !tshut[g[0]] + '">' + icon('chev') + '<span>' + g[1] + (gn ? ' <span class="n">' + gn + '</span>' : '') + '</span></button>';
@@ -628,7 +631,7 @@
   var CHAN_OLD = { 'job:sweep': 'job:updates', 'job:sales': 'job:updates', 'job:funnel': 'job:updates' };   // lines moved or rules made before the merge
   function chanNow(c) { var k = String(c || ''); return CHAN_OLD[k] || k; }
   var JOB_NAME = { 'job:bids': 'Bid Opportunities', 'job:updates': 'Updates', 'job:status': 'Friday status', 'job:friday': 'Friday events',
-    'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts' };
+    'job:skillobs': 'Skill notes', 'job:reviews': 'Project Reviews', 'sys:updates': 'Updates', 'sys:alerts': 'Alerts', 'proc:projects': 'Project Updates' };
   function chanKey(r) {
     if (!r) return '';
     if (r.agd && r.agd.agent) return /^cue dev\b/i.test(agdLabel(r.agd.agent)) ? 'sys:updates' : '';
@@ -637,6 +640,9 @@
     // earlier put them under Jobs > Updates"): every ChatGPT scheduled task's run (Daily personal spending, the weekday records reviews,
     // Repeat-event accounts) joins Jobs › Updates. The page never had the task's key, so these runs sat under Threads.
     if (r.kind === 'gtask') return 'job:updates';
+    // PROCESS-UPDATES-2026-11-18 (Kiko 09:04:16Z "you still dont have here the CRM and Project Intake ... put under it CRM, Project
+    // Updates"): every client intake joins one Project Updates channel under Process Updates, like the jobs' Updates channel.
+    if (r.kind === 'intake') return 'proc:projects';
     return JOB_KIND[r.kind] || '';
   }
   // Systems › Alerts: Cue's own lines that belong to no task and say a run or a connection did not work (for example "The sweep did not
