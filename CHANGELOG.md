@@ -1,5 +1,19 @@
 # Changelog
 
+## Cue 1.28.104: Approve, Modify and Reject buttons on agent cards that wait for you (not deployed)
+
+Asked by Kiko on 19 Nov 2026 ("Approve, Modify, Reject - the cards already has a ....that shoes Reply"); mockup approved by his tap
+at 05:55:12Z (story CUE-AGENT-ACTIONS-1, files in the project folder agent-card-buttons/).
+
+- A handover card that waits for Kiko's approval shows three buttons: Approve, Modify, Reject. The Reply box stays.
+- Approve sends the reply "approve". Modify opens a box for change lines (for example "N1: Qty=50") and Send and approve sends those
+  lines followed by "approve". Reject opens an optional reason box and sends "reject", or "reject: <reason>".
+- Every button goes through the same Canvas reply call as Reply, so the bridge and Canvas are unchanged.
+- Once Kiko taps, the card shows Approved or Rejected with the time instead of Waiting for you, and the buttons go. A failed send keeps
+  the typed text and shows the error.
+- Not yet checked: that every agent acts on "reject" (AS reads "approve" today).
+- Tests: 955 of 955 pass (new test/features/99-agent-actions.js, AA1 to AA5).
+
 ## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (live as Version 272, 18 Nov 2026 22:21Z; rollback Version 271)
 
 Asked by Kiko, 18 Nov 2026 14:53Z (Dot's audit, finding 7): "The structured card displays execution type, quantity and occurrence as
