@@ -219,8 +219,8 @@ test('AGU4 the page: an update card shows the handover, Delivered or Blocked, th
 test('AGW1 an approval request (Kiko 17 Nov, card "Show Waiting for approval") shows Waiting for you, never Blocked or Why Blocked', () => {
   assert.strictEqual(agdBox({ drafts: [] }).t.ctx.cueAgdHand_({ state: 'Waiting for approval' }).state, 'Waiting for approval');
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, agdLabel: x => x }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, agdAsk: {}, agdLabel: x => x }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdWaitDecided') + '\n' + grab('agdActsHtml') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdUpdHtml'), ctx);
   const b = agdBox({ drafts: [agdUpd(40, { item: 'AS requirements review', handover: { handover_ref: 'AS requirements review', summary: 'Approve the list.', state: 'Waiting for approval' } })] });
   b.t.ctx.cueAgdTick_();
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);

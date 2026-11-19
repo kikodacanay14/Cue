@@ -992,6 +992,36 @@
       + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + who + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
   }
+  // AGENT-ACTIONS-2026-11-19 (Kiko 19 Nov 2026 "Approve, Modify, Reject - the cards already has a ....that shoes Reply"; mockup approved
+  // 05:55:12Z, story CUE-AGENT-ACTIONS-1). A handover waiting for Kiko's approval gets three buttons. Each one is a reply to the agent
+  // through the same Canvas call as Reply, so nothing new reaches Canvas: Approve sends "approve"; Modify sends his change lines and then
+  // "approve"; Reject sends "reject", with "reject: <why>" when he types a reason. The Reply box stays for anything else.
+  function agdWaitDecided(A) {
+    var reps = (A.replies && A.replies.length) ? A.replies : (A.status === 'Replied' && A.note ? [{ at: A.decided, text: A.note }] : []), d = null;
+    reps.forEach(function (x) { var t = String(x.text || ''), at = x.at ? String(x.at).slice(11, 16) : '';
+      if (/^\s*reject\b/i.test(t)) d = { k: 'reject', at: at };
+      else if (/(^|\n)\s*approve\s*\.?\s*$/i.test(t)) d = { k: 'approve', at: at }; });
+    return d;
+  }
+  function agdActsNote(kind, text) {
+    var t = String(text == null ? '' : text).trim();
+    if (kind === 'approve') return 'approve';
+    if (kind === 'modify') return t ? t + '\napprove' : '';
+    return t ? 'reject: ' + t : 'reject';
+  }
+  function agdActsHtml(r) {
+    var A = r.agd || {}, id = esc(r.id), who = esc(agdLabel(A.agent)), Q = agdAsk[r.id] || {}, m = Q.m, v = esc(Q.v || '');
+    if (m === 'modify') return '<div class="small" style="font-weight:700;margin-top:10px"><label for="agm-' + id + '">What should change?</label></div>'
+      + '<textarea id="agm-' + id + '" data-agd-mod="' + id + '" rows="3" style="width:100%;box-sizing:border-box;margin-top:6px" placeholder="N1: Qty=50">' + v + '</textarea>'
+      + '<div class="small muted" style="margin-top:4px">One line per change, e.g. “N1: Qty=50”. ' + who + ' saves what you approve and reads it back.</div>'
+      + '<div class="actions"><button class="btn" data-act="agd-mod-send" data-id="' + id + '">Send and approve</button><button class="btn ghost" data-act="agd-ask" data-id="' + id + '">Cancel</button></div>';
+    if (m === 'reject') return '<div class="small" style="font-weight:700;margin-top:10px"><label for="agj-' + id + '">Why?</label> <span class="muted" style="font-weight:400">· optional</span></div>'
+      + '<input type="text" id="agj-' + id + '" data-agd-rej="' + id + '" style="width:100%;box-sizing:border-box;margin-top:6px" value="' + v + '">'
+      + '<div class="small muted" style="margin-top:4px">' + who + ' stops this item. Nothing is saved in Canvas and nothing is sent.</div>'
+      + '<div class="actions"><button class="btn bad" data-act="agd-rej-send" data-id="' + id + '">Reject</button><button class="btn ghost" data-act="agd-ask" data-id="' + id + '">Cancel</button></div>';
+    return '<div class="actions"><button class="btn" data-act="agd-ok" data-id="' + id + '">Approve</button><button class="btn ghost" data-act="agd-ask" data-mode="modify" data-id="' + id + '">Modify</button>'
+      + '<button class="btn bad" data-act="agd-ask" data-mode="reject" data-id="' + id + '">Reject</button></div>';
+  }
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
     // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
@@ -1001,6 +1031,8 @@
     if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
     if (H.check) return agdCheckHtml(r, canReply, unread);   // AGENT-CHECK-CARD-2026-11-18
     if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
+    var dec = wait ? agdWaitDecided(A) : null;   // AGENT-ACTIONS-2026-11-19: Approved or Rejected replaces Waiting for you once Kiko taps
+    if (dec) stTag = dec.k === 'approve' ? '<span class="tag good">Approved' + (dec.at ? ' ' + esc(dec.at) : '') + '</span>' : '<span class="tag">Rejected' + (dec.at ? ' ' + esc(dec.at) : '') + '</span>';
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
       + stTag
@@ -1016,6 +1048,7 @@
     if (reps.length) h += '<div class="small" style="margin-top:8px"><b>Your replies</b></div>' + reps.map(function (x) { return '<div class="small" style="margin-top:2px">' + (x.at ? esc(String(x.at).slice(11, 16) || x.at) + ' · ' : '') + esc(x.text) + '</div>'; }).join('')
       + '<div class="small muted">' + esc(agdLabel(A.agent)) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
+    if (wait && canReply && !dec) h += agdActsHtml(r);   // AGENT-ACTIONS-2026-11-19
     if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
       + esc(agdLabel(A.agent)) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
     if (unread) h += '<div class="actions"><button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button></div>';
@@ -1608,6 +1641,8 @@
       T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
     document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       T.a[x.getAttribute('data-q')] = x.value; agdSync(rid); }; });
+    document.querySelectorAll('[data-agd-mod],[data-agd-rej]').forEach(function (x) { x.oninput = function () {   // AGENT-ACTIONS-2026-11-19: a redraw keeps what he typed
+      var Q = agdAsk[x.getAttribute('data-agd-mod') || x.getAttribute('data-agd-rej')]; if (Q) Q.v = x.value; }; });
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
@@ -1672,6 +1707,17 @@
         }
         if (/^agd-/.test(act)) {   // AGENT-DRAFTS-2026-11-13: Kiko's tap on an agent's draft; Canvas decides it once
           var agn = scope.querySelector('[data-agd-note="' + id + '"]'), agNote = agn ? agn.value.trim() : '';
+          if (act === 'agd-ask') { var am = b.getAttribute('data-mode'); if (am) agdAsk[id] = { m: am, v: '' }; else delete agdAsk[id]; render();   // AGENT-ACTIONS-2026-11-19: open or close a box; nothing sent
+            if (am) setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] [data-agd-' + (am === 'modify' ? 'mod' : 'rej') + ']'); if (x) x.focus(); }, 0); return; }
+          if (act === 'agd-ok' || act === 'agd-mod-send' || act === 'agd-rej-send') {   // AGENT-ACTIONS-2026-11-19: one reply through the same Canvas call as Reply
+            var akind = { 'agd-ok': 'approve', 'agd-mod-send': 'modify', 'agd-rej-send': 'reject' }[act];
+            var abox = scope.querySelector('[data-agd-' + (akind === 'modify' ? 'mod' : 'rej') + '="' + id + '"]'), anote = agdActsNote(akind, abox ? abox.value : '');
+            if (agdAsk[id]) agdAsk[id].v = abox ? abox.value : '';   // a failed send keeps what he typed
+            if (!anote) return alertErr(new Error('Type what should change, then tap Send and approve.'), id);
+            if (anote.length > 6000) return alertErr(new Error('This is too long to send in one go (over 6,000 characters). Shorten it, then try again.'), id);
+            b.disabled = true; running[id] = 1; schedule();
+            return call('cueAgdDecide', [id, { decision: 'reply', note: anote }], function () { delete agdAsk[id]; done(); }, fail);
+          }
           if (act === 'agd-rewrite') { if (!agNote) return alertErr(new Error('Type what Cue should change in the box, then tap Rewrite with Cue.'), id);
             b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }
           if (act === 'agd-tick-send') {   // AGENT-REQ-TICK-2026-11-18: one reply carrying the ticked lines and the answers
