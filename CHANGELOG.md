@@ -1,13 +1,13 @@
 # Changelog
 
-## Cue 1.28.105: Canvas requirement approval readback (not deployed)
+## Cue 1.28.105: Canvas requirement approval readback (live as Version 273, 19 Nov 2026 18:38:09Z; rollback Version 272)
 
 Cue PR #448, Feature Board card `step-12a-approval-check`. Requires the Step 12A approval readback from CanvasWorkspace PR #723.
 
 - The requirements card shows whether approved values match Canvas, differ, were not saved, could not be verified, or are waiting.
 - A line that needs another check can be selected again with the earlier approved values. Cue records the outcome in chat, and the user decides whether to retry.
 
-The isolated release base retains Cue 1.28.103. Local regression and feature map checks cover the existing requirements approval flow and the Canvas readback contract. An isolated Apps Script check is still required before live deployment.
+Built from the Cue 1.28.103 release base as commit `2c5754835e723bcba87a0ba29f1a7ed7cd2020c2`. PR #450 is excluded. Canvas Step 12A went live first as Version 569 (Deploy Canvas run 44589061483). Deploy Cue check run 44588995352 and production run 44589747574 passed 955 tests. Production readback confirmed Version 273 matches the build. The connected AS-to-Procurement handoff remains unverified.
 
 ## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (live as Version 272, 18 Nov 2026 22:21Z; rollback Version 271)
 
