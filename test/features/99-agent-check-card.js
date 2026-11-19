@@ -15,7 +15,7 @@ function ackGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const v = page.indexOf('  var AGD_CHK = '), chk = page.slice(v, page.indexOf('] };\n', v) + 5);
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(chk + ['esc', 'agKv', 'agdLabel', 'agdPeso', 'agdRowsHtml', 'agdIntakeHtml', 'agdCheckHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
+  vm.runInContext(chk + ['esc', 'agKv', 'agdLabel', 'agdPeso', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdIntakeHtml', 'agdCheckHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
   return ctx;
 }
 test('ACK1 a check from Canvas is kept clean: Admin or Finance only, its own checks only, amounts as plain decimals, proof as a Drive file ID', () => {
