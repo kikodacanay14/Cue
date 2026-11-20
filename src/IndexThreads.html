@@ -19,35 +19,6 @@
     setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
-var activeLabel = 'all';
-  var CUE_LABELS = [
-    { id: 'all', name: 'All', color: '#C8106E', bg: '#FCE8F3' },
-    { id: 'intake', name: 'Project Intake', color: '#0E7490', bg: '#ECFEFF' },
-    { id: 'admin', name: 'Admin Check', color: '#334155', bg: '#F1F5F9' },
-    { id: 'finance', name: 'Finance Check', color: '#047857', bg: '#ECFDF5' },
-    { id: 'handover', name: 'Handover', color: '#4C1D95', bg: '#F5F3FF' },
-    { id: 'tasks', name: 'Tasks Today', color: '#D95D14', bg: '#FFF7ED' },
-    { id: 'payables', name: 'Payables Today', color: '#B45309', bg: '#FFFBEB' }
-  ];
-  var SLASH_CMDS = [
-    { cmd: '/intake', hint: 'Start project intake from brief or text' },
-    { cmd: '/split', hint: 'Preview splitting a requirement into scopes' },
-    { cmd: '/add', hint: 'Add a requirement or item' },
-    { cmd: '/tasks', hint: 'Show tasks due today' },
-    { cmd: '/add task', hint: 'Add a new task to a project' },
-    { cmd: '/complete', hint: 'Mark a task complete' },
-    { cmd: '/issue', hint: 'Log a project issue' },
-    { cmd: '/risk', hint: 'Log a project risk' },
-    { cmd: '/email', hint: 'Draft or send an email' },
-    { cmd: '/finance', hint: 'Project budget vs actual summary' },
-    { cmd: '/finance detail', hint: 'Budget breakdown by requirement' },
-    { cmd: '/finance req', hint: 'Budget breakdown by cost line' },
-    { cmd: '/payables', hint: 'Review payables due today' },
-    { cmd: '/expense', hint: 'Record and reconcile an expense/receipt' },
-    { cmd: '/admin', hint: 'Look up crew or supplier dossier' },
-    { cmd: '/generate FSA', hint: 'Generate Freelance Service Agreements' },
-    { cmd: '/generate AR', hint: 'Generate Acknowledgement Receipts' }
-  ];
   var tq = '', tshut = {}, tmore = false;
   $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
   $('tlist').addEventListener('click', function (e) {
@@ -474,7 +445,7 @@ var activeLabel = 'all';
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
-      var rp = !ref && box === $('box') && !files.length ? replyTo : ''; if (rp) setReply('');
+      var rp = !ref && box === $('box') ? replyTo : ''; if (rp) { ref = rp; setReply(''); }
       if (!rp && replyQ && box === $('box')) { t = withQuote(replyQ, t); setReply(''); }   // CUE-MSG-MENU-2026-11-18: the quoted message goes first
       mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
@@ -967,36 +938,6 @@ var activeLabel = 'all';
     return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
   }
   var replyTo = '', replyQ = '';   // the task id Kiko is replying to from the main chat box; or the quoted message (no task)
-  var slashState = { open: false, list: [], i: 0 };
-  function slashOpen() {
-    var b = $('box'); if (!b) return;
-    var v = b.value, m = v.match(/^\/([^\n]*)$/), q = m ? m[1].toLowerCase() : null;
-    var list = q === null ? [] : SLASH_CMDS.filter(function (c) {
-      return c.cmd.slice(1).toLowerCase().indexOf(q) === 0 && !(v.toLowerCase() === c.cmd.toLowerCase() + ' ');
-    });
-    slashState.open = list.length > 0; slashState.list = list;
-    slashState.i = Math.min(slashState.i, Math.max(list.length - 1, 0));
-    if (!slashState.open) { if (!tagState || !tagState.open) $('taglist').hidden = true; return; }
-    var ul = $('taglist'); ul.hidden = false;
-    ul.innerHTML = list.map(function (c, i) {
-      return '<li role="option" data-slash-pick="' + i + '" aria-selected="' + (i === slashState.i) + '"' + (i === slashState.i ? ' class="on"' : '') + '><b>' + esc(c.cmd) + '</b><span class="small muted">' + esc(c.hint) + '</span></li>';
-    }).join('');
-  }
-  function slashPick(i) {
-    var c = slashState.list[i]; if (!c) return;
-    $('box').value = c.cmd + ' '; slashState.i = 0; slashOpen(); $('box').focus();
-  }
-  $('box').addEventListener('input', function () { slashState.i = 0; slashOpen(); });
-  $('taglist').addEventListener('mousedown', function (e) {
-    var li = e.target.closest && e.target.closest('[data-slash-pick]'); if (!li) return;
-    e.preventDefault(); slashPick(+li.getAttribute('data-slash-pick'));
-  });
-  $('box').addEventListener('keydown', function (e) {
-    if (!slashState.open) return;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopImmediatePropagation(); slashState.i = (slashState.i + (e.key === 'ArrowDown' ? 1 : slashState.list.length - 1)) % slashState.list.length; slashOpen(); return; }
-    if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.stopImmediatePropagation(); slashPick(slashState.i); return; }
-    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); slashState.open = false; $('taglist').hidden = true; return; }
-  }, true);
   function setReply(id, q) {
     replyTo = id || ''; replyQ = !replyTo && q ? q : ''; var bar = $('replybar'); if (!bar) return;
     bar.hidden = !replyTo && !replyQ; $('replyto').textContent = replyTo ? replyTitle(replyTo) : replyQ;
@@ -1179,74 +1120,62 @@ var activeLabel = 'all';
    * tasks the list does not show (a new email's post). A task's first message, its "N replies" row, the Today card, the bids card,
    * an @agent message and an alert line live in their channel instead. A pointer that answers Kiko's own line stays, as a link. */
   function listed(id, th) { var t = thOf(th, id); return !!(t && t.reqs.length && listShows(t)); }
- function labelBarHtml() {
-    return '<div class="cue-label-bar" role="group" aria-label="Filter stream by label">' + CUE_LABELS.map(function (l) {
-      var on = activeLabel === l.id;
-      return '<button type="button" class="lbl-pill' + (on ? ' active' : '') + '" data-lbl="' + esc(l.id) + '" style="background:' + l.bg + ';color:' + l.color + '">' + esc(l.name) + '</button>';
-    }).join('') + '</div>';
-  }
-  function msgLabel(m, by) {
-    var rid = String(m.request_id || '').replace(/^[>@%\u21a9]/, ''), r = by[rid] || {}, k = String(r.kind || ''), txt = String(m.text || '');
-    if (k === 'intake' || /project intake/i.test(txt)) return 'intake';
-    if (k === 'accred' || k === 'ar' || k === 'supplier' || /admin check|fsa|acknowledgement receipt/i.test(txt)) return 'admin';
-    if (k === 'finance' || k === 'cecost' || /finance check|budget|ce cost/i.test(txt)) return 'finance';
-    if ((r.agd && r.agd.type === 'update') || /handover/i.test(txt)) return 'handover';
-    if (k === 'tri' || k === 'sweep' || /tasks today|due today/i.test(txt)) return 'tasks';
-    if (k === 'expense' || k === 'personal' || /payables today|payment request/i.test(txt)) return 'payables';
-    return 'all';
-  }
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-lbl]'); if (!b) return;
-    e.stopPropagation(); activeLabel = b.getAttribute('data-lbl') || 'all'; renderChat();
-  }, true);
   function renderMain(th) {
-    var by = byId(), shown = {}, h = '', dayShown = {}, gl = null;
+    var by = byId(), shown = {}, cardShown = {}, h = '', dayShown = {}, gl = null;
     mvRef = [];   // CUE-DRAG-TO-CHANNEL-2026-11-18
     var prev = null, h0;
-    allLines().forEach(function (m) { if (activeLabel !== 'all' && msgLabel(m, by) !== activeLabel) return; h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
+    function inlineCards(root) {
+      var pt = thOf(th, root);
+      if (!pt || cardShown[pt.root]) return '';
+      cardShown[pt.root] = 1;
+      return pt.reqs.map(function (r) {
+        if (isDismissed('r:' + r.id)) return dismissedHtml('r:' + r.id);
+        if (WORK[r.status] && !(r.phased && r.ph)) return workHtmlOf(r);
+        return cardOf(r) || '';
+      }).join('');
+    }
+    allLines().forEach(function (m) { h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
+    Object.keys(th).forEach(function (k) {
+      var pt = th[k];
+      if (!pt || cardShown[pt.root] || !pt.reqs.length) return;
+      if (pt.reqs.some(function (r) { return !CLOSED[r.status] || isNeed(r); })) h += inlineCards(pt.root);
+    });
     genLast = gl;
     function one(m) {
       if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: not in General either
-      var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
+      var q = askOf(m); if (q) { h += msgHtml(m); return; }
       if (!m.request_id) {
         var mc = lineChan(m);   // CUE-DRAG-TO-CHANNEL-2026-11-18: a moved line leaves General; the question or a short note stays in its place
-        if (mc && (chanAt(th, mc) || mc === 'sys:dismissed')) { h += movedHtml(m, mc, th); return; }
-        if (!(m.who === 'Cue' && ALERT_RE.test(String(m.text || '')))) h += mvAttr(msgHtml(m), m);   // an alert line lives in Systems › Alerts
+        if (mc === 'sys:dismissed') { h += movedHtml(m, mc, th); return; }
+        h += mvAttr(msgHtml(m), m);
         return;
       }
-      // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message; it lives in Bid Opportunities now.
-      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br && !listed(br.id, th)) h += k0BidsHtml(br); return; }
+      // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message.
+      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
       // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
       if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
-      if (m.request_id.charAt(0) === '@') return;   // AGENT-TAG-2026-11-15: Kiko's @agent message and the answer are in the agent's channel too
+      if (m.request_id.charAt(0) === '@') {
+        var aref = rootOf(m.request_id.slice(1), by);
+        h += tagHtml(m, by) + inlineCards(aref);
+        return;
+      }
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to0 = rootOf(m.request_id.slice(1), by), pt = thOf(th, to0), to = pt ? pt.root : to0;
-        var pmc = lineChan(m); if (pmc && (chanAt(th, pmc) || pmc === 'sys:dismissed')) { h += movedHtml(m, pmc, th); return; }   // CUE-JOBS-UPDATES-2026-11-18: a moved email post leaves General
-        // Kiko 14:32Z: a task shows once in the chat. Its first line stays and its row updates in place; later
-        // pointers (updates, "Summary for …") live in the thread only.
-        // PC test 17:42Z: a pointer right after Kiko's own main-chat line answers that line, so it always shows under it.
-        // PC recheck 22 Oct 05:00Z: so does a pointer right after Kiko's main-chat tap (Go on a plan card), e.g. "On it. Continuing in …".
+        var pmc = lineChan(m); if (pmc === 'sys:dismissed') { h += movedHtml(m, pmc, th); return; }
         var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
-        // CUE-TODAY (Kiko 23 Oct 07:37Z): a scheduled job's pointer lines fold into one Today line per day (CueToday.gs).
-        if (pt && listed(to, th) && !answers) return;   // CUE-CHANNELS-2026-11-18: the channel holds it (the Today card too)
         var jd = jobDay(pt); if (jd && !answers) { if (!dayShown[jd]) { dayShown[jd] = 1; h += todayHtml(jd, th); } return; }
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
-        h += mvAttr(msgHtml(m, pt ? to : ''), m) + mailAskHtml(to);   // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:21:47Z "remove the Earlier task part? when the message is clicked then show the details"): no thread row; the message opens its thread
+        h += mvAttr(msgHtml(m, pt ? to : ''), m) + mailAskHtml(to) + (pt ? inlineCards(to) : '');
         return;
       }
       var root = rootOf(m.request_id, by);
-      if (listed(root, th)) return;   // CUE-CHANNELS-2026-11-18: a task's first message is in its channel
-      if (by[root] && MAIL_ONLY[by[root].kind]) return;   // an email's chat: its post in General opens it; its own lines stay there
-      // CUE-JOBS-UPDATES-2026-11-18 (Kiko 06:21:47Z "remove the Earlier task part"; 06:22:47Z "it only had 2 messages - there should be
-      // no need to click it these messages could have been placed in the conversation already"): a task the list does not show puts
-      // every one of its lines in General, in time order, with no thread row; tapping one still opens the thread.
-      h += msgHtml(m, th[root] ? root : '');
+      h += msgHtml(m, th[root] ? root : '') + inlineCards(root);
     }
-   setHtml($('msgs'), labelBarHtml() + (h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>'));
-    if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
+    setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+    bind();
   }
   /* CUE-DRAG-TO-CHANNEL-2026-11-18 (approved mockup /mnt/project-files/cue-drag-to-channel/mockup/): Cue's own General lines can be
    * dragged onto a Jobs or Systems channel in the list (PC) or long-pressed for a "Move to…" sheet (phone). In the line's place
@@ -1421,18 +1350,29 @@ var activeLabel = 'all';
       }).join('') + '</tbody></table><div class="actions"><button class="btn ghost" data-today-done="' + day + '">Done for now</button></div></div>';
   }
   // One task's card in a thread, or '' (a task still working shows its progress at the top instead).
+  function cardCatClass(r) {
+    if (!r) return '';
+    if (r.kind === 'finance' || r.kind === 'expense' || r.kind === 'personal' || r.kind === 'cecost' || (r.agd && ((r.agd.handover || {}).check || {}).kind === 'finance')) return ' cat-finance';
+    if (r.kind === 'newmail' || r.kind === 'mail' || r.kind === 'mailtype' || r.kind === 'bids' || r.kind === 'funnel' || (r.agd && (r.agd.handover || {}).intake)) return ' cat-inquiry';
+    if (r.kind === 'accred' || r.kind === 'ar' || r.kind === 'supplier' || r.kind === 'status' || (r.agd && ((r.agd.handover || {}).check || {}).kind === 'admin')) return ' cat-admin';
+    if (r.agd && r.agd.type === 'update') return ' cat-handover';
+    return '';
+  }
   function cardOf(r) {
+    var h = '';
     if (r.kind === 'msgr') return '';   // MSGR-NOT-INTAKE-2026-11-05 (Kiko 13:08Z "why are these in intake?"): a Messenger chat has no card
-    if (r.kind === 'finance') return finHtml(r);
-    if (r.kind === 'sweep' && r.batch) return sweepCardHtml(r);
-    if (r.kind === 'newmail' && r.nm) return nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
-    if (r.kind === 'accred' && r.acc) return acCardHtml(r);   // CueAccred.gs: one card per company, in every state
-    if (r.same && r.same.length) return sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
-    if (r.phased && r.ph) return phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
-    if (NEED[r.status]) return r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
-    if (WORK[r.status]) return '';
-    if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) return cardHtml(r);
-    return doneHtml(r);
+    else if (r.kind === 'finance') h = finHtml(r);
+    else if (r.kind === 'sweep' && r.batch) h = sweepCardHtml(r);
+    else if (r.kind === 'newmail' && r.nm) h = nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
+    else if (r.kind === 'accred' && r.acc) h = acCardHtml(r);   // CueAccred.gs: one card per company, in every state
+    else if (r.same && r.same.length) h = sameCardHtml(r);   // live 16:57Z: the Same project? question shows before the phase card
+    else if (r.phased && r.ph) h = phCardHtml(r);   // one card per task, in every state (Kiko 14:53Z)
+    else if (NEED[r.status]) h = r.status === 'Reopened' ? reopenedHtml(r) : cardHtml(r);
+    else if (WORK[r.status]) return '';
+    else if ((r.style && r.style.rules.length) || (r.teach && (r.teach.facts.length || r.teach.procs.length)) || (r.mail && r.mail.draft) || r.proposal || (r.ready && r.ready.canvas) || (r.same && r.same.length) || (kindOf(r).card && kindOf(r).card(r))) h = cardHtml(r);
+    else h = doneHtml(r);
+    var cat = cardCatClass(r);
+    return cat && h ? h.replace(/^<div class="card\b/, '<div class="card' + cat) : h;
   }
   var FOLD_BTN = '<button class="tfold" data-tmin="1" aria-label="Fold the card">' + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>Fold</button>';
   function foldIn(c) {   // the Fold button goes first inside the card's own box; anything else gets a box around it
