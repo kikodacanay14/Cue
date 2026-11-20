@@ -17,6 +17,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 |---|---|---|---|---|---|---|
 | `accred` | Page only (not in the command list) |  | Info | none | none | 2 |
 | `agentdraft` | Page only (not in the command list) |  | Draft and send | none | none | 1 |
+| `approve` | Page only (not in the command list) |  |  | none | none | 1 |
 | `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 5 |
 | `avoid` | Page only (not in the command list) |  |  | none | none | 1 |
 | `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 1 |
@@ -34,6 +35,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 1 |
 | `mail` | Page only (not in the command list) |  | Info | none | none | 1 |
 | `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
+| `modify` | Page only (not in the command list) |  |  | none | none | 2 |
 | `msgr` | Page only (not in the command list) |  | Info | none | none | 2 |
 | `newmail` | Page only (not in the command list) |  | Question | none | none | 3 |
 | `open` | Page only (not in the command list) |  |  | none | none | 1 |
