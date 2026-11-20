@@ -807,6 +807,7 @@
   // 15:01Z: a difference is listed, nothing is fixed on its own): after a decision Canvas reads the approved lines back. A line that
   // matches shows Matches Canvas and stays approved. A line that differs, was not saved or can't be checked opens again with the
   // values Kiko approved filled in, so he can tick it and send it again. A line not approved shows Waiting.
+  var agdSplit = {};
   var AGD_CK_ = { match: ['good', 'Matches Canvas'], differs: ['crit', 'Differs'], not_saved: ['crit', 'Not saved'], not_verified: ['warn', "Can't check"], held: ['warn', 'Waiting'] };
   function agdCheck(A) { var m = {}; ((A.approval_check || {}).lines || []).forEach(function (l) { m[l.req_id] = l; }); return m; }
   function agdReopen(ck, x) { var l = x.req_id && ck[x.req_id]; return !!l && ['differs', 'not_saved', 'not_verified'].indexOf(l.verdict) >= 0; }
@@ -893,6 +894,24 @@
         + '<div><span class="lbl">Description</span>' + (x.description ? esc(x.description) : none) + '</div>'
         + '<div><span class="lbl">Dimensions</span>' + dimv + '</div>'
         + (x.open_items.length ? '<div><span class="lbl">Open items</span><ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul></div>' : '')
+        + (x.req_id ? (function () {
+       var sk = r.id + '|' + x.req_id, sp = agdSplit[sk];
+       var box = !sp ? '' : '<div onclick="event.stopPropagation()" style="margin-top:8px;padding:10px;border:1px dashed var(--line2);border-radius:8px;background:var(--bg)">'
+         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b>Split preview · ' + esc(x.name) + ' <span class="muted">(' + esc(x.req_id) + ')</span></b><span class="tag warn">Preview only · Not connected to AS</span></div>'
+         + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+         + '<label class="small" style="flex:0 0 130px">Scopes (2 or more)<input type="number" min="2" step="1" inputmode="numeric" data-agsp-n="' + esc(sk) + '" value="' + esc(sp.n || 2) + '" style="width:100%"></label>'
+         + '<label class="small" style="flex:1;min-width:180px">Comment<input type="text" data-agsp-c="' + esc(sk) + '" value="' + esc(sp.c || '') + '" placeholder="How should this split?" style="width:100%"></label>'
+         + '</div>'
+         + ((function () {
+           var n = Number(sp.n);
+           if (!/^[2-9]\d*$/.test(String(sp.n || '').trim())) return '<div class="err" style="margin-top:6px">Enter a whole number of 2 or more scopes.</div>';
+           var out = '<div class="small" style="margin-top:6px">';
+           for (var si = 1; si <= n; si++) out += '<div><b>Scope ' + si + ' of ' + n + ':</b> ' + esc(x.name) + (sp.c ? ' — ' + esc(sp.c) : '') + '</div>';
+           return out + '</div>';
+         })())
+         + '<div class="small muted" style="margin-top:6px">Preview only · Not connected to AS. Nothing is saved or sent.</div></div>';
+       return '<div style="margin-top:8px" onclick="event.stopPropagation()"><button type="button" class="btn sm ghost" data-act="agd-split" data-sk="' + esc(sk) + '">' + (sp ? 'Close split preview' : 'Split into scopes') + '</button>' + box + '</div>';
+     })() : '')
         + '</div><div>' + (im.length ? '<div class="agpics">' + im.map(function (p, i) {
         var lab = (x.req_id || x.name) + (im.length > 1 ? ' · picture ' + (i + 1) : '');
         return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')"></a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
@@ -1631,7 +1650,10 @@
       render(); setTimeout(function () { var y = document.querySelector('[data-agtick-all="' + rid + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agedit]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agedit'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };   // AGENT-CARD-EDIT-2026-11-18
       T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
-    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
+    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };document.querySelectorAll('[data-agsp-n]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-n'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).n = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-n="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
+    document.querySelectorAll('[data-agsp-c]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-c'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).c = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-c="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
+      
+    
       T.a[x.getAttribute('data-q')] = x.value; agdSync(rid); }; });
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
@@ -1654,7 +1676,8 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
-        if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
+      if (act === 'agd-split') { var sk = b.getAttribute('data-sk'); if (agdSplit[sk]) delete agdSplit[sk]; else agdSplit[sk] = { n: 2, c: '' }; return render(); }  
+      if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
           setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] tr[data-row="' + k.replace(/["\\]/g, '\\$&') + '"]'); if (x) x.focus(); }, 0); return; }
         if (act === 'agd-rows') {   // AGENT-UPDATE-ROWS-2026-11-16: open, filter or close the requirements panel; nothing goes to Canvas
           var agf = b.getAttribute('data-agf'); if (agf) agdRows[id] = agf; else delete agdRows[id]; render();
