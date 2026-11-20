@@ -697,4 +697,28 @@
   table.chr { width:100%; border-collapse:collapse; font-size:13px; }
   table.chr th { font-size:14px; font-weight:700; text-align:center; vertical-align:middle; padding:8px; border-bottom:2px solid var(--line2); }
   table.chr td { padding:8px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:center; } table.chr td.l { text-align:left; }
+  /* v1.28.106 — Cue Magenta Primary + Single Stream + Card Accents + Wide Tables */
+:root {
+  --act: #C8106E;
+  --act-soft: #FCE8F3;
+  --purple: #23006F;
+  --orange: #D95D14;
+}
+#team-cue, .left-pane, #tlist { display: none !important; }
+.shell, .main { grid-template-columns: 1fr !important; max-width: 920px; margin: 0 auto; width: 100%; }
+.msg.me { background: var(--act-soft); border-radius: 14px 14px 3px 14px; }
+.msg.cue { background: #ffffff; border: 1px solid var(--line); border-radius: 14px 14px 14px 3px; }
+.card { border-left: 4px solid var(--act); border-radius: 14px; }
+.card.cat-inquiry { border-left-color: #0E7490; }
+.card.cat-admin { border-left-color: #334155; }
+.card.cat-finance { border-left-color: #047857; }
+.card.cat-handover { border-left-color: #4C1D95; }
+.card.cat-tasks, .card.cat-payables { border-left-color: var(--orange); }
+.card table { min-width: 640px; width: 100%; border-collapse: collapse; }
+.card th { background: var(--purple); color: #ffffff; white-space: nowrap; word-break: normal; padding: 8px 10px; }
+.card td { word-break: normal; padding: 8px 10px; vertical-align: middle; }
+.card > table, .table-scroll { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cue-label-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fff; align-items: center; }
+.lbl-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid transparent; }
+.lbl-pill.active { outline: 2px solid var(--act); outline-offset: 1px; }
 </style>
