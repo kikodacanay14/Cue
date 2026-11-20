@@ -1245,7 +1245,7 @@ var activeLabel = 'all';
       // every one of its lines in General, in time order, with no thread row; tapping one still opens the thread.
       h += msgHtml(m, th[root] ? root : '');
     }
-    setHtml($('msgs'), labelBarHtml() + (h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+   setHtml($('msgs'), labelBarHtml() + (h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>'));
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
   }
   /* CUE-DRAG-TO-CHANNEL-2026-11-18 (approved mockup /mnt/project-files/cue-drag-to-channel/mockup/): Cue's own General lines can be
