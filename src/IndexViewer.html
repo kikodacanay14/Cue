@@ -32,8 +32,8 @@
       st.innerHTML = '<img id="v-img" class="fit" alt="' + esc(f.name) + '" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(id) + '&amp;sz=w2400">';
       $('v-img').onload = viewZoom;
       $('v-img').onerror = function () {   // no thumbnail yet (a fresh screenshot): the image itself from Cue, else Drive's own preview
-        var im = this; im.onerror = function () { viewFrame(f); };
-        imgData(id, function (u) { if (vlist[vat] === f) im.src = u; }, function () { if (vlist[vat] === f) viewFrame(f); });
+        var im = this; im.onerror = function () { if (vlist[vat] === f) viewFrame(f, true); };
+        imgData(id, function (u) { if (vlist[vat] === f) im.src = u; }, function () { if (vlist[vat] === f) viewFrame(f, true); });
       };
       zoomOn(true);
     } else viewFrame(f);
@@ -42,11 +42,34 @@
   var imgCache = {};   // file id -> data: URL, so a card thumbnail and the viewer fetch an image once
   function imgData(id, ok, bad) {
     if (imgCache[id]) return ok(imgCache[id]);
-    call('cueFileData', [id], function (u) { imgCache[id] = u; ok(u); }, bad || function () {});
+    var fail = bad || function () {};
+    call('cueFileData', [id], function (u) {
+      if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(String(u || ''))) return fail();
+      imgCache[id] = u; ok(u);
+    }, fail);
   }
-  window.cueThumb = function (im, id) { im.onerror = function () { im.remove(); }; imgData(id, function (u) { im.src = u; }, function () { im.remove(); }); };
-  function viewFrame(f) {
+  function thumbUnavailable(im) {
+    var holder = im.closest('.fcard-wrap');
+    if (!holder) {
+      var picture = im.closest('a[data-agpic]');
+      if (picture) {
+        picture.removeAttribute('data-agpic');
+        picture.setAttribute('data-drive-direct', '');
+        picture.setAttribute('aria-label', 'Open image in Drive');
+        picture.textContent = 'Open in Drive';
+      } else im.remove();
+      return;
+    }
+    im.hidden = true; holder.classList.add('thumb-unavailable');
+    var link = holder.querySelector('[data-drive-direct]'); if (link) link.hidden = false;
+  }
+  window.cueThumb = function (im, id) {
+    im.onerror = function () { thumbUnavailable(im); };
+    imgData(id, function (u) { im.src = u; }, function () { thumbUnavailable(im); });
+  };
+  function viewFrame(f, imageFailed) {
     $('v-stage').innerHTML = '<iframe title="' + esc(f.name) + '" allow="autoplay" src="' + esc(f.preview) + '"></iframe>';
+    if (imageFailed) $('v-stage').insertAdjacentHTML('afterbegin', '<p class="preview-unavailable" role="status">Image preview unavailable. <a href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in Drive</a></p>');
     zoomOn(false); $('v-pct').textContent = '';   // Drive's preview zooms inside itself
   }
   function zoomOn(on) { $('v-zoom').querySelectorAll('button.zc').forEach(function (b) { b.disabled = !on; }); }

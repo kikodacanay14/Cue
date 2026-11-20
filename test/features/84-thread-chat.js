@@ -8,8 +8,9 @@ const tcEsc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 function tcBox(min) {
   const vm = require('vm'), page = tcPage(), out = {};
   const code = page.match(/  var ACT_RE = [^\n]*\n/)[0] + tcFn(page, 'lineKind') + tcFn(page, 'learnHtml') + tcFn(page, 'msgHtml')
+    + page.slice(page.indexOf('  var STREAM_LABELS ='), page.indexOf('  function renderStreamTools(')) + tcFn(page, 'streamReqKey') + tcFn(page, 'streamCategory') + tcFn(page, 'streamPill')
     + page.match(/  var FOLD_BTN = [^\n]*\n/)[0] + tcFn(page, 'foldIn') + tcFn(page, 'renderThread');
-  const box = { esc: tcEsc, out, cardMin: min ? { root1: true } : {}, tbOpen: false, CLOSED: {}, WORK: {}, NEED: { 'Needs you': 1 },
+  const box = { esc: tcEsc, out, state: { requests: [] }, cardMin: min ? { root1: true } : {}, tbOpen: false, CLOSED: {}, WORK: {}, NEED: { 'Needs you': 1 },
     askOf: m => { const x = String(m.request_id || '').match(/^([?!])(ask-[0-9a-z]+)(?::([a-z,]*))?$/); return x ? { open: x[1] === '?', id: x[2], choices: (x[3] || '').split(',').filter(Boolean) } : null; },
     askHtml: m => /^\?ask/.test(m.request_id || '') ? '<div class="actions"><button>Keep</button><button>Undo</button></div>' : '',
     richText: tcEsc, tickText: m => tcEsc(m.text), msgWhen: () => '', replyTitle: () => '', workHtmlOf: () => '', wrongHtml: () => '', requestHtml: () => '',
@@ -19,7 +20,7 @@ function tcBox(min) {
   return box;
 }
 
-test('THC1 a thread is a chat: Cue replies are bubbles, status lines are small one-liners, a Learned note is its own box; the main chat is unchanged', () => {
+test('THC1 a thread is a chat: Cue replies are bubbles, status lines are small one-liners, a Learned note is its own box; the main chat adds its label', () => {
   const b = tcBox(), at = s => '2026-11-03T0' + s + ':00Z';
   b.renderThread({ root: 'root1', reqs: [], lines: [
     { who: 'Cue', text: 'Registering a supplier. GPT is reading it first; nothing is saved until you approve.', time: at('1:00'), request_id: 'cue-1' },
@@ -32,7 +33,7 @@ test('THC1 a thread is a chat: Cue replies are bubbles, status lines are small o
   assert.ok(/<div class="msg me"><span class="who">Kiko<\/span>why is it/.test(h), 'Kiko unchanged');
   assert.ok(/<div class="msg cue learn"><span class="who">Cue<\/span><span class="tag">Learned<\/span><span class="lt">&quot;The sender's company is the client.&quot;<\/span><span class="small muted">Applies from your next message.<\/span><div class="actions">/.test(h), 'Learned box: ' + h);
   b.out.x = b.msgHtml({ who: 'Cue', text: 'Rejected. Nothing was written to Canvas.', time: at('5:00'), request_id: 'cue-1' }, '');
-  assert.ok(/^<div class="msg cue"><span class="who">Cue<\/span>Rejected\./.test(b.out.x), 'main chat keeps its look');
+  assert.ok(/^<div class="msg cue" data-stream-category="chat"><span class="who">Cue<\/span><span class="stream-pill stream-slate">Chat<\/span>Rejected\./.test(b.out.x), 'main chat shows the browser-local label');
   const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/#tmsgs \.msg\.cue \{ max-width:88%; background:var\(--panel\); border:1px solid var\(--line\); border-radius:12px 12px 12px 2px;/.test(css), 'bubble');
   assert.ok(/#tmsgs \.msg\.cue\.act \{[^}]*font-size:12px/.test(css) && /\.actx \{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; \}/.test(css), '12px, one line');

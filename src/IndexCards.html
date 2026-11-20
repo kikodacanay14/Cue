@@ -889,6 +889,17 @@
       // Description on the left. Image on the right"; 04:39:37Z "Remove the Brief Page, Picture COunt"; card 1 approved 05:32:00Z): the open
       // row shows Description, Dimensions and open items on the left and the MM pictures on the right, with no page badge.
       var dimv = x.dimensions ? esc(x.dimensions) + (x.spec_by === 'MM' ? '<span class="rid">by MM</span>' : '') : x.spec_by === 'MM' ? '<span class="muted">MM to add</span>' : none;
+      // Local preview only: the existing requirement ID identifies the parent, not a new scope or approval.
+      var sid = 'agsplit-' + id + '-' + esc(x.req_id);
+      var split = !on || !x.req_id ? '' : '<section class="agqs" data-agsplit="' + esc(x.req_id) + '">'
+        + '<button class="btn ghost" type="button" data-agsplit-toggle aria-expanded="false" aria-controls="' + sid + '">Split into scopes</button>'
+        + '<div id="' + sid + '" data-agsplit-panel hidden><p class="small muted">Preview only · Not connected to AS</p>'
+        + '<form><div class="agq"><label for="' + sid + '-count">Number of scopes</label><input id="' + sid
+        + '-count" class="aged num" type="number" min="2" step="1" required inputmode="numeric" data-agsplit-count></div>'
+        + '<div class="agq"><label for="' + sid + '-comment">Comment (optional)</label><textarea id="' + sid
+        + '-comment" data-agsplit-comment rows="2" maxlength="1500"></textarea></div>'
+        + '<button class="btn ghost" type="submit">Preview split</button><p class="small muted" role="status" data-agsplit-result></p>'
+        + '</form></div></section>';
       var det = !on ? '' : '<tr class="agdet"><td colspan="' + ((tk ? 6 : 5) + (hasCk ? 1 : 0)) + '"><div class="agdetw agc1d"><div class="agdims">'
         + '<div><span class="lbl">Description</span>' + (x.description ? esc(x.description) : none) + '</div>'
         + '<div><span class="lbl">Dimensions</span>' + dimv + '</div>'
@@ -896,7 +907,7 @@
         + '</div><div>' + (im.length ? '<div class="agpics">' + im.map(function (p, i) {
         var lab = (x.req_id || x.name) + (im.length > 1 ? ' · picture ' + (i + 1) : '');
         return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')"></a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
-        : '<span class="muted">No pictures from MM yet.</span>') + '</div></div></td></tr>';
+        : '<span class="muted">No pictures from MM yet.</span>') + '</div></div>' + split + '</td></tr>';
       return '<tr class="agrow' + (x.needs_kiko ? ' need' : '') + '" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + tickTd(x) + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>'
           + (tk && !isAp(x) && agdQs(x).length ? '<span class="agwq">Waits for your answer</span>' : ''))
         + agdCell(x, 'sourcing') + agdCell(x, 'qty') + agdCell(x, 'occurrence') + (hasCk ? td(agdCkCell(ck, ap, x, A), 1) : '') + '</tr>' + det;
@@ -1615,7 +1626,31 @@
     card.querySelectorAll('[data-rq-body]').forEach(function (x) { (e.rfqs[x.getAttribute('data-rq-body')] = e.rfqs[x.getAttribute('data-rq-body')] || {}).body = x.value; });
     return e;
   }
+  function agdBindSplit(drawer) {
+    var toggle = drawer.querySelector('[data-agsplit-toggle]'), panel = drawer.querySelector('[data-agsplit-panel]'),
+      form = drawer.querySelector('form'), count = drawer.querySelector('[data-agsplit-count]'),
+      comment = drawer.querySelector('[data-agsplit-comment]'), result = drawer.querySelector('[data-agsplit-result]');
+    toggle.onclick = function () {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+      if (panel.hidden) toggle.focus(); else count.focus();
+    };
+    count.oninput = comment.oninput = function () { count.setCustomValidity(''); result.textContent = ''; };
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var raw = count.value.trim(), n = Number(raw);
+      result.textContent = '';
+      if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < 2) {
+        count.setCustomValidity('Enter a whole number of 2 or more.');
+        count.reportValidity(); return;
+      }
+      count.setCustomValidity('');
+      var note = comment.value.trim();
+      result.textContent = drawer.getAttribute('data-agsplit') + ' · ' + n + ' scopes' + (note ? ' · ' + note : '') + '. Nothing was sent or saved.';
+    };
+  }
   function bind() {
+    document.querySelectorAll('[data-agsplit]').forEach(agdBindSplit);
     document.querySelectorAll('[data-xcard] select[data-x="route"]').forEach(function (x) {
       x.onchange = function () { expRoute[x.closest('[data-xcard]').getAttribute('data-xcard')] = x.value; render(); }; });
     // AGENT-REQ-TICK-2026-11-18: ticks and answers live in agdTick so a re-render keeps them; nothing goes to Canvas until Send decision.

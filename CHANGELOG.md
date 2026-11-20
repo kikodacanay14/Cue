@@ -1,13 +1,25 @@
 # Changelog
 
-## Cue 1.28.105: Canvas requirement approval readback (not deployed)
+## Cue 1.28.106: single stream, exact replies and scope preview (not deployed)
+
+Kiko approved a local build and test on 20 Nov 2026. Based on the verified live 1.28.105 commit,
+not main. Keeps the Requirements card and its Canvas approval results.
+
+- Expanded requirement rows can preview a scope count and comment. No AS handoff, save, or approval.
+- Explicit replies preserve the selected request, including eligible attachments. A stale target cannot become intake.
+- The chronological stream, browser-local card labels and thumbnail fallback keep existing navigation and read access.
+- Slash commands use existing actions and approval gates. Unknown commands explain what is supported and never start intake.
+- Local verification: 973/973 tests passed (955 existing and 18 added).
+- Requires the separate /dev and PC release checks before production. No push or deployment was authorized for this build.
+
+## Cue 1.28.105: Canvas requirement approval readback (Apps Script 273, 19 Nov 2026 18:38 UTC)
 
 Cue PR #448, Feature Board card `step-12a-approval-check`. Requires the Step 12A approval readback from CanvasWorkspace PR #723.
 
 - The requirements card shows whether approved values match Canvas, differ, were not saved, could not be verified, or are waiting.
 - A line that needs another check can be selected again with the earlier approved values. Cue records the outcome in chat, and the user decides whether to retry.
 
-The isolated release base retains Cue 1.28.103. Local regression and feature map checks cover the existing requirements approval flow and the Canvas readback contract. An isolated Apps Script check is still required before live deployment.
+The isolated release base retains Cue 1.28.103. Local regression and feature map checks cover the existing requirements approval flow and the Canvas readback contract. The isolated deployment verified Apps Script 273; see Deploy Cue run 44589747574.
 
 ## Cue 1.28.103: edit Execution, Qty and Occurrence on the requirements card (live as Version 272, 18 Nov 2026 22:21Z; rollback Version 271)
 

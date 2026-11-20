@@ -57,5 +57,5 @@ test('CH5 layout: the list on the left, General or the open channel on the right
   assert.ok(/body\.ch-thread \.pane, body\.ch-thread \.pane\.shut \{ display:flex; \}/.test(css) && /body\.ch-thread \.left \{ display:none; \}/.test(css));
   assert.ok(/body\.in-canvas header \{ display:none; \}/.test(css), 'Canvas\'s purple bar carries the logo');
   assert.ok(/@media \(max-width: 640px\) \{[^@]*body:not\(\.ch-list\) \.clist \{ display:none; \}[^@]*body\.ch-list \.left, body\.ch-list \.pane/.test(css));
-  assert.ok(chat.includes("document.body.classList.toggle('ch-thread', !!openThread);") && chat.includes("if (window.matchMedia && matchMedia('(max-width: 640px)').matches) showList();"));
+  assert.ok(chat.includes("document.body.classList.toggle('ch-thread', !!openThread);") && chat.includes("if (window.matchMedia && matchMedia('(max-width: 640px)').matches && !document.body.classList.contains('cue-stream')) showList();"));
 });

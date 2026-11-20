@@ -9,7 +9,7 @@
  *   its AI calls and seconds in the Requests tab, and a run over 5 calls or 180 seconds is flagged.
  * - Store: the "Cue" spreadsheet in Kiko's Drive (CUE_SHEET_ID), tabs Requests, Chat and AI Runs. cueSetup() makes it. */
 
-const CUE_VERSION_ = 'Cue 1.28.105';
+const CUE_VERSION_ = 'Cue 1.28.106';
 // true only in the copy a preview pushes to the test link (/dev): tutor taps there never count toward graduation (PC test 01:41Z).
 const CUE_DEV_ = false;
 const CUE_TABS_ = {
@@ -238,6 +238,11 @@ function cueSend(text, files, mode, ref, reply, mid) { return cueSendWith_(text,
 function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
   cueOwner_();
   const has = !!(files && files.length);
+  // CUE-106: an explicit reply is a destination, never a hint that may fall back to intake.
+  const exactReply = String(reply || '');
+  const replyTask = exactReply && /^cue-[0-9A-Za-z-]{6,40}$/.test(exactReply) ? cueLoad_(exactReply) : null;
+  if (exactReply && (!replyTask || !replyTask.s || (ref && String(ref) !== exactReply)))
+    throw new Error('That reply target is no longer available. Your message was not sent. Choose Reply again.');
   ref = /^cue-[0-9A-Za-z-]{6,40}$/.test(String(ref || '')) && cueLoad_(ref) ? String(ref) : '';   // Kiko replied to this task's message
   // AGENT-TAG-2026-11-15 (Kiko's card 15 Nov 09:24:50Z "Approve, one agent per message"; CueAgentDrafts.gs cueAgdTag_): a main-chat
   // message that starts with "@" and an agent's name goes to that agent only. The main chat keeps it on rows marked "@<thread>", which
@@ -254,19 +259,29 @@ function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
   // CUE-REPLY-BUBBLE-2026-11-01 (Kiko 1 Nov: "a reply in the chat bubble function"): Reply on a Cue bubble in the main chat quotes that
   // message. A reply to an 8 AM or 2 PM update is answered there (cueK0Said_). Any other quoted task gets the message in its thread, and
   // the main chat keeps Kiko's line with its quote ("↩<id>").
-  const rp = !ref && /^cue-[0-9A-Za-z-]{6,40}$/.test(String(reply || '')) ? cueLoad_(reply) : null;
+  const rp = replyTask;
   reply = rp ? String(reply) : '';
-  if (reply && rp.s.kind !== 'k0' && !has) { cueChat_('Kiko', String(text || '').trim(), '↩' + reply); ref = reply; }
+  if (reply && rp.s.kind !== 'k0') { if (!has) cueChat_('Kiko', String(text || '').trim(), '↩' + reply); ref = reply; }
   // AGENT-REPLIES-2026-11-14 (Kiko's card 14 Nov 15:36:53Z "No, all goes to the agent"): in an agent's thread every line goes to that
   // agent and nothing else runs (no word checks, no GPT call, no intake). CueAgentDrafts.gs cueAgdSay_.
   if (ref && ((cueLoad_(ref) || {}).s || {}).kind === 'agentdraft') return cueAgdSay_(ref, text, has, !!reply, mid);
+  if (exactReply && has) return cueExactReplyFiles_(replyTask, text, files);
+  // Slash intent inside a selected reply is content for that exact target, not a new intake command.
+  if (exactReply && /^\s*\//.test(String(text || ''))) {
+    cueChat_('Kiko', String(text || '').trim(), exactReply);
+    return { chat: true, request_id: exactReply, reply: 'Reply saved in this thread.' };
+  }
   const inThread = !!ref;
   // STRUCTURE-PHASE-2 (Kiko 28 Oct 2026 04:21Z): the word checks are one ordered list, cueRoutes_ in CueCommands.gs. Each entry
   // keeps its note on who asked for it and when. The first that answers wins, in the same order as the hand-written chain before.
-  const c = { text, files, has, mode, ref, inThread, forced, reply: reply && rp.s.kind === 'k0' ? reply : '' };
+  const c = { text, files, has, mode, ref, inThread, forced, exactReply, reply: reply && rp.s.kind === 'k0' ? reply : '' };
   for (const r of cueRoutes_()) {
     if (r.said) { const out = r.said(c); if (out) return out; }
     else if (r.when(c)) return r.go(c);
+  }
+  if (exactReply) {
+    const answer = forced || cueTalk_(String(text || '').trim(), exactReply);
+    return Object.assign({}, answer, { chat: true, request_id: exactReply, start_intake: '', suggest_intake: false });
   }
   text = c.text; mode = c.mode;   // "add project …" turns the message into an intake (cueAddProjectSaid_)
   let asked = '', reopened = '';
@@ -320,6 +335,22 @@ function cueSendWith_(text, files, mode, ref, forced, reply, mid) {
   if (!asked) cueChat_('Kiko', line, id);
   cueChat_('Cue', sup ? 'Registering a supplier. GPT is reading it first; nothing is saved until you approve.' : 'Starting a project intake, phase 1 of 4: GPT is reading the project details.', id);
   return { request_id: id, task: ref };
+}
+
+// CUE-106: files attached to Reply stay on the selected task; never make a new intake.
+function cueExactReplyFiles_(target, text, files) {
+  if (target.s.kind === 'k0') throw new Error('This update accepts text replies only. Remove the files; your reply target is unchanged.');
+  const id = target.s.id, saved = cueFilesSave_(files, id);
+  cueLocked_(() => {
+    const current = cueLoad_(id);
+    if (!current || !current.s) throw new Error('That reply target is no longer available. Nothing was routed to intake.');
+    current.s.files = (current.s.files || []).concat(saved.filter(f => !(current.s.files || []).some(old => old.id === f.id)));
+    cueSave_(current.sh, current.row, current.s);
+  });
+  const line = String(text || '').trim() + '\n📎 ' + saved.map(f => f.name).join(', ');
+  cueChat_('Kiko', line, '↩' + id);
+  cueChat_('Kiko', line, id);
+  return { chat: true, request_id: id, reply: 'Files added to this reply thread.' };
 }
 
 /** PC check 22 Oct 04:45Z: after Go on a plan card, a readiness check that joined an earlier thread left the main chat silent.

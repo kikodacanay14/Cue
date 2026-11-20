@@ -41,6 +41,12 @@ Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Goog
 
 The Apps Script files are in `src/`, the Chrome bubble is in `extension/` and the tests are in `test/`.
 
+In the general composer, `/commands` lists supported shortcuts. `/intake` requires an explicit brief or attachment; `/email`
+uses `/email <recipient> about <message>` and prepares a draft for the existing review card. A selected Reply is tied to
+that request and is not a slash command. In Project Requirements, expand a row, then choose **Split into scopes** to
+try a count and note locally. The preview never sends to AS or saves in Canvas. Stream labels and their colors stay
+in the current browser.
+
 Team inbox: the Inbox page was removed in 1.28.64. Role chats (`src/CueInboxRoles.gs`), project chats (`src/CueInboxProjects.gs`) and routing (`src/CueInbox.gs`) run behind the scenes. The team runs without Kiko: daily role jobs (`src/CueInboxTeam.gs`), requests between roles on the Team Requests tab an optional For Kiko tab and a Closed tab for finished rows (`src/CueInboxAgents.gs`), all in the "BSE AI Team" spreadsheet; `cueResume` handles them every 5 minutes.
 
 - `Cue.gs`: the page, the owner check, the store (the "Cue" spreadsheet), the run lease and resume trigger, the metric, and what the page calls.

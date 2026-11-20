@@ -183,11 +183,11 @@
     lastThread = -1; renderChat();
   }
   /* CUE-CHANNELS-2026-11-18: General is the main chat. On a phone (640px and under) the channel list fills the screen; tapping a channel
-     opens its conversation over it, and "Channels" goes back to the list. Cue opens on the list there. */
+     opens its conversation over it, and "Channels" goes back to the list. The stream opens on General by default. */
   function goGeneral() { paneClose(); showConv(); }
   function showList() { document.body.classList.add('ch-list'); }
   function showConv() { document.body.classList.remove('ch-list'); var sc = $('scroller'); if (!openThread && sc._pin !== false) sc.scrollTop = sc.scrollHeight; }
-  if (window.matchMedia && matchMedia('(max-width: 640px)').matches) showList();
+  if (window.matchMedia && matchMedia('(max-width: 640px)').matches && !document.body.classList.contains('cue-stream')) showList();
   // Drive and Google Docs files open in the pane (Kiko 12:59Z); folders, Gmail and other sites still open a new tab.
   function previewUrl(u) {
     var m = /^https:\/\/(drive|docs)\.google\.com\/(?:file|document|spreadsheets|presentation)\/d\/([\w-]{10,})/.exec(u || '') || /^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]{10,})/.exec(u || '');
@@ -265,7 +265,7 @@
   // thread (or the main chat) it was opened from.
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
-    if (a.closest('#viewer') || !previewUrl(a.href)) return;
+    if (a.closest('#viewer') || a.hasAttribute('data-drive-direct') || !previewUrl(a.href)) return;
     e.preventDefault();
     var box = a.closest('#tmsgs, #msgs, #pscroll') || document, seen = {}, list = [];
     box.querySelectorAll('a[href]').forEach(function (x) {
