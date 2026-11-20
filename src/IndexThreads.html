@@ -19,6 +19,35 @@
     setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
   // The Threads list, grouped like Claude's Threads panel: Needs you, Working on, then the rest, newest first.
+var activeLabel = 'all';
+  var CUE_LABELS = [
+    { id: 'all', name: 'All', color: '#C8106E', bg: '#FCE8F3' },
+    { id: 'intake', name: 'Project Intake', color: '#0E7490', bg: '#ECFEFF' },
+    { id: 'admin', name: 'Admin Check', color: '#334155', bg: '#F1F5F9' },
+    { id: 'finance', name: 'Finance Check', color: '#047857', bg: '#ECFDF5' },
+    { id: 'handover', name: 'Handover', color: '#4C1D95', bg: '#F5F3FF' },
+    { id: 'tasks', name: 'Tasks Today', color: '#D95D14', bg: '#FFF7ED' },
+    { id: 'payables', name: 'Payables Today', color: '#B45309', bg: '#FFFBEB' }
+  ];
+  var SLASH_CMDS = [
+    { cmd: '/intake', hint: 'Start project intake from brief or text' },
+    { cmd: '/split', hint: 'Preview splitting a requirement into scopes' },
+    { cmd: '/add', hint: 'Add a requirement or item' },
+    { cmd: '/tasks', hint: 'Show tasks due today' },
+    { cmd: '/add task', hint: 'Add a new task to a project' },
+    { cmd: '/complete', hint: 'Mark a task complete' },
+    { cmd: '/issue', hint: 'Log a project issue' },
+    { cmd: '/risk', hint: 'Log a project risk' },
+    { cmd: '/email', hint: 'Draft or send an email' },
+    { cmd: '/finance', hint: 'Project budget vs actual summary' },
+    { cmd: '/finance detail', hint: 'Budget breakdown by requirement' },
+    { cmd: '/finance req', hint: 'Budget breakdown by cost line' },
+    { cmd: '/payables', hint: 'Review payables due today' },
+    { cmd: '/expense', hint: 'Record and reconcile an expense/receipt' },
+    { cmd: '/admin', hint: 'Look up crew or supplier dossier' },
+    { cmd: '/generate FSA', hint: 'Generate Freelance Service Agreements' },
+    { cmd: '/generate AR', hint: 'Generate Acknowledgement Receipts' }
+  ];
   var tq = '', tshut = {}, tmore = false;
   $('tsearch').oninput = function () { tq = $('tsearch').value.trim().toLowerCase(); renderChat(); };
   $('tlist').addEventListener('click', function (e) {
@@ -938,6 +967,36 @@
     return t || (r ? String(r.text || '').split('\n')[0] : 'Cue\'s message');
   }
   var replyTo = '', replyQ = '';   // the task id Kiko is replying to from the main chat box; or the quoted message (no task)
+  var slashState = { open: false, list: [], i: 0 };
+  function slashOpen() {
+    var b = $('box'); if (!b) return;
+    var v = b.value, m = v.match(/^\/([^\n]*)$/), q = m ? m[1].toLowerCase() : null;
+    var list = q === null ? [] : SLASH_CMDS.filter(function (c) {
+      return c.cmd.slice(1).toLowerCase().indexOf(q) === 0 && !(v.toLowerCase() === c.cmd.toLowerCase() + ' ');
+    });
+    slashState.open = list.length > 0; slashState.list = list;
+    slashState.i = Math.min(slashState.i, Math.max(list.length - 1, 0));
+    if (!slashState.open) { if (!tagState || !tagState.open) $('taglist').hidden = true; return; }
+    var ul = $('taglist'); ul.hidden = false;
+    ul.innerHTML = list.map(function (c, i) {
+      return '<li role="option" data-slash-pick="' + i + '" aria-selected="' + (i === slashState.i) + '"' + (i === slashState.i ? ' class="on"' : '') + '><b>' + esc(c.cmd) + '</b><span class="small muted">' + esc(c.hint) + '</span></li>';
+    }).join('');
+  }
+  function slashPick(i) {
+    var c = slashState.list[i]; if (!c) return;
+    $('box').value = c.cmd + ' '; slashState.i = 0; slashOpen(); $('box').focus();
+  }
+  $('box').addEventListener('input', function () { slashState.i = 0; slashOpen(); });
+  $('taglist').addEventListener('mousedown', function (e) {
+    var li = e.target.closest && e.target.closest('[data-slash-pick]'); if (!li) return;
+    e.preventDefault(); slashPick(+li.getAttribute('data-slash-pick'));
+  });
+  $('box').addEventListener('keydown', function (e) {
+    if (!slashState.open) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopImmediatePropagation(); slashState.i = (slashState.i + (e.key === 'ArrowDown' ? 1 : slashState.list.length - 1)) % slashState.list.length; slashOpen(); return; }
+    if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.stopImmediatePropagation(); slashPick(slashState.i); return; }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); slashState.open = false; $('taglist').hidden = true; return; }
+  }, true);
   function setReply(id, q) {
     replyTo = id || ''; replyQ = !replyTo && q ? q : ''; var bar = $('replybar'); if (!bar) return;
     bar.hidden = !replyTo && !replyQ; $('replyto').textContent = replyTo ? replyTitle(replyTo) : replyQ;
@@ -1120,11 +1179,31 @@
    * tasks the list does not show (a new email's post). A task's first message, its "N replies" row, the Today card, the bids card,
    * an @agent message and an alert line live in their channel instead. A pointer that answers Kiko's own line stays, as a link. */
   function listed(id, th) { var t = thOf(th, id); return !!(t && t.reqs.length && listShows(t)); }
+ function labelBarHtml() {
+    return '<div class="cue-label-bar" role="group" aria-label="Filter stream by label">' + CUE_LABELS.map(function (l) {
+      var on = activeLabel === l.id;
+      return '<button type="button" class="lbl-pill' + (on ? ' active' : '') + '" data-lbl="' + esc(l.id) + '" style="background:' + l.bg + ';color:' + l.color + '">' + esc(l.name) + '</button>';
+    }).join('') + '</div>';
+  }
+  function msgLabel(m, by) {
+    var rid = String(m.request_id || '').replace(/^[>@%\u21a9]/, ''), r = by[rid] || {}, k = String(r.kind || ''), txt = String(m.text || '');
+    if (k === 'intake' || /project intake/i.test(txt)) return 'intake';
+    if (k === 'accred' || k === 'ar' || k === 'supplier' || /admin check|fsa|acknowledgement receipt/i.test(txt)) return 'admin';
+    if (k === 'finance' || k === 'cecost' || /finance check|budget|ce cost/i.test(txt)) return 'finance';
+    if ((r.agd && r.agd.type === 'update') || /handover/i.test(txt)) return 'handover';
+    if (k === 'tri' || k === 'sweep' || /tasks today|due today/i.test(txt)) return 'tasks';
+    if (k === 'expense' || k === 'personal' || /payables today|payment request/i.test(txt)) return 'payables';
+    return 'all';
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-lbl]'); if (!b) return;
+    e.stopPropagation(); activeLabel = b.getAttribute('data-lbl') || 'all'; renderChat();
+  }, true);
   function renderMain(th) {
     var by = byId(), shown = {}, h = '', dayShown = {}, gl = null;
     mvRef = [];   // CUE-DRAG-TO-CHANNEL-2026-11-18
     var prev = null, h0;
-    allLines().forEach(function (m) { h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
+    allLines().forEach(function (m) { if (activeLabel !== 'all' && msgLabel(m, by) !== activeLabel) return; h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
     genLast = gl;
     function one(m) {
       if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
@@ -1166,7 +1245,7 @@
       // every one of its lines in General, in time order, with no thread row; tapping one still opens the thread.
       h += msgHtml(m, th[root] ? root : '');
     }
-    setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
+    setHtml($('msgs'), labelBarHtml() + (h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     if (h.indexOf('data-k0bids') >= 0) bind();   // the bids card's buttons
   }
   /* CUE-DRAG-TO-CHANNEL-2026-11-18 (approved mockup /mnt/project-files/cue-drag-to-channel/mockup/): Cue's own General lines can be

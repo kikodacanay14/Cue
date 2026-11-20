@@ -803,6 +803,27 @@
           if (k && kv.length > 1) o[k] = kv.slice(1).join('=').trim(); }); }); });
     return { all: all, ok: ok, vals: vals };
   }
+  // REQ-APPROVAL-12A-2026-11-18 (mockup https://claude.ai/artifact/8NauUhVVuTghwKzZu3ktHM, Kiko "Build" 18 Nov 2026 16:16Z; his answer A
+  // 15:01Z: a difference is listed, nothing is fixed on its own): after a decision Canvas reads the approved lines back. A line that
+  // matches shows Matches Canvas and stays approved. A line that differs, was not saved or can't be checked opens again with the
+  // values Kiko approved filled in, so he can tick it and send it again. A line not approved shows Waiting.
+  var agdSplit = {};
+  var AGD_CK_ = { match: ['good', 'Matches Canvas'], differs: ['crit', 'Differs'], not_saved: ['crit', 'Not saved'], not_verified: ['warn', "Can't check"], held: ['warn', 'Waiting'] };
+  function agdCheck(A) { var m = {}; ((A.approval_check || {}).lines || []).forEach(function (l) { m[l.req_id] = l; }); return m; }
+  function agdReopen(ck, x) { var l = x.req_id && ck[x.req_id]; return !!l && ['differs', 'not_saved', 'not_verified'].indexOf(l.verdict) >= 0; }
+  function agdIsAp(A, ap, ck, x) { return (ap.all || !!(x.req_id && ap.ok[x.req_id])) && !agdReopen(ck, x); }
+  function agdCkCell(ck, ap, x, A) {
+    var l = x.req_id && ck[x.req_id], v = l ? l.verdict : (agdIsAp(A, ap, ck, x) ? '' : 'held'), F = { execution: 'Execution', qty: 'Qty', occurrence: 'Occurrence' };
+    if (!v) return '<span class="muted">—</span>';
+    return '<span class="tag ' + AGD_CK_[v][0] + '">' + AGD_CK_[v][1] + '</span>' + (l && l.diffs && l.diffs.length ? '<span class="agck">' + l.diffs.map(function (d) {
+      return esc(F[d.field] || d.field) + ': you approved ' + esc(d.approved) + ', Canvas has ' + esc(d.saved || 'blank'); }).join('<br>') + '</span>' : '');
+  }
+  function agdCkSum(rows, ck, ap, A) {
+    var n = { match: 0, differs: 0, not_saved: 0, not_verified: 0, held: 0 };
+    rows.forEach(function (x) { var l = x.req_id && ck[x.req_id]; if (l) n[l.verdict]++; else if (!agdIsAp(A, ap, ck, x)) n.held++; });
+    var W = { match: 'match', differs: n.differs === 1 ? 'differs' : 'differ', not_saved: 'not saved', not_verified: "can't be checked", held: 'waiting' };
+    return ['match', 'differs', 'not_saved', 'not_verified', 'held'].filter(function (k) { return n[k]; }).map(function (k) { return n[k] + ' ' + W[k]; }).join(', ');
+  }
   // AGENT-CARD-EDIT-2026-11-18 (Kiko 18 Nov 2026 14:53:25Z, Dot audit finding 7: "Kiko requested that he be able to edit them. Add and
   // verify editing and the approved values' return to the agent"): on a line Kiko can tick, Execution, Qty and Occurrence can be changed
   // (T.e). After the APPROVE line, each ticked line gets one line with the values Kiko approved, "REQ-ID: Execution=Outsourced; Qty=2;
@@ -833,7 +854,11 @@
     var title = (A.project || A.project_id || A.item) + ' · ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's');
     // AGENT-REQ-TICK-2026-11-18: tick boxes only on an approval request Kiko can still answer.
     var tk = ((A.handover || {}).state === 'Waiting for approval') && canReply, T = agdTick[r.id] || { t: {}, a: {} }, ap = agdApproved(A);
-    var isAp = function (x) { return ap.all || !!(x.req_id && ap.ok[x.req_id]); };
+    var ck = agdCheck(A), hasCk = !!((A.approval_check || {}).lines || []).length;   // REQ-APPROVAL-12A-2026-11-18
+    var isAp = function (x) { return agdIsAp(A, ap, ck, x); };
+    // a line that opens again starts from the values Kiko approved (his edits on it win)
+    if (tk) rows.forEach(function (x) { var v = agdReopen(ck, x) && (ap.vals || {})[x.req_id]; if (!v) return;
+      T = agdTick[r.id] = agdTick[r.id] || T; T.e = T.e || {}; var e = T.e[x.req_id] = T.e[x.req_id] || {}; Object.keys(v).forEach(function (k) { if (e[k] == null) e[k] = v[k]; }); });
     var ready = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !isAp(x); });
     var tickTd = function (x) {
       if (!tk) return '';
@@ -865,17 +890,35 @@
       // Description on the left. Image on the right"; 04:39:37Z "Remove the Brief Page, Picture COunt"; card 1 approved 05:32:00Z): the open
       // row shows Description, Dimensions and open items on the left and the MM pictures on the right, with no page badge.
       var dimv = x.dimensions ? esc(x.dimensions) + (x.spec_by === 'MM' ? '<span class="rid">by MM</span>' : '') : x.spec_by === 'MM' ? '<span class="muted">MM to add</span>' : none;
-      var det = !on ? '' : '<tr class="agdet"><td colspan="' + (tk ? 6 : 5) + '"><div class="agdetw agc1d"><div class="agdims">'
+      var det = !on ? '' : '<tr class="agdet"><td colspan="' + ((tk ? 6 : 5) + (hasCk ? 1 : 0)) + '"><div class="agdetw agc1d"><div class="agdims">'
         + '<div><span class="lbl">Description</span>' + (x.description ? esc(x.description) : none) + '</div>'
         + '<div><span class="lbl">Dimensions</span>' + dimv + '</div>'
         + (x.open_items.length ? '<div><span class="lbl">Open items</span><ul class="oi">' + x.open_items.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul></div>' : '')
+        + (x.req_id ? (function () {
+       var sk = r.id + '|' + x.req_id, sp = agdSplit[sk];
+       var box = !sp ? '' : '<div onclick="event.stopPropagation()" style="margin-top:8px;padding:10px;border:1px dashed var(--line2);border-radius:8px;background:var(--bg)">'
+         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b>Split preview · ' + esc(x.name) + ' <span class="muted">(' + esc(x.req_id) + ')</span></b><span class="tag warn">Preview only · Not connected to AS</span></div>'
+         + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+         + '<label class="small" style="flex:0 0 130px">Scopes (2 or more)<input type="number" min="2" step="1" inputmode="numeric" data-agsp-n="' + esc(sk) + '" value="' + esc(sp.n || 2) + '" style="width:100%"></label>'
+         + '<label class="small" style="flex:1;min-width:180px">Comment<input type="text" data-agsp-c="' + esc(sk) + '" value="' + esc(sp.c || '') + '" placeholder="How should this split?" style="width:100%"></label>'
+         + '</div>'
+         + ((function () {
+           var n = Number(sp.n);
+           if (!/^[2-9]\d*$/.test(String(sp.n || '').trim())) return '<div class="err" style="margin-top:6px">Enter a whole number of 2 or more scopes.</div>';
+           var out = '<div class="small" style="margin-top:6px">';
+           for (var si = 1; si <= n; si++) out += '<div><b>Scope ' + si + ' of ' + n + ':</b> ' + esc(x.name) + (sp.c ? ' — ' + esc(sp.c) : '') + '</div>';
+           return out + '</div>';
+         })())
+         + '<div class="small muted" style="margin-top:6px">Preview only · Not connected to AS. Nothing is saved or sent.</div></div>';
+       return '<div style="margin-top:8px" onclick="event.stopPropagation()"><button type="button" class="btn sm ghost" data-act="agd-split" data-sk="' + esc(sk) + '">' + (sp ? 'Close split preview' : 'Split into scopes') + '</button>' + box + '</div>';
+     })() : '')
         + '</div><div>' + (im.length ? '<div class="agpics">' + im.map(function (p, i) {
         var lab = (x.req_id || x.name) + (im.length > 1 ? ' · picture ' + (i + 1) : '');
         return '<a data-agpic href="' + view(p.file_id) + '" data-name="' + esc(lab) + '" aria-label="Open picture ' + esc(lab) + '"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(p.file_id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(p.file_id) + '\')"></a>'; }).join('') + '</div><div class="small muted">Tap a picture to see it full size.</div>'
         : '<span class="muted">No pictures from MM yet.</span>') + '</div></div></td></tr>';
       return '<tr class="agrow' + (x.needs_kiko ? ' need' : '') + '" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + tickTd(x) + td(esc(n), 1) + td('<span class="rn">' + esc(x.name) + '</span><span class="rid">' + esc(x.req_id) + '</span>'
           + (tk && !isAp(x) && agdQs(x).length ? '<span class="agwq">Waits for your answer</span>' : ''))
-        + agdCell(x, 'sourcing') + agdCell(x, 'qty') + agdCell(x, 'occurrence') + '</tr>' + det;
+        + agdCell(x, 'sourcing') + agdCell(x, 'qty') + agdCell(x, 'occurrence') + (hasCk ? td(agdCkCell(ck, ap, x, A), 1) : '') + '</tr>' + det;
     }).join('');
     // AGENT-CARD1-LAYOUT-2026-11-18 (Kiko 04:39:37Z "Card 1 put the Project Event Client Brief and then open brief"): four fields on top.
     var H = A.handover || {}, mf = function (l, v) { return '<div><span class="lbl">' + l + '</span>' + v + '</div>'; };
@@ -888,8 +931,9 @@
       + '<div class="agdf" role="group" aria-label="Show"><button class="filt" data-act="agd-rows" data-agf="all" data-id="' + id + '" aria-pressed="' + !f + '">All ' + rows.length + '</button>'
       + '<button class="filt" data-act="agd-rows" data-agf="need" data-id="' + id + '" aria-pressed="' + f + '">Needs you ' + need + '</button></div>'
       + meta
+      + (hasCk ? '<div class="agcks" role="status"><b>Canvas check: ' + esc(agdCkSum(rows, ck, ap, A)) + '</b>' + (A.approval_check.checked_at ? '<span class="small muted">Checked ' + esc(A.approval_check.checked_at) + '</span>' : '') + '</div>' : '')
       + '<div class="agdtw"><table><thead><tr>' + (tk ? '<th class="agtk">' + (ready.length ? '<label class="agtick"><input type="checkbox" data-agtick-all="' + id + '"'
-        + (ready.every(function (x) { return T.t[x.req_id]; }) ? ' checked' : '') + ' aria-label="Approve every line that is ready"></label>' : '') + '</th>' : '') + '<th>#</th><th>Requirement</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th></tr></thead><tbody>' + body + '</tbody></table>'
+        + (ready.every(function (x) { return T.t[x.req_id]; }) ? ' checked' : '') + ' aria-label="Approve every line that is ready"></label>' : '') + '</th>' : '') + '<th>#</th><th>Requirement</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th>' + (hasCk ? '<th>Canvas check</th>' : '') + '</tr></thead><tbody>' + body + '</tbody></table>'
       + (tk ? agdQsHtml(r.id, rows, T) : '') + '</div>'   // AGENT-REQ-TICK-2026-11-18: questions scroll with the table, so a phone keeps room for the rows
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="agdpf">' + (tk ? '<span class="small muted agtally" data-agtally="' + id + '">' + agdTallyText(agdTickNote(rows, T), ready.length) + '</span>' : '')
@@ -1629,17 +1673,20 @@
     // AGENT-REQ-TICK-2026-11-18: ticks and answers live in agdTick so a re-render keeps them; nothing goes to Canvas until Send decision.
     var agdOf = function (rid) { return ((state.requests.filter(function (x) { return x.id === rid; })[0] || {}).agd || {}); };
     var agdSync = function (rid) { var A = agdOf(rid), rows = ((A.handover || {}).rows || []), T = agdTick[rid] || { t: {}, a: {} }, n = agdTickNote(rows, T), ap = agdApproved(A);
-      var rc = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !(ap.all || ap.ok[x.req_id]); }).length;
+      var ck = agdCheck(A), rc = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !agdIsAp(A, ap, ck, x); }).length;
       document.querySelectorAll('[data-agtally="' + rid + '"]').forEach(function (x) { x.textContent = agdTallyText(n, rc); });
       document.querySelectorAll('[data-act="agd-tick-send"][data-id="' + rid + '"]').forEach(function (x) { x.disabled = !n.note; }); };
     document.querySelectorAll('[data-agtick]').forEach(function (x) { x.onchange = function () { var rid = x.getAttribute('data-agtick'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       if (x.checked) T.t[x.value] = 1; else delete T.t[x.value]; render(); setTimeout(function () { var y = document.querySelector('[data-agtick="' + rid + '"][value="' + x.value.replace(/["\\]/g, '\\$&') + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agtick-all]').forEach(function (x) { x.onchange = function () { var rid = x.getAttribute('data-agtick-all'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} }, A = agdOf(rid), ap = agdApproved(A);
-      ((A.handover || {}).rows || []).forEach(function (r) { if (r.req_id && !agdQs(r).length && !(ap.all || ap.ok[r.req_id])) { if (x.checked) T.t[r.req_id] = 1; else delete T.t[r.req_id]; } });
+      var ck = agdCheck(A); ((A.handover || {}).rows || []).forEach(function (r) { if (r.req_id && !agdQs(r).length && !agdIsAp(A, ap, ck, r)) { if (x.checked) T.t[r.req_id] = 1; else delete T.t[r.req_id]; } });
       render(); setTimeout(function () { var y = document.querySelector('[data-agtick-all="' + rid + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agedit]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agedit'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };   // AGENT-CARD-EDIT-2026-11-18
       T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
-    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
+    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };document.querySelectorAll('[data-agsp-n]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-n'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).n = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-n="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
+    document.querySelectorAll('[data-agsp-c]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-c'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).c = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-c="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
+      
+    
       T.a[x.getAttribute('data-q')] = x.value; agdSync(rid); }; });
     document.querySelectorAll('[data-agd-mod],[data-agd-rej]').forEach(function (x) { x.oninput = function () {   // AGENT-ACTIONS-2026-11-19: a redraw keeps what he typed
       var Q = agdAsk[x.getAttribute('data-agd-mod') || x.getAttribute('data-agd-rej')]; if (Q) Q.v = x.value; }; });
@@ -1664,7 +1711,8 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
-        if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
+      if (act === 'agd-split') { var sk = b.getAttribute('data-sk'); if (agdSplit[sk]) delete agdSplit[sk]; else agdSplit[sk] = { n: 2, c: '' }; return render(); }  
+      if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
           setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] tr[data-row="' + k.replace(/["\\]/g, '\\$&') + '"]'); if (x) x.focus(); }, 0); return; }
         if (act === 'agd-rows') {   // AGENT-UPDATE-ROWS-2026-11-16: open, filter or close the requirements panel; nothing goes to Canvas
           var agf = b.getAttribute('data-agf'); if (agf) agdRows[id] = agf; else delete agdRows[id]; render();

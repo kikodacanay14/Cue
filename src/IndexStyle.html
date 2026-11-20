@@ -597,6 +597,10 @@
   .agdp .agtick input { width:20px; height:20px; margin:0; accent-color:var(--act); cursor:pointer; }
   .agdp .agtick input:disabled { cursor:not-allowed; opacity:.45; }
   .agdp .agtick input:focus-visible { outline:2px solid var(--act); outline-offset:2px; }
+  /* REQ-APPROVAL-12A-2026-11-18: the Canvas check after a 12A decision (mockup approved 18 Nov 2026 16:16Z) */
+  .agdp .agck { display:block; margin-top:4px; font-size:12px; font-weight:600; color:#B3261E; text-align:center; }
+  .agdp .agcks { position:sticky; left:0; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; margin:12px 16px 0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+  .agdp .agcks b { font-size:14px; color:var(--white); } .agdp .agcks .small { margin-left:auto; }
   .agdp .agwq { display:block; margin-top:2px; font-size:12px; font-weight:600; color:#8A5300; }
   .agdp .agqs { position:sticky; left:0; max-width:calc(min(860px, 94vw) - 32px); display:grid; gap:10px; margin:12px 16px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
   .agdp .agq label { display:block; margin-bottom:4px; } .agdp .agq label b { display:block; font-size:14px; } .agdp .agq label span { display:block; }
@@ -693,4 +697,28 @@
   table.chr { width:100%; border-collapse:collapse; font-size:13px; }
   table.chr th { font-size:14px; font-weight:700; text-align:center; vertical-align:middle; padding:8px; border-bottom:2px solid var(--line2); }
   table.chr td { padding:8px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:center; } table.chr td.l { text-align:left; }
+  /* v1.28.106 — Cue Magenta Primary + Single Stream + Card Accents + Wide Tables */
+:root {
+  --act: #C8106E;
+  --act-soft: #FCE8F3;
+  --purple: #23006F;
+  --orange: #D95D14;
+}
+#team-cue, .left-pane, #tlist { display: none !important; }
+.shell, .main { grid-template-columns: 1fr !important; max-width: 920px; margin: 0 auto; width: 100%; }
+.msg.me { background: var(--act-soft); border-radius: 14px 14px 3px 14px; }
+.msg.cue { background: #ffffff; border: 1px solid var(--line); border-radius: 14px 14px 14px 3px; }
+.card { border-left: 4px solid var(--act); border-radius: 14px; }
+.card.cat-inquiry { border-left-color: #0E7490; }
+.card.cat-admin { border-left-color: #334155; }
+.card.cat-finance { border-left-color: #047857; }
+.card.cat-handover { border-left-color: #4C1D95; }
+.card.cat-tasks, .card.cat-payables { border-left-color: var(--orange); }
+.card table { min-width: 640px; width: 100%; border-collapse: collapse; }
+.card th { background: var(--purple); color: #ffffff; white-space: nowrap; word-break: normal; padding: 8px 10px; }
+.card td { word-break: normal; padding: 8px 10px; vertical-align: middle; }
+.card > table, .table-scroll { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cue-label-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fff; align-items: center; }
+.lbl-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid transparent; }
+.lbl-pill.active { outline: 2px solid var(--act); outline-offset: 1px; }
 </style>

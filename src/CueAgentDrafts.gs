@@ -66,7 +66,17 @@ function cueAgdFrom_(d) {
     recipient: cueStr_(d.recipient, 300), subject: cueStr_(d.subject, 250), body: cueStr_(d.body, 6000), lines, created: cueStr_(d.created, 30),
     status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 6000), reason: cueStr_(d.reason, 600),
     handover: d.type === 'update' ? cueAgdHand_(d.handover) : null,   // AGENT-UPDATE-2026-11-13
+    approval_check: d.type === 'update' ? cueAgdApCheck_(d.approval_check) : null,   // REQ-APPROVAL-12A-2026-11-18
     replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 6000) })) : [] };   // AGENT-REPLIES-2026-11-14; AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
+}
+/** REQ-APPROVAL-12A-2026-11-18 (mockup approved, Kiko "Build" 18 Nov 2026 16:16Z): Canvas's check of the lines Kiko approved at
+ *  step 12A, one verdict per requirement (match, differs, not_saved, not_verified, held) with the fields that differ. Pure. */
+const CUE_AGD_VERDICTS_ = ['match', 'differs', 'not_saved', 'not_verified', 'held'];
+function cueAgdApCheck_(k) {
+  if (!k || !Array.isArray(k.lines) || !k.lines.length) return null;
+  return { checked_at: cueStr_(k.checked_at, 30), lines: k.lines.slice(0, 200).filter(l => l && l.req_id && CUE_AGD_VERDICTS_.indexOf(l.verdict) >= 0).map(l => ({ req_id: cueStr_(l.req_id, 40),
+    verdict: l.verdict, diffs: (Array.isArray(l.diffs) ? l.diffs : []).slice(0, 3).filter(x => x && ['execution', 'qty', 'occurrence'].indexOf(x.field) >= 0)
+      .map(x => ({ field: x.field, approved: cueStr_(x.approved == null ? '' : x.approved, 40), saved: cueStr_(x.saved == null ? '' : x.saved, 40) })) })) };
 }
 /** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
 function cueAgdHand_(h) {
@@ -176,13 +186,16 @@ function cueAgdSync_(drafts) {
         s.status = s.stage = 'Needs you'; s.error = 'Cue did not hear back from Canvas. It still shows this draft waiting, so nothing was sent. Tap again.';
         cueSave_(sh, x.row, s); return;
       }
+      // REQ-APPROVAL-12A-2026-11-18: Canvas's newest check replaces the card's (a hand change in Canvas shows up on the next read).
+      const ckNew = a.type === 'update' && a.approval_check && JSON.stringify(a.approval_check.lines) !== JSON.stringify((s.agd.approval_check || {}).lines || null);
+      if (ckNew) s.agd.approval_check = a.approval_check;
       if (a.replies.length && JSON.stringify(a.replies) !== JSON.stringify(s.agd.replies || [])) {   // AGENT-REPLIES-2026-11-14
         s.agd.replies = a.replies;
         // Canvas has the new reply, so a card left on Sending by a run that died settles to Canvas's status (Codex review on Cue PR #386).
         if (s.status === 'Sending' && a.status !== 'Waiting for Kiko') { s.status = s.stage = cueAgdCueStatus_(a.status); s.error = ''; if (s.status !== 'Sending') s.ready_at = s.ready_at || cueNow_(); }
         if (was === a.status) { cueSave_(sh, x.row, s); return; }
       }
-      if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) return;
+      if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) { if (ckNew) cueSave_(sh, x.row, s); return; }
       // Canvas's own record wins for the outcome; Kiko's edits on a card still waiting stay until he decides.
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { s.agd[f] = a[f]; });
       if (a.status !== 'Waiting for Kiko' && a.type !== 'update') { s.agd.subject = a.subject; s.agd.body = a.body; if (a.lines.length) s.agd.lines = a.lines; }
@@ -207,6 +220,7 @@ function cueAgdView_(s) {
     recipient: a.recipient, subject: a.subject, body: a.body, lines: a.lines || [], created: a.created, status: a.status, decided: a.decided, sent: a.sent,
     gmail_url: /^[0-9a-f]{8,24}$/.test(String(a.gmail_thread || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + a.gmail_thread : '',
     note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null,
+    approval_check: a.approval_check || null,   // REQ-APPROVAL-12A-2026-11-18
     replies: a.replies || [] };   // AGENT-REPLIES-2026-11-14: every reply Kiko sent on an update card
 }
 
@@ -268,7 +282,11 @@ function cueAgdDecide_(id, o) {
       }
       t.status = t.stage = cueAgdCueStatus_(t.agd.status); t.error = '';
       if (t.status !== 'Sending') t.ready_at = cueNow_();
-      line = res.again ? 'Canvas had already settled this draft: ' + cueAgdLine_(t.agd) : cueAgdLine_(t.agd);
+      // REQ-APPROVAL-12A-2026-11-18: Canvas saved the approved lines and read them back; this reply's verdicts join the card's check.
+      const ck = res.approval ? cueAgdApCheck_({ checked_at: res.approval.checked_at, lines: res.approval.lines }) : null;
+      if (ck) { const was = ((t.agd.approval_check || {}).lines || []).filter(l => !ck.lines.some(n => n.req_id === l.req_id)); t.agd.approval_check = { checked_at: ck.checked_at, lines: was.concat(ck.lines) }; }
+      if (ck) line = cueAgdCheckLine_(ck.lines, res.approval.error);
+      else line = res.again ? 'Canvas had already settled this draft: ' + cueAgdLine_(t.agd) : cueAgdLine_(t.agd);
     }
     cueSave_(M.sh, M.row, t);
     s.agd = t.agd; s.status = t.status; s.error = t.error;
@@ -277,6 +295,16 @@ function cueAgdDecide_(id, o) {
   return s;
 }
 
+/** REQ-APPROVAL-12A-2026-11-18: the chat line after a 12A decision. Pure. Example: "Approved 3 lines. Canvas check: 2 match,
+ *  1 differs (REQ26-11087-03: Execution approved Outsourced, Canvas has blank). Nothing was changed automatically." */
+function cueAgdCheckLine_(lines, error) {
+  const n = {}, F = { execution: 'Execution', qty: 'Qty', occurrence: 'Occurrence' }, W = { match: 'match', differs: 'differ', not_saved: 'not saved', not_verified: "can't be checked" };
+  lines.forEach(l => { n[l.verdict] = (n[l.verdict] || 0) + 1; });
+  const parts = ['match', 'differs', 'not_saved', 'not_verified'].filter(k => n[k]).map(k => n[k] + ' ' + (k === 'differs' && n[k] === 1 ? 'differs' : W[k]));
+  const why = lines.filter(l => l.verdict === 'differs').map(l => l.req_id + ': ' + l.diffs.map(d => F[d.field] + ' approved ' + d.approved + ', Canvas has ' + (d.saved || 'blank')).join(', '));
+  return 'Approved ' + lines.length + ' line' + (lines.length === 1 ? '' : 's') + '. Canvas check: ' + (parts.join(', ') || 'nothing to check') + (why.length ? ' (' + why.join('; ') + ')' : '') + '.'
+    + (error ? ' Canvas said: ' + cueStr_(error, 300) + '.' : '') + ' Nothing was changed automatically.';
+}
 /** Kiko's edited requirement lines, checked against the agent's (same count or fewer; qty and days whole and positive). */
 function cueAgdLines_(edits, was) {
   const out = [];

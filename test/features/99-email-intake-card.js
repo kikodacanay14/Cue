@@ -15,7 +15,7 @@ function eicView(h) {
 function eicGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdIntakeHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
+  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdIntakeHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
   return ctx;
 }
 test('EIC1 a run from Canvas is kept clean: headers only, at most 200 per list, no run means no Email Intake card', () => {
