@@ -44,7 +44,7 @@
     if (imgCache[id]) return ok(imgCache[id]);
     call('cueFileData', [id], function (u) { imgCache[id] = u; ok(u); }, bad || function () {});
   }
-  window.cueThumb = function (im, id) { im.onerror = function () { im.remove(); }; imgData(id, function (u) { im.src = u; }, function () { im.remove(); }); };
+  window.cueThumb = function (im, id) { if (!im.dataset.lh3 && id) { im.dataset.lh3 = '1'; im.src = 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(id) + '=w400'; return; } im.onerror = function () { if (im.parentNode) im.parentNode.textContent = '📄'; }; imgData(id, function (u) { im.src = u; }, function () { if (im.parentNode) im.parentNode.textContent = '📄'; }); };
   function viewFrame(f) {
     $('v-stage').innerHTML = '<iframe title="' + esc(f.name) + '" allow="autoplay" src="' + esc(f.preview) + '"></iframe>';
     zoomOn(false); $('v-pct').textContent = '';   // Drive's preview zooms inside itself
