@@ -846,6 +846,7 @@
     return { note: n.join('\n'), ticked: ids.length, answered: answered, bad: bad.filter(function (v, i, a) { return a.indexOf(v) === i; }) };
   }
   function agdRowsHtml(r, canReply, unread) {
+    var agdSplit = (typeof window !== 'undefined' ? (window.agdSplit = window.agdSplit || {}) : {});
     var A = r.agd || {}, rows = ((A.handover || {}).rows || []).slice(), id = esc(r.id), need = rows.filter(function (x) { return x.needs_kiko; }).length, f = agdRows[r.id] === 'need';
     // AGENT-ROWS-BY-NUMBER-2026-11-18 (Kiko 18 Nov 2026 08:02:18Z "can this be sorted by number?"): rows that need Kiko still come
     // first (16 Nov rule); within each group rows go by requirement number (01, 02, 03 ...). A row with no number goes last.
@@ -1075,7 +1076,7 @@
     if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
     if (H.check) return agdCheckHtml(r, canReply, unread);   // AGENT-CHECK-CARD-2026-11-18
     if ((H.rows || []).length) return agdRowsHtml(r, canReply, unread);   // AGENT-UPDATE-ROWS-2026-11-16
-    var dec = wait ? agdWaitDecided(A) : null;   // AGENT-ACTIONS-2026-11-19: Approved or Rejected replaces Waiting for you once Kiko taps
+    var dec = wait && typeof agdWaitDecided === 'function' ? agdWaitDecided(A) : null;   // AGENT-ACTIONS-2026-11-19: Approved or Rejected replaces Waiting for you once Kiko taps
     if (dec) stTag = dec.k === 'approve' ? '<span class="tag good">Approved' + (dec.at ? ' ' + esc(dec.at) : '') + '</span>' : '<span class="tag">Rejected' + (dec.at ? ' ' + esc(dec.at) : '') + '</span>';
     var h = '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Handover</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:17px;color:var(--white)">' + esc(H.handover_ref || A.item) + '</b>'
@@ -1683,11 +1684,10 @@
       render(); setTimeout(function () { var y = document.querySelector('[data-agtick-all="' + rid + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agedit]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agedit'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };   // AGENT-CARD-EDIT-2026-11-18
       T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
-    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };document.querySelectorAll('[data-agsp-n]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-n'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).n = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-n="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
-    document.querySelectorAll('[data-agsp-c]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-c'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).c = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-c="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
-      
-    
+    document.querySelectorAll('[data-agans]').forEach(function (x) { x.oninput = function () { var rid = x.getAttribute('data-agans'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       T.a[x.getAttribute('data-q')] = x.value; agdSync(rid); }; });
+    document.querySelectorAll('[data-agsp-n]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-n'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).n = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-n="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
+    document.querySelectorAll('[data-agsp-c]').forEach(function (x) { x.oninput = function () { var sk = x.getAttribute('data-agsp-c'); (agdSplit[sk] = agdSplit[sk] || { n: 2, c: '' }).c = x.value; render(); setTimeout(function () { var y = document.querySelector('[data-agsp-c="' + sk.replace(/["\\]/g, '\\$&') + '"]'); if (y) { y.focus(); y.selectionStart = y.selectionEnd = y.value.length; } }, 0); }; });
     document.querySelectorAll('[data-agd-mod],[data-agd-rej]').forEach(function (x) { x.oninput = function () {   // AGENT-ACTIONS-2026-11-19: a redraw keeps what he typed
       var Q = agdAsk[x.getAttribute('data-agd-mod') || x.getAttribute('data-agd-rej')]; if (Q) Q.v = x.value; }; });
     document.querySelectorAll('[data-act]').forEach(function (b) {
@@ -1711,8 +1711,8 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
-      if (act === 'agd-split') { var sk = b.getAttribute('data-sk'); if (agdSplit[sk]) delete agdSplit[sk]; else agdSplit[sk] = { n: 2, c: '' }; return render(); }  
-      if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
+        if (act === 'agd-split') { var sk = b.getAttribute('data-sk'); if (agdSplit[sk]) delete agdSplit[sk]; else agdSplit[sk] = { n: 2, c: '' }; return render(); }
+        if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
           setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] tr[data-row="' + k.replace(/["\\]/g, '\\$&') + '"]'); if (x) x.focus(); }, 0); return; }
         if (act === 'agd-rows') {   // AGENT-UPDATE-ROWS-2026-11-16: open, filter or close the requirements panel; nothing goes to Canvas
           var agf = b.getAttribute('data-agf'); if (agf) agdRows[id] = agf; else delete agdRows[id]; render();
@@ -2073,3 +2073,8 @@
   window.bsTAlign = { tag: tag, all: all, mark: 'TABLE-ALIGN-2026-10-29' };
   if (document.body) watch(); else document.addEventListener('DOMContentLoaded', watch);
 })();
+</script>
+'''
+with open('IndexCards.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
+print("Saved IndexCards.html")
