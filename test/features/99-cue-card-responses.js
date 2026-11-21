@@ -14,6 +14,8 @@ test('CCR1 Project inquiry: Pass Through needs no deliverable; design needs at l
   assert.throws(() => t.ctx.cueProjectInquiryValidate_(t.ctx.cueProjectInquiry_({ types: [], deliverables: [] })), /at least one project type/);
   const client = t.ctx.cueProjectInquiryValidate_(t.ctx.cueProjectInquiry_({ types: ['Fabrication'], theme_owner: 'Client to provide', deliverables: ['Stage Layout'] }));
   deq([client.deliverables, client.mm_needed], [['Stage Layout'], false]);
+  const passThrough = t.ctx.cueProjectInquiryValidate_(t.ctx.cueProjectInquiry_({ types: ['Pass Through'], deliverables: [], theme_owner: '' }));
+  deq([passThrough.pass_through_only, passThrough.deliverables], [true, []]);
 });
 
 test('CCR2 Email reroute: exact mailbox plus email ID separates same-subject emails; Received needs receiver ack', () => {
@@ -42,11 +44,24 @@ test('CCR3 Requirements: unchecked rows never enter the approval list and one ed
   assert.ok(!plan.some(x => x.id === '02'));
 });
 
-test('CCR4 Project Update: the handover stays read-only and exposes no approval/send action', () => {
+test('CCR4 Project Update: separate read-only card filters display only and never offers approval or reply actions', () => {
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8');
-  const update = page.slice(page.indexOf('function agdUpdHtml'), page.indexOf('function agdCardHtml'));
-  assert.ok(/Handover/.test(update));
-  assert.ok(!/data-act="agd-ok"|data-act="agd-rej-send"|client send/i.test(update));
+  const grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
+  const ctx = { agdUpdateView: {}, agdUpdateSelected: {}, esc: x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]) }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml') + '\n' + grab('agdProjectUpdateHtml'), ctx);
+  const b = agdBox({ drafts: [agdUpd(92, { handover: { handover_ref: 'HO-92', summary: 'Stage changed.', gaps: 'Venue access pending.',
+    next_owner: 'Account Specialist', next_action: 'Confirm access', rows: [
+      { req_id: 'REQ-01', name: 'Stage', description: 'Main stage', needs_kiko: false, open_items: ['Confirm rigging'] },
+      { req_id: 'REQ-02', name: 'Photo wall', description: 'Entrance display', needs_kiko: true, open_items: [] }] } })] });
+  b.t.ctx.cueAgdTick_();
+  const r = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), html = ctx.agdUpdHtml(r);
+  assert.ok(/Project Update · Read only/.test(html) && /Stage changed\./.test(html) && /Venue access pending\./.test(html));
+  assert.ok(/All requirements \(2\)/.test(html) && /Selected requirements \(0\)/.test(html));
+  assert.ok(/Status:<\/b> <span class="muted">Not provided in this update<\/span>/.test(html) && /Owner:<\/b> Account Specialist/.test(html));
+  assert.ok(!/data-act="agd-tick-send"|data-act="agd-reply"|data-act="agd-ok"|data-act="agd-rej-send"/.test(html));
+  ctx.agdUpdateSelected[r.id] = { 'REQ-02': 1 }; ctx.agdUpdateView[r.id] = 'selected';
+  const filtered = ctx.agdProjectUpdateHtml(r, false);
+  assert.ok(/Photo wall/.test(filtered) && !/Main stage/.test(filtered), 'Selected filters visible content only');
 });
 
 test('CCR5 Client to provide and Pass Through stop after project creation without starting requirements or design work', () => {

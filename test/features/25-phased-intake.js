@@ -1,6 +1,17 @@
 // Part of test/cue.test.js, loaded in file-name order into one shared scope. Feature: phased-intake.
 /* ---------- CUE-PHASED (Kiko 14:53Z, specs/phased-intake.md): four approved phases, one card per task ---------- */
-function phStart(o = {}) { const t = sandbox(Object.assign({ phased: true }, o)); const id = t.ctx.cueSend(INQ, [], 'intake').request_id; const v = t.ctx.cueRun(id); return Object.assign(t, { id, v }); }
+function phStart(o = {}) {
+  const t = sandbox(Object.assign({ phased: true }, o)), id = t.ctx.cueSend(INQ, [], 'intake').request_id, v = t.ctx.cueRun(id), approve = t.ctx.cueApprove;
+  // These cases exercise later phase behavior; give the synthetic client a known theme so CCR-R05 is tested separately.
+  t.ctx.cueApprove = (requestId, edits) => {
+    const inquiry = edits && edits.inquiry;
+    if (inquiry && !(inquiry.types || []).includes('Pass Through') && !inquiry.theme && !inquiry.theme_owner) {
+      edits = Object.assign({}, edits, { inquiry: Object.assign({}, inquiry, { theme: 'Garden launch' }) });
+    }
+    return approve(requestId, edits);
+  };
+  return Object.assign(t, { id, v });
+}
 const phPick = (t, v) => t.ctx.cueRfqPick(t.id, { mode: 'line', lines: v.ph.pick.lines.filter(l => l.on).map(l => ({ key: l.key, names: l.suppliers.map(x => x.name) })) });
 const writes = t => t.log.bridge.filter(b => /^intake_(add|save|log)/.test(b.action) || b.action === 'submit_intake' || b.action === 'apply_intake').map(b => b.action);
 test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Approve, which adds the project alone', () => {

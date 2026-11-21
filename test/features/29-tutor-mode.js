@@ -166,7 +166,9 @@ test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the bu
   const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
   const box = { pickMode: {}, pickCount: (pk, pm) => pm === 'all' ? pk.all.length : new Set([].concat(...pk.lines.filter(l => l.on).map(l => l.suppliers.map(x => x.name)))).size, PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
     esc: v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
-    peso: n => 'PHP ' + n, secHtml: (k, t) => '<sec>' + t + '</sec>', srcHtml: () => '', inp: () => '<input>', metricLine: () => 'M', foldersHtml: () => '' };
+    peso: n => 'PHP ' + n, secHtml: (k, t) => '<sec>' + t + '</sec>', srcHtml: () => '',
+    inp: (name, value, wide, placeholder) => '<input class="' + (wide ? 'wide' : '') + '" data-field="' + name + '" value="' + String(value || '') + '"' + (placeholder ? ' placeholder="' + placeholder + '"' : '') + '>',
+    metricLine: () => 'M', foldersHtml: () => '' };
   const lines = [{ key: 'R1', item: 'LED wall', spec: 'P3.9', why: 'w', quantity: 1, days: 1, execution: 'Outsourced', unit_cost: 1, cost_basis: 'history', unit_price: 2, price_basis: 'p' }];
   const card = (phase, extra) => vm.runInNewContext(fn + 'phCardHtml(r)', Object.assign({}, box, { r: Object.assign({ id: 'q1', status: 'Needs you', stage: 'Needs you', canvas: { project_id: 'S-1ZZ', project_number: '073' },
     ph: { phase, x: { client: {}, event: {} }, rows: [{ key: 'R1', item: 'LED', spec: 'P3', quantity: 1, days: 1 }], lines, totals: {}, rfqs: [] } }, extra || {}) }));
@@ -177,6 +179,13 @@ test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the bu
     assert.ok(!/Save prices writes|Approve adds|Reject keeps|Tap an item/.test(h.replace(/title="[^"]*"/g, '')), 'phase ' + ph + ': no explaining text');
     assert.ok(/data-act="approve"[^>]*title="/.test(h), 'phase ' + ph + ': tooltip on the main button');
   });
+  const project = card(1, { text: 'Original inquiry source', files: [{ id: 'abcdefghijk', name: 'stage.png' }],
+    ph: { phase: 1, x: { client: { contact: 'Ana', company: 'ACME' }, event: { name: 'Launch', date: '2027-01-02' } }, rows: [], lines: [], totals: {}, rfqs: [] } });
+  assert.ok(/Original inquiry source/.test(project) && /Original files and images \(1\)/.test(project) && /stage\.png/.test(project));
+  assert.ok(/https:\/\/drive\.google\.com\/thumbnail\?id=abcdefghijk/.test(project), 'image attachment preview');
+  box.editing.q1 = 1;
+  const editable = card(1, { ph: { phase: 1, x: { client: { contact: 'Ana', company: 'ACME' }, event: { name: 'Launch', date: '2027-01-02' } }, rows: [], lines: [], totals: {}, rfqs: [] } });
+  assert.ok(/data-field="client\.contact"/.test(editable) && /data-field="client\.company"/.test(editable), 'Client and Account use existing editable intake fields');
   assert.ok(!/ph-cancel/.test(card(3, { canvas: {} })), 'no Canvas project: no Cancel intake');
   const pk = card(4, { ph: { phase: 4, x: { client: {}, event: {} }, rfqs: [], lines, pick: { mode: 'line', lines: [{ key: 'R1', on: true, suppliers: [{ name: 'A' }, { name: 'B', new: true }] }], all: [{ name: 'A' }] } } });
   const pr = pk.match(/<div class="actions"[^>]*>[\s\S]*?<\/div>/g);

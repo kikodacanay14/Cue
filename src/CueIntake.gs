@@ -477,7 +477,7 @@ function cueProjectInquiryValidate_(i) {
   if (i.types.some(v => v === 'Event' || v === 'Fabrication') && (!i.deliverables || !i.deliverables.length)) {
     throw new Error('Select at least one deliverable for design work.');
   }
-  if (!i.theme_owner && !cueStr_(i.theme, 300).trim()) throw new Error('Choose a theme or who will provide it.');
+  if (!i.pass_through_only && !i.theme_owner && !cueStr_(i.theme, 300).trim()) throw new Error('Choose a theme or who will provide it.');
   if (!i.theme_owner && cueStr_(i.theme, 300).trim()) return i;
   if (i.theme_owner === 'Client to provide') return i;
   return i;
