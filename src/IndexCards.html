@@ -1745,11 +1745,14 @@
   function cardEditLabel(id, text) {
     return '<label class="card-edit-label" for="' + esc(id) + '">' + esc(text) + '</label>';
   }
+  function cardEditAttributes(id, attrs) {
+    return ' id="' + esc(id) + '" ' + attrs;
+  }
   function cardEditInput(id, label, attrs) {
-    return cardEditLabel(id, label) + '<input id="' + esc(id) + '" ' + attrs + '>';
+    return cardEditLabel(id, label) + '<input' + cardEditAttributes(id, attrs) + '>';
   }
   function cardEditSelect(id, label, attrs, options) {
-    return cardEditLabel(id, label) + '<select id="' + esc(id) + '" ' + attrs + '>' + options + '</select>';
+    return cardEditLabel(id, label) + '<select' + cardEditAttributes(id, attrs) + '>' + options + '</select>';
   }
   function inp(id, name, v, wide, ph) {
     var labels = { 'client.contact': 'Client contact name', 'client.company': 'Client company', 'client.email': 'Client email', 'client.phone': 'Client phone',

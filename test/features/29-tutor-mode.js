@@ -164,7 +164,7 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
 test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the buttons; all buttons on one row with Cancel intake last; the text is a tooltip', () => {
   const page = cuePage();
   const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
-  const labelHelpers = ['cardEditLabel', 'cardEditInput', 'cardEditSelect', 'inp'].map(name => {
+  const labelHelpers = ['cardEditLabel', 'cardEditAttributes', 'cardEditInput', 'cardEditSelect', 'inp'].map(name => {
     const a = page.indexOf('  function ' + name + '(');
     return page.slice(a, page.indexOf('\n  }\n', a) + 4);
   }).join('\n');

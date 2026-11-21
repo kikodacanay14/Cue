@@ -1,6 +1,6 @@
 test('ACC4611 phased intake rendered edit controls link unique row labels without changing field selectors', () => {
   const page = cuePage(), fn = name => page.slice(page.indexOf('  function ' + name + '('), page.indexOf('\n  }\n', page.indexOf('  function ' + name + '(')) + 4);
-  const helpers = ['cardEditLabel', 'cardEditInput', 'cardEditSelect', 'inp'].filter(name => page.includes('  function ' + name + '(')).map(name => {
+  const helpers = ['cardEditLabel', 'cardEditAttributes', 'cardEditInput', 'cardEditSelect', 'inp'].filter(name => page.includes('  function ' + name + '(')).map(name => {
     if (name === 'inp' && !page.includes('  function cardEditInput(')) return page.match(/  function inp\([^\n]+/)[0];
     return fn(name);
   }).join('\n');
@@ -52,7 +52,7 @@ test('ACC4613 legacy proposal facts have row headers and cost controls retain at
     return page.slice(a, page.indexOf('\n  }\n', a) + 4);
   };
   const code = page.match(/  function esc\([^\n]+/)[0] + '\n'
-    + ['cardEditLabel', 'cardEditInput', 'cardEditSelect', 'inp', 'cardBody'].map(take).join('\n') + '\ncardBody(r)';
+    + ['cardEditLabel', 'cardEditAttributes', 'cardEditInput', 'cardEditSelect', 'inp', 'cardBody'].map(take).join('\n') + '\ncardBody(r)';
   const r = { id: 'legacy', kind: 'intake', status: 'Needs you', proposal: { client: {}, event: {}, rfqs: [], lines: [
     { key: 'R01', description: 'Stage', status: 'included', quantity: 2, occurrence: 1, execution: 'Outsourced', unit_cost: 400, unit_price: 480 }
   ] } };
@@ -63,4 +63,17 @@ test('ACC4613 legacy proposal facts have row headers and cost controls retain at
   assert.match(html, /<table class="facts"><tr><th scope="row">Contacts<\/th><td>/);
   assert.match(html, /<th scope="row">Event name<\/th>/);
   assert.match(html, /<label[^>]*for="legacy-line-0-unit_cost">Unit cost for proposal line R01<\/label><input id="legacy-line-0-unit_cost" data-f="unit_cost"/);
+});
+
+test('ACC4614 shared control attributes preserve the exact input and select markup and escaping', () => {
+  const page = cuePage();
+  const a = page.indexOf('  function cardEditLabel('), b = page.indexOf('  function inp(', a);
+  const output = vm.runInNewContext(page.match(/  function esc\([^\n]+/)[0] + '\n' + page.slice(a, b) + `[
+    cardEditInput('row-"&1', 'Amount & cost', 'data-f="unit_cost" value="25"'),
+    cardEditSelect('row-"&2', 'Run by', 'data-f="execution"', '<option selected>In House</option>')
+  ]`);
+  deq(Array.from(output), [
+    '<label class="card-edit-label" for="row-&quot;&amp;1">Amount &amp; cost</label><input id="row-&quot;&amp;1" data-f="unit_cost" value="25">',
+    '<label class="card-edit-label" for="row-&quot;&amp;2">Run by</label><select id="row-&quot;&amp;2" data-f="execution"><option selected>In House</option></select>'
+  ]);
 });
