@@ -89,7 +89,7 @@ test('SAME1 live 16:45Z: "new project intake" for a project Canvas already has a
 });
 
 const DUP = { 'acme year-end party': { projects: [{ project_id: 'S-11267432UN', name: 'Acme Year-End Party', account: 'Acme Corp', date: '12/12/2026', status: 'For Admin Completion' }], total: 1 } };
-const INQUIRY_APPROVAL = { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } };
+const INQUIRY_APPROVAL = { inquiry: { types: ['Event'], theme: 'Garden launch', theme_owner: '', deliverables: ['Pitch Deck'] } };
 test('SAME2 live 16:52Z: Canvas refusing a project it already has turns into the Same project? card in the thread, not an error', () => {
   const later = {}, t = phStart({ projectDup: 9, search: later }), chat0 = t.tabs.Chat.rows.length; Object.assign(later, DUP);   // Canvas lists it only after the check
   const v = t.ctx.cueApprove(t.id, INQUIRY_APPROVAL);

@@ -81,7 +81,7 @@ function cueAgdApCheck_(k) {
 /** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
 function cueAgdHand_(h) {
   h = h || {};
-  return { handover_ref: cueStr_(h.handover_ref, 100), summary: cueStr_(h.summary, 4000), gaps: cueStr_(h.gaps, 4000), next_owner: cueStr_(h.next_owner, 100),
+  return { project_update: h.project_update === true, handover_ref: cueStr_(h.handover_ref, 100), summary: cueStr_(h.summary, 4000), gaps: cueStr_(h.gaps, 4000), next_owner: cueStr_(h.next_owner, 100),
     next_action: cueStr_(h.next_action, 4000),   // AGENT-NEXT-LINES-2026-11-18: as long as summary and gaps, so Cue never cuts an item
     ack_link: /^https:\/\/[^\s<>"']+$/.test(String(h.ack_link || '')) ? cueStr_(h.ack_link, 500) : '',
     state: h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked', why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
@@ -269,13 +269,23 @@ function cueAgdDecide_(id, o) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never decides an agent draft.');
   const dec = String(o.decision || '');
   if (['send', 'save', 'send_back', 'reject', 'read', 'reply'].indexOf(dec) < 0) throw new Error('Pick Send, Save, Send back or Reject.');
-  const note = cueStr_(String(o.note || '').trim(), 6000);   // AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
+  const reqReject = o.reject_requirements === true;
+  const note = reqReject ? 'reject' : cueStr_(String(o.note || '').trim(), 6000);   // AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
   if (dec === 'send_back' && !note) throw new Error('Say what ' + 'the agent should change, then tap Send back.');
   if (dec === 'reply' && !note) throw new Error('Type your reply, then tap Reply.');
+  let selectedForSave = null;
   const L = cueLocked_(() => {
     const L = cueLoad_(id);
     if (!L || L.s.kind !== 'agentdraft' || !L.s.agd) throw new Error('No such agent draft.');
     const a = L.s.agd;
+    if (a.type === 'update' && (a.handover || {}).project_update === true && dec !== 'read') throw new Error('A Project Update is read-only.');
+    if (reqReject) {
+      const h = a.handover || {}, prior = (a.replies || []).map(r => String(r.text || '')).concat(a.note || '');
+      const checked = ((a.approval_check || {}).lines || []).some(l => l.verdict !== 'held');
+      if (dec !== 'reply' || a.type !== 'update' || !/^(?:as|account specialist)(?: agent)?$/i.test(a.agent || '') ||
+          h.state !== 'Waiting for approval' || !(h.rows || []).some(r => r.req_id) || !a.draft_id || !a.project_id) throw new Error('Only a fresh AS requirements card can be rejected here.');
+      if (checked || prior.some(t => /^\s*APPROVE\s*:/im.test(t) || /^\s*(?:approve|approved|go ahead|ok|okay|yes|reject)[\s.!]*$/i.test(t))) throw new Error('This card already has an approval or rejection.');
+    }
     const forUpd = dec === 'read' || dec === 'reply';   // AGENT-UPDATE-2026-11-13
     if ((a.type === 'update') !== forUpd) throw new Error(a.type === 'update' ? 'An update is marked read or replied to.' : 'Only an update is marked read or replied to.');
     // AGENT-REPLIES-2026-11-14 (Kiko's mockup, approved 14 Nov 16:46:11Z): an update takes as many replies as Kiko sends.
@@ -287,7 +297,23 @@ function cueAgdDecide_(id, o) {
       if (o.subject != null && String(o.subject).trim() && a.type !== 'fsa_send' && a.type !== 'ar_send') { const v = cueStr_(String(o.subject).replace(/\s+/g, ' ').trim(), 250); if (v !== a.subject) { a.subject = v; a.edited = true; } }
       if (o.body != null && String(o.body).trim()) { const v = cueStr_(String(o.body).replace(/\r/g, '').trim(), 6000); if (v !== a.body) { a.body = v; a.edited = true; } }
     }
-    if (dec === 'save' && Array.isArray(o.lines)) a.lines = cueAgdLines_(o.lines, a.lines);
+    if (dec === 'save' && Array.isArray(o.lines)) {
+      let original = a.lines;
+      if (o.line_indexes != null) {
+        const ids = o.line_indexes;
+        if (!Array.isArray(ids) || ids.length !== o.lines.length || new Set(ids).size !== ids.length
+            || ids.some(i => !Number.isInteger(i) || i < 0 || i >= a.lines.length)) throw new Error('The selected rows no longer match this draft.');
+        if (o.lines.some(e => !/^[1-9]\d{0,3}$/.test(String(e.qty)) || !/^[1-9]\d{0,3}$/.test(String(e.occurrence)))) {
+          throw new Error('Qty and Occurrence must be whole numbers of 1 or more.');
+        }
+        original = ids.map(i => a.lines[i]);
+        if (!Array.isArray(o.line_basis) || o.line_basis.length !== original.length
+            || original.some((l, i) => o.line_basis[i] !== JSON.stringify([l.item, l.description, l.qty, l.occurrence, l.unit_cost, l.section]))) {
+          throw new Error('This draft changed. Review the selected lines again.');
+        }
+        selectedForSave = cueAgdLines_(o.lines, original);
+      } else a.lines = cueAgdLines_(o.lines, original);
+    }
     L.s.tries = (L.s.tries || 0) + 1; L.s.tap_at = cueNow_(); L.s.status = L.s.stage = 'Sending'; L.s.error = '';
     cueSave_(L.sh, L.row, L.s);
     return L;
@@ -296,7 +322,7 @@ function cueAgdDecide_(id, o) {
   const args = { request_id: cueStr_('agd:' + s.id.replace(/^cue-/, '') + ':' + s.tries, 80), draft_id: a.draft_id, decision: dec };
   if (note) args.note = note;
   if (dec === 'send') { if (a.type !== 'fsa_send' && a.type !== 'ar_send') args.subject = a.subject; args.body = a.body; }
-  if (dec === 'save') args.lines = a.lines.map(l => ({ item: l.item, description: l.description, qty: l.qty, occurrence: l.occurrence, unit_cost: l.unit_cost, section: l.section }));
+  if (dec === 'save') args.lines = (selectedForSave || a.lines).map(l => ({ item: l.item, description: l.description, qty: l.qty, occurrence: l.occurrence, unit_cost: l.unit_cost, section: l.section }));
   let res = null, err = '';
   try { res = cueBridge_(s, 'agent_draft_decide', args) || {}; } catch (e) { err = cueStr_((e && e.message) || e, 500); }
   let line = '';
@@ -309,8 +335,9 @@ function cueAgdDecide_(id, o) {
       line = 'Canvas did not take it: ' + t.error;
     } else {
       const prev = { status: t.agd.status, note: t.agd.note, decided: t.agd.decided, replies: t.agd.replies };   // before Canvas's answer overwrites them
-      const d = cueAgdFrom_(Object.assign({}, t.agd, res.draft || {}, { body: t.agd.body, lines: res.draft && res.draft.lines ? res.draft.lines : t.agd.lines, subject: t.agd.subject }));
+      const d = cueAgdFrom_(Object.assign({}, t.agd, res.draft || {}, { body: t.agd.body, lines: res.draft && res.draft.lines ? res.draft.lines : (selectedForSave || t.agd.lines), subject: t.agd.subject }));
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { t.agd[f] = d[f]; });
+      if (selectedForSave) t.agd.lines = d.lines;
       if (note && !t.agd.note) t.agd.note = note;
       // Canvas's own reply list wins when it sends one; otherwise add this reply to what the card had, keeping a 1.28.68 reply that
       // lived only in the note (Codex review on Cue PR #386).

@@ -78,6 +78,7 @@ function cueCommand_(kind) { const k = cueCommands_(); return Object.prototype.h
 function cueRoutes_() {
   const words = c => !c.has && c.mode !== 'intake';   // typed words, not an intake form
   return [
+    { key: 'slash', name: 'Explicit slash command, never falls through to intake', said: c => cueSlashSaid_(c) },
     { key: 'askreply', name: 'Kiko types "approve" or "not" for an Approve question (ACC-12, no buttons in Ask Cue chat)', said: c => words(c) ? cueAskSaid_(c) : null },
     { key: 'msgrchat', name: 'Kiko\'s reply in a Messenger chat with a crew member (CUE-MSGR-2026-11-02)', said: c => words(c) ? cueMsgrSaid_(c) : null },
     { key: 'mailchat', name: 'Kiko\'s reply in an email chat or a new-kind-of-email chat (ACC-5, ACC-6)', said: c => words(c) ? cueMcSaid_(c) : null },
@@ -178,4 +179,75 @@ function cueStatusSaid_(c) {
   if (c.mode === 'intake' || c.has || c.ref) return null;
   const sa = cueStAsked_(c.text);
   return sa ? cueStStart_(String(c.text || '').trim(), 'chat', sa.project) : null;
+}
+
+
+/** Slash commands share the existing Cue workflows and approval gates. A card reply is never a command. */
+function cueSlashSaid_(c) {
+  const t = String(c.text || '').trim();
+  if (!t.startsWith('/') || c.exactReply || c.reply) return null;
+  if (c.inThread) {
+    if (c.has) throw new Error('Use Reply to attach a file to this request. Nothing was sent.');
+    cueChat_('Kiko', t, c.ref);
+    return { chat: true, request_id: c.ref, reply: 'Reply saved in this thread.' };
+  }
+  const help = 'Commands: /intake, /tasks, /payables, /admin, /finance, /finance detail, /finance req, '
+    + '/add task, /add scope, /expense, /complete, /issue, /risk, /email. '
+    + 'Use the Split into scopes button on a requirement row. /generate is not available.';
+  const say = (reply, canvas) => {
+    cueChat_('Kiko', t, '');
+    cueChat_('Cue', canvas ? cueCanvasTok_(canvas) : reply, '');
+    return Object.assign({ chat: true, reply, suggest_intake: false }, canvas ? { canvas } : {});
+  };
+  // Longest names first; whitespace/end is the boundary, not a partial command prefix.
+  const hit = /^\/(finance[ \t]+(?:detail|req)|add[ \t]+(?:task|scope)|commands?|intake|tasks?|payables?|admin|finance|expense|complete|issue|risk|generate|email|split|add)(?=\s|$)/i.exec(t);
+  if (!hit) {
+    if (c.has) throw new Error('Unknown command. Use /commands. Your attachment was not sent.');
+    return say('Unknown command. Use /commands to see what Cue supports.');
+  }
+  const cmd = hit[1].toLowerCase().replace(/[ \t]+/g, ' '), arg = t.slice(hit[0].length).trim();
+  if (c.has && cmd !== 'intake' && cmd !== 'expense') throw new Error('This command does not accept attachments. Nothing was sent.');
+  switch (cmd) {
+    case 'command': case 'commands': return say(help);
+    case 'intake':
+      if (!arg && !c.has) return say('Add a brief after /intake, or attach it.');
+      if (arg.length < 5 && !c.has) return say('Add a short brief describing the client and event after /intake.');
+      return cueSendWith_(arg ? 'New project intake. ' + arg : 'New project intake. The brief is attached.', c.files, 'intake', '', c.forced);
+    case 'task': case 'tasks': {
+      if (arg) return cueCanvasSaid_('open ' + arg + ' tasks', '') || say('Use /tasks for the list, or /tasks <project>.');
+      const tasks = cueOpenTasks_();
+      return say(tasks.length ? 'Open Cue tasks (' + tasks.length + '):\n' + tasks.slice(0, 15).map(x => '• ' + x.name + (x.due ? ' · ' + x.due : '')).join('\n') : 'No open Cue tasks in the latest records.');
+    }
+    case 'admin': return arg ? say('Use /admin to open the Canvas Support Desk.') : say('Opening the Canvas Support Desk.', cueCanvasLink_({ what: 'page', key: 'support desk' }));
+    case 'payable': case 'payables':
+      return say('Opening Canvas Payables.', cueCanvasLink_({ what: 'finance', view: 'pay', q: arg }));
+    case 'finance':
+      return arg ? cueFinance_('finance overview for ' + arg, '') : say('Opening Canvas Finance.', cueCanvasLink_({ what: 'finance' }));
+    case 'finance detail': return cueFinance_('finance detail' + (arg ? ' for ' + arg : ''), '');
+    case 'finance req': return cueFinance_('finance payment requests' + (arg ? ' for ' + arg : ''), '');
+    case 'add task': case 'issue': case 'risk': {
+      const type = cmd === 'add task' ? 'task' : cmd;
+      return (arg && cueTriSaid_('add ' + type + ' ' + arg, '')) || say('Use /' + cmd + ' <description> to <project>. Cue will ask you to approve before saving.');
+    }
+    case 'add scope':
+      return (arg && cueCanvasSaid_('add scope ' + arg, '')) || say('Use /add scope <description> to <project>. Review and save in Canvas.');
+    case 'complete':
+      return (arg && cueCanvasSaid_('complete ' + arg, '')) || say('Use /complete task <name> in <project>. Review and close it in Canvas.');
+    case 'expense':
+      if (c.has && c.files.some(f => !f || !f.data)) throw new Error('Attach the original receipt directly to /expense. No expense was recorded.');
+      if (!arg && !c.has) return say('Add project expense details or a receipt after /expense.');
+      cueExpense(arg, c.files, '');
+      return { chat: true, suggest_intake: false };
+    case 'email': {
+      const m = /^(.+?)\s+about\s+([\s\S]+)$/i.exec(arg);
+      if (!m) return say('Use /email <recipient> about <message>. Cue drafts it for review and does not send.');
+      const out = cueMailStart_({ job: 'new', to: m[1].trim(), about: m[2].trim() }, '', t, '');
+      cueChat_('Kiko', t, '');
+      cueOnIt_('', '', 'Started a thread to draft your email. Nothing was sent.', out.request_id);
+      return out;
+    }
+    case 'split': return say('Open a requirement row and choose Split into scopes. The drawer is preview only.');
+    case 'add': return say('Choose /add task or /add scope.');
+    default: return say('That command is not available. Use /commands for supported options.');
+  }
 }

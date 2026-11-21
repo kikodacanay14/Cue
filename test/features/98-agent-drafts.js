@@ -78,7 +78,7 @@ test('AGD3 Send back needs Kiko\'s note and passes it to the agent; Reject sends
   assert.strictEqual(w.status, 'Rejected'); assert.ok(b.chat(y).some(l => l === 'Rejected. Nothing was sent.'));
 });
 
-test('AGD4 requirements list: Save to Canvas sends Kiko\'s edited lines (no Execution field); Send is refused', () => {
+test('AGD4 requirements list: only selected edited lines and their comment go to Canvas; Send is refused', () => {
   const b = agdBox({ drafts: [agdReq(13)] });
   b.t.ctx.cueAgdTick_();
   const id = b.reqs()[0].id;
@@ -90,6 +90,14 @@ test('AGD4 requirements list: Save to Canvas sends Kiko\'s edited lines (no Exec
   deq(a.lines.map(l => l.item), ['LED wall 6 x 4 m, P3.9', 'Bilingual event host']);
   assert.strictEqual(a.lines[0].description, 'P3.9, with operator', 'the agent\'s description stays'); assert.ok(a.lines.every(l => !('execution' in l)));
   assert.strictEqual(v.agd.status, 'Saved'); assert.strictEqual(v.status, 'Done');
+  const c = agdBox({ drafts: [agdReq(14)] }); c.t.ctx.cueAgdTick_();
+  const selected = c.t.ctx.cueAgdDecide(c.reqs()[0].id, { decision: 'save',
+    lines: [{ item: 'LED wall 6 x 4 m', qty: 2, occurrence: 3 }],
+    note: 'Project comment: Confirm load-in.\nRequirement 1 (LED wall 6 x 4 m): Keep 2 hours.' });
+  assert.strictEqual(c.st.decide[0].lines.length, 1, 'an unchecked line is not approved');
+  assert.deepStrictEqual([c.st.decide[0].lines[0].qty, c.st.decide[0].lines[0].occurrence], [2, 3]);
+  assert.ok(/Project comment: Confirm load-in/.test(c.st.decide[0].note) && /Requirement 1/.test(c.st.decide[0].note));
+  assert.strictEqual(selected.agd.status, 'Saved');
 });
 
 test('AGD5 Canvas refuses (a number in the text, or busy): the card keeps waiting with the reason; nothing is marked sent', () => {
@@ -140,7 +148,7 @@ test('AGD8 a draft decided before Cue saw it gets no card; a check run never rea
   assert.throws(() => b.t.ctx.cueAgdDecide_('cue-x', { decision: 'reject' }), /A check never decides an agent draft/);
 });
 
-test('AGD9 the page: an email card has Send, Edit, Send back, Reject and Rewrite with Cue; a requirements card has Save to Canvas and no Execution column', () => {
+test('AGD9 the page: an email card has Send, Edit, Send back, Reject and Rewrite with Cue; requirements support selected approval and notes', () => {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {} }; vm.createContext(ctx);
   vm.runInContext(grab('esc') + '\n' + page.match(/  var AGD_FROM = [^\n]*\n/)[0] + page.match(/  var AGD_PILL = [^\n]*\n[^\n]*\n/)[0] + grab('agdCardHtml'), ctx);
@@ -149,8 +157,9 @@ test('AGD9 the page: an email card has Send, Edit, Send back, Reject and Rewrite
   const hm = ctx.agdCardHtml(m), hq = ctx.agdCardHtml(q);
   ['agd-send', 'edit', 'agd-back', 'agd-reject', 'agd-rewrite'].forEach(a => assert.ok(hm.indexOf('data-act="' + a + '"') >= 0, a));
   assert.ok(/Agent draft · AR chaser/.test(hm) && /Waiting for you/.test(hm) && /class="tag warn"/.test(hm) && /From Finance agent \(Zapier\)/.test(hm) && /DRF-0012/.test(hm));
-  assert.ok(/data-act="agd-save"/.test(hq) && !/agd-send/.test(hq) && !/Execution/.test(hq) && /<th>Qty<\/th><th>Days<\/th>/.test(hq));
-  assert.ok(/Saving adds these 2 lines to the project in Canvas\. Nothing else changes\./.test(hq));
+  assert.ok(/data-act="agd-save"/.test(hq) && /Approve selected/.test(hq) && !/agd-send/.test(hq) && !/Execution/.test(hq));
+  assert.ok(/data-agreq-select=/.test(hq) && /data-agreq-note=/.test(hq) && /data-agreq-project=/.test(hq));
+  assert.ok(/Only selected requirements are approved/.test(hq) && /selected === total \? 'Approve all' : 'Approve selected'/.test(page));
   ctx.editing[m.id] = 1; const he = ctx.agdCardHtml(m);
   assert.ok(/data-agd-subject=/.test(he) && /data-agd-body=/.test(he) && /Cancel edit/.test(he));
   const done = ctx.agdCardHtml(Object.assign({}, m, { status: 'Done', agd: Object.assign({}, m.agd, { status: 'Sent', waiting: false }) }));
@@ -219,8 +228,8 @@ test('AGU4 the page: an update card shows the handover, Delivered or Blocked, th
 test('AGW1 an approval request (Kiko 17 Nov, card "Show Waiting for approval") shows Waiting for you, never Blocked or Why Blocked', () => {
   assert.strictEqual(agdBox({ drafts: [] }).t.ctx.cueAgdHand_({ state: 'Waiting for approval' }).state, 'Waiting for approval');
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, agdLabel: x => x }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, agdAsk: {}, agdLabel: x => x }; vm.createContext(ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml') + '\n' + grab('agdActsHtml'), ctx);
   const b = agdBox({ drafts: [agdUpd(40, { item: 'AS requirements review', handover: { handover_ref: 'AS requirements review', summary: 'Approve the list.', state: 'Waiting for approval' } })] });
   b.t.ctx.cueAgdTick_();
   const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))), h = ctx.agdUpdHtml(v);
