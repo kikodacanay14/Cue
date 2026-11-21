@@ -67,6 +67,11 @@ test('AC4 the 5-minute job runs it every 30 minutes, never in a cloud check; the
   assert.ok(t.ctx.cueJobs_().some(j => j.fn === 'cueAcTick_' && j.job === 'Client accreditation mail'));
   assert.strictEqual(t.ctx.cueAcTick_(), 0); assert.strictEqual(t.ctx.cueAcTick_(), null, 'not due again for 30 minutes');
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexPages.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
-  assert.ok(/function acCardHtml\(r\)/.test(page) && /r\.kind === 'accred' && r\.acc\) return acCardHtml\(r\)/.test(page));
+  assert.ok(/function acCardHtml\(r\)/.test(page));
+  const cardDispatch = page.slice(page.indexOf('  function cardCatClass('), page.indexOf('  var FOLD_BTN'));
+  const cardContext = vm.createContext({ acCardHtml: r => '<div class="card">' + r.acc.client + '</div>' });
+  vm.runInContext(cardDispatch, cardContext);
+  assert.strictEqual(cardContext.cardOf({ kind: 'accred', acc: { client: 'Synthetic client' } }),
+    '<div class="card cat-admin">Synthetic client</div>', 'accreditation dispatch wraps the same single card with the Admin class');
   assert.ok(/Open Accounts in Canvas/.test(page) && /data-act="ac-done"/.test(page) && /Open email/.test(page));
 });

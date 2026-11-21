@@ -342,7 +342,13 @@
       return send(t, [], '', '', undefined, box, true);
     }
     if (withFiles && reading) return addLocal('Cue', 'Still reading the attachments. Send again in a moment.');
-    var files = withFiles ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+    var files = withFiles ? pending.map(function (f) { return { id: f.id, name: f.name, type: f.type, data: f.data }; }) : [];
+    if (!ref && box === $('box') && replyTo) return send(t, files, '', ref, undefined, box); // CUE-106: explicit reply wins over intake/batch interpretation.
+    if (/^\//.test(t)) {
+      if (files.length && !/^\/(?:intake|expense)(?=\s|$)/i.test(t))
+        return addLocal('Cue', 'That command does not accept attachments. Nothing was sent.', ref);
+      return send(t, files, '', ref, undefined, box);
+    }
     var b = batchOf(ref);
     if (b && !files.length && BCANCEL_RE.test(t)) { box.value = ''; return batchCancel(ref); }
     var dn = b ? doneSaid(t) : null;
@@ -419,7 +425,7 @@
     $(k[0]).onclick = function (e) { var a = e.target.getAttribute && e.target.getAttribute('data-batch'); if (a === 'done') batchDone(ref(), ''); else if (a === 'cancel') batchCancel(ref()); };
     $(k[1]).onclick = function () {
       if (reading) return addLocal('Cue', 'Still reading the attachments. Tap again in a moment.');
-      var files = fileHost === k[3] ? pending.map(function (f) { return { name: f.name, type: f.type, data: f.data }; }) : [];
+      var files = fileHost === k[3] ? pending.map(function (f) { return { id: f.id, name: f.name, type: f.type, data: f.data }; }) : [];
       if (files.length) return batchSend($(k[2]).value.trim(), files, ref(), $(k[2]), k[3]);
       call('cueBatchStart', [ref()], function (v) { state.batches = v; renderBatch(); }, function (e) { alertErr(e, ref()); });
     };
@@ -445,17 +451,22 @@
     $('chip-intake').hidden = true;
     if (mine === undefined) {   // first pass: show Kiko's line now, clear the box and the reply bar, and let Kiko keep typing
       ref = ref || '';
-      var rp = !ref && box === $('box') ? replyTo : ''; if (rp) { ref = rp; setReply(''); }
+      var rp = !tagged && !ref && box === $('box') ? replyTo : ''; // Keep target until confirmed; upload and retry use this snapshot.
       if (!rp && replyQ && box === $('box')) { t = withQuote(replyQ, t); setReply(''); }   // CUE-MSG-MENU-2026-11-18: the quoted message goes first
-      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp };
+      mine = { who: 'Kiko', text: t + (files.length ? '\n📎 ' + files.map(function (f) { return f.name; }).join(', ') : ''), request_id: rp ? '\u21a9' + rp : ref, time: '', box: box, sent: Date.now(), reply: rp, retryFiles: files.slice() };
       outbox.push(mine); if (box) box.value = ''; if (files.length) pending = []; renderFiles(); renderChat();
     }
-    if (!tagged && mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
-    if (!tagged && mode !== 'intake' && isExpense(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    if (!mine.reply) {
+      if (!tagged && mode !== 'intake' && !files.length && CHATS_RE.test(t)) return learnChats(t, mine);
+      if (!tagged && /^\s*\/expense(?=\s|$)/i.test(t) && files.length && !files[0].id) return expense(t.replace(/^\s*\/expense\s*/i, '') || 'Record this expense', files, ref, mine);
+      if (!tagged && mode !== 'intake' && isExpense(t) && !/^\s*\//.test(t) && !(files[0] && files[0].id)) return expense(t, files, ref, mine);
+    }
     if (files.length && !files[0].id) return upload(t, files, mode, ref, mine);
     var dots = { who: 'Cue', text: '…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(mine && mine.box, t);   // AGENT-REPLIES-2026-11-14: used only when this goes to an agent (a Reply in the main chat)
     call('cueSend', [t, files, mode, ref, (mine && mine.reply) || '', mid], function (r) {
+      if (mine.reply && replyTo === mine.reply && !(r && r.agent_message === false)) setReply('');
+      if (mine.reply && r && r.agent_message === false) { unbox(mine, dots); back(mine, t); restoreReply(mine); }
       agmKeep(mine && mine.box, t, mid, r);
       var swap = function () { unbox(mine, dots); };   // the server's chat has Kiko's line now; swap on the same render
       // Kiko 06:29Z: when Cue files a main-chat message under an existing task, follow it into that thread.
@@ -465,7 +476,7 @@
       refresh(swap);
       running[r.request_id] = 1;
       call('cueRun', [r.request_id], function () { delete running[r.request_id]; refresh(); }, function (e) { delete running[r.request_id]; alertErr(e, r.request_id); refresh(); });
-    }, function (e) { unbox(mine, dots); back(mine, t); agmMid(mine && mine.box, t, mid); alertErr(e, ref); });
+    }, function (e) { unbox(mine, dots); back(mine, t); restoreReply(mine); agmMid(mine && mine.box, t, mid); alertErr(e, ref); });
   }
   // AGENT-REPLIES-2026-11-14 (Codex review on Cue PR #386): one id per message. When a send fails and the text goes back in the box, the
   // box keeps the id with it, so sending the same text again reuses it and Canvas still saves it once. agmMid(box, '') forgets it.
@@ -486,7 +497,7 @@
     outbox.push(mine); if (box) box.value = ''; renderChat();
     var dots = { who: 'Cue', text: 'Sending to Canvas…', request_id: ref, time: '' }; outbox.push(dots); renderChat();
     var mid = agmMid(box, t);
-    call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); agmMid(box, t, mid); alertErr(e, ref); });
+    call('cueAgdSay', [ref, t, mid], function (r) { agmKeep(box, t, mid, r); refresh(function () { unbox(mine, dots); }); }, function (e) { unbox(mine, dots); back(mine, t); restoreReply(mine); agmMid(box, t, mid); alertErr(e, ref); });
   }
   /* AGENT-TAG-2026-11-15 (Kiko 15 Nov 2026 08:30:07Z "tag the agent name like @ Account Specialist"; mockup approved 09:24:50Z, card
    * "Approve, one agent per message"; "build" 11:26:04Z). In the main chat, "@" as the first character opens the list of agents (one per
@@ -640,14 +651,20 @@
       function (e) { unbox(mine, dots); back(mine, t); alertErr(e, ref); });
   }
   // Files go up one call each (one call with ~10 MB silently failed), with a count in the chat, then the message sends their ids.
+  // CUE-106: retain attachments and exact target when either upload or message send fails.
+  function restoreReply(mine) {
+    if (!mine || !mine.reply) return;
+    if (!replyTo) setReply(mine.reply);
+    if (!pending.length && mine.retryFiles && mine.retryFiles.length) { pending = mine.retryFiles.slice(); fileHost = 'files'; renderFiles(); }
+  }
   function upload(t, files, mode, ref, mine) {
     var ids = [], i = 0, note = { who: 'Cue', text: '', request_id: ref, time: '' };
     outbox.push(note);
     (function next() {
-      if (i === files.length) { unbox(note); return send(t, ids, mode, ref, mine); }
+      if (i === files.length) { if (mine.reply) mine.retryFiles = ids.slice(); unbox(note); return send(t, ids, mode, ref, mine); }
       note.text = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name + '…'; renderChat();
-      call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id }); i++; next(); },
-        function (e) { unbox(note, mine); back(mine, t); alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
+      call('cueUpload', [files[i]], function (r) { ids.push({ id: r.id, name: files[i].name, type: files[i].type }); i++; next(); },
+        function (e) { unbox(note, mine); back(mine, t); restoreReply(mine); alertErr({ message: files[i].name + ' did not upload: ' + ((e && e.message) || e) }); });
     })();
   }
   // Enter sends; Shift+Enter makes a new line (pasted inquiries keep their lines). Not while an IME is composing.
@@ -926,9 +943,10 @@
     // (hover, or a long press on a phone); Kiko's reply shows the quoted message above his words.
     var rid = m.who !== 'Kiko' && /^>cue-/.test(m.request_id || '') ? m.request_id.slice(1) : '';
     var qid = String(m.request_id || '').charAt(0) === '\u21a9' ? m.request_id.slice(1) : '';
+    var cat = inThread ? '' : streamCategory(m, thread);
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
     var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + quote + body + askHtml(m)
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (cat ? ' data-stream-category="' + cat + '"' : '') + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + (cat ? streamPill(cat, streamReqKey(m)) : '') + quote + body + askHtml(m)
       + moreBtn({ reply: rid, flag: fit }) + '</div>';   // CUE-MSG-MENU-2026-11-18: ⋯ holds Reply, Flag and Dismiss
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
@@ -1085,6 +1103,7 @@
     var n = state.chat.length + outbox.length, grew = n !== lastChat;
     lastChat = n;
     renderMain(th);
+    renderStreamTools();
     if (!$('page-chat').hidden && (atBottom || grew)) { sc._pin = true; sc.scrollTop = sc.scrollHeight; }
     var ps = $('pscroll'), pBottom = ps._pin;
     if (openThread) {
@@ -1124,16 +1143,6 @@
     var by = byId(), shown = {}, cardShown = {}, h = '', dayShown = {}, gl = null;
     mvRef = [];   // CUE-DRAG-TO-CHANNEL-2026-11-18
     var prev = null, h0;
-    function inlineCards(root) {
-      var pt = thOf(th, root);
-      if (!pt || cardShown[pt.root]) return '';
-      cardShown[pt.root] = 1;
-      return pt.reqs.map(function (r) {
-        if (isDismissed('r:' + r.id)) return dismissedHtml('r:' + r.id);
-        if (WORK[r.status] && !(r.phased && r.ph)) return workHtmlOf(r);
-        return cardOf(r) || '';
-      }).join('');
-    }
     allLines().forEach(function (m) { h0 = h; one(m); if (h !== h0 && m.time) gl = m; prev = m; });
     Object.keys(th).forEach(function (k) {
       var pt = th[k];
@@ -1144,35 +1153,46 @@
     function one(m) {
       if (/^Closed with "Close older runs"\./.test(String(m.text || ''))) return;   // CLOSE-OLDER-ONE-LINE-2026-10-31: the old per-thread copies stay out of the main chat
       if (isMailLog(m)) return;   // CUE-MAIL-LOG-2026-11-18: not in General either
-      var q = askOf(m); if (q) { h += msgHtml(m); return; }
+      var q = askOf(m); if (q) { if (!q.where) h += msgHtml(m); return; }
       if (!m.request_id) {
         var mc = lineChan(m);   // CUE-DRAG-TO-CHANNEL-2026-11-18: a moved line leaves General; the question or a short note stays in its place
-        if (mc === 'sys:dismissed') { h += movedHtml(m, mc, th); return; }
-        h += mvAttr(msgHtml(m), m);
+        if (mc && (chanAt(th, mc) || mc === 'sys:dismissed')) { h += movedHtml(m, mc, th); return; }
+        if (!(m.who === 'Cue' && ALERT_RE.test(String(m.text || '')))) h += mvAttr(msgHtml(m), m);
         return;
       }
       // CUE-K0-BIDS-CARD-2026-11-01: "%<bid run id>" is the New opportunities card under the 8 AM message.
-      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br) h += k0BidsHtml(br); return; }
+      if (m.request_id.charAt(0) === '%') { var br = by[m.request_id.slice(1)]; if (br && !listed(br.id, th)) h += k0BidsHtml(br); return; }
       // CUE-REPLY-BUBBLE-2026-11-01: Kiko's reply to a Cue bubble, with its quote.
       if (m.request_id.charAt(0) === '\u21a9') { h += msgHtml(m); return; }
-      if (m.request_id.charAt(0) === '@') {
-        var aref = rootOf(m.request_id.slice(1), by);
-        h += tagHtml(m, by) + inlineCards(aref);
-        return;
-      }
+      if (m.request_id.charAt(0) === '@') return;   // the agent channel holds the message
       if (m.request_id.charAt(0) === '>') {   // a pointer: Cue answered this in a task's thread
         var to0 = rootOf(m.request_id.slice(1), by), pt = thOf(th, to0), to = pt ? pt.root : to0;
-        var pmc = lineChan(m); if (pmc === 'sys:dismissed') { h += movedHtml(m, pmc, th); return; }
+        var pmc = lineChan(m); if (pmc && (chanAt(th, pmc) || pmc === 'sys:dismissed')) { h += movedHtml(m, pmc, th); return; }
         var pq = prev && askOf(prev), answers = prev && prev.who === 'Kiko' && (!prev.request_id || (pq && !pq.open && !pq.where));
+        if (pt && listed(to, th) && !answers) return;
         var jd = jobDay(pt); if (jd && !answers) { if (!dayShown[jd]) { dayShown[jd] = 1; h += todayHtml(jd, th); } return; }
         if (pt && shown[to] && !answers) return;
         if (pt && shown[to]) { h += msgHtml(m, to); return; }
         if (pt) shown[to] = 1;
-        h += mvAttr(msgHtml(m, pt ? to : ''), m) + mailAskHtml(to) + (pt ? inlineCards(to) : '');
+        h += mvAttr(msgHtml(m, pt ? to : ''), m) + mailAskHtml(to);
+        if (pt) h += inlineCards(to);
         return;
       }
       var root = rootOf(m.request_id, by);
-      h += msgHtml(m, th[root] ? root : '') + inlineCards(root);
+      if (listed(root, th)) return;   // the channel owns both the message and card
+      if (by[root] && MAIL_ONLY[by[root].kind]) return;
+      h += msgHtml(m, th[root] ? root : '');
+      h += inlineCards(root);
+    }
+    function inlineCards(root) {
+      var pt = thOf(th, root);
+      if (!pt || cardShown[pt.root] || listed(pt.root, th) || (by[pt.root] && MAIL_ONLY[by[pt.root].kind])) return '';
+      cardShown[pt.root] = 1;
+      return pt.reqs.map(function (r) {
+        if (isDismissed('r:' + r.id)) return dismissedHtml('r:' + r.id);
+        if (WORK[r.status] && !(r.phased && r.ph)) return workHtmlOf(r);
+        return cardOf(r) || '';
+      }).join('');
     }
     setHtml($('msgs'), h || '<div class="muted">Paste a client inquiry to start a project intake. Each task gets its own thread.</div>');
     bind();
@@ -1359,9 +1379,9 @@
     return '';
   }
   function cardOf(r) {
-    var h = '';
     if (r.kind === 'msgr') return '';   // MSGR-NOT-INTAKE-2026-11-05 (Kiko 13:08Z "why are these in intake?"): a Messenger chat has no card
-    else if (r.kind === 'finance') h = finHtml(r);
+    var h = '';
+    if (r.kind === 'finance') h = finHtml(r);
     else if (r.kind === 'sweep' && r.batch) h = sweepCardHtml(r);
     else if (r.kind === 'newmail' && r.nm) h = nmCardHtml(r);   // New mail (CueNewMail.gs): one card per day, in every state
     else if (r.kind === 'accred' && r.acc) h = acCardHtml(r);   // CueAccred.gs: one card per company, in every state
@@ -1468,7 +1488,7 @@
     bind();
   }
   $('msgs').addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('a[href]')) return;   // a file link opens the viewer, not the thread
+    if (e.target.closest && e.target.closest('a[href], [data-stream-label-control]')) return;   // a file link opens the viewer, not the thread
     var b = e.target.closest && e.target.closest('[data-thread]'); if (b) goThread(b.getAttribute('data-thread'));
   });
   // Kiko 14:38Z: when Kiko's message is already in the thread, the request shows only its files, as cards like Claude's.
@@ -1479,10 +1499,101 @@
       + '<div style="white-space:pre-wrap;margin-top:8px">' + esc(r.text) + '</div>'
       + (f.length ? '<div class="small" style="margin-top:8px">📎 ' + f.map(function (x) { return /^[\w-]{10,}$/.test(x.id || '') ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>' : esc(x.name); }).join(', ') + '</div>' : '') + '</details>';
   }
+  var STREAM_LABELS = { chat: 'Chat', email: 'Email', intake: 'Intake', bids: 'Bids', approval: 'Approval', update: 'Update' };
+  var STREAM_COLORS = { magenta: 'Magenta', purple: 'Purple', orange: 'Orange', teal: 'Teal', emerald: 'Emerald', slate: 'Slate' };
+  var STREAM_DEFAULT = { chat: 'slate', email: 'purple', intake: 'magenta', bids: 'orange', approval: 'teal', update: 'emerald' };
+  var STREAM_REQUEST_RE = /^cue-[A-Za-z0-9-]{6,40}$/;
+  var streamPrefs = { filter: '', colors: {}, labels: {} };
+  try {
+    var savedStream = JSON.parse(localStorage.getItem('cue.streamLabels') || '{}') || {};
+    if (Object.prototype.hasOwnProperty.call(STREAM_LABELS, savedStream.filter)) streamPrefs.filter = savedStream.filter;
+    Object.keys(STREAM_LABELS).forEach(function (k) {
+      var v = savedStream.colors && savedStream.colors[k];
+      if (Object.prototype.hasOwnProperty.call(STREAM_COLORS, v)) streamPrefs.colors[k] = v;
+    });
+    Object.keys(savedStream.labels || {}).slice(-300).forEach(function (id) {
+      var k = savedStream.labels[id];
+      if (STREAM_REQUEST_RE.test(id) && Object.prototype.hasOwnProperty.call(STREAM_LABELS, k)) streamPrefs.labels[id] = k;
+    });
+  } catch (e) { /* The stream is still usable when storage is unavailable. */ }
+  function renderStreamTools() {
+    var tools = $('stream-tools'); if (!tools) return;
+    if (!tools.firstElementChild) {
+      var option = function (value, label) { return '<option value="' + esc(value) + '">' + esc(label) + '</option>'; };
+      tools.innerHTML = '<label for="stream-filter">Filter</label><select id="stream-filter">' + option('', 'All messages')
+        + Object.keys(STREAM_LABELS).map(function (k) { return option(k, STREAM_LABELS[k]); }).join('') + '</select>'
+        + '<details class="stream-label-menu"><summary>Label colors</summary><div>' + Object.keys(STREAM_LABELS).map(function (k) {
+          return '<label>' + STREAM_LABELS[k] + '<select data-stream-color="' + k + '">' + Object.keys(STREAM_COLORS).map(function (c) {
+            return option(c, STREAM_COLORS[c]); }).join('') + '</select></label>';
+        }).join('') + '</div></details>';
+      tools.addEventListener('change', function (e) {
+        var el = e.target, k = el.getAttribute('data-stream-color');
+        if (el.id === 'stream-filter') {
+          if (el.value && !Object.prototype.hasOwnProperty.call(STREAM_LABELS, el.value)) return;
+          streamPrefs.filter = el.value;
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(STREAM_LABELS, k) || !Object.prototype.hasOwnProperty.call(STREAM_COLORS, el.value)) return;
+          streamPrefs.colors[k] = el.value;
+        }
+        saveStreamPrefs();
+      });
+      $('msgs').addEventListener('change', function (e) {
+        var el = e.target, id = String(el.getAttribute('data-stream-label') || ''), k = el.value;
+        if (!STREAM_REQUEST_RE.test(id)) return;
+        if (!k) delete streamPrefs.labels[id];
+        else {
+          if (!Object.prototype.hasOwnProperty.call(STREAM_LABELS, k)) return;
+          delete streamPrefs.labels[id]; streamPrefs.labels[id] = k;
+          Object.keys(streamPrefs.labels).slice(0, -300).forEach(function (old) { delete streamPrefs.labels[old]; });
+        }
+        saveStreamPrefs();
+      });
+    }
+    $('stream-filter').value = streamPrefs.filter;
+    tools.querySelectorAll('[data-stream-color]').forEach(function (el) {
+      var k = el.getAttribute('data-stream-color'); el.value = streamPrefs.colors[k] || STREAM_DEFAULT[k];
+    });
+    var cat = '';
+    Array.prototype.forEach.call($('msgs').children, function (el) {
+      cat = el.getAttribute('data-stream-category') || (el.classList.contains('k0bids') ? 'bids'
+        : el.classList.contains('actions') ? cat : 'update');
+      el.classList.toggle('stream-filtered', !!streamPrefs.filter && cat !== streamPrefs.filter);
+    });
+  }
+  function streamReqKey(m) {
+    var id = String(m.request_id || '').replace(/^[>%@↩]/, '');
+    return STREAM_REQUEST_RE.test(id) ? id : '';
+  }
+  function streamCategory(m, thread) {
+    var key = streamReqKey(m);
+    if (key && streamPrefs.labels[key]) return streamPrefs.labels[key];
+    var id = String(m.request_id || '').replace(/^[>%@↩]/, ''), r = id && state.requests.find(function (x) { return x.id === id; });
+    var kind = r && r.kind, text = String(m.text || ''), source = String(m.src || '');
+    if (kind === 'mail' || kind === 'email' || /^(New email|New in this conversation) · /.test(text) || /(?:^|\|)mail:/.test(source)) return 'email';
+    if (kind === 'intake' || kind === 'change') return 'intake';
+    if (kind === 'bids' || source === 'bids') return 'bids';
+    if (kind === 'agentdraft' || /^[?!]ask-/.test(m.request_id || '')) return 'approval';
+    return thread || kind || source ? 'update' : 'chat';
+  }
+  function saveStreamPrefs() {
+    try { localStorage.setItem('cue.streamLabels', JSON.stringify(streamPrefs)); } catch (e) {}
+    dirty(); renderChat();
+  }
+  function streamPill(cat, id) {
+    var pill = '<span class="stream-pill stream-' + (streamPrefs.colors[cat] || STREAM_DEFAULT[cat]) + '">' + STREAM_LABELS[cat] + '</span>';
+    if (!id) return pill;
+    var set = streamPrefs.labels[id] || '';
+    return '<details class="stream-label-control" data-stream-label-control><summary aria-label="Change message label">' + pill
+      + '</summary><label>Message label<select aria-label="Message label" data-stream-label="' + esc(id) + '">'
+      + '<option value="">Automatic</option>' + Object.keys(STREAM_LABELS).map(function (k) {
+        return '<option value="' + k + '"' + (k === set ? ' selected' : '') + '>' + STREAM_LABELS[k] + '</option>';
+      }).join('') + '</select></label></details>';
+  }
   function fileCardHtml(x) {
     var ext = (/\.(\w{1,5})$/.exec(x.name || '') || [])[1] || '', img = /^(png|jpe?g|gif|webp|heic)$/i.test(ext), ok = /^[\w-]{10,}$/.test(x.id || '');
     var body = '<span class="ft">' + esc((ext || 'file').toUpperCase()) + '</span><span class="fth">' + (img && ok ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=' + esc(x.id) + '&amp;sz=w320" onerror="cueThumb(this,\'' + esc(x.id) + '\')">' : '📄') + '</span><span class="fn">' + esc(x.name) + '</span>';
-    return ok ? '<a class="fcard" data-name="' + esc(x.name) + '" href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + body + '</a>' : '<span class="fcard">' + body + '</span>';
+    var drive = 'https://drive.google.com/file/d/' + esc(x.id) + '/view';
+    return ok && img ? '<span class="fcard-wrap"><a class="fcard" data-name="' + esc(x.name) + '" href="' + drive + '" target="_blank" rel="noopener">' + body + '</a><a class="fdrive" data-drive-direct href="' + drive + '" target="_blank" rel="noopener" hidden>Open in Drive</a></span>' : ok ? '<a class="fcard" data-name="' + esc(x.name) + '" href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + body + '</a>' : '<span class="fcard">' + body + '</span>';
   }
   function doneHtml(r, reopen) {
     if (r.kind === 'supplier' && r.supplier) return supplierCardHtml(r, reopen);

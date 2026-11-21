@@ -49,7 +49,7 @@ test('CCR4 Project Update: separate read-only card filters display only and neve
   const grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { agdUpdateView: {}, agdUpdateSelected: {}, esc: x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]) }; vm.createContext(ctx);
   vm.runInContext(grab('esc') + '\n' + grab('agdUpdHtml') + '\n' + grab('agdProjectUpdateHtml'), ctx);
-  const b = agdBox({ drafts: [agdUpd(92, { handover: { handover_ref: 'HO-92', summary: 'Stage changed.', gaps: 'Venue access pending.',
+  const b = agdBox({ drafts: [agdUpd(92, { handover: { project_update: true, state: 'Waiting for approval', handover_ref: 'HO-92', summary: 'Stage changed.', gaps: 'Venue access pending.',
     next_owner: 'Account Specialist', next_action: 'Confirm access', rows: [
       { req_id: 'REQ-01', name: 'Stage', description: 'Main stage', needs_kiko: false, open_items: ['Confirm rigging'] },
       { req_id: 'REQ-02', name: 'Photo wall', description: 'Entrance display', needs_kiko: true, open_items: [] }] } })] });
@@ -79,4 +79,39 @@ test('CCR5 Client to provide and Pass Through stop after project creation withou
     assert.ok(reason.test(v.ph.wait_reason), v.ph.wait_reason);
     assert.ok(v.ph.inquiry, 'the selected inquiry choice remains on the waiting card');
   });
+});
+
+test('CCR6 selecting only line two keeps its original metadata, refuses stale selection, and retries without shrinking the draft', () => {
+  const src = agdReq(96, { lines: [
+    { item: 'First', description: 'First detail', qty: 1, occurrence: 1, unit_cost: 10, section: 'First category' },
+    { item: 'Second', description: 'Second detail', qty: 1, occurrence: 1, unit_cost: 20, section: 'Second category' }
+  ] });
+  const b = agdBox({ drafts: [src], answer: () => ({ ok: false, error: 'Refused fixture' }) });
+  b.t.ctx.cueAgdTick_();
+  const id = b.reqs()[0].id;
+  const selected = { decision: 'save', lines: [{ item: 'Second edited', qty: 2, occurrence: 3 }], line_indexes: [1],
+    line_basis: [JSON.stringify(['Second', 'Second detail', 1, 1, 20, 'Second category'])], note: 'Requirement 2: keep indoors' };
+  assert.throws(() => b.t.ctx.cueAgdDecide(id, { ...selected, line_basis: ['stale'] }), /draft changed/);
+  assert.strictEqual(b.st.decide.length, 0);
+  b.t.ctx.cueAgdDecide(id, selected);
+  assert.strictEqual(b.reqs()[0].agd.lines.length, 2);
+  b.st.answer = () => ({ ok: true, draft: { ...src, status: 'Saved', lines: b.st.decide.at(-1).lines } });
+  b.t.ctx.cueAgdDecide(id, selected);
+  assert.strictEqual(b.st.decide.length, 2);
+  b.st.decide.forEach(a => {
+    deq(a.lines, [{ item: 'Second edited', description: 'Second detail', qty: 2, occurrence: 3, unit_cost: 20, section: 'Second category' }]);
+    assert.strictEqual(a.note, selected.note);
+    assert.ok(!('line_indexes' in a) && !('line_basis' in a));
+  });
+});
+
+test('CCR7 Project Update refuses direct replies and approval without reaching the bridge', () => {
+  const b = agdBox({ drafts: [agdUpd(97, { handover: { handover_ref: 'status', project_update: true, state: 'Waiting for approval',
+    rows: [{ req_id: 'REQ-01', name: 'Stage' }] } })] });
+  b.t.ctx.cueAgdTick_();
+  const id = b.reqs()[0].id;
+  for (const action of [{ decision: 'reply', note: 'approve' }, { decision: 'reject' }, { decision: 'save' }]) {
+    assert.throws(() => b.t.ctx.cueAgdDecide(id, action), /read-only/);
+  }
+  assert.strictEqual(b.st.decide.length, 0);
 });
