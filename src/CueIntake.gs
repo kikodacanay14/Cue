@@ -462,7 +462,7 @@ function cueProjectInquiry_ (x) {
   x = x || {};
   const types = Array.isArray(x.types) ? x.types.filter(v => ['Event', 'Fabrication', 'Pass Through'].indexOf(v) >= 0).slice(0, 3) : [];
   const owner = ['BSE to propose', 'Client to provide'].indexOf(x.theme_owner) >= 0 ? x.theme_owner : '';
-  const outputs = Array.isArray(x.deliverables) ? x.deliverables.filter(v => ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout'].indexOf(v) >= 0).slice(0, 7) : [];
+  const outputs = Array.isArray(x.deliverables) ? x.deliverables.filter(v => ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout', 'Social Media Mats'].indexOf(v) >= 0).slice(0, 8) : [];
   const passOnly = types.length === 1 && types[0] === 'Pass Through';
   return { types, theme: cueStr_(x.theme, 300), theme_owner: owner,
     deliverables: passOnly ? [] : outputs,

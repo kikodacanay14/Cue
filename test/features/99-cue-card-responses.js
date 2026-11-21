@@ -4,8 +4,8 @@ test('CCR1 Project inquiry: Pass Through needs no deliverable; design needs at l
   const t = sandbox({});
   const pass = t.ctx.cueProjectInquiryValidate_(t.ctx.cueProjectInquiry_({ types: ['Pass Through'], deliverables: ['Pitch Deck'], theme_owner: '' }));
   deq([pass.types, pass.deliverables, pass.pass_through_only, pass.mm_needed], [['Pass Through'], [], true, false]);
-  const allowed = ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout'];
-  const inquiry = t.ctx.cueProjectInquiry_({ types: ['Event'], theme: 'Garden launch', theme_owner: '', deliverables: allowed.concat('Social Media Mats') });
+  const allowed = ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout', 'Social Media Mats'];
+  const inquiry = t.ctx.cueProjectInquiry_({ types: ['Event'], theme: 'Garden launch', theme_owner: '', deliverables: allowed });
   deq(inquiry.deliverables, allowed);
   const known = t.ctx.cueProjectInquiryValidate_(t.ctx.cueProjectInquiry_({ types: ['Event'], theme: 'Garden launch', theme_owner: '', deliverables: ['Pitch Deck'] }));
   deq([known.theme, known.theme_owner, known.deliverables], ['Garden launch', '', ['Pitch Deck']]);
