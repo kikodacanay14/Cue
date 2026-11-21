@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Cue · Project Inquiry &amp; Requirements previews</title>
+<style>:root{--card-purple:#27114c;background:#f6f4fa;color:#20163a;font:15px/1.5 system-ui}body{margin:0}.wrap{max-width:960px;padding:20px 14px 45px;margin:auto}.mast{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:0 0 12px}.brand{font-weight:850;letter-spacing:.06em}.sub{color:#655577;font-size:13px}nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}nav button{font:inherit;font-weight:750;background:white;color:#3d2573;border:1px solid #d4c9e4;border-radius:9px;padding:8px 13px;cursor:pointer}nav [aria-pressed=true]{background:#5432a2;color:white}button:focus-visible{outline:3px solid #9566f2;outline-offset:2px}[hidden]{display:none!important}</style></head><body>
+<div class="wrap"><header class="mast"><span class="brand">Cue · Card previews</span><span class="sub">Sample data only · Nothing is sent or saved</span></header>
+<nav aria-label="Choose a card"><button type="button" data-show="inquiry" aria-pressed="true">Project Inquiry</button><button type="button" data-show="requirements" aria-pressed="false">Project Requirements</button><button type="button" data-show="email" aria-pressed="false">Email Intake Reroute</button><button type="button" data-show="update" aria-pressed="false">Project Update</button></nav>
+<section data-preview="inquiry"></section><template id="tpl-inquiry"><style>
+*{box-sizing:border-box}:host{font:15px/1.45 system-ui;color:#241841;background:#f6f3fa;--purple:#523097;--border:#dfd6eb}body{margin:0}main{max-width:720px;margin:auto;padding:25px 16px 45px}h1,p{margin:0}h1{font-size:clamp(27px,6vw,40px);line-height:1.12;letter-spacing:-.04em}.bar,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.bar{margin-bottom:12px}.brand{font-weight:850;letter-spacing:.06em}.badge{border-radius:20px;background:#eee6fc;color:#442182;font-weight:700;padding:4px 10px;font-size:12px}.card{border:1px solid var(--border);border-radius:17px;background:white;overflow:hidden;margin-bottom:12px;box-shadow:0 8px 28px #2c13570d}.top{padding:20px;background:#281249;color:white}.top p{margin-top:7px;color:#e4d8f9}.body{padding:20px}.fields{margin:16px 0;display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0;padding:0;min-width:0}label{display:block;font-weight:650;font-size:13px}input,select,textarea{width:100%;padding:9px;border:1px solid #c9bed9;border-radius:8px;font:inherit;color:#241841;background:white}input,textarea{display:block;margin:4px 0 0}textarea{min-height:70px;resize:vertical}.hint{color:#665d73;font-size:13px}.warning{padding:10px 12px;border-radius:9px;background:#fff1d8;color:#694605}.ok{background:#ecf5ec;color:#23532c}.actions{padding:14px 20px;background:#faf8fc;border-top:1px solid var(--border);justify-content:flex-end}button{border:1px solid #c9bed9;background:white;color:#241841;font:inherit;font-weight:700;border-radius:8px;padding:9px 13px;cursor:pointer}.primary{color:white;background:var(--purple);border-color:var(--purple)}button:disabled{opacity:.5;cursor:not-allowed}:focus-visible{outline:2px solid #9566f2;outline-offset:2px}.receipt{padding:12px 15px;border-radius:9px;background:#eee7fa}[hidden]{display:none!important}@media(max-width:500px){.fields{grid-template-columns:1fr}.body,.top{padding:15px}}
+.evidence{margin-top:12px;padding:11px 13px;background:#faf8fd;border:1px solid var(--border);border-radius:9px}.evidence summary{cursor:pointer;font-weight:700}.evidence p{margin-top:8px}.evidence figure{margin:8px 0}.evidence svg{width:min(100%,400px);height:auto;display:block}.evidence figcaption{font-size:13px;color:#665d73}
+.intake{display:grid;gap:12px;border:1px solid var(--border);border-radius:10px;margin:12px 0 16px;padding:12px 14px}
+.intake>legend,.intake fieldset>legend{font-weight:750;padding:0 4px}
+.intake fieldset{border:0;margin:0;padding:0;min-width:0}.intake .hint{font-weight:500}
+.choices{display:flex;gap:7px 16px;flex-wrap:wrap;margin-top:5px}.choices label{display:inline-flex;align-items:center;gap:6px;min-height:28px}
+.choices input{width:16px;height:16px;accent-color:var(--purple);margin:0;padding:0}
+.choices.deliverables-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px 12px}.deliverables-grid input{flex:none}.deliverables-grid label{min-width:0;overflow-wrap:anywhere}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+:host{display:block;min-width:0;color:#20163a}main{margin:0;max-width:none;padding:0}
+.card{border-radius:19px}.hero,.card>header.top{padding:22px;background:var(--card-purple);color:white;min-height:110px}
+.card>header>h1{font-size:clamp(25px,5vw,36px);margin-top:0}.card>header>p{font-size:14px;color:#e4d8f9;margin-top:7px}
+.card>header .chip{float:right}.card>header.top{display:block;margin:0}
+fieldset:disabled{opacity:.8}
+@media(max-width:550px){.hero,.card>header.top{padding:16px}.card>header .chip{float:none;margin-bottom:6px}}
+</style><main>
+<div class="card"><header class="top"><h1>New project inquiry</h1><p>Review the details before starting a project.</p></header>
+<div class="body"><div class="bar"><p><b>Source</b> <span class="badge" id="source">Email</span></p><label>Preview scenario<select id="scenario"><option value="email">Email · No match found</option><option value="bid">Bid Opportunities · No match found</option><option value="messenger">Messenger · Match not verified</option><option value="duplicate">Email · Existing project found</option></select></label></div>
+<p class="warning" id="match"></p>
+<fieldset class="fields" id="fields"><label>Client<input id="client" placeholder="Enter client name"></label><label>Account<input id="account" placeholder="Enter account"></label><label>Event name<input id="event"></label><label>Event date<input id="date" type="date"></label></fieldset>
+<fieldset class="intake" id="intake"><legend>Design &amp; Deliverables</legend>
+<fieldset><legend>Type <span class="hint">Select at least one</span></legend><div class="choices"><label><input type="checkbox" name="kind" value="Event"> Event</label><label><input type="checkbox" name="kind" value="Fabrication"> Fabrication</label><label><input type="checkbox" name="kind" value="Pass Through"> Pass Through</label></div></fieldset>
+<label>Theme / Concept<input id="theme" type="text" maxlength="300" placeholder="Enter the theme or concept if known"></label>
+<fieldset><legend class="sr-only">Who will provide the theme or concept?</legend><div class="choices">
+<label><input type="radio" name="themeOwner" value="BSE to propose"> BSE to propose</label>
+<label><input type="radio" name="themeOwner" value="Client to provide"> Client to provide</label></div></fieldset>
+<fieldset><legend>Deliverables Needed</legend><div class="choices deliverables-grid"><label><input type="checkbox" name="output" value="Pitch Deck"> Pitch Deck</label><label><input type="checkbox" name="output" value="Venue Layout"> Venue Layout</label><label><input type="checkbox" name="output" value="Event Styling"> Event Styling</label><label><input type="checkbox" name="output" value="Pub Mats"> Pub Mats</label><label><input type="checkbox" name="output" value="Event Collaterals"> Event Collaterals</label><label><input type="checkbox" name="output" value="Wayfinders"> Wayfinders</label><label><input type="checkbox" name="output" value="Stage Layout"> Stage Layout</label></div></fieldset>
+<p id="intakeHint" class="hint" aria-live="polite"></p></fieldset><p class="hint">Items from the inquiry: Stage, Backdrop. You’ll review requirements separately.</p><details class="evidence"><summary>Original message</summary><p id="sourceMessage"></p></details>
+<details class="evidence"><summary>Files &amp; images</summary>
+<figure id="sourceImage"><svg viewBox="0 0 400 160" role="img" aria-labelledby="visualTitle"><title id="visualTitle">Sample stage and backdrop sketch</title><rect width="400" height="160" rx="10" fill="#eee6fc"/><path d="M26 129H374M74 129V41H326V129M91 112H309" fill="none" stroke="#523097" stroke-width="4"/><rect x="143" y="65" width="114" height="35" rx="6" fill="#d9c9f7"/><text x="200" y="87" text-anchor="middle" fill="#342055" font-size="15">Backdrop</text></svg><figcaption>Sample inline image · Stage layout</figcaption></figure>
+<p id="noFiles" class="hint" hidden>No files attached to this sample inquiry.</p>
+<p id="sourceBrief"><a id="sampleBrief" download="Sample-event-brief.txt" href="data:text/plain;charset=utf-8,Sample%20event%20brief%0AStage%20and%20backdrop%20for%20an%20indoor%20launch.">Open sample event brief</a> <span class="hint">· Sample file</span></p>
+</details>
+</div><div class="actions"><button type="button" id="reject">Reject</button><button class="primary" type="button" id="create">New Project</button></div></div>
+<section class="card body" id="confirm" hidden aria-labelledby="heading"><h2 id="heading"></h2><p id="explanation"></p><label id="reasonLabel">Reason (optional)<textarea id="reason"></textarea></label><div class="actions"><button id="cancel">Cancel</button><button class="primary" id="confirmButton"></button></div></section>
+<p class="receipt" id="receipt" role="status" hidden></p>
+</main></template><script>{const root=document.querySelector('[data-preview="inquiry"]').attachShadow({mode:"open"});root.append(document.getElementById("tpl-inquiry").content.cloneNode(true));
+
+const $=id=>root.getElementById(id);
+const scenarios={email:{source:"Email",match:"clear",message:"Hi, could you quote a stage and backdrop for our indoor launch? I’ve included a sketch in this message and attached our brief.",image:true,brief:true},bid:{source:"Bid Opportunities",match:"clear",message:"Request for quotation: stage and backdrop for a sample indoor launch. See the event brief.",brief:true},messenger:{source:"Messenger",match:"unverified",message:"Hi! Can you help with a stage and backdrop for our launch?"}};
+scenarios.duplicate={...scenarios.email,match:"duplicate"};
+let current,decision=null,pending=null;
+const selected=name=>[...root.querySelectorAll(`input[name="${name}"]:checked`)].map(x=>x.value);
+function values(){return {client:$("client").value.trim(),account:$("account").value.trim(),event:$("event").value.trim(),date:$("date").value,types:selected("kind"),theme:$("theme").value.trim(),themeOwner:selected("themeOwner")[0]||"",deliverables:selected("output")}}
+function mayCreate(match,done,v){return match==="clear"&&!done&&!!(v.client&&v.event&&v.types.length&&(!v.themeOwner||v.deliverables.length))}
+function sync(){const v=values();$("intake").disabled=!!decision;$("intakeHint").textContent=!v.types.length?"Select at least one project type.":v.themeOwner&&!v.deliverables.length?"Select at least one deliverable for the requested design work.":v.themeOwner==="Client to provide"?"Wait for the client’s theme direction.":v.types.length===1&&v.types[0]==="Pass Through"&&!v.deliverables.length?"No design work requested.":"";$("create").disabled=!mayCreate(current.match,decision,values());$("reject").disabled=!!decision;$("fields").disabled=!!decision}
+function reset(){current=scenarios[$("scenario").value];decision=pending=null;$("source").textContent=current.source;$("sourceMessage").textContent=current.message;$("sourceImage").hidden=!current.image;$("sourceBrief").hidden=!current.brief;$("noFiles").hidden=!!(current.image||current.brief);$("match").textContent=current.match==="clear"?"No matching project found. Fill in the client and event name to continue.":current.match==="duplicate"?"An existing project was found. New Project is blocked to avoid a duplicate.":"Match not verified. Canvas search did not finish. Project creation is on hold until AS checks again.";$("match").classList.toggle("ok",current.match==="clear");$("theme").value="";root.querySelectorAll("#intake input[type=checkbox], #intake input[type=radio]").forEach(el=>el.checked=false);$("client").value="";$("account").value="";$("event").value="Sample launch inquiry";$("date").value="2026-12-26";$("confirm").hidden=true;$("receipt").hidden=true;sync()}
+function ask(action){if(decision||(action==="create"&&!mayCreate(current.match,decision,values())))return;pending=action;const reject=action==="reject";$("heading").textContent=reject?"Reject this inquiry?":"Confirm new project";const v=values();$("explanation").textContent=reject?"No project will be created.":v.event+" · "+v.client+(v.account?" · "+v.account:"")+(v.date?" · "+v.date:"")+" | "+v.types.join(", ")+(v.theme?" | Theme: "+v.theme:"")+(v.themeOwner?" | "+v.themeOwner:"")+(v.deliverables.length?" | Deliverables: "+v.deliverables.join(", "):"");$("reasonLabel").hidden=!reject;$("reason").value="";$("confirmButton").textContent=reject?"Confirm rejection":"Confirm New Project";$("confirm").hidden=false;$("confirmButton").focus()}
+function confirm(){if(!pending||decision||(pending==="create"&&!mayCreate(current.match,decision,values())))return;decision=pending;pending=null;$("confirm").hidden=true;$("receipt").textContent=decision==="create"?"New Project selected. Preview only: no project was created.":"Inquiry rejected. Preview only: nothing was sent.";if(decision==="reject"&&$("reason").value.trim())$("receipt").textContent+=" Reason: "+$("reason").value.trim();$("receipt").hidden=false;sync()}
+$("scenario").onchange=reset;$("intake").oninput=sync;["client","account","event","date"].forEach(x=>$(x).oninput=sync);$("create").onclick=()=>ask("create");$("reject").onclick=()=>ask("reject");$("cancel").onclick=()=>{pending=null;$("confirm").hidden=true};$("confirmButton").onclick=confirm;reset();
+
+}</script><section data-preview="requirements"></section><template id="tpl-requirements"><style>
+:host{font:15px/1.5 system-ui;color:#20163a;background:#f6f4fa;--ink:#211440;--accent:#5432a2;--wash:#f0eafb;--line:#e7e0ef;--muted:#625675}*{box-sizing:border-box}body{margin:0}main{max-width:980px;margin:0 auto;padding:25px 16px 48px}h1,h2,p{margin:0}h1{font-size:clamp(26px,5vw,40px);line-height:1.1;letter-spacing:-.04em}h2{font-size:18px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:17px}.brand{font-weight:850;letter-spacing:.07em}.badge,.chip{display:inline-block;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:700;background:var(--wash);color:#442486}.hint{color:var(--muted);font-size:13px}.card{border:1px solid var(--line);border-radius:19px;background:white;overflow:hidden;box-shadow:0 8px 32px #29114c0b}.hero{padding:22px;background:#27114c;color:white}.hero .hint{color:#ddd0f7;margin-top:8px}.body{padding:20px}.bar,.foot,.sectiontitle{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}fieldset{border:0;margin:0;padding:0;min-width:0}.fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:10px 0 24px}label{display:block;font-size:13px;font-weight:650}input:not([type=checkbox]),select,textarea{display:block;width:100%;margin-top:4px;border:1px solid #c9bfd8;padding:9px;border-radius:8px;background:#fff;color:var(--ink);font:inherit}textarea{resize:vertical;min-height:70px}input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}button{cursor:pointer;font:inherit;font-weight:700;padding:9px 14px;border-radius:9px;border:1px solid #d6cee3;background:white;color:var(--ink)}button.primary{color:white;background:var(--accent);border-color:var(--accent)}button:disabled{cursor:not-allowed;opacity:.5}:focus-visible{outline:3px solid #885eef;outline-offset:3px}.row{margin-top:8px;border:1px solid var(--line);border-radius:11px;overflow:hidden}.rowhead{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:8px;padding:9px 12px}.rowhead button{text-align:left;padding:3px 0;border:0;background:none}.working{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;padding:14px;background:#faf8fe;border-top:1px solid var(--line)}.rowform{display:grid;grid-template-columns:1.3fr .7fr .8fr;gap:8px;margin:8px 0}.visual{padding:8px;border:1px solid var(--line);background:#fff;border-radius:9px}.visual svg{display:block;width:100%;height:auto}.comment{margin-top:19px}.foot{background:#faf8fe;border-top:1px solid var(--line);padding:14px 20px}.receipt{margin-top:14px;padding:14px 18px;background:#e9f5ec;border:1px solid #c8e1ce;border-radius:11px}.receipt ul{margin:5px 0;padding-left:20px}.status-wait{background:#fff1d4;color:#6e4803}.status-approved{background:#e5f5e8;color:#245232}.status-review{background:#e9e3fd;color:#422792}summary{cursor:pointer;font-weight:700}.question{margin:6px 0;padding:8px 10px;background:#fff2dc;border-radius:8px}[hidden]{display:none!important}@media(max-width:700px){.fields{grid-template-columns:repeat(2,minmax(0,1fr))}.working{grid-template-columns:1fr}.body{padding:15px}}@media(max-width:400px){.rowform{grid-template-columns:1fr 1fr}.rowform label:first-child{grid-column:1/-1}.foot button{width:100%}.top .hint{display:none}}
+.split{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--wash)}.split input{max-width:145px}.split button{margin-top:8px}.split label{display:block;margin-top:8px}
+.rowhead{grid-template-columns:32px 26px minmax(0,1fr) auto}
+.rowhead button.reveal{display:grid;place-items:center;width:32px;min-height:34px;font-size:20px;color:var(--accent)}
+.rowname{overflow-wrap:anywhere}
+.split-slot{grid-column:1/-1;min-width:0}
+.split-slot .split{margin:0;padding:8px 12px}
+.split-fields{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:10px;align-items:start}
+.split-fields label{margin-top:5px}.split-fields textarea{min-height:40px;height:40px}
+.split-slot .split button{margin-top:6px;padding:5px 10px}
+@media(max-width:375px){.split-fields{grid-template-columns:1fr}}
+.working{align-items:start}.visual{align-self:start;min-width:0;width:100%}
+@media(max-width:480px){.rowhead{padding:7px;gap:4px;grid-template-columns:28px 23px minmax(0,1fr)}.rowhead .chip{grid-column:3;justify-self:start}}
+
+:host{display:block;min-width:0;color:#20163a}main{margin:0;max-width:none;padding:0}
+.card{border-radius:19px}.hero,.card>header.top{padding:22px;background:var(--card-purple);color:white;min-height:110px}
+.card>header>h1{font-size:clamp(25px,5vw,36px);margin-top:0}.card>header>p{font-size:14px;color:#e4d8f9;margin-top:7px}
+.card>header .chip{float:right}.card>header.top{display:block;margin:0}
+fieldset:disabled{opacity:.8}
+@media(max-width:550px){.hero,.card>header.top{padding:16px}.card>header .chip{float:none;margin-bottom:6px}}
+</style><main>
+<div class="card"><header class="hero"><span class="chip" id="modeBadge">Waiting for you</span><h1>Review requirements</h1><p class="hint">Account Specialist · Project Intake</p></header>
+<div class="body"><div class="bar"><b>Project details</b><label>Try a card <select id="scenario"><option value="new">New card</option><option value="older">Existing open card</option><option value="complete">Completed card</option></select></label></div>
+<fieldset id="details" class="fields"><label>Client<input id="client" value="Sample client"></label><label>Account<input id="account" value="Sample account"></label><label>Event name<input id="event" value="Sample Launch"></label><label>Event date<input id="date" type="date" value="2026-12-26"></label></fieldset>
+<div class="sectiontitle"><div><h2>Requirements</h2><p class="hint" id="count"></p></div><div class="bar"><button id="toggleRows" type="button">Expand all</button><button id="reselect" type="button">Select all eligible</button></div></div><div id="rows"></div>
+<label class="comment">Project comment<textarea id="project" maxlength="600" placeholder="Anything that applies to the whole project"></textarea></label>
+</div><footer class="foot"><span class="hint" id="guidance">Unselected rows stay open. Split requests go to AS for review.</span><div class="bar"><button id="reject" type="button">Reject</button><button id="approve" class="primary">Approve selected</button></div></footer></div>
+<section id="rejectPanel" class="card body" aria-labelledby="rejectTitle" hidden>
+<h2 id="rejectTitle">Reject this review?</h2><p class="hint">This rejects the remaining pending requirements on this card. Earlier decisions stay as they are.</p>
+<label class="comment">Reason for AS (optional)<textarea id="rejectReason" maxlength="600" placeholder="What needs to change?"></textarea></label>
+<div class="bar"><button id="cancelReject" type="button">Cancel</button><button id="confirmReject" type="button" class="primary">Confirm rejection</button></div>
+</section>
+<div class="receipt" role="status" id="receipt" hidden></div>
+</main></template><script>{const root=document.querySelector('[data-preview="requirements"]').attachShadow({mode:"open"});root.append(document.getElementById("tpl-requirements").content.cloneNode(true));
+
+const seed=[
+{id:"01",name:"Registration setup",execution:"In House",qty:1,occ:1,description:"Welcome desk and queue lane.",image:true},
+{id:"02",name:"Entrance arch and styling",execution:"Outsourced",qty:1,occ:2,description:"Entrance arch, decorative panels, and rear supports. Approx. 3 m wide × 2.6 m high (sample).",image:true},
+{id:"03",name:"Photo wall",execution:"Outsourced",qty:1,occ:1,description:"Printed backdrop with supporting frame.",broken:true},
+{id:"04",name:"Directional signs",execution:"Outsourced",qty:1,occ:1,description:"Confirm each location before print.",question:"How many directional signs are needed?"}
+];
+const $=id=>root.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let state,mode,open,locked,baseline;
+const detailIds=["client","account","event","date"];
+function initial(m){return seed.map(x=>({...x,selected:false,split:null,savedDescription:x.description,answer:"",sentAnswer:"",status:m==="complete"?(x.question?"Waiting for client":"Approved"):m==="older"&&x.id==="01"?"Approved":"Pending"}))}
+function eligible(r){return r.status==="Pending"&&!r.question&&!r.split}
+function rejectPending(rows){return rows.filter(r=>r.status==="Pending").map(r=>{r.selected=false;r.status="Rejected";return r.name})}
+function checkNumber(n){return /^[1-9]\d{0,3}$/.test(String(n))}
+function approvalControl(rows,closed){const total=rows.filter(eligible).length,picked=rows.filter(r=>eligible(r)&&r.selected).length;return {total,picked,label:picked>0&&picked===total?"Approve all":"Approve selected",disabled:closed||!picked}}
+function approvalPlan(rows){const want=rows.filter(r=>eligible(r)&&r.selected);const invalid=want.filter(r=>!checkNumber(r.qty)||!checkNumber(r.occ));return {approved:want,invalid}}
+function svg(n){return '<svg viewBox="0 0 340 155" role="img" aria-label="Sample requirement illustration"><title>Sample requirement illustration</title><rect width="340" height="155" rx="8" fill="#f1ebfc"/><path d="M16 131H327" stroke="#a696c9"/><path d="'+(n==="01"?'M49 129v-42h137v42 M61 87v-13h112v13 M215 122v-31m33 31v-31m-33 8h33':'M71 129V47h189v82 M96 129V68h139v61 M54 131h41m140 0h42')+'" fill="none" stroke="#57369b" stroke-width="5"/><text x="17" y="25" fill="#422477" font-size="14">Sample visual · '+n+'</text></svg>'}
+function changes(){const details=detailIds.filter(id=>$(id).value!==baseline[id]),project=$("project").value.trim(),descriptions=state.filter(r=>r.status==="Pending"&&r.description.trim()!==r.savedDescription),answers=state.filter(r=>r.status==="Pending"&&r.answer.trim());const splits=state.filter(r=>r.status==="Pending"&&r.split);return {details,project,descriptions,answers,splits}}
+function sync(){const c=approvalControl(state,locked);$("toggleRows").textContent=open.size===state.length?"Collapse all":"Expand all";$("count").textContent=c.picked+" selected · "+c.total+" eligible · "+state.filter(r=>r.status==="Approved").length+" approved";$("approve").textContent=c.label;$("approve").disabled=c.disabled;$("reject").disabled=locked||!state.some(r=>r.status==="Pending");$("reselect").disabled=locked||!c.total;$("details").disabled=locked;$("project").disabled=locked}
+function splitControl(r){
+ if(locked||r.status!=="Pending")return '';
+ if(!r.split)return '<p><button type="button" data-split="'+r.id+'">Preview split into scopes</button></p>';
+ return '<div class="split"><b>Split preview only · No handoff</b><p class="hint">This local preview does not send the split request to Account Specialist or Procurement.</p><div class="split-fields"><label>Scope count<input type="number" min="2" max="9999" step="1" data-id="'+r.id+'" data-key="splitCount" value="'+esc(r.split.count)+'"></label><label>Split note<textarea data-id="'+r.id+'" data-key="splitComment" maxlength="450" placeholder="Describe the proposed scopes.">'+esc(r.split.comment)+'</textarea></label></div><button type="button" data-remove-split="'+r.id+'">Remove preview</button></div>';
+}
+function render(){ $("rows").innerHTML=state.map(r=>{const e=eligible(r), expanded=open.has(r.id), chip=r.split&&r.status==="Pending"?"Split preview only":r.question&&r.status==="Pending"?"Needs an answer":r.status, style=r.status==="Approved"?"status-approved":r.question?"status-wait":"";return '<div class="row"><div class="rowhead"><button class="reveal" type="button" data-open="'+r.id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'Collapse ':'Expand ')+esc(r.name)+'">'+(expanded?'▾':'▸')+'</button><input type="checkbox" aria-label="Select '+esc(r.name)+'" data-id="'+r.id+'" data-key="selected" '+(r.selected&&e?'checked ':'')+(!e||locked?'disabled':'')+'><strong class="rowname">'+r.id+' · '+esc(r.name)+'</strong><span class="chip '+style+'">'+chip+'</span></div>'+(expanded?'<div class="working"><div><label>Description<textarea data-id="'+r.id+'" data-key="description" maxlength="1000" '+(locked||r.status!=="Pending"?'disabled':'')+' placeholder="Item details, dimensions and comments">'+esc(r.description)+'</textarea></label><label>Row note<textarea data-id="'+r.id+'" data-key="note" maxlength="450" '+(locked||r.status!=="Pending"?'disabled':'')+' placeholder="Optional note for this requirement">'+esc(r.note||'')+'</textarea></label><fieldset class="rowform" '+(r.status!=="Pending"||locked?'disabled':'')+'><label>Execution<select data-id="'+r.id+'" data-key="execution">'+["In House","Outsourced"].map(x=>'<option'+(x===r.execution?' selected':'')+'>'+x+'</option>').join('')+'</select></label><label>Qty<input type="number" min="1" max="9999" data-id="'+r.id+'" data-key="qty" value="'+esc(r.qty)+'"></label><label>Occurrence (days)<input type="number" min="1" max="9999" data-id="'+r.id+'" data-key="occ" value="'+esc(r.occ)+'"></label></fieldset>'+(r.question?'<label class="question">'+esc(r.question)+'<input data-id="'+r.id+'" data-key="answer" '+(locked?'disabled':'')+' value="'+esc(r.answer||r.sentAnswer)+'"></label>':'')+'</div><div class="visual">'+(r.image?svg(r.id)+'<span class="hint">Shows automatically when this row opens.</span>':r.broken?'<p><b>Image preview unavailable</b></p><details><summary>Open in Drive</summary><p class="hint">In Cue, this opens the original file. This sample has no Drive file.</p></details>':'<span class="hint">No images attached.</span>')+'</div>'+(splitControl(r)?'<div class="split-slot">'+splitControl(r)+'</div>':'')+'</div>':'')+'</div>'}).join("");sync()}
+function reset(){mode=$("scenario").value;locked=mode==="complete";state=initial(mode);open=new Set();$("receipt").hidden=true;$("rejectPanel").hidden=true;$("rejectReason").value="";$("modeBadge").textContent=locked?"Decision recorded":mode==="older"?"Partially approved":"Waiting for you";$("client").value="Sample client";$("account").value="Sample account";$("event").value="Sample Launch";$("date").value="2026-12-26";$("project").value="";baseline=Object.fromEntries(detailIds.map(id=>[id,$(id).value]));render()}
+$("scenario").onchange=reset;
+$("rows").onclick=e=>{const add=e.target.closest("[data-split]")?.dataset.split,remove=e.target.closest("[data-remove-split]")?.dataset.removeSplit;
+if(add||remove){const r=state.find(x=>x.id===(add||remove));if(!locked&&r?.status==="Pending"){r.split=add?{count:"2",comment:""}:null;r.selected=false;render();$("rows").querySelector(add?'[data-id="'+r.id+'"][data-key="splitCount"]':'[data-split="'+r.id+'"]')?.focus();}return;}
+const id=e.target.closest("[data-open]")?.dataset.open;if(id){if(open.has(id))open.delete(id);else open.add(id);render();$("rows").querySelector('[data-open="'+id+'"]').focus()}};
+$("rows").oninput=e=>{const {id,key}=e.target.dataset,r=state.find(x=>x.id===id);if(r&&key){if(key==="splitCount"||key==="splitComment"){if(!locked&&r.status==="Pending"&&r.split)r.split[key==="splitCount"?"count":"comment"]=e.target.value;}else r[key]=key==="selected"?e.target.checked:e.target.value;sync()}};
+$("toggleRows").onclick=()=>{open=open.size===state.length?new Set():new Set(state.map(r=>r.id));render()};
+[...detailIds,"project"].forEach(id=>$(id).oninput=sync);
+$("reselect").onclick=()=>{state.forEach(r=>{r.selected=eligible(r)});render()};
+function send(){const {details:detail,project,descriptions,answers,splits}=changes();if(approvalControl(state,locked).disabled)return;const p=approvalPlan(state);let words=[];
+const badSplit=splits.find(r=>!checkNumber(r.split.count)||Number(r.split.count)<2||!r.split.comment.trim());
+if(badSplit){open.add(badSplit.id);render();return show("Enter at least 2 scopes and a split note for "+badSplit.name+". This remains a local preview; no handoff occurs.",[]);}
+if(p.invalid.length){words=["Enter whole numbers above zero for "+p.invalid.map(r=>r.name).join(", ")+"."];return show(words[0],[])}
+if(!p.approved.length&&!descriptions.length&&!answers.length&&!detail.length&&!splits.length)return show("Nothing to record yet.",[]);
+if(p.approved.length)words.push("Approved "+p.approved.length+" requirement"+(p.approved.length===1?"":"s"));
+
+
+if(splits.length)words.push(splits.length+" split preview"+(splits.length===1?"":"s")+" · no handoff");
+const entries=[...splits.map(r=>r.id+" · "+r.name+": preview split into "+r.split.count+" scopes. "+r.split.comment.trim()+" No handoff."),...p.approved.map(r=>r.name+": "+r.execution+", quantity "+r.qty+", "+r.occ+" day(s)"+(r.note&&r.note.trim()?"; note: "+r.note.trim():"")),...descriptions.map(r=>r.name+" description: "+r.description.trim()),...answers.map(r=>r.name+" answer: "+r.answer.trim()),...detail.map(id=>$(id).parentElement.firstChild.textContent.trim()+": "+$(id).value),...(project&&p.approved.length?["Project comment: "+project]:[])];
+p.approved.forEach(r=>{r.status="Approved";r.selected=false});descriptions.forEach(r=>{r.savedDescription=r.description.trim()});answers.forEach(r=>{r.sentAnswer=r.answer.trim();r.answer=""});if(project&&p.approved.length)$("project").value="";detail.forEach(id=>{baseline[id]=$(id).value});if(p.approved.length)$("modeBadge").textContent="Decision recorded · open items remain";render();show(words.join(" · "),entries)}
+function show(head,entries){$("receipt").innerHTML='<b>'+esc(head)+'</b><p class="hint">Preview only. Nothing sent to AS or written to Canvas.</p>'+(entries.length?'<details><summary>View details</summary><ul>'+entries.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></details>':'');$("receipt").hidden=false;$("receipt").scrollIntoView({block:"nearest"})}
+$("approve").onclick=send;
+$("reject").onclick=()=>{if($("reject").disabled)return;$("rejectPanel").hidden=false;$("rejectReason").focus();$("rejectPanel").scrollIntoView({block:"nearest"})};
+$("cancelReject").onclick=()=>{$("rejectPanel").hidden=true;$("rejectReason").value="";$("reject").focus()};
+$("confirmReject").onclick=()=>{if(locked||$("rejectPanel").hidden)return;const names=rejectPending(state),reason=$("rejectReason").value.trim();if(!names.length)return;locked=true;$("rejectPanel").hidden=true;$("modeBadge").textContent="Review rejected";render();show("Rejected "+names.length+" pending requirement"+(names.length===1?"":"s"),[...names,...(reason?["Reason for AS: "+reason]:[])]);$("receipt").tabIndex=-1;$("receipt").focus()};
+reset();
+
+}</script><section data-preview="email" hidden></section><template id="tpl-email"><style>
+:host{display:block;color:#20163a;--line:#e7e0ef;--accent:#5432a2;--muted:#625675;--wash:#f0eafb}
+*{box-sizing:border-box}.card{border:1px solid var(--line);border-radius:19px;background:#fff;overflow:hidden;box-shadow:0 8px 32px #29114c0b}
+.hero{padding:22px;background:var(--card-purple);color:#fff;min-height:110px}.hero h1{font-size:clamp(25px,5vw,36px);line-height:1.1;letter-spacing:-.04em;margin:0}.hero p{margin-top:7px;font-size:14px;color:#e4d8f9}
+h2,p{margin:0}h2{font-size:16px}.body{padding:20px;display:grid;gap:14px}.foot{background:#faf8fe;border-top:1px solid var(--line);padding:14px 20px}.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:13px}.pill{border-radius:99px;padding:3px 10px;background:var(--wash);color:#442486;font-size:12px;font-weight:750;white-space:nowrap}.pill.ok{background:#e5f5e8;color:#245232}.pill.wait{background:#fff1d4;color:#6e4803}.pill.fail{background:#fee9ed;color:#8d263b}
+label{font-size:13px;font-weight:650}select,textarea,button{font:inherit;color:inherit;border:1px solid #c9bfd8;background:white;border-radius:8px;padding:7px 10px}label select,label textarea{margin-top:4px}textarea{width:100%;resize:vertical;min-height:52px;display:block}
+button{font-weight:750;cursor:pointer}.primary{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.52;cursor:not-allowed}input{accent-color:var(--accent)}:focus-visible{outline:3px solid #885eef;outline-offset:2px}
+details{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#faf8fe}summary{cursor:pointer;font-weight:750}details p{margin-top:6px}.notice{padding:10px 12px;background:#faf8fe;border:1px solid var(--line);border-radius:9px;overflow-wrap:anywhere}
+dl{margin:8px 0 0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px}dt{font-weight:700}dd{margin:0}
+[hidden]{display:none!important}@media(max-width:550px){.body,.hero,.foot{padding:15px}}
+.notice p{margin-top:4px}#simulation .bar{justify-content:flex-start;margin-top:8px}
+.table-wrap{max-width:100%;overflow-x:auto}.emails{width:100%;border-collapse:collapse}.emails th,.emails td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}.emails thead{background:#f6f1fb}.emails td:first-child{width:36px}.emails button.toggle{border:0;background:none;padding:3px 6px;font-size:18px;color:var(--accent)}.emails .expanded td{padding:0}.email-detail{display:grid;gap:9px;background:#faf8fe;padding:12px 14px}.email-detail select{display:block}.email-detail textarea{background:white}.from{display:block;color:var(--muted);font-size:12px}.subject{overflow-wrap:anywhere}.control{display:flex;gap:8px;flex-wrap:wrap}.email-detail .pill{white-space:normal}@media(max-width:550px){.emails th,.emails td{padding:5px 4px}.emails .pill{white-space:normal;display:inline-block}.emails td:nth-child(2){min-width:110px}}
+</style>
+<article class="card"><header class="hero"><h1>Email Intake</h1><p>Review a run and correct where individual emails go.</p></header>
+<div class="body"><div class="bar"><b>Sample run · November 20, 2:15 PM</b><span id="count" class="hint" role="status"></span></div>
+<div class="table-wrap"><table class="emails" aria-label="Emails in this intake run"><thead><tr><th scope="col" aria-label="Expand"></th><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Destination</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+<footer class="foot"><span class="hint">Preview only. No emails are moved or sent.</span></footer></article>
+</template><script>{const root=document.querySelector('[data-preview="email"]').attachShadow({mode:"open"});root.append(document.getElementById('tpl-email').content.cloneNode(true));const $=id=>root.getElementById(id);
+const mailbox='Sample work mailbox', runId='demo-intake-01';
+const items=[
+ {id:'demo-101',subject:'Updated event quotation',from:'Sample supplier',time:'2:10 PM',body:'Hi, attached is our revised stage quotation with updated delivery details.',attachment:'Revised stage quotation.pdf',why:'Could not tell whether this was a client inquiry or a supplier reply.',state:'review'},
+ {id:'demo-102',subject:'Updated event quotation',from:'Sample client',time:'2:11 PM',body:'Please send a new quote for our product launch.',why:'Could not match this inquiry to an existing project.',state:'review'},
+ {id:'demo-103',subject:'Payment reference for staging',from:'Sample accounts team',time:'2:12 PM',body:'Sharing the transfer confirmation for the staging deposit.',attachment:'Transfer confirmation.pdf',why:'The transfer proof was identified.',state:'routed',route:'Finance'},
+ {id:'demo-104',subject:'Weekly supplier bulletin',from:'Sample newsletter',time:'2:13 PM',body:'Here are this week’s general supplier updates.',why:'Identified as a newsletter, not a project message.',state:'skipped'},
+ {id:null,subject:'Load-in time confirmed',from:'Sample venue',time:'2:14 PM',body:'The loading bay is available from 8 AM.',why:'This older entry does not have the original email ID.',state:'blocked'}
+];
+const copy={review:['Needs review','wait'],routed:['Routed','ok'],skipped:['Skipped',''],blocked:['Unavailable','fail'],pending:['Saved in Cue','wait'],received:['Received by Email Intake','ok'],failed:['Couldn’t deliver','fail'],keep:['Kept skipped','']};
+const routes=['Account Specialist','Procurement','Finance','Admin','Keep skipped'];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let open=null;
+const changeable=r=>!!r.id&&['review','skipped'].includes(r.state);
+function transition(r,action){
+ if(!r.id)return;
+ if(action==='save'&&changeable(r)&&routes.includes(r.draftRoute)){
+   r.record={key:mailbox+':'+runId+':'+r.id,route:r.draftRoute,note:(r.note||'').trim()};r.route=r.record.route;
+   r.state=r.route==='Keep skipped'?'keep':'pending';
+ }else if(action==='retry'&&r.state==='failed')r.state='pending';
+ else if(action==='receive'&&r.state==='pending')r.state='received';
+ else if(action==='fail'&&r.state==='pending')r.state='failed';
+}
+function details(r,i){
+ const editable=changeable(r), saved=r.record;
+ const hint={pending:'Waiting for Email Intake to confirm receipt.',received:'Receipt confirmed for this exact email.',failed:'Email Intake did not confirm receipt. Retry this same correction.',blocked:'This card is missing the original email ID. Cue cannot safely reroute it.',keep:'No handoff requested.'}[r.state]||'';
+ return '<div class="email-detail"><div><b>Original message</b><p class="hint">'+esc(mailbox)+' · '+esc(r.time)+'</p><p>'+esc(r.body)+'</p>'+(r.attachment?'<p class="hint">Attachment: '+esc(r.attachment)+'</p>':'')+'</div><p><b>Why this status:</b> '+esc(r.why)+'</p>'
+ +(editable?'<label>Route to<select data-route><option value="">Choose a destination</option>'+routes.map(x=>'<option'+(x===r.draftRoute?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label><label>Reason for correction (optional)<textarea data-note maxlength="450">'+esc(r.note||'')+'</textarea></label><div><button type="button" class="primary" data-action="save" '+(!r.draftRoute?'disabled':'')+'>Save corrections</button></div>':'')
+ +(saved&&saved.note?'<p><b>Correction note:</b> '+esc(saved.note)+'</p>':'')+(hint?'<p role="status">'+esc(hint)+'</p>':'')
+ +(r.state==='pending'?'<div class="control"><button data-action="receive">Simulate receipt</button><button data-action="fail">Simulate failure</button></div>':r.state==='failed'?'<div><button class="primary" data-action="retry">Retry handoff</button></div>':'')+'</div>';
+}
+function render(){
+ const count=items.filter(r=>['review','blocked','failed'].includes(r.state)).length;
+ $('count').textContent=items.length+' emails · '+count+' need attention';
+ $('rows').innerHTML=items.map((r,i)=>'<tr data-index="'+i+'"><td><button type="button" class="toggle" data-toggle="'+i+'" aria-expanded="'+(open===i)+'" aria-label="'+(open===i?'Collapse ':'Expand ')+esc(r.subject+' from '+r.from)+'">'+(open===i?'▾':'▸')+'</button></td><td><b class="subject">'+esc(r.subject)+'</b><span class="from">'+esc(r.from)+'</span></td><td><span class="pill '+copy[r.state][1]+'">'+copy[r.state][0]+'</span></td><td>'+esc(r.route||'Not routed')+'</td></tr>'+(open===i?'<tr class="expanded"><td colspan="4">'+details(r,i)+'</td></tr>':'')).join('');
+}
+$('rows').onclick=e=>{
+ const t=e.target.closest('[data-toggle]');if(t){const n=Number(t.dataset.toggle);open=open===n?null:n;render();$('rows').querySelector('[data-toggle="'+n+'"]').focus();return;}
+ const b=e.target.closest('[data-action]');if(!b||open===null)return;transition(items[open],b.dataset.action);render();$('rows').querySelector('[data-action],[data-route]')?.focus();
+};
+$('rows').oninput=e=>{if(open===null)return;const r=items[open];if(e.target.matches('[data-note]'))r.note=e.target.value;
+ if(e.target.matches('[data-route]')){r.draftRoute=e.target.value;$('rows').querySelector('[data-action="save"]').disabled=!r.draftRoute;}};
+render();
+}</script><section data-preview="update" hidden></section><template id="tpl-update"><style>
+:host{display:block;color:#20163a;--line:#e7e0ef;--accent:#5432a2;--muted:#625675;--wash:#f0eafb}
+*{box-sizing:border-box}.card{border:1px solid var(--line);border-radius:19px;background:#fff;overflow:hidden;box-shadow:0 8px 32px #29114c0b}
+.hero{padding:22px;background:var(--card-purple);color:#fff;min-height:110px}.hero h1{font-size:clamp(25px,5vw,36px);line-height:1.1;letter-spacing:-.04em;margin:0}.hero p{margin-top:7px;font-size:14px;color:#e4d8f9}
+h2,p{margin:0}h2{font-size:16px}.body{padding:20px;display:grid;gap:14px}.foot{background:#faf8fe;border-top:1px solid var(--line);padding:14px 20px}.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:13px}.pill{border-radius:99px;padding:3px 10px;background:var(--wash);color:#442486;font-size:12px;font-weight:750;white-space:nowrap}.pill.ok{background:#e5f5e8;color:#245232}.pill.wait{background:#fff1d4;color:#6e4803}.pill.fail{background:#fee9ed;color:#8d263b}
+label{font-size:13px;font-weight:650}select,textarea,button{font:inherit;color:inherit;border:1px solid #c9bfd8;background:white;border-radius:8px;padding:7px 10px}label select,label textarea{margin-top:4px}textarea{width:100%;resize:vertical;min-height:52px;display:block}
+button{font-weight:750;cursor:pointer}.primary{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.52;cursor:not-allowed}input{accent-color:var(--accent)}:focus-visible{outline:3px solid #885eef;outline-offset:2px}
+details{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#faf8fe}summary{cursor:pointer;font-weight:750}details p{margin-top:6px}.notice{padding:10px 12px;background:#faf8fe;border:1px solid var(--line);border-radius:9px;overflow-wrap:anywhere}
+dl{margin:8px 0 0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px}dt{font-weight:700}dd{margin:0}
+[hidden]{display:none!important}@media(max-width:550px){.body,.hero,.foot{padding:15px}}
+#rows{display:grid;gap:8px}#filters{border:1px solid var(--line);border-radius:8px}#filters label{margin-right:9px;display:inline-block}.rowtitle{margin-right:6px}</style>
+<article class="card"><header class="hero"><h1>Project Update</h1><p>Sample launch · Requirements progress</p></header>
+<div class="body">
+<div class="bar"><span class="pill" id="coverage"></span><label>View <select id="view"><option value="all">All requirements</option><option value="selected">Selected requirements</option></select></label></div>
+<fieldset id="filters" hidden><legend>Choose requirements to show</legend><label><input type="checkbox" value="stage" checked> Stage</label> <label><input type="checkbox" value="photo"> Photobooth</label> <label><input type="checkbox" value="signs" checked> Wayfinders</label></fieldset>
+<div class="notice"><h2>What changed</h2><p id="summary"></p></div>
+<div class="notice"><h2>Needs you</h2><p id="decision"></p></div>
+<div id="rows" aria-live="polite"></div>
+</div><footer class="foot"><span class="hint">Status only · No approval or client sending on this card.</span></footer></article>
+</template><script>{const root=document.querySelector('[data-preview="update"]').attachShadow({mode:"open"});root.append(document.getElementById('tpl-update').content.cloneNode(true));const $=id=>root.getElementById(id);
+const rows=[
+ ['stage','Stage','Waiting','wait','Revised quotation received.','Venue load-in time not confirmed.','Procurement','Confirm load-in time with venue.',''],
+ ['photo','Photobooth','Ready','ok','The supplier confirmed availability.','None reported.','Event Coordinator','Add arrival time to the run sheet.',''],
+ ['signs','Wayfinders','Needs decision','wait','Two signage locations are suggested.','Entrance location is unresolved.','Account Specialist','Confirm which entrance guests will use.','Confirm the main guest entrance for the wayfinders.']
+];
+function render(){const all=$('view').value==='all', chosen=new Set([...$('filters').querySelectorAll('input:checked')].map(x=>x.value)), shown=all?rows:rows.filter(x=>chosen.has(x[0]));
+ const open=new Set([...$('rows').querySelectorAll('details[open]')].map(x=>x.dataset.row));
+ $('filters').hidden=all;$('coverage').textContent=all?'All '+rows.length+' requirements':shown.length+' of '+rows.length+' requirements';
+ $('summary').textContent=shown.length?shown.map(x=>x[4]).join(' '):'No requirements selected.';
+ $('decision').textContent=shown.length?(shown.map(x=>x[8]).filter(Boolean).join(' ')||'No decisions needed in this view.'):'Select a requirement to see its update.';
+ $('rows').innerHTML=shown.map(([id,name,status,kind,change,blocker,owner,next])=>'<details data-row="'+id+'" '+(open.has(id)?'open':'')+'><summary><span class="rowtitle">'+name+'</span> <span class="pill '+kind+'">'+status+'</span></summary><dl><dt>Blocker</dt><dd>'+blocker+'</dd><dt>Owner</dt><dd>'+owner+'</dd><dt>Next step</dt><dd>'+next+'</dd></dl></details>').join('');
+}
+$('view').onchange=render;$('filters').onchange=render;render();
+}</script><script>const tabs=[...document.querySelectorAll("[data-show]")];function showCard(key){for(const tab of tabs)tab.setAttribute("aria-pressed",String(tab.dataset.show===key));for(const panel of document.querySelectorAll("[data-preview]"))panel.hidden=panel.dataset.preview!==key;}tabs.forEach(tab=>tab.addEventListener("click",()=>showCard(tab.dataset.show)));showCard("inquiry");</script></div></body></html>

@@ -89,29 +89,30 @@ test('SAME1 live 16:45Z: "new project intake" for a project Canvas already has a
 });
 
 const DUP = { 'acme year-end party': { projects: [{ project_id: 'S-11267432UN', name: 'Acme Year-End Party', account: 'Acme Corp', date: '12/12/2026', status: 'For Admin Completion' }], total: 1 } };
+const INQUIRY_APPROVAL = { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } };
 test('SAME2 live 16:52Z: Canvas refusing a project it already has turns into the Same project? card in the thread, not an error', () => {
   const later = {}, t = phStart({ projectDup: 9, search: later }), chat0 = t.tabs.Chat.rows.length; Object.assign(later, DUP);   // Canvas lists it only after the check
-  const v = t.ctx.cueApprove(t.id, {});
+  const v = t.ctx.cueApprove(t.id, INQUIRY_APPROVAL);
   deq([v.stage, v.status, v.dup, v.error || '', v.same.map(x => x.project_id)], ['Same project?', 'Needs you', true, '', ['S-11267432UN']]);
   assert.ok(t.tabs.Chat.rows.slice(chat0).every(x => x[3] === t.id), 'only in the thread');
   assert.ok(/Canvas already has Acme Year-End Party \(S-11267432UN/.test(JSON.stringify(t.tabs.Chat.rows)));
 });
 test('UNDO3 Kiko 16:53Z: Cancel intake asks Canvas to remove what the intake wrote, closes the task, and a second tap changes nothing', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, INQUIRY_APPROVAL); t.ctx.cueApprove(t.id, {});
   const v = t.ctx.cueCancelIntake(t.id, '');
   deq([t.log.phRemove, v.status, v.stage, !!v.canvas.removed], [[{ request_id: t.id, project_id: 'S-99900001ZZ' }], 'Rejected', 'Cancelled', true]);
   assert.ok(/Removed S-99900001ZZ from Canvas: the project, 2 requirement lines, 1 contact and its folders/.test(JSON.stringify(t.tabs.Chat.rows)));
   t.ctx.cueCancelIntake(t.id, ''); deq(t.log.phRemove.length, 1);
   const u = phStart(); u.ctx.cueReject(u.id); assert.throws(() => u.ctx.cueCancelIntake(u.id, ''), /Nothing from this intake is in Canvas/);
-  const w = phStart({ removeUnknown: true }); w.ctx.cueApprove(w.id, {});
+  const w = phStart({ removeUnknown: true }); w.ctx.cueApprove(w.id, INQUIRY_APPROVAL);
   const x = w.ctx.cueCancelIntake(w.id, ''); deq([x.status, /until its next update/.test(x.error)], ['Needs you', true]);
 });
 test('UNDO4 Same project? after a refusal: "Remove it, add this one" removes that project, then shows phase 1 again for one approval', () => {
-  const later = {}, t = phStart({ projectDup: 1, search: later }); Object.assign(later, DUP); t.ctx.cueApprove(t.id, {});
+  const later = {}, t = phStart({ projectDup: 1, search: later }); Object.assign(later, DUP); t.ctx.cueApprove(t.id, INQUIRY_APPROVAL);
   assert.throws(() => t.ctx.cueCancelIntake(t.id, 'S-1'), /not one of the choices/);
   const v = t.ctx.cueCancelIntake(t.id, 'S-11267432UN');
   deq([t.log.phRemove, v.stage, v.ph.phase, t.log.phProject.length], [[{ project_id: 'S-11267432UN' }], 'Project details', 1, 1]);
-  const w = t.ctx.cueApprove(t.id, {}); deq([w.ph.phase, w.canvas.project_id], [2, 'S-99900001ZZ']);
+  const w = t.ctx.cueApprove(t.id, INQUIRY_APPROVAL); deq([w.ph.phase, w.canvas.project_id], [2, 'S-99900001ZZ']);
 });
 
 test('SAME3 live 17:03Z: an exact name and date match in Canvas asks Same project? before phase 1, even when the similar list is empty', () => {

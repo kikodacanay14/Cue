@@ -119,6 +119,45 @@ function cueAgdIntake_(h) {
     routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40) })) : [],
     not_routed: Array.isArray(h.not_routed) ? h.not_routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { why: cueStr_(x.why, 300) })) : [] };   // Kiko 05:47Z: no role fits, not routed
 }
+
+/** EMAIL-REROUTE-KEY-2026-11-21: mailbox and exact email ID identify one reroute, never subject/sender. Pure. */
+function cueEmailRerouteKey_(mailbox, msgId) {
+  mailbox = String(mailbox || '').trim().toLowerCase();
+  msgId = String(msgId || '').trim();
+  return mailbox && msgId ? mailbox + ':' + msgId : '';
+}
+
+function cueEmailRerouteState_(x) {
+  x = x || {};
+  const states = ['Saved in Cue, waiting for Email Intake', 'Received by Email Intake', "Couldn't deliver"];
+  return {
+    key: cueStr_(x.key, 300),
+    destination: cueStr_(x.destination, 60),
+    state: states.indexOf(x.state) >= 0 ? x.state : '',
+    request_id: cueStr_(x.request_id, 100),
+    reason: cueStr_(x.reason, 300)
+  };
+}
+
+/** Reconciles one reroute result by stable key. Pure; Received requires a receiver-confirmed ack. */
+function cueEmailRerouteMerge_(run, ack) {
+  const mailbox = String((run && run.mailbox) || '').trim();
+  const rows = Array.isArray(run && run.routed) ? run.routed : [];
+  const corrections = Array.isArray(ack) ? ack : [];
+  return rows.map((row, i) => {
+    const key = cueEmailRerouteKey_(mailbox, row.msg_id);
+    const a = corrections.find(x => x && x.key === key);
+    return {
+      key,
+      msg_id: cueStr_(row.msg_id, 100),
+      subject: cueStr_(row.subject, 300),
+      destination: cueStr_(row.routed_to, 60),
+      state: a && a.received === true ? 'Received by Email Intake'
+        : a && a.failed === true ? "Couldn't deliver"
+        : a ? 'Saved in Cue, waiting for Email Intake' : ''
+    };
+  }).filter(x => x.key);
+}
 /** AGENT-ROW-PICTURES-2026-11-18 (Kiko 18 Nov 2026 03:03:36Z, card 1 approved): a Drive file the agent names. Only a Drive file ID is
  *  kept; Cue builds every link and thumbnail URL itself, so nothing the agent sends becomes a URL. Pure. */
 const cueAgdFile_ = f => !!f && typeof f === 'object' && /^[\w-]{10,100}$/.test(String(f.file_id || ''));
