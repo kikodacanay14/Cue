@@ -164,13 +164,16 @@ test('TC17 PC test 18:30Z (page): a map thread shows its card, not "undefined"; 
 test('PH13 Kiko 18:42Z (page): intake cards have no explaining text under the buttons; all buttons on one row with Cancel intake last; the text is a tooltip', () => {
   const page = cuePage();
   const fn = page.match(/function phCardHtml\(r\) \{[\s\S]*?\n  \}\n/)[0];
+  const labelHelpers = ['cardEditLabel', 'cardEditInput', 'cardEditSelect', 'inp'].map(name => {
+    const a = page.indexOf('  function ' + name + '(');
+    return page.slice(a, page.indexOf('\n  }\n', a) + 4);
+  }).join('\n');
   const box = { pickMode: {}, pickCount: (pk, pm) => pm === 'all' ? pk.all.length : new Set([].concat(...pk.lines.filter(l => l.on).map(l => l.suppliers.map(x => x.name)))).size, PHN: ['', 'Project details', 'Requirements', 'Costing', 'RFQs'], WORK: { Working: 1 }, CLOSED: { Done: 1, Rejected: 1 }, running: {}, editing: {}, phAdd: {}, rqEdit: {},
     esc: v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     peso: n => 'PHP ' + n, secHtml: (k, t) => '<sec>' + t + '</sec>', srcHtml: () => '',
-    inp: (name, value, wide, placeholder) => '<input class="' + (wide ? 'wide' : '') + '" data-field="' + name + '" value="' + String(value || '') + '"' + (placeholder ? ' placeholder="' + placeholder + '"' : '') + '>',
     metricLine: () => 'M', foldersHtml: () => '' };
   const lines = [{ key: 'R1', item: 'LED wall', spec: 'P3.9', why: 'w', quantity: 1, days: 1, execution: 'Outsourced', unit_cost: 1, cost_basis: 'history', unit_price: 2, price_basis: 'p' }];
-  const card = (phase, extra) => vm.runInNewContext(fn + 'phCardHtml(r)', Object.assign({}, box, { r: Object.assign({ id: 'q1', status: 'Needs you', stage: 'Needs you', canvas: { project_id: 'S-1ZZ', project_number: '073' },
+  const card = (phase, extra) => vm.runInNewContext(labelHelpers + '\n' + fn + 'phCardHtml(r)', Object.assign({}, box, { r: Object.assign({ id: 'q1', status: 'Needs you', stage: 'Needs you', canvas: { project_id: 'S-1ZZ', project_number: '073' },
     ph: { phase, x: { client: {}, event: {} }, rows: [{ key: 'R1', item: 'LED', spec: 'P3', quantity: 1, days: 1 }], lines, totals: {}, rfqs: [] } }, extra || {}) }));
   [1, 2, 3].forEach(ph => {
     const h = card(ph), rows = h.match(/<div class="actions">[\s\S]*?<\/div>/g);
