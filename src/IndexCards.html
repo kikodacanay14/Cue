@@ -839,7 +839,7 @@
     // AGENT-REQ-TICK-2026-11-18: tick boxes only on an approval request Kiko can still answer.
     var tk = ((A.handover || {}).state === 'Waiting for approval') && canReply, T = agdTick[r.id] || { t: {}, a: {} }, ap = agdApproved(A);
     var isAp = function (x) { return ap.all || !!(x.req_id && ap.ok[x.req_id]); };
-    var ready = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !isAp(x); });
+    var ready = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !isAp(x); }), decision = agdTickNote(rows, T);
     var tickTd = function (x) {
       if (!tk) return '';
       if (isAp(x)) return '<td class="c agtk"><span class="tag good">Approved</span></td>';
@@ -898,8 +898,7 @@
       + (tk ? agdQsHtml(r.id, rows, T) : '') + '</div>'   // AGENT-REQ-TICK-2026-11-18: questions scroll with the table, so a phone keeps room for the rows
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="agdpf">' + (tk ? '<span class="small muted agtally" data-agtally="' + id + '">' + agdTallyText(agdTickNote(rows, T), ready.length) + '</span>' : '')
-      + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to ' + esc(agdLabel(A.agent)) + '"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
-      + (tk ? '<button class="btn" data-act="agd-tick-send" data-id="' + id + '"' + (agdTickNote(rows, T).note ? '' : ' disabled') + '>Send decision</button>' : '')
+      + (tk ? '<button class="btn" data-act="agd-tick-send" data-id="' + id + '"' + (decision.note ? '' : ' disabled') + '>' + agdTickButtonText(decision, ready.length) + '</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></aside>';
     return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Requirements review</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">' + esc(agdLabel(A.agent)) + ' · ' + esc(title) + (need ? ' · ' + need + ' need you' : '') + '</b>'
@@ -927,6 +926,9 @@
   function agdTallyText(n, readyCount) {
     return n.ticked + ' of ' + readyCount + ' ready line' + (readyCount === 1 ? '' : 's') + ' ticked · ' + n.answered + ' answer' + (n.answered === 1 ? '' : 's');
   }
+  function agdTickButtonText(n, readyCount) {
+    return n.ticked ? (n.ticked === readyCount ? 'Approve all' : 'Approve selected') : n.answered ? 'Send answers' : 'Approve selected';
+  }
   // EMAIL-INTAKE-CARD-2026-11-18 (Kiko 18 Nov 2026 04:34:50Z "the Email intake review list - please apply the filter"; 05:27:45Z "Email
   // intake routes the emails right away right? can it just send me where it routed the email to and i will correct it"; card 2 approved
   // 05:32:00Z, mockup https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk). One card per run: noise skipped and listed, every other message
@@ -945,7 +947,13 @@
       return '<tr class="agrow" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0" aria-expanded="' + on + '">' + td(i + 1, 1)
         + td(x.subject ? esc(x.subject) : none) + td(x.routed_to ? esc(agdLabel(x.routed_to)) : none, 1) + td(x.why ? esc(x.why) : none, 1) + '</tr>'
         + (on ? '<tr class="agdet"><td colspan="4"><div class="agmeta agin">' + [['From', x.from], ['Received', x.received_at], ['Project', x.project_id]].map(function (f) {
-          return '<div><span class="lbl">' + f[0] + '</span>' + (f[1] ? esc(f[1]) : none) + '</div>'; }).join('') + '</div></td></tr>' : '');
+          return '<div><span class="lbl">' + f[0] + '</span>' + (f[1] ? esc(f[1]) : none) + '</div>'; }).join('')
+          + '</div><div class="small muted" style="margin-top:8px">Reroute key: ' + esc(I.mailbox ? I.mailbox + ':' + (x.msg_id || '') : 'Unavailable: original mailbox or exact email ID missing') + '</div>'
+          + (x.msg_id ? '<label style="display:block;margin-top:8px">Destination<select data-reroute-destination="' + esc(k) + '"><option value="">Pick a destination</option>'
+            + ['Account Specialist', 'Procurement Specialist', 'Event Specialist', 'Multimedia', 'Finance', 'Admin'].map(function (v) { return '<option' + (agdLabel(x.routed_to) === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('')
+            + '</select></label><div class="actions"><button class="btn ghost" data-act="agd-reroute-save" data-id="' + id + '" data-email-id="' + esc(x.msg_id) + '">Save corrections</button></div>'
+            : '<div class="err">Reroute unavailable: exact email ID missing.</div>')
+          + '</td></tr>' : '');
     }).join('');
     var nrt = nr.length ? '<div class="small" style="margin-top:8px;font-weight:700">Not routed</div><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>From</th><th>Why</th></tr></thead><tbody>'
       + nr.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.from ? esc(x.from) : none) + td(x.why ? esc(x.why) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div>' : '';
@@ -961,10 +969,10 @@
       + (nr.length ? '<div><span class="lbl">Not routed</span>' + pl(nr.length) + '</div>' : '') + '</div>'
       + (rt.length ? '<div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Routed to</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')
       + nrt + skt + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
-      + '<div class="small muted" style="margin-top:8px">Changing a receiver or moving a skipped message comes once Email Intake has its re-route command.</div>'
+      + '<div class="small muted" style="margin-top:8px">Choose the exact email and destination. Save corrections sends one reroute handoff for this mailbox and email ID.</div>'
       + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to Email Intake"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
-      + (sk.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Not noise? Move</button>' : '')
-      + (rt.length ? '<button class="btn ghost" disabled title="Waiting for the re-route command">Save corrections</button>' : '')
+      + (sk.length ? '<button class="btn ghost" data-act="agd-reroute-save" data-id="' + id + '" data-kind="skipped"' + (I.mailbox && sk.some(function (x) { return !!x.msg_id; }) ? '' : ' disabled title="The original mailbox or exact email ID is unavailable"') + '>Save corrections</button>' : '')
+      + (rt.length ? '<button class="btn ghost" data-act="agd-reroute-save" data-id="' + id + '" data-kind="routed"' + (I.mailbox && rt.some(function (x) { return !!x.msg_id; }) ? '' : ' disabled title="The original mailbox or exact email ID is unavailable"') + '>Save corrections</button>' : '')
       + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
   }
   // AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
@@ -1057,7 +1065,7 @@
     if (reps.length) h += '<div class="small" style="margin-top:8px"><b>Your replies</b></div>' + reps.map(function (x) { return '<div class="small" style="margin-top:2px">' + (x.at ? esc(String(x.at).slice(11, 16) || x.at) + ' · ' : '') + esc(x.text) + '</div>'; }).join('')
       + '<div class="small muted">' + esc(agdLabel(A.agent)) + ' reads ' + (reps.length === 1 ? 'it' : 'these') + ' on its next run.</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
-    if (wait && canReply && !dec) h += agdActsHtml(r);   // AGENT-ACTIONS-2026-11-19
+    if (wait && canReply && !dec) h += agdActsHtml(r);
     if (canReply) h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="text" data-agd-note="' + id + '" style="flex:1;min-width:0" placeholder="Reply to '
       + esc(agdLabel(A.agent)) + ', e.g. skip LightWorks, they are on hold"><button class="btn ghost sm" data-act="agd-reply" data-id="' + id + '">Reply</button></div>';
     if (unread) h += '<div class="actions"><button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button></div>';
@@ -1281,7 +1289,7 @@
   function phCardHtml(r) {
     var P = r.ph, x = P.x || { client: {}, event: {} }, c = x.client || {}, e = x.event || {}, cv = r.canvas || {}, ph = P.phase || 0, ed = !!editing[r.id];
     var waiting = r.status === 'Needs you', busy = WORK[r.status], end = CLOSED[r.status];
-    var h = '<div class="card' + (waiting || r.status === 'Failed' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">Project intake'
+    var h = '<div class="card' + (waiting || r.status === 'Failed' ? ' need' : '') + '" data-card="' + esc(r.id) + '"><div class="label" style="margin-top:0">' + (ph === 1 ? 'New project inquiry' : 'Project intake')
       + (end ? '' : ph ? ' · phase ' + ph + ' of 4' : '') + '</div><b style="font-size:17px;color:var(--white)">' + esc(c.company || 'New client') + ' · ' + esc(e.name || e.type || 'Event') + '</b>'
       + '<div class="small muted" style="margin-top:4px">' + [1, 2, 3, 4].map(function (k) { return (k < ph || (end && r.status === 'Done') ? '✓ ' : k === ph && !end ? '● ' : '') + PHN[k]; }).join(' · ') + '</div>';
     if (r.error) h += '<div class="err">' + esc(r.error) + '</div>';
@@ -1293,6 +1301,7 @@
     if (P.prices_saved && P.totals && ph > 3) done.push('✓ 3 Costing · cost ' + peso(P.totals.known_cost) + (P.totals.known_price ? ', price ' + peso(P.totals.known_price) : '') + ' saved');
     if (done.length) h += '<div class="small" style="margin-top:8px">' + done.join('<br>') + '</div>' + (cv.project_id ? foldersHtml(r) : '');
     if (busy) h += '<div class="small" style="margin-top:8px">✱ ' + esc(r.stage) + '…</div><div class="bar"><i style="width:' + Math.round((Math.max(ph, 1) - 0.5) / 4 * 100) + '%"></i></div>';
+    if (waiting && !ph && P.wait_reason) h += '<div class="warn" style="margin-top:8px">' + esc(P.wait_reason) + '</div><div class="actions">' + cancelBtn + '</div>';
     if (r.status === 'Rejected') h += '<div class="small" style="margin-top:8px">' + esc((P.rejected && P.rejected.why) || 'Rejected') + '.' + (cv.project_id ? ' The project stays in Canvas.' : ' Nothing was written to Canvas.') + '</div>';
     if (r.status === 'Failed') h += '<div class="actions"><button class="btn" data-act="retry" data-id="' + esc(r.id) + '">Try again</button><button class="btn bad" data-act="reject" data-id="' + esc(r.id) + '">Reject</button></div>';
     var saving = !!running[r.id];   // live 15:43Z: the poll redraws the card, so the tapped button must stay off until Canvas answers
@@ -1305,6 +1314,7 @@
     if (waiting && ph === 1) {
       var cs = (c.contacts || []).length ? c.contacts : [{ name: c.contact, email: c.email, phone: c.phone }];
       var sc = e.schedule || {}, sched = [sc.ingress && 'In ' + sc.ingress, sc.hours && 'Event ' + sc.hours, sc.egress && 'Out ' + sc.egress].filter(Boolean).join(' · ');
+      var inquiry = P.inquiry || {}, inquiryTypes = inquiry.types || [], inquiryOutputs = inquiry.deliverables || [], owner = inquiry.theme_owner || '';
       var f = [['Client', ed ? inp('client.company', c.company, 1) : esc(c.company || 'Not given')],
         ['Contact', ed ? inp('client.contact', c.contact, 1) + inp('client.email', c.email, 1, 'email') + inp('client.phone', c.phone, 1, 'phone') : cs.map(function (y) { return esc([y.name, y.role, y.email, y.phone].filter(Boolean).join(', ')); }).join('<br>') || 'Not given'],
         ['Event', ed ? inp('event.name', e.name, 1) + inp('event.type', e.type, 1, 'type') : esc([e.name, e.type].filter(Boolean).join(' · ') || 'Not given')],
@@ -1317,6 +1327,16 @@
       if (P.desk && !ed) f.splice(2, 0, ['Client Desk', P.desk.client === 'new' ? '<span class="tag good">New client</span> ' + esc(P.desk.company) + ' will be added with ' + P.desk.contacts_new + ' contact' + (P.desk.contacts_new === 1 ? '' : 's')
         : 'Existing client: ' + esc(P.desk.company) + '; ' + (P.desk.contacts_new ? P.desk.contacts_new + ' new contact' + (P.desk.contacts_new === 1 ? '' : 's') + ' will be added' : 'no new contacts')]);
       h += '<table class="facts" style="margin-top:8px">' + f.map(function (y) { return '<tr><td>' + y[0] + '</td><td>' + y[1] + '</td></tr>'; }).join('') + '</table>';
+      h += '<fieldset class="card" style="margin-top:10px" id="inquiry-design"><legend>Design &amp; Deliverables</legend>'
+        + '<div class="small muted" style="margin-bottom:8px">Project type</div><div class="bar">' + ['Event', 'Fabrication', 'Pass Through'].map(function (v) {
+          return '<label><input type="checkbox" data-inquiry-type value="' + esc(v) + '"' + (inquiryTypes.indexOf(v) >= 0 ? ' checked' : '') + '> ' + esc(v) + '</label>'; }).join('') + '</div>'
+        + '<label style="margin-top:10px">Theme / Concept<input data-inquiry-theme value="' + esc(inquiry.theme || '') + '" maxlength="300"></label>'
+        + '<div class="small muted" style="margin-top:10px">Theme / Concept owner</div><div class="bar">'
+        + ['BSE to propose', 'Client to provide'].map(function (v) { return '<label><input type="radio" name="inq-owner-' + esc(r.id) + '" data-inquiry-owner value="' + esc(v) + '"' + (owner === v ? ' checked' : '') + '> ' + esc(v) + '</label>'; }).join('')
+        + '</div><div class="small muted" style="margin-top:10px">Deliverables Needed</div><div class="bar">'
+        + ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout', 'Social Media Mats'].map(function (v) {
+          return '<label><input type="checkbox" data-inquiry-output value="' + esc(v) + '"' + (inquiryOutputs.indexOf(v) >= 0 ? ' checked' : '') + '> ' + esc(v) + '</label>'; }).join('')
+        + '</div></fieldset>';
       if ((P.questions || []).length) h += secHtml(r.id + '|ask', 'Ask the client (' + P.questions.length + ')', '<ul class="small">' + P.questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>');
       h += '<div class="actions">' + btn('approve', 'Approve, add to Canvas', '', tip('Adds the project only (client, contacts, schedule, folders) and puts the client in Client Desk. No lines yet.')) + editBtn + btn('reject', 'Reject', 'bad') + cancelBtn + '</div>';
     }
@@ -1445,6 +1465,12 @@
   function collectPh(id, scope) {
     var card = (scope || document).querySelector('[data-card="' + id + '"]') || document.createElement('div'), e = { event: {}, client: {}, rows: {}, add: [], lines: {}, suppliers: {} };
     card.querySelectorAll('[data-field]').forEach(function (x) { var k = x.getAttribute('data-field').split('.'); e[k[0]][k[1]] = x.value; });
+    var types = [], outputs = [], owner = '';
+    card.querySelectorAll('[data-inquiry-type]:checked').forEach(function (x) { types.push(x.value); });
+    card.querySelectorAll('[data-inquiry-output]:checked').forEach(function (x) { outputs.push(x.value); });
+    card.querySelectorAll('[data-inquiry-owner]:checked').forEach(function (x) { owner = x.value; });
+    var theme = card.querySelector('[data-inquiry-theme]');
+    e.inquiry = { types: types, theme: theme ? theme.value : '', theme_owner: owner, deliverables: types.length === 1 && types[0] === 'Pass Through' ? [] : outputs };
     card.querySelectorAll('[data-row]').forEach(function (tr) { var d = {};
       tr.querySelectorAll('[data-f]').forEach(function (x) { var f = x.getAttribute('data-f'); if (f === 'remove') { if (x.checked) d.remove = true; } else d[f] = f === 'quantity' || f === 'days' ? Number(x.value) : x.value; });
       e.rows[tr.getAttribute('data-row')] = d; });
@@ -1640,7 +1666,7 @@
     var agdSync = function (rid) { var A = agdOf(rid), rows = ((A.handover || {}).rows || []), T = agdTick[rid] || { t: {}, a: {} }, n = agdTickNote(rows, T), ap = agdApproved(A);
       var rc = rows.filter(function (x) { return x.req_id && !agdQs(x).length && !(ap.all || ap.ok[x.req_id]); }).length;
       document.querySelectorAll('[data-agtally="' + rid + '"]').forEach(function (x) { x.textContent = agdTallyText(n, rc); });
-      document.querySelectorAll('[data-act="agd-tick-send"][data-id="' + rid + '"]').forEach(function (x) { x.disabled = !n.note; }); };
+      document.querySelectorAll('[data-act="agd-tick-send"][data-id="' + rid + '"]').forEach(function (x) { x.disabled = !n.note; x.textContent = agdTickButtonText(n, rc); }); };
     document.querySelectorAll('[data-agtick]').forEach(function (x) { x.onchange = function () { var rid = x.getAttribute('data-agtick'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       if (x.checked) T.t[x.value] = 1; else delete T.t[x.value]; render(); setTimeout(function () { var y = document.querySelector('[data-agtick="' + rid + '"][value="' + x.value.replace(/["\\]/g, '\\$&') + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agtick-all]').forEach(function (x) { x.onchange = function () { var rid = x.getAttribute('data-agtick-all'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} }, A = agdOf(rid), ap = agdApproved(A);
@@ -1732,12 +1758,18 @@
             b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }
           if (act === 'agd-tick-send') {   // AGENT-REQ-TICK-2026-11-18: one reply carrying the ticked lines and the answers
             var tA = agdOf(id), tn = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).note;
-            if (!tn) return alertErr(new Error('Tick a line or type an answer, then tap Send decision.'), id);
+            if (!tn) return alertErr(new Error('Select a requirement or type an answer, then continue.'), id);
             var tb = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).bad;   // AGENT-CARD-EDIT-2026-11-18
-            if (tb.length) return alertErr(new Error('Qty and Occurrence must be whole numbers of 1 or more. Check ' + tb.join(', ') + ', then tap Send decision.'), id);
+            if (tb.length) return alertErr(new Error('Qty and Occurrence must be whole numbers of 1 or more. Check ' + tb.join(', ') + ', then approve again.'), id);
             if (tn.length > 6000) return alertErr(new Error('This decision is too long to send in one go (over 6,000 characters). Shorten an answer, or send part of it first.'), id);   // AGENT-CARD-EDIT-2026-11-18: Canvas takes 6,000
             b.disabled = true; running[id] = 1; schedule();
             return call('cueAgdDecide', [id, { decision: 'reply', note: tn }], function () { delete agdTick[id]; done(); }, fail);
+          }
+          if (act === 'agd-reroute-save') {
+            var rid = b.getAttribute('data-email-id') || '', card = scope.querySelector('[data-card="' + id + '"]'), sel = card && card.querySelector('[data-reroute-destination="' + rid.replace(/["\\]/g, '\\$&') + '"]');
+            var dest = sel ? sel.value : '';
+            if (!rid || !dest) return alertErr(new Error('Pick the exact email and destination, then tap Save corrections.'), id);
+            return alertErr(new Error('Saved locally in this preview only. Live receiver handoff is not connected yet.'), id);
           }
           if (act === 'agd-reply' && !agNote) return alertErr(new Error('Type your reply in the box, then tap Reply.'), id);
           if (act === 'agd-back' && !agNote) return alertErr(new Error('Type what the agent should change in the box, then tap Send back to agent.'), id);

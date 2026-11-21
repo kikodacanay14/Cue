@@ -456,6 +456,32 @@ function cueIntakeEditDetails_(p, e) {
   if (e.client) ['company', 'contact', 'phone'].forEach(k => { if (e.client[k] != null) p.client[k] = cueStr_(e.client[k], 200).trim(); });
   if (e.client && e.client.email != null) p.client.email = cueEmail_(e.client.email);
 }
+
+/** Project inquiry confirmation fields. Pure. Neither theme owner is inferred; checkbox changes never start work. */
+function cueProjectInquiry_ (x) {
+  x = x || {};
+  const types = Array.isArray(x.types) ? x.types.filter(v => ['Event', 'Fabrication', 'Pass Through'].indexOf(v) >= 0).slice(0, 3) : [];
+  const owner = ['BSE to propose', 'Client to provide'].indexOf(x.theme_owner) >= 0 ? x.theme_owner : '';
+  const outputs = Array.isArray(x.deliverables) ? x.deliverables.filter(v => ['Pitch Deck', 'Venue Layout', 'Event Styling', 'Pub Mats', 'Event Collaterals', 'Wayfinders', 'Stage Layout'].indexOf(v) >= 0).slice(0, 7) : [];
+  const passOnly = types.length === 1 && types[0] === 'Pass Through';
+  return { types, theme: cueStr_(x.theme, 300), theme_owner: owner,
+    deliverables: passOnly ? [] : outputs,
+    pass_through_only: passOnly,
+    mm_needed: !!(!passOnly && owner !== 'Client to provide' && types.some(v => v === 'Event' || v === 'Fabrication')) };
+}
+
+function cueProjectInquiryValidate_(i) {
+  i = i || {};
+  if (!Array.isArray(i.types) || !i.types.length) throw new Error('Select at least one project type.');
+  if (i.types.length === 1 && i.types[0] === 'Pass Through') return i;
+  if (i.types.some(v => v === 'Event' || v === 'Fabrication') && (!i.deliverables || !i.deliverables.length)) {
+    throw new Error('Select at least one deliverable for design work.');
+  }
+  if (!i.theme_owner && !cueStr_(i.theme, 300).trim()) throw new Error('Choose a theme or who will provide it.');
+  if (!i.theme_owner && cueStr_(i.theme, 300).trim()) return i;
+  if (i.theme_owner === 'Client to provide') return i;
+  return i;
+}
 /** Kiko's edits to the lines and RFQs. */
 function cueIntakeEditLines_(p, e) {
   const drop = [];

@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 86 server files, 1714 top-level names, 36 task kinds, 35 word checks before the
+Counts: 86 server files, 1719 top-level names, 40 task kinds, 35 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 113 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -15,39 +15,41 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 
 | Kind | What it is | Wrong command? | Card family | Runs in | Approve in | Page checks |
 |---|---|---|---|---|---|---|
-| `accred` | Page only (not in the command list) |  | Info | none | none | 2 |
+| `accred` | Page only (not in the command list) |  | Info | none | none | 3 |
+| `admin` | Page only (not in the command list) |  |  | none | none | 1 |
 | `agentdraft` | Page only (not in the command list) |  | Draft and send | none | none | 1 |
 | `approve` | Page only (not in the command list) |  |  | none | none | 1 |
-| `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 5 |
+| `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 6 |
 | `avoid` | Page only (not in the command list) |  |  | none | none | 1 |
-| `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 1 |
-| `cecost` | CE cost update |  | Approve | `CueCeCost.gs` | `CueCeCost.gs` | 3 |
+| `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 2 |
+| `cecost` | CE cost update |  | Approve | `CueCeCost.gs` | `CueCeCost.gs` | 4 |
 | `change` | Change request | Project intake | Draft and send | `CueIntake.gs` | `CueChange.gs` | 1 |
 | `email` | Email | Email | Draft and send | `CueMail.gs` | `CueMail.gs` | 3 |
 | `example` | Page only (not in the command list) |  |  | none | none | 2 |
-| `expense` | Project expense |  | Approve | `CueIntake.gs` (default) | `CueExpense.gs` | 2 |
+| `expense` | Project expense |  | Approve | `CueIntake.gs` (default) | `CueExpense.gs` | 3 |
 | `final` | Page only (not in the command list) |  |  | none | none | 1 |
-| `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 4 |
-| `funnel` | Sales funnel |  | Info | `CueFunnel.gs` | intake (default) | 1 |
+| `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 6 |
+| `funnel` | Sales funnel |  | Info | `CueFunnel.gs` | intake (default) | 2 |
 | `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 2 |
 | `help` | Help answer |  | Info | `CueHelp.gs` | intake (default) | 2 |
 | `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
 | `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 1 |
-| `mail` | Page only (not in the command list) |  | Info | none | none | 1 |
+| `mail` | Page only (not in the command list) |  | Info | none | none | 2 |
+| `mailtype` | Page only (not in the command list) |  | Question | none | none | 1 |
 | `memory` | Learning your memory |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 5 |
 | `modify` | Page only (not in the command list) |  |  | none | none | 2 |
 | `msgr` | Page only (not in the command list) |  | Info | none | none | 2 |
-| `newmail` | Page only (not in the command list) |  | Question | none | none | 3 |
+| `newmail` | Page only (not in the command list) |  | Question | none | none | 4 |
 | `open` | Page only (not in the command list) |  |  | none | none | 1 |
 | `own` | Page only (not in the command list) |  |  | none | none | 2 |
-| `personal` | Personal expense |  | Approve | `CuePersonal.gs` | `CuePersonal.gs` | 3 |
+| `personal` | Personal expense |  | Approve | `CuePersonal.gs` | `CuePersonal.gs` | 4 |
 | `process` | Learning your process |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 3 |
 | `readiness` | Readiness check | Readiness check | Draft and send | `CueReady.gs` | `CueReady.gs` | 1 |
 | `relnotes` | Page only (not in the command list) |  | Approve | none | none | 1 |
 | `staff` | Page only (not in the command list) |  |  | none | none | 1 |
-| `status` | Friday status updates |  | Draft and send | `CueStatus.gs` | `CueStatus.gs` | 1 |
+| `status` | Friday status updates |  | Draft and send | `CueStatus.gs` | `CueStatus.gs` | 2 |
 | `style` | Learning your style |  | Approve | `CueStyle.gs` | `CueStyle.gs` | 3 |
-| `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 4 |
+| `supplier` | Supplier registration |  | Approve | `CueSupplier.gs` | `CueSupplier.gs` | 5 |
 | `sweep` | Morning sweep |  | Draft and send | `CueSweep.gs` | `CueSweep.gs` | 2 |
 | `tasks` | Page only (not in the command list) |  |  | none | none | 2 |
 | `tri` | Task, issue or risk |  | Approve | `CueIntake.gs` (default) | `CueTri.gs` | 1 |

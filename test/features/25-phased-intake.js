@@ -7,7 +7,7 @@ test('PH1 phase 1: GPT reads the details only; nothing goes to Canvas until Appr
   const t = phStart();
   deq([t.v.status, t.v.ph.phase, t.v.stage, t.v.metrics.ai_calls, writes(t)], ['Needs you', 1, 'Project details', 1, []]);
   assert.ok(t.log.claude.length === 0, 'no Claude call before Kiko approves the details');
-  const v = t.ctx.cueApprove(t.id, { event: { venue: 'SMX Convention Center' }, client: {} });
+  const v = t.ctx.cueApprove(t.id, { event: { venue: 'SMX Convention Center' }, client: {}, inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([t.log.phProject.length, t.log.phProject[0].project.event.venue, writes(t)], [1, 'SMX Convention Center', ['intake_add_project']]);
   deq([v.ph.phase, v.status, v.canvas.project_id, v.canvas.project_number], [2, 'Needs you', 'S-99900001ZZ', '052']);
   assert.ok(/Added to Canvas as project 052/.test(JSON.stringify(t.tabs.Chat.rows)));
@@ -18,7 +18,7 @@ test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client
   const d = t.v.ph.desk; assert.ok(d && d.client === 'new' && d.contacts_new >= 1, JSON.stringify(d));
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexCards.html'), 'utf8');
   assert.ok(/Client Desk', P\.desk\.client === 'new' \? '<span class="tag good">New client<\/span> ' \+ esc\(P\.desk\.company\)/.test(page), 'the card row escapes the company');
-  t.ctx.cueApprove(t.id, {});
+  t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   assert.ok(t.log.phProject[0].project.client.industry === undefined, 'not a bid notice: no industry');
   const said = t.tabs.Chat.rows.map(r => r[2]).filter(x => /^Added to Canvas/.test(x))[0];
   assert.ok(/Client Desk: .+ added as a new client with \d+ contacts?\./.test(said), said);
@@ -27,10 +27,10 @@ test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client
   const u = phStart({ deskUnknown: true }); assert.strictEqual(u.v.ph.desk, null, 'before the Canvas update: no Client Desk line, intake still runs');
   assert.strictEqual(u.v.ph.phase, 1);
   // Canvas 247 with its switch CLIENT_DESK off (the default): no line, and Approve sends what V246 takes.
-  const f = phStart({ deskOff: true }); assert.strictEqual(f.v.ph.desk, null); f.ctx.cueApprove(f.id, {});
+  const f = phStart({ deskOff: true }); assert.strictEqual(f.v.ph.desk, null); f.ctx.cueApprove(f.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   assert.ok(f.log.phProject[0].project.client.industry === undefined && !f.tabs.Chat.rows.some(r => /Client Desk:/.test(r[2])), 'switch off: nothing about Client Desk');
   const e = phStart({ desk: { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }, deskOut: { client: 'existing', company: 'ACME Corp.', contacts_added: [] } });
-  deq(e.v.ph.desk, { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }); e.ctx.cueApprove(e.id, {});
+  deq(e.v.ph.desk, { client: 'existing', company: 'ACME Corp.', contacts_new: 0 }); e.ctx.cueApprove(e.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   assert.ok(e.tabs.Chat.rows.some(r => /Client Desk: ACME Corp\. was already there; no new contacts\./.test(r[2])));
   // A bid notice on a .gov.ph site registers the agency with Industry Government.
   assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'New project intake from a bid notice (Kiko asked: "x").\nAgency: TPB\nNotice: https://www.tpb.gov.ph/itb/1' }), 'Government');
@@ -38,7 +38,7 @@ test('PH1b Client Desk (Kiko 24 Oct 13:36Z): the phase 1 card says if the client
   assert.strictEqual(t.ctx.cuePhIndustry_({ text: 'Hi, Notice: https://x.gov.ph' }), '');
 });
 test('PH2 phase 2: Claude\'s rows are short (item at most 6 words, spec at most 12); Rescan reads again with Kiko\'s note and writes nothing', () => {
-  const t = phStart(); const v = t.ctx.cueApprove(t.id, {});
+  const t = phStart(); const v = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const r = v.ph.rows[0];
   deq([r.item, r.spec], ['LED wall with high quality processor', '4m x 3m, P3.9 pitch, with processor, operator and backup power for']);
   assert.ok(v.ph.rows.every(x => x.item.split(' ').length <= 6 && x.spec.split(' ').filter(Boolean).length <= 12));
@@ -48,7 +48,7 @@ test('PH2 phase 2: Claude\'s rows are short (item at most 6 words, spec at most 
   assert.ok(/<kiko_note>\nYou missed the stage/.test(t.log.claude[1].messages[0].content[0].text || t.log.claude[1].messages[0].content));
 });
 test('PH3 phase 2 Approve: Kiko\'s row edits go to Canvas as lines with no costs, then costing runs to the phase 3 card', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const v = t.ctx.cueApprove(t.id, { rows: { R1: { quantity: 2 }, R2: { remove: true } }, add: [{ item: 'Stage', spec: '24 x 16 ft', quantity: 1, days: 1 }] });
   const L = t.log.phLines[0];
   deq(L.map(l => [l.key, l.description, l.quantity]), [['R1', 'LED wall with high quality processor, 4m x 3m, P3.9 pitch, with processor, operator and backup power for', 2],
@@ -58,18 +58,18 @@ test('PH3 phase 2 Approve: Kiko\'s row edits go to Canvas as lines with no costs
   assert.ok(v.ph.lines.every(l => l.why.split(' ').length <= 25));
 });
 test('PH4 phase 3 Save prices: Canvas re-checks; changed numbers write nothing and show Canvas\'s; saving again writes and drafts RFQs', () => {
-  const t = phStart({ canvasCost: 47000 }); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const t = phStart({ canvasCost: 47000 }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   let v = t.ctx.cueApprove(t.id, { lines: { R3: { unit_price: 280000 } } });
   deq([v.ph.phase, v.ph.lines[0].unit_cost, t.log.phCosts.length], [3, 47000, 1]);
   assert.ok(v.notes.some(n => /numbers and they changed/.test(n)));
-  v = t.ctx.cueApprove(t.id, {});
+  v = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([t.log.phCosts.length, v.ph.phase, v.status, v.ph.prices_saved !== '', v.ph.rfqs.length, !!v.ph.pick], [2, 4, 'Needs you', true, 0, true]);
   v = phPick(t, v);
   assert.ok(v.ph.rfqs.length >= 1 && v.ph.rfqs.every(q => q.state === 'open'));
   assert.ok(!/Intake ready for you/.test(JSON.stringify(t.tabs.Chat.rows)), 'no one-card summary line');
 });
 test('PH5 phase 4: each RFQ is sent, drafted or cancelled on its own; Canvas records each; Done when none is open; 5 AI calls in all', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); let v = phPick(t, t.ctx.cueApprove(t.id, {}));
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); let v = phPick(t, t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }));
   const q = v.ph.rfqs; assert.ok(q.length >= 2, 'two or more RFQs');
   assert.throws(() => t.ctx.cueRfq(t.id, q.findIndex(x => !x.email), 'send', null), /email first/);
   const a = q.findIndex(x => x.email);
@@ -83,14 +83,14 @@ test('PH5 phase 4: each RFQ is sent, drafted or cancelled on its own; Canvas rec
   assert.ok(v.metrics.ai_calls <= 5, 'budget: ' + v.metrics.ai_calls + ' AI calls');
 });
 test('PH6 one card per task: a reply in the thread while a card waits changes that task in place, never a new run', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const before = t.tabs.Requests.rows.length;
   const r = t.ctx.cueSend('you missed the stage, 24x16 ft', [], '', t.id);
   deq([r.request_id, r.in_place, t.tabs.Requests.rows.length], [t.id, true, before]);
   const v = t.ctx.cueRun(t.id);
   deq([t.log.breaks, v.ph.phase, v.status], [2, 2, 'Needs you']);
   assert.ok(/you missed the stage/.test(JSON.stringify(t.log.claude[1])));
-  t.ctx.cueApprove(t.id, {});
+  t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   t.ctx.cueSend('cost them by item please', [], '', t.id); const w = t.ctx.cueRun(t.id);
   deq([w.ph.phase, t.tabs.Requests.rows.length, t.log.claude.filter(b => /item-level costing/.test(JSON.stringify(b))).length], [3, before, 1]);
 });
@@ -98,7 +98,7 @@ test('PH7 Reject is one tap with no reason: phase 1 writes nothing; phase 2 leav
   const t = phStart(); let v = t.ctx.cueReject(t.id);
   deq([v.status, writes(t), v.ph.rejected.why], ['Rejected', [], 'Rejected by Kiko at Project details']);
   assert.ok(/Nothing was written to Canvas/.test(JSON.stringify(t.tabs.Chat.rows)));
-  const u = phStart(); u.ctx.cueApprove(u.id, {}); v = u.ctx.cueReject(u.id);
+  const u = phStart(); u.ctx.cueApprove(u.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); v = u.ctx.cueReject(u.id);
   deq([v.status, writes(u)], ['Rejected', ['intake_add_project']]);
   assert.ok(/Project 052 stays in Canvas with no lines/.test(JSON.stringify(u.tabs.Chat.rows)));
   deq(u.ctx.cueReject(u.id).status, 'Rejected', 'a second tap changes nothing');
@@ -123,26 +123,26 @@ test('PH9 live 15:34Z: a second message about the same project goes into its wai
 
 test('PH10 live 15:43Z: a tap while the phase is saving is not an error; Canvas still saving shows on the card, not the main chat, and the next tap goes on', () => {
   const t = phStart({ projectStill: 1 }), chat0 = t.tabs.Chat.rows.length;
-  const v = t.ctx.cueApprove(t.id, {});
+  const v = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([v.ph.phase, v.status, /still saving this from your earlier tap/.test(v.error)], [1, 'Needs you', true]);
   deq(t.tabs.Chat.rows.length, chat0);
   const L = t.ctx.cueLoad_(t.id); L.s.busy_until = Date.now() + 60000; t.ctx.cueSave_(L.sh, L.row, L.s);
-  const n = t.log.phProject.length, w = t.ctx.cueApprove(t.id, {});
+  const n = t.log.phProject.length, w = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([t.log.phProject.length, w.ph.phase], [n, 1]);
   const M = t.ctx.cueLoad_(t.id); delete M.s.busy_until; t.ctx.cueSave_(M.sh, M.row, M.s);
-  const x = t.ctx.cueApprove(t.id, {});
+  const x = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([x.ph.phase, x.canvas.project_id, x.error || ''], [2, 'S-99900001ZZ', '']);
 });
 
 test('PH12 live 18:40Z: a tap that lands after its phase moved on (Working, or the next card) does nothing and is never an error', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const L = t.ctx.cueLoad_(t.id); L.s.status = 'Working'; t.ctx.cueSave_(L.sh, L.row, L.s);
-  const chat0 = t.tabs.Chat.rows.length, n = (t.log.phLines || []).length, w = t.ctx.cueApprove(t.id, {});
+  const chat0 = t.tabs.Chat.rows.length, n = (t.log.phLines || []).length, w = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   deq([(t.log.phLines || []).length, w.status, w.error || '', t.tabs.Chat.rows.length], [n, 'Working', '', chat0]);
 });
 
 test('PH14 Kiko 18:47Z: RFQs for which? Per line sends only the picked lines and suppliers; one RFQ for everything covers every line; an added supplier counts', () => {
-  const toCard = () => { const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); return Object.assign(t, { p: t.ctx.cueApprove(t.id, {}) }); };
+  const toCard = () => { const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); return Object.assign(t, { p: t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }) }); };
   const rfqReq = t => { const b = t.log.gpt.filter(x => x.text.format.name === 'rfqs').pop(); return b && JSON.parse(JSON.stringify(b.input).match(/\{\\"event[\s\S]*?\}\]\}(?=")/)[0].replace(/\\"/g, '"')); };
   const a = toCard(), P = a.p.ph.pick;
   deq([a.p.stage, a.p.status, a.p.ph.rfqs.length, P.mode, a.log.gpt.filter(x => x.text.format.name === 'rfqs').length], ['RFQs', 'Needs you', 0, 'line', 0]);
@@ -159,7 +159,7 @@ test('PH14 Kiko 18:47Z: RFQs for which? Per line sends only the picked lines and
   deq([r2.suppliers.length, r2.suppliers[0].keys, r2.lines.length], [1, b.p.ph.lines.map(l => l.key), b.p.ph.lines.length]);
 });
 test('PH15 Kiko 18:48Z: picking none (or Skip RFQs) ends the intake with no RFQs and no GPT call; a late tap or a reply on the card changes nothing', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const g = t.log.gpt.length, chat0 = t.tabs.Chat.rows.length;
   assert.strictEqual(t.ctx.cuePhReply_(t.id, 'only Sonic Pro please', []), null, 'a reply on the picking card is not a redraft');
   deq([t.ctx.cueLoad_(t.id).s.status, t.ctx.cueLoad_(t.id).s.stage], ['Needs you', 'RFQs']);
@@ -170,20 +170,20 @@ test('PH15 Kiko 18:48Z: picking none (or Skip RFQs) ends the intake with no RFQs
   deq([w.status, t.log.gpt.filter(x => x.text.format.name === 'rfqs').length], ['Done', 0]);
 });
 test('PH16 Kiko 18:47Z: research looks for suppliers until each line has 5, and Claude may name up to 5', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const b = t.log.gpt.filter(x => x.text.format.name === 'research').pop(), j = JSON.stringify(b);
   assert.ok(/\\"need\\":4/.test(j) && /\\"need\\":5/.test(j), 'need = 5 minus the DB suppliers');
   assert.ok(/up to need \(at most 5\)/.test(j));
 });
 
 test('PH11 Kiko 15:48Z: Leave blank per line saves no cost and no price, over any suggested or typed number; phase 3 has a one-tap Reject', () => {
-  const t = phStart(); t.ctx.cueApprove(t.id, {}); const v3 = t.ctx.cueApprove(t.id, {});
+  const t = phStart(); t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); const v3 = t.ctx.cueApprove(t.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   assert.strictEqual(v3.ph.phase, 3);
   const k = v3.ph.lines[0].key;
   t.ctx.cueApprove(t.id, { lines: { [k]: { blank: true, unit_cost: 999, unit_price: 1500 } } });
   const sent = t.log.phCosts[0].lines.find(l => l.key === k);
   deq([sent.unit_cost, sent.cost_basis, sent.unit_price, sent.price_basis, sent.price_source, sent.sources.length], [0, 'none', 0, 'none', '', 0]);
-  const u = phStart(); u.ctx.cueApprove(u.id, {}); u.ctx.cueApprove(u.id, {});
+  const u = phStart(); u.ctx.cueApprove(u.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } }); u.ctx.cueApprove(u.id, { inquiry: { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } });
   const r = u.ctx.cueReject(u.id, '');
   deq([r.status, u.log.phCosts || []], ['Rejected', []]);
   assert.ok(u.tabs.Chat.rows.some(x => /stays in Canvas with its lines and no costs/.test(x[2])));

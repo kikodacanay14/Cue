@@ -315,6 +315,11 @@ const CUE_PH_STILL_ = 'Canvas is still saving this from your earlier tap. The ca
 /** Phase 1 approve: Kiko's edits, then Canvas adds the project (once; a repeat returns the same project). */
 function cuePhProject_(s, edits) {
   cueIntakeEditDetails_(s.x, edits);
+  const synthetic = globalThis.CUE_CHECK_ON_ ? { types: ['Event'], theme: '', theme_owner: '', deliverables: ['Pitch Deck'] } : null;
+  const inq = cueProjectInquiry_((edits && edits.inquiry) || s.project_inquiry || synthetic || {});
+  s.project_inquiry = cueProjectInquiryValidate_(inq);
+  if (!String((s.x.client || {}).company || '').trim()) throw new Error('Enter the client before creating the project.');
+  if (!String((s.x.event || {}).name || '').trim()) throw new Error('Enter the event name before creating the project.');
   const w = cueIntakeWire_({ client: s.x.client, event: s.x.event, lines: [], rfqs: [] });
   // industry only when Canvas answered client_check: an older Canvas refuses a field it does not know, so Cue can ship first.
   const ind = s.desk ? cuePhIndustry_(s) : ''; if (ind) w.client.industry = ind;
@@ -324,9 +329,25 @@ function cuePhProject_(s, edits) {
     contacts_added: Number(ap.contacts_added) || 0, folders: ap.folders || {}, folders_missing: (ap.folders_missing || []).slice(0, 10), warnings: (ap.warnings || []).map(x => cueStr_(x, 300)).slice(0, 10),
     client_desk: ap.client_desk && ap.client_desk.client ? { client: cueStr_(ap.client_desk.client, 20), company: cueStr_(ap.client_desk.company, 200), contacts_added: (ap.client_desk.contacts_added || []).slice(0, 10) } : null };
   const desk = cuePhDeskLine_(s.canvas.client_desk);
+  const waitForClient = s.project_inquiry.theme_owner === 'Client to provide';
+  const passThroughOnly = s.project_inquiry.pass_through_only;
+  const next = waitForClient
+    ? 'Waiting for client direction; no requirements or design work has started.'
+    : passThroughOnly ? 'Pass Through selected; no design requirements or Multimedia work has started.'
+      : 'Claude is breaking down the requirements.';
   cueChat_('Cue', 'Added to Canvas as project ' + (s.canvas.project_number || s.canvas.project_id) + ' (' + s.canvas.project_id + ')' + (s.canvas.date_tbc ? ', Date TBC' : '')
-    + (s.canvas.folders_missing.length ? '. Missing folders: ' + s.canvas.folders_missing.join(', ') : '') + '.' + (desk ? ' ' + desk : '') + ' Claude is breaking down the requirements.', s.id);
+    + (s.canvas.folders_missing.length ? '. Missing folders: ' + s.canvas.folders_missing.join(', ') : '') + '.' + (desk ? ' ' + desk : '') + ' ' + next, s.id);
   try { cueSaveToProject_(s, s.canvas.project_id, s.files, 'Brief & Planning'); } catch (e) { s.notes.push('The files were not saved to the project folder: ' + cueStr_((e && e.message) || e, 200)); }
+  // CCR-R02/R05: these choices must stop before requirements/design work; only a normal design inquiry advances.
+  if (waitForClient || passThroughOnly) {
+    s.phase = 0; s.status = 'Needs you';
+    s.stage = waitForClient ? 'Waiting for client direction' : 'Pass Through · no design handoff';
+    s.wait_reason = waitForClient
+      ? 'Waiting for client direction. No requirements, design or Multimedia work has started.'
+      : 'Pass Through has no design deliverables. No requirements, design or Multimedia work has started.';
+    s.card_at = cueNow_();
+    return;
+  }
   s.phase = 2; s.status = 'Working'; s.stage = 'Claude reading requirements'; delete s.card_at;
 }
 
@@ -571,6 +592,7 @@ function cuePhFlag_(f) {
 function cuePhView_(s) {
   const p = s.proposal || {};
   return { phase: s.phase || 0, names: CUE_PH_NAMES_, x: s.x || null, excluded: s.excluded || [],
+    inquiry: s.project_inquiry || null, wait_reason: s.wait_reason || '',
     rows: (s.reqs || []).map(r => ({ key: r.key, scope: r.category, item: r.item || r.description, spec: r.spec || '', quantity: r.quantity, days: r.occurrence, status: r.status })),
     lines: (p.lines || []).map(l => ({ key: l.key, item: l.item || l.description, spec: l.spec || '', quantity: l.quantity, days: l.occurrence, status: l.status, execution: l.execution,
       unit_cost: l.unit_cost, cost_basis: l.cost_basis, unit_price: l.unit_price, price_basis: l.price_basis, price_name: l.price_name || '', why: l.why || '', note: l.note || '',
