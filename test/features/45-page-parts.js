@@ -22,6 +22,22 @@ test('PG2 the joined page is one page with one script, and that script is valid 
   assert.ok(/^\n\(function \(\) \{/.test(js) && /\}\)\(\);\n$/.test(js), 'one function still wraps the whole script');
 });
 
+// PART-END-2026-11-25: Apps Script prints the parts one after another with no line break between them (seen on the /dev page of
+// Cue a888b37: a // comment on the last line of IndexViewer.html swallowed the first line of IndexThreads.html and the whole page
+// script failed to parse). So the last line of a script part must not hold a // comment, and the parts must still parse when joined
+// with nothing between them.
+test('PG4 no script part ends in a // comment, and the page script still parses when the parts are joined with no line break', () => {
+  const dir = path.join(__dirname, '..', 'src'), index = fs.readFileSync(path.join(dir, 'Index.html'), 'utf8');
+  const body = index.slice(index.indexOf('<script>')), names = [...body.matchAll(/cueInclude_\('([A-Za-z0-9]+)'\)/g)].map(m => m[1]);
+  assert.ok(names.length >= 5, 'found the script parts');
+  const parts = names.map(n => fs.readFileSync(path.join(dir, n + '.html'), 'utf8').replace(/\n$/, ''));
+  parts.forEach((p, i) => {
+    const last = p.slice(p.lastIndexOf('\n') + 1);
+    assert.ok(!/\/\//.test(last.replace(/https?:\/\//g, '')), names[i] + '.html ends in a // comment: ' + last.slice(-80));
+  });
+  assert.doesNotThrow(() => new vm.Script(parts.join('')), 'the parts parse with no line break between them');
+});
+
 test('PG3 doGet serves Index as a template, and cueInclude_ gives a part without its last newline', () => {
   const t = sandbox(), seen = [];
   t.ctx.HtmlService.createTemplateFromFile = n => { seen.push(n); return { evaluate: () => ({ setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode() { return this; }, setFaviconUrl() { return this; } }), getRawContent: () => fs.readFileSync(path.join(__dirname, '..', 'src', n + '.html'), 'utf8') }; };
