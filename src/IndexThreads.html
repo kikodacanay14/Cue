@@ -4,17 +4,18 @@
     // "Channels" (phone only, back to the list), then its name, close-thread and archive, and ✕ goes back to General.
     setHtml($('lbtns'), ib('data-p="search"', 'search', 'Search channels', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent channels' : 'Show archived threads', showArchived));
     // MOBILE-BACK-2026-11-18 (Kiko 18 Nov 2026 02:20Z "In mobile there is no way to go back to the left panel"): kept as the phone's way back.
-    var back = '<button class="pane-back" data-p="pane" aria-label="Back to the channels">' + icon('back') + '<span>Channels</span></button>';
-    if (!it) h = back;
+    // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026): the bar is a breadcrumb, Cue › Channels › name. "Cue" opens General and "Channels" the list, on every
+    // width, so the phone's back button, the ✕ and the three-dot Archive button are gone ("There are 2 x for Close? Retain 1 only";
+    // "remove the Archive button already").
+    var back = '<button type="button" data-p="close">Cue</button><span class="sep" aria-hidden="true">›</span><button type="button" data-p="pane">Channels</button>';
+    if (!it) h = '<span class="crumb">' + back + '</span>';
     else {
       var t = thOf(th, it.id), name = it.id === 'sys:flagged' ? 'Flagged' : t ? threadTitle(t) : 'Thread';   // CUE-FLAG-2026-11-18
       var busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = back + '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      h = '<span class="crumb">' + back + '<span class="sep" aria-hidden="true">›</span><span class="t" aria-current="page" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
       var open = t && t.reqs.some(function (r) { return !CLOSED[r.status]; });
-      h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
-        + (t && t.reqs[0] && t.reqs[0].kind !== 'sweep' && !t.chan && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
-      h += '<span class="pane-x">' + ib('data-p="close"', 'x', 'Back to General') + '</span>';
+      h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '');
     }
     setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
@@ -1406,7 +1407,7 @@
     // (threadRef), so the box names it.
     var last = !ag && t && t.chan && t.reqs.length > 1 ? t.reqs[t.reqs.length - 1] : null;
     $('tbox').placeholder = ag ? 'Message ' + ag : last ? 'Reply to the newest: ' + String(replyTitle(last.id) || kindName(last)).slice(0, 60) : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
-    $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
+    $('tagnote').hidden = true;   // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026: Remove the "Messages here go to....")
   }
   /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
    * update is a chat bubble from that agent, in time order, and Kiko's replies are his own bubbles. The full card (approve, edit, the

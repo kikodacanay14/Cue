@@ -1,5 +1,20 @@
 # Changelog
 
+## Cue 1.28.107: one breadcrumb bar, readable hover, Canvas font (not deployed)
+
+Asked by Kiko on 25 Nov 2026 with screenshots of the Account Specialist channel inside Canvas. Mockup approved ("Approve all") and
+build approved ("Yes, build it") the same day. First slice of the channel screen clean-up; the card, chat box, label and Canvas bar
+parts follow.
+
+- Every header is a breadcrumb, `Cue › Channels › name`. "Cue" opens General and "Channels" opens the channel list, on every width.
+- The channel header no longer draws the second close mark or the three-dot Archive button. The close-thread tick stays.
+- Hover on a coloured channel bar is a light tint, so the icon and text stay readable.
+- The "Messages here go to ... only" line under an agent channel's chat box is gone.
+- All of Cue uses DM Sans, the Canvas and brand font; Quicksand is no longer loaded. The email template font list drops Quicksand too.
+
+Do not deploy this branch as it stands: live Cue's card code (Apps Script versions 280 to 283, 24 Nov 2026) is ahead of `main`, so a
+deploy from `main` would remove those card fixes. Local tests: 1000 of 1000 (`node test/cue.test.js`), feature map current.
+
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 
 Cue PR #448, Feature Board card `step-12a-approval-check`. Requires the Step 12A approval readback from CanvasWorkspace PR #723.

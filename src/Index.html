@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
 <? /* STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z; story Cue #141): this page is joined from parts by doGet (cueInclude_ in Cue.gs).
  * IndexStyle: styles. IndexChat: state, server calls, panes, Canvas pane. IndexViewer: file viewer and toolbar. IndexThreads: thread list,
  * files, composer and send, chat and thread rendering. IndexPages: morning batch, settings, schedules, usage, rules. IndexCards: cards.
@@ -61,7 +61,7 @@
      (the main chat) or a thread. On a phone the list fills the screen and a channel opens over it, with "Channels" to go back.
      The dot, Back to Team Cue and K moved here from the header, which Canvas hides (its purple bar carries the Cue logo, 04:19:17Z). -->
 <aside class="clist" id="clist" aria-label="Channels">
-  <div class="lhead" id="lhead"><b class="lt">Channels</b><span class="grow"></span><span id="lbtns"></span>
+  <div class="lhead" id="lhead"><span class="crumb"><button type="button" id="l-home">Cue</button><span class="sep" aria-hidden="true">›</span><span class="t" aria-current="page">Channels</span></span><span class="grow"></span><span id="lbtns"></span>
     <span class="dot" id="dot" title="Connected"></span>
     <button class="btn ghost tcue" id="team-cue" type="button" hidden>Back to Team Cue</button></div>
   <div id="lscroll">
@@ -76,8 +76,8 @@
 </aside>
 <div class="left" id="general" aria-label="General">
 <nav>
-  <button class="pane-back" id="gen-back" aria-label="Back to the channels"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Channels</span></button>
-  <b class="cname">General</b><div id="stream-tools" aria-label="Message filters"></div>
+  <!-- CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "make the header like Cue > Channels > Account Specialist - like a breadcrumb and should be clickable to navigate"; mockup approved "Approve all") -->
+  <span class="crumb"><button type="button" id="gen-home">Cue</button><span class="sep" aria-hidden="true">›</span><button type="button" id="gen-back">Channels</button><span class="sep" aria-hidden="true">›</span><span class="t" aria-current="page">General</span></span><div id="stream-tools" aria-label="Message filters"></div>
   <button class="ntab" id="tab-threads" aria-controls="clist" aria-pressed="false" hidden>Channels<span class="badge" id="needCount" hidden></span></button>
 </nav>
 <div id="scroller">

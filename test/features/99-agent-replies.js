@@ -39,7 +39,8 @@ test('AGR2 files are not sent to an agent, a refused save says Not saved, and a 
 test('AGR3 the page: an agent thread sends with cueAgdSay, the save status is a small line, Not saved has Try again, and the box names the agent', () => {
   const page = cuePage();
   assert.ok(/if \(ref && \(byId\(\)\[ref\] \|\| \{\}\)\.agd\) return agentSay\(t, !!withFiles, ref, box\);/.test(page));
-  assert.ok(/call\('cueAgdSay', \[ref, t, mid\]/.test(page) && /data-agm-retry/.test(page) && /call\('cueAgdRetry', \[ref, mid\]/.test(page) && /'Message ' \+ ag/.test(page) && /Cue does not act on them\. Ask Cue in the main chat\./.test(page));
+  assert.ok(/call\('cueAgdSay', \[ref, t, mid\]/.test(page) && /data-agm-retry/.test(page) && /call\('cueAgdRetry', \[ref, mid\]/.test(page) && /'Message ' \+ ag/.test(page));
+  assert.ok(!/Cue does not act on them/.test(page), 'CUE-ONE-BAR-2026-11-25: Kiko had the "Messages here go to..." line removed');
   const box = tcBox(false); box.ACT_RE = /^(Saved)\b/;
   const h1 = box.msgHtml({ who: 'Cue', text: 'Saved for ECII agent · it reads it on its next run', request_id: 'cue-1' }, '', true);
   assert.strictEqual(h1, '<div class="small muted agm">Saved for ECII agent · it reads it on its next run</div>');

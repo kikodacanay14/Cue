@@ -2,7 +2,7 @@
   /* CUE-IN-CANVAS (Kiko 23 Oct 08:52Z "make sure the UI matches Canvas since it will be inside it moving forward"): Canvas's
      Workspace tokens. Cream ground, white cards, ink text, deep purple = action, magenta = needs you, yellow = highlight.
      --white is the strongest text colour (ink here); the name stays so the cards' inline styles keep working. */
-  :root { --font:'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Steagal', 'Quicksand', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
+  :root { --font:'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Steagal', 'DM Sans', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
     --text:#16151B; --white:#16151B; --need:#23006F; --act:#23006F; --ok:#1E8E57; --warn:#8A6D00; --bad:#C2410C; --sun:#F4F12C; --side:#FBF8F1; --soft:#EFEAFB; }
   * { box-sizing:border-box; }
   /* The page never scrolls: header, tabs and composer stay put, and only the middle (chat or widgets) scrolls. */
@@ -42,11 +42,13 @@
   .phead .pico { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--panel); color:var(--act); flex:none; }
   .phead .pname { font:700 17px var(--font); color:var(--white); }
   .phead .pcount { display:inline-block; min-width:22px; padding:1px 7px; border-radius:6px; background:var(--act); color:#fff; font:800 14px var(--font); text-align:center; }
-  .phead .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
-  .phead .crumb button { all:unset; cursor:pointer; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }
-  .phead .crumb button:hover { color:var(--white); text-decoration-color:var(--muted); }
-  .phead .crumb .sep { color:var(--muted); flex:none; }
-  .phead .crumb span.t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* CUE-ONE-BAR-2026-11-25: the same breadcrumb sits in the list header, General's header and a channel's header. */
+  .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
+  .crumb button { all:unset; cursor:pointer; padding:4px 6px; border-radius:6px; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }
+  .crumb button:hover { color:var(--white); text-decoration-color:var(--muted); background:var(--soft); } .crumb button:focus-visible { outline:2px solid var(--act); }
+  .crumb .t { font-weight:700; }
+  .crumb .sep { color:var(--muted); flex:none; }
+  .crumb span.t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .phead .grow { flex:1; }
   .ibtn { all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; color:var(--text); flex:none; }
   .ibtn:hover, .ibtn[aria-pressed="true"] { background:var(--panel); color:var(--white); } .ibtn:focus-visible { outline:2px solid var(--act); }
@@ -567,6 +569,12 @@
   .msg .ml { white-space:normal; margin:4px 0 6px; padding-left:22px; } .msg .ml li { margin:2px 0; } .msg .ml .ml { margin:2px 0; }
   #ptabs.cat-proj { background:#559FEF; color:#16151B; } #ptabs.cat-crm { background:#CD5023; color:#fff; } #ptabs.cat-gen { background:#23006F; color:#fff; }
   #ptabs.cat-crm button, #ptabs.cat-gen button, #ptabs.cat-crm .t, #ptabs.cat-gen .t { color:#fff; }
+  /* CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "Please change the hover effect - font cant be read"): on a coloured bar the hover is a tint, never the white panel
+     colour that hid the white icon. */
+  #ptabs.cat-crm button:hover, #ptabs.cat-gen button:hover, #ptabs.cat-crm .ibtn[aria-pressed="true"], #ptabs.cat-gen .ibtn[aria-pressed="true"] { background:rgba(255,255,255,.16); color:#fff; }
+  #ptabs.cat-proj button:hover, #ptabs.cat-proj .ibtn[aria-pressed="true"] { background:rgba(22,21,27,.1); color:#16151B; }
+  #ptabs.cat-crm .crumb .sep, #ptabs.cat-gen .crumb .sep { color:rgba(255,255,255,.7); } #ptabs.cat-proj .crumb .sep { color:#16151B; }
+  #ptabs.cat-crm button:focus-visible, #ptabs.cat-gen button:focus-visible { outline:2px solid #F4F12C; }
   .trow.cat-proj { box-shadow:inset 3px 0 0 #559FEF; } .trow.cat-crm { box-shadow:inset 3px 0 0 #CD5023; } .trow.cat-gen { box-shadow:inset 3px 0 0 #23006F; }
   /* WEB-GUIDELINES-2026-11-08 (Kiko 8 Nov 2026 06:31Z "fix them", after the live web-guidelines check): number cells use
      fixed-width digits so amounts and counts line up, and motion stops for people who ask their system for less motion. */
