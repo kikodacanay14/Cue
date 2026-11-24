@@ -1,6 +1,6 @@
 # Changelog
 
-## Cue 1.28.107: one breadcrumb bar, readable hover, Canvas font (not deployed)
+## Cue 1.28.107: breadcrumb bar, chat box, one Saved, own labels, Canvas font (live as Version 285, 24 Nov 2026 18:25Z; rollback Version 284)
 
 Asked by Kiko on 25 Nov 2026 with screenshots of the Account Specialist channel inside Canvas. Mockup approved ("Approve all") and
 build approved ("Yes, build it") the same day. First slice of the channel screen clean-up; the card, chat box, label and Canvas bar
@@ -19,7 +19,8 @@ parts follow.
 - Own labels: "Labels" in General lists every label with its colour as a dot. Kiko can add, rename and delete his own labels and pick any colour from eight swatches or a colour wheel. They are saved to Cue's settings (owner only), so they follow him to another device.
 
 Live Cue's card code (Apps Script versions 280 to 284) was saved back into `main` first (PR #464), and this branch sits on top of it.
-Local tests: 1009 of 1009 (`node test/cue.test.js`), feature map current.
+Before going live, the /dev page showed an empty Cue: a // comment on the last line of one page part swallowed the first line of the next part (fixed in PR #465, with test PG4). Checked on /dev and on the live address after the deploy: Cue 1.28.107 loads with data, breadcrumb, new chat box, no decision bubble. Not clicked through on the live page.
+Local tests: 1010 of 1010 (`node test/cue.test.js`), feature map current.
 
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 
