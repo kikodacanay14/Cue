@@ -1081,6 +1081,30 @@ function cueStateJob_(s) {
 const CUE_SEEN_KEEP_ = 200;
 function cueStateDismissed_() { try { return cueDismissed_(); } catch (e) { console.error('cueDismissed_: ' + e); return []; } }   // CUE-MSG-MENU-2026-11-18
 function cueStateFlags_() { try { return cueFlags_(); } catch (e) { console.error('cueFlags_: ' + e); return []; } }   // CUE-FLAG-2026-11-18
+/** CUE-LABELS-2026-11-25 (Kiko 25 Nov 2026 "Labels - i should be ale to add on my own"; "Colors - ... i should also be able to select from a color
+ * wheel or from a selection of colors"; who sees them: "A. Only me", on every device). The owner's own labels, the colour of each label
+ * and the label put on a message are kept in Cue's own settings, so they follow the owner to another device. Only clean values are kept:
+ * up to 30 labels of up to 24 characters, six-digit hex colours, and the last 300 labelled messages. */
+const CUE_STREAM_BUILTIN_ = ['chat', 'email', 'intake', 'bids', 'approval', 'update'];
+function cueStreamPrefsClean_(p) {
+  const o = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  const custom = (Array.isArray(o.custom) ? o.custom : [])
+    .map(x => ({ k: String((x || {}).k || ''), n: String((x || {}).n || '').replace(/[<>&"']/g, '').replace(/\s+/g, ' ').trim().slice(0, 24).trim() }))
+    .filter((x, i, a) => /^u[a-z0-9]{1,12}$/.test(x.k) && x.n && a.findIndex(y => y.k === x.k) === i).slice(0, 30);
+  const keys = CUE_STREAM_BUILTIN_.concat(custom.map(x => x.k)), colors = {}, labels = {};
+  const src = o.colors && typeof o.colors === 'object' ? o.colors : {}, tagged = o.labels && typeof o.labels === 'object' ? o.labels : {};
+  keys.forEach(k => { const c = String(Object.prototype.hasOwnProperty.call(src, k) ? src[k] : ''); if (/^#[0-9a-f]{6}$/i.test(c)) colors[k] = c.toLowerCase(); });
+  Object.keys(tagged).slice(-300).forEach(id => { const k = tagged[id]; if (/^cue-[A-Za-z0-9-]{6,40}$/.test(id) && keys.indexOf(k) >= 0) labels[id] = k; });
+  return { custom, colors, labels };
+}
+function cueStreamPrefs_() {
+  try { return cueStreamPrefsClean_(JSON.parse(cueProp_('CUE_STREAM_PREFS', '{}'))); } catch (e) { return cueStreamPrefsClean_(null); }
+}
+function cueStreamPrefsSave(prefs) {
+  cueOwner_();
+  const clean = cueStreamPrefsClean_(prefs);
+  return cueLocked_(() => { PropertiesService.getScriptProperties().setProperty('CUE_STREAM_PREFS', JSON.stringify(clean)); return clean; });
+}
 function cueSeenMap_() {
   try { const o = JSON.parse(cueProp_('CUE_CHAN_SEEN', '{}')); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
 }
@@ -1150,7 +1174,7 @@ function cueState() {
   let today = null; try { today = cueTodayFrom_(list, cuePh_(cueNow_()).day); } catch (e) { console.error('cueTodayFrom_: ' + e); }   // CUE-TODAY: one chat line a day
   // AGENT-TAG-2026-11-15 (Codex review on Cue PR #390): every agent Kiko can tag, from all requests, not only the 20 above.
   let agents = []; if (!chk) try { agents = cueAgdAgents_(rows); } catch (e) { console.error('cueAgdAgents_: ' + e); }
-  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), flags: chk ? [] : cueStateFlags_(), dismissed: chk ? [] : cueStateDismissed_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
+  return { version: CUE_VERSION_, app_url: cueAdminAppUrl_(), requests: list, agents, chat, chan_rules: chanRules, seen: chk ? {} : cueSeenMap_(), stream_prefs: chk ? null : cueStreamPrefs_(), flags: chk ? [] : cueStateFlags_(), dismissed: chk ? [] : cueStateDismissed_(), batches, today, uploads_url: /^[\w-]{10,}$/.test(up) ? 'https://drive.google.com/drive/folders/' + up : '', metrics: { runs: done.length, avg_ai_calls: avg('ai_calls'), avg_seconds: avg('seconds_total'),
     over_budget: done.filter(x => x.metrics.flag).length, budget: CUE_BUDGET_ } };
 }
 
