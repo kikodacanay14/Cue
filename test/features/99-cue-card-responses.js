@@ -30,7 +30,12 @@ test('CCR2 Email reroute: exact mailbox plus email ID separates same-subject ema
     { msg_id: 'mail-102', subject: 'Updated quotation', routed_to: 'Finance agent' }] };
   const saved = t.ctx.cueEmailRerouteMerge_(run, [{ key: a, received: false }]);
   deq(saved.map(x => x.state), ['Saved in Cue, waiting for Email Intake', '']);
-  const received = t.ctx.cueEmailRerouteMerge_(run, [{ key: a, received: true }, { key: b, failed: true }]);
+  // LIVE-SYNC-2026-11-25: on live (24 Nov 2026) a bare received flag no longer counts; Received needs the reply and a receipt that repeats it exactly.
+  deq(t.ctx.cueEmailRerouteMerge_(run, [{ key: a, received: true }, { key: b, failed: true }]).map(x => x.state), ['Saved in Cue, waiting for Email Intake', "Couldn't deliver"]);
+  const reply = { card_id: 'DRF-0070', reply_id: 'DRF-0071', number: 1, msg_id: 'mail-101', handoff_key: 'hk-1', revision: 1, action: 'reroute', to_role: 'Finance agent' };
+  const receipt = Object.assign({ status: 'received_by_email_intake', received_at: '2026-11-24T10:00:00Z' }, reply);
+  deq(t.ctx.cueEmailRerouteMerge_(run, [{ key: a, reply, receipt: Object.assign({}, receipt, { revision: 2 }) }]).map(x => x.state), ['Saved in Cue, waiting for Email Intake', ''], 'a receipt that differs from the reply is not a receipt');
+  const received = t.ctx.cueEmailRerouteMerge_(run, [{ key: a, reply, receipt }, { key: b, failed: true }]);
   deq(received.map(x => x.state), ['Received by Email Intake', "Couldn't deliver"]);
 });
 

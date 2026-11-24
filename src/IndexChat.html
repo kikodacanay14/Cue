@@ -22,6 +22,7 @@
   function ask(title, sub, placeholder, okLabel, cb) {
     var d = $('ask'); $('ask-t').textContent = title; $('ask-sub').textContent = sub; $('ask-in').value = ''; $('ask-in').hidden = placeholder === null; $('ask-in').placeholder = placeholder || ''; $('ask-ok').textContent = okLabel;
     d.onclose = function () { if (d.returnValue === 'ok') cb($('ask-in').value.trim()); };
+    if (d.parentNode !== document.body) document.body.appendChild(d);   // Live 24 Nov 2026: inside .left the box is hidden while a thread is open, yet still blocks the page
     d.returnValue = ''; d.showModal(); if (placeholder !== null) $('ask-in').focus(); else $('ask-ok').focus();
   }
   function alertErr(e, ref) { var m = (e && e.message) || String(e); if (ACCESS_RE.test(m)) { accessNeeded = true; renderWidgets(); } addLocal('Cue', 'Something went wrong: ' + m, ref); }

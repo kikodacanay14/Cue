@@ -12,9 +12,11 @@ test('PG1 every part is put in exactly once, in order, and each one is a file in
   assert.ok(!/<\?/.test(index.replace(/<\?!= cueInclude_\('[A-Za-z0-9]+'\) \?>|<\?(?!=)[\s\S]*?\?>/g, '')), 'no other template tags');
 });
 
+// LIVE-SYNC-2026-11-25: the live cards (Apps Script versions 280 to 284) build their own <style> text inside the script, so the one-style
+// rule is checked on the page markup outside the script.
 test('PG2 the joined page is one page with one script, and that script is valid JavaScript', () => {
   const page = cuePage();
-  deq([(page.match(/<script>/g) || []).length, (page.match(/<\/script>/g) || []).length, (page.match(/<style>/g) || []).length, (page.match(/<\?/g) || []).length], [1, 1, 1, 0]);
+  deq([(page.match(/<script>/g) || []).length, (page.match(/<\/script>/g) || []).length, (page.replace(page.slice(page.indexOf('<script>'), page.indexOf('</script>')), '').match(/<style>/g) || []).length, (page.match(/<\?/g) || []).length], [1, 1, 1, 0]);
   const js = page.slice(page.indexOf('<script>') + 8, page.indexOf('</script>'));
   assert.doesNotThrow(() => new vm.Script(js), 'the parts join into one script');
   assert.ok(/^\n\(function \(\) \{/.test(js) && /\}\)\(\);\n$/.test(js), 'one function still wraps the whole script');
