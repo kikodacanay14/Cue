@@ -8,10 +8,10 @@ test('MB1 the page script declares the icon set IC once, and it holds the back, 
   ['back', 'x', 'chev', 'search', 'more', 'reply'].forEach(k => assert.ok(new RegExp('\\n    ' + k + ": '<").test(viewer), 'IC.' + k));
   assert.ok(/var CH_IC = \{ mail:/.test(MB_PAGE) && !/\bIC\.(mail|sms|app)\b/.test(MB_PAGE.replace(/CH_IC\./g, '')), 'channel icons renamed CH_IC');
 });
-test('MB2 CUE-CHANNELS-2026-11-18: on a phone the channel header starts with a Channels back button to the list, in place of the X; General has one too', () => {
+test('MB2 CUE-ONE-BAR-2026-11-25: the channel header starts with the Cue › Channels breadcrumb, which goes back to the list on every width; General has one too', () => {
   const th = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
-  assert.ok(th.includes(`var back = '<button class="pane-back" data-p="pane" aria-label="Back to the channels">' + icon('back') + '<span>Channels</span></button>';`));
-  assert.ok(th.includes(`h = back + '<span class="crumb">`), 'a channel header starts with it');
+  assert.ok(th.includes(`var back = '<button type="button" data-p="close">Cue</button><span class="sep" aria-hidden="true">›</span><button type="button" data-p="pane">Channels</button>';`));
+  assert.ok(th.includes(`h = '<span class="crumb">' + back + '`), 'a channel header starts with it');
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   assert.ok(/\n  \.pane-back \{ display:none; \}/.test(css), 'hidden on a wide screen');
   assert.ok(/@media \(max-width: 640px\) \{[^@]*\.pane-back \{ display:inline-flex; \}[^@]*\.pane-x \{ display:none; \}/.test(css), 'shown on a phone');

@@ -6,7 +6,7 @@
  * Canvas release (part 3), which owns the shared email images. */
 
 const CUE_TPL_LOOK_ = { client: '#559FEF', supplier: '#CD5023', crew: '#B3107C' };
-const CUE_TPL_FONT_ = "'Quicksand','DM Sans',Arial,Helvetica,sans-serif";
+const CUE_TPL_FONT_ = "'DM Sans',Arial,Helvetica,sans-serif";   // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026: all of Cue in the Canvas font)
 const CUE_TPL_SIGN_ = { kiko: 'Kiko Dacanay\nBlank Space Events', ar: 'Blank Space Events\nAccounts Receivable', sc: 'Blank Space Events\nSupplier Coordination' };
 
 const cueTplFirst_ = v => { const w = String(v || '').trim().split(/[\s@]+/)[0] || ''; return /^[A-Za-z][A-Za-z'.-]*$/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : 'there'; };

@@ -140,4 +140,4 @@
     if (p === 'wide') { wide = !wide; $('pane').classList.toggle('wide', wide); return renderChat(); }
   }
   $('ptabs').addEventListener('click', paneBtn); $('lhead').addEventListener('click', paneBtn);
-  $('gen-back').onclick = showList;
+  $('gen-back').onclick = showList; $('gen-home').onclick = $('l-home').onclick = goGeneral;   // CUE-ONE-BAR-2026-11-25

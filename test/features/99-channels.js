@@ -52,10 +52,10 @@ test('CH5 layout: the list on the left, General or the open channel on the right
   const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8'), css = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexStyle.html'), 'utf8');
   const chat = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexChat.html'), 'utf8');
   assert.ok(page.indexOf('<aside class="clist" id="clist"') < page.indexOf('<div class="left" id="general"'), 'list first');
-  assert.ok(/<div class="lhead" id="lhead">[\s\S]{0,200}id="dot"[\s\S]{0,200}id="team-cue"/.test(page), 'dot and Back to Team Cue moved to the list header');
+  assert.ok(/<div class="lhead" id="lhead">[\s\S]{0,400}id="dot"[\s\S]{0,200}id="team-cue"/.test(page), 'dot and Back to Team Cue moved to the list header');
   assert.ok(/<div class="lfoot"><button class="avatar" id="avatar"[^>]*>K<\/button><label for="avatar">Settings<\/label><\/div>\n<\/aside>/.test(page), 'K sits at the foot of the list (Kiko 06:19:02Z)');
   assert.ok(/body\.ch-thread \.pane, body\.ch-thread \.pane\.shut \{ display:flex; \}/.test(css) && /body\.ch-thread \.left \{ display:none; \}/.test(css));
-  assert.ok(/body\.in-canvas header \{ display:none; \}/.test(css), 'Canvas\'s purple bar carries the logo');
+  assert.ok(/body\.in-canvas > header \{ display:none; \}/.test(css), 'Canvas\'s purple bar carries the logo');
   assert.ok(/@media \(max-width: 640px\) \{[^@]*body:not\(\.ch-list\) \.clist \{ display:none; \}[^@]*body\.ch-list \.left, body\.ch-list \.pane/.test(css));
   assert.ok(chat.includes("document.body.classList.toggle('ch-thread', !!openThread);") && chat.includes("if (window.matchMedia && matchMedia('(max-width: 640px)').matches) showList();"));
 });

@@ -2,7 +2,7 @@
   /* CUE-IN-CANVAS (Kiko 23 Oct 08:52Z "make sure the UI matches Canvas since it will be inside it moving forward"): Canvas's
      Workspace tokens. Cream ground, white cards, ink text, deep purple = action, magenta = needs you, yellow = highlight.
      --white is the strongest text colour (ink here); the name stays so the cards' inline styles keep working. */
-  :root { --font:'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Steagal', 'Quicksand', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
+  :root { --font:'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; --display:'Steagal', 'DM Sans', system-ui, sans-serif; --bg:#F7F3EA; --head:#FFFFFF; --panel:#FFFFFF; --input:#FFFFFF; --line:#E2DCCF; --line2:#CFC7B5; --muted:#5B5766;
     --text:#16151B; --white:#16151B; --need:#23006F; --act:#23006F; --ok:#1E8E57; --warn:#8A6D00; --bad:#C2410C; --sun:#F4F12C; --side:#FBF8F1; --soft:#EFEAFB; }
   * { box-sizing:border-box; }
   /* The page never scrolls: header, tabs and composer stay put, and only the middle (chat or widgets) scrolls. */
@@ -42,11 +42,13 @@
   .phead .pico { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--panel); color:var(--act); flex:none; }
   .phead .pname { font:700 17px var(--font); color:var(--white); }
   .phead .pcount { display:inline-block; min-width:22px; padding:1px 7px; border-radius:6px; background:var(--act); color:#fff; font:800 14px var(--font); text-align:center; }
-  .phead .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
-  .phead .crumb button { all:unset; cursor:pointer; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }
-  .phead .crumb button:hover { color:var(--white); text-decoration-color:var(--muted); }
-  .phead .crumb .sep { color:var(--muted); flex:none; }
-  .phead .crumb span.t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* CUE-ONE-BAR-2026-11-25: the same breadcrumb sits in the list header, General's header and a channel's header. */
+  .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
+  .crumb button { all:unset; cursor:pointer; padding:4px 6px; border-radius:6px; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }
+  .crumb button:hover { color:var(--white); text-decoration-color:var(--muted); background:var(--soft); } .crumb button:focus-visible { outline:2px solid var(--act); }
+  .crumb .t { font-weight:700; }
+  .crumb .sep { color:var(--muted); flex:none; }
+  .crumb span.t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .phead .grow { flex:1; }
   .ibtn { all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; color:var(--text); flex:none; }
   .ibtn:hover, .ibtn[aria-pressed="true"] { background:var(--panel); color:var(--white); } .ibtn:focus-visible { outline:2px solid var(--act); }
@@ -150,7 +152,9 @@
   .fcard .fth { height:64px; border-radius:6px; background:#EFE9DC center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; overflow:hidden; }
   .fcard .fth img { width:100%; height:100%; object-fit:cover; }
   .fcard .fn { font-size:14px; line-height:1.3; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .tcomposer { flex:none; background:var(--side); padding:8px 14px 10px; }
+  /* CUE-ONE-BAR-2026-11-25: a channel's chat box is General's composer (same ground, line, padding and width). */
+  .tcomposer { flex:none; background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
+  .tcomposer .row, .tcomposer .chips, .tcomposer #tagnote { max-width:828px; margin-inline:auto; } .tcomposer .chips { margin-top:0; } .tcomposer .chips .chip { margin-top:8px; }
   /* Kiko 17:42Z: a thread's task card minimizes, like Claude's, to a bar that sits on top of the reply box. */
   .tdock { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; margin:0 0 8px; padding:8px 12px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
   .tdock:hover, .tdock:focus-visible { border-color:var(--muted); }
@@ -511,8 +515,8 @@
   /* Kiko 24 Oct 06:49Z "make the window smaller and tighter": inside Canvas's slide-in Cue is denser. Canvas's own bar already says
      "Cue", so the header keeps only the logo, name, dot and K; bars, rows, cards and buttons are smaller. Cue in its own tab is unchanged. */
   body.in-canvas { font-size:14px; line-height:1.45; }
-  body.in-canvas header { padding:5px 10px; gap:8px; } body.in-canvas header .sub { display:none; }
-  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:32px; height:32px; } body.in-canvas .logo svg { width:20px; height:20px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
+  body.in-canvas > header { padding:5px 10px; gap:8px; } body.in-canvas > header .sub { display:none; }
+  body.in-canvas > header h1 { font-size:15px; } body.in-canvas .logo { width:32px; height:32px; } body.in-canvas .logo svg { width:20px; height:20px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
   body.in-canvas nav, body.in-canvas .phead, body.in-canvas .vhead { min-height:40px; padding:4px 8px; }
   body.in-canvas .phead .pico { width:28px; height:28px; } body.in-canvas .phead .pname { font-size:15px; } body.in-canvas .ibtn { width:30px; height:30px; }
   body.in-canvas main { padding:10px 12px; } body.in-canvas #pscroll { padding:8px 10px; }
@@ -522,7 +526,7 @@
   body.in-canvas .trow { padding:5px 8px 5px 10px; gap:8px; } body.in-canvas .trow .tx b { font-size:13.5px; } body.in-canvas .trow .tx span { font-size:12px; -webkit-line-clamp:1; }
   body.in-canvas .trow .chip, body.in-canvas .trow .tm { font-size:12px; }
   body.in-canvas .card { padding:10px 12px; margin-bottom:8px; } body.in-canvas .msg { padding:7px 10px; max-width:92%; }
-  body.in-canvas .composer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
+  body.in-canvas .composer, body.in-canvas .tcomposer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
   body.in-canvas .btn { min-height:34px; padding:0 14px; font-size:13px; }
   /* UI-RULES-2026-10-30 (Kiko 30 Oct 2026 06:12Z, his words: "Tables: Headers are always aligned Center. Columns with Financial
      values are alignes Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size bigger than
@@ -567,6 +571,12 @@
   .msg .ml { white-space:normal; margin:4px 0 6px; padding-left:22px; } .msg .ml li { margin:2px 0; } .msg .ml .ml { margin:2px 0; }
   #ptabs.cat-proj { background:#559FEF; color:#16151B; } #ptabs.cat-crm { background:#CD5023; color:#fff; } #ptabs.cat-gen { background:#23006F; color:#fff; }
   #ptabs.cat-crm button, #ptabs.cat-gen button, #ptabs.cat-crm .t, #ptabs.cat-gen .t { color:#fff; }
+  /* CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "Please change the hover effect - font cant be read"): on a coloured bar the hover is a tint, never the white panel
+     colour that hid the white icon. */
+  #ptabs.cat-crm button:hover, #ptabs.cat-gen button:hover, #ptabs.cat-crm .ibtn[aria-pressed="true"], #ptabs.cat-gen .ibtn[aria-pressed="true"] { background:rgba(255,255,255,.16); color:#fff; }
+  #ptabs.cat-proj button:hover, #ptabs.cat-proj .ibtn[aria-pressed="true"] { background:rgba(22,21,27,.1); color:#16151B; }
+  #ptabs.cat-crm .crumb .sep, #ptabs.cat-gen .crumb .sep { color:rgba(255,255,255,.7); } #ptabs.cat-proj .crumb .sep { color:#16151B; }
+  #ptabs.cat-crm button:focus-visible, #ptabs.cat-gen button:focus-visible { outline:2px solid #F4F12C; }
   .trow.cat-proj { box-shadow:inset 3px 0 0 #559FEF; } .trow.cat-crm { box-shadow:inset 3px 0 0 #CD5023; } .trow.cat-gen { box-shadow:inset 3px 0 0 #23006F; }
   /* WEB-GUIDELINES-2026-11-08 (Kiko 8 Nov 2026 06:31Z "fix them", after the live web-guidelines check): number cells use
      fixed-width digits so amounts and counts line up, and motion stops for people who ask their system for less motion. */
@@ -660,7 +670,7 @@
   .pane-back { display:none; }
   .trow .chico { flex:none; width:24px; height:24px; border-radius:50%; display:inline-grid; place-items:center; background:var(--soft); color:var(--act); font-size:11px; font-weight:700; margin-top:1px; }
   .trow .badge { font-style:normal; align-self:center; margin:0; flex:none; text-align:center; }
-  body.in-canvas header { display:none; }
+  body.in-canvas > header { display:none; }
   body.in-canvas .lhead { min-height:40px; padding:4px 8px; } body.in-canvas #lscroll { padding:6px 8px 10px; }
   body.in-canvas .clist { width:340px; } body.in-canvas .lhead .tcue { padding:0 8px; font-size:12px; min-height:28px; }
   @media (max-width: 900px) {
@@ -708,7 +718,11 @@
   body.cue-stream #scroller main, body.cue-stream #tmsgs { width:100%; max-width:920px; margin-inline:auto; }
   body.cue-stream #msgs > .msg.me, body.cue-stream #tmsgs > .msg.me { background:var(--stream-pale); border:1px solid #F2B8D6; color:var(--text); align-self:flex-end; }
   body.cue-stream #msgs > .msg.cue, body.cue-stream #tmsgs > .msg.cue { background:#fff; align-self:flex-start; }
-  body.cue-stream #msgs > .msg.cue:has(.stream-pill) { border-inline-start:3px solid var(--stream-magenta); }
+  body.cue-stream #msgs > .msg.cue:has(.stream-pill) { border-inline-start:4px solid var(--stream-magenta); }
+  /* CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "keep the color one the left of each message and card"; "labels - place them on upper right"):
+     the label sits at the message's upper right; the text wraps under it. */
+  body.cue-stream #msgs > .msg > .stream-label-control, body.cue-stream #msgs > .msg > .stream-pill { float:right; margin:0 0 4px 12px; }
+  body.cue-stream #msgs > .msg > .stream-label-control[open] { float:none; margin-left:0; }
   body.cue-stream #msgs > .msg.cue:has(.stream-purple) { border-inline-start-color:#23006F; }
   body.cue-stream #msgs > .msg.cue:has(.stream-orange) { border-inline-start-color:#D95D14; }
   body.cue-stream #msgs > .msg.cue:has(.stream-teal) { border-inline-start-color:#087F83; }
@@ -733,6 +747,21 @@
   .stream-orange { color:#923500; background:#FFF1E7; }
   .stream-teal { color:#075F63; background:#E2F6F5; }
   .stream-emerald { color:#125B3E; background:#E6F6ED; }
+  /* CUE-LABELS-2026-11-25: the Labels panel. A colour is shown as a round dot; a tap on it opens eight swatches and the colour wheel. */
+  .stream-label-menu > div#stream-label-rows { width:300px; padding:12px; border-radius:10px; }
+  .sl-row { display:flex; align-items:center; gap:8px; padding:4px 0; }
+  .sl-row .sl-name { flex:1; min-width:0; font:600 14px var(--font); } .sl-row input.sl-name { padding:4px 6px; }
+  .sl-sw { all:unset; box-sizing:border-box; cursor:pointer; width:24px; height:24px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line2); flex:none; }
+  .sl-sw.on { box-shadow:0 0 0 2px var(--text); } .sl-sw:focus-visible { box-shadow:0 0 0 2px var(--act); }
+  .sl-del { all:unset; cursor:pointer; padding:4px 8px; border-radius:6px; color:var(--bad); font:700 12px var(--font); } .sl-del:hover, .sl-del:focus-visible { background:var(--soft); }
+  .sl-pal { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px; margin:2px 0 6px; background:var(--soft); border-radius:8px; }
+  .sl-wheel { display:inline-flex; align-items:center; gap:6px; margin:0; font:600 12px var(--font); }
+  .sl-wheel input[type=color] { width:30px; height:28px; padding:0; cursor:pointer; }
+  .sl-add { display:flex; gap:6px; margin-top:8px; padding-top:10px; border-top:1px solid var(--line); } .sl-add input { flex:1; min-width:0; }
+  .sl-note { margin-top:8px; }
+  /* CUE-LABELS-2026-11-25: a label in any colour. The text is the colour darkened and the ground the colour lightened, so it stays readable. */
+  .stream-custom { color:color-mix(in srgb, var(--sc, #2810dc) 58%, #000); background:color-mix(in srgb, var(--sc, #2810dc) 13%, #fff); }
+  body.cue-stream #msgs > .msg.cue:has(.stream-custom) { border-inline-start-color:var(--sc, #2810dc); }
   body.cue-stream #msgs .stream-filtered { display:none; }
   .fcard-wrap { display:inline-flex; flex-direction:column; align-items:stretch; min-width:0; }
   .fcard-wrap .fdrive { font-size:12px; margin-top:2px; }

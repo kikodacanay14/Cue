@@ -1,5 +1,26 @@
 # Changelog
 
+## Cue 1.28.107: one breadcrumb bar, readable hover, Canvas font (not deployed)
+
+Asked by Kiko on 25 Nov 2026 with screenshots of the Account Specialist channel inside Canvas. Mockup approved ("Approve all") and
+build approved ("Yes, build it") the same day. First slice of the channel screen clean-up; the card, chat box, label and Canvas bar
+parts follow.
+
+- Every header is a breadcrumb, `Cue › Channels › name`. "Cue" opens General and "Channels" opens the channel list, on every width.
+- The channel header no longer draws the second close mark or the three-dot Archive button. The close-thread tick stays.
+- Hover on a coloured channel bar is a light tint, so the icon and text stay readable.
+- The "Messages here go to ... only" line under an agent channel's chat box is gone.
+- All of Cue uses DM Sans, the Canvas and brand font; Quicksand is no longer loaded. The email template font list drops Quicksand too.
+- A channel's chat box is General's: paper clip, text box and a Send button in one row.
+- In General each labelled message has a 4px colour stripe on its left and its label at the upper right.
+- The Project Intake Request card shows one grey "Saved" with Reopen inside the card. The "Saved decision" line, the green box and the decision's chat bubble are gone.
+- Fix: inside Canvas the rule that hides Cue's own top header also hid every card's header band ("Project Intake Request", "Email Intake"). Only the page header is hidden now.
+- The intake request card and the Email Intake card use the Canvas font, carry a 4px colour stripe on the left and show their label at the header's upper right.
+- Own labels: "Labels" in General lists every label with its colour as a dot. Kiko can add, rename and delete his own labels and pick any colour from eight swatches or a colour wheel. They are saved to Cue's settings (owner only), so they follow him to another device.
+
+Live Cue's card code (Apps Script versions 280 to 284) was saved back into `main` first (PR #464), and this branch sits on top of it.
+Local tests: 1009 of 1009 (`node test/cue.test.js`), feature map current.
+
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 
 Cue PR #448, Feature Board card `step-12a-approval-check`. Requires the Step 12A approval readback from CanvasWorkspace PR #723.

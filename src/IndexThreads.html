@@ -4,17 +4,18 @@
     // "Channels" (phone only, back to the list), then its name, close-thread and archive, and ✕ goes back to General.
     setHtml($('lbtns'), ib('data-p="search"', 'search', 'Search channels', searching) + ib('data-p="archived"', 'filter', showArchived ? 'Back to recent channels' : 'Show archived threads', showArchived));
     // MOBILE-BACK-2026-11-18 (Kiko 18 Nov 2026 02:20Z "In mobile there is no way to go back to the left panel"): kept as the phone's way back.
-    var back = '<button class="pane-back" data-p="pane" aria-label="Back to the channels">' + icon('back') + '<span>Channels</span></button>';
-    if (!it) h = back;
+    // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026): the bar is a breadcrumb, Cue › Channels › name. "Cue" opens General and "Channels" the list, on every
+    // width, so the phone's back button, the ✕ and the three-dot Archive button are gone ("There are 2 x for Close? Retain 1 only";
+    // "remove the Archive button already").
+    var back = '<button type="button" data-p="close">Cue</button><span class="sep" aria-hidden="true">›</span><button type="button" data-p="pane">Channels</button>';
+    if (!it) h = '<span class="crumb">' + back + '</span>';
     else {
       var t = thOf(th, it.id), name = it.id === 'sys:flagged' ? 'Flagged' : t ? threadTitle(t) : 'Thread';   // CUE-FLAG-2026-11-18
       var busy = t && t.reqs.some(function (r) { return WORK[r.status] || r.status === 'Scheduled'; });
-      h = back + '<span class="crumb"><span class="t" title="' + esc(name) + '">' + esc(name) + '</span></span>';
+      h = '<span class="crumb">' + back + '<span class="sep" aria-hidden="true">›</span><span class="t" aria-current="page" title="' + esc(name) + '">' + esc(name) + '</span></span>';
       // Kiko 24 Oct: the ✓ shows in every thread that still has an open run (older runs count too); running runs are left alone.
       var open = t && t.reqs.some(function (r) { return !CLOSED[r.status]; });
-      h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '')
-        + (t && t.reqs[0] && t.reqs[0].kind !== 'sweep' && !t.chan && t.reqs.every(function (r) { return CLOSED[r.status]; }) ? ib('data-p="task"', 'more', 'Archive', tbOpen) : '');
-      h += '<span class="pane-x">' + ib('data-p="close"', 'x', 'Back to General') + '</span>';
+      h += (open && !(busy && t.reqs.every(function (r) { return CLOSED[r.status] || WORK[r.status] || r.status === 'Scheduled'; })) ? ib('data-act="close-thread" data-id="' + esc(it.id) + '"', 'check', 'Close this thread') : '');
     }
     setHtml($('ptabs'), h); $('ptabs').className = 'phead' + (it && th[it.id] ? ' cat-' + threadCat(th[it.id]) : '');   // CUE-CANVAS-LOOK-2026-10-31
   }
@@ -946,7 +947,7 @@
     var cat = inThread ? '' : streamCategory(m, thread);
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
     var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
-    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (cat ? ' data-stream-category="' + cat + '"' : '') + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + (cat ? streamPill(cat, streamReqKey(m)) : '') + quote + body + askHtml(m)
+    return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (cat ? ' data-stream-category="' + cat + '"' + (String(streamPrefs.colors[cat] || STREAM_DEFAULT[cat] || '#').charAt(0) === '#' ? ' style="--sc:' + esc(streamHex(cat)) + '"' : '') : '') + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + (cat ? streamPill(cat, streamReqKey(m)) : '') + quote + body + askHtml(m)
       + moreBtn({ reply: rid, flag: fit }) + '</div>';   // CUE-MSG-MENU-2026-11-18: ⋯ holds Reply, Flag and Dismiss
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
@@ -1036,6 +1037,11 @@
      for the rest we can do the violet"; sorting approved "A"; HubSpot is being removed, so it is not CRM here). CRM wins over project. */
   var CAT_CRM = { bids: 1, crm: 1, funnel: 1, contacts: 1, winback: 1, inquiry: 1 };
   var CAT_PROJ = { intake: 1, project: 1, readiness: 1, status: 1, change: 1, cecost: 1, expense: 1, supplier: 1, vendor: 1 };
+  // CUE-ONE-BAR-2026-11-25: a decision tapped on the Project Intake Request card (Approve, Reject, Use this project) is recorded on the card as "Saved",
+  // so its command text is not drawn again as Kiko's chat bubble.
+  function agentDecisionEcho(r, x) {
+    return !!(r && r.agd && r.agd.handover && r.agd.handover.project_inquiry) && /^(Confirm new project [a-f0-9]{8}|New project|Register project|Reject intake|Use project \S+)$/.test(String((x && x.text) || ''));
+  }
   function threadCat(t) {
     var rs = (t && t.reqs) || [];
     if (rs.some(function (r) { return CAT_CRM[r.kind] || /funnel|win-?back|inquiry/i.test(String(r.sweep || r.sub || '')); })) return 'crm';
@@ -1406,7 +1412,7 @@
     // (threadRef), so the box names it.
     var last = !ag && t && t.chan && t.reqs.length > 1 ? t.reqs[t.reqs.length - 1] : null;
     $('tbox').placeholder = ag ? 'Message ' + ag : last ? 'Reply to the newest: ' + String(replyTitle(last.id) || kindName(last)).slice(0, 60) : 'Reply in this thread'; $('tbox').setAttribute('aria-label', $('tbox').placeholder);
-    $('tagnote').hidden = !ag; if (ag) $('tagnote').textContent = 'Messages here go to ' + ag + ' only. Cue does not act on them. Ask Cue in the main chat.';
+    $('tagnote').hidden = true;   // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026: Remove the "Messages here go to....")
   }
   /* AGENT-CHAT-2026-11-16 (Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?"): in an agent's thread each draft or
    * update is a chat bubble from that agent, in time order, and Kiko's replies are his own bubbles. The full card (approve, edit, the
@@ -1467,7 +1473,7 @@
     t.reqs.forEach(function (r) {
       if (agT && r.agd) {
         cards.push({ at: Date.parse(r.created) || 0, html: agentBubble(r) });
-        agentReplies(r).forEach(function (x) { cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
+        agentReplies(r).forEach(function (x) { if (agentDecisionEcho(r, x)) return; cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
         return;
       }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
@@ -1479,7 +1485,7 @@
     t.lines.forEach(function (m) { if (agT && agentEcho(m)) return; h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
     h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
-    if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
+    if (lastR && CLOSED[lastR.status] && h.indexOf('data-act="reopen" data-id="' + esc(lastR.id) + '"') < 0) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
     // CARD-FOLD-2026-11-03 (Kiko 30 Oct 09:55Z "how do i fold this", 09:58Z "i dont see thath"; mockup approved 3 Nov 14:59Z): the Fold
     // button sits inside each card, upper right.
@@ -1504,7 +1510,7 @@
   var STREAM_COLORS = { magenta: 'Magenta', purple: 'Purple', orange: 'Orange', teal: 'Teal', emerald: 'Emerald', slate: 'Slate' };
   var STREAM_DEFAULT = { chat: 'slate', email: 'purple', intake: 'magenta', bids: 'orange', approval: 'teal', update: 'emerald' };
   var STREAM_REQUEST_RE = /^cue-[A-Za-z0-9-]{6,40}$/;
-  var streamPrefs = { filter: '', colors: {}, labels: {} };
+  var streamPrefs = { filter: '', colors: {}, labels: {}, custom: [] };
   try {
     var savedStream = JSON.parse(localStorage.getItem('cue.streamLabels') || '{}') || {};
     if (Object.prototype.hasOwnProperty.call(STREAM_LABELS, savedStream.filter)) streamPrefs.filter = savedStream.filter;
@@ -1517,25 +1523,97 @@
       if (STREAM_REQUEST_RE.test(id) && Object.prototype.hasOwnProperty.call(STREAM_LABELS, k)) streamPrefs.labels[id] = k;
     });
   } catch (e) { /* The stream is still usable when storage is unavailable. */ }
+  // CUE-LABELS-2026-11-25 (Kiko 25 Nov 2026 "Labels - i should be ale to add on my own"; "Colors - use colors as representation, i should also be
+  // able to select from a color wheel or from a selection of colors"; "A. Only me"): own labels sit beside the six built-in ones, a label's
+  // colour is a built-in swatch name or any six-digit hex, and the choices are saved to Cue (cueStreamPrefsSave) so they follow the owner.
+  var STREAM_HEX = { magenta: '#c8106e', purple: '#23006f', orange: '#d95d14', teal: '#087f83', emerald: '#177a53', slate: '#576579' };
+  var STREAM_SWATCHES = ['#c8106e', '#23006f', '#2810dc', '#d95d14', '#087f83', '#177a53', '#8a6d00', '#576579'];
+  function streamAll() {
+    var o = {}; Object.keys(STREAM_LABELS).forEach(function (k) { o[k] = STREAM_LABELS[k]; });
+    (streamPrefs.custom || []).forEach(function (x) { o[x.k] = x.n; });
+    return o;
+  }
+  function streamHex(cat) {
+    var c = streamPrefs.colors[cat] || STREAM_DEFAULT[cat] || '#2810dc';
+    return STREAM_HEX[c] || c;
+  }
+  function streamAdopt(p) {
+    if (!p || typeof p !== 'object') return;
+    if (Array.isArray(p.custom)) streamPrefs.custom = p.custom.filter(function (x, i, a) {
+      return x && /^u[a-z0-9]{1,12}$/.test(x.k) && typeof x.n === 'string' && !!x.n.trim() && a.findIndex(function (y) { return y && y.k === x.k; }) === i;
+    }).slice(0, 30).map(function (x) { return { k: x.k, n: x.n.trim().slice(0, 24).trim() }; });
+    var all = streamAll(), own = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+    Object.keys(p.colors || {}).forEach(function (k) { if (own(all, k) && /^#[0-9a-f]{6}$/i.test(p.colors[k])) streamPrefs.colors[k] = String(p.colors[k]).toLowerCase(); });
+    Object.keys(p.labels || {}).slice(-300).forEach(function (id) { var k = p.labels[id]; if (STREAM_REQUEST_RE.test(id) && own(all, k)) streamPrefs.labels[id] = k; });
+    Object.keys(streamPrefs.labels).forEach(function (id) { if (!own(all, streamPrefs.labels[id])) delete streamPrefs.labels[id]; });
+  }
+  try { streamAdopt(JSON.parse(localStorage.getItem('cue.streamLabels') || '{}')); } catch (e) { /* as above */ }
+  var streamPal = '', streamFromCue = false;
+  function streamLabelName(n) {
+    return String(n || '').replace(/[<>&"']/g, '').replace(/\s+/g, ' ').trim().slice(0, 24).trim();
+  }
+  function streamLabelTaken(name, but) {
+    var all = streamAll(), low = name.toLowerCase();
+    return Object.keys(all).some(function (k) { return k !== but && String(all[k]).toLowerCase() === low; });
+  }
+  function streamLabelAdd(raw) {
+    var name = streamLabelName(raw); if (!name || streamLabelTaken(name, '') || streamPrefs.custom.length >= 30) return '';
+    var k = 'u' + Date.now().toString(36).slice(-8), n = 0; while (streamAll()[k + (n || '')]) n++;
+    k += n || ''; streamPrefs.custom.push({ k: k, n: name }); streamPrefs.colors[k] = '#2810dc';
+    return k;
+  }
+  function streamLabelRename(k, raw) {
+    var name = streamLabelName(raw), row = streamPrefs.custom.filter(function (x) { return x.k === k; })[0];
+    if (!row || !name || streamLabelTaken(name, k)) return false;
+    row.n = name; return true;
+  }
+  function streamLabelDel(k) {
+    streamPrefs.custom = streamPrefs.custom.filter(function (x) { return x.k !== k; }); delete streamPrefs.colors[k];
+    Object.keys(streamPrefs.labels).forEach(function (id) { if (streamPrefs.labels[id] === k) delete streamPrefs.labels[id]; });
+    if (streamPrefs.filter === k) streamPrefs.filter = ''; if (streamPal === k) streamPal = '';
+  }
+  function streamRowsHtml() {
+    var all = streamAll();
+    return Object.keys(all).map(function (k) {
+      var own = !STREAM_LABELS[k], hex = streamHex(k), nm = esc(all[k]);
+      var row = '<div class="sl-row"><button type="button" class="sl-sw" data-sl="pal" data-k="' + k + '" style="background:' + esc(hex) + '" title="Change the colour of ' + nm + '" aria-label="Change the colour of ' + nm + '" aria-expanded="' + (streamPal === k) + '"></button>'
+        + (own ? '<input class="sl-name" data-sl-name="' + k + '" value="' + nm + '" maxlength="24" aria-label="Label name"><button type="button" class="sl-del" data-sl="del" data-k="' + k + '">Delete</button>'
+          : '<span class="sl-name">' + nm + '</span><span class="small muted">Built in</span>') + '</div>';
+      if (streamPal === k) row += '<div class="sl-pal">' + STREAM_SWATCHES.map(function (c) {
+        return '<button type="button" class="sl-sw' + (c === hex ? ' on' : '') + '" data-sl="set" data-k="' + k + '" data-c="' + c + '" style="background:' + c + '" aria-label="Colour ' + c + '"></button>'; }).join('')
+        + '<label class="sl-wheel">Other colour <input type="color" data-sl-wheel="' + k + '" value="' + esc(hex) + '"></label></div>';
+      return row;
+    }).join('')
+      + '<div class="sl-add"><input id="stream-label-new" placeholder="New label name" aria-label="New label name" maxlength="24"><button type="button" class="btn sm" data-sl="add">Add</button></div>'
+      + '<div class="small muted sl-note">Only you see these. They follow you on every device.</div>';
+  }
   function renderStreamTools() {
     var tools = $('stream-tools'); if (!tools) return;
     if (!tools.firstElementChild) {
       var option = function (value, label) { return '<option value="' + esc(value) + '">' + esc(label) + '</option>'; };
-      tools.innerHTML = '<label for="stream-filter">Filter</label><select id="stream-filter">' + option('', 'All messages')
-        + Object.keys(STREAM_LABELS).map(function (k) { return option(k, STREAM_LABELS[k]); }).join('') + '</select>'
-        + '<details class="stream-label-menu"><summary>Label colors</summary><div>' + Object.keys(STREAM_LABELS).map(function (k) {
-          return '<label>' + STREAM_LABELS[k] + '<select data-stream-color="' + k + '">' + Object.keys(STREAM_COLORS).map(function (c) {
-            return option(c, STREAM_COLORS[c]); }).join('') + '</select></label>';
-        }).join('') + '</div></details>';
+      // CUE-LABELS-2026-11-25: "Labels" lists every label with its colour as a dot; own labels can be added, renamed and deleted.
+      tools.innerHTML = '<label for="stream-filter">Filter</label><select id="stream-filter"></select>'
+        + '<details class="stream-label-menu"><summary>Labels</summary><div id="stream-label-rows"></div></details>';
+      tools.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-sl]') : null; if (!b) return;
+        var act = b.getAttribute('data-sl'), k = b.getAttribute('data-k') || '', c = b.getAttribute('data-c') || '';
+        if (act === 'pal') { streamPal = streamPal === k ? '' : k; return renderStreamTools(); }
+        if (act === 'set') { if (!streamAll()[k] || STREAM_SWATCHES.indexOf(c) < 0) return; streamPrefs.colors[k] = c; return saveStreamPrefs(); }
+        if (act === 'del') { streamLabelDel(k); return saveStreamPrefs(); }
+        if (act === 'add') { var made = streamLabelAdd($('stream-label-new').value); if (!made) return $('stream-label-new').focus(); $('stream-label-new').value = ''; streamPal = made; saveStreamPrefs(); }
+      });
       tools.addEventListener('change', function (e) {
         var el = e.target, k = el.getAttribute('data-stream-color');
+        var all = streamAll(), wheel = el.getAttribute('data-sl-wheel'), rename = el.getAttribute('data-sl-name');
         if (el.id === 'stream-filter') {
-          if (el.value && !Object.prototype.hasOwnProperty.call(STREAM_LABELS, el.value)) return;
+          if (el.value && !Object.prototype.hasOwnProperty.call(all, el.value)) return;
           streamPrefs.filter = el.value;
-        } else {
-          if (!Object.prototype.hasOwnProperty.call(STREAM_LABELS, k) || !Object.prototype.hasOwnProperty.call(STREAM_COLORS, el.value)) return;
-          streamPrefs.colors[k] = el.value;
-        }
+        } else if (wheel) {
+          if (!Object.prototype.hasOwnProperty.call(all, wheel) || !/^#[0-9a-f]{6}$/i.test(el.value)) return;
+          streamPrefs.colors[wheel] = el.value.toLowerCase();
+        } else if (rename) {
+          if (!streamLabelRename(rename, el.value)) { el.value = all[rename] || ''; return; }
+        } else return;
         saveStreamPrefs();
       });
       $('msgs').addEventListener('change', function (e) {
@@ -1543,17 +1621,21 @@
         if (!STREAM_REQUEST_RE.test(id)) return;
         if (!k) delete streamPrefs.labels[id];
         else {
-          if (!Object.prototype.hasOwnProperty.call(STREAM_LABELS, k)) return;
+          if (!Object.prototype.hasOwnProperty.call(streamAll(), k)) return;
           delete streamPrefs.labels[id]; streamPrefs.labels[id] = k;
           Object.keys(streamPrefs.labels).slice(0, -300).forEach(function (old) { delete streamPrefs.labels[old]; });
         }
         saveStreamPrefs();
       });
     }
-    $('stream-filter').value = streamPrefs.filter;
-    tools.querySelectorAll('[data-stream-color]').forEach(function (el) {
-      var k = el.getAttribute('data-stream-color'); el.value = streamPrefs.colors[k] || STREAM_DEFAULT[k];
-    });
+    if (!streamFromCue && typeof state !== 'undefined' && state && state.stream_prefs) {   // Cue's saved copy wins over this browser's
+      streamFromCue = true; streamAdopt(state.stream_prefs); setTimeout(function () { dirty(); renderChat(); }, 0);
+    }
+    var labelsNow = streamAll(), filterEl = $('stream-filter'), rowsEl = $('stream-label-rows');
+    if (!Object.prototype.hasOwnProperty.call(labelsNow, streamPrefs.filter)) streamPrefs.filter = '';
+    filterEl.innerHTML = '<option value="">All messages</option>' + Object.keys(labelsNow).map(function (k) { return '<option value="' + k + '">' + esc(labelsNow[k]) + '</option>'; }).join('');
+    filterEl.value = streamPrefs.filter;
+    if (rowsEl) setHtml(rowsEl, streamRowsHtml());
     var cat = '';
     Array.prototype.forEach.call($('msgs').children, function (el) {
       cat = el.getAttribute('data-stream-category') || (el.classList.contains('k0bids') ? 'bids'
@@ -1567,7 +1649,7 @@
   }
   function streamCategory(m, thread) {
     var key = streamReqKey(m);
-    if (key && streamPrefs.labels[key]) return streamPrefs.labels[key];
+    if (key && streamPrefs.labels[key] && streamAll()[streamPrefs.labels[key]]) return streamPrefs.labels[key];
     var id = String(m.request_id || '').replace(/^[>%@↩]/, ''), r = id && state.requests.find(function (x) { return x.id === id; });
     var kind = r && r.kind, text = String(m.text || ''), source = String(m.src || '');
     if (kind === 'mail' || kind === 'email' || /^(New email|New in this conversation) · /.test(text) || /(?:^|\|)mail:/.test(source)) return 'email';
@@ -1578,16 +1660,20 @@
   }
   function saveStreamPrefs() {
     try { localStorage.setItem('cue.streamLabels', JSON.stringify(streamPrefs)); } catch (e) {}
+    var colors = {}; Object.keys(streamPrefs.colors).forEach(function (k) { colors[k] = streamHex(k); });   // CUE-LABELS-2026-11-25: Cue keeps hex colours
+    call('cueStreamPrefsSave', [{ custom: streamPrefs.custom, colors: colors, labels: streamPrefs.labels }], function () {}, function () {});
     dirty(); renderChat();
   }
   function streamPill(cat, id) {
-    var pill = '<span class="stream-pill stream-' + (streamPrefs.colors[cat] || STREAM_DEFAULT[cat]) + '">' + STREAM_LABELS[cat] + '</span>';
+    var col = streamPrefs.colors[cat] || STREAM_DEFAULT[cat] || '#2810dc', name = streamAll()[cat] || STREAM_LABELS.update;
+    var pill = col.charAt(0) === '#' ? '<span class="stream-pill stream-custom" style="--sc:' + esc(col) + '">' + esc(name) + '</span>'
+      : '<span class="stream-pill stream-' + col + '">' + esc(name) + '</span>';
     if (!id) return pill;
     var set = streamPrefs.labels[id] || '';
     return '<details class="stream-label-control" data-stream-label-control><summary aria-label="Change message label">' + pill
       + '</summary><label>Message label<select aria-label="Message label" data-stream-label="' + esc(id) + '">'
-      + '<option value="">Automatic</option>' + Object.keys(STREAM_LABELS).map(function (k) {
-        return '<option value="' + k + '"' + (k === set ? ' selected' : '') + '>' + STREAM_LABELS[k] + '</option>';
+      + '<option value="">Automatic</option>' + Object.keys(streamAll()).map(function (k) {
+        return '<option value="' + k + '"' + (k === set ? ' selected' : '') + '>' + esc(streamAll()[k]) + '</option>';
       }).join('') + '</select></label></details>';
   }
   function fileCardHtml(x) {

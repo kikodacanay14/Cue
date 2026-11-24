@@ -34,12 +34,13 @@ test('C106S3: an unavailable Requirements image remains openable directly in Dri
 });
 test('C106S4: filtering hides other stream entries together with their adjacent action strip', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
-  const at = src.indexOf('  function renderStreamTools('), end = src.indexOf('  function streamReqKey(');
+  // CUE-LABELS-2026-11-25: the tool now also lists own labels, so the run includes the label settings and helpers declared before it.
+  const at = src.indexOf('  var STREAM_LABELS ='), end = src.indexOf('  function streamReqKey(');
   const elt = (category, cls) => ({ seen: false, getAttribute: k => k === 'data-stream-category' ? category : null,
     classList: { contains: k => k === cls, toggle(k, v) { this.filtered = k === 'stream-filtered' && v; } } });
   const rows = [elt('email'), elt(null, 'actions'), elt('intake'), elt(null, 'actions'), elt(null, 'k0bids')];
   const tools = { firstElementChild: {}, querySelectorAll: () => [] }, sel = {};
-  const ctx = { streamPrefs: { filter: 'intake' }, $: k => ({ 'stream-tools': tools, 'stream-filter': sel, msgs: { children: rows } }[k]) };
+  const ctx = { localStorage: { getItem: () => '{"filter":"intake"}' }, esc: x => String(x), setHtml: () => {}, $: k => ({ 'stream-tools': tools, 'stream-filter': sel, msgs: { children: rows } }[k]) };
   vm.runInNewContext(src.slice(at, end) + '\nrenderStreamTools()', ctx);
   assert.deepStrictEqual(rows.map(r => r.classList.filtered), [true, true, false, false, true]);
   assert.strictEqual(sel.value, 'intake');

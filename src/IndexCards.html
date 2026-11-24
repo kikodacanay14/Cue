@@ -1029,17 +1029,17 @@
           editor + '</div></td></tr>';
     }).join('');
     var attention = rows.filter(function (entry) { return entry.kind === 'held' && entry.row.decision_needed; }).length;
-    var style = '<style>.card.cue-email-report{box-sizing:border-box;padding:0;border:1px solid #e7e0ef;border-radius:19px;overflow:hidden;background:#fff;color:#20163a;font:15px/1.5 system-ui}'
+    var style = '<style>.card.cue-email-report{box-sizing:border-box;padding:0;border:1px solid #e7e0ef;border-radius:19px;overflow:hidden;background:#fff;color:#20163a;font:15px/1.5 var(--font,system-ui)}'
       + '.cue-email-hero{padding:22px;background:#27114c;color:#fff}.cue-email-hero h2{font-size:clamp(25px,5vw,36px);line-height:1.1;letter-spacing:-.04em;margin:0}.cue-email-hero p{color:#e4d8f9;margin:7px 0 0}'
       + '.cue-email-body{padding:20px}.cue-email-run{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:12px}.cue-email-run span,.cue-email-from{color:#625675;font-size:13px}.cue-email-from{display:block;margin:0}'
       + '.cue-email-report .cue-intake-routes table{width:100%;border-collapse:collapse;table-layout:auto}.cue-email-report th,.cue-email-report td{text-align:left;padding:10px;border-bottom:1px solid #e7e0ef;word-break:normal;overflow-wrap:normal}.cue-email-report th{background:#f4effa}.cue-email-report th:first-child,.cue-email-report .agrow td:first-child{width:36px}'
       + '.cue-email-report .cue-email-toggle{border:0;background:transparent;color:#5432a2;cursor:pointer;padding:4px 7px}.cue-email-pill{display:inline-block;background:#eee6fa;color:#48258a;border-radius:20px;padding:3px 9px;font-weight:700;font-size:12px;white-space:nowrap}.cue-email-pill.good,.cue-email-receipt{background:#e3f3e6;color:#17552e}.cue-email-pill.warn{background:#fff0d1;color:#6a4300}.cue-email-pill.bad{background:#fde5ea;color:#8b1734}'
       + '.cue-email-report .cue-email-detail-row td{padding:0}.cue-email-detail{padding:14px;background:#f8f5fb;overflow-wrap:anywhere}.cue-email-detail p{margin:0 0 10px}.cue-email-detail label{display:block;margin-top:10px;font-weight:700}.cue-email-detail select,.cue-email-detail textarea{display:block;width:auto;max-width:100%;box-sizing:border-box;margin-top:5px;padding:8px 10px;border:1px solid #c9bed9;border-radius:8px;background:#fff;color:#20163a;font:inherit}.cue-email-detail textarea{width:100%;min-height:58px;resize:vertical}'
-      + '.cue-email-report .cue-email-save{margin-top:8px;padding:9px 12px;border:0;border-radius:8px;background:#5432a2;color:#fff;font:700 14px system-ui;cursor:pointer}.cue-email-report .cue-email-save:disabled{opacity:.5;cursor:not-allowed}.cue-email-report :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
+      + '.cue-email-report .cue-email-save{margin-top:8px;padding:9px 12px;border:0;border-radius:8px;background:#5432a2;color:#fff;font:700 14px var(--font,system-ui);cursor:pointer}.cue-email-report .cue-email-save:disabled{opacity:.5;cursor:not-allowed}.cue-email-report :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
       + '.cue-email-report [hidden]{display:none!important}.cue-email-outcome{margin:8px 0}.cue-email-outcome dl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0}.cue-email-outcome dt{font-size:12px;color:#625675}.cue-email-outcome dd{margin:0}.cue-email-receipt{padding:8px;border-radius:7px}'
       + '@media(max-width:600px){.cue-email-body,.cue-email-hero{padding:14px}.cue-email-report .cue-intake-routes table,.cue-email-report .cue-intake-routes tbody{display:block}.cue-email-report thead{display:none}.cue-email-report .agrow{display:grid;grid-template-columns:24px minmax(0,1fr);padding:7px 0;border-bottom:1px solid #e7e0ef}.cue-email-report .agrow td{display:block;width:auto;min-width:0;border:0;padding:3px}.cue-email-report .agrow td:nth-child(n+3){grid-column:2}.cue-email-report .agrow td:nth-child(4)::before{content:"Destination: ";font-weight:700}.cue-email-report .cue-email-detail-row,.cue-email-report .cue-email-detail-row td{display:block;width:100%;max-width:none;box-sizing:border-box}}</style>';
     return style + '<div class="card cue-email-report" data-card="' + id +
-      '"><header class="cue-email-hero"><h2>Email Intake</h2><p>Review a run and correct where individual emails go.</p></header>' +
+      '"><header class="cue-email-hero"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2>Email Intake</h2>' + cardLabel('email') + '</div><p>Review a run and correct where individual emails go.</p></header>' +
       '<div class="cue-email-body"><div class="cue-email-run"><strong>' + esc(I.read_at || I.run_id || 'Email Intake run') +
       '</strong><span>' + esc(String(I.total_read != null ? I.total_read : rows.length)) + ' emails · ' + attention +
       ' need attention</span></div><div class="cue-email-run"><span>' + esc(I.mailbox || '') +
@@ -1133,8 +1133,8 @@
       box.innerHTML = '<style>#cue-r1-zoom{box-sizing:border-box;width:min(96vw,1100px);height:min(92vh,900px);padding:0;border:1px solid #dfd6eb;border-radius:12px;background:#fff;color:#241841}'
         + '#cue-r1-zoom[open]{display:flex;flex-direction:column}#cue-r1-zoom::backdrop{background:rgba(24,12,48,.6)}'
         + '#cue-r1-zoom header{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #dfd6eb;background:#faf8fd}'
-        + '#cue-r1-zoom header b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px system-ui}'
-        + '#cue-r1-zoom button{min-width:38px;min-height:38px;padding:6px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px system-ui;cursor:pointer}'
+        + '#cue-r1-zoom header b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px var(--font,system-ui)}'
+        + '#cue-r1-zoom button{min-width:38px;min-height:38px;padding:6px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font,system-ui);cursor:pointer}'
         + '#cue-r1-zoom .stage{flex:1;overflow:auto;background:#f1edf7;text-align:center}#cue-r1-zoom img{display:block;margin:auto;max-width:none}</style>'
         + '<header><b></b><button type="button" data-z="out" aria-label="Zoom out" title="Zoom out">−</button><span data-z="pct" aria-live="polite"></span>'
         + '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-z="fit">Fit</button>'
@@ -1165,6 +1165,11 @@
     var drive = /^https:\/\/drive\.google\.com\/thumbnail\?id=([\w-]{10,100})&/.exec(im.src);
     agdInquiryZoom(drive ? 'https://drive.google.com/thumbnail?id=' + drive[1] + '&sz=w2400' : im.src, t.getAttribute('data-name') || 'Picture');
   }, true);
+  // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "keep the color one the left of each message and card"; "labels - place them on upper right"): a card's
+  // label is General's label pill for that kind of message, in the colour chosen for it.
+  function cardLabel(cat) {
+    return typeof streamPill === 'function' ? streamPill(cat, '') : '';
+  }
   function agdInquiryHtml(r, canReply, unread) {
     var A = r.agd, I = A.handover.project_inquiry, id = esc(r.id), review = I.stage === 'review';
     var current = review && /^[a-f0-9]{8}$/.test(I.card_version || '') && Array.isArray(I.categories);
@@ -1260,7 +1265,7 @@
       + '" aria-label="Edit project details" title="Edit project details">✎</button><button type="button" hidden class="btn cue-r1-primary" data-act="agd-save-intake" data-id="'
       + id + '">Save edits</button>' : '';
     var style = '<style>.card.cue-r1-inquiry{box-sizing:border-box;padding:0;border:1px solid #dfd6eb;border-radius:17px;background:#fff;color:#241841;overflow:hidden}'
-      + '.cue-r1-inquiry .cue-r1-head{padding:12px 20px;background:#281249;color:#fff}.cue-r1-inquiry .cue-r1-head h2{margin:0;font:750 clamp(22px,5vw,32px)/1.2 system-ui;letter-spacing:-.025em}'
+      + '.cue-r1-inquiry .cue-r1-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#281249;color:#fff}.cue-r1-inquiry .cue-r1-head .stream-pill,.cue-email-hero .stream-pill{display:inline-block;flex:none;margin:0}.card.cue-r1-inquiry{border-inline-start:4px solid #C8106E}.card.cue-email-report{border-inline-start:4px solid #23006F}.cue-r1-inquiry .cue-r1-head h2{margin:0;font:700 clamp(22px,5vw,32px)/1.2 var(--font,system-ui);letter-spacing:-.025em}'
       + '.cue-r1-inquiry .cue-r1-body{padding:12px 20px 16px}.cue-r1-inquiry .facts{width:100%;border-collapse:collapse}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{text-align:left;padding:5px 8px;border-bottom:1px solid #eee7f5;overflow-wrap:anywhere}'
       + '.cue-r1-inquiry .facts th{width:32%;color:#493564}.cue-r1-inquiry details{margin-top:8px;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd}'
       + '.cue-r1-inquiry summary{cursor:pointer;font-weight:700}.cue-r1-editor{margin-top:0}.cue-r1-editor h3{margin:0 0 6px;font-size:16px}'
@@ -1278,18 +1283,20 @@
       + '.cue-r1-inquiry .cue-r1-thumb img{display:block;width:100%;height:100%;object-fit:cover}.cue-r1-inquiry .cue-r1-zoom-mark{position:absolute;right:4px;bottom:4px;display:block;margin:0;padding:0 5px;border-radius:6px;background:rgba(40,18,73,.8);color:#fff;font-size:15px;line-height:20px}'
       + '.cue-r1-inquiry .cue-r1-design{background:#faf8fd}.cue-r1-inquiry .cue-r1-choices label{display:inline-flex;align-items:center;min-height:28px;gap:5px;margin:0 12px 2px 0}'
       + '.cue-r1-deliverables{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px}.cue-r1-inquiry .cue-r1-deliverables label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:7px;margin:0}.cue-r1-deliverables input{justify-self:start}@media(max-width:600px){.cue-r1-deliverables{grid-template-columns:repeat(2,minmax(0,1fr))}}'
-      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{margin:10px 0 0;padding:8px 10px;border:1px solid var(--ok,#1E8E57);border-radius:8px;background:#f1faf5;color:#17613c;font-weight:650}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
-      + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px system-ui;cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
+      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 0;color:var(--muted,#5B5766);font-weight:600}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
+      + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font,system-ui);cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
       + '.cue-r1-inquiry button:disabled{opacity:.55;cursor:not-allowed}.cue-r1-inquiry :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
       + '@media(max-width:500px){.cue-r1-inquiry .cue-r1-head,.cue-r1-inquiry .cue-r1-body{padding:14px}.cue-r1-fields{grid-template-columns:minmax(0,1fr)}.cue-r1-inquiry .actions{padding:12px 14px}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{padding:5px 4px}}</style>';
     return style + '<div class="card cue-r1-inquiry" data-card="' + id + '"><header class="cue-r1-head"><h2>'
-      + (review ? 'Project Intake Request' : 'New project registration') + '</h2></header><div class="cue-r1-body">'
+      + (review ? 'Project Intake Request' : 'New project registration') + '</h2>' + cardLabel('intake') + '</header><div class="cue-r1-body">'
       + editForm
-      + (agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status">' + (agdIntakeSaved[r.id] === I.card_version
-        ? 'Saved. This card now shows your saved edits.' : 'Saved. Refreshing this card…') + '</p>' : '')
+      // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "Remove the 3 Save confirmation use 1 only"; "Reopen should be in the same card"; "Remove the Green Box";
+      // "Update copy. 'Saved' only"; "Make Saved colored gray"): one grey "Saved". After a saved decision it carries Reopen.
+      + (settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'
+        : agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status"><span>' + (agdIntakeSaved[r.id] === I.card_version ? 'Saved' : 'Saved. Refreshing this card…') + '</span></p>' : '')
       + evidence + projectPicker
       + (!review && A.handover.summary ? '<details><summary>Registration details</summary><div style="white-space:pre-wrap">' + esc(A.handover.summary) + '</div></details>' : '')
-      + (settled ? '<p>Saved decision: ' + esc(String(settled.text).replace(/^Confirm new project [a-f0-9]{8}$/, 'Confirm new project')) + '</p>' :
+      + (settled ? '' :
         checking ? '<p>Checking whether your decision was saved. Refresh Cue if this message stays here.</p>' :
         !current ? '<p>This request is out of date. Ask Account Specialist for the current card.</p>' : '')
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
