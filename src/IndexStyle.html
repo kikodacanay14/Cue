@@ -152,7 +152,9 @@
   .fcard .fth { height:64px; border-radius:6px; background:#EFE9DC center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; overflow:hidden; }
   .fcard .fth img { width:100%; height:100%; object-fit:cover; }
   .fcard .fn { font-size:14px; line-height:1.3; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .tcomposer { flex:none; background:var(--side); padding:8px 14px 10px; }
+  /* CUE-ONE-BAR-2026-11-25: a channel's chat box is General's composer (same ground, line, padding and width). */
+  .tcomposer { flex:none; background:var(--head); border-top:1px solid var(--line); padding:10px 16px; }
+  .tcomposer .row, .tcomposer .chips, .tcomposer #tagnote { max-width:828px; margin-inline:auto; } .tcomposer .chips { margin-top:0; } .tcomposer .chips .chip { margin-top:8px; }
   /* Kiko 17:42Z: a thread's task card minimizes, like Claude's, to a bar that sits on top of the reply box. */
   .tdock { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; margin:0 0 8px; padding:8px 12px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
   .tdock:hover, .tdock:focus-visible { border-color:var(--muted); }
@@ -524,7 +526,7 @@
   body.in-canvas .trow { padding:5px 8px 5px 10px; gap:8px; } body.in-canvas .trow .tx b { font-size:13.5px; } body.in-canvas .trow .tx span { font-size:12px; -webkit-line-clamp:1; }
   body.in-canvas .trow .chip, body.in-canvas .trow .tm { font-size:12px; }
   body.in-canvas .card { padding:10px 12px; margin-bottom:8px; } body.in-canvas .msg { padding:7px 10px; max-width:92%; }
-  body.in-canvas .composer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
+  body.in-canvas .composer, body.in-canvas .tcomposer { padding:6px 10px; } body.in-canvas textarea { min-height:36px; }
   body.in-canvas .btn { min-height:34px; padding:0 14px; font-size:13px; }
   /* UI-RULES-2026-10-30 (Kiko 30 Oct 2026 06:12Z, his words: "Tables: Headers are always aligned Center. Columns with Financial
      values are alignes Center. All rows are aligned in the middle. Table headers have darker colors on in bold or a size bigger than
@@ -716,7 +718,11 @@
   body.cue-stream #scroller main, body.cue-stream #tmsgs { width:100%; max-width:920px; margin-inline:auto; }
   body.cue-stream #msgs > .msg.me, body.cue-stream #tmsgs > .msg.me { background:var(--stream-pale); border:1px solid #F2B8D6; color:var(--text); align-self:flex-end; }
   body.cue-stream #msgs > .msg.cue, body.cue-stream #tmsgs > .msg.cue { background:#fff; align-self:flex-start; }
-  body.cue-stream #msgs > .msg.cue:has(.stream-pill) { border-inline-start:3px solid var(--stream-magenta); }
+  body.cue-stream #msgs > .msg.cue:has(.stream-pill) { border-inline-start:4px solid var(--stream-magenta); }
+  /* CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "keep the color one the left of each message and card"; "labels - place them on upper right"):
+     the label sits at the message's upper right; the text wraps under it. */
+  body.cue-stream #msgs > .msg > .stream-label-control, body.cue-stream #msgs > .msg > .stream-pill { float:right; margin:0 0 4px 12px; }
+  body.cue-stream #msgs > .msg > .stream-label-control[open] { float:none; margin-left:0; }
   body.cue-stream #msgs > .msg.cue:has(.stream-purple) { border-inline-start-color:#23006F; }
   body.cue-stream #msgs > .msg.cue:has(.stream-orange) { border-inline-start-color:#D95D14; }
   body.cue-stream #msgs > .msg.cue:has(.stream-teal) { border-inline-start-color:#087F83; }

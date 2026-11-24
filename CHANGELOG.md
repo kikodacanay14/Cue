@@ -11,9 +11,11 @@ parts follow.
 - Hover on a coloured channel bar is a light tint, so the icon and text stay readable.
 - The "Messages here go to ... only" line under an agent channel's chat box is gone.
 - All of Cue uses DM Sans, the Canvas and brand font; Quicksand is no longer loaded. The email template font list drops Quicksand too.
+- A channel's chat box is General's: paper clip, text box and a Send button in one row.
+- In General each labelled message has a 4px colour stripe on its left and its label at the upper right.
 
-Do not deploy this branch as it stands: live Cue's card code (Apps Script versions 280 to 283, 24 Nov 2026) is ahead of `main`, so a
-deploy from `main` would remove those card fixes. Local tests: 1000 of 1000 (`node test/cue.test.js`), feature map current.
+Live Cue's card code (Apps Script versions 280 to 284) was saved back into `main` first (PR #464), and this branch sits on top of it.
+Local tests: 1002 of 1002 (`node test/cue.test.js`), feature map current.
 
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 

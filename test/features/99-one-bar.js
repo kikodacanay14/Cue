@@ -29,3 +29,17 @@ test('OB5 all of Cue uses the Canvas font: DM Sans is loaded and named, Quicksan
   assert.ok(/fonts\.googleapis\.com\/css2\?family=DM\+Sans:/.test(OB.src('Index.html')) && /--font:'DM Sans', system-ui/.test(OB.src('IndexStyle.html')));
   assert.ok(!/family=Quicksand/.test(OB.page) && !/'Quicksand'/.test(OB.page) && !/Quicksand/.test(OB.src('CueTemplates.gs')), 'no Quicksand in the page or the email templates');
 });
+test('OB6 a channel\'s chat box is General\'s: paper clip, text box and a Send button in one row, on the same ground', () => {
+  const index = OB.src('Index.html'), css = OB.src('IndexStyle.html');
+  const t = index.slice(index.indexOf('<div class="tcomposer" id="tcomposer"'), index.indexOf('</aside>', index.indexOf('id="tcomposer"')));
+  assert.ok(/<div class="row">\s*<button class="btn ghost attach" id="tattach"[^>]*>📎<\/button>\s*<textarea id="tbox"[^>]*><\/textarea>\s*<button class="btn" id="tsend">Send<\/button>\s*<\/div>/.test(t), t);
+  assert.ok(!/class="rbox"|class="rtools"/.test(t), 'the old boxed input and the tools row are gone');
+  assert.ok(/<button class="btn ghost attach" id="attach"[^>]*>📎<\/button>/.test(index) && /<button class="btn" id="send">Send<\/button>/.test(index), 'General uses the same controls');
+  assert.ok(/\n  \.tcomposer \{ flex:none; background:var\(--head\); border-top:1px solid var\(--line\); padding:10px 16px; \}/.test(css) && /\n  \.composer \{ background:var\(--head\); border-top:1px solid var\(--line\); padding:10px 16px; \}/.test(css), 'same ground, line and padding');
+  assert.ok(OB.page.includes("$('tsend').onclick = function () { if (openThread) sendFrom($('tbox'), 'tfiles', threadRef()); };") && OB.page.includes("$('tattach').onclick = function () { hostFiles('tfiles'); $('picker').click(); };"), 'send and attach still do what they did');
+});
+test('OB7 General: each labelled message has a 4px colour stripe on its left and its label at the upper right', () => {
+  const css = OB.src('IndexStyle.html');
+  assert.ok(/body\.cue-stream #msgs > \.msg\.cue:has\(\.stream-pill\) \{ border-inline-start:4px solid var\(--stream-magenta\); \}/.test(css));
+  assert.ok(/body\.cue-stream #msgs > \.msg > \.stream-label-control, body\.cue-stream #msgs > \.msg > \.stream-pill \{ float:right; margin:0 0 4px 12px; \}/.test(css));
+});
