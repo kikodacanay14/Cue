@@ -43,3 +43,29 @@ test('OB7 General: each labelled message has a 4px colour stripe on its left and
   assert.ok(/body\.cue-stream #msgs > \.msg\.cue:has\(\.stream-pill\) \{ border-inline-start:4px solid var\(--stream-magenta\); \}/.test(css));
   assert.ok(/body\.cue-stream #msgs > \.msg > \.stream-label-control, body\.cue-stream #msgs > \.msg > \.stream-pill \{ float:right; margin:0 0 4px 12px; \}/.test(css));
 });
+test('OB8 the Project Intake Request card shows one grey "Saved" with Reopen inside it; the decision is not repeated as a chat bubble', () => {
+  const cards = OB.src('IndexCards.html'), th = OB.src('IndexThreads.html');
+  assert.ok(!/Saved decision: /.test(cards) && !/This card now shows your saved edits/.test(cards), 'the two extra notices are gone');
+  assert.ok(cards.includes(`(settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'`), 'Saved and Reopen on one line in the card');
+  assert.ok(/\.cue-r1-inquiry \.cue-r1-saved\{display:flex;[^}]*color:var\(--muted,#5B5766\);font-weight:600\}/.test(cards) && !/\.cue-r1-saved\{[^}]*(border:1px|background:#f1faf5)/.test(cards), 'grey text, no green box');
+  assert.ok(th.includes(`h.indexOf('data-act="reopen" data-id="' + esc(lastR.id) + '"') < 0`), 'the thread adds Reopen only when no card drew it');
+  const a = OB.page.indexOf('  function agentDecisionEcho('), ctx = {}; vm.createContext(ctx);
+  vm.runInContext(OB.page.slice(a, OB.page.indexOf('\n  }\n', a) + 4), ctx);
+  const card = { agd: { handover: { project_inquiry: {} } } };
+  ['Confirm new project 2d55a58c', 'New project', 'Register project', 'Reject intake', 'Use project S-31753672PA'].forEach(t => assert.strictEqual(ctx.agentDecisionEcho(card, { text: t }), true, t));
+  assert.strictEqual(ctx.agentDecisionEcho(card, { text: 'Please confirm the venue first' }), false, 'a typed reply still shows');
+  assert.strictEqual(ctx.agentDecisionEcho({ agd: { handover: {} } }, { text: 'Reject intake' }), false, 'only on the intake request card');
+});
+test('OB9 inside Canvas only the page\'s own header is hidden; a card\'s header band (Project Intake Request, Email Intake) still shows', () => {
+  const css = OB.src('IndexStyle.html');
+  assert.ok(/body\.in-canvas > header \{ display:none; \}/.test(css), 'the page header, a direct child of body');
+  assert.ok(!/body\.in-canvas header\b/.test(css), 'no rule reaches a <header> inside a card');
+  assert.ok(/<header class="cue-r1-head">/.test(OB.src('IndexCards.html')) && /<header class="cue-email-hero">/.test(OB.src('IndexCards.html')), 'the cards do use <header>');
+});
+test('OB10 the intake request card and the Email Intake card: Canvas font, a 4px colour stripe on the left, the label at the header\'s upper right', () => {
+  const cards = OB.src('IndexCards.html');
+  assert.ok(!/font:[^;}']*\d(px)?[^;}']* system-ui/.test(cards), 'no card style names system-ui as its font');
+  assert.ok(/\.card\.cue-r1-inquiry\{border-inline-start:4px solid #C8106E\}\.card\.cue-email-report\{border-inline-start:4px solid #23006F\}/.test(cards));
+  assert.ok(cards.includes("'</h2>' + cardLabel('intake') + '</header>") && cards.includes("<h2>Email Intake</h2>' + cardLabel('email') + '</div>"), 'label inside each header');
+  assert.ok(/\.cue-r1-inquiry \.cue-r1-head\{display:flex;align-items:center;justify-content:space-between;/.test(cards), 'title left, label right');
+});

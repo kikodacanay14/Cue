@@ -1037,6 +1037,11 @@
      for the rest we can do the violet"; sorting approved "A"; HubSpot is being removed, so it is not CRM here). CRM wins over project. */
   var CAT_CRM = { bids: 1, crm: 1, funnel: 1, contacts: 1, winback: 1, inquiry: 1 };
   var CAT_PROJ = { intake: 1, project: 1, readiness: 1, status: 1, change: 1, cecost: 1, expense: 1, supplier: 1, vendor: 1 };
+  // CUE-ONE-BAR-2026-11-25: a decision tapped on the Project Intake Request card (Approve, Reject, Use this project) is recorded on the card as "Saved",
+  // so its command text is not drawn again as Kiko's chat bubble.
+  function agentDecisionEcho(r, x) {
+    return !!(r && r.agd && r.agd.handover && r.agd.handover.project_inquiry) && /^(Confirm new project [a-f0-9]{8}|New project|Register project|Reject intake|Use project \S+)$/.test(String((x && x.text) || ''));
+  }
   function threadCat(t) {
     var rs = (t && t.reqs) || [];
     if (rs.some(function (r) { return CAT_CRM[r.kind] || /funnel|win-?back|inquiry/i.test(String(r.sweep || r.sub || '')); })) return 'crm';
@@ -1468,7 +1473,7 @@
     t.reqs.forEach(function (r) {
       if (agT && r.agd) {
         cards.push({ at: Date.parse(r.created) || 0, html: agentBubble(r) });
-        agentReplies(r).forEach(function (x) { cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
+        agentReplies(r).forEach(function (x) { if (agentDecisionEcho(r, x)) return; cards.push({ at: Date.parse(x.at) || Date.parse(r.created) || 0, html: msgHtml({ who: 'Kiko', text: x.text, time: x.at }, '', true) }); });
         return;
       }
       var c = cardOf(r); if (c) cards.push({ at: Date.parse(r.card_at || r.created) || 0, html: foldIn(c) });
@@ -1480,7 +1485,7 @@
     t.lines.forEach(function (m) { if (agT && agentEcho(m)) return; h += put((Date.parse(m.time) || 0) - 5000) + msgHtml(m, '', true); });   // a card posted with its line ("Ready for you") follows that line
     h += put(Infinity);
     var lastR = t.reqs[t.reqs.length - 1];
-    if (lastR && CLOSED[lastR.status]) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
+    if (lastR && CLOSED[lastR.status] && h.indexOf('data-act="reopen" data-id="' + esc(lastR.id) + '"') < 0) h += '<div class="actions"><button class="btn ghost" data-act="reopen" data-id="' + esc(lastR.id) + '">Reopen</button></div>';
     // Kiko 17:42Z: the card can be minimized to a bar on top of the reply box; tap the bar to open it again. Kept per thread.
     // CARD-FOLD-2026-11-03 (Kiko 30 Oct 09:55Z "how do i fold this", 09:58Z "i dont see thath"; mockup approved 3 Nov 14:59Z): the Fold
     // button sits inside each card, upper right.

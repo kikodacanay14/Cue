@@ -515,8 +515,8 @@
   /* Kiko 24 Oct 06:49Z "make the window smaller and tighter": inside Canvas's slide-in Cue is denser. Canvas's own bar already says
      "Cue", so the header keeps only the logo, name, dot and K; bars, rows, cards and buttons are smaller. Cue in its own tab is unchanged. */
   body.in-canvas { font-size:14px; line-height:1.45; }
-  body.in-canvas header { padding:5px 10px; gap:8px; } body.in-canvas header .sub { display:none; }
-  body.in-canvas header h1 { font-size:15px; } body.in-canvas .logo { width:32px; height:32px; } body.in-canvas .logo svg { width:20px; height:20px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
+  body.in-canvas > header { padding:5px 10px; gap:8px; } body.in-canvas > header .sub { display:none; }
+  body.in-canvas > header h1 { font-size:15px; } body.in-canvas .logo { width:32px; height:32px; } body.in-canvas .logo svg { width:20px; height:20px; } body.in-canvas .avatar { width:26px; height:26px; font-size:12px; }
   body.in-canvas nav, body.in-canvas .phead, body.in-canvas .vhead { min-height:40px; padding:4px 8px; }
   body.in-canvas .phead .pico { width:28px; height:28px; } body.in-canvas .phead .pname { font-size:15px; } body.in-canvas .ibtn { width:30px; height:30px; }
   body.in-canvas main { padding:10px 12px; } body.in-canvas #pscroll { padding:8px 10px; }
@@ -670,7 +670,7 @@
   .pane-back { display:none; }
   .trow .chico { flex:none; width:24px; height:24px; border-radius:50%; display:inline-grid; place-items:center; background:var(--soft); color:var(--act); font-size:11px; font-weight:700; margin-top:1px; }
   .trow .badge { font-style:normal; align-self:center; margin:0; flex:none; text-align:center; }
-  body.in-canvas header { display:none; }
+  body.in-canvas > header { display:none; }
   body.in-canvas .lhead { min-height:40px; padding:4px 8px; } body.in-canvas #lscroll { padding:6px 8px 10px; }
   body.in-canvas .clist { width:340px; } body.in-canvas .lhead .tcue { padding:0 8px; font-size:12px; min-height:28px; }
   @media (max-width: 900px) {

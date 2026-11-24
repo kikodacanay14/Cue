@@ -13,9 +13,12 @@ parts follow.
 - All of Cue uses DM Sans, the Canvas and brand font; Quicksand is no longer loaded. The email template font list drops Quicksand too.
 - A channel's chat box is General's: paper clip, text box and a Send button in one row.
 - In General each labelled message has a 4px colour stripe on its left and its label at the upper right.
+- The Project Intake Request card shows one grey "Saved" with Reopen inside the card. The "Saved decision" line, the green box and the decision's chat bubble are gone.
+- Fix: inside Canvas the rule that hides Cue's own top header also hid every card's header band ("Project Intake Request", "Email Intake"). Only the page header is hidden now.
+- The intake request card and the Email Intake card use the Canvas font, carry a 4px colour stripe on the left and show their label at the header's upper right.
 
 Live Cue's card code (Apps Script versions 280 to 284) was saved back into `main` first (PR #464), and this branch sits on top of it.
-Local tests: 1002 of 1002 (`node test/cue.test.js`), feature map current.
+Local tests: 1005 of 1005 (`node test/cue.test.js`), feature map current.
 
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 

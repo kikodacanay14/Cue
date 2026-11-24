@@ -15,7 +15,7 @@ function eicView(h) {
 function eicGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdIntakeHtml', 'agdUpdHtml'].map(grab).join('\n'), ctx);
+  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdIntakeHtml', 'agdUpdHtml', 'cardLabel'].map(grab).join('\n'), ctx);
   return ctx;
 }
 // LIVE-SYNC-2026-11-25: the card was redesigned on live Cue (Apps Script versions 280 to 284, 24 Nov 2026) as one table of every email
@@ -35,7 +35,7 @@ test('EIC1 a run from Canvas is kept clean: no attachments, the email text cappe
 });
 test('EIC2 the card: one table of every email with its status and destination; a row opens to the original message', () => {
   const v = eicView({ run: eicRun, skipped: eicSkipped, routed: eicRouted }), ctx = eicGrab(), html = ctx.agdUpdHtml(v);
-  assert.ok(/<header class="cue-email-hero"><h2>Email Intake<\/h2>/.test(html) && /<strong>18 Nov, 1:20 PM<\/strong><span>4 emails · 0 need attention<\/span>/.test(html), html.slice(0, 400));
+  assert.ok(/<header class="cue-email-hero"><div[^>]*><h2>Email Intake<\/h2>/.test(html) && /<strong>18 Nov, 1:20 PM<\/strong><span>4 emails · 0 need attention<\/span>/.test(html), html.slice(0, 400));
   const heads = (html.match(/<th[^>]*>[^<]*<\/th>/g) || []).map(x => x.replace(/<[^>]+>/g, ''));
   assert.deepStrictEqual(heads, ['', 'Email', 'Status', 'Destination']);
   assert.ok(/<strong>RFQ: stage &lt;b&gt;build&lt;\/b&gt;<\/strong><span class="cue-email-from">buyer@client\.example<\/span><\/td><td><span class="cue-email-pill good">Routed<\/span><\/td><td>Account Specialist agent<\/td>/.test(html), 'escaped; full role name');
