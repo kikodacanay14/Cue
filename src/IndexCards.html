@@ -971,44 +971,83 @@
   // routed with where and why. A routed row opens to show sender, time and project. Correcting a route stays unavailable until Email
   // Intake provides a receiver handoff; the card never claims a disconnected correction was saved.
   function agdIntakeHtml(r, canReply, unread) {
-    var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id), sk = I.skipped || [], rt = I.routed || [], nr = I.not_routed || [], none = '<span class="muted">—</span>';
-    var pl = function (n) { return n + ' message' + (n === 1 ? '' : 's'); }, td = function (x, c) { return '<td' + (c ? ' class="c"' : '') + '>' + x + '</td>'; };
-    var msg = 'Email Intake read ' + pl(I.total_read != null ? I.total_read : sk.length + rt.length) + (I.read_at ? ' (' + esc(I.read_at) + ')' : '') + '. '
-      + (sk.length ? sk.length + ' ' + (sk.length === 1 ? 'was' : 'were') + ' noise and skipped. ' : '')
-      + (rt.length ? 'It routed ' + pl(rt.length) + ' right away. Check where each one went.' : 'Nothing was routed.')
-      + (nr.length ? ' ' + pl(nr.length) + ' fit no role and ' + (nr.length === 1 ? 'was' : 'were') + ' not routed.' : ' Nothing waits for you.');
-    // Kiko 18 Nov 2026 05:47Z "when emails come in and no role fits then it doesnt get routed": those are listed on their own, with why.
-    var rows = rt.map(function (x, i) {
-      var k = x.msg_id || String(i), on = agdRowOpen[r.id] === k;
-      return '<tr class="agrow" data-act="agd-row" data-id="' + id + '" data-row="' + esc(k) + '" tabindex="0"' + (on ? ' aria-expanded="true"' : ' aria-expanded="false"') + '>' + td(i + 1, 1)
-        + td(x.subject ? esc(x.subject) : none) + td(x.routed_to ? esc(agdLabel(x.routed_to)) : none, 1) + td(x.why ? esc(x.why) : none, 1) + '</tr>'
-        + (on ? '<tr class="agdet"><td colspan="4"><div class="agmeta agin">' + [['From', x.from], ['Received', x.received_at], ['Project', x.project_id]].map(function (f) {
-          return '<div><span class="lbl">' + f[0] + '</span>' + (f[1] ? esc(f[1]) : none) + '</div>'; }).join('')
-          + '</div><div class="small muted" style="margin-top:8px">Reroute key: ' + esc(I.mailbox ? I.mailbox + ':' + (x.msg_id || '') : 'Unavailable: original mailbox or exact email ID missing') + '</div>'
-          + '<div class="warn" style="margin-top:8px">' + (x.msg_id && I.mailbox
-            ? 'Reroute is not connected. No correction was saved or sent; Email Intake must provide the receiver handoff before this action is available.'
-            : 'Reroute unavailable: original mailbox or exact email ID is missing.') + '</div>'
-          + '</td></tr>' : '');
+    var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id);
+    var missing = 'Not given';
+    var rows = (I.routed || []).map(function (row) { return {row:row,kind:'routed'}; })
+      .concat((I.not_routed || []).map(function (row) { return {row:row,kind:'held'}; }),
+        (I.skipped || []).map(function (row) { return {row:row,kind:'skipped'}; }))
+      .sort(function (a,b) { return (a.row.number || 0) - (b.row.number || 0); });
+    var rendered = rows.map(function (entry,index) {
+      var x = entry.row, k = x.msg_id || String(index), open = agdRowOpen[r.id] === k;
+      var outcomes = x.outcomes && x.outcomes.length ? x.outcomes : entry.kind === 'routed' ? [x] : [];
+      var status = entry.kind === 'skipped' ? 'Skipped' : entry.kind === 'held'
+        ? x.decision_needed ? 'Needs Verification' : 'Not routed'
+        : outcomes.some(function (o) { return o.dispatch === 'Dispatch failed'; }) ? 'Dispatch failed' : 'Routed';
+      var tone = status === 'Routed' ? 'good' : status === 'Skipped' ? 'quiet' : status === 'Dispatch failed' ? 'bad' : 'warn';
+      var destinations = outcomes.map(function (o) { return esc(agdLabel(o.routed_to)); }).join('<br>') || 'Not routed';
+      var options = x.correction ? x.correction.eligible_roles.filter(function (role) { return role !== 'ECII'; }) : [];
+      var saved = x.correction && (A.replies || []).find(function (reply) {
+        var c = reply.route_correction;
+        return c && c.card_id === A.draft_id && c.msg_id === k && c.number === x.number &&
+          c.handoff_key === x.correction.handoff_key && c.revision === x.correction.revision;
+      });
+      var correction = saved && saved.route_correction;
+      var replacement = saved && saved.replacement_outcome;
+      if (!replacement || !replacement.replacement_handoff_key || replacement.replacement_handoff_key === correction.handoff_key ||
+          replacement.original_handoff_key !== correction.handoff_key || replacement.original_revision !== correction.revision ||
+          replacement.receiver !== correction.to_role ||
+          replacement.replacement_revision !== correction.revision + 1 ||
+          !['card_id','reply_id','number','msg_id'].every(function (field) {
+            return replacement[field] === correction[field];
+          })) replacement = null;
+      var currentDispatch = replacement && replacement.dispatch && replacement.dispatch.state;
+      if (replacement) {
+        destinations = esc(agdLabel(replacement.receiver));
+        status = currentDispatch === 'Dispatched' ? 'Routed' : currentDispatch || 'Unknown';
+        tone = status === 'Routed' ? 'good' : status === 'Dispatch failed' ? 'bad' : 'warn';
+      }
+      var editor = saved && saved.correction_receipt
+        ? '<p class="cue-email-receipt" role="status"><strong>Received by Email Intake</strong><br>' +
+          esc(agdLabel(saved.route_correction.to_role)) + ' · ' + esc(saved.correction_receipt.received_at) + '</p>'
+        : saved ? '<p role="status"><strong>Saved in Cue, waiting for Email Intake</strong></p>' : options.length
+        ? '<div data-correction-editor><label>Route to<select><option value="">Choose a destination</option>'
+          + options.map(function (role) { return '<option value="' + esc(role) + '">' + esc(agdLabel(role)) + '</option>'; }).join('')
+          + '</select></label><label>Reason for correction (optional)<textarea maxlength="450"></textarea></label>'
+          + '<button class="btn cue-email-save" disabled data-act="agd-route-correction" data-id="' + id +
+            '" data-row="' + esc(k) + '">Save corrections</button></div>' : '';
+      return '<tr class="agrow"><td><button type="button" class="cue-email-toggle" data-act="agd-row" data-id="' +
+        id + '" data-row="' + esc(k) + '" aria-expanded="' + open + '" aria-label="' +
+        esc((open ? 'Collapse' : 'Expand') + ' email ' + (x.number || index + 1)) + '">' + (open ? '▾' : '▸') +
+        '</button></td><td><strong>' + esc(x.subject || missing) + '</strong><span class="cue-email-from">' +
+        esc(x.from || missing) + '</span></td><td><span class="cue-email-pill ' + tone + '">' + esc(status) +
+        '</span></td><td>' + destinations + '</td></tr>' +
+        '<tr class="cue-email-detail-row"' + (open ? '' : ' hidden') + '><td colspan="4"><div class="cue-email-detail"><strong>Original message</strong>' +
+          '<p class="cue-email-from">' + esc([I.mailbox,x.received_at].filter(Boolean).join(' · ')) + '</p>' +
+          (x.source_body ? '<p>' + esc(x.source_body) + '</p>' : '') +
+          (x.project_id ? '<p><strong>Project</strong> ' + esc(x.project_id) + '</p>' : '') +
+          (x.why || x.noise_kind ? '<p><strong>Why this status</strong> ' + esc(x.why || x.noise_kind) + '</p>' : '') +
+          editor + '</div></td></tr>';
     }).join('');
-    var nrt = nr.length ? '<div class="small" style="margin-top:8px;font-weight:700">Not routed</div><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>From</th><th>Why</th></tr></thead><tbody>'
-      + nr.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.from ? esc(x.from) : none) + td(x.why ? esc(x.why) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div>' : '';
-    var skt = sk.length ? '<details class="agnz"><summary>Show the ' + pl(sk.length).replace('message', 'skipped message') + '</summary><div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Noise type</th></tr></thead><tbody>'
-      + sk.map(function (x, i) { return '<tr>' + td(i + 1, 1) + td(x.subject ? esc(x.subject) : none) + td(x.noise_kind ? esc(x.noise_kind) : none, 1) + '</tr>'; }).join('') + '</tbody></table></div></details>' : '';
-    // CCR-B1 / CCR-R09-R12 (canvas-integration/specs/cue-card-responses-v1.md): never claim a disconnected correction was saved.
-    return '<div class="card' + (unread ? ' need' : '') + '" data-card="' + id + '"><div class="label" style="margin-top:0">Agent update · Email Intake</div>'
-      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--white)">Email Intake · ' + (rt.length ? 'routed' : 'run summary') + '</b>'
-      + (nr.length ? '<span class="tag warn">' + nr.length + ' not routed</span>' : '<span class="tag good">Nothing needs you</span>') + '<span class="tag' + (unread ? ' warn' : '') + '">' + (unread ? 'Unread' : 'Read') + '</span></div>'
-      + '<div class="small muted" style="margin-top:4px">' + (A.created ? esc(A.created) + ' · ' : '') + esc(A.draft_id) + '</div>'
-      + '<p style="margin:8px 0">' + msg + '</p>'
-      + (rt.length ? '<div class="warn">Reroute is not connected. No correction was saved or sent; Email Intake must provide a receiver handoff and acknowledgement.</div>' : '')
-      + '<div class="agmeta agin"><div><span class="lbl">Run</span>' + (I.run_id ? esc(I.run_id) : none) + (I.mailbox ? '<br>' + esc(I.mailbox) : '') + '</div>'
-      + '<div><span class="lbl">Skipped as noise</span>' + pl(sk.length) + '</div><div><span class="lbl">Routed</span>' + pl(rt.length) + '</div>'
-      + (nr.length ? '<div><span class="lbl">Not routed</span>' + pl(nr.length) + '</div>' : '') + '</div>'
-      + (rt.length ? '<div class="agit"><table><thead><tr><th>#</th><th>Message</th><th>Routed to</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '')
-      + nrt + skt + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
-      + '<div class="small muted" style="margin-top:8px">This card reports the route only. Corrections stay unavailable until Email Intake provides a receiver handoff and acknowledgement.</div>'
-      + '<div class="actions">' + (canReply ? '<input type="text" data-agd-note="' + id + '" placeholder="Reply to Email Intake"><button class="btn ghost" data-act="agd-reply" data-id="' + id + '">Reply</button>' : '')
-      + (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : r.status === 'Sending' ? '<span class="small muted">Passing it to Canvas…</span>' : '') + '</div></div>';
+    var attention = rows.filter(function (entry) { return entry.kind === 'held' && entry.row.decision_needed; }).length;
+    var style = '<style>.card.cue-email-report{box-sizing:border-box;padding:0;border:1px solid #e7e0ef;border-radius:19px;overflow:hidden;background:#fff;color:#20163a;font:15px/1.5 system-ui}'
+      + '.cue-email-hero{padding:22px;background:#27114c;color:#fff}.cue-email-hero h2{font-size:clamp(25px,5vw,36px);line-height:1.1;letter-spacing:-.04em;margin:0}.cue-email-hero p{color:#e4d8f9;margin:7px 0 0}'
+      + '.cue-email-body{padding:20px}.cue-email-run{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:12px}.cue-email-run span,.cue-email-from{color:#625675;font-size:13px}.cue-email-from{display:block;margin:0}'
+      + '.cue-email-report .cue-intake-routes table{width:100%;border-collapse:collapse;table-layout:auto}.cue-email-report th,.cue-email-report td{text-align:left;padding:10px;border-bottom:1px solid #e7e0ef;word-break:normal;overflow-wrap:normal}.cue-email-report th{background:#f4effa}.cue-email-report th:first-child,.cue-email-report .agrow td:first-child{width:36px}'
+      + '.cue-email-report .cue-email-toggle{border:0;background:transparent;color:#5432a2;cursor:pointer;padding:4px 7px}.cue-email-pill{display:inline-block;background:#eee6fa;color:#48258a;border-radius:20px;padding:3px 9px;font-weight:700;font-size:12px;white-space:nowrap}.cue-email-pill.good,.cue-email-receipt{background:#e3f3e6;color:#17552e}.cue-email-pill.warn{background:#fff0d1;color:#6a4300}.cue-email-pill.bad{background:#fde5ea;color:#8b1734}'
+      + '.cue-email-report .cue-email-detail-row td{padding:0}.cue-email-detail{padding:14px;background:#f8f5fb;overflow-wrap:anywhere}.cue-email-detail p{margin:0 0 10px}.cue-email-detail label{display:block;margin-top:10px;font-weight:700}.cue-email-detail select,.cue-email-detail textarea{display:block;width:auto;max-width:100%;box-sizing:border-box;margin-top:5px;padding:8px 10px;border:1px solid #c9bed9;border-radius:8px;background:#fff;color:#20163a;font:inherit}.cue-email-detail textarea{width:100%;min-height:58px;resize:vertical}'
+      + '.cue-email-report .cue-email-save{margin-top:8px;padding:9px 12px;border:0;border-radius:8px;background:#5432a2;color:#fff;font:700 14px system-ui;cursor:pointer}.cue-email-report .cue-email-save:disabled{opacity:.5;cursor:not-allowed}.cue-email-report :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
+      + '.cue-email-report [hidden]{display:none!important}.cue-email-outcome{margin:8px 0}.cue-email-outcome dl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0}.cue-email-outcome dt{font-size:12px;color:#625675}.cue-email-outcome dd{margin:0}.cue-email-receipt{padding:8px;border-radius:7px}'
+      + '@media(max-width:600px){.cue-email-body,.cue-email-hero{padding:14px}.cue-email-report .cue-intake-routes table,.cue-email-report .cue-intake-routes tbody{display:block}.cue-email-report thead{display:none}.cue-email-report .agrow{display:grid;grid-template-columns:24px minmax(0,1fr);padding:7px 0;border-bottom:1px solid #e7e0ef}.cue-email-report .agrow td{display:block;width:auto;min-width:0;border:0;padding:3px}.cue-email-report .agrow td:nth-child(n+3){grid-column:2}.cue-email-report .agrow td:nth-child(4)::before{content:"Destination: ";font-weight:700}.cue-email-report .cue-email-detail-row,.cue-email-report .cue-email-detail-row td{display:block;width:100%;max-width:none;box-sizing:border-box}}</style>';
+    return style + '<div class="card cue-email-report" data-card="' + id +
+      '"><header class="cue-email-hero"><h2>Email Intake</h2><p>Review a run and correct where individual emails go.</p></header>' +
+      '<div class="cue-email-body"><div class="cue-email-run"><strong>' + esc(I.read_at || I.run_id || 'Email Intake run') +
+      '</strong><span>' + esc(String(I.total_read != null ? I.total_read : rows.length)) + ' emails · ' + attention +
+      ' need attention</span></div><div class="cue-email-run"><span>' + esc(I.mailbox || '') +
+      '</span><span>' + esc([I.status,A.draft_id].filter(Boolean).join(' · ')) + '</span></div>' +
+      (rows.length ? '<div class="agit cue-intake-routes"><table><thead><tr><th aria-label="Expand"></th><th>Email</th><th>Status</th><th>Destination</th></tr></thead><tbody>' +
+        rendered + '</tbody></table></div>' : '<p>No emails in this run.</p>') +
+      (r.error ? '<p role="alert">' + esc(r.error) + '</p>' : '') +
+      (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '') + '</div></div>';
   }
   // AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
   // main table expands and shows details of the FSAs / ARs / Suppliers. same thing with Finance"; approved 06:06:51Z, mockup cards 3a/3b
@@ -1074,12 +1113,213 @@
     return '<div class="actions"><button class="btn" data-act="agd-ok" data-id="' + id + '">Approve</button><button class="btn ghost" data-act="agd-ask" data-mode="modify" data-id="' + id + '">Modify</button>'
       + '<button class="btn bad" data-act="agd-ask" data-mode="reject" data-id="' + id + '">Reject</button></div>';
   }
+  var agdInquiryChecking = {};
+  var agdIntakeSaved = {};   // card id -> the version Canvas confirmed for the last saved edit (shows "Saved" on the card)
+  // Pictures attached to an inquiry's own email: "card id|file number" -> the picture, or 'none' when Cue could not read it.
+  var agdInquiryPics = {};
+  window.cueInquiryThumb = function (im, id, at) {
+    im.onload = null;
+    var key = id + '|' + at, slot = im.closest('li');
+    call('cueAgdInquiryImage', [id, at], function (u) {
+      if (!/^data:image\/(png|jpeg|gif|webp|bmp);base64,[A-Za-z0-9+\/=]+$/.test(String(u || ''))) { agdInquiryPics[key] = 'none'; return render(); }
+      agdInquiryPics[key] = u; if (im.isConnected) im.src = u; else render();
+    }, function () { agdInquiryPics[key] = 'none'; if (slot && slot.isConnected) render(); });
+  };
+  // The zoom viewer for those pictures: one dialog, opened by a thumbnail. Fit, zoom in, zoom out, close (also Esc or a tap outside).
+  function agdInquiryZoom(src, name) {
+    var box = document.getElementById('cue-r1-zoom');
+    if (!box) {
+      box = document.createElement('dialog'); box.id = 'cue-r1-zoom';
+      box.innerHTML = '<style>#cue-r1-zoom{box-sizing:border-box;width:min(96vw,1100px);height:min(92vh,900px);padding:0;border:1px solid #dfd6eb;border-radius:12px;background:#fff;color:#241841}'
+        + '#cue-r1-zoom[open]{display:flex;flex-direction:column}#cue-r1-zoom::backdrop{background:rgba(24,12,48,.6)}'
+        + '#cue-r1-zoom header{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #dfd6eb;background:#faf8fd}'
+        + '#cue-r1-zoom header b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px system-ui}'
+        + '#cue-r1-zoom button{min-width:38px;min-height:38px;padding:6px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px system-ui;cursor:pointer}'
+        + '#cue-r1-zoom .stage{flex:1;overflow:auto;background:#f1edf7;text-align:center}#cue-r1-zoom img{display:block;margin:auto;max-width:none}</style>'
+        + '<header><b></b><button type="button" data-z="out" aria-label="Zoom out" title="Zoom out">−</button><span data-z="pct" aria-live="polite"></span>'
+        + '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-z="fit">Fit</button>'
+        + '<button type="button" data-z="x" aria-label="Close" title="Close">✕</button></header><div class="stage"><img alt=""></div>';
+      document.body.appendChild(box);
+      var img = box.querySelector('img'), stage = box.querySelector('.stage'), scale = 0;   // 0 = fit the viewer
+      var show = function () {
+        var fit = Math.min(1, (stage.clientWidth - 16) / (img.naturalWidth || 1), (stage.clientHeight - 16) / (img.naturalHeight || 1));
+        var s = scale || fit; img.style.width = Math.round((img.naturalWidth || 1) * s) + 'px';
+        box.querySelector('[data-z="pct"]').textContent = Math.round(s * 100) + '%'; box.__fit = fit;
+      };
+      box.__refit = img.onload = function () { scale = 0; show(); };
+      box.addEventListener('click', function (e) {
+        var z = e.target.getAttribute && e.target.getAttribute('data-z');
+        if (e.target === box || z === 'x') return box.close();
+        if (z === 'fit') scale = 0; else if (z === 'in' || z === 'out') scale = Math.max(0.1, Math.min(8, (scale || box.__fit || 1) * (z === 'in' ? 1.25 : 0.8))); else return;
+        show();
+      });
+    }
+    box.querySelector('b').textContent = name; box.querySelector('img').alt = name; box.querySelector('img').src = src;
+    if (!box.open) box.showModal();
+    if (box.querySelector('img').complete) box.__refit();   // the same picture opened again fires no load event
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-inquiry-pic]'); if (!t) return;
+    var im = t.querySelector('img'); if (!im || !im.naturalWidth || /^data:image\/gif/.test(im.src)) return;   // still loading
+    e.preventDefault(); e.stopPropagation();
+    var drive = /^https:\/\/drive\.google\.com\/thumbnail\?id=([\w-]{10,100})&/.exec(im.src);
+    agdInquiryZoom(drive ? 'https://drive.google.com/thumbnail?id=' + drive[1] + '&sz=w2400' : im.src, t.getAttribute('data-name') || 'Picture');
+  }, true);
+  function agdInquiryHtml(r, canReply, unread) {
+    var A = r.agd, I = A.handover.project_inquiry, id = esc(r.id), review = I.stage === 'review';
+    var current = review && /^[a-f0-9]{8}$/.test(I.card_version || '') && Array.isArray(I.categories);
+    var checking = agdInquiryChecking[r.id];
+    var actionable = canReply && current && !checking;
+    var replies = A.replies && A.replies.length ? A.replies : A.status === 'Replied' && A.note ? [{text: A.note}] : [];
+    var settled = replies.slice().reverse().find(function (reply) {
+      var text = String(reply.text || '');
+      return text === 'Reject intake' || (review
+        ? text === (Array.isArray(I.categories) ? 'Confirm new project ' + I.card_version : 'New project') || (I.matches || []).some(function (m) { return text === 'Use project ' + m.project_id; })
+        : text === 'Register project');
+    });
+    var button = function (label, reply) {
+      return '<button class="btn' + (label === 'Approve' || label === 'Use this project' ? ' cue-r1-primary' : '')
+        + '" data-act="agd-inquiry" data-id="' + id + '" data-choice="' + esc(reply) + '">' + esc(label) + '</button>';
+    };
+    var fact = function (label, value, wide) {
+      return '<div class="cue-r1-fact' + (wide ? ' cue-r1-wide' : '') + '"><b>' + esc(label) + '</b><span>'
+        + esc(value || 'Not given') + '</span></div>';
+    };
+    var mailUrl = /^https:\/\/mail\.google\.com\/mail\/\?authuser=[^"'<>\s]*#all\/[0-9a-f]{8,24}$/.test(A.inquiry_mail_url || '') ? A.inquiry_mail_url : '';
+    // Files and images sit inside the original message. An image shows small and opens in the zoom viewer; any other file is a name.
+    var isImage = function (file) { return /^image\/(png|jpe?g|gif|webp|bmp)$/i.test(file.mime_type || '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name || ''); };
+    var files = (I.source_files || []).map(function (file, at) {
+      var drive = /^[\w-]{10,100}$/.test(file.file_id || '') ? 'https://drive.google.com/file/d/' + esc(file.file_id) + '/view' : '';
+      if (isImage(file) && (drive || mailUrl)) {
+        var key = r.id + '|' + at, have = agdInquiryPics[key];
+        if (have === 'none') return '<li class="cue-r1-file">' + (drive || mailUrl ? '<a href="' + (drive || esc(mailUrl)) + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>' : esc(file.name)) + '</li>';
+        return '<li class="cue-r1-pic"><button type="button" class="cue-r1-thumb" data-inquiry-pic="' + at + '" data-id="' + id + '" data-name="' + esc(file.name)
+          + '" title="Zoom ' + esc(file.name) + '" aria-label="Zoom ' + esc(file.name) + '"><img alt="" src="' + (have ? esc(have)
+          : drive ? 'https://drive.google.com/thumbnail?id=' + esc(file.file_id) + '&amp;sz=w320" referrerpolicy="no-referrer'
+          : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" onload="cueInquiryThumb(this,\'' + id + '\',' + at + ')')
+          + '"><span class="cue-r1-zoom-mark" aria-hidden="true">⌕</span></button><span>' + esc(file.name) + '</span></li>';
+      }
+      return '<li class="cue-r1-file">' + (drive ? '<a href="' + drive + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>'
+        : mailUrl ? '<a href="' + esc(mailUrl) + '" target="_blank" rel="noopener" title="Opens the original email, where this file is attached">' + esc(file.name) + '</a>'
+        : esc(file.name)) + '</li>';
+    }).join('');
+    // One link icon, in the section heading, opens the original email.
+    var mailLink = mailUrl ? ' <a class="cue-r1-maillink" href="' + esc(mailUrl) + '" target="_blank" rel="noopener" title="Open the original email" aria-label="Open the original email">'
+      + '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>' : '';
+    var evidence = I.source_body || files ? '<details open class="cue-r1-source"><summary>Original message excerpt' + mailLink + '</summary>'
+      + (I.source_body ? '<p style="white-space:pre-wrap">' + esc(I.source_body) + '</p>' : '')
+      + (files ? '<h4>Files &amp; images</h4><ul class="cue-r1-files">' + files + '</ul>' : '') + '</details>' : '';
+    var matches = review ? (I.matches || []).map(function (m) {
+      var label = esc(m.name || m.project_id) + ' · ' + esc(m.project_id) + (m.reason ? ' · ' + esc(m.reason) : '');
+      return actionable && !settled ? '<option value="' + esc(m.project_id) + '">' + label + '</option>' : '<li>' + label + '</li>';
+    }).join('') : '';
+    var projectPicker = !matches ? '' : actionable && !settled
+      ? '<label for="agd-project-' + id + '">Existing project</label> <select id="agd-project-' + id
+        + '" data-agd-project><option value="">Choose a verified project</option>' + matches + '</select> '
+        + button('Use this project', 'pick-existing')
+      : '<h4>Possible projects</h4><ul>' + matches + '</ul>';
+    var actions = !actionable || settled ? '' : (I.can_register && I.categories.length && I.client && I.event
+      ? button('Approve', 'Confirm new project ' + I.card_version) : '')
+      + button('Reject', 'Reject intake');
+    var editable = actionable && !settled && I.source_message_id &&
+      (I.registration_context_verified || I.can_register);
+    var design = I.design || {};
+    var inputField = function (label, key, value) {
+      var date = key === 'event_date_iso';
+      return '<label>' + label + '<input name="' + key + '" type="' + (date ? 'date' : 'text') +
+        '" placeholder="Not given" maxlength="200" value="' + esc(value || '') + '">'
+        + (date && !value && I.date ? '<small>' + esc(I.date) + '</small>' : '') + '</label>';
+    };
+    var chatSource = /chat|messenger/i.test(I.source_channel || '');
+    var category = '<label>Category<select name="category" data-intake-category><option value="">Choose a category</option>'
+      + ['Event','Fabrication','Pass Through'].map(function (name) {
+        return '<option value="' + esc(name) + '"' + ((I.categories || []).length === 1 && I.categories[0] === name ? ' selected' : '') + '>' + esc(name) + '</option>';
+      }).join('') + '</select></label>';
+    var editForm = '<section class="cue-r1-editor" data-intake-edit><h3>Project details</h3>'
+      + '<fieldset class="cue-r1-saved-fields" disabled><div class="cue-r1-fields">'
+      + inputField('Account','company',I.client) + inputField('Client','contact_name',I.contact_name)
+      + fact('Source',chatSource ? 'Chat' : I.source_channel) + fact('Received date',I.received)
+      + fact(chatSource ? 'Channel' : 'Email subject',chatSource ? I.source_channel : I.source_subject,true)
+      + inputField('Event name','event_name',I.event) + inputField('Date','event_date_iso',I.event_date_iso)
+      + inputField('Venue','venue',I.venue) + category
+      + '</div><details class="cue-r1-design"><summary>Design &amp; Deliverables</summary><div class="cue-r1-fields">'
+      + '<label>Theme<input name="theme" maxlength="300" value="' + esc(design.theme || '') + '"></label>'
+      + '<fieldset class="cue-r1-choices cue-r1-owner"><legend>Who provides?</legend>'
+      + ['BSE to propose','Client to provide'].map(function (owner) {
+        return '<label><input type="radio" role="switch" name="theme_owner-' + id + '" data-theme-owner value="' + esc(owner) + '"'
+          + (design.theme_owner === owner ? ' checked' : '') + '>' + esc(owner) + '</label>';
+      }).join('') + '</fieldset></div><fieldset class="cue-r1-choices"><legend>Needed</legend><div class="cue-r1-deliverables">'
+      + ['Pitch Deck','Venue Layout','Event Styling','Pub Mats','Event Collaterals','Wayfinders','Stage Layout','Social Media'].map(function (name) {
+        return '<label><input type="checkbox" name="deliverable" value="' + esc(name) + '"' +
+          ((design.deliverables || []).includes(name) ? ' checked' : '') + '>' + esc(name) + '</label>';
+      }).join('') + '</div></fieldset></details></fieldset>'
+      + '</section>';
+    // Kiko 25 Nov 2026: the edit button sits in the footer, before Approve. Save edits takes its place while editing.
+    var editButtons = editable ? '<button type="button" class="btn" data-act="agd-edit-intake" data-id="' + id
+      + '" aria-label="Edit project details" title="Edit project details">✎</button><button type="button" hidden class="btn cue-r1-primary" data-act="agd-save-intake" data-id="'
+      + id + '">Save edits</button>' : '';
+    var style = '<style>.card.cue-r1-inquiry{box-sizing:border-box;padding:0;border:1px solid #dfd6eb;border-radius:17px;background:#fff;color:#241841;overflow:hidden}'
+      + '.cue-r1-inquiry .cue-r1-head{padding:12px 20px;background:#281249;color:#fff}.cue-r1-inquiry .cue-r1-head h2{margin:0;font:750 clamp(22px,5vw,32px)/1.2 system-ui;letter-spacing:-.025em}'
+      + '.cue-r1-inquiry .cue-r1-body{padding:12px 20px 16px}.cue-r1-inquiry .facts{width:100%;border-collapse:collapse}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{text-align:left;padding:5px 8px;border-bottom:1px solid #eee7f5;overflow-wrap:anywhere}'
+      + '.cue-r1-inquiry .facts th{width:32%;color:#493564}.cue-r1-inquiry details{margin-top:8px;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd}'
+      + '.cue-r1-inquiry summary{cursor:pointer;font-weight:700}.cue-r1-editor{margin-top:0}.cue-r1-editor h3{margin:0 0 6px;font-size:16px}'
+      + '.cue-r1-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}.cue-r1-editor label{display:block;font-weight:650;font-size:13px}'
+      + '.cue-r1-fact,.cue-r1-category{min-width:0;font-size:13px}.cue-r1-fact b,.cue-r1-fact span{display:block}.cue-r1-fact span{margin-top:2px;padding:5px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#faf8fd;overflow-wrap:anywhere}.cue-r1-wide{grid-column:1/-1}'
+      + '.cue-r1-inquiry .cue-r1-category details{margin-top:4px}.cue-r1-saved-fields:disabled .cue-r1-category summary{pointer-events:none;cursor:default}.cue-r1-category .cue-r1-choices{margin-top:8px}'
+      + '.cue-r1-inquiry .cue-r1-editor input:not([type=checkbox]):not([type=radio]),.cue-r1-inquiry select{display:block;box-sizing:border-box;width:100%;min-width:0;margin:2px 0 0;padding:5px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:inherit}'
+      + '.cue-r1-inquiry fieldset{min-width:0;margin:6px 0;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px}.cue-r1-inquiry legend{padding:0 4px;font-weight:750}'
+      + '.cue-r1-inquiry .cue-r1-saved-fields{border:0;padding:0;margin:0}.cue-r1-inquiry .cue-r1-saved-fields:disabled{opacity:1}.cue-r1-inquiry .cue-r1-saved-fields:disabled input,.cue-r1-inquiry .cue-r1-saved-fields:disabled select{opacity:1;color:#241841;background:#faf8fd;-webkit-text-fill-color:#241841}'
+      + '.cue-r1-inquiry [hidden]{display:none!important}'
+      + '.cue-r1-inquiry .cue-r1-maillink{display:inline-flex;vertical-align:middle;margin-left:6px;padding:3px;border-radius:6px;color:#523097}.cue-r1-inquiry .cue-r1-source h4{margin:8px 0 4px;font-size:13px}'
+      + '.cue-r1-inquiry .cue-r1-files{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}.cue-r1-inquiry .cue-r1-files li{min-width:0;font-size:13px;overflow-wrap:anywhere}'
+      + '.cue-r1-inquiry .cue-r1-pic{width:112px}.cue-r1-inquiry .cue-r1-pic span{display:block;margin-top:4px}.cue-r1-inquiry .cue-r1-file{align-self:center;padding:6px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#fff}'
+      + '.cue-r1-inquiry button.cue-r1-thumb{position:relative;display:block;width:112px;height:84px;min-height:0;padding:0;overflow:hidden;background:#f1edf7;cursor:zoom-in}'
+      + '.cue-r1-inquiry .cue-r1-thumb img{display:block;width:100%;height:100%;object-fit:cover}.cue-r1-inquiry .cue-r1-zoom-mark{position:absolute;right:4px;bottom:4px;display:block;margin:0;padding:0 5px;border-radius:6px;background:rgba(40,18,73,.8);color:#fff;font-size:15px;line-height:20px}'
+      + '.cue-r1-inquiry .cue-r1-design{background:#faf8fd}.cue-r1-inquiry .cue-r1-choices label{display:inline-flex;align-items:center;min-height:28px;gap:5px;margin:0 12px 2px 0}'
+      + '.cue-r1-deliverables{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px}.cue-r1-inquiry .cue-r1-deliverables label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:7px;margin:0}.cue-r1-deliverables input{justify-self:start}@media(max-width:600px){.cue-r1-deliverables{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{margin:10px 0 0;padding:8px 10px;border:1px solid var(--ok,#1E8E57);border-radius:8px;background:#f1faf5;color:#17613c;font-weight:650}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
+      + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px system-ui;cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
+      + '.cue-r1-inquiry button:disabled{opacity:.55;cursor:not-allowed}.cue-r1-inquiry :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
+      + '@media(max-width:500px){.cue-r1-inquiry .cue-r1-head,.cue-r1-inquiry .cue-r1-body{padding:14px}.cue-r1-fields{grid-template-columns:minmax(0,1fr)}.cue-r1-inquiry .actions{padding:12px 14px}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{padding:5px 4px}}</style>';
+    return style + '<div class="card cue-r1-inquiry" data-card="' + id + '"><header class="cue-r1-head"><h2>'
+      + (review ? 'Project Intake Request' : 'New project registration') + '</h2></header><div class="cue-r1-body">'
+      + editForm
+      + (agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status">' + (agdIntakeSaved[r.id] === I.card_version
+        ? 'Saved. This card now shows your saved edits.' : 'Saved. Refreshing this card…') + '</p>' : '')
+      + evidence + projectPicker
+      + (!review && A.handover.summary ? '<details><summary>Registration details</summary><div style="white-space:pre-wrap">' + esc(A.handover.summary) + '</div></details>' : '')
+      + (settled ? '<p>Saved decision: ' + esc(String(settled.text).replace(/^Confirm new project [a-f0-9]{8}$/, 'Confirm new project')) + '</p>' :
+        checking ? '<p>Checking whether your decision was saved. Refresh Cue if this message stays here.</p>' :
+        !current ? '<p>This request is out of date. Ask Account Specialist for the current card.</p>' : '')
+      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
+      + '</div><div class="actions">' + editButtons + actions + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
+      + '</div></div>';
+  }
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
+    var routeDecision = H.route_decision;
+    if (routeDecision && routeDecision.status === 'needs_verification') {
+      return '<article class="card' + (unread ? ' need' : '') + '" data-card="' + id + '">'
+        + '<h3>Needs Verification</h3><span class="tag warn">Waiting for approval</span>'
+        + '<p style="white-space:pre-line">' + esc(H.summary || A.body || '') + '</p>'
+        + '<dl><dt>Sender</dt><dd>' + esc(routeDecision.sender || 'Not provided')
+        + '</dd><dt>Subject</dt><dd>' + esc(routeDecision.subject || 'Not provided')
+        + '</dd><dt>Received time</dt><dd>' + esc(routeDecision.received_at || 'Not provided')
+        + '</dd><dt>Email ID</dt><dd>' + esc(routeDecision.message_id) + '</dd><dt>Scan row</dt><dd>'
+        + esc(routeDecision.number) + '</dd></dl>'
+        + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
+        + ((A.status === 'Unread' || A.status === 'Read') && r.status !== 'Sending'
+          ? (agdAsk[r.id] && agdAsk[r.id].m ? agdActsHtml(r) :
+            '<div class="actions"><button class="btn" data-act="agd-ok" data-id="' + id + '">Approve</button>'
+            + '<button class="btn bad" data-act="agd-ask" data-mode="reject" data-id="' + id + '">Reject</button></div>') : '')
+        + '</article>';
+    }
     // AGENT-APPROVAL-WAITING-2026-11-17 (Kiko 17 Nov 2026 06:56Z, card "Show Waiting for approval"): an approval request is the flow
     // waiting on Kiko, not a failed handover: Waiting for you (warn), never Blocked.
     var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
     var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
+    if (H.project_inquiry) return agdInquiryHtml(r, canReply, unread);
     if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
     if (H.check) return agdCheckHtml(r, canReply, unread);   // AGENT-CHECK-CARD-2026-11-18
     // A Project Update is passive; do not intercept AS's existing Step 12A approval/readback card.
@@ -1119,7 +1359,7 @@
       return '<details class="card" style="margin:8px 0 0;background:var(--input)"><summary><label onclick="event.stopPropagation()" style="display:inline-flex;gap:6px;align-items:center">'
         + '<input type="checkbox" data-agud-select="' + id + '" value="' + esc(key) + '"' + (selected[key] ? ' checked' : '') + ' aria-label="Include ' + esc(x.name) + ' in Selected requirements view">'
         + '</label> ' + esc(x.req_id ? x.req_id + ' · ' : '') + esc(x.name) + (x.needs_kiko ? ' <span class="tag warn">Needs you</span>' : '')
-        + '</summary><div class="small" style="margin-top:8px"><b>Status:</b> ' + none + '<br><b>Blocker:</b> '
+        + (x.status ? ' <span class="tag ' + (/ready|approved|done/i.test(x.status) ? 'good' : /wait|need|block|pending/i.test(x.status) ? 'warn' : '') + '">' + esc(x.status) + '</span>' : '')+ '</summary><div class="small" style="margin-top:8px"><b>Status:</b> ' + (x.status ? esc(x.status) : none) + '<br><b>Blocker:</b> '
         + (blocker.length ? blocker.map(esc).join('; ') : H.gaps ? esc(H.gaps) : 'None reported')
         + '<br><b>Owner:</b> ' + (H.next_owner ? esc(H.next_owner) : none) + '<br><b>Next step:</b> '
         + (H.next_action ? esc(H.next_action) : none)
@@ -1842,6 +2082,11 @@
     }; });
     document.querySelectorAll('[data-agd-mod],[data-agd-rej]').forEach(function (x) { x.oninput = function () {   // AGENT-ACTIONS-2026-11-19: a redraw keeps what he typed
       var Q = agdAsk[x.getAttribute('data-agd-mod') || x.getAttribute('data-agd-rej')]; if (Q) Q.v = x.value; }; });
+    document.querySelectorAll('[data-correction-editor] select').forEach(function (select) {
+      select.onchange = function () {
+        select.closest('[data-correction-editor]').querySelector('[data-act="agd-route-correction"]').disabled = !select.value;
+      };
+    });
     document.querySelectorAll('[data-act]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), scope = b.closest('section, aside') || document;   // the same card can show in Widgets and its thread
@@ -1863,6 +2108,63 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
+        if (act === 'agd-route-correction') {
+          if (running[id]) return;
+          var panel = b.closest('[data-correction-editor]');
+          var routeTo = panel.querySelector('select').value;
+          if (!routeTo) return alertErr(new Error('Choose an eligible recipient.'), id);
+          var report = (agdOf(id).handover || {}).intake || {};
+          var messageId = b.getAttribute('data-row');
+          var row = (report.routed || []).find(function (x) { return x.msg_id === messageId; });
+          if (!row || !row.correction) return alertErr(new Error('Reload this report before saving.'), id);
+          b.disabled = true; running[id] = 1;
+          return call('cueAgdDecide', [id, {decision:'reply',note:'Email route correction',route_correction:{
+            number:row.number,msg_id:messageId,handoff_key:row.correction.handoff_key,
+            revision:row.correction.revision,to_role:routeTo,note:panel.querySelector('textarea').value
+          }}], function () { delete running[id]; refresh(); },
+            function (e) { delete running[id]; b.disabled = false; alertErr(e,id); refresh(); });
+        }
+        if (act === 'agd-edit-intake') {
+          var editCard = b.closest('.card'), editor = editCard.querySelector('[data-intake-edit]');   // the button is in the footer now
+          var savedFields = editor.querySelector('.cue-r1-saved-fields');
+          savedFields.disabled = false;
+          delete agdIntakeSaved[id];
+          b.hidden = true;
+          editCard.querySelector('[data-act="agd-save-intake"]').hidden = false;
+          savedFields.querySelector('input').focus();
+          return;
+        }
+        if (act === 'agd-save-intake') {
+          if (running[id]) return;
+          var editPanel = b.closest('.card').querySelector('[data-intake-edit]');
+          var editInquiry = (agdOf(id).handover || {}).project_inquiry;
+          if (!editInquiry) return alertErr(new Error('Reload the Project Intake Request.'), id);
+          var editValues = {};
+          ['company','contact_name','event_name','event_date_iso','venue'].forEach(function (key) {
+            editValues[key] = editPanel.querySelector('[name="' + key + '"]').value;
+          });
+          var selectedCategory = editPanel.querySelector('[name="category"]').value;
+          editValues.categories = selectedCategory ? [selectedCategory] : [];
+          editValues.design = {theme:editPanel.querySelector('[name="theme"]').value,
+            theme_owner:(editPanel.querySelector('[data-theme-owner]:checked') || {}).value || '',
+            deliverables:Array.from(editPanel.querySelectorAll('[name="deliverable"]:checked'), function (input) { return input.value; })};
+          if (!editValues.company.trim() || !editValues.event_name.trim() || !editValues.categories.length)
+            return alertErr(new Error('Enter the company, event name and at least one project category.'), id);
+          b.disabled = true; b.textContent = 'Saving…'; running[id] = 1;
+          return call('cueAgdSaveIntakeVersion', [id, editInquiry.card_version, editValues],
+            function (saved) {
+              delete running[id];
+              agdIntakeSaved[id] = ((saved || {}).saved_version || {}).card_version || editInquiry.card_version;
+              b.textContent = 'Saved';
+              // Re-read until Cue's copy of the card carries the saved version (at most three more reads), then show it.
+              var reread = function (left) { refresh(function () {
+                var now = (agdOf(id).handover || {}).project_inquiry || {};
+                if (left > 0 && now.card_version !== agdIntakeSaved[id]) setTimeout(function () { reread(left - 1); }, 4000);
+              }); };
+              reread(3);
+            },
+            function (e) { delete running[id]; b.disabled = false; b.textContent = 'Save edits'; alertErr(e,id); });
+        }
         if (act === 'agd-row') { var k = b.getAttribute('data-row'); if (agdRowOpen[id] === k) delete agdRowOpen[id]; else agdRowOpen[id] = k; render();   // AGENT-ROW-PICTURES-2026-11-18: one open row
           setTimeout(function () { var x = document.querySelector('[data-card="' + id + '"] tr[data-row="' + k.replace(/["\\]/g, '\\$&') + '"]'); if (x) x.focus(); }, 0); return; }
         if (act === 'agd-update-view') { agdUpdateView[id] = b.getAttribute('data-view') === 'selected' ? 'selected' : 'all'; return render(); }
@@ -1917,6 +2219,47 @@
             if (anote.length > 6000) return alertErr(new Error('This is too long to send in one go (over 6,000 characters). Shorten it, then try again.'), id);
             b.disabled = true; running[id] = 1; schedule();
             return call('cueAgdDecide', [id, { decision: 'reply', note: anote }], function () { delete agdAsk[id]; done(); }, fail);
+          }
+          if (act === 'agd-inquiry') {
+            if (running[id] || agdInquiryChecking[id]) return;
+            var choice = b.getAttribute('data-choice');
+            if (choice === 'pick-existing') {
+              var picker = b.closest('.card').querySelector('[data-agd-project]');
+              var currentInquiry = (agdOf(id).handover || {}).project_inquiry;
+              var projectId = picker && picker.value;
+              if (!projectId || !currentInquiry || !(currentInquiry.matches || []).some(function (match) {
+                return match.project_id === projectId;
+              })) return alertErr(new Error('Choose a verified project from this card.'), id);
+              choice = 'Use project ' + projectId;
+            }
+            var inquiryRefresh = function () {
+              delete running[id];
+              agdInquiryChecking[id] = true;
+              dirty(); render();
+              refresh(function () { delete agdInquiryChecking[id]; }, function () {});
+            };
+            b.disabled = true; running[id] = 1; schedule();
+            if (/^Confirm new project [a-f0-9]{8}$/.test(choice)) {
+              delete running[id]; b.disabled = false;
+              var edit = b.closest('.card').querySelector('[data-intake-edit]');
+              if (edit && Array.from(edit.querySelectorAll('input, select')).some(function (input) {
+                if (input.tagName === 'SELECT') return !input.options[input.selectedIndex].defaultSelected &&
+                  (input.selectedIndex !== 0 || Array.from(input.options).some(function (option) { return option.defaultSelected; }));
+                return input.type === 'checkbox' ? input.checked !== input.defaultChecked : input.value !== input.defaultValue;
+              })) return alertErr(new Error('Save edits before confirming the project.'), id);
+              var inquiry = (agdOf(id).handover || {}).project_inquiry;
+              if (!inquiry || choice !== 'Confirm new project ' + inquiry.card_version || !Array.isArray(inquiry.categories) || !inquiry.categories.length) return;
+              // Live 24 Nov 2026: the confirm box did not show in a thread and froze the page, so the second tap is on the card itself.
+              if (b.getAttribute('data-armed') !== inquiry.card_version) {
+                b.setAttribute('data-armed', inquiry.card_version); b.textContent = 'Confirm New Project';
+                b.title = 'Canvas will register the project shown on this card. Project category: ' + inquiry.categories.join(', ') + '.';
+                return;
+              }
+              if (running[id]) return;
+              b.disabled = true; running[id] = 1; schedule();
+              return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, function (e) { inquiryRefresh(); alertErr(e, id); });
+            }
+            return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, inquiryRefresh);
           }
           if (act === 'agd-rewrite') { if (!agNote) return alertErr(new Error('Type what Cue should change in the box, then tap Rewrite with Cue.'), id);
             b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }

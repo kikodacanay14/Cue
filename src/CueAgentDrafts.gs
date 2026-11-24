@@ -67,7 +67,10 @@ function cueAgdFrom_(d) {
     status: cueStr_(d.status, 40), decided: cueStr_(d.decided, 30), sent: cueStr_(d.sent, 30), gmail_thread: cueStr_(d.gmail_thread, 40), note: cueStr_(d.note, 6000), reason: cueStr_(d.reason, 600),
     handover: d.type === 'update' ? cueAgdHand_(d.handover) : null,   // AGENT-UPDATE-2026-11-13
     approval_check: d.type === 'update' ? cueAgdApCheck_(d.approval_check) : null,   // REQ-APPROVAL-12A-2026-11-18
-    replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 6000) })) : [] };   // AGENT-REPLIES-2026-11-14; AGENT-CARD-EDIT-2026-11-18: a decision with approved values runs to 6,000
+    replies: Array.isArray(d.replies) ? d.replies.slice(-50).map(x => ({ at: cueStr_(x && x.at, 30), text: cueStr_(x && x.text, 6000),
+      route_correction: x && x.route_correction || null,
+      replacement_outcome: x && x.replacement_outcome || null,
+      correction_receipt: x && cueEmailExactReceipt_(x.route_correction, x.correction_receipt) ? x.correction_receipt : null })) : [] };
 }
 /** REQ-APPROVAL-12A-2026-11-18 (mockup approved, Kiko "Build" 18 Nov 2026 16:16Z): Canvas's check of the lines Kiko approved at
  *  step 12A, one verdict per requirement (match, differs, not_saved, not_verified, held) with the fields that differ. Pure. */
@@ -81,14 +84,18 @@ function cueAgdApCheck_(k) {
 /** An update's handover fields (Canvas agent_update). A failed handover is Blocked, never Delivered. Pure. */
 function cueAgdHand_(h) {
   h = h || {};
+  const intake = cueAgdIntake_(h);
   return { project_update: h.project_update === true, handover_ref: cueStr_(h.handover_ref, 100), summary: cueStr_(h.summary, 4000), gaps: cueStr_(h.gaps, 4000), next_owner: cueStr_(h.next_owner, 100),
     next_action: cueStr_(h.next_action, 4000),   // AGENT-NEXT-LINES-2026-11-18: as long as summary and gaps, so Cue never cuts an item
     ack_link: /^https:\/\/[^\s<>"']+$/.test(String(h.ack_link || '')) ? cueStr_(h.ack_link, 500) : '',
-    state: h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked', why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
+    state: (intake && intake.status) || (h.state === 'Delivered' || h.state === 'Waiting for approval' ? h.state : 'Blocked'), why: cueStr_(h.why, 300),   // AGENT-APPROVAL-WAITING-2026-11-17: an approval request keeps its state
     rows: Array.isArray(h.rows) ? h.rows.filter(r => r && typeof r === 'object' && cueStr_(r.name, 200).trim()).slice(0, 100).map(cueAgdRow_) : [],   // AGENT-UPDATE-ROWS-2026-11-16
     brief: cueAgdFile_(h.brief) ? { file_id: h.brief.file_id, name: cueStr_(h.brief.name, 200), pages: cueAgdNum_(h.brief.pages) } : null,   // AGENT-ROW-PICTURES-2026-11-18: the client brief
     event: cueStr_(h.event, 200), client: cueStr_(h.client, 200),   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
-    intake: cueAgdIntake_(h),   // EMAIL-INTAKE-CARD-2026-11-18
+    intake,   // EMAIL-INTAKE-CARD-2026-11-18
+    route_decision: h.route_decision ? { message_id: cueStr_(h.route_decision.message_id, 77),
+      number: h.route_decision.number, status: h.route_decision.status,sender:cueStr_(h.route_decision.sender,300),subject:cueStr_(h.route_decision.subject,300),received_at:cueStr_(h.route_decision.received_at,100) } : null,
+    project_inquiry: cueAgdProjectInquiry_(h.project_inquiry),
     check: cueAgdCheck_(h.check) };   // AGENT-CHECK-CARD-2026-11-18
 }
 /** AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 04:35:50Z "what i want to see are Payments without Invoices, no signed FSAs and ARs,
@@ -99,6 +106,7 @@ const CUE_AGD_CHECKS_ = { admin: ['fsa', 'ar', 'accreditation'], finance: ['invo
 function cueAgdCheck_(c) {
   if (!c || typeof c !== 'object' || !CUE_AGD_CHECKS_[c.kind]) return null;
   const ok = x => x && typeof x === 'object';
+
   return { kind: c.kind, run_at: cueStr_(c.run_at, 40),
     rows: (Array.isArray(c.rows) ? c.rows : []).filter(r => ok(r) && CUE_AGD_CHECKS_[c.kind].indexOf(r.check) >= 0).slice(0, 10).map(r => ({
       check: r.check, ok: Number.isInteger(r.ok) && r.ok >= 0 ? r.ok : null,
@@ -111,13 +119,64 @@ function cueAgdCheck_(c) {
  *  attachment. Null when the update carries no run. Pure. */
 function cueAgdIntake_(h) {
   if (!h.run || typeof h.run !== 'object') return null;
-  const m = x => ({ msg_id: cueStr_(x.msg_id, 100), from: cueStr_(x.from, 200), subject: cueStr_(x.subject, 300), received_at: cueStr_(x.received_at, 40) });
+  const statuses = ['Completed', 'Completed with errors', 'Failed'];
+  const option = (value, allowed) => allowed.indexOf(value) >= 0 ? value : '';
+  const outcomes = x => ({
+    dispatch: option(x.dispatch, ['Dispatched', 'Dispatch failed', 'Not dispatched', 'Unverified']),
+    wake: option(x.wake, ['Not attempted', 'Requested', 'Wake-up failed', 'Unverified']),
+    receipt: option(x.receipt, ['Received', 'Awaiting receipt', 'Unverified', 'Not applicable'])
+  });
+  const m = x => ({ number: Number.isInteger(x.number) && x.number > 0 ? x.number : null, msg_id: cueStr_(x.msg_id, 100), from: cueStr_(x.from, 200), subject: cueStr_(x.subject, 300), received_at: cueStr_(x.received_at, 40), source_body: cueStr_(x.source_body, 2000) });
   const ok = x => x && typeof x === 'object';
-  return { run_id: cueStr_(h.run.run_id, 100), read_at: cueStr_(h.run.read_at, 40), mailbox: cueStr_(h.run.mailbox, 200),
+  const correction = row => {
+    const value = row.correction;
+    if (!row.msg_id || !Number.isSafeInteger(row.number) || row.number < 1 ||
+        (Array.isArray(row.outcomes) && row.outcomes.length) || !value ||
+        !/^[A-Za-z0-9:_.-]{1,150}$/.test(value.handoff_key || '') ||
+        !Number.isSafeInteger(value.revision) || value.revision < 1 ||
+        !Array.isArray(value.eligible_roles) || !value.eligible_roles.length || value.eligible_roles.length > 6 ||
+        new Set(value.eligible_roles).size !== value.eligible_roles.length ||
+        value.eligible_roles.some(role => !['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'].includes(role))) return null;
+    return {handoff_key:value.handoff_key, revision:value.revision, eligible_roles:value.eligible_roles.slice()};
+  };
+  return { status: option(h.run.status, statuses), run_id: cueStr_(h.run.run_id, 100), read_at: cueStr_(h.run.read_at, 40), mailbox: cueStr_(h.run.mailbox, 200),
     total_read: Number.isInteger(h.run.total_read) && h.run.total_read >= 0 ? h.run.total_read : null,
     skipped: Array.isArray(h.skipped) ? h.skipped.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { noise_kind: cueStr_(x.noise_kind, 40) })) : [],
-    routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40) })) : [],
-    not_routed: Array.isArray(h.not_routed) ? h.not_routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), { why: cueStr_(x.why, 300) })) : [] };   // Kiko 05:47Z: no role fits, not routed
+    routed: Array.isArray(h.routed) ? h.routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), outcomes(x), {
+      routed_to: cueStr_(x.routed_to, 60), why: cueStr_(x.why, 300), project_id: cueStr_(x.project_id, 40),
+      correction: correction(x),
+      outcomes: Array.isArray(x.outcomes) ? x.outcomes.filter(ok).slice(0, 6)
+        .map(recipient => Object.assign(outcomes(recipient), { routed_to: cueStr_(recipient.routed_to, 60) })) : []
+    })) : [],
+    not_routed: Array.isArray(h.not_routed) ? h.not_routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), outcomes(x), {
+      why: cueStr_(x.why, 300), decision_needed: x.decision_needed === true,
+      eligible_roles: Array.isArray(x.eligible_roles) ? x.eligible_roles
+        .filter(role => ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'].includes(role)) : []
+    })) : [] };   // Kiko 05:47Z: no role fits, not routed
+}
+
+function cueAgdProjectInquiry_(i) {
+  if (!i || ['review', 'register'].indexOf(i.stage) < 0 || !i.handoff_key || !Number.isInteger(i.revision)) return null;
+  return { stage: i.stage, handoff_key: cueStr_(i.handoff_key, 150), revision: i.revision,
+    source_subject: cueStr_(i.source_subject, 200), received: cueStr_(i.received, 100),
+    source_channel: ['Email', 'Bid Opportunities', 'Messenger'].includes(i.source_channel) ? i.source_channel : '',
+    source_message_id: cueStr_(i.source_message_id, 100),
+    source_body: cueStr_(i.source_body, 2000),
+    contact_name: cueStr_(i.contact && i.contact.name, 200),
+    source_files: (Array.isArray(i.source_files) ? i.source_files : []).filter(file => file && typeof file.name === 'string')
+      .slice(0, 10).map(file => ({ name: cueStr_(file.name, 200), mime_type: cueStr_(file.mime_type, 100),
+        file_id: cueAgdFile_(file) ? file.file_id : '' })),
+    event_date_iso: /^\d{4}-\d{2}-\d{2}$/.test(i.event_date_iso || '') ? i.event_date_iso : '',
+    client: cueStr_(i.client, 200), event: cueStr_(i.event, 200), date: cueStr_(i.date, 50), venue: cueStr_(i.venue, 200),
+    card_version: cueStr_(i.card_version, 8),
+    categories: Array.isArray(i.categories) ? i.categories.slice(0, 3) : null,
+    design: i.design ? {theme:cueStr_(i.design.theme,300),theme_owner:cueStr_(i.design.theme_owner,30),
+      deliverables:Array.isArray(i.design.deliverables) ? i.design.deliverables.slice(0,8) : []} : null,
+    can_register: i.can_register === true,
+    registration_context_verified: i.registration_context_verified === true,
+    matches: (Array.isArray(i.matches) ? i.matches : []).slice(0, 4)
+      .filter(m => m && /^S-[0-9A-Z]{4,24}$/.test(m.project_id))
+      .map(m => ({ project_id: m.project_id, name: cueStr_(m.name, 200), reason: cueStr_(m.reason, 300) })) };
 }
 
 /** EMAIL-REROUTE-KEY-2026-11-21: mailbox and exact email ID identify one reroute, never subject/sender. Pure. */
@@ -125,6 +184,18 @@ function cueEmailRerouteKey_(mailbox, msgId) {
   mailbox = String(mailbox || '').trim().toLowerCase();
   msgId = String(msgId || '').trim();
   return mailbox && msgId ? mailbox + ':' + msgId : '';
+}
+
+function cueEmailExactReceipt_(reply, receipt) {
+  if (!reply || !receipt || receipt.status !== 'received_by_email_intake' ||
+      typeof receipt.received_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(receipt.received_at) ||
+      !Number.isFinite(Date.parse(receipt.received_at)) ||
+      !/^DRF-\d+$/.test(reply.card_id || '') || !/^DRF-\d+$/.test(reply.reply_id || '') ||
+      !Number.isSafeInteger(reply.number) || reply.number < 1 ||
+      !Number.isSafeInteger(reply.revision) || reply.revision < 1 ||
+      !reply.msg_id || !reply.handoff_key || !reply.action || !reply.to_role) return false;
+  return ['card_id','reply_id','number','msg_id','handoff_key','revision','action','to_role','decline_id','note']
+    .every(key => reply[key] === receipt[key]);
 }
 
 function cueEmailRerouteState_(x) {
@@ -152,7 +223,7 @@ function cueEmailRerouteMerge_(run, ack) {
       msg_id: cueStr_(row.msg_id, 100),
       subject: cueStr_(row.subject, 300),
       destination: cueStr_(row.routed_to, 60),
-      state: a && a.received === true ? 'Received by Email Intake'
+      state: a && a.reply && a.reply.msg_id === row.msg_id && cueEmailExactReceipt_(a.reply, a.receipt) ? 'Received by Email Intake'
         : a && a.failed === true ? "Couldn't deliver"
         : a ? 'Saved in Cue, waiting for Email Intake' : ''
     };
@@ -228,13 +299,17 @@ function cueAgdSync_(drafts) {
       // REQ-APPROVAL-12A-2026-11-18: Canvas's newest check replaces the card's (a hand change in Canvas shows up on the next read).
       const ckNew = a.type === 'update' && a.approval_check && JSON.stringify(a.approval_check.lines) !== JSON.stringify((s.agd.approval_check || {}).lines || null);
       if (ckNew) s.agd.approval_check = a.approval_check;
+      // A saved Project Intake edit changes the card version in Canvas; Cue's copy must follow or Approve stays tied to the old version.
+      const piOld = s.agd.handover && s.agd.handover.project_inquiry, piIn = a.type === 'update' && a.handover && a.handover.project_inquiry;
+      const piNew = !!(piOld && piIn && piIn.card_version !== piOld.card_version);
+      if (piNew) s.agd.handover = a.handover;
       if (a.replies.length && JSON.stringify(a.replies) !== JSON.stringify(s.agd.replies || [])) {   // AGENT-REPLIES-2026-11-14
         s.agd.replies = a.replies;
         // Canvas has the new reply, so a card left on Sending by a run that died settles to Canvas's status (Codex review on Cue PR #386).
         if (s.status === 'Sending' && a.status !== 'Waiting for Kiko') { s.status = s.stage = cueAgdCueStatus_(a.status); s.error = ''; if (s.status !== 'Sending') s.ready_at = s.ready_at || cueNow_(); }
         if (was === a.status) { cueSave_(sh, x.row, s); return; }
       }
-      if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) { if (ckNew) cueSave_(sh, x.row, s); return; }
+      if (was === a.status && s.agd.reason === a.reason && s.agd.gmail_thread === a.gmail_thread) { if (ckNew || piNew) cueSave_(sh, x.row, s); return; }
       // Canvas's own record wins for the outcome; Kiko's edits on a card still waiting stay until he decides.
       ['status', 'decided', 'sent', 'gmail_thread', 'note', 'reason', 'recipient'].forEach(f => { s.agd[f] = a[f]; });
       if (a.status !== 'Waiting for Kiko' && a.type !== 'update') { s.agd.subject = a.subject; s.agd.body = a.body; if (a.lines.length) s.agd.lines = a.lines; }
@@ -259,11 +334,56 @@ function cueAgdView_(s) {
     recipient: a.recipient, subject: a.subject, body: a.body, lines: a.lines || [], created: a.created, status: a.status, decided: a.decided, sent: a.sent,
     gmail_url: /^[0-9a-f]{8,24}$/.test(String(a.gmail_thread || '')) ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + a.gmail_thread : '',
     note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null,
+    // The inquiry's own email in Gmail, so its attachments open from the Project Intake card. Built only from an exact Gmail message id.
+    inquiry_mail_url: (pi => pi && pi.source_channel === 'Email' && /^[0-9a-f]{8,24}$/.test(String(pi.source_message_id || ''))
+      ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + pi.source_message_id : '')((a.handover || {}).project_inquiry),
     approval_check: a.approval_check || null,   // REQ-APPROVAL-12A-2026-11-18
     replies: a.replies || [] };   // AGENT-REPLIES-2026-11-14: every reply Kiko sent on an update card
 }
 
 /** Kiko's tap. o = { decision: send | save | send_back | reject, subject?, body?, note?, lines? }. Canvas decides once. */
+function cueAgdSaveIntakeVersion(id, expectedVersion, values) {
+  cueOwner_();
+  const loaded = cueLoad_(id), state = loaded && loaded.s;
+  const draft = state && state.kind === 'agentdraft' && state.agd;
+  const inquiry = draft && draft.handover && draft.handover.project_inquiry;
+  if (!inquiry || inquiry.stage !== 'review' || !inquiry.source_message_id || expectedVersion !== inquiry.card_version)
+    throw new Error('Reload the current Project Intake Request.');
+  const result = cueBridge_(state,'save_intake_revision',{card_id:draft.draft_id,
+    source_message_id:inquiry.source_message_id,handoff_key:inquiry.handoff_key,revision:inquiry.revision,
+    expected_card_version:expectedVersion,values});
+  if (!result || !result.ok || result.card_id !== draft.draft_id || !result.saved_version ||
+      !/^[a-f0-9]{8}$/.test(result.saved_version.card_version || '') ||
+      result.saved_version.card_version === expectedVersion) throw new Error('Canvas did not confirm the exact saved edit.');
+  cueAgdRead_(0);
+  return result;
+}
+/** One picture attached to a Project Intake card's own email, for the card's thumbnail and zoom viewer. Owner only and read only:
+ * it reads that one Gmail message, checks the file is the one the card names, and returns the picture (8 MB at most). Nothing is saved. */
+function cueAgdInquiryImage(id, index) {
+  cueOwner_();
+  const loaded = cueLoad_(id), state = loaded && loaded.s;
+  const inquiry = state && state.kind === 'agentdraft' && state.agd && state.agd.handover && state.agd.handover.project_inquiry;
+  if (!inquiry || inquiry.source_channel !== 'Email' || !/^[0-9a-f]{8,24}$/.test(String(inquiry.source_message_id || '')))
+    throw new Error('This card has no email to read.');
+  const file = Number.isInteger(index) && index >= 0 && index < 10 ? (inquiry.source_files || [])[index] : null;
+  if (!file) throw new Error('No such file on this card.');
+  const parts = [], walk = p => { if (!p) return; parts.push(p); (p.parts || []).forEach(walk); };
+  walk(cueGmail_('/messages/' + inquiry.source_message_id + '?format=full').payload);
+  // Same rule and order as the Account Specialist step that listed the files: named parts, first ten.
+  const part = parts.filter(p => typeof p.filename === 'string' && p.filename.trim()).slice(0, 10)[index];
+  if (!part || part.filename.trim().slice(0, 200) !== file.name) throw new Error('This file no longer matches the email.');
+  const type = String(part.mimeType || '').toLowerCase();
+  if (!/^image\/(png|jpeg|gif|webp|bmp)$/.test(type)) throw new Error('Not a picture Cue can show.');
+  const body = part.body || {};
+  if (Number(body.size) > 8 * 1024 * 1024) throw new Error('Too big to show here.');
+  const data = body.data || (/^[\w-]{1,2000}$/.test(String(body.attachmentId || ''))
+    ? cueGmail_('/messages/' + inquiry.source_message_id + '/attachments/' + body.attachmentId).data : '');
+  if (!data) throw new Error('Gmail did not return the picture.');
+  // Gmail sends URL-safe base64 without padding; a data: URL takes the standard alphabet, padded.
+  const plain = String(data).replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+  return 'data:' + type + ';base64,' + plain + '='.repeat((4 - plain.length % 4) % 4);
+}
 function cueAgdDecide(id, o) { cueOwner_(); return cueView_(cueAgdDecide_(id, o || {})); }
 function cueAgdDecide_(id, o) {
   if (globalThis.CUE_CHECK_ON_) throw new Error('A check never decides an agent draft.');
@@ -320,6 +440,7 @@ function cueAgdDecide_(id, o) {
   });
   const s = L.s, a = s.agd;
   const args = { request_id: cueStr_('agd:' + s.id.replace(/^cue-/, '') + ':' + s.tries, 80), draft_id: a.draft_id, decision: dec };
+  if (dec === 'reply' && o.route_correction) args.route_correction = o.route_correction;
   if (note) args.note = note;
   if (dec === 'send') { if (a.type !== 'fsa_send' && a.type !== 'ar_send') args.subject = a.subject; args.body = a.body; }
   if (dec === 'save') args.lines = (selectedForSave || a.lines).map(l => ({ item: l.item, description: l.description, qty: l.qty, occurrence: l.occurrence, unit_cost: l.unit_cost, section: l.section }));

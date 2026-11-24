@@ -3,8 +3,8 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 86 server files, 1721 top-level names, 40 task kinds, 36 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 113 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
+Counts: 86 server files, 1725 top-level names, 43 task kinds, 36 word checks before the
+chat call, 19 background jobs in the 5-minute trigger, 115 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -31,6 +31,7 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `finance` | Money question | Money question | Info | `CueIntake.gs` (default) | intake (default) | 6 |
 | `funnel` | Sales funnel |  | Info | `CueFunnel.gs` | intake (default) | 2 |
 | `gtask` | ChatGPT task |  | Draft and send | `CueGptTasks.gs` | intake (default) | 2 |
+| `held` | Page only (not in the command list) |  |  | none | none | 2 |
 | `help` | Help answer |  | Info | `CueHelp.gs` | intake (default) | 2 |
 | `inbox` | Page only (not in the command list) |  | Info | none | none | 4 |
 | `intake` | Project intake | Project intake | Approve | `CueIntake.gs` | intake (default) | 2 |
@@ -46,6 +47,8 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `process` | Learning your process |  | Approve | `CueTeach.gs` | `CueTeach.gs` | 3 |
 | `readiness` | Readiness check | Readiness check | Draft and send | `CueReady.gs` | `CueReady.gs` | 1 |
 | `relnotes` | Page only (not in the command list) |  | Approve | none | none | 1 |
+| `routed` | Page only (not in the command list) |  |  | none | none | 1 |
+| `skipped` | Page only (not in the command list) |  |  | none | none | 1 |
 | `staff` | Page only (not in the command list) |  |  | none | none | 1 |
 | `status` | Friday status updates |  | Draft and send | `CueStatus.gs` | `CueStatus.gs` | 2 |
 | `style` | Learning your style |  | Approve | `CueStyle.gs` | `CueStyle.gs` | 3 |
@@ -148,7 +151,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueAdmin.gs` |  | Job Runs, Triage rules | 0 | 0 | 5 | 11 |
 | `CueAdminCanvas.gs` | `mobile`, `run_now_list`, `run_now_send`, `sn_board`, `sn_items`, `sn_prepare`, `sn_send`, `subject` |  | 0 | 0 | 3 | 5 |
 | `CueAgent.gs` | `contains` |  | 0 | 0 | 1 | 7 |
-| `CueAgentDrafts.gs` | `occurrence`, `subject` | Requests | 1 | 0 | 3 | 6 |
+| `CueAgentDrafts.gs` | `occurrence`, `subject` | Requests | 1 | 0 | 3 | 7 |
 | `CueAi.gs` |  | AI Runs | 1 | 1 | 38 | 3 |
 | `CueAlerts.gs` |  |  | 0 | 0 | 5 | 4 |
 | `CueAr.gs` | `crew_docs`, `crew_docs_job`, `crew_docs_make`, `crew_docs_send` | Requests | 0 | 0 | 5 | 4 |
@@ -178,7 +181,7 @@ not calls per run. "Used by" and "Uses" count other files.
 | `CueFinance.gs` | `finance_snapshot` | Requests | 1 | 1 | 3 | 3 |
 | `CueFlags.gs` |  | Dismissed, Flagged | 0 | 0 | 2 | 2 |
 | `CueFunnel.gs` |  | Requests | 0 | 0 | 6 | 8 |
-| `CueGmail.gs` |  |  | 0 | 0 | 30 | 4 |
+| `CueGmail.gs` |  |  | 0 | 0 | 31 | 4 |
 | `CueGptTasks.gs` | `get_project_board`, `get_readiness`, `subject` | ChatGPT findings, Requests | 1 | 0 | 10 | 8 |
 | `CueHelp.gs` |  | Requests | 0 | 1 | 3 | 4 |
 | `CueInbox.gs` |  | Inbox Chats, Inbox Decisions, Inbox Messages, Inbox Queue | 0 | 0 | 5 | 3 |
@@ -256,8 +259,8 @@ Names used by 5 or more other files, and the file that holds them.
 | `cuePh_` | `CueDates.gs` | 17 |
 | `cueView_` | `Cue.gs` | 17 |
 | `CUE_GMAIL_` | `CueGmail.gs` | 16 |
+| `cueGmail_` | `CueGmail.gs` | 16 |
 | `cueRows_` | `Cue.gs` | 16 |
-| `cueGmail_` | `CueGmail.gs` | 15 |
 | `cueSummary_` | `Cue.gs` | 15 |
 | `cueGmailSend_` | `CueGmail.gs` | 12 |
 | `cueMe_` | `Cue.gs` | 12 |
@@ -305,7 +308,7 @@ Server functions `Index.html` calls, by the file that holds them.
 - `CueAccred.gs`: `cueAcDone`
 - `CueAdmin.gs`: `cueAdminChasers`, `cueAdminLog`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
 - `CueAdminCanvas.gs`: `cueAdminCanvasChaseSend`, `cueAdminCanvasChasers`, `cueAdminSnBoard`, `cueAdminSnItems`, `cueAdminSnPrepare`, `cueAdminSnSend`
-- `CueAgentDrafts.gs`: `cueAgdDecide`, `cueAgdOpen`, `cueAgdRetry`, `cueAgdRewrite`, `cueAgdSay`
+- `CueAgentDrafts.gs`: `cueAgdDecide`, `cueAgdInquiryImage`, `cueAgdOpen`, `cueAgdRetry`, `cueAgdRewrite`, `cueAgdSaveIntakeVersion`, `cueAgdSay`
 - `CueAlerts.gs`: `cueAlerts`, `cueAlertsConnect`, `cueAlertsSet`, `cueAlertsSetup`, `cueAlertsTest`
 - `CueBatch.gs`: `cueBatchAdd`, `cueBatchCancel`, `cueBatchStart`, `cueBatchTake`
 - `CueBids.gs`: `cueBidsClarifyCancel`, `cueBidsClarifySend`, `cueBidsClose`, `cueBidsDecide`, `cueBidsStartIntake`
