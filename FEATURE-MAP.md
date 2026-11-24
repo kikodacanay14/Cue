@@ -4,7 +4,7 @@ Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1).
 the script again. `test/cue.test.js` fails when this file is out of date.
 
 Counts: 86 server files, 1729 top-level names, 43 task kinds, 36 word checks before the
-chat call, 19 background jobs in the 5-minute trigger, 115 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
+chat call, 19 background jobs in the 5-minute trigger, 116 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
 
@@ -304,7 +304,7 @@ Names used by 5 or more other files, and the file that holds them.
 
 Server functions `Index.html` calls, by the file that holds them.
 
-- `Cue.gs`: `cueApprove`, `cueAsNew`, `cueCancelIntake`, `cueCloseTask`, `cueDrafts`, `cueFixAccess`, `cueFolders`, `cueReject`, `cueReopen`, `cueRescan`, `cueRetry`, `cueRfq`, `cueRfqPick`, `cueRun`, `cueSameAnswer`, `cueSeen`, `cueSend`, `cueState`, `cueSupplierCanvas`, `cueSupplierSaved`
+- `Cue.gs`: `cueApprove`, `cueAsNew`, `cueCancelIntake`, `cueCloseTask`, `cueDrafts`, `cueFixAccess`, `cueFolders`, `cueReject`, `cueReopen`, `cueRescan`, `cueRetry`, `cueRfq`, `cueRfqPick`, `cueRun`, `cueSameAnswer`, `cueSeen`, `cueSend`, `cueState`, `cueStreamPrefsSave`, `cueSupplierCanvas`, `cueSupplierSaved`
 - `CueAccred.gs`: `cueAcDone`
 - `CueAdmin.gs`: `cueAdminChasers`, `cueAdminLog`, `cueAdminRelnotes`, `cueAdminTriage`, `cueAdminTriageDel`
 - `CueAdminCanvas.gs`: `cueAdminCanvasChaseSend`, `cueAdminCanvasChasers`, `cueAdminSnBoard`, `cueAdminSnItems`, `cueAdminSnPrepare`, `cueAdminSnSend`

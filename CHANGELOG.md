@@ -16,9 +16,10 @@ parts follow.
 - The Project Intake Request card shows one grey "Saved" with Reopen inside the card. The "Saved decision" line, the green box and the decision's chat bubble are gone.
 - Fix: inside Canvas the rule that hides Cue's own top header also hid every card's header band ("Project Intake Request", "Email Intake"). Only the page header is hidden now.
 - The intake request card and the Email Intake card use the Canvas font, carry a 4px colour stripe on the left and show their label at the header's upper right.
+- Own labels: "Labels" in General lists every label with its colour as a dot. Kiko can add, rename and delete his own labels and pick any colour from eight swatches or a colour wheel. They are saved to Cue's settings (owner only), so they follow him to another device.
 
 Live Cue's card code (Apps Script versions 280 to 284) was saved back into `main` first (PR #464), and this branch sits on top of it.
-Local tests: 1005 of 1005 (`node test/cue.test.js`), feature map current.
+Local tests: 1009 of 1009 (`node test/cue.test.js`), feature map current.
 
 ## Cue 1.28.105: Canvas requirement approval readback (not deployed)
 

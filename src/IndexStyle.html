@@ -747,6 +747,21 @@
   .stream-orange { color:#923500; background:#FFF1E7; }
   .stream-teal { color:#075F63; background:#E2F6F5; }
   .stream-emerald { color:#125B3E; background:#E6F6ED; }
+  /* CUE-LABELS-2026-11-25: the Labels panel. A colour is shown as a round dot; a tap on it opens eight swatches and the colour wheel. */
+  .stream-label-menu > div#stream-label-rows { width:300px; padding:12px; border-radius:10px; }
+  .sl-row { display:flex; align-items:center; gap:8px; padding:4px 0; }
+  .sl-row .sl-name { flex:1; min-width:0; font:600 14px var(--font); } .sl-row input.sl-name { padding:4px 6px; }
+  .sl-sw { all:unset; box-sizing:border-box; cursor:pointer; width:24px; height:24px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line2); flex:none; }
+  .sl-sw.on { box-shadow:0 0 0 2px var(--text); } .sl-sw:focus-visible { box-shadow:0 0 0 2px var(--act); }
+  .sl-del { all:unset; cursor:pointer; padding:4px 8px; border-radius:6px; color:var(--bad); font:700 12px var(--font); } .sl-del:hover, .sl-del:focus-visible { background:var(--soft); }
+  .sl-pal { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px; margin:2px 0 6px; background:var(--soft); border-radius:8px; }
+  .sl-wheel { display:inline-flex; align-items:center; gap:6px; margin:0; font:600 12px var(--font); }
+  .sl-wheel input[type=color] { width:30px; height:28px; padding:0; cursor:pointer; }
+  .sl-add { display:flex; gap:6px; margin-top:8px; padding-top:10px; border-top:1px solid var(--line); } .sl-add input { flex:1; min-width:0; }
+  .sl-note { margin-top:8px; }
+  /* CUE-LABELS-2026-11-25: a label in any colour. The text is the colour darkened and the ground the colour lightened, so it stays readable. */
+  .stream-custom { color:color-mix(in srgb, var(--sc, #2810dc) 58%, #000); background:color-mix(in srgb, var(--sc, #2810dc) 13%, #fff); }
+  body.cue-stream #msgs > .msg.cue:has(.stream-custom) { border-inline-start-color:var(--sc, #2810dc); }
   body.cue-stream #msgs .stream-filtered { display:none; }
   .fcard-wrap { display:inline-flex; flex-direction:column; align-items:stretch; min-width:0; }
   .fcard-wrap .fdrive { font-size:12px; margin-top:2px; }
