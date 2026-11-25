@@ -1,5 +1,9 @@
 # Cue business rules — source-based first pass
 
+> **From 25 Nov 2026:** new decisions and approved rule changes are recorded on the Delivery Board's Decisions tab
+> (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP, collection `decisions`), as the "BSE development instructions" section of `AGENTS.md` requires. This file keeps
+> the earlier record and stays the reference for it. Kiko, 25 Nov 2026: "all md files being referenced and used by agents need to be updated".
+
 Status on main (checked 3 Nov 2026; CUE-046 and CUE-047 added 6 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
 Cue main and the live line have split: branch `claude/project-thread-y5l4x9-rel1285fix` (live, Version 191) has 256 commits main lacks,
 so a rule here can differ from what is live until main is reconciled with that line. The Canvas catalog is

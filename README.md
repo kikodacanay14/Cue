@@ -152,3 +152,8 @@ One-time setup:
 4. Run **Connect Google** once. It opens an issue with a sign-in link; sign in, then paste the address of the page that fails to load as a comment. The sign-in is stored only encrypted (`.deploy/clasprc.enc`).
 
 Script Properties (the keys) are never touched by a deploy.
+
+## Rules for AI agents (25 Nov 2026)
+
+Kiko, 25 Nov 2026: "all md files being referenced and used by agents need to be updated". Claude and Codex chats working in this repository follow the "BSE development instructions" section of `AGENTS.md` (approval requests through Concord, the Concord chat hub tools report_issue, send_to_chat and check_messages, the Delivery Board Decisions tab, release details, Drive files, skills, testing and proof). Claude chats also follow `CLAUDE.md`. The
+Delivery Board (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP) is the tracker and holds the Decisions tab.
