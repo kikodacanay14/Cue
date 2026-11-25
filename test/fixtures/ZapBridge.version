@@ -1,3 +1,2 @@
-CanvasWorkspace claude/project-thread-ynsrk8 @ 4e375a4 src/ZapBridge.gs (Canvas message templates release, NOT live yet; adds
-message_templates, message_render, message_log, message_template_save). md5 8043a4e7bdc282e5f59a6a9e15da1320
+CanvasWorkspace main @ ecb23d6 src/ZapBridge.gs (Canvas Version 579, live 2026-11-25 10:00:34Z; PR kikodacanay14/CanvasWorkspace#747 merged 10:18:51Z). md5 087db46bca06c788c72f6311454e6720
 Refresh both lines with every Canvas release that changes the bridge (Canvas CLAUDE.md step 5).
