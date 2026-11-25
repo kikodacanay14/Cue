@@ -1170,6 +1170,31 @@
   function cardLabel(cat) {
     return typeof streamPill === 'function' ? streamPill(cat, '') : '';
   }
+  function agdR1Style() {
+    return '<style>.card.cue-r1-inquiry{box-sizing:border-box;padding:0;border:1px solid #dfd6eb;border-radius:17px;background:#fff;color:#241841;overflow:hidden}'
+      + '.cue-r1-inquiry .cue-r1-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#281249;color:#fff}.cue-r1-inquiry .cue-r1-head .stream-pill,.cue-email-hero .stream-pill{display:inline-block;flex:none;margin:0}.card.cue-r1-inquiry{border-inline-start:4px solid #C8106E}.card.cue-email-report{border-inline-start:4px solid #23006F}.cue-r1-inquiry .cue-r1-head h2{margin:0;font:700 clamp(22px,5vw,32px)/1.2 var(--font,system-ui);letter-spacing:-.025em}'
+      + '.cue-r1-inquiry .cue-r1-body{padding:12px 20px 16px}.cue-r1-inquiry .facts{width:100%;border-collapse:collapse}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{text-align:left;padding:5px 8px;border-bottom:1px solid #eee7f5;overflow-wrap:anywhere}'
+      + '.cue-r1-inquiry .facts th{width:32%;color:#493564}.cue-r1-inquiry details{margin-top:8px;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd}'
+      + '.cue-r1-inquiry summary{cursor:pointer;font-weight:700}.cue-r1-editor{margin-top:0}.cue-r1-editor h3{margin:0 0 6px;font-size:16px}'
+      + '.cue-r1-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}.cue-r1-editor label{display:block;font-weight:650;font-size:13px}'
+      + '.cue-r1-fact,.cue-r1-category{min-width:0;font-size:13px}.cue-r1-fact b,.cue-r1-fact span{display:block}.cue-r1-fact span{margin-top:2px;padding:5px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#faf8fd;overflow-wrap:anywhere}.cue-r1-wide{grid-column:1/-1}'
+      + '.cue-r1-inquiry .cue-r1-category details{margin-top:4px}.cue-r1-saved-fields:disabled .cue-r1-category summary{pointer-events:none;cursor:default}.cue-r1-category .cue-r1-choices{margin-top:8px}'
+      + '.cue-r1-inquiry .cue-r1-editor input:not([type=checkbox]):not([type=radio]),.cue-r1-inquiry select{display:block;box-sizing:border-box;width:100%;min-width:0;margin:2px 0 0;padding:5px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:inherit}'
+      + '.cue-r1-inquiry fieldset{min-width:0;margin:6px 0;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px}.cue-r1-inquiry legend{padding:0 4px;font-weight:750}'
+      + '.cue-r1-inquiry .cue-r1-saved-fields{border:0;padding:0;margin:0}.cue-r1-inquiry .cue-r1-saved-fields:disabled{opacity:1}.cue-r1-inquiry .cue-r1-saved-fields:disabled input,.cue-r1-inquiry .cue-r1-saved-fields:disabled select{opacity:1;color:#241841;background:#faf8fd;-webkit-text-fill-color:#241841}'
+      + '.cue-r1-inquiry [hidden]{display:none!important}'
+      + '.cue-r1-inquiry .cue-r1-maillink{display:inline-flex;vertical-align:middle;margin-left:6px;padding:3px;border-radius:6px;color:#523097}.cue-r1-inquiry .cue-r1-source h4{margin:8px 0 4px;font-size:13px}'
+      + '.cue-r1-inquiry .cue-r1-files{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}.cue-r1-inquiry .cue-r1-files li{min-width:0;font-size:13px;overflow-wrap:anywhere}'
+      + '.cue-r1-inquiry .cue-r1-pic{width:112px}.cue-r1-inquiry .cue-r1-pic span{display:block;margin-top:4px}.cue-r1-inquiry .cue-r1-file{align-self:center;padding:6px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#fff}'
+      + '.cue-r1-inquiry button.cue-r1-thumb{position:relative;display:block;width:112px;height:84px;min-height:0;padding:0;overflow:hidden;background:#f1edf7;cursor:zoom-in}'
+      + '.cue-r1-inquiry .cue-r1-thumb img{display:block;width:100%;height:100%;object-fit:cover}.cue-r1-inquiry .cue-r1-zoom-mark{position:absolute;right:4px;bottom:4px;display:block;margin:0;padding:0 5px;border-radius:6px;background:rgba(40,18,73,.8);color:#fff;font-size:15px;line-height:20px}'
+      + '.cue-r1-inquiry .cue-r1-design{background:#faf8fd}.cue-r1-inquiry .cue-r1-choices label{display:inline-flex;align-items:center;min-height:28px;gap:5px;margin:0 12px 2px 0}'
+      + '.cue-r1-deliverables{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px}.cue-r1-inquiry .cue-r1-deliverables label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:7px;margin:0}.cue-r1-deliverables input{justify-self:start}@media(max-width:600px){.cue-r1-deliverables{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 0;color:var(--muted,#5B5766);font-weight:600}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
+      + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font,system-ui);cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
+      + '.cue-r1-inquiry button:disabled{opacity:.55;cursor:not-allowed}.cue-r1-inquiry :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
+      + '@media(max-width:500px){.cue-r1-inquiry .cue-r1-head,.cue-r1-inquiry .cue-r1-body{padding:14px}.cue-r1-fields{grid-template-columns:minmax(0,1fr)}.cue-r1-inquiry .actions{padding:12px 14px}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{padding:5px 4px}}</style>';
+  }
   function agdInquiryHtml(r, canReply, unread) {
     var A = r.agd, I = A.handover.project_inquiry, id = esc(r.id), review = I.stage === 'review';
     var current = review && /^[a-f0-9]{8}$/.test(I.card_version || '') && Array.isArray(I.categories);
@@ -1264,29 +1289,7 @@
     var editButtons = editable ? '<button type="button" class="btn" data-act="agd-edit-intake" data-id="' + id
       + '" aria-label="Edit project details" title="Edit project details">✎</button><button type="button" hidden class="btn cue-r1-primary" data-act="agd-save-intake" data-id="'
       + id + '">Save edits</button>' : '';
-    var style = '<style>.card.cue-r1-inquiry{box-sizing:border-box;padding:0;border:1px solid #dfd6eb;border-radius:17px;background:#fff;color:#241841;overflow:hidden}'
-      + '.cue-r1-inquiry .cue-r1-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#281249;color:#fff}.cue-r1-inquiry .cue-r1-head .stream-pill,.cue-email-hero .stream-pill{display:inline-block;flex:none;margin:0}.card.cue-r1-inquiry{border-inline-start:4px solid #C8106E}.card.cue-email-report{border-inline-start:4px solid #23006F}.cue-r1-inquiry .cue-r1-head h2{margin:0;font:700 clamp(22px,5vw,32px)/1.2 var(--font,system-ui);letter-spacing:-.025em}'
-      + '.cue-r1-inquiry .cue-r1-body{padding:12px 20px 16px}.cue-r1-inquiry .facts{width:100%;border-collapse:collapse}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{text-align:left;padding:5px 8px;border-bottom:1px solid #eee7f5;overflow-wrap:anywhere}'
-      + '.cue-r1-inquiry .facts th{width:32%;color:#493564}.cue-r1-inquiry details{margin-top:8px;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd}'
-      + '.cue-r1-inquiry summary{cursor:pointer;font-weight:700}.cue-r1-editor{margin-top:0}.cue-r1-editor h3{margin:0 0 6px;font-size:16px}'
-      + '.cue-r1-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}.cue-r1-editor label{display:block;font-weight:650;font-size:13px}'
-      + '.cue-r1-fact,.cue-r1-category{min-width:0;font-size:13px}.cue-r1-fact b,.cue-r1-fact span{display:block}.cue-r1-fact span{margin-top:2px;padding:5px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#faf8fd;overflow-wrap:anywhere}.cue-r1-wide{grid-column:1/-1}'
-      + '.cue-r1-inquiry .cue-r1-category details{margin-top:4px}.cue-r1-saved-fields:disabled .cue-r1-category summary{pointer-events:none;cursor:default}.cue-r1-category .cue-r1-choices{margin-top:8px}'
-      + '.cue-r1-inquiry .cue-r1-editor input:not([type=checkbox]):not([type=radio]),.cue-r1-inquiry select{display:block;box-sizing:border-box;width:100%;min-width:0;margin:2px 0 0;padding:5px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:inherit}'
-      + '.cue-r1-inquiry fieldset{min-width:0;margin:6px 0;padding:6px 12px;border:1px solid #dfd6eb;border-radius:9px}.cue-r1-inquiry legend{padding:0 4px;font-weight:750}'
-      + '.cue-r1-inquiry .cue-r1-saved-fields{border:0;padding:0;margin:0}.cue-r1-inquiry .cue-r1-saved-fields:disabled{opacity:1}.cue-r1-inquiry .cue-r1-saved-fields:disabled input,.cue-r1-inquiry .cue-r1-saved-fields:disabled select{opacity:1;color:#241841;background:#faf8fd;-webkit-text-fill-color:#241841}'
-      + '.cue-r1-inquiry [hidden]{display:none!important}'
-      + '.cue-r1-inquiry .cue-r1-maillink{display:inline-flex;vertical-align:middle;margin-left:6px;padding:3px;border-radius:6px;color:#523097}.cue-r1-inquiry .cue-r1-source h4{margin:8px 0 4px;font-size:13px}'
-      + '.cue-r1-inquiry .cue-r1-files{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}.cue-r1-inquiry .cue-r1-files li{min-width:0;font-size:13px;overflow-wrap:anywhere}'
-      + '.cue-r1-inquiry .cue-r1-pic{width:112px}.cue-r1-inquiry .cue-r1-pic span{display:block;margin-top:4px}.cue-r1-inquiry .cue-r1-file{align-self:center;padding:6px 10px;border:1px solid #dfd6eb;border-radius:8px;background:#fff}'
-      + '.cue-r1-inquiry button.cue-r1-thumb{position:relative;display:block;width:112px;height:84px;min-height:0;padding:0;overflow:hidden;background:#f1edf7;cursor:zoom-in}'
-      + '.cue-r1-inquiry .cue-r1-thumb img{display:block;width:100%;height:100%;object-fit:cover}.cue-r1-inquiry .cue-r1-zoom-mark{position:absolute;right:4px;bottom:4px;display:block;margin:0;padding:0 5px;border-radius:6px;background:rgba(40,18,73,.8);color:#fff;font-size:15px;line-height:20px}'
-      + '.cue-r1-inquiry .cue-r1-design{background:#faf8fd}.cue-r1-inquiry .cue-r1-choices label{display:inline-flex;align-items:center;min-height:28px;gap:5px;margin:0 12px 2px 0}'
-      + '.cue-r1-deliverables{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px}.cue-r1-inquiry .cue-r1-deliverables label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:7px;margin:0}.cue-r1-deliverables input{justify-self:start}@media(max-width:600px){.cue-r1-deliverables{grid-template-columns:repeat(2,minmax(0,1fr))}}'
-      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 0;color:var(--muted,#5B5766);font-weight:600}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
-      + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font,system-ui);cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
-      + '.cue-r1-inquiry button:disabled{opacity:.55;cursor:not-allowed}.cue-r1-inquiry :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
-      + '@media(max-width:500px){.cue-r1-inquiry .cue-r1-head,.cue-r1-inquiry .cue-r1-body{padding:14px}.cue-r1-fields{grid-template-columns:minmax(0,1fr)}.cue-r1-inquiry .actions{padding:12px 14px}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{padding:5px 4px}}</style>';
+    var style = agdR1Style() + (I.multimedia || A.action_note ? agdP1Style() : '');
     return style + '<div class="card cue-r1-inquiry" data-card="' + id + '"><header class="cue-r1-head"><h2>'
       + (review ? 'Project Intake Request' : 'New project registration') + '</h2>' + cardLabel('intake') + '</header><div class="cue-r1-body">'
       + editForm
@@ -1294,6 +1297,9 @@
       // "Update copy. 'Saved' only"; "Make Saved colored gray"): one grey "Saved". After a saved decision it carries Reopen.
       + (settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'
         : agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status"><span>' + (agdIntakeSaved[r.id] === I.card_version ? 'Saved' : 'Saved. Refreshing this card…') + '</span></p>' : '')
+      // PHASE1-CARDS-2026-11-25: after registration the result is an action note on this card (Kiko: "not as a label as an action note").
+      + (settled && A.action_note ? '<p class="cue-r1-note"><b>Action note</b><span>' + esc(A.action_note) + '</span></p>' : '')
+      + (I.multimedia ? agdMmFindHtml(I.multimedia) : '')
       + evidence + projectPicker
       + (!review && A.handover.summary ? '<details><summary>Registration details</summary><div style="white-space:pre-wrap">' + esc(A.handover.summary) + '</div></details>' : '')
       + (settled ? '' :
@@ -1303,6 +1309,226 @@
       + '</div><div class="actions">' + editButtons + actions + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
       + '</div></div>';
   }
+  // PHASE1-CARDS-2026-11-25 (Project Intake, Sub Process 1; Kiko approved the mockups on 25 Nov 2026 and said "go" to the build). The image
+  // review card (one design for both Multimedia loops), the shared "Question for you" card, Multimedia's findings on the Project Intake
+  // Request card and the "Are you sure...?" window. All of them use the Project Intake Request card's shell (agdR1Style).
+  function agdP1Style() {
+    return '<style>.card.cue-r1-inquiry.cue-mm,.card.cue-r1-inquiry.cue-q{border-inline-start:4px solid #281249}.cue-r1-inquiry .cue-r1-head .tag{flex:none;margin:0}'
+      + '.cue-r1-inquiry .mm-sec{margin-top:12px}.cue-r1-inquiry .mm-sec h3{margin:0 0 6px;font-size:16px}.cue-r1-inquiry .mm-scroll{overflow-x:auto}'
+      + '.cue-r1-inquiry table.mm-find{width:100%;border-collapse:collapse;font-size:13px}'
+      + '.cue-r1-inquiry .mm-find th{text-align:center;vertical-align:middle;padding:6px 8px}'   // the header band's colour is the shared table rule's (IndexStyle UI-RULES)
+      + '.cue-r1-inquiry .mm-find td{vertical-align:middle;padding:6px 8px;border-top:0;border-bottom:1px solid #eee7f5;font-weight:400;overflow-wrap:anywhere}'
+      + '.cue-r1-inquiry .mm-find td.c{text-align:center}.cue-r1-inquiry .mm-find tr.gap td{background:#FBF0D9;color:#5c3900}'
+      + '.cue-r1-inquiry .mm-rounds ul{margin:6px 0 0;padding-left:18px;font-size:13px}.cue-r1-inquiry .mm-quote{margin:4px 0 6px;padding:4px 10px;border-left:3px solid #bbaacd;color:#493564}'
+      + '.cue-r1-inquiry .mm-next{margin:6px 0 0}.cue-r1-inquiry .mm-comment{margin-top:12px}.cue-r1-inquiry .mm-comment label,.cue-r1-inquiry .q-ans{display:block;font-weight:650;font-size:13px}'
+      + '.cue-r1-inquiry textarea{display:block;box-sizing:border-box;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:inherit;resize:vertical}'
+      + '.cue-r1-inquiry textarea:disabled{opacity:1;background:#faf8fd;color:#241841;-webkit-text-fill-color:#241841}'
+      + '.cue-r1-inquiry .mm-old{margin:0 0 8px;padding:8px 12px;border-radius:9px;background:#EFEAFB;color:#23006F}'
+      + '.cue-r1-inquiry .cue-mmfind p{margin:6px 0}.cue-r1-inquiry button.cue-mm-open{min-height:0;padding:0;border:0;background:none;color:#523097;font-weight:700;text-decoration:underline}'
+      + '.cue-r1-inquiry .cue-r1-note{margin:10px 0 0;padding:8px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd;font-size:13px}.cue-r1-inquiry .cue-r1-note b{display:block;font-size:14px}'
+      + '.cue-r1-inquiry .q-text{margin:0 0 10px;font:700 18px/1.35 var(--font);color:#241841}.cue-r1-inquiry .q-opts{margin:10px 0 0}'
+      + '.cue-r1-inquiry .q-opts label{display:flex;align-items:flex-start;gap:8px;min-height:32px;margin:2px 0;font-size:14px}.cue-r1-inquiry .q-opts input{margin-top:3px}'
+      + '.cue-r1-inquiry .q-msg{margin-top:8px;padding:10px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd}.cue-r1-inquiry .q-msg textarea{margin-top:6px;font-size:13px}'
+      + '.cue-r1-inquiry .err{margin:10px 0 0}</style>';
+  }
+  // The "Are you sure...?" window (Kiko 25 Nov 2026: "lets have a notification window instead. Saying "Are you sure..." Yes | No", then
+  // "1. Yes. All Cards"). One dialog on the page body, so it shows inside a thread too; No is in focus; Yes runs the action once.
+  var agdSureYes = null;
+  function agdSure(q, sub, yes) {
+    var box = document.getElementById('cue-sure');
+    if (!box) {
+      box = document.createElement('dialog'); box.id = 'cue-sure';
+      box.innerHTML = '<style>#cue-sure{box-sizing:border-box;width:min(420px,calc(100vw - 32px));padding:20px;border:0;border-radius:14px;background:#fff;color:#241841;box-shadow:0 18px 50px rgba(22,21,27,.35)}'
+        + '#cue-sure::backdrop{background:rgba(22,21,27,.55)}#cue-sure h3{margin:0 0 6px;font:700 18px/1.3 var(--font);color:#241841}#cue-sure p{margin:0 0 16px;font-size:14px;color:#5B5766}'
+        + '#cue-sure .sure-act{display:flex;justify-content:flex-end;gap:8px}#cue-sure button{min-height:44px;min-width:88px;padding:0 18px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font);cursor:pointer}'
+        + '#cue-sure .sure-yes{background:#523097;border-color:#523097;color:#fff}#cue-sure button:focus-visible{outline:2px solid #23006F;outline-offset:2px}</style>'
+        + '<h3 id="cue-sure-q"></h3><p></p><div class="sure-act"><button type="button" data-sure="no">No</button><button type="button" class="sure-yes" data-sure="yes">Yes</button></div>';
+      box.setAttribute('aria-labelledby', 'cue-sure-q');
+      document.body.appendChild(box);
+      box.addEventListener('click', function (e) {
+        var pick = e.target.getAttribute && e.target.getAttribute('data-sure'); if (!pick) return;
+        var run = agdSureYes; agdSureYes = null; box.close();
+        if (pick === 'yes' && run) run();
+      });
+    }
+    box.querySelector('h3').textContent = q; box.querySelector('p').textContent = sub; agdSureYes = yes;
+    if (!box.open) box.showModal();
+    box.querySelector('[data-sure="no"]').focus();
+  }
+  // Which taps ask first, and what the window says. Everything else stays one tap.
+  function agdSureText(act, what) {
+    if (act === 'agd-inquiry') return /^Confirm new project /.test(what) ? ['Are you sure you want to approve this project?', 'Account Specialist registers it in Canvas.']
+      : what === 'Reject intake' ? ['Are you sure you want to reject this inquiry?', 'No project is registered.'] : null;
+    if (act === 'agd-mm') return what === 'approve' ? ['Are you sure you want to approve this work?', 'It goes to Account Specialist.']
+      : what === 'back' ? ['Are you sure you want to send this back?', 'Multimedia revises the work with your comments.'] : null;
+    if (act === 'agd-q') return what === 'client' ? ['Are you sure you want to approve this message?', 'It is sent to the client as written.'] : null;
+    return null;
+  }
+  // The reply Canvas keeps for the agent. It names the request, its revision and the round shown, so an answer on an older card still counts
+  // for the newest round. '' means there is nothing to send yet.
+  function agdMmNote(kind, V, text) {
+    var t = String(text == null ? '' : text).trim(), ref = V.request_key + ' ' + V.revision;
+    if (kind === 'approve') return 'Approve image review ' + ref + ' round ' + V.round;
+    if (kind === 'back') return t ? 'Send back image review ' + ref + ' round ' + V.round + ': ' + t : '';
+    return t === 'new' || t === 'keep' ? 'Design source ' + ref + ': ' + t : '';
+  }
+  function agdQNote(kind, Q, text) {
+    var t = String(text == null ? '' : text).trim(), ref = Q.request_key + ' ' + Q.revision;
+    if (kind === 'client') return t ? 'Approve client message ' + ref + ':\n' + t : '';
+    if ((Q.options || []).length && !Q.options.some(function (o) { return o.value === t; })) return '';
+    return t ? 'Answer ' + ref + ': ' + t : '';
+  }
+  // Multimedia's findings as a table: what was measured, the value with its unit, where it came from. A gap is said in words and tinted.
+  function agdMmTable(heads, rows) {
+    return '<div class="mm-scroll"><table class="mm-find"><thead><tr>' + heads.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>'
+      + rows.map(function (c) { return '<tr' + (c.gap ? ' class="gap"' : '') + '><td>' + esc(c[0]) + '</td><td class="c">' + esc(c[1]) + '</td><td>' + esc(c[2]) + '</td></tr>'; }).join('')
+      + '</tbody></table></div>';
+  }
+  function agdMmRows(list) {
+    return (list || []).map(function (f) {
+      var c = f.gap ? [f.measurement, 'Not given', 'Gap: ' + f.gap] : [f.measurement, f.value + (f.unit ? ' ' + f.unit : ''), f.source];
+      c.gap = !!f.gap; return c;
+    });
+  }
+  var AGD_MM_HEADS = ['Measurement', 'Value', 'Where it came from'];
+  // On the Project Intake Request card: what Multimedia found, once Kiko approved it on the image review card.
+  function agdMmFindHtml(M) {
+    return '<details open class="cue-mmfind"><summary>Multimedia findings</summary><p class="small">'
+      + [M.mm_case ? '<b>Case:</b> ' + esc(M.mm_case) : '', M.checked ? '<b>Checked:</b> ' + esc(M.checked) : '',
+        M.approved_at ? '<b>Approved by you:</b> ' + esc(M.approved_at) + (M.round ? ' (round ' + M.round + ', image version ' + (M.image_version || M.round) + ')' : '') : ''].filter(Boolean).join(' · ') + '</p>'
+      + ((M.findings || []).length ? agdMmTable(AGD_MM_HEADS, agdMmRows(M.findings)) : '')
+      + (M.gaps_note ? '<p class="small"><b>Gap:</b> ' + esc(M.gaps_note) + '</p>' : '')
+      + (M.review_card_id ? '<p class="small"><button type="button" class="cue-mm-open" data-agd-goto="' + esc(M.review_card_id) + '">Open the image review card</button></p>' : '')
+      + '</details>';
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-agd-goto]'); if (!t) return;
+    var want = t.getAttribute('data-agd-goto'), hit = (state.requests || []).filter(function (x) { return x.agd && x.agd.draft_id === want; })[0];
+    var card = hit && document.querySelector('[data-card="' + hit.id + '"]');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); else alertErr(new Error('That image review card is not in this view. Open the Multimedia channel to see it.'), (t.closest('[data-card]') || t).getAttribute('data-card') || '');
+  });
+  function agdP1Fact(label, value, wide) {
+    return '<div class="cue-r1-fact' + (wide ? ' cue-r1-wide' : '') + '"><b>' + esc(label) + '</b><span>' + esc(value || 'Not given') + '</span></div>';
+  }
+  // The pictures on an image review card. A Drive file shows through Drive; a file on the card's own email is read the way the
+  // Project Intake Request card reads it (cueInquiryThumb). Each opens in the same zoom viewer.
+  // Kiko 25 Nov 2026 ("its a broken image. if image was made from blender - embed it"): when Drive's small picture does not load, Cue
+  // reads the file itself (the same read the viewer uses) and puts the picture in the card. If that fails too, the name is a link.
+  window.cueMmThumb = function (im, fileId, id, at) {
+    im.onerror = null;
+    imgData(fileId, function (u) { im.src = u; }, function () { agdInquiryPics[id + '|' + at] = 'none'; render(); });
+  };
+  function agdMmPics(r, V, mailUrl) {
+    var id = esc(r.id);
+    return (V.images || []).map(function (file, at) {
+      var drive = file.file_id ? 'https://drive.google.com/thumbnail?id=' + esc(file.file_id) + '&amp;sz=w320" referrerpolicy="no-referrer" onerror="cueMmThumb(this,\'' + esc(file.file_id) + '\',\'' + id + '\',' + at + ')' : '', have = agdInquiryPics[r.id + '|' + at];
+      var open = file.file_id ? 'https://drive.google.com/file/d/' + esc(file.file_id) + '/view' : mailUrl ? esc(mailUrl) : '';   // a picture Cue cannot show still opens, as on the intake card
+      if ((!drive && !mailUrl) || have === 'none') return '<li class="cue-r1-file">' + (open ? '<a href="' + open + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>' : esc(file.name)) + '</li>';
+      return '<li class="cue-r1-pic"><button type="button" class="cue-r1-thumb" data-inquiry-pic="' + at + '" data-id="' + id + '" data-name="' + esc(file.name)
+        + '" title="Zoom ' + esc(file.name) + '" aria-label="Zoom ' + esc(file.name) + '"><img alt="" src="' + (have ? esc(have) : drive
+          || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" onload="cueInquiryThumb(this,\'' + id + '\',' + at + ')')
+        + '"><span class="cue-r1-zoom-mark" aria-hidden="true">⌕</span></button><span>' + esc(file.name) + '</span></li>';
+    }).join('');
+  }
+  // What Kiko already answered on this card, from his replies: { k: 'approve' | 'back' | 'source', text }.
+  function agdMmAnswer(A) {
+    var d = null;
+    (A.replies && A.replies.length ? A.replies : A.status === 'Replied' && A.note ? [{ text: A.note }] : []).forEach(function (x) {
+      var t = String(x.text || ''), m = /^Send back image review \S+ \S+ round \d+: ([\s\S]*)$/.exec(t);
+      if (/^Approve image review \S+ \S+ round \d+$/.test(t)) d = { k: 'approve' }; else if (m) d = { k: 'back', text: m[1] };
+      else if (/^Design source \S+ \S+: (new|keep)$/.test(t)) d = { k: 'source', text: t.slice(t.lastIndexOf(' ') + 1) };
+    });
+    return d;
+  }
+  function agdImageReviewHtml(r, canReply, unread) {
+    var A = r.agd || {}, V = A.handover.image_review, id = esc(r.id), ans = agdMmAnswer(A), pre = V.loop !== 'requirement';
+    var stopped = V.status === 'stopped', approved = !stopped && (V.status === 'approved' || (ans && ans.k === 'approve')), sent = !stopped && !approved && ans && ans.k === 'back';
+    var waiting = !stopped && !approved && !sent, act = canReply && r.status !== 'Sending';
+    var tag = stopped ? '<span class="tag crit">Stopped</span>' : approved ? '<span class="tag good">Approved</span>'
+      : sent ? '<span class="tag">Sent back, round ' + (V.round + 1) + ' pending</span>' : '<span class="tag warn">Waiting for you</span>';
+    var pairText = function (p) { return p ? [p.id, p.name].filter(Boolean).join(' · ') : ''; };
+    var facts = (pre ? agdP1Fact('Email subject', (V.source || {}).subject, true) + agdP1Fact('Sender', (V.source || {}).sender) + agdP1Fact('Received', (V.source || {}).received)
+      : agdP1Fact('Project', pairText(V.project), true) + agdP1Fact('Requirement', pairText(V.requirement), true)) + agdP1Fact('Multimedia case', V.mm_case);
+    var head = agdR1Style() + agdP1Style() + '<div class="card cue-r1-inquiry cue-mm" data-card="' + id + '"><header class="cue-r1-head"><h2>Image review</h2>' + tag + '</header><div class="cue-r1-body">';
+    var foot = (r.status === 'Sending' ? '<p class="small muted">Passing it to Canvas…</p>' : '') + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">';
+    var read = unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '';
+    if (stopped) {
+      var picked = ans && ans.k === 'source' ? ans.text : '', lock = picked || !act ? ' disabled' : '';
+      return head + '<div class="cue-r1-fields">' + facts + '</div><div class="err">Multimedia stopped. The client\'s approved design file is not the same as when the work started.</div>'
+        + '<section class="mm-sec"><h3>What changed</h3>' + agdMmTable(['File', 'Before', 'Now'], (V.changed || []).map(function (x) { var c = [x.name, x.before, x.now]; c.gap = true; return c; }))
+        + '<p class="small muted">No draft was made from the changed file. Other requirements of this project are not held.</p></section>'
+        + '<section class="mm-sec"><h3>Which file is the design source?</h3><fieldset class="q-opts"><legend>Pick one</legend>'
+        + [['new', 'Use the new version. Multimedia starts again from it.'], ['keep', 'Keep the earlier one. Multimedia continues from the earlier copy.']].map(function (o, i) {
+          return '<label><input type="radio" name="src-' + id + '" value="' + o[0] + '"' + (picked === o[0] ? ' checked' : '') + lock + '><span><b>' + 'AB'.charAt(i) + '.</b> ' + o[1] + '</span></label>'; }).join('')
+        + '</fieldset></section>' + (picked ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p>' : '') + foot
+        + (picked || !act ? '' : '<button class="btn cue-r1-primary" data-act="agd-mm" data-mm="source" data-id="' + id + '" disabled>Send answer</button>') + read + '</div></div>';
+    }
+    var mailUrl = /^https:\/\/mail\.google\.com\/mail\/\?authuser=[^"'<>\s]*#all\/[0-9a-f]{8,24}$/.test(A.inquiry_mail_url || '') ? A.inquiry_mail_url : '';
+    var from = V.made_from, fromHtml = !from ? '' : ' Made from: ' + (from.file_id ? '<a href="https://drive.google.com/file/d/' + esc(from.file_id) + '/view" target="_blank" rel="noopener">' + esc(from.name) + '</a>'
+      : mailUrl ? '<a href="' + esc(mailUrl) + '" target="_blank" rel="noopener" title="Opens the original email">' + esc(from.name) + '</a>' : esc(from.name)) + '.';
+    var what = '<section class="mm-sec"><h3>' + esc(V.title || (pre ? 'Original images attached' : 'Multimedia\'s work')) + '</h3><ul class="cue-r1-files">' + agdMmPics(r, V, mailUrl)
+      + '</ul><p class="small muted">Tap a picture to see it larger.' + fromHtml + (V.files_note ? ' ' + esc(V.files_note) : '') + '</p></section>';
+    var find = '<section class="mm-sec"><h3>Multimedia\'s findings</h3>' + agdMmTable(V.finding_heads || AGD_MM_HEADS, agdMmRows(V.findings))
+      + (V.gaps_note ? '<p class="small muted">' + esc(V.gaps_note) + '</p>' : '') + '</section>';
+    var rounds = (V.earlier_rounds || []).map(function (x) {
+      return '<li><b>Round ' + x.n + '</b> · image version ' + x.n + (x.at ? ' · ' + esc(x.at) : '') + ' · ' + (x.answer === 'approved' ? 'Approved by you' : 'Sent back by you')
+        + (x.comment ? '<div class="mm-quote">' + esc(x.comment) + '</div>' : '') + '</li>'; }).join('')
+      + (sent ? '<li><b>Round ' + V.round + '</b> · image version ' + V.image_version + ' · Sent back by you<div class="mm-quote">' + esc(ans.text) + '</div></li>'
+        : approved ? '<li><b>Round ' + V.round + '</b> · image version ' + V.image_version + ' · Approved by you</li>' : '');
+    var hist = rounds ? '<details class="mm-rounds"' + (sent ? ' open' : '') + '><summary>Earlier rounds and your comments</summary><ul>' + rounds + '</ul></details>' : '';
+    var old = approved && V.answered_on_round && V.answered_on_round < V.round ? '<p class="small mm-old"><b>You approved on the round ' + V.answered_on_round + ' card.</b> Round ' + V.round
+      + ' had already arrived, so your approval counts for round ' + V.round + ', shown here.</p>' : '';
+    var saved = waiting ? '' : '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (approved && CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'
+      + '<p class="small muted mm-next">' + (sent ? 'Multimedia is revising. This card updates when round ' + (V.round + 1) + ' arrives.'
+        : pre ? 'Findings went to Account Specialist. The Project Intake Request card follows.' : 'Approved work went to Account Specialist for this requirement.') + '</p>';
+    var ask = waiting && act ? '<div class="mm-comment"><label>Comments for Multimedia <span class="small muted">(needed to send back)</span><textarea rows="2" placeholder="What should change?" data-mm-comment="' + id + '"></textarea></label></div>' : '';
+    return head + old + '<div class="cue-r1-fields">' + facts + agdP1Fact('Revision', 'Round ' + V.round + ' · image version ' + V.image_version) + (V.made_with ? agdP1Fact('Made with', V.made_with) : '') + '</div>'
+      + what + find + hist + saved + ask + foot
+      + (waiting && act ? '<button class="btn" data-act="agd-mm" data-mm="back" data-id="' + id + '" disabled>Send back with comments</button><button class="btn cue-r1-primary" data-act="agd-mm" data-mm="approve" data-id="' + id + '">Approve</button>' : '')
+      + read + '</div></div>';
+  }
+  // The shared "Question for you" card (Kiko 25 Nov 2026: "a totally different Questions for you card? reusable by everyone"). Any agent can
+  // post one; the From cell names it. He answers in a box or picks a lettered option; where the agent drafted a message to the client, he
+  // can approve those exact words instead. Cue sends nothing to a client: every answer is a reply the agent reads.
+  function agdQuestionHtml(r, canReply, unread) {
+    var A = r.agd || {}, Q = A.handover.question, id = esc(r.id), opts = Q.options || [], msg = !opts.length && Q.client_message, done = null;
+    (A.replies && A.replies.length ? A.replies : A.status === 'Replied' && A.note ? [{ text: A.note }] : []).forEach(function (x) {
+      var m = /^(Answer|Approve client message) \S+ \S+:\s?([\s\S]*)$/.exec(String(x.text || '')); if (m) done = { client: m[1] !== 'Answer', text: m[2] }; });
+    var act = canReply && !done && r.status !== 'Sending', lock = act ? '' : ' disabled';
+    var radio = function (name, value, letter, label, on) {
+      return '<label><input type="radio" name="' + name + '-' + id + '" value="' + esc(value) + '"' + (on ? ' checked' : '') + lock + '><span><b>' + letter + '.</b> ' + esc(label) + '</span></label>'; };
+    var pick = opts.length ? '<fieldset class="q-opts"><legend>Pick one</legend>' + opts.map(function (o, i) { return radio('q', o.value, 'ABCDEFGH'.charAt(i), o.label, !!done && done.text === o.value); }).join('') + '</fieldset>'
+      : (msg ? '<fieldset class="q-opts"><legend>Pick one</legend>' + radio('q-how', 'A', 'A', 'I answer here', !done || !done.client) + radio('q-how', 'B', 'B', 'Ask the client: I approve the exact message below', !!done && done.client) + '</fieldset>' : '')
+        + '<div data-q-pane="A"' + (done && done.client ? ' hidden' : '') + '><label class="q-ans">Your answer<textarea rows="2" placeholder="Type your answer" data-q-answer' + lock + '>' + esc(done && !done.client ? done.text : '') + '</textarea></label></div>'
+        + (msg ? '<div data-q-pane="B"' + (done && done.client ? '' : ' hidden') + '><div class="q-msg">' + (msg.to ? '<div class="small"><b>To:</b> ' + esc(msg.to) + '</div>' : '')
+          + '<textarea rows="5" data-q-client' + lock + '>' + esc(done && done.client ? done.text : msg.body) + '</textarea>'
+          + '<div class="small muted">Nothing is sent to the client until you tap Approve message. You can edit the words first.</div></div></div>' : '');
+    return agdR1Style() + agdP1Style() + '<div class="card cue-r1-inquiry cue-q" data-card="' + id + '"><header class="cue-r1-head"><h2>Question for you</h2>'
+      + (done ? '<span class="tag good">Answered</span>' : '<span class="tag warn">Waiting for you</span>') + '</header><div class="cue-r1-body">'
+      + '<p class="q-text">' + esc(Q.question) + '</p><div class="cue-r1-fields">' + agdP1Fact('From', agdLabel(A.agent)) + (Q.waits ? agdP1Fact(Q.waits_label || 'Waits', Q.waits) : '')
+      + (Q.project ? agdP1Fact('Project', Q.project, true) : '') + (Q.source ? agdP1Fact('Source', Q.source, true) : '') + '</div>'
+      + (Q.note ? '<p class="small muted">' + esc(Q.note) + '</p>' : '') + pick
+      + (done ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p><p class="small muted mm-next">' + esc(agdLabel(A.agent)) + ' reads your answer on its next run.</p>' : '')
+      + (r.status === 'Sending' ? '<p class="small muted">Passing it to Canvas…</p>' : '') + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">'
+      + (act ? (msg ? '<button class="btn" data-act="agd-q" data-q="client" data-id="' + id + '" hidden>Approve message</button>' : '')
+        + '<button class="btn cue-r1-primary" data-act="agd-q" data-q="send" data-id="' + id + '" disabled>Send answer</button>' : '')
+      + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '') + '</div></div>';
+  }
+  // A button on these two cards wakes only when there is something to send: a comment, a typed answer or a pick.
+  function agdP1Wake(e) {
+    var t = e.target, card = t.closest && t.closest('.cue-mm, .cue-q'); if (!card) return;
+    var one = function (s) { return card.querySelector(s); }, back = one('[data-mm="back"]'), src = one('[data-mm="source"]'), send = one('[data-q="send"]'), client = one('[data-q="client"]');
+    if (t.hasAttribute('data-mm-comment') && back) back.disabled = !t.value.trim();
+    if (t.type === 'radio' && src) src.disabled = false;
+    if (t.hasAttribute('data-q-answer') && send) send.disabled = !t.value.trim();
+    if (t.type === 'radio' && send && !/^q-how-/.test(t.name)) send.disabled = false;
+    if (t.type === 'radio' && /^q-how-/.test(t.name)) {
+      card.querySelectorAll('[data-q-pane]').forEach(function (x) { x.hidden = x.getAttribute('data-q-pane') !== t.value; });
+      if (client) client.hidden = t.value !== 'B';
+      if (send) send.hidden = t.value === 'B';
+    }
+  }
+  document.addEventListener('input', agdP1Wake); document.addEventListener('change', agdP1Wake);
   function agdUpdHtml(r) {
     var A = r.agd || {}, H = A.handover || {}, id = esc(r.id), unread = A.unread && r.status !== 'Sending', ok = H.state === 'Delivered';
     var routeDecision = H.route_decision;
@@ -1327,6 +1553,8 @@
     var wait = H.state === 'Waiting for approval', stTag = wait ? '<span class="tag warn">Waiting for you</span>' : '<span class="tag ' + (ok ? 'good' : 'crit') + '">' + (ok ? 'Delivered' : 'Blocked') + '</span>';
     var canReply = (A.status === 'Unread' || A.status === 'Read' || A.status === 'Replied') && r.status !== 'Sending';   // Kiko's card "Updates plus replies"; AGENT-REPLIES-2026-11-14: more than one
     if (H.project_inquiry) return agdInquiryHtml(r, canReply, unread);
+    if (H.image_review) return agdImageReviewHtml(r, canReply, unread);
+    if (H.question) return agdQuestionHtml(r, canReply, unread);
     if (H.intake) return agdIntakeHtml(r, canReply, unread);   // EMAIL-INTAKE-CARD-2026-11-18
     if (H.check) return agdCheckHtml(r, canReply, unread);   // AGENT-CHECK-CARD-2026-11-18
     // A Project Update is passive; do not intercept AS's existing Step 12A approval/readback card.
@@ -2245,9 +2473,8 @@
               dirty(); render();
               refresh(function () { delete agdInquiryChecking[id]; }, function () {});
             };
-            b.disabled = true; running[id] = 1; schedule();
-            if (/^Confirm new project [a-f0-9]{8}$/.test(choice)) {
-              delete running[id]; b.disabled = false;
+            var confirming = /^Confirm new project [a-f0-9]{8}$/.test(choice);
+            if (confirming) {
               var edit = b.closest('.card').querySelector('[data-intake-edit]');
               if (edit && Array.from(edit.querySelectorAll('input, select')).some(function (input) {
                 if (input.tagName === 'SELECT') return !input.options[input.selectedIndex].defaultSelected &&
@@ -2256,17 +2483,30 @@
               })) return alertErr(new Error('Save edits before confirming the project.'), id);
               var inquiry = (agdOf(id).handover || {}).project_inquiry;
               if (!inquiry || choice !== 'Confirm new project ' + inquiry.card_version || !Array.isArray(inquiry.categories) || !inquiry.categories.length) return;
-              // Live 24 Nov 2026: the confirm box did not show in a thread and froze the page, so the second tap is on the card itself.
-              if (b.getAttribute('data-armed') !== inquiry.card_version) {
-                b.setAttribute('data-armed', inquiry.card_version); b.textContent = 'Confirm New Project';
-                b.title = 'Canvas will register the project shown on this card. Project category: ' + inquiry.categories.join(', ') + '.';
-                return;
-              }
+            }
+            var inquirySend = function () {
               if (running[id]) return;
               b.disabled = true; running[id] = 1; schedule();
-              return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, function (e) { inquiryRefresh(); alertErr(e, id); });
-            }
-            return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, inquiryRefresh);
+              if (confirming) return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, function (e) { inquiryRefresh(); alertErr(e, id); });
+              return call('cueAgdDecide', [id, { decision: 'reply', note: choice }], inquiryRefresh, inquiryRefresh);
+            };
+            // PHASE1-CARDS-2026-11-25 (Kiko 25 Nov 2026 "lets have a notification window instead ... Yes | No", "1. Yes. All Cards"): Approve and
+            // Reject ask first, in place of the second tap on the button. The window sits on the page body (the box that froze a thread on
+            // 24 Nov 2026 sat inside the hidden left pane). The decision text sent is the button's own, unchanged.
+            var sureText = agdSureText(act, choice);
+            if (sureText) return agdSure(sureText[0], sureText[1], inquirySend);
+            return inquirySend();
+          }
+          if (act === 'agd-mm' || act === 'agd-q') {   // PHASE1-CARDS-2026-11-25: the image review card and the shared question card; each answer is one reply the agent reads
+            if (running[id]) return;
+            var pCard = b.closest('.card'), pH = agdOf(id).handover || {}, pKind = b.getAttribute(act === 'agd-mm' ? 'data-mm' : 'data-q');
+            var pBox = pCard.querySelector(act === 'agd-mm' ? (pKind === 'source' ? 'input[type=radio]:checked' : '[data-mm-comment]') : pKind === 'client' ? '[data-q-client]' : ((pH.question || {}).options || []).length ? 'input[type=radio]:checked' : '[data-q-answer]');
+            var pNote = act === 'agd-mm' ? agdMmNote(pKind, pH.image_review || {}, pBox ? pBox.value : '') : agdQNote(pKind, pH.question || {}, pBox ? pBox.value : '');
+            if (!pNote) return alertErr(new Error(pKind === 'back' ? 'Type what should change, then tap Send back with comments.' : 'Pick or type your answer first.'), id);
+            if (pNote.length > 6000) return alertErr(new Error('This is too long to send in one go (over 6,000 characters). Shorten it, then try again.'), id);
+            var pSend = function () { if (running[id]) return; b.disabled = true; running[id] = 1; schedule(); call('cueAgdDecide', [id, { decision: 'reply', note: pNote }], done, fail); };
+            var pSure = agdSureText(act, pKind);
+            return pSure ? agdSure(pSure[0], pSure[1], pSend) : pSend();
           }
           if (act === 'agd-rewrite') { if (!agNote) return alertErr(new Error('Type what Cue should change in the box, then tap Rewrite with Cue.'), id);
             b.disabled = true; running[id] = 1; schedule(); return call('cueAgdRewrite', [id, agNote], done, fail); }

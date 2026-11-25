@@ -1,5 +1,38 @@
 # Changelog
 
+## Cue 1.28.110: Project Intake Phase 1 cards (not deployed)
+
+Asked by Kiko on 25 Nov 2026: the mockups were approved over several rounds that day (the image review card "2. A", the window
+"lets have a notification window instead. Saying "Are you sure..." Yes | No" and "1. Yes. All Cards", the findings "1. okay with
+Multimedia Findings in Project Intake", the question card "What if we just have a totally different Questions for you card?
+reusable by everyone", the registered notice "Sure. but not as a label as an action note"), and he said "go" to the build in the
+Project Registration thread. Built on a branch and tested; not merged, not on the /dev link, not live.
+
+- New card, **Image review**: one design for both Multimedia loops. Before registration it shows the email's subject, sender and
+  received time; after registration the project and the requirement. Revision cell (round and image version), pictures that open
+  larger, findings table with gaps said in words, a comment box, Send back (locked until a comment) and Approve. After the answer:
+  "Sent back, round N pending" or "Approved", grey "Saved" with Reopen, earlier rounds and comments readable. A "Stopped" form
+  asks which file is the design source when the client's approved file changed.
+- New card, **Question for you**, for every agent: the question, a From cell naming the agent, what waits, then an answer box or
+  lettered options. Where the agent drafted a message to the client, Kiko can approve those exact words instead. Cue sends nothing
+  to a client; each answer is a reply the agent reads.
+- **Project Intake Request** card: a "Multimedia findings" section above the original message, with a link to the image review
+  card. Approve and Reject now open an "Are you sure...?" window with No and Yes in place of the second tap on the button; the
+  decision texts sent ("Confirm new project <version>", "Reject intake") are unchanged. After registration the result shows as an
+  action note under "Saved".
+- The same window opens on Approve and Send back (image review) and on Approve message (question card). Send answer, Reopen, Mark
+  read and "Use this project" stay one tap.
+- The action note arrives as a second Account Specialist update for the same inquiry (stage `register`, same hand-off key, the
+  text in the summary). Cue puts it on the card and adds no second card.
+
+Needs a Canvas release before real data reaches it: Canvas's bridge refuses fields it does not know, so the image review card,
+the question card and the findings section stay empty until Canvas accepts `image_review`, `question` and
+`project_inquiry.multimedia`. The action note and the window need nothing from Canvas.
+
+Local tests: 1035 of 1035 on main as of ab06894 (`node test/cue.test.js`; 16 new in `test/features/99-phase1-cards.js` and
+`99-phase1-cards2.js`), feature map current. Walked in a browser on the real page with sample data at 1280 px and 390 px. An
+independent consistency check ran on the code; five of its points were fixed and the rest follow the approved mockup.
+
 ## Cue 1.28.109: change a message's label from the ⋮ menu (live as Version 287, 25 Nov 2026 03:06Z; rollback Version 286)
 
 Shipped with Kiko's go ("Ship both now", then "go ahead and deploy", 25 Nov 2026 02:58Z). Deploy Cue check 45537465105 showed only Cue.gs, IndexStyle.html and IndexThreads.html differing from live Version 286; deploy 45537557284 ran 1016/1016 tests and went live as Version 287 with files matching. Canvas Version 573 (CanvasWorkspace PR #728) shipped just before it; neither depends on the other.

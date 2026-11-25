@@ -96,7 +96,53 @@ function cueAgdHand_(h) {
     route_decision: h.route_decision ? { message_id: cueStr_(h.route_decision.message_id, 77),
       number: h.route_decision.number, status: h.route_decision.status,sender:cueStr_(h.route_decision.sender,300),subject:cueStr_(h.route_decision.subject,300),received_at:cueStr_(h.route_decision.received_at,100) } : null,
     project_inquiry: cueAgdProjectInquiry_(h.project_inquiry),
+    image_review: cueAgdImageReview_(h.image_review), question: cueAgdQuestion_(h.question),   // PHASE1-CARDS-2026-11-25
     check: cueAgdCheck_(h.check) };   // AGENT-CHECK-CARD-2026-11-18
+}
+/** PHASE1-CARDS-2026-11-25 (Kiko approved the mockups on 25 Nov 2026 and said "go" to the build). What Cue keeps of Multimedia's image
+ *  review card, of the shared question card and of Multimedia's findings on the Project Intake Request card. The names follow the
+ *  hand-off contract between the Account Specialist and Multimedia: request_key, revision, round, image_version, and findings that are
+ *  a value with unit and source, or a gap. Null when absent or malformed. Pure. */
+const CUE_AGD_KEY_RE_ = /^[A-Za-z0-9:_.-]{4,150}$/;
+function cueAgdFindings_(list) {
+  return (Array.isArray(list) ? list : []).filter(f => f && typeof f === 'object').slice(0, 40).map(f => ({ measurement: cueStr_(f.measurement, 200),
+    value: cueStr_(f.value == null ? '' : f.value, 100), unit: cueStr_(f.unit, 40), source: cueStr_(f.source, 300), gap: cueStr_(f.gap, 300) }));
+}
+function cueAgdImageReview_(v) {
+  if (!v || typeof v !== 'object' || !CUE_AGD_KEY_RE_.test(String(v.request_key || '')) || !cueAgdNum_(v.round)) return null;
+  const pair = x => x && typeof x === 'object' && (x.id || x.name) ? { id: cueStr_(x.id, 60), name: cueStr_(x.name, 200) } : null, s = v.source;
+  return { status: ['waiting', 'approved', 'stopped'].indexOf(v.status) >= 0 ? v.status : 'waiting', request_key: String(v.request_key), revision: cueStr_(v.revision, 40),
+    loop: v.loop === 'requirement' ? 'requirement' : 'pre_registration', mm_case: cueStr_(v.mm_case, 40), round: v.round, image_version: cueAgdNum_(v.image_version) || v.round,
+    made_with: cueStr_(v.made_with, 100), title: cueStr_(v.title, 100), project: pair(v.project), requirement: pair(v.requirement),
+    source: s && typeof s === 'object' ? { subject: cueStr_(s.subject, 200), sender: cueStr_(s.sender, 300), received: cueStr_(s.received, 100),
+      message_id: /^[0-9a-f]{8,24}$/.test(String(s.message_id || '')) ? String(s.message_id) : '' } : null,
+    images: (Array.isArray(v.images) ? v.images : []).filter(f => f && typeof f.name === 'string' && f.name.trim()).slice(0, 10)
+      .map(f => ({ name: cueStr_(f.name, 200), mime_type: cueStr_(f.mime_type, 100), file_id: cueAgdFile_(f) ? f.file_id : '' })),
+    made_from: v.made_from && typeof v.made_from === 'object' && v.made_from.name ? { name: cueStr_(v.made_from.name, 200), file_id: cueAgdFile_(v.made_from) ? v.made_from.file_id : '' } : null,
+    files_note: cueStr_(v.files_note, 300), finding_heads: Array.isArray(v.finding_heads) && v.finding_heads.length === 3 ? v.finding_heads.map(x => cueStr_(x, 40)) : null,
+    findings: cueAgdFindings_(v.findings), gaps_note: cueStr_(v.gaps_note, 300),
+    earlier_rounds: (Array.isArray(v.earlier_rounds) ? v.earlier_rounds : []).filter(x => x && cueAgdNum_(x.n)).slice(0, 20)
+      .map(x => ({ n: x.n, at: cueStr_(x.at, 40), answer: x.answer === 'approved' ? 'approved' : 'sent_back', comment: cueStr_(x.comment, 2000) })),
+    answered_on_round: cueAgdNum_(v.answered_on_round),
+    changed: (Array.isArray(v.changed) ? v.changed : []).filter(x => x && x.name).slice(0, 10).map(x => ({ name: cueStr_(x.name, 200), before: cueStr_(x.before, 100), now: cueStr_(x.now, 100) })) };
+}
+function cueAgdQuestion_(q) {
+  if (!q || typeof q !== 'object' || !CUE_AGD_KEY_RE_.test(String(q.request_key || '')) || !cueStr_(q.question, 600).trim()) return null;
+  const m = q.client_message;
+  return { request_key: String(q.request_key), revision: cueStr_(q.revision, 40), kind: cueStr_(q.kind, 40), question: cueStr_(q.question, 600),
+    waits_label: cueStr_(q.waits_label, 40), waits: cueStr_(q.waits, 300), project: cueStr_(q.project, 300), source: cueStr_(q.source, 600), note: cueStr_(q.note, 300),
+    options: (Array.isArray(q.options) ? q.options : []).map(o => typeof o === 'string' ? { value: o, label: o } : o).filter(o => o && cueStr_(o.value, 100).trim()).slice(0, 8)
+      .map(o => ({ value: cueStr_(o.value, 100), label: cueStr_(o.label || o.value, 300) })),
+    client_message: m && typeof m === 'object' && cueStr_(m.body, 4000).trim() ? { to: cueStr_(m.to, 300), body: cueStr_(m.body, 4000) } : null };
+}
+function cueAgdMmFindings_(m) {
+  if (!m || typeof m !== 'object') return null;
+  return { mm_case: cueStr_(m.mm_case, 40), checked: cueStr_(m.checked, 200), approved_at: cueStr_(m.approved_at, 40), round: cueAgdNum_(m.round), image_version: cueAgdNum_(m.image_version),
+    review_card_id: /^DRF-\d{4,6}$/.test(String(m.review_card_id || '')) ? String(m.review_card_id) : '', findings: cueAgdFindings_(m.findings), gaps_note: cueStr_(m.gaps_note, 300) };
+}
+/** The email an image review card's pictures come from, in the shape cueAgdInquiryImage checks. Null when the card has no email. Pure. */
+function cueAgdReviewMail_(v) {
+  return v && v.source && v.source.message_id ? { source_channel: 'Email', source_message_id: v.source.message_id, source_files: v.images } : null;
 }
 /** AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 04:35:50Z "what i want to see are Payments without Invoices, no signed FSAs and ARs,
  *  suppliers that are not accredited in a project"; 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
@@ -174,6 +220,7 @@ function cueAgdProjectInquiry_(i) {
       deliverables:Array.isArray(i.design.deliverables) ? i.design.deliverables.slice(0,8) : []} : null,
     can_register: i.can_register === true,
     registration_context_verified: i.registration_context_verified === true,
+    multimedia: cueAgdMmFindings_(i.multimedia),   // PHASE1-CARDS-2026-11-25: Multimedia's findings, once Kiko approved them on the image review card
     matches: (Array.isArray(i.matches) ? i.matches : []).slice(0, 4)
       .filter(m => m && /^S-[0-9A-Z]{4,24}$/.test(m.project_id))
       .map(m => ({ project_id: m.project_id, name: cueStr_(m.name, 200), reason: cueStr_(m.reason, 300) })) };
@@ -275,6 +322,13 @@ function cueAgdSync_(drafts) {
       if (!d0 || !CUE_AGD_.id.test(String(d0.draft_id || ''))) return;
       const a = cueAgdFrom_(d0), x = R.by[a.draft_id];
       if (!x) {
+        // PHASE1-CARDS-2026-11-25 (Kiko 25 Nov 2026, on a "registered" notice: "Sure. but not as a label as an action note"). Canvas cannot
+        // change a card it already saved, so the Account Specialist posts the result as a second update for the same inquiry (stage
+        // register, same handoff_key). Cue puts its summary on the Project Intake Request card as the action note and adds no card.
+        const pin = a.type === 'update' && a.handover && a.handover.project_inquiry;
+        const home = pin && pin.stage === 'register' && Object.keys(R.by).map(k => R.by[k]).filter(y => { const p = y.s.agd && y.s.agd.handover && y.s.agd.handover.project_inquiry;
+          return p && p.stage === 'review' && p.handoff_key === pin.handoff_key; }).pop();
+        if (home) { if (home.s.agd.action_note !== a.handover.summary) { home.s.agd.action_note = a.handover.summary; cueSave_(sh, home.row, home.s); } return; }
         const upd = a.type === 'update';   // AGENT-UPDATE-2026-11-13: an unread update gets a card the same way
         if (a.status !== (upd ? 'Unread' : 'Waiting for Kiko')) return;   // only waiting drafts get a card; one decided before Cue saw it stays in Canvas
         const now = cueNow_(), d = new Date(now), k = cueAgdKey_(a.agent);
@@ -336,7 +390,8 @@ function cueAgdView_(s) {
     note: a.note, reason: a.reason, edited: !!a.edited, rewritten: !!a.rewritten, waiting: a.status === 'Waiting for Kiko', unread: a.status === 'Unread', handover: a.handover || null,
     // The inquiry's own email in Gmail, so its attachments open from the Project Intake card. Built only from an exact Gmail message id.
     inquiry_mail_url: (pi => pi && pi.source_channel === 'Email' && /^[0-9a-f]{8,24}$/.test(String(pi.source_message_id || ''))
-      ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + pi.source_message_id : '')((a.handover || {}).project_inquiry),
+      ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(cueMe_()) + '#all/' + pi.source_message_id : '')((a.handover || {}).project_inquiry || cueAgdReviewMail_((a.handover || {}).image_review)),
+    action_note: a.action_note || '',   // PHASE1-CARDS-2026-11-25: what the agent did after Kiko's decision (the registered project)
     approval_check: a.approval_check || null,   // REQ-APPROVAL-12A-2026-11-18
     replies: a.replies || [] };   // AGENT-REPLIES-2026-11-14: every reply Kiko sent on an update card
 }
@@ -363,7 +418,8 @@ function cueAgdSaveIntakeVersion(id, expectedVersion, values) {
 function cueAgdInquiryImage(id, index) {
   cueOwner_();
   const loaded = cueLoad_(id), state = loaded && loaded.s;
-  const inquiry = state && state.kind === 'agentdraft' && state.agd && state.agd.handover && state.agd.handover.project_inquiry;
+  const handover = state && state.kind === 'agentdraft' && state.agd && state.agd.handover;
+  const inquiry = handover && (handover.project_inquiry || cueAgdReviewMail_(handover.image_review));   // PHASE1-CARDS-2026-11-25: the image review card's own email
   if (!inquiry || inquiry.source_channel !== 'Email' || !/^[0-9a-f]{8,24}$/.test(String(inquiry.source_message_id || '')))
     throw new Error('This card has no email to read.');
   const file = Number.isInteger(index) && index >= 0 && index < 10 ? (inquiry.source_files || [])[index] : null;
