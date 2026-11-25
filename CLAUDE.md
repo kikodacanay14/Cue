@@ -86,6 +86,7 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Every session: follow the caveman skill (terse replies; docs, commits and tracker records stay in full prose).
 - Code and build work: invoke superpowers:using-superpowers before the first step.
 - New task, feature or build: invoke scope-then-design (`.claude/skills/scope-then-design/SKILL.md`) before any code.
+- BSE development instructions (Kiko, 25 Nov 2026): follow the "BSE development instructions" section of `AGENTS.md` (skills, Drive and Application QA File, Delivery Board decisions, testing, proof).
 
 ## Task observer
 
