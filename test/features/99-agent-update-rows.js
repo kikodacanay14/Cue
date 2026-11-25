@@ -12,7 +12,7 @@ const aurUpd = (n, rows) => agdUpd(n, { project: 'Pandamart Likha', project_id: 
 function aurGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + ['agdTxt', 'agdWhole', 'agdAdded', 'agdAddLine', 'agdSplitLines'].map(grab).join('\n') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUR1 rows from Canvas are kept clean: only the approved fields, In House or Outsourced, AS or MM, Needs you only when true, at most 100', () => {

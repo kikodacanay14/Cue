@@ -1,5 +1,16 @@
 # Changelog
 
+## Cue 1.28.113: add a requirement, split into scopes as boxes, blank Qty on the requirement list (not deployed)
+
+Asked by Kiko on 25 November 2026 on the approved mockup (BSE-Dev-Agents/reg-cards-mockup-1125, card (c)): split "A. Boxes, as drawn"; an added line "1. Yes. approved as i add", "2. yes" after every line is approved, its own Add button "A", the window "Are you sure you want to add?"; blank Qty "it can be approved as blank", "saves as blank and then we update later on". Build approved in the n8n2 chat on 26 November 2026 ("Approve"). Reply formats agreed with the Requirements Gathering chat on 25 November 2026.
+
+- An open line Kiko can tick has "Split into scopes": one row of boxes per scope (Item, Execution, Qty, Occurrence) with Remove and "Add a scope". When he ticks the line and sends, one "SPLIT <id> #<n>: ..." line per scope goes with the line's APPROVE. A scope with a missing or wrong box is refused before sending.
+- "Add a requirement" under the table adds a New line (requirement, description, Execution, Qty, Occurrence). Add stays inactive until a name or description, Execution and Occurrence are filled. Add asks "Are you sure you want to add?"; Yes sends one "ADD #<n>: ..." reply and the line then shows Approved and "Added by you".
+- A Qty Kiko clears is sent as "Qty=" (blank), never left to the agent's number.
+- The old "Preview only · Not connected to AS" split preview is removed.
+
+Tests: `node test/cue.test.js` 1,044 passed (5 new in `test/features/99-req-add-split.js`; SPLIT1 rewritten for the boxes; SPLIT2, which tested the removed preview, removed). Needs the Account Specialist agent to read SPLIT and ADD lines, and Canvas saves scopes through the existing `scope_add`.
+
 ## Cue 1.28.112: route held emails, Email Intake lessons, slimmer Email Intake card (not deployed)
 
 Asked by Kiko on 25 November 2026 in the n8n2 session: "shouldnt i be able to reroute?", "and it should learn why"; answers "A / C / A"; rules R-ER1 to R-ER8 "Approve all"; scope and design "Approve, ECII in". Then, at 8:43 PM Manila with a screenshot of the card: "can we make the card slimmer? like 75% of the size". Needs Canvas V582 (live 25 Nov 2026 12:23Z).
