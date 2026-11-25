@@ -15,9 +15,10 @@ function cueSdSave_(st) { PropertiesService.getScriptProperties().setProperty(CU
 /** One chat line for one report. Pure: the tests call it. */
 function cueSdLine_(x) {
   const where = [x.app, x.page, x.project].filter(Boolean).join(', ');
-  const t = String(x.text || '').replace(/\s+/g, ' ').trim();
+  const cut = v => { v = String(v || '').replace(/\s+/g, ' ').trim(); return v.length > CUE_SD_.text ? v.slice(0, CUE_SD_.text - 1) + '…' : v; };
+  const t = cut(x.text), e = cut(x.expected);   // expected: Kiko "B", 25 Nov 2026 16:30Z (BUG-FORM-APP-2026-11-25)
   return 'New bug report ' + x.id + ' from ' + (x.by || 'someone') + (where ? ' (' + where + ')' : '') + ': '
-    + (t.length > CUE_SD_.text ? t.slice(0, CUE_SD_.text - 1) + '…' : t)
+    + t + (e ? ' Expected: ' + e : '')
     + (x.picture ? ' A picture came with it.' : '')
     + (x.link ? ' ' + cueCanvasTok_({ title: 'Open ' + x.id + ' in Service Desk', url: x.link }) : '');
 }

@@ -12,7 +12,7 @@ Asked by Kiko on 25 November 2026 in the n8n2 session: "shouldnt i be able to re
 - Test copy of the Canvas bridge refreshed to V582.
 
 Tests: `node test/cue.test.js` 1,040 passed (5 new in `test/features/99-email-route-held.js`). The Email Intake (n8n) part that writes suggestions and rules is not built yet.
-## Cue 1.28.111: bug report lines name the application (not deployed)
+## Cue 1.28.111: bug report lines name the application and the expected behaviour (not deployed)
 
 Asked by Kiko on 25 Nov 2026 in the Canvas thread "Add application and expected behavior to bug form": the Report a bug form
 in Canvas now asks which application the bug is in (07:04:49Z, list 07:08:17Z), and he approved the mockup with "yes build A"
@@ -20,8 +20,11 @@ at 09:15:10Z. The approved scope says Cue's chat line for a new report names the
 
 - The "New bug report" line in Cue's chat now starts its brackets with the application, for example
   "New bug report BUG-0005 from ... (Charter, Projects, S-6133716KI): ...". Reports sent before Canvas asked for the
-  application read as before. Needs the matching Canvas release (bug form) to carry the application through the bridge.
-- Test: SD4 in `test/features/89-service-desk.js`.
+  application read as before. Canvas V578 (live 25 Nov 2026 09:48Z) carries the application through the bridge.
+- After what went wrong, the line adds "Expected: ..." when the reporter filled in the expected behaviour (Kiko chose "B"
+  at 16:30Z: Cue shows the application and the expected behaviour). Blank means no "Expected:" part. It is cut at 300
+  characters, like the description.
+- Tests: SD4 and SD5 in `test/features/89-service-desk.js`; 1042/1042 pass.
 
 ## Cue 1.28.110: Project Intake Phase 1 cards (not deployed)
 
