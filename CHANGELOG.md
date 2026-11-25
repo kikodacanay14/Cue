@@ -1,10 +1,11 @@
 # Changelog
 
-## Cue 1.28.114: no label on the Email Intake card; Saved and Reopen at the bottom of the intake card (not deployed)
+## Cue 1.28.114: no label on the Email Intake card; Saved and Reopen at the bottom of the intake card; phone width guard (not deployed)
 
 - Asked by Kiko on 26 November 2026 in the n8n2 session, with a screenshot of the Email Intake card on his phone where the "Email" label squeezed the title onto three lines: "remove label". The label is gone from that card's header; the Project Intake Request card keeps its label (OB10 updated).
 - Kiko, 26 November 2026, with a screenshot of a decided Project Intake Request card: "Reopen is misplaced. I also dont know if it was saved since theres no messagew from Cue". The grey "Saved" and the Reopen button moved from the middle of the card (above the original message) to the card's bottom bar, where Approve and Reject were: "Saved" on the left, Reopen on the right. The words and colour are unchanged (his 25 November rules: "Saved" only, grey, Reopen in the same card). OB8 and P1C8 updated.
-- Tests: `node test/cue.test.js` 1044/1044; `node tools/map.mjs --check` current. Checked at 375 px with a local render of the decided card: nothing wider than the screen.
+- Kiko, 26 November 2026: "in mobile it gets forced to go desktop view because widget is huge". Not reproduced at 375 px; asked, Kiko answered B (add a guard). The page, images and message text can no longer make Cue wider than the screen (OB11). He also answered A: no chat note after an intake decision; the bottom-bar "Saved" is the confirmation.
+- Tests: `node test/cue.test.js` 1045/1045; `node tools/map.mjs --check` current. Checked at 375 px with a local render of the decided card: nothing wider than the screen.
 
 ## Cue 1.28.113: add a requirement, split into scopes as boxes, blank Qty on the requirement list (not deployed)
 

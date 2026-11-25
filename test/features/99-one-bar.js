@@ -103,3 +103,8 @@ test('OB12 the bar\'s messages come only from Canvas: cueBar hides Cue\'s own br
   assert.ok(/body\.bar-in-canvas \.crumb \{ display:none; \} body\.bar-in-canvas #ptabs:not\(:has\(\.ibtn\)\) \{ display:none; \}/.test(css), 'Cue hides its copy, and an empty channel header');
   assert.ok(th.includes("setHtml($('ptabs'), h); cueWhereTell();") && chat.includes("document.body.classList.add('ch-list'); cueWhereTell(); }"), 'told on every view change');
 });
+test('OB11 phone width guard (Kiko 26 Nov 2026, answer B): the page, images and message text never make Cue wider than the screen', () => {
+  const st = OB.src('IndexStyle.html');
+  assert.ok(st.includes('html { overflow:hidden; max-width:100vw; } body { max-width:100vw; } img, video { max-width:100%; } .msg { overflow-wrap:break-word; }'), 'the guard is in the stylesheet');
+  assert.ok(st.indexOf('CUE-PHONE-WIDTH-GUARD-2026-11-26') < st.indexOf('body { margin:0;'), 'before the body rule, which keeps overflow:hidden');
+});
