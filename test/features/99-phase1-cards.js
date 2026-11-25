@@ -88,6 +88,13 @@ test('P1C4 image review, first loop, waiting: email facts, revision cell, pictur
   assert.ok(/<button class="btn" data-act="agd-mm" data-mm="back" data-id="cue-p1-1" disabled>Send back with comments<\/button><button class="btn cue-r1-primary" data-act="agd-mm" data-mm="approve" data-id="cue-p1-1">Approve<\/button>/.test(h), 'Send back is locked until a comment; Approve is the one primary button, last');
   assert.ok(!/cue-r1-saved|mm-rounds/.test(p1Body(h)), 'nothing saved and no earlier round yet');
   assert.ok(!/<button[^>]*data-act="agd-mm"/.test(P.agdImageReviewHtml(p1Card({ image_review: p1First }), false, false)), 'no buttons when he cannot reply');
+  // From the independent consistency check, 25 Nov 2026: while the answer travels the card says so, and a picture Cue cannot show still opens.
+  const going = P.agdImageReviewHtml(p1Card({ image_review: p1First }, { r: { status: 'Sending' } }), true, false);
+  assert.ok(/<p class="small muted">Passing it to Canvas…<\/p>/.test(going) && !/data-act="agd-mm"/.test(going), 'the same line the other agent cards show');
+  assert.ok(/<p class="small muted">Passing it to Canvas…<\/p>/.test(P.agdQuestionHtml(p1Card({ question: P1.questionCase }, { r: { status: 'Sending' } }), true, false)));
+  P.agdInquiryPics['cue-p1-1|0'] = 'none';
+  assert.ok(p1Body(P.agdImageReviewHtml(p1Card({ image_review: p1First }, mail), true, false)).includes('<li class="cue-r1-file"><a href="https://mail.google.com/mail/?authuser=kiko%40example.com#all/19ab12cd34ef5a01" target="_blank" rel="noopener">KapeIsla_booth_diagram_p1.png</a></li>'));
+  assert.ok(/\.cue-r1-inquiry textarea:disabled\{opacity:1;/.test(going), 'a locked answer stays readable, like the intake card\'s saved fields');
 });
 
 test('P1C5 image review after an answer: sent back shows the comment and no buttons; approved shows Saved with Reopen and where it went', () => {

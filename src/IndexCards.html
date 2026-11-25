@@ -1316,12 +1316,13 @@
     return '<style>.card.cue-r1-inquiry.cue-mm,.card.cue-r1-inquiry.cue-q{border-inline-start:4px solid #281249}.cue-r1-inquiry .cue-r1-head .tag{flex:none;margin:0}'
       + '.cue-r1-inquiry .mm-sec{margin-top:12px}.cue-r1-inquiry .mm-sec h3{margin:0 0 6px;font-size:16px}.cue-r1-inquiry .mm-scroll{overflow-x:auto}'
       + '.cue-r1-inquiry table.mm-find{width:100%;border-collapse:collapse;font-size:13px}'
-      + '.cue-r1-inquiry .mm-find th{text-align:center;vertical-align:middle;padding:6px 8px;background:#faf8fd;color:#493564;font-size:14px;font-weight:700;border-bottom:1px solid #dfd6eb}'
+      + '.cue-r1-inquiry .mm-find th{text-align:center;vertical-align:middle;padding:6px 8px}'   // the header band's colour is the shared table rule's (IndexStyle UI-RULES)
       + '.cue-r1-inquiry .mm-find td{vertical-align:middle;padding:6px 8px;border-top:0;border-bottom:1px solid #eee7f5;font-weight:400;overflow-wrap:anywhere}'
       + '.cue-r1-inquiry .mm-find td.c{text-align:center}.cue-r1-inquiry .mm-find tr.gap td{background:#FBF0D9;color:#5c3900}'
       + '.cue-r1-inquiry .mm-rounds ul{margin:6px 0 0;padding-left:18px;font-size:13px}.cue-r1-inquiry .mm-quote{margin:4px 0 6px;padding:4px 10px;border-left:3px solid #bbaacd;color:#493564}'
       + '.cue-r1-inquiry .mm-next{margin:6px 0 0}.cue-r1-inquiry .mm-comment{margin-top:12px}.cue-r1-inquiry .mm-comment label,.cue-r1-inquiry .q-ans{display:block;font-weight:650;font-size:13px}'
       + '.cue-r1-inquiry textarea{display:block;box-sizing:border-box;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:inherit;resize:vertical}'
+      + '.cue-r1-inquiry textarea:disabled{opacity:1;background:#faf8fd;color:#241841;-webkit-text-fill-color:#241841}'
       + '.cue-r1-inquiry .mm-old{margin:0 0 8px;padding:8px 12px;border-radius:9px;background:#EFEAFB;color:#23006F}'
       + '.cue-r1-inquiry .cue-mmfind p{margin:6px 0}.cue-r1-inquiry button.cue-mm-open{min-height:0;padding:0;border:0;background:none;color:#523097;font-weight:700;text-decoration:underline}'
       + '.cue-r1-inquiry .cue-r1-note{margin:10px 0 0;padding:8px 12px;border:1px solid #dfd6eb;border-radius:9px;background:#faf8fd;font-size:13px}.cue-r1-inquiry .cue-r1-note b{display:block;font-size:14px}'
@@ -1404,7 +1405,7 @@
     var t = e.target.closest && e.target.closest('[data-agd-goto]'); if (!t) return;
     var want = t.getAttribute('data-agd-goto'), hit = (state.requests || []).filter(function (x) { return x.agd && x.agd.draft_id === want; })[0];
     var card = hit && document.querySelector('[data-card="' + hit.id + '"]');
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); else alertErr(new Error('That image review card is not in this view. Open the Multimedia channel to see it.'));
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); else alertErr(new Error('That image review card is not in this view. Open the Multimedia channel to see it.'), (t.closest('[data-card]') || t).getAttribute('data-card') || '');
   });
   function agdP1Fact(label, value, wide) {
     return '<div class="cue-r1-fact' + (wide ? ' cue-r1-wide' : '') + '"><b>' + esc(label) + '</b><span>' + esc(value || 'Not given') + '</span></div>';
@@ -1415,7 +1416,8 @@
     var id = esc(r.id);
     return (V.images || []).map(function (file, at) {
       var drive = file.file_id ? 'https://drive.google.com/thumbnail?id=' + esc(file.file_id) + '&amp;sz=w320" referrerpolicy="no-referrer' : '', have = agdInquiryPics[r.id + '|' + at];
-      if ((!drive && !mailUrl) || have === 'none') return '<li class="cue-r1-file">' + esc(file.name) + '</li>';
+      var open = file.file_id ? 'https://drive.google.com/file/d/' + esc(file.file_id) + '/view' : mailUrl ? esc(mailUrl) : '';   // a picture Cue cannot show still opens, as on the intake card
+      if ((!drive && !mailUrl) || have === 'none') return '<li class="cue-r1-file">' + (open ? '<a href="' + open + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>' : esc(file.name)) + '</li>';
       return '<li class="cue-r1-pic"><button type="button" class="cue-r1-thumb" data-inquiry-pic="' + at + '" data-id="' + id + '" data-name="' + esc(file.name)
         + '" title="Zoom ' + esc(file.name) + '" aria-label="Zoom ' + esc(file.name) + '"><img alt="" src="' + (have ? esc(have) : drive
           || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" onload="cueInquiryThumb(this,\'' + id + '\',' + at + ')')
@@ -1442,7 +1444,7 @@
     var facts = (pre ? agdP1Fact('Email subject', (V.source || {}).subject, true) + agdP1Fact('Sender', (V.source || {}).sender) + agdP1Fact('Received', (V.source || {}).received)
       : agdP1Fact('Project', pairText(V.project), true) + agdP1Fact('Requirement', pairText(V.requirement), true)) + agdP1Fact('Multimedia case', V.mm_case);
     var head = agdR1Style() + agdP1Style() + '<div class="card cue-r1-inquiry cue-mm" data-card="' + id + '"><header class="cue-r1-head"><h2>Image review</h2>' + tag + '</header><div class="cue-r1-body">';
-    var foot = (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">';
+    var foot = (r.status === 'Sending' ? '<p class="small muted">Passing it to Canvas…</p>' : '') + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">';
     var read = unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '';
     if (stopped) {
       var picked = ans && ans.k === 'source' ? ans.text : '', lock = picked || !act ? ' disabled' : '';
@@ -1501,7 +1503,7 @@
       + (Q.project ? agdP1Fact('Project', Q.project, true) : '') + (Q.source ? agdP1Fact('Source', Q.source, true) : '') + '</div>'
       + (Q.note ? '<p class="small muted">' + esc(Q.note) + '</p>' : '') + pick
       + (done ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p><p class="small muted mm-next">' + esc(agdLabel(A.agent)) + ' reads your answer on its next run.</p>' : '')
-      + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">'
+      + (r.status === 'Sending' ? '<p class="small muted">Passing it to Canvas…</p>' : '') + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '') + '</div><div class="actions">'
       + (act ? (msg ? '<button class="btn" data-act="agd-q" data-q="client" data-id="' + id + '" hidden>Approve message</button>' : '')
         + '<button class="btn cue-r1-primary" data-act="agd-q" data-q="send" data-id="' + id + '" disabled>Send answer</button>' : '')
       + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '') + '</div></div>';

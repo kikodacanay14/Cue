@@ -29,8 +29,9 @@ Needs a Canvas release before real data reaches it: Canvas's bridge refuses fiel
 the question card and the findings section stay empty until Canvas accepts `image_review`, `question` and
 `project_inquiry.multimedia`. The action note and the window need nothing from Canvas.
 
-Local tests: 1032 of 1032 before the rebase on main (`node test/cue.test.js`; 16 new in `test/features/99-phase1-cards.js` and
-`99-phase1-cards2.js`), feature map current. Walked in a browser on the real page with sample data at 1280 px and 390 px.
+Local tests: 1035 of 1035 on main as of ab06894 (`node test/cue.test.js`; 16 new in `test/features/99-phase1-cards.js` and
+`99-phase1-cards2.js`), feature map current. Walked in a browser on the real page with sample data at 1280 px and 390 px. An
+independent consistency check ran on the code; five of its points were fixed and the rest follow the approved mockup.
 
 ## Cue 1.28.109: change a message's label from the ⋮ menu (live as Version 287, 25 Nov 2026 03:06Z; rollback Version 286)
 
