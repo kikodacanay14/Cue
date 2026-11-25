@@ -34,3 +34,88 @@ Keep full rules in docs/business-rules.md, with short rule-ID/doc-path comments 
 The existing [Feature Board](https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP) is the required operational question-and-answer register for work on its stories. Read the relevant existing card and its qa before asking or implementing a decision-dependent change. Reuse card ID plus the exact question; do not invent a question-ID field or create a duplicate queue. Use existing q/a/s fields: label unconfirmed assumptions explicitly in q, leave a blank and s Open until Kiko answers; preserve exact answers, other questions and manual statuses. Read the current version before an authorized update, use if_version and verify saved contents. If access is unavailable, mark proposed mapping unsynced and report the gap; stop only changes dependent on the unresolved decision, continuing independent authorized work. docs/decisions.md is a dated source-linked snapshot, not a substitute board, and is not automatically synchronized. Do not create a Google Sheet unless Kiko requests it later.
 
 Preserve supported answers, dates, scope and sources. Distinguish user statements, author-stated rationale and code inference. Answered does not mean implemented or verified. Keep superseded history.
+
+## BSE development instructions (Kiko, 25 Nov 2026)
+
+Kiko's words (25 Nov 2026 04:04Z): "these are the things i want to add". He then answered the scoping questions (04:32Z):
+Impeccable "needs to be installed"; the rules go "where its necessary so everyone uses it"; "we will use the Feature Board
+moving forward. Same with Decision Log - all in the Delivery Board". The Delivery Board is the Feature Board artifact,
+renamed; collection `features` is unchanged. These rules apply to every BSE development chat,
+Claude and Codex alike. Read the applicable nested AGENTS.md files for app-specific rules. Where an existing rule in this
+repository is stricter (approvals, releases, proof), the stricter rule wins.
+
+### Every chat, every time (Kiko, 25 Nov 2026 04:36Z)
+
+Kiko's words: "so all apps need to be using the same local folders and shared drive folders for their files / reference
+the Decisions Log / update Feature Board / log Bugs, Issues".
+
+- **Files:** keep each app's files in its folder on the BSE Apps & Systems shared Drive, never in a personal or ad hoc
+  folder: `00 — System Index`, `01 — Shared Standards`, `02 — Canvas`, `03 — Cue`, `04 — Chase`, `05 — Charter`,
+  `06 - Concord`, `07 - MCP`, `08 - n8n`. The Application QA File lives in the app's folder. Use the same folder names on
+  every computer.
+- **Decisions:** read the Delivery Board's Decisions tab before building and before asking Kiko.
+- **Delivery Board:** update the card in the same turn its status changes.
+- **Bugs and issues:** log every bug or incident as a Delivery Board card triaged Bug or Incident (it then shows on the
+  Bugs and Incidents tabs). Log an issue that works but needs a decision as a card tagged Process improvement, assigned to
+  Kiko for his Yes or No. The Bug log (before triage) tab is history only.
+
+### Skills
+
+- **Impeccable** (`.claude/skills/impeccable/`, Codex: `.agents/skills/impeccable/`) for UI design work. Follow the approved BSE brand guidelines: DM Sans, the current plum and role tokens,
+  and the table and label rules. Where Impeccable's own taste conflicts with the brand guidelines, the brand wins. Use it
+  with `mockup-review` and `brand-ui-check`.
+- **Caveman** (`caveman:caveman`) for concise replies, and **Humanizer** (`humanizer:humanizer`) when editing prose for a
+  natural voice. Keep exact technical details, and keep questions and approvals clear.
+- **Ponytail** (`ponytail`) for coding: the simplest change that fulfills the approved scope and its QA requirements.
+- Load the matching skill for the work at hand. If a skill is missing from the chat, say which one and follow the
+  matching instructions in this section instead.
+
+### Scoping and communication
+
+1. Start development by checking the BSE Apps & Systems shared Drive
+   (https://drive.google.com/drive/u/0/folders/0AE_qEZv4inXlUk9PVA) for current system and app updates. Find the app's
+   folder and its Application QA File.
+2. Use Superpowers (`superpowers:writing-plans`) to write a high-level plan, broken into executable steps with a check for
+   each step. Reuse approved scope and design when they already cover the work.
+3. Scope with `scope-then-design` and ask Kiko through `ask-kiko`. Check the Delivery Board's Decisions tab before
+   asking. Use Impeccable for design work, within the brand guidelines.
+4. Communicate with Caveman and Humanizer, following the needs-flag, talk-to-Kiko and proof-of-done rules.
+
+### Coding
+
+- Before coding, and whenever a business-process question comes up, check the **Decisions** tab of the Delivery Board
+  (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP, collection `decisions`) and the card's Questions and business
+  rules. Apply the latest approved decision. Kiko, 25 Nov 2026 04:35Z: "theres Decisions tab now in Delivery Board". The
+  Google Sheet Decision Log is no longer where BSE development decisions go; it keeps Kiko's personal decisions, because
+  anyone with the board's link can read the Decisions tab.
+- Use `ponytail` and `scope-then-design`. Keep the repository's own approval and release requirements.
+- If Drive or the Delivery Board cannot be read, record what could not be checked and continue the authorized work that
+  does not depend on it. Leave decisions about the affected behaviour open.
+
+### Testing
+
+1. During scoping and planning, write the unit and edge-case test cases for the feature or function into the app's
+   Application QA File (BSE Apps & Systems Drive, app folder). Create the QA file in that folder if it is missing. Write
+   the runnable failing tests in the app's test runner once Kiko has approved the scope, and before the implementation.
+   Link the exact test files and commands in the QA file so another chat can rerun them.
+2. Cover happy paths, null and empty inputs, boundary values and expected errors. Run the tests before implementation and
+   confirm they fail for the intended missing behaviour. Implement, then rerun the relevant suite until it passes.
+3. For a changed API endpoint or service, add integration tests. Mock outside third-party calls, and use the real test
+   database or module boundaries where available. Check status codes, response shapes and error payloads.
+4. For auth flows, endpoints or input handlers, add security and negative tests where they apply: unauthorized access,
+   expired or malformed tokens, wrong types, injection, over-privileged input. Flag weaknesses found in existing code and
+   keep the assertions that expose them.
+5. Record the failing and passing runs, exact commands, revision and remaining gaps in the Application QA File. If the
+   app folder or QA file cannot be reached, say the QA record is pending and run the authorized repository tests.
+
+### Updating and proof
+
+- The Delivery Board is the tracker. The Superpowers plan tracks steps inside a chat; move the card in the same turn
+  its status changes. Record blockers and continue independent work.
+- Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
+  `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
+  the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
+  details go in that tab.
+- Show proof before calling a task done, as the "Proof of done" rule requires: proof Kiko can open himself (merged PR,
+  screenshot, QA record, deployment receipt, record ID). Say what ran, what failed or is unverified, and which
+  environment was checked. No such proof means "Reported", not "Done".
