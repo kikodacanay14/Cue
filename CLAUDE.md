@@ -38,11 +38,11 @@ bridge (`src/CueBridge.gs`, schema copy in `test/fixtures/ZapBridge.gs`).
 - Never put bank details in a link, and never store Kiko's e-signature in Canvas or info@ Drive.
 - Don't hold a Cue release for a Canvas release. Ship a Canvas release only when a Cue feature needs it.
 
-## Feature Board (Kiko, 3 Nov 2026)
+## Delivery Board, formerly Feature Board (Kiko, 3 Nov 2026; renamed 25 Nov 2026)
 
 Kiko's words: "fix the Feature board - i expect every development will update the feature board".
 
-- The Feature Board is the artifact https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP (collection `features`, written with
+- The Delivery Board (named Feature Board until 25 Nov 2026) is the artifact https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP (collection `features`, written with
   the `ArtifactData` tool, `if_version` on every write to an existing card). Card fields and columns: CanvasWorkspace
   `work-board.md`, "Feature Board fields".
 - Every piece of development work, bug fixes included, has a card, and the work is not done until the card shows where it
@@ -118,7 +118,7 @@ one. Never create `skill-observations/` or `skill-updates/` here: a second log w
 
 Also read AGENTS.md and the applicable nested guide. Consult docs/business-rules.md and docs/decisions.md for rule evidence, exact decisions and assumptions. Preserve source IDs/dates; neither a snapshot nor an instruction file proves a change was approved, deployed or verified.
 
-Feature Board is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
+The Delivery Board (formerly Feature Board) is the required operational question/answer register for its stories. Follow the AGENTS.md Questions and decisions workflow: check existing cards first, preserve card ID plus exact question and existing q/a/s fields, leave unconfirmed answers blank, and verify authorized updates. Unavailable access means unsynced, not completed mapping. Do not create a Google Sheet without a later explicit request.
 
 ## Facts from a fresh read (Kiko, 17 Nov 2026)
 

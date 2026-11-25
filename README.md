@@ -1,6 +1,6 @@
 # Cue
 
-Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Google account, separate from company Canvas, plus a Chrome bubble. Cue is its own app with its own version numbers (live: Cue 1.27.46, Apps Script Version 101); Canvas keeps its V-numbers. It started as a project intake (below) and now runs 26 kinds of task plus quick commands, a morning chasing sweep and background jobs; `CHANGELOG.md` has every release.
+Cue is Kiko's personal command center: an Apps Script web app in Kiko's own Google account, separate from company Canvas, plus a Chrome bubble. Cue is its own app with its own version numbers (what is live now: the `cue` entry in CanvasWorkspace `live.json`); Canvas keeps its V-numbers. It started as a project intake (below) and now runs 26 kinds of task plus quick commands, a morning chasing sweep and background jobs; `CHANGELOG.md` has every release.
 
 **How everything connects:** `FEATURE-MAP.md` lists every command (the words that start it, its kind, file, card, Canvas bridge actions, sheet tabs and AI calls), every background job and which file uses which shared helper. It is made from the code by `node tools/map.mjs`, and a test fails when it is out of date.
 
@@ -152,3 +152,16 @@ One-time setup:
 4. Run **Connect Google** once. It opens an issue with a sign-in link; sign in, then paste the address of the page that fails to load as a comment. The sign-in is stored only encrypted (`.deploy/clasprc.enc`).
 
 Script Properties (the keys) are never touched by a deploy.
+
+## Rules for agents
+
+Claude and Codex chats follow `AGENTS.md` ("BSE development instructions", Kiko, 25 Nov 2026) and `CLAUDE.md`. In short:
+
+- The Delivery Board (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP, formerly the Feature Board) is the tracker.
+  Read its Decisions tab before building or asking Kiko, and record each approved rule change there. Log bugs and
+  incidents as cards.
+- Approvals and questions for Kiko go through Concord (`concord-handover`: `ask_codex`, then `check_handover`). Chats
+  talk to each other through the Concord chat hub (`send_to_chat`, `check_messages`, `report_issue`).
+- App files (specs, mockups, plans, the Application QA File) live in the app's folder on the BSE Apps & Systems shared
+  Drive.
+- After every release, update the project's release details on the Delivery Board's Projects tab.
