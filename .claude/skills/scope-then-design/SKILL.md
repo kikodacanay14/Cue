@@ -26,16 +26,18 @@ Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/
 
 ## Triage first (Kiko, 25 Nov 2026, ADR-0241)
 
-Before Phase 0 or 1, label the ask Bug or Feature (rules R-TRI1 to R-TRI9 in CanvasWorkspace `docs/business-rules.md`).
-Ask one thing: does an approved source (approved spec, business rule, approved mockup, design system v2.0, Kiko's UI rules,
-or the behaviour that was live before) say how this should already work?
+Before Phase 0 or 1, set the ask's type (rules R-TRI1 to R-TRI10 in CanvasWorkspace `docs/business-rules.md`). Kiko's
+definitions, 25 Nov 2026 02:55:07Z:
 
-- **Yes, and it now does something else: Bug.** Not for this skill. Set the card's `type` to Bug, `severity` P1/P2/P3 (P1:
-  money, a client, crew or an event is blocked, or data is lost or wrong, and Kiko is told at once; P2: wrong with a
-  workaround; P3: cosmetic) and `triage.why` naming the source. Start it in For Development and fix it end to end without
+- **Bug**: "an expected action that was deployed in Production does not operate like how it should be". Not for this skill.
+  Set `type` Bug and `severity` P1/P2/P3 (P1: money, a client, crew or an event is blocked, or data is lost or wrong, and Kiko
+  is told at once; P2: wrong with a workaround; P3: cosmetic). Start it in For Development and fix it end to end without
   asking (answer 2 = A).
-- **No approved source, works as built but wanted different, or the fix needs a new rule: Feature.** Set `type` to Feature,
-  start it in For Scope Definition and Design, and run every phase below. A new rule always goes to Kiko as a yes/no.
+- **Incident**: "an unplanned service disruption". Not for this skill. Set `type` Incident and tell Kiko at once; how it is
+  handled waits for his yes (R-TRI10).
+- **Feature**: "an expected action is not what the build was made to do", including "works as built but wanted different" and
+  anything that needs a new rule. Set `type` Feature, start it in For Scope Definition and Design, and run every phase below. A
+  new rule always goes to Kiko as a yes/no.
 - Plain tasks (record a payment, send a file, answer a question) are not triaged and get no card.
 
 ## Resume first
