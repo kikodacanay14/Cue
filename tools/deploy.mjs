@@ -12,6 +12,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import deployGuard from './deploy-guard.cjs';
 
 const mode = process.argv[2];
 if (!['check', 'preview', 'test', 'deploy'].includes(mode)) { console.error('usage: deploy.mjs check|preview|test|deploy'); process.exit(2); }
@@ -54,6 +55,8 @@ const live = dep.versionNumber;
 console.log(`Cue web app is on Version ${live || '(head)'}`);
 if (live) diff(`live Version ${live} vs src/`, sums(pull(work, live)), want);
 if (mode === 'check') { console.log('CHECK OK: nothing was changed'); process.exit(0); }
+const notBase = deployGuard.baseGuard(mode, live, process.env.BASE_VERSION);
+if (notBase) fail(notBase);
 
 const pushDir = project('push');
 for (const f of Object.keys(want)) fs.copyFileSync(path.join('src', f), path.join(pushDir, 'src', f));

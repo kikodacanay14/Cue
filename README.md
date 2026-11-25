@@ -143,6 +143,8 @@ Cue talks to Canvas only through the signed bridge. That is in place: main **V18
 
 No more copy and paste. The **Deploy Cue** Action replaces every file in the Cue Apps Script project with `src/`, makes a new version and points the same `/exec` address at it. It runs the tests first and reads the files back afterwards. `mode=check` only shows what would change.
 
+A live deploy (`mode=deploy`) also needs `base_version`: the live Version the release was built on, which `mode=check` prints. If another release has gone live since, the deploy stops before changing anything and says to rebuild on what is live (Kiko, 25 Nov 2026).
+
 One-time setup:
 1. Fill in `account` and `scriptId` in `deploy.json`.
 2. Add a repo secret `DEPLOY_KEY` (any long random password; Settings → Secrets and variables → Actions).
