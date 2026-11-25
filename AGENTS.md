@@ -129,6 +129,13 @@ the Decisions Log / update Feature Board / log Bugs, Issues".
     card's Questions, status Open, card assigned to Kiko).
   Read the saved request back and say which route was used. Keep the ALL CAPS flag in the chat too (the needs-flag rule):
   Concord is an extra place to see it, not a replacement.
+- **Uploading files and old versions (Kiko, 25 Nov 2026 05:54Z: "also, the uploading of files, removal of old
+  versions"; 05:55Z he chose "Delete old versions").** Upload every file a chat makes for an app (spec, mockup, plan, QA
+  file, report, export) to that app's folder on the BSE Apps & Systems shared Drive in the same turn it is made or
+  changed, and link it from the Delivery Board card. When a newer version replaces a file, move the old version to
+  Drive's trash (Drive empties it after 30 days), so only the current version stays in the folder. Trash only a file that
+  the new upload replaces, never anything else. If Drive refuses to trash a file, leave it, and name it with its link in
+  the reply. Read the folder back after the upload and the trash, and say what was uploaded and what was trashed.
 - Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
   `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
   the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
