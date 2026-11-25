@@ -12,6 +12,10 @@ on:
         description: check, preview or deploy
         required: true
         default: check
+      base_version:
+        description: deploy only - the live Version this release was built on (mode=check prints it). Deploy stops if live has moved on.
+        required: false
+        default: ''
   # Security note: workflow_run is safe here because it's restricted to the main branch only.
   # This prevents privilege escalation attacks from untrusted pull requests, as only commits
   # that have already been merged to main (and passed review) can trigger this workflow.
@@ -64,6 +68,7 @@ jobs:
         if: steps.fresh.outputs.skip != '1'
         env:
           MODE: ${{ github.event_name == 'workflow_run' && 'preview' || inputs.mode }}
+          BASE_VERSION: ${{ inputs.base_version }}
         run: |
           case "$MODE" in check|preview|deploy) ;; *) echo "mode must be check, preview or deploy"; exit 1;; esac
           node tools/deploy.mjs "$MODE"
