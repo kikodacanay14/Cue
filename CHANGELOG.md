@@ -1,5 +1,15 @@
 # Changelog
 
+## Cue 1.28.108: breadcrumb can move into Canvas's purple bar (not deployed)
+
+Asked by Kiko on 25 Nov 2026 ("the '<Channels Account Specialist' Should be at the same bar as the Cue icon"; Canvas bar approved "2. A"). Needs the matching Canvas release (CanvasWorkspace branch cue-bar-breadcrumb-1125); until Canvas ships it, nothing changes in Cue.
+
+- When Canvas says it draws the breadcrumb in its own bar, Cue hides its copy and tells Canvas where it is: the channel list, General, or a channel by name.
+- A click on Cue or Channels in Canvas's bar comes back to Cue and opens General or the channel list.
+- A channel header left with no button is hidden, so one bar shows.
+
+Local tests: 1012 of 1012 (`node test/cue.test.js`), feature map current.
+
 ## Cue 1.28.107: breadcrumb bar, chat box, one Saved, own labels, Canvas font (live as Version 285, 24 Nov 2026 18:25Z; rollback Version 284)
 
 Asked by Kiko on 25 Nov 2026 with screenshots of the Account Specialist channel inside Canvas. Mockup approved ("Approve all") and
