@@ -50,7 +50,7 @@ Kiko's words: "fix the Feature board - i expect every development will update th
   with `liveAt` and `ref` (for example `Cue 1.28.3, Version 189`); no card yet means make one.
 - **Triage first (Kiko, 25 Nov 2026: "implement a ticketing system after a triage - to identity if bug or for new feature";
   answers 1A to 5A; definitions 02:55:07Z).** Before writing a card for any software change, set its `type` (rules R-TRI1 to
-  R-TRI10 in CanvasWorkspace `docs/business-rules.md`, ADR-0241):
+  R-TRI10 in CanvasWorkspace `docs/business-rules.md`, ADR-0257):
   - **Bug**: "an expected action that was deployed in Production does not operate like how it should be". Gets `severity`
     P1/P2/P3 (P1 is told to Kiko at once), starts in For Development and needs no scope approval (the release steps under
     "How code reaches Kiko" still apply).

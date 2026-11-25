@@ -24,7 +24,7 @@ Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/
 - A new task, feature, build or project in Canvas, Cue or Blank Space operations.
 - Not for: a quick question, a bug with a known cause, or work whose spec Kiko has already approved (go to Resume).
 
-## Triage first (Kiko, 25 Nov 2026, ADR-0241)
+## Triage first (Kiko, 25 Nov 2026, ADR-0257)
 
 Before Phase 0 or 1, set the ask's type (rules R-TRI1 to R-TRI10 in CanvasWorkspace `docs/business-rules.md`). Kiko's
 definitions, 25 Nov 2026 02:55:07Z:
