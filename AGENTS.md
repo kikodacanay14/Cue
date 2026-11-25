@@ -117,6 +117,11 @@ the Decisions Log / update Feature Board / log Bugs, Issues".
   Projects tab (collection `projects`, the project's own form): the release name or version, when it went live, what
   changed, and the PR or deployment link. Read the saved form back. If the form has no release-details field yet, put
   the same details in the form's notes and say so.
+- **Questions and approvals go to Concord (Kiko, 25 Nov 2026 05:08Z: "For any approval needed or questions - message
+  Concord"; 05:09Z he chose "Delivery Board card for Kiko").** Put every question or approval for Kiko on the Delivery
+  Board card it belongs to: add it to the card's Questions (status Open), assign the card to Kiko, and read the saved card
+  back. Concord reads the Delivery Board, so this is how the question reaches Concord. No card yet means make one. Keep
+  the ALL CAPS flag in the chat too (the needs-flag rule): Concord is an extra place to see it, not a replacement.
 - Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
   `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
   the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
