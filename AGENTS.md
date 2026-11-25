@@ -117,18 +117,16 @@ the Decisions Log / update Feature Board / log Bugs, Issues".
   Projects tab (collection `projects`, the project's own form): the release name or version, when it went live, what
   changed, and the PR or deployment link. Read the saved form back. If the form has no release-details field yet, put
   the same details in the form's notes and say so.
-- **Questions and approvals go to Concord (Kiko, 25 Nov 2026 05:08Z: "For any approval needed or questions - message
-  Concord"; 05:09Z: "just message Concord"; 05:15Z, the Concord approvals plan: "Claude projects post requests on a new
-  Approvals tab on the board. Codex sends through its handover connector, and the hourly sync copies those onto the
-  board").** Every question or approval for Kiko goes to Concord:
-  - Claude chats post it on the Delivery Board's **Approvals** tab and read Kiko's Approve or Reject answer there.
-  - Codex chats send it through Concord's handover connector on KKD (`concord-handover`, `ask_codex` with the project
-    name and the question), keep the request id and read the answer with `check_handover`. The hourly sync copies it to
-    the board, so a Codex request can take up to an hour to reach Kiko.
-  - Until the Approvals tab exists, Claude chats put the question on the Delivery Board card it belongs to instead (the
-    card's Questions, status Open, card assigned to Kiko).
-  Read the saved request back and say which route was used. Keep the ALL CAPS flag in the chat too (the needs-flag rule):
-  Concord is an extra place to see it, not a replacement.
+- **Approvals and questions go to Concord (Kiko, 25 Nov 2026 05:08Z: "For any approval needed or questions - message
+  Concord"; 06:00Z: "these are strictly implemented").** Follow this procedure exactly. Kiko's words (06:00Z):
+
+  > When you need Kiko's yes, use concord-handover ask_codex with project [project], request_id [new UUID], and question
+  > starting "APPROVAL: [the question, one line]", then a new line with what Approve and Reject each do and your
+  > recommendation. Later, check_handover with the same request_id: the reply says Approved or Rejected by Kiko, plus a
+  > note. Don't act until it says Approved.
+
+  A question for Kiko that is not an approval goes through the same `ask_codex` call. Keep the ALL CAPS flag in the chat
+  too (the needs-flag rule).
 - **Uploading files and old versions (Kiko, 25 Nov 2026 05:54Z: "also, the uploading of files, removal of old
   versions"; 05:55Z he chose "Delete old versions").** Upload every file a chat makes for an app (spec, mockup, plan, QA
   file, report, export) to that app's folder on the BSE Apps & Systems shared Drive in the same turn it is made or
