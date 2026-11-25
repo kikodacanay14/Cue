@@ -62,15 +62,17 @@ repository is stricter (approvals, releases, proof), the stricter rule wins.
    folder and its Application QA File.
 2. Use Superpowers (`superpowers:writing-plans`) to write a high-level plan, broken into executable steps with a check for
    each step. Reuse approved scope and design when they already cover the work.
-3. Scope with `scope-then-design` and ask Kiko through `ask-kiko`. Check existing decisions on the Delivery Board before
+3. Scope with `scope-then-design` and ask Kiko through `ask-kiko`. Check the Delivery Board's Decisions tab before
    asking. Use Impeccable for design work, within the brand guidelines.
 4. Communicate with Caveman and Humanizer, following the needs-flag, talk-to-Kiko and proof-of-done rules.
 
 ### Coding
 
-- Before coding, and whenever a business-process question comes up, check the decisions recorded on the Delivery Board
-  (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP): the card's Questions, answers and business rules, and the
-  project's decisions link. Apply the latest approved decision. The older Google Sheet decision log is history only.
+- Before coding, and whenever a business-process question comes up, check the **Decisions** tab of the Delivery Board
+  (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP, collection `decisions`) and the card's Questions and business
+  rules. Apply the latest approved decision. Kiko, 25 Nov 2026 04:35Z: "theres Decisions tab now in Delivery Board". The
+  Google Sheet Decision Log is no longer where BSE development decisions go; it keeps Kiko's personal decisions, because
+  anyone with the board's link can read the Decisions tab.
 - Use `ponytail` and `scope-then-design`. Keep the repository's own approval and release requirements.
 - If Drive or the Delivery Board cannot be read, record what could not be checked and continue the authorized work that
   does not depend on it. Leave decisions about the affected behaviour open.
@@ -95,9 +97,10 @@ repository is stricter (approvals, releases, proof), the stricter rule wins.
 
 - The Delivery Board is the tracker. The Superpowers plan tracks steps inside a chat; move the card in the same turn
   its status changes. Record blockers and continue independent work.
-- Record every business-rule or app-rule change on the Delivery Board card (the rule, the app, the source decision and
-  the evidence), only after Kiko has approved the rule, and check the saved entry. Keep the repository's rule documents
-  in step.
+- Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
+  `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
+  the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
+  details go in that tab.
 - Show proof before calling a task done, as the "Proof of done" rule requires: proof Kiko can open himself (merged PR,
   screenshot, QA record, deployment receipt, record ID). Say what ran, what failed or is unverified, and which
   environment was checked. No such proof means "Reported", not "Done".
