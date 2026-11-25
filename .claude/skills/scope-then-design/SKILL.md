@@ -26,15 +26,15 @@ Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/
 
 ## Triage first (Kiko, 25 Nov 2026, ADR-0257)
 
-Before Phase 0 or 1, set the ask's type (rules R-TRI1 to R-TRI10 in CanvasWorkspace `docs/business-rules.md`). Kiko's
+Before Phase 0 or 1, set the ask's type (rules R-TRI1 to R-TRI12 in CanvasWorkspace `docs/business-rules.md`). Kiko's
 definitions, 25 Nov 2026 02:55:07Z:
 
 - **Bug**: "an expected action that was deployed in Production does not operate like how it should be". Not for this skill.
   Set `type` Bug and `severity` P1/P2/P3 (P1: money, a client, crew or an event is blocked, or data is lost or wrong, and Kiko
   is told at once; P2: wrong with a workaround; P3: cosmetic). Start it in For Development and fix it end to end without
   asking (answer 2 = A).
-- **Incident**: "an unplanned service disruption". Not for this skill. Set `type` Incident and tell Kiko at once; how it is
-  handled waits for his yes (R-TRI10).
+- **Incident**: "an unplanned service disruption". Not for this skill. Set `type` Incident, tell Kiko at once, roll back to
+  the last good Version through the normal deploy steps, then log the cause as a Bug card (R-TRI10).
 - **Feature**: "an expected action is not what the build was made to do", including "works as built but wanted different" and
   anything that needs a new rule. Set `type` Feature, start it in For Scope Definition and Design, and run every phase below. A
   new rule always goes to Kiko as a yes/no.
