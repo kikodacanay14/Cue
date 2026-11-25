@@ -35,3 +35,20 @@ test('SD3 nothing new: no chat line; the job is listed and the read is allowed i
   assert.ok(b.t.ctx.cueJobs_().some(j => j.fn === 'cueSdTick_'), 'listed in the background jobs');
   assert.ok(/CUE_CHECK_READS_ = \[[^\]]*'service_desk_new'/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8')), 'a read the cloud check may run');
 });
+test('SD4 the line names the Application first when Canvas sends one (BUG-FORM-APP-2026-11-25)', () => {
+  const b = sdBox(() => [sdItem(5, { app: 'Charter', expected: 'It saves.' })]);
+  assert.strictEqual(b.t.ctx.cueSdTick_(), 1);
+  const L = b.lines();
+  assert.ok(/^New bug report BUG-0005 from \S+ \(Charter, Projects, S-6133716KI\): Save on the Scope tab/.test(L[0]), L[0]);
+});
+
+test('SD5 the line gives the expected behaviour after what went wrong, and leaves it out when blank (Kiko B, 25 Nov 2026 16:30Z)', () => {
+  const b = sdBox(() => [sdItem(6, { app: 'Canvas', expected: 'It  saves\nthe scope.' }), sdItem(7, { app: 'Cue' })]);
+  assert.strictEqual(b.t.ctx.cueSdTick_(), 2);
+  const L = b.lines();
+  const a = L.find(l => /BUG-0006/.test(l)), c = L.find(l => /BUG-0007/.test(l));
+  assert.ok(/Save on the Scope tab[^]*? Expected: It saves the scope\./.test(a), a);
+  assert.ok(!/Expected:/.test(c), c);
+  const long = b.t.ctx.cueSdLine_({ id: 'BUG-0008', by: 'x', text: 'a', expected: 'e'.repeat(400) });
+  assert.ok(/Expected: e+…/.test(long) && long.length < 400, long.length);
+});
