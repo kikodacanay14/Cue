@@ -1,5 +1,17 @@
 # Changelog
 
+## Cue 1.28.109: change a message's label from the ⋮ menu (not deployed)
+
+Asked by Kiko on 25 Nov 2026 02:16:20Z ("Can we have the modify card Label appear when the : is clicked?"); mockup approved 02:30Z.
+
+- The label on a message card is a plain tag again: no ▾ and no "Message label" drop-down when it is clicked.
+- The ⋮ menu has Label between Flag and Dismiss. Label turns the menu into the label list (Automatic first, every label and
+  Kiko's own labels, a tick on the one in use). One tap saves it the same way the drop-down did and closes the menu; ‹ Label
+  goes back.
+
+Local tests: 1016 of 1016 (`node test/cue.test.js`); a browser walk-through on the real page (sandbox server) opened ⋮, chose
+Bids and read the saved label back.
+
 ## Cue 1.28.108: breadcrumb can move into Canvas's purple bar (live as Version 286, 25 Nov 2026 01:36Z; rollback Version 285)
 
 Canvas's half went live after it as Canvas Version 572 (25 Nov 2026 01:43Z, CanvasWorkspace PR #727). The /dev page was opened before the live deploy and loaded with data. The breadcrumb inside Canvas's bar was not seen by the session that shipped it.
