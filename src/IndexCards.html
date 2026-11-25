@@ -1131,7 +1131,7 @@
       + '.cue-email-report [hidden]{display:none!important}.cue-email-outcome{margin:8px 0}.cue-email-outcome dl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0}.cue-email-outcome dt{font-size:12px;color:#625675}.cue-email-outcome dd{margin:0}.cue-email-receipt{padding:8px;border-radius:7px}'
       + '@media(max-width:600px){.cue-email-body,.cue-email-hero{padding:14px}.cue-email-report .cue-intake-routes table,.cue-email-report .cue-intake-routes tbody{display:block}.cue-email-report thead{display:none}.cue-email-report .agrow{display:grid;grid-template-columns:24px minmax(0,1fr);padding:7px 0;border-bottom:1px solid #e7e0ef}.cue-email-report .agrow td{display:block;width:auto;min-width:0;border:0;padding:3px}.cue-email-report .agrow td:nth-child(n+3){grid-column:2}.cue-email-report .agrow td:nth-child(4)::before{content:"Destination: ";font-weight:700}.cue-email-report .cue-email-detail-row,.cue-email-report .cue-email-detail-row td{display:block;width:100%;max-width:none;box-sizing:border-box}}</style>';
     return style + '<div class="card cue-email-report" data-card="' + id +
-      '"><header class="cue-email-hero"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2>Email Intake</h2>' + cardLabel('email') + '</div><p>Review a run and correct where individual emails go.</p></header>' +
+      '"><header class="cue-email-hero"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2>Email Intake</h2></div><p>Review a run and correct where individual emails go.</p></header>' +
       '<div class="cue-email-body"><div class="cue-email-run"><strong>' + esc(I.read_at || I.run_id || 'Email Intake run') +
       '</strong><span>' + esc(String(I.total_read != null ? I.total_read : rows.length)) + ' emails · ' + attention +
       ' need attention</span></div><div class="cue-email-run"><span>' + esc(I.mailbox || '') +
@@ -1283,7 +1283,7 @@
       + '.cue-r1-inquiry .cue-r1-thumb img{display:block;width:100%;height:100%;object-fit:cover}.cue-r1-inquiry .cue-r1-zoom-mark{position:absolute;right:4px;bottom:4px;display:block;margin:0;padding:0 5px;border-radius:6px;background:rgba(40,18,73,.8);color:#fff;font-size:15px;line-height:20px}'
       + '.cue-r1-inquiry .cue-r1-design{background:#faf8fd}.cue-r1-inquiry .cue-r1-choices label{display:inline-flex;align-items:center;min-height:28px;gap:5px;margin:0 12px 2px 0}'
       + '.cue-r1-deliverables{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 12px}.cue-r1-inquiry .cue-r1-deliverables label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:7px;margin:0}.cue-r1-deliverables input{justify-self:start}@media(max-width:600px){.cue-r1-deliverables{grid-template-columns:repeat(2,minmax(0,1fr))}}'
-      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 0;color:var(--muted,#5B5766);font-weight:600}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
+      + '.cue-r1-inquiry input[type=checkbox],.cue-r1-inquiry input[type=radio]{width:16px;height:16px;margin:0;flex:none;accent-color:#523097}.cue-r1-inquiry .cue-r1-owner label{white-space:nowrap}.cue-r1-inquiry .cue-r1-saved{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 0;color:var(--muted,#5B5766);font-weight:600}.cue-r1-inquiry .actions .cue-r1-saved{margin:0 auto 0 0;align-self:center}.cue-r1-inquiry .actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #dfd6eb;padding:8px 20px;background:#faf8fd}'
       + '.cue-r1-inquiry button{min-height:38px;padding:7px 12px;border:1px solid #bbaacd;border-radius:8px;background:#fff;color:#241841;font:700 14px var(--font,system-ui);cursor:pointer}.cue-r1-inquiry button.cue-r1-primary{background:#523097;border-color:#523097;color:#fff}'
       + '.cue-r1-inquiry button:disabled{opacity:.55;cursor:not-allowed}.cue-r1-inquiry :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
       + '@media(max-width:500px){.cue-r1-inquiry .cue-r1-head,.cue-r1-inquiry .cue-r1-body{padding:14px}.cue-r1-fields{grid-template-columns:minmax(0,1fr)}.cue-r1-inquiry .actions{padding:12px 14px}.cue-r1-inquiry .facts th,.cue-r1-inquiry .facts td{padding:5px 4px}}</style>';
@@ -1382,14 +1382,16 @@
     var editButtons = editable ? '<button type="button" class="btn" data-act="agd-edit-intake" data-id="' + id
       + '" aria-label="Edit project details" title="Edit project details">✎</button><button type="button" hidden class="btn cue-r1-primary" data-act="agd-save-intake" data-id="'
       + id + '">Save edits</button>' : '';
+    var savedFoot = settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p>' + (CLOSED[r.status] ? '<button type="button" class="btn ghost" data-act="reopen" data-id="' + id + '">Reopen</button>' : '')
+      : agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status"><span>' + (agdIntakeSaved[r.id] === I.card_version ? 'Saved' : 'Saved. Refreshing this card…') + '</span></p>' : '';
     var style = agdR1Style() + (I.multimedia || A.action_note ? agdP1Style() : '');
     return style + '<div class="card cue-r1-inquiry" data-card="' + id + '"><header class="cue-r1-head"><h2>'
       + (review ? 'Project Intake Request' : 'New project registration') + '</h2>' + cardLabel('intake') + '</header><div class="cue-r1-body">'
       + editForm
       // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "Remove the 3 Save confirmation use 1 only"; "Reopen should be in the same card"; "Remove the Green Box";
       // "Update copy. 'Saved' only"; "Make Saved colored gray"): one grey "Saved". After a saved decision it carries Reopen.
-      + (settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'
-        : agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status"><span>' + (agdIntakeSaved[r.id] === I.card_version ? 'Saved' : 'Saved. Refreshing this card…') + '</span></p>' : '')
+      // CUE-INTAKE-FOOT-SAVED-2026-11-26 (Kiko 26 Nov 2026, screenshot: "Reopen is misplaced. I also dont know if it was saved"): "Saved" and Reopen
+      // moved from the middle of the card to its bottom bar, where Approve and Reject were (savedFoot below).
       // PHASE1-CARDS-2026-11-25: after registration the result is an action note on this card (Kiko: "not as a label as an action note").
       + (settled && A.action_note ? '<p class="cue-r1-note"><b>Action note</b><span>' + esc(A.action_note) + '</span></p>' : '')
       + (I.multimedia ? agdMmFindHtml(I.multimedia) : '')
@@ -1399,7 +1401,7 @@
         checking ? '<p>Checking whether your decision was saved. Refresh Cue if this message stays here.</p>' :
         !current ? '<p>This request is out of date. Ask Account Specialist for the current card.</p>' : '')
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
-      + '</div><div class="actions">' + editButtons + actions + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
+      + '</div><div class="actions">' + savedFoot + editButtons + actions + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
       + '</div></div>';
   }
   // PHASE1-CARDS-2026-11-25 (Project Intake, Sub Process 1; Kiko approved the mockups on 25 Nov 2026 and said "go" to the build). The image
