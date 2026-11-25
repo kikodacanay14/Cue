@@ -44,6 +44,21 @@ renamed; collection `features` is unchanged. These rules apply to every BSE deve
 Claude and Codex alike. Read the applicable nested AGENTS.md files for app-specific rules. Where an existing rule in this
 repository is stricter (approvals, releases, proof), the stricter rule wins.
 
+### Every chat, every time (Kiko, 25 Nov 2026 04:36Z)
+
+Kiko's words: "so all apps need to be using the same local folders and shared drive folders for their files / reference
+the Decisions Log / update Feature Board / log Bugs, Issues".
+
+- **Files:** keep each app's files in its folder on the BSE Apps & Systems shared Drive, never in a personal or ad hoc
+  folder: `00 — System Index`, `01 — Shared Standards`, `02 — Canvas`, `03 — Cue`, `04 — Chase`, `05 — Charter`,
+  `06 - Concord`, `07 - MCP`, `08 - n8n`. The Application QA File lives in the app's folder. Use the same folder names on
+  every computer.
+- **Decisions:** read the Delivery Board's Decisions tab before building and before asking Kiko.
+- **Delivery Board:** update the card in the same turn its status changes.
+- **Bugs and issues:** log every bug or incident as a Delivery Board card triaged Bug or Incident (it then shows on the
+  Bugs and Incidents tabs). Log an issue that works but needs a decision as a card tagged Process improvement, assigned to
+  Kiko for his Yes or No. The Bug log (before triage) tab is history only.
+
 ### Skills
 
 - **Impeccable** (`.claude/skills/impeccable/`, Codex: `.agents/skills/impeccable/`) for UI design work. Follow the approved BSE brand guidelines: DM Sans, the current plum and role tokens,
