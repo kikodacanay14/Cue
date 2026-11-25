@@ -13,7 +13,7 @@ const tickUpd = (n, state, extra) => agdUpd(n, Object.assign({ project: 'Canvas 
 function tickGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + ['agdTxt', 'agdWhole', 'agdAdded', 'agdAddLine', 'agdSplitLines'].map(grab).join('\n') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 const tickView = (state, agd) => { const b = agdBox({ drafts: [tickUpd(60, state)] }); b.t.ctx.cueAgdTick_(); const v = JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0]))); Object.assign(v.agd, agd || {}); return v; };

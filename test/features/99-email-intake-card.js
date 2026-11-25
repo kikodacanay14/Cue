@@ -16,7 +16,7 @@ function eicGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   // EMAIL-ROUTE-HELD-2026-11-25: the held-row editor, its saved-route lookup and the Lessons list sit beside the card.
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, AGD_EMAIL_ROLES: ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'], agdLessonsOpen: {}, agdLessonList: null }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdEmailRouteSaved', 'agdEmailRouteEditor', 'agdLessonsHtml', 'agdIntakeHtml', 'agdUpdHtml', 'cardLabel'].map(grab).join('\n'), ctx);
+  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdTxt', 'agdWhole', 'agdAdded', 'agdAddLine', 'agdSplitLines', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdEmailRouteSaved', 'agdEmailRouteEditor', 'agdLessonsHtml', 'agdIntakeHtml', 'agdUpdHtml', 'cardLabel'].map(grab).join('\n'), ctx);
   return ctx;
 }
 // LIVE-SYNC-2026-11-25: the card was redesigned on live Cue (Apps Script versions 280 to 284, 24 Nov 2026) as one table of every email

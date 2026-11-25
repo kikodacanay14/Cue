@@ -828,26 +828,57 @@
   // (T.e). After the APPROVE line, each ticked line gets one line with the values Kiko approved, "REQ-ID: Execution=Outsourced; Qty=2;
   // Occurrence=3" (a value the line has none of is left out). Format agreed with the AS and step 12A threads, 18 Nov 2026 14:56Z.
   // Qty and Occurrence must be whole numbers of 1 or more; a line that breaks this is named in bad and nothing is sent.
+  // REQ-ADD-SPLIT-2026-11-26 (Kiko, n8n2 chat 26 Nov 2026: "Approve" to building Add a requirement, Split into scopes as boxes and blank
+  // Qty from the approved mockup, BSE-Dev-Agents/reg-cards-mockup-1125 card (c); his rulings 25 Nov: split "A. Boxes, as drawn", an added
+  // line "1. Yes. approved as i add", "2. yes" after every line is approved, its own Add button "A", window "Are you sure you want to add?";
+  // blank Qty "it can be approved as blank", "saves as blank and then we update later on"). Reply formats agreed with the Requirements
+  // Gathering chat, 25 Nov 2026: "SPLIT <id> #<n>: Item=..; Execution=..; Qty=..; Occurrence=.." with the line's APPROVE, and one
+  // "ADD #<n>: Item=..; Description=..; Execution=..; Qty=..; Occurrence=.." reply per Add. An empty Qty is blank, never 1.
+  function agdTxt(v, max) { return String(v == null ? '' : v).replace(/[\r\n\v\f\u0085\u2028\u2029]+/g, ' ').replace(/;/g, ',').trim().slice(0, max); }
+  function agdWhole(v, need) { v = String(v == null ? '' : v).trim(); return v ? /^[1-9]\d{0,3}$/.test(v) : !need; }
+  function agdAdded(A) {   // the lines Kiko added on this card, read back from his replies, by their number
+    var out = []; (A.replies || []).forEach(function (x) { String(x.text || '').split('\n').forEach(function (l) {
+      var m = l.match(/^ADD #(\d+): (.*)$/); if (!m || out.some(function (y) { return y.n === +m[1]; })) return; var o = { n: +m[1] };
+      m[2].split(';').forEach(function (q) { var kv = q.split('='), k = { Item: 'name', Description: 'description', Execution: 'sourcing', Qty: 'qty', Occurrence: 'occurrence' }[String(kv[0]).trim()];
+        if (k && kv.length > 1) o[k] = kv.slice(1).join('=').trim(); });
+      out.push(o); }); });
+    return out.sort(function (a, b) { return a.n - b.n; });
+  }
+  function agdAddLine(a, n) {   // the reply for one added line, or '' while a box is missing or wrong (Add stays inactive)
+    if (!a || !(agdTxt(a.name, 200) || agdTxt(a.description, 2000)) || ['In House', 'Outsourced'].indexOf(a.sourcing) < 0 || !agdWhole(a.qty) || !agdWhole(a.occurrence, true)) return '';
+    return 'ADD #' + n + ': Item=' + agdTxt(a.name, 200) + '; Description=' + agdTxt(a.description, 2000) + '; Execution=' + a.sourcing
+      + '; Qty=' + String(a.qty || '').trim() + '; Occurrence=' + String(a.occurrence).trim();
+  }
+  function agdSplitLines(id, scopes) {   // the SPLIT lines for one ticked line, or null when a scope box is missing or wrong
+    var bad = false, out = (scopes || []).map(function (c, i) {
+      if (!agdTxt(c.item, 200) || ['In House', 'Outsourced'].indexOf(c.execution) < 0 || !agdWhole(c.qty) || !agdWhole(c.occurrence, true)) bad = true;
+      return 'SPLIT ' + id + ' #' + (i + 1) + ': Item=' + agdTxt(c.item, 200) + '; Execution=' + c.execution + '; Qty=' + String(c.qty || '').trim() + '; Occurrence=' + String(c.occurrence || '').trim(); });
+    return bad ? null : out;
+  }
   function agdEditVal(x, T, k) {
     var e = ((T || {}).e || {})[x.req_id]; return e && e[k] != null ? String(e[k]).trim() : (x[k] ? String(x[k]) : '');
   }
   function agdTickNote(rows, T) {
     T = T || { t: {}, a: {} };
-    var tk = rows.filter(function (x) { return x.req_id && T.t[x.req_id] && !agdQs(x).length; }), ids = tk.map(function (x) { return x.req_id; }), n = [], bad = [], badNotes = [];
+    var tk = rows.filter(function (x) { return x.req_id && T.t[x.req_id] && !agdQs(x).length; }), ids = tk.map(function (x) { return x.req_id; }), n = [], bad = [], badNotes = [], badSplits = [];
     if (ids.length) n.push('APPROVE: ' + ids.join(', '));
     tk.forEach(function (x) { var ex = agdEditVal(x, T, 'sourcing'), q = agdEditVal(x, T, 'qty'), o = agdEditVal(x, T, 'occurrence'), p = [];
       if (ex && ['In House', 'Outsourced'].indexOf(ex) < 0) bad.push(x.req_id);
       [q, o].forEach(function (v) { if (v && !/^[1-9]\d{0,3}$/.test(v)) bad.push(x.req_id); });
-      if (ex) p.push('Execution=' + ex); if (q) p.push('Qty=' + q); if (o) p.push('Occurrence=' + o);
+      if (ex) p.push('Execution=' + ex); if (q) p.push('Qty=' + q); else if ((((T.e || {})[x.req_id]) || {}).qty != null) p.push('Qty=');   // REQ-ADD-SPLIT-2026-11-26: a cleared Qty is sent blank
+      if (o) p.push('Occurrence=' + o);
       var note = agdEditVal(x, T, 'note').replace(/[\r\n\v\f\u0085\u2028\u2029]+/g, ' ').replace(/;/g, ',').trim();
       // The existing AS parser detects scope classifications before Note= fields. Refuse ambiguous language rather than executing a split.
       if (note && (note.length > 500 || /\b(?:split|scopes?|in\s*-?house|outsourced?)\b/i.test(note))) badNotes.push(x.req_id);
       else if (note) p.push('Note=' + note);
-      if (p.length) n.push(x.req_id + ': ' + p.join('; ')); });
+      if (p.length) n.push(x.req_id + ': ' + p.join('; '));
+      var sc = ((T.s || {})[x.req_id] || []);   // REQ-ADD-SPLIT-2026-11-26: the line's scopes, covered by this approval
+      if (sc.length) { var sl = agdSplitLines(x.req_id, sc); if (sl) n.push.apply(n, sl); else badSplits.push(x.req_id); } });
     var qs = [], answered = 0; rows.forEach(function (x) { agdQs(x).forEach(function (m) { qs.push(m[1]); }); });
     qs.sort(function (a, b) { return +a.slice(1) - +b.slice(1); }).forEach(function (q) { var v = String(T.a[q] || '').trim(); if (v) { n.push(q + ': ' + v); answered++; } });
     var decision = { note: n.join('\n'), ticked: ids.length, answered: answered, bad: bad.filter(function (v, i, a) { return a.indexOf(v) === i; }) };
     if (badNotes.length) decision.badNotes = badNotes;
+    if (badSplits.length) decision.badSplits = badSplits;
     return decision;
   }
   function agdRowsHtml(r, canReply, unread) {
@@ -896,20 +927,22 @@
       // Description on the left. Image on the right"; 04:39:37Z "Remove the Brief Page, Picture COunt"; card 1 approved 05:32:00Z): the open
       // row shows Description, Dimensions and open items on the left and the MM pictures on the right, with no page badge.
       var dimv = x.dimensions ? esc(x.dimensions) + (x.spec_by === 'MM' ? '<span class="rid">by MM</span>' : '') : x.spec_by === 'MM' ? '<span class="muted">MM to add</span>' : none;
-      // Local preview only: the existing requirement ID identifies the parent, not a new scope or approval.
-      var sid = 'agsplit-' + id + '-' + esc(x.req_id);
-      var split = !on || !x.req_id ? '' : '<section class="agqs" data-agsplit="' + esc(x.req_id) + '">'
-        + '<button class="btn ghost" type="button" data-agsplit-toggle aria-expanded="false" aria-controls="' + sid + '">Split into scopes</button>'
-        + '<div id="' + sid + '" data-agsplit-panel hidden><p class="small muted">Preview only · Not connected to AS</p>'
-        + '<form><div class="agq"><label for="' + sid + '-count">Number of scopes</label><input id="' + sid
-        + '-count" class="aged num" type="number" min="2" step="1" required inputmode="numeric" data-agsplit-count></div>'
-        + '<div class="agq"><label for="' + sid + '-comment">Comment (optional)</label><textarea id="' + sid
-        + '-comment" data-agsplit-comment rows="2" maxlength="1500"></textarea></div>'
-        + '<button class="btn ghost" type="submit">Preview split</button><p class="small muted" role="status" data-agsplit-result></p>'
-        + '</form></div></section>';
+      // REQ-ADD-SPLIT-2026-11-26: Split into scopes as boxes (Item, Execution, Qty, Occurrence), sent with this line when Kiko ticks it.
+      var sc = (T.s || {})[x.req_id], scAt = function (i) { return ' data-agsc="' + id + '" data-req="' + esc(x.req_id) + '" data-i="' + i + '"'; };
+      var split = !on || !tk || !x.req_id || agdQs(x).length || isAp(x) ? '' : '<section class="agqs agsplit">' + (sc && sc.length
+        ? '<b>Scopes</b><table class="agsc"><thead><tr><th>Item</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th><th></th></tr></thead><tbody>'
+          + sc.map(function (c, i) { return '<tr><td><input type="text" maxlength="200" data-k="item"' + scAt(i) + ' value="' + esc(c.item || '') + '" aria-label="Scope ' + (i + 1) + ' item"></td>'
+            + '<td class="c"><select data-k="execution"' + scAt(i) + ' aria-label="Scope ' + (i + 1) + ' execution">' + (c.execution ? '' : '<option value="" selected>—</option>')
+            + ['In House', 'Outsourced'].map(function (o) { return '<option' + (o === c.execution ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></td>'
+            + '<td class="c"><input class="aged num" type="number" min="1" step="1" inputmode="numeric" placeholder="blank" data-k="qty"' + scAt(i) + ' value="' + esc(c.qty || '') + '" aria-label="Scope ' + (i + 1) + ' quantity"></td>'
+            + '<td class="c"><input class="aged num" type="number" min="1" step="1" inputmode="numeric" data-k="occurrence"' + scAt(i) + ' value="' + esc(c.occurrence || '') + '" aria-label="Scope ' + (i + 1) + ' occurrence"></td>'
+            + '<td class="c"><button class="btn ghost" type="button" data-act="agd-sc-del"' + scAt(i) + ' data-id="' + id + '">Remove</button></td></tr>'; }).join('')
+          + '</tbody></table><button class="btn ghost" type="button" data-act="agd-sc-add" data-id="' + id + '" data-req="' + esc(x.req_id) + '">Add a scope</button>'
+          + '<span class="small muted">Sent with this line when you tick it and send. Your approval of the line covers every scope.</span>'
+        : '<button class="btn ghost" type="button" data-act="agd-sc-add" data-id="' + id + '" data-req="' + esc(x.req_id) + '">Split into scopes</button>') + '</section>';
       var rowNote = !on || !tk || !asCard || !x.req_id || agdQs(x).length || isAp(x) ? '' : '<div class="agq"><label for="agn-' + id + '-' + esc(x.req_id)
         + '">Note for Account Specialist</label><textarea id="agn-' + id + '-' + esc(x.req_id) + '" data-agnote="' + id + '" data-req="' + esc(x.req_id)
-        + '" rows="2" maxlength="500">' + esc(agdEditVal(x, T, 'note')) + '</textarea><span class="small muted">Only sent if you select this row. Use the separate split preview for scope changes.</span></div>';
+        + '" rows="2" maxlength="500">' + esc(agdEditVal(x, T, 'note')) + '</textarea><span class="small muted">Only sent if you select this row. Use Split into scopes below for scope changes.</span></div>';
       var det = !on ? '' : '<tr class="agdet"><td colspan="' + ((tk ? 6 : 5) + (hasCk ? 1 : 0)) + '"><div class="agdetw agc1d"><div class="agdims">'
         + '<div><span class="lbl">Description</span>' + (x.description ? esc(x.description) : none) + '</div>'
         + '<div><span class="lbl">Dimensions</span>' + dimv + '</div>'
@@ -922,6 +955,24 @@
           + (tk && !isAp(x) && agdQs(x).length ? '<span class="agwq">Waits for your answer</span>' : ''))
         + agdCell(x, 'sourcing') + agdCell(x, 'qty') + agdCell(x, 'occurrence') + (hasCk ? td(agdCkCell(ck, ap, x, A), 1) : '') + '</tr>' + det;
     }).join('');
+    // REQ-ADD-SPLIT-2026-11-26: lines Kiko added (approved as he added them) and new lines still being filled in, numbered after the last line.
+    var canAdd = canReply && asCard && !ap.rejected, added = agdAdded(A), adds = T.add || [], lastN = rows.reduce(function (m, x) { var v = rnum(x); return v < Infinity && v > m ? v : m; }, 0);
+    var two = function (v) { return ('0' + v).slice(-2); }, lead = tk ? 1 : 0, tail = hasCk ? 1 : 0;
+    body += added.map(function (a, i) { return '<tr class="agrow agadded">' + (tk ? '<td class="c agtk"><span class="tag good">Approved</span></td>' : '') + td(esc(two(lastN + i + 1)), 1)
+      + td('<span class="rn">' + esc(a.name || a.description || '') + '</span><span class="rid">Added by you</span>') + td(a.sourcing ? esc(a.sourcing) : none, 1) + td(a.qty ? esc(a.qty) : none, 1)
+      + td(a.occurrence ? esc(a.occurrence) : none, 1) + (tail ? td(none, 1) : '') + '</tr>'; }).join('')
+      + adds.map(function (a, i) { var at = ' data-agadd="' + id + '" data-i="' + i + '"', ok = !!agdAddLine(a, added.length + 1);
+        return '<tr class="agrow agnew">' + (tk ? '<td class="c agtk"><span class="tag warn">New</span></td>' : '') + td(esc(two(lastN + added.length + i + 1)), 1)
+          + '<td><input type="text" maxlength="200" placeholder="Requirement" data-k="name"' + at + ' value="' + esc(a.name || '') + '" aria-label="New requirement name">'
+          + '<textarea rows="2" maxlength="2000" placeholder="Description with dimensions" data-k="description"' + at + ' aria-label="New requirement description">' + esc(a.description || '') + '</textarea>'
+          + '<div class="actions"><button class="btn ghost" type="button" data-act="agd-add-del"' + at + ' data-id="' + id + '">Remove</button>'
+          + '<button class="btn" type="button" data-act="agd-add-send"' + at + ' data-id="' + id + '"' + (ok ? '' : ' disabled') + '>Add</button></div></td>'
+          + '<td class="c"><select data-k="sourcing"' + at + ' aria-label="New requirement execution">' + (a.sourcing ? '' : '<option value="" selected>—</option>')
+          + ['In House', 'Outsourced'].map(function (o) { return '<option' + (o === a.sourcing ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></td>'
+          + '<td class="c"><input class="aged num" type="number" min="1" step="1" inputmode="numeric" placeholder="blank" data-k="qty"' + at + ' value="' + esc(a.qty || '') + '" aria-label="New requirement quantity"></td>'
+          + '<td class="c"><input class="aged num" type="number" min="1" step="1" inputmode="numeric" data-k="occurrence"' + at + ' value="' + esc(a.occurrence || '') + '" aria-label="New requirement occurrence"></td>'
+          + (tail ? td(none, 1) : '') + '</tr>'; }).join('');
+    var addBtn = canAdd ? '<div class="actions agaddrow"><button class="btn ghost" type="button" data-act="agd-add-new" data-id="' + id + '">Add a requirement</button></div>' : '';
     // AGENT-CARD1-LAYOUT-2026-11-18 (Kiko 04:39:37Z "Card 1 put the Project Event Client Brief and then open brief"): four fields on top.
     var H = A.handover || {}, mf = function (l, v) { return '<div><span class="lbl">' + l + '</span>' + v + '</div>'; };
     var meta = '<div class="agmeta">' + mf('Project', A.project_id || A.project ? esc(A.project_id) + (A.project_id && A.project ? '<br>' : '') + esc(A.project) : none)
@@ -935,7 +986,7 @@
       + meta
       + (hasCk ? '<div class="agcks" role="status"><b>Canvas check: ' + esc(agdCkSum(rows, ck, ap, A)) + '</b>' + (A.approval_check.checked_at ? '<span class="small muted">Checked ' + esc(A.approval_check.checked_at) + '</span>' : '') + '</div>' : '')
       + '<div class="agdtw"><table><thead><tr>' + (tk ? '<th class="agtk">' + (ready.length ? '<label class="agtick"><input type="checkbox" data-agtick-all="' + id + '"'
-        + (ready.every(function (x) { return T.t[x.req_id]; }) ? ' checked' : '') + ' aria-label="Approve every line that is ready"></label>' : '') + '</th>' : '') + '<th>#</th><th>Requirement</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th>' + (hasCk ? '<th>Canvas check</th>' : '') + '</tr></thead><tbody>' + body + '</tbody></table>'
+        + (ready.every(function (x) { return T.t[x.req_id]; }) ? ' checked' : '') + ' aria-label="Approve every line that is ready"></label>' : '') + '</th>' : '') + '<th>#</th><th>Requirement</th><th>Execution</th><th>Qty</th><th>Occurrence (days)</th>' + (hasCk ? '<th>Canvas check</th>' : '') + '</tr></thead><tbody>' + body + '</tbody></table>' + addBtn
       + (tk ? agdQsHtml(r.id, rows, T) : '') + '</div>'   // AGENT-REQ-TICK-2026-11-18: questions scroll with the table, so a phone keeps room for the rows
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
       + '<div class="agdpf">' + (tk ? '<span class="small muted agtally" data-agtally="' + id + '">' + agdTallyText(agdTickNote(rows, T), ready.length) + '</span>' : '')
@@ -2304,31 +2355,8 @@
     card.querySelectorAll('[data-rq-body]').forEach(function (x) { (e.rfqs[x.getAttribute('data-rq-body')] = e.rfqs[x.getAttribute('data-rq-body')] || {}).body = x.value; });
     return e;
   }
-  function agdBindSplit(drawer) {
-    var toggle = drawer.querySelector('[data-agsplit-toggle]'), panel = drawer.querySelector('[data-agsplit-panel]'),
-      form = drawer.querySelector('form'), count = drawer.querySelector('[data-agsplit-count]'),
-      comment = drawer.querySelector('[data-agsplit-comment]'), result = drawer.querySelector('[data-agsplit-result]');
-    toggle.onclick = function () {
-      panel.hidden = !panel.hidden;
-      toggle.setAttribute('aria-expanded', String(!panel.hidden));
-      if (panel.hidden) toggle.focus(); else count.focus();
-    };
-    count.oninput = comment.oninput = function () { count.setCustomValidity(''); result.textContent = ''; };
-    form.onsubmit = function (e) {
-      e.preventDefault();
-      var raw = count.value.trim(), n = Number(raw);
-      result.textContent = '';
-      if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < 2) {
-        count.setCustomValidity('Enter a whole number of 2 or more.');
-        count.reportValidity(); return;
-      }
-      count.setCustomValidity('');
-      var note = comment.value.trim();
-      result.textContent = drawer.getAttribute('data-agsplit') + ' · ' + n + ' scopes' + (note ? ' · ' + note : '') + '. Nothing was sent or saved.';
-    };
-  }
+
   function bind() {
-    document.querySelectorAll('[data-agsplit]').forEach(agdBindSplit);
     document.querySelectorAll('[data-xcard] select[data-x="route"]').forEach(function (x) {
       x.onchange = function () { expRoute[x.closest('[data-xcard]').getAttribute('data-xcard')] = x.value; render(); }; });
     // AGENT-REQ-TICK-2026-11-18: ticks and answers live in agdTick so a re-render keeps them; nothing goes to Canvas until Send decision.
@@ -2344,6 +2372,12 @@
       render(); setTimeout(function () { var y = document.querySelector('[data-agtick-all="' + rid + '"]'); if (y) y.focus(); }, 0); }; });
     document.querySelectorAll('[data-agedit]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agedit'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };   // AGENT-CARD-EDIT-2026-11-18
       T.e = T.e || {}; (T.e[x.getAttribute('data-req')] = T.e[x.getAttribute('data-req')] || {})[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
+    // REQ-ADD-SPLIT-2026-11-26: scope boxes and new-line boxes live in agdTick so a re-render keeps them.
+    document.querySelectorAll('[data-agsc]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agsc'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
+      var c = ((T.s || {})[x.getAttribute('data-req')] || [])[+x.getAttribute('data-i')]; if (c) c[x.getAttribute('data-k')] = x.value; agdSync(rid); }; });
+    document.querySelectorAll('[data-agadd]').forEach(function (x) { x.oninput = x.onchange = function () { var rid = x.getAttribute('data-agadd'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
+      var a = (T.add || [])[+x.getAttribute('data-i')]; if (!a) return; a[x.getAttribute('data-k')] = x.value;
+      var btn = x.closest('tr').querySelector('[data-act="agd-add-send"]'); if (btn) btn.disabled = !agdAddLine(a, agdAdded(agdOf(rid)).length + 1); }; });
     document.querySelectorAll('[data-agnote]').forEach(function (x) { x.oninput = function () {
       var rid = x.getAttribute('data-agnote'), req = x.getAttribute('data-req'), T = agdTick[rid] = agdTick[rid] || { t: {}, a: {} };
       T.e = T.e || {}; (T.e[req] = T.e[req] || {}).note = x.value;
@@ -2588,11 +2622,30 @@
               call('cueAgdDecide', [id, { decision: 'reply', reject_requirements: true }], function (out) { if (out && !out.error) delete agdTick[id]; done(); }, fail);
             });
           }
+          // REQ-ADD-SPLIT-2026-11-26: split boxes and added lines.
+          if (act === 'agd-sc-add' || act === 'agd-sc-del') { var sT = agdTick[id] = agdTick[id] || { t: {}, a: {} }, sReq = b.getAttribute('data-req'); sT.s = sT.s || {};
+            var sL = sT.s[sReq] = sT.s[sReq] || [];
+            if (act === 'agd-sc-del') sL.splice(+b.getAttribute('data-i'), 1); else { if (!sL.length) sL.push({}); sL.push({}); }
+            if (!sL.length) delete sT.s[sReq];
+            return render(); }
+          if (act === 'agd-add-new') { var nT = agdTick[id] = agdTick[id] || { t: {}, a: {} }; (nT.add = nT.add || []).push({}); return render(); }
+          if (act === 'agd-add-del') { var dT = agdTick[id] || {}; (dT.add || []).splice(+b.getAttribute('data-i'), 1); return render(); }
+          if (act === 'agd-add-send') {   // Kiko: "Are you sure you want to add?"; Yes approves the line and sends it, No leaves it New
+            var aT = agdTick[id] || {}, aI = +b.getAttribute('data-i'), aLine = agdAddLine((aT.add || [])[aI], agdAdded(agdOf(id)).length + 1);
+            if (!aLine) return alertErr(new Error('Fill in the requirement, Execution and Occurrence (whole numbers of 1 or more; Qty may stay blank), then tap Add.'), id);
+            return agdSure('Are you sure you want to add?', 'The requirement is approved and sent to Account Specialist.', function () {
+              if (running[id]) return;
+              b.disabled = true; running[id] = 1; schedule();
+              call('cueAgdDecide', [id, { decision: 'reply', note: aLine }], function () { (aT.add || []).splice(aI, 1); done(); }, fail);
+            });
+          }
           if (act === 'agd-tick-send') {   // AGENT-REQ-TICK-2026-11-18: one reply carrying the ticked lines and the answers
             var tA = agdOf(id), tn = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).note;
             if (!tn) return alertErr(new Error('Tick a line or type an answer, then tap Send decision.'), id);
             var tb = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).bad;   // AGENT-CARD-EDIT-2026-11-18
             if (tb.length) return alertErr(new Error('Qty and Occurrence must be whole numbers of 1 or more. Check ' + tb.join(', ') + ', then tap Send decision.'), id);
+            var splitCheck = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).badSplits;   // REQ-ADD-SPLIT-2026-11-26
+            if (splitCheck) return alertErr(new Error('Check the scopes on ' + splitCheck.join(', ') + ': each needs an Item, In House or Outsourced, and an Occurrence of 1 or more; Qty may stay blank.'), id);
             var noteCheck = agdTickNote(((tA.handover || {}).rows || []), agdTick[id]).badNotes;
             if (noteCheck) return alertErr(new Error('Check the selected row notes on ' + noteCheck.join(', ') + '. Use up to 500 characters and leave split, scope, In House, and Outsourced instructions out of notes.'), id);
             if (tn.length > 6000) return alertErr(new Error('This decision is too long to send in one go (over 6,000 characters). Shorten an answer, or send part of it first.'), id);   // AGENT-CARD-EDIT-2026-11-18: Canvas takes 6,000

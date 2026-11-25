@@ -17,7 +17,7 @@ function ckGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const a = page.indexOf('  // REQ-APPROVAL-12A-2026-11-18'), blk = page.slice(a, page.indexOf('  // AGENT-CARD-EDIT-2026-11-18 (Kiko 18 Nov 2026 14:53:25Z', a));
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdQs', 'agdApproved', 'agdEditVal', 'agdTickNote', 'agdQsHtml', 'agdTallyText', 'agdRowsHtml', 'agdUpdHtml'].map(grab).join('\n') + '\n' + blk, ctx);
+  vm.runInContext(['esc', 'agKv', 'agdQs', 'agdApproved', 'agdEditVal', 'agdTickNote', 'agdQsHtml', 'agdTallyText', 'agdTxt', 'agdWhole', 'agdAdded', 'agdAddLine', 'agdSplitLines', 'agdRowsHtml', 'agdUpdHtml'].map(grab).join('\n') + '\n' + blk, ctx);
   return { page, ctx };
 }
 const ckView = (b) => JSON.parse(JSON.stringify(b.t.ctx.cueView_(b.reqs()[0])));

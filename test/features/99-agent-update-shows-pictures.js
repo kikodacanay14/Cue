@@ -18,7 +18,7 @@ function aupView(brief) {
 function aupGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return page.slice(a, page.indexOf('\n  }\n', a) + 4); };
   const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
+  vm.runInContext(grab('esc') + '\n' + grab('agKv') + '\n' + grab('agdQs') + '\n' + grab('agdEditVal') + '\n' + grab('agdTickNote') + '\n' + grab('agdQsHtml') + '\n' + grab('agdTallyText') + '\n' + ['agdTxt', 'agdWhole', 'agdAdded', 'agdAddLine', 'agdSplitLines'].map(grab).join('\n') + '\n' + grab('agdRowsHtml') + '\n' + grab('agdCheck') + '\n' + grab('agdCkSum') + '\n' + grab('agdUpdHtml'), ctx);
   return { page, ctx };
 }
 test('AUP1 pictures and the brief from Canvas are kept clean: Drive file IDs only, page a whole number, at most 20 per row', () => {
