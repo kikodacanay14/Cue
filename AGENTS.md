@@ -51,6 +51,13 @@ Where things live:
   `06 — Concord`, `07 — MCP`, `08 — n8n`. Each app folder holds its Application QA File. Use the same folder names on
   every computer: Google Drive for desktop on KKD and the Mac, synced to this shared Drive. Never keep app files in a personal or ad hoc folder.
 - **Concord** (`concord-handover` connector): approvals, questions, bugs and messages between chats.
+- **Delivery Board from chats on Kiko's PC** (Kiko, 25 Nov 2026, rules B1 to B6): Claude Desktop, Claude Code and Codex on
+  the PC cannot open the board itself. Use the `concord-handover` tools instead. `read_board` reads Concord's hourly copy
+  (check its `syncedAt`). `request_board_update` (request_id, from_chat, card_id or `new`, changes) queues a change and
+  answers "Queued", never "Done". The hourly run at minute 7 applies it and replies "Applied" or "Refused" through
+  `check_messages`. Moving a card to For Testing (live), For Release or Done needs a proof link. No deletes, and no
+  changes to the Approvals, Decisions or Projects tabs. Bugs and incidents also go to the "Dev Ops" chat with
+  `report_issue`. If the tools are missing, fully restart the app.
 - **`HANDOVER.md`**: what the next chat must know ("Handover rules").
 - **`docs/decisions.md`**: how a decision is checked, asked, recorded and read back ("How decisions are documented").
 - **`PROJECT.md`** (kikodacanay14/bse-apps): files, the Delivery Board, the shared Drive folders and their structure, and
