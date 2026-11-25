@@ -1,6 +1,8 @@
 # Changelog
 
-## Cue 1.28.108: breadcrumb can move into Canvas's purple bar (not deployed)
+## Cue 1.28.108: breadcrumb can move into Canvas's purple bar (live as Version 286, 25 Nov 2026 01:36Z; rollback Version 285)
+
+Canvas's half went live after it as Canvas Version 572 (25 Nov 2026 01:43Z, CanvasWorkspace PR #727). The /dev page was opened before the live deploy and loaded with data. The breadcrumb inside Canvas's bar was not seen by the session that shipped it.
 
 Asked by Kiko on 25 Nov 2026 ("the '<Channels Account Specialist' Should be at the same bar as the Cue icon"; Canvas bar approved "2. A"). Needs the matching Canvas release (CanvasWorkspace branch cue-bar-breadcrumb-1125); until Canvas ships it, nothing changes in Cue.
 
