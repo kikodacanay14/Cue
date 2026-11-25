@@ -1,6 +1,8 @@
 # Changelog
 
-## Cue 1.28.109: change a message's label from the ⋮ menu (not deployed)
+## Cue 1.28.109: change a message's label from the ⋮ menu (live as Version 287, 25 Nov 2026 03:06Z; rollback Version 286)
+
+Shipped with Kiko's go ("Ship both now", then "go ahead and deploy", 25 Nov 2026 02:58Z). Deploy Cue check 45537465105 showed only Cue.gs, IndexStyle.html and IndexThreads.html differing from live Version 286; deploy 45537557284 ran 1016/1016 tests and went live as Version 287 with files matching. Canvas Version 573 (CanvasWorkspace PR #728) shipped just before it; neither depends on the other.
 
 Asked by Kiko on 25 Nov 2026 02:16:20Z ("Can we have the modify card Label appear when the : is clicked?"); mockup approved 02:30Z.
 
