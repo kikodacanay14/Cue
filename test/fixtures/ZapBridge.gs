@@ -1098,6 +1098,8 @@ function zbHandle_(raw, sig, now, gpt) {
   let r; try { r = JSON.parse(raw); } catch (e) { return zbOut_('Rejected', {}, { error: 'body is not JSON' }); }
   if (!r || typeof r !== 'object' || Array.isArray(r)) return zbOut_('Rejected', {}, { error: 'body must be a JSON object' });
   const props = PropertiesService.getScriptProperties();
+  if (r.action === 'save_correction_receipt' || r.action === 'save_replacement_outcome')
+    return zbSignedCorrection_(raw, sig, r, now, gpt, props);
   const auth = gpt ? '' : zbAuth_(raw, sig, r, now, props.getProperty('ZAD_SECRET'));   // a ChatGPT call was checked by its key
   if (auth) return zbOut_('Rejected', r, { error: auth });
   try { guestGate_('zapBridge', []); } catch (e) { return zbOut_('Blocked', r, { error: zbErr_(e) }); }
@@ -1136,6 +1138,32 @@ function zbAuth_(raw, sig, r, now, secret) {
   if (!ts || Math.abs(now - ts) > ZB_SKEW_MS_) return 'stale or missing ts';
   const want = zbHex_(Utilities.computeHmacSha256Signature(String(r.ts) + '.' + raw, secret));
   return zbSafeEq_(want, sig.toLowerCase()) ? '' : 'bad signature';
+}
+
+// The dedicated correction signer is restricted to two already-bound writes.
+function zbSignedCorrection_(raw, sig, r, now, gpt, props) {
+  const reject = error => zbOut_('Rejected', r, {error});
+  const key = props.getProperty('ZAD_CORRECTION_SECRET');
+  if (gpt || !/^[a-f0-9]{64}$/.test(key || '') || key === props.getProperty('ZAD_SECRET') ||
+      !/^[a-f0-9]{64}$/.test(sig || '') || !Number.isSafeInteger(r.ts) ||
+      zbAuth_(raw, sig, r, now, key)) return reject('correction signer unauthorized');
+  const record = x => x && typeof x === 'object' && !Array.isArray(x);
+  if (raw.length > 16000 || Object.keys(r).sort().join(',') !== 'action,args,ts' || !record(r.args))
+    return reject('invalid correction request');
+  const receiptAction = r.action === 'save_correction_receipt';
+  if (receiptAction && Object.keys(r.args).join(',') !== 'receipt') return reject('invalid correction receipt');
+  const value = receiptAction ? r.args.receipt : r.args;
+  if (!record(value) || !/^DRF-\d+$/.test(value.reply_id || '')) return reject('invalid correction binding');
+  const allowed = receiptAction
+    ? 'card_id reply_id number msg_id handoff_key revision action to_role decline_id note status received_at'
+    : 'card_id reply_id number msg_id original_handoff_key original_revision replacement_handoff_key replacement_revision receiver dispatch wake pickup';
+  if (Object.keys(value).some(k => !allowed.split(' ').includes(k))) return reject('invalid correction fields');
+  try {
+    const result = receiptAction ? agdSaveCorrectionReceipt_(value) : agdSaveReplacementOutcome_(value);
+    return result.ok ? zbOut_('Completed', r, {result}) : reject(result.error);
+  } catch (e) {
+    return zbOut_('Blocked', r, {error:'correction storage unavailable'});
+  }
 }
 
 function zbEnvelope_(r, a) {
@@ -3071,6 +3099,15 @@ ZB_ACTIONS_.rfp_log = {
   run: (r) => agdRfpLog_(r.args)
 };
 ZB_GPT_ACTIONS_.push('draft_add', 'draft_status', 'rfp_log');
+/* REQ-APPROVAL-12A-2026-11-18 (Kiko 18 Nov 2026 14:44Z, cards 15:00:48Z and 15:01:15Z; ReqApproval.gs): read only. A project's
+ * newest 12A card: each requirement's stored approved copy next to what Canvas holds, with the verdict (match, differs,
+ * not_saved, not_verified, held). The AS saved gate (n8n step 15) reads it as the approved side. */
+ZB_ACTIONS_.approval_check = {
+  kind: 'read', needsProject: false,
+  schema: { project_id: { type: 'string', required: true, re: ZB_PID_RE_ }, draft_id: { type: 'string', re: /^DRF-\d{4,6}$/ } },
+  run: (r) => raCheck_(r.args)
+};
+ZB_GPT_ACTIONS_.push('approval_check');
 /* AGENT-SEND-2026-11-13 (Kiko 10:31:02Z "they are pre-approved"; card 10:31:43Z "FSA, AR and chasers"; AgentDrafts.gs agdSend_):
  * an agent triggers one template email with no Cue draft. No subject or body: the words are Canvas's own template. */
 ZB_ACTIONS_.agent_send = {
@@ -3120,6 +3157,48 @@ ZB_GPT_ONLY_.push('agent_send');   // never through a signed Cue call: Cue has i
 // AGENT-UPDATE-2026-11-13 (Kiko 13 Nov 2026 11:06:33Z "can Cue also support general updates not just drafts", 11:10:27Z the handover
 // fields): an agent's handover update for its Cue thread. Nothing is sent or changed; Kiko marks it read in Cue.
 const ZB_DRIVE_ID_RE_ = /^[\w-]{10,100}$/;   // AGENT-ROW-PICTURES-2026-11-18: a Drive file ID, as Cue's cueAgdFile_ checks it
+const ZB_EMAIL_SCAN_ROW_ = {
+  number: { type: 'number', required: true, min: 1 },
+  msg_id: { type: 'string', required: true, nonBlank: true, max: 100 },
+  from: { type: 'string', max: 200 }, subject: { type: 'string', max: 300 },
+  received_at: { type: 'string', max: 40 }, source_body: { type: 'string', max: 2000 }
+};
+const ZB_EMAIL_SCAN_HANDOVER_ = {
+  dispatch: { type: 'string', required: true, oneOf: ["Dispatched", "Dispatch failed", "Not dispatched", "Unverified"] }, wake: { type: 'string', required: true, oneOf: ["Not attempted", "Requested", "Wake-up failed", "Unverified"] }, receipt: { type: 'string', required: true, oneOf: ["Received", "Awaiting receipt", "Unverified", "Not applicable"] }
+};
+/* CARD-FIELDS-2026-11-25 (Kiko 25 Nov 2026, n8n2 chat: "A A" to "Which piece should this chat build first? A. Canvas accepts the three
+ * new card fields. Makes the Phase 1 cards usable."). Cue 1.28.110 draws an image review card, a question card and Multimedia's findings
+ * on the Project Intake Request card from an update's image_review, question and project_inquiry.multimedia. The shapes are the ones
+ * those cards read (contract written by the session that built them: cue-phase1-cards-1125/canvas-field-contract.md). Texts only where
+ * the contract allowed text or number, and options as {value, label} only, so every item can be checked. */
+const ZB_CARD_KEY_RE_ = /^[A-Za-z0-9:_.-]{4,150}$/, ZB_CARD_REV_RE_ = /^\S{1,40}$/;
+const ZB_CARD_FINDING_ = { measurement: { type: 'string', max: 200 }, value: { type: 'string', max: 100 }, unit: { type: 'string', max: 40 },
+        source: { type: 'string', max: 300 }, gap: { type: 'string', max: 300 } };
+const ZB_CARD_IMAGE_REVIEW_ = { type: 'object', fields: {
+  request_key: { type: 'string', required: true, re: ZB_CARD_KEY_RE_ }, revision: { type: 'string', required: true, re: ZB_CARD_REV_RE_ },
+  round: { type: 'number', required: true, min: 1 }, image_version: { type: 'number', min: 1 }, answered_on_round: { type: 'number', min: 1 },
+  status: { type: 'string', oneOf: ['waiting', 'approved', 'stopped'] }, loop: { type: 'string', oneOf: ['pre_registration', 'requirement'] },
+  mm_case: { type: 'string', max: 40 }, title: { type: 'string', max: 100 }, made_with: { type: 'string', max: 100 },
+  files_note: { type: 'string', max: 300 }, gaps_note: { type: 'string', max: 300 },
+  source: { type: 'object', fields: { subject: { type: 'string', max: 200 }, sender: { type: 'string', max: 300 }, received: { type: 'string', max: 100 },
+    message_id: { type: 'string', re: /^[0-9a-f]{8,24}$/ } } },
+  project: { type: 'object', fields: { id: { type: 'string', max: 60 }, name: { type: 'string', max: 200 } } },
+  requirement: { type: 'object', fields: { id: { type: 'string', max: 60 }, name: { type: 'string', max: 200 } } },
+  images: { type: 'array', maxItems: 10, items: { name: { type: 'string', required: true, nonBlank: true, max: 200 }, mime_type: { type: 'string', max: 100 },
+    file_id: { type: 'string', re: ZB_DRIVE_ID_RE_ } } },
+  made_from: { type: 'object', fields: { name: { type: 'string', required: true, nonBlank: true, max: 200 }, file_id: { type: 'string', re: ZB_DRIVE_ID_RE_ } } },
+  finding_heads: { type: 'array', maxItems: 3 }, findings: { type: 'array', maxItems: 40, items: ZB_CARD_FINDING_ },
+  earlier_rounds: { type: 'array', maxItems: 20, items: { n: { type: 'number', required: true, min: 1 }, at: { type: 'string', max: 40 },
+    answer: { type: 'string', oneOf: ['approved', 'sent_back'] }, comment: { type: 'string', max: 2000 } } },
+  changed: { type: 'array', maxItems: 10, items: { name: { type: 'string', required: true, nonBlank: true, max: 200 }, before: { type: 'string', max: 100 },
+    now: { type: 'string', max: 100 } } } } };
+const ZB_CARD_QUESTION_ = { type: 'object', fields: {
+  request_key: { type: 'string', required: true, re: ZB_CARD_KEY_RE_ }, revision: { type: 'string', required: true, re: ZB_CARD_REV_RE_ },
+  question: { type: 'string', required: true, nonBlank: true, max: 600 }, kind: { type: 'string', max: 40 },
+  waits_label: { type: 'string', max: 40 }, waits: { type: 'string', max: 300 }, project: { type: 'string', max: 300 },
+  source: { type: 'string', max: 600 }, note: { type: 'string', max: 300 },
+  options: { type: 'array', maxItems: 8, items: { value: { type: 'string', required: true, nonBlank: true, max: 100 }, label: { type: 'string', max: 300 } } },
+  client_message: { type: 'object', fields: { to: { type: 'string', max: 300 }, body: { type: 'string', required: true, nonBlank: true, max: 4000 } } } } };
 ZB_ACTIONS_.agent_update = {
   kind: 'write', needsProject: false, retrySafe: true,
   schema: { agent: { type: 'string', required: true, nonBlank: true, max: 40 }, door: { type: 'string', oneOf: ['ChatGPT', 'Zapier'] },
@@ -3127,6 +3206,59 @@ ZB_ACTIONS_.agent_update = {
     summary: { type: 'string', required: true, nonBlank: true, max: 4000 }, gaps: { type: 'string', max: 4000 },
     next_owner: { type: 'string', max: 100 }, next_action: { type: 'string', max: 1000 }, ack_link: { type: 'string', max: 500 },
     update_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.\-]{4,100}$/ }, status: { type: 'string', oneOf: ['Delivered', 'Blocked', 'Waiting for approval'] },   // AGENT-APPROVAL-WAITING-2026-11-17
+    run: { type: 'object', fields: {
+      run_id: { type: 'string', required: true, nonBlank: true, max: 100 },
+      read_at: { type: 'string', required: true, nonBlank: true, max: 40 },
+      mailbox: { type: 'string', required: true, nonBlank: true, max: 200 },
+      total_read: { type: 'number', required: true, min: 0 }, status: { type: 'string', required: true, oneOf: ["Completed", "Completed with errors", "Failed"] }
+    } },
+    skipped: { type: 'array', maxItems: 200, items: { ...ZB_EMAIL_SCAN_ROW_, noise_kind: { type: 'string', max: 40 } } },
+    routed: { type: 'array', maxItems: 200, items: { ...ZB_EMAIL_SCAN_ROW_, ...ZB_EMAIL_SCAN_HANDOVER_,
+      routed_to: { type: 'string', required: true, nonBlank: true, max: 60 },
+      why: { type: 'string', max: 300 }, project_id: { type: 'string', max: 40 },
+      correction: { type: 'object', fields: {
+        handoff_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{1,150}$/ },
+        revision: { type: 'number', required: true, min: 1 },
+        eligible_roles: { type: 'array', required: true, minItems: 1, maxItems: 6 } } },
+      outcomes: { type: 'array', minItems: 2, maxItems: 6, items: { ...ZB_EMAIL_SCAN_HANDOVER_,
+        routed_to: { type: 'string', required: true, nonBlank: true, max: 60 } } } } },
+    not_routed: { type: 'array', maxItems: 200, items: { ...ZB_EMAIL_SCAN_ROW_, ...ZB_EMAIL_SCAN_HANDOVER_,
+      why: { type: 'string', max: 300 }, decision_needed: { type: 'boolean' },
+      eligible_roles: { type: 'array', maxItems: 6 } } },
+    route_decision: { type: 'object', fields: {
+      message_id: { type: 'string', required: true, max: 77, re: /^[A-Za-z0-9_.-]{1,77}$/ },sender:{type:'string',max:300},subject:{type:'string',max:300},received_at:{type:'string',max:100},
+      number: { type: 'number', required: true, min: 1 },
+      status: { type: 'string', required: true, oneOf: ['needs_verification'] } } },
+    project_inquiry: { type: 'object', fields: {
+      stage: { type: 'string', required: true, oneOf: ['review', 'register'] },
+      handoff_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{1,150}$/ },
+      revision: { type: 'number', required: true, min: 1 },
+      card_version: { type: 'string', required: true, re: /^[a-f0-9]{8}$/ },
+      source_subject: { type: 'string', max: 200 }, received: { type: 'string', max: 100 },
+      source_channel: { type: 'string', oneOf: ['Email', 'Bid Opportunities', 'Messenger'] },
+      source_message_id: { type: 'string', max: 100, re: /^[A-Za-z0-9:_.-]{1,100}$/ },
+      source_body: { type: 'string', max: 2000 },
+      contact: { type: 'object', fields: { name: { type: 'string', max: 200 },
+        email: { type: 'string', max: 200 }, phone: { type: 'string', max: 60 } } },
+      source_files: { type: 'array', maxItems: 10, items: { name: { type: 'string', required: true, nonBlank: true, max: 200 },
+        mime_type: { type: 'string', max: 100 }, file_id: { type: 'string', re: ZB_DRIVE_ID_RE_ } } },
+      event_date_iso: { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ },
+      client: { type: 'string', max: 200 }, event: { type: 'string', max: 200 },
+      date: { type: 'string', max: 50 }, venue: { type: 'string', max: 200 },
+      can_register: { type: 'boolean', required: true },
+      registration_context_verified: { type: 'boolean' },
+      categories: { type: 'array', maxItems: 3 },
+      matches: { type: 'array', maxItems: 4, items: {
+        project_id: { type: 'string', required: true, re: ZB_PID_RE_ },
+        name: { type: 'string', max: 200 }, reason: { type: 'string', max: 300 }
+      } },
+      // CARD-FIELDS-2026-11-25: Multimedia's findings, shown on the Project Intake Request card
+      multimedia: { type: 'object', fields: { mm_case: { type: 'string', max: 40 }, checked: { type: 'string', max: 200 },
+        approved_at: { type: 'string', max: 40 }, round: { type: 'number', min: 1 }, image_version: { type: 'number', min: 1 },
+        review_card_id: { type: 'string', re: /^DRF-\d{4,6}$/ }, gaps_note: { type: 'string', max: 300 },
+        findings: { type: 'array', maxItems: 40, items: ZB_CARD_FINDING_ } } }
+    } },
+    image_review: ZB_CARD_IMAGE_REVIEW_, question: ZB_CARD_QUESTION_,   // CARD-FIELDS-2026-11-25
     // AGENT-UPDATE-ROWS-2026-11-16 (Kiko 16 Nov 2026: Cue mockup v2 approved 12:23:52Z, "yes" to this field 12:33:39Z): one row per
     // requirement for Cue's requirements panel. Optional; only the approved fields (Status, Handed to and Kind were removed 12:19:11Z).
     rows: { type: 'array', maxItems: 100, items: { req_id: { type: 'string', max: 60 }, name: { type: 'string', required: true, nonBlank: true, max: 200 },
@@ -3152,10 +3284,42 @@ ZB_ACTIONS_.agent_drafts = {
   kind: 'read', needsProject: false, schema: { days: { type: 'number', min: 0 } },
   run: (r) => agdForCue_(r.args)
 };
+// Signed Cue bridge only. The draft store owns version comparison and idempotent replay.
+ZB_ACTIONS_.save_intake_revision = {
+  kind: 'queue', needsProject: false,
+  schema: {
+    card_id: { type: 'string', required: true, re: /^DRF-\d{4,6}$/ },
+    source_message_id: { type: 'string', required: true, nonBlank: true, max: 100 },
+    handoff_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{1,150}$/ },
+    revision: { type: 'number', required: true, min: 1 },
+    expected_card_version: { type: 'string', required: true, re: /^[a-f0-9]{8}$/ },
+    values: { type: 'object', required: true, fields: {
+      company: { type: 'string', required: true, nonBlank: true, max: 200 },
+      contact_name: { type: 'string', max: 200 },
+      event_name: { type: 'string', required: true, nonBlank: true, max: 200 },
+      event_date_iso: { type: 'string', max: 10 },
+      venue: { type: 'string', max: 200 },
+      categories: { type: 'array', required: true, minItems: 1, maxItems: 3 },
+      design: { type: 'object', fields: {
+        theme: { type: 'string', max: 300 },
+        theme_owner: { type: 'string', oneOf: ['BSE to propose', 'Client to provide'] },
+        deliverables: { type: 'array', maxItems: 8 }
+      } }
+    } }
+  },
+  run: (r) => agdSaveIntakeVersion_(r.args)
+};
 ZB_ACTIONS_.agent_draft_decide = {
   kind: 'queue', needsProject: false,
   schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, draft_id: { type: 'string', required: true, re: /^DRF-\d{4,6}$/ },
     decision: { type: 'string', required: true, oneOf: ['send', 'save', 'send_back', 'reject', 'read', 'reply'] },   // AGENT-UPDATE-2026-11-13: read = Mark read on an agent update; reply = Kiko's reply to it (note)
+    route_correction: { type: 'object', fields: {
+      number: { type: 'number', required: true, min: 1 },
+      msg_id: { type: 'string', required: true, nonBlank: true, max: 100 },
+      handoff_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{1,150}$/ },
+      revision: { type: 'number', required: true, min: 1 },
+      to_role: { type: 'string', required: true, oneOf: ['AS','FINANCE','ADMIN','ECI','MULTIMEDIA'] },
+      note: { type: 'string', max: 450 } } },
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 6000 },   // AGENT-CARD-EDIT-2026-11-18: 6,000 for a decision with approved values
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
   run: (r) => agdDecide_(r.args)
@@ -3511,6 +3675,38 @@ ZB_ACTIONS_.supplier_contact_edit = {
 };
 ZB_GPT_ACTIONS_.push('supplier_contacts', 'supplier_contact_edit');
 ZB_GPT_ONLY_.push('supplier_contacts', 'supplier_contact_edit');   // never through a signed Cue call
+
+/* N8N-SUPPLIER-CONTACT-ADD-2026-11-18 (Kiko decision card 18 Nov 2026 08:06:54Z, "A: Supplier DB contacts", to "Where should
+ * Admin save a new contact for a supplier we already have?"). Admin adds a contact to a supplier already in the Supplier
+ * Database, in Supplier Database > Supplier Contacts, through Support Desk's own save (saveSupplierContact with no row: Contact
+ * Person required, email checked, audit log, a placeholder row filled first). Admin calls it only after Kiko approves Admin's
+ * card. Same contact twice is not added twice, matched as supplier_add matches: by email, or by name when there is no email; a
+ * repeat saves nothing and answers repeat. Read back after the save. */
+ZB_ACTIONS_.supplier_contact_add = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { request_id: ZB_CRM_RID_, supplier: { type: 'string', required: true, nonBlank: true, max: 150 },
+    contact_person: { type: 'string', required: true, nonBlank: true, max: 120 }, email: { type: 'string', max: 200 },
+    phone: { type: 'string', max: 60 }, position: { type: 'string', max: 120 } },
+  run: (r) => { const a = r.args; try {
+    const x = zbSupContactsOf_(a.supplier);
+    if (!x.p.found) return { refused: a.supplier + ' is not in the Supplier Database. Nothing was saved.' };
+    const want = { contact_person: String(a.contact_person).trim(), email: String(a.email || '').trim(), phone: String(a.phone || '').trim(), position: String(a.position || '').trim() };
+    const same = want.email ? x.list.find(o => zbScSame_('email', o.email, want.email))
+      : x.list.find(o => zbScSame_('contact_person', o.contact_person.toLowerCase(), want.contact_person.toLowerCase()));
+    if (same) return { saved: true, repeat: true, supplier: x.p.name, row: same.row, now: zbScView_(same) };
+    const values = x.fields.map(h => { const k = Object.keys(ZB_SC_MAP_).find(q => ZB_SC_MAP_[q] === h); return k ? want[k] : ''; });
+    if (!values.length) return { refused: 'Supplier Contacts has no columns to save into. Nothing was saved.' };
+    const out = saveSupplierContact(0, x.p.id, x.p.name, values);
+    const back = zbSupContactsOf_(x.p.name).list.find(o => o.row === (out && out.row)) || {};
+    const off = Object.keys(want).filter(k => x.fields.indexOf(ZB_SC_MAP_[k]) >= 0 && !zbScSame_(k, back[k], want[k]));
+    return { saved: true, supplier: x.p.name, row: out && out.row, now: zbScView_(back), off };
+  } catch (e) { const m = zbErr_(e); return { refused: /Nothing was saved\.?\s*$/.test(m) ? m : m + ' Nothing was saved.' }; } },
+  check: (r, res) => zbRefusedOr_(res, () => { if (res.repeat) return { ok: true, evidence: { row: res.row } };
+    const off = res.off || [];
+    return off.length ? { ok: false, error: 'read back differs: ' + off.join(', ') } : { ok: true, evidence: { row: res.row } }; })
+};
+ZB_GPT_ACTIONS_.push('supplier_contact_add');
+ZB_GPT_ONLY_.push('supplier_contact_add');   // never through a signed Cue call
 
 (function () {   // save_ce_requirements: optional from per line
   const a = ZB_ACTIONS_.save_ce_requirements, item = a.schema.lines.items, set = item.set.fields, from = {};
