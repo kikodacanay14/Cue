@@ -41,7 +41,7 @@ test('FLAG3 wiring: Flagged opens as a list with no reply box; the flag sits on 
   const chat = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexChat.html'), 'utf8');
   assert.ok(chat.includes("openThread === 'sys:flagged';   // CUE-FLAG-2026-11-18"));
   assert.ok(FL_SRC.includes("if (t.flagged) { setHtml($('tdock'), ''); setHtml($('tmsgs'), flaggedHtml()); return; }"));
-  assert.ok(FL_SRC.includes("+ moreBtn({ reply: rid, flag: fit }) + '</div>';"), 'the flag is in the ⋯ menu (CUE-MSG-MENU-2026-11-18)');
+  assert.ok(FL_SRC.includes("+ moreBtn({ reply: rid, flag: fit, label: cat ? streamReqKey(m) : '' }) + '</div>';"), 'the flag is in the ⋯ menu (CUE-MSG-MENU-2026-11-18)');
   assert.ok(FL_SRC.includes("moreBtn({ reply: '', flag: { key: 'r:' + r.id,"));
   assert.ok(FL_SRC.includes("if (!showArchived && (!tq || 'flagged'.indexOf(tq) >= 0)) h += flagRowHtml();"));
 });

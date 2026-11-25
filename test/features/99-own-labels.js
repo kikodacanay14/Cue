@@ -47,7 +47,7 @@ test('OL3 colours: a built-in swatch name keeps its class, any hex colour draws 
   assert.deepStrictEqual(JSON.parse(vm.runInContext('JSON.stringify([streamHex("intake"), streamHex("u1"), streamHex("chat")])', b)), ['#087f83', '#ff8800', '#576579']);
   assert.strictEqual(vm.runInContext('streamCategory({ request_id: ">cue-20261120000142-abcd" })', b), 'u1');
   assert.deepStrictEqual(Object.keys(JSON.parse(vm.runInContext('JSON.stringify(streamPrefs.labels)', b))), ['cue-20261120000142-abcd'], 'a message labelled with a label that no longer exists is dropped');
-  assert.ok(/<option value="u1" selected>Likha<\/option>/.test(vm.runInContext('streamPill("u1", "cue-20261120000142-abcd")', b)), 'own labels are offered on a message');
+  assert.strictEqual(vm.runInContext('streamPill("u1", "cue-20261120000142-abcd")', b), '<span class="stream-pill stream-custom" style="--sc:#ff8800">Likha</span>', 'a plain tag on the card; own labels are offered in ⋮ › Label (99-label-menu.js)');
 });
 test('OL4 saving sends hex colours, own labels and message labels to Cue; the panel shows a colour dot, swatches, the wheel and the only-you note', () => {
   const b = olBox({ custom: [{ k: 'u1', n: 'Likha' }], colors: { intake: 'teal' } });

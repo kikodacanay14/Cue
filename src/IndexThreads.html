@@ -109,23 +109,52 @@
    * that hides later messages like it, listed in Settings › Channel rules); any other message is hidden by its key (CueFlags.gs
    * cueDismiss) with Undo in its place. */
   function isDismissed(key) { return !!key && (state.dismissed || []).indexOf(key) >= 0; }
-  function moreBtn(o) {   // o: { reply: task id or '', flag: flag item or null }
+  function moreBtn(o) {   // o: { reply: task id or '', flag: flag item or null, label: the message's label key or '' }
     var f = o.flag, on = !!f && isFlagged(f.key); if (f) flagMap[f.key] = f;
-    if (!o.reply && !f) return '';
+    if (!o.reply && !f && !o.label) return '';
     return '<button class="rp more" data-more="1" aria-haspopup="menu" aria-expanded="false" title="More" aria-label="More for this message">' + icon('more') + '</button>'
       + (on ? flagBtn(f) : '')
       + '<div class="msgmenu" role="menu" hidden>'
       + (o.reply ? '<button role="menuitem" data-reply="' + esc(o.reply) + '">Reply</button>' : f ? '<button role="menuitem" data-reply-q="' + esc(f.key) + '">Reply</button>' : '')
-      + (f ? '<button role="menuitem" data-flag="' + esc(f.key) + '">' + (on ? 'Unflag' : 'Flag') + '</button>'
-        + '<button role="menuitem" data-dismiss="' + esc(f.key) + '">Dismiss</button>' : '') + '</div>';
+      + (f ? '<button role="menuitem" data-flag="' + esc(f.key) + '">' + (on ? 'Unflag' : 'Flag') + '</button>' : '')
+      + (o.label ? '<button role="menuitem" data-label-open="' + esc(o.label) + '">Label <span aria-hidden="true">›</span></button>' : '')   // CUE-LABEL-MENU-2026-11-25
+      + (f ? '<button role="menuitem" data-dismiss="' + esc(f.key) + '">Dismiss</button>' : '') + '</div>';
   }
   function menusShut(keep) { document.querySelectorAll('.msgmenu').forEach(function (x) { if (x !== keep) { x.hidden = true; var b = x.parentNode && x.parentNode.querySelector('[data-more]'); if (b) b.setAttribute('aria-expanded', 'false'); } }); }
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-more]');
-    if (!b) { menusShut(null); return; }
+    if (!b) { if (!(e.target.closest && e.target.closest('[data-label-open], [data-label-back]'))) menusShut(null); return; }   // CUE-LABEL-MENU-2026-11-25: the label list opens inside the menu
     e.stopPropagation(); e.preventDefault();
     var mn = b.parentNode.querySelector('.msgmenu'); if (!mn) return;
     menusShut(mn); mn.hidden = !mn.hidden; b.setAttribute('aria-expanded', String(!mn.hidden));
+  }, true);
+  /* CUE-LABEL-MENU-2026-11-25 (Kiko 25 Nov 2026 02:16:20Z "Can we have the modify card Label appear when the : is clicked?", mockup
+   * approved 02:30Z): the label on a card is a plain tag; ⋮ › Label turns the menu into the label list (Automatic first, a tick on
+   * the one in use); one tap saves it, as the old drop-down did; ‹ Label goes back. */
+  function labelListHtml(id) {
+    var set = streamPrefs.labels[id] || '', all = streamAll(), row = function (k, n) {
+      return '<button role="menuitemradio" aria-checked="' + (k === set) + '" data-label-set="' + esc(id) + '" data-label-k="' + esc(k) + '"><span class="lbtick" aria-hidden="true">' + (k === set ? '✓' : '') + '</span>' + esc(n) + '</button>';
+    };
+    return '<button role="menuitem" data-label-back="1" class="lbback"><span aria-hidden="true">‹</span> Label</button>' + row('', 'Automatic')
+      + Object.keys(all).map(function (k) { return row(k, all[k]); }).join('');
+  }
+  function labelSet(id, k) {
+    if (!STREAM_REQUEST_RE.test(id)) return;
+    if (!k) delete streamPrefs.labels[id];
+    else {
+      if (!Object.prototype.hasOwnProperty.call(streamAll(), k)) return;
+      delete streamPrefs.labels[id]; streamPrefs.labels[id] = k;
+      Object.keys(streamPrefs.labels).slice(0, -300).forEach(function (old) { delete streamPrefs.labels[old]; });
+    }
+    saveStreamPrefs();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-label-open], [data-label-back], [data-label-set]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    var mn = b.closest('.msgmenu'); if (!mn) return;
+    if (b.hasAttribute('data-label-open')) { mn._menu = mn.innerHTML; mn.innerHTML = labelListHtml(b.getAttribute('data-label-open')); var f = mn.querySelector('[aria-checked="true"]') || mn.querySelector('button'); if (f) f.focus(); return; }
+    if (b.hasAttribute('data-label-back')) { if (mn._menu) mn.innerHTML = mn._menu; return; }
+    menusShut(null); labelSet(b.getAttribute('data-label-set'), b.getAttribute('data-label-k'));
   }, true);
   var undoDis = {};   // keys dismissed in this visit: their place shows "Dismissed. Undo" until Cue is reopened
   function dismissKey(key, on) {
@@ -948,7 +977,7 @@
     var quote = qid ? '<span class="quote">' + esc(replyTitle(qid)) + '</span>' : '';
     var body = lk === 'learn' ? learnHtml(m) : lk === 'act' ? '<span class="actx">' + tickText(m) + '</span>' : tickText(m);
     return '<div class="msg ' + (m.who === 'Kiko' ? 'me' : 'cue') + (lk ? ' ' + lk : '') + (plan ? ' plan' : '') + '"' + (cat ? ' data-stream-category="' + cat + '"' + (String(streamPrefs.colors[cat] || STREAM_DEFAULT[cat] || '#').charAt(0) === '#' ? ' style="--sc:' + esc(streamHex(cat)) + '"' : '') : '') + (msgWhen(m.time) ? ' data-t="' + esc(msgWhen(m.time)) + '"' : '') + (thread ? ' data-thread="' + esc(thread) + '" title="Open the thread"' : lk === 'act' ? ' title="' + esc(String(m.text || '')) + '"' : '') + (rid ? ' data-rid="' + esc(rid) + '"' : '') + '><span class="who">' + esc(m.who) + '</span>' + (cat ? streamPill(cat, streamReqKey(m)) : '') + quote + body + askHtml(m)
-      + moreBtn({ reply: rid, flag: fit }) + '</div>';   // CUE-MSG-MENU-2026-11-18: ⋯ holds Reply, Flag and Dismiss
+      + moreBtn({ reply: rid, flag: fit, label: cat ? streamReqKey(m) : '' }) + '</div>';   // CUE-MSG-MENU-2026-11-18: ⋯ holds Reply, Flag and Dismiss; CUE-LABEL-MENU-2026-11-25: and Label
   }
   // The quoted message's first line: the 8 AM title, or the task's thread name.
   function replyTitle(id) {
@@ -1616,17 +1645,6 @@
         } else return;
         saveStreamPrefs();
       });
-      $('msgs').addEventListener('change', function (e) {
-        var el = e.target, id = String(el.getAttribute('data-stream-label') || ''), k = el.value;
-        if (!STREAM_REQUEST_RE.test(id)) return;
-        if (!k) delete streamPrefs.labels[id];
-        else {
-          if (!Object.prototype.hasOwnProperty.call(streamAll(), k)) return;
-          delete streamPrefs.labels[id]; streamPrefs.labels[id] = k;
-          Object.keys(streamPrefs.labels).slice(0, -300).forEach(function (old) { delete streamPrefs.labels[old]; });
-        }
-        saveStreamPrefs();
-      });
     }
     if (!streamFromCue && typeof state !== 'undefined' && state && state.stream_prefs) {   // Cue's saved copy wins over this browser's
       streamFromCue = true; streamAdopt(state.stream_prefs); setTimeout(function () { dirty(); renderChat(); }, 0);
@@ -1668,13 +1686,7 @@
     var col = streamPrefs.colors[cat] || STREAM_DEFAULT[cat] || '#2810dc', name = streamAll()[cat] || STREAM_LABELS.update;
     var pill = col.charAt(0) === '#' ? '<span class="stream-pill stream-custom" style="--sc:' + esc(col) + '">' + esc(name) + '</span>'
       : '<span class="stream-pill stream-' + col + '">' + esc(name) + '</span>';
-    if (!id) return pill;
-    var set = streamPrefs.labels[id] || '';
-    return '<details class="stream-label-control" data-stream-label-control><summary aria-label="Change message label">' + pill
-      + '</summary><label>Message label<select aria-label="Message label" data-stream-label="' + esc(id) + '">'
-      + '<option value="">Automatic</option>' + Object.keys(streamAll()).map(function (k) {
-        return '<option value="' + k + '"' + (k === set ? ' selected' : '') + '>' + esc(streamAll()[k]) + '</option>';
-      }).join('') + '</select></label></details>';
+    return pill;   // CUE-LABEL-MENU-2026-11-25: a plain tag; the label is changed from ⋮ › Label
   }
   function fileCardHtml(x) {
     var ext = (/\.(\w{1,5})$/.exec(x.name || '') || [])[1] || '', img = /^(png|jpe?g|gif|webp|heic)$/i.test(ext), ok = /^[\w-]{10,}$/.test(x.id || '');
