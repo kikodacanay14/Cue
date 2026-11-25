@@ -1,5 +1,14 @@
 # Changelog
 
+## Cue 1.28.114: failed-job alerts show the real error code (not deployed)
+
+Asked by Kiko on 25 November 2026 ("I keep getting this error", phone alerts "Job failed: Messenger sign links / Canvas did not answer msgr_due (HTTan amount)"), sent by the Dev Ops coordinator. A bug fix: the alert text is wrong, no business rule changes.
+
+- The alert cleaner took the "P 500" in "HTTP 500" for a peso amount, so "Canvas did not answer msgr_due (HTTP 500)" reached the phone as "(HTTan amount)". A peso sign "P" now counts only when it starts a word, so "HTTP 500" stays and "P500" or "P 1,200" still come out as "an amount".
+- What the alerts were: Cue's Job Runs tab shows msgr_due and read_rows each failed once (05:23Z and 05:20Z on 25 Nov), inside a window from 00:38Z to 06:14Z when Canvas answered several jobs with HTTP 500 or timed out. Every run of both jobs since then passed (last checked 19:58Z).
+
+Tests: `node test/cue.test.js` 1,045 passed (1 new, PA4b in `test/features/99-phone-alerts.js`; it failed before the change).
+
 ## Cue 1.28.113: add a requirement, split into scopes as boxes, blank Qty on the requirement list (not deployed)
 
 Asked by Kiko on 25 November 2026 on the approved mockup (BSE-Dev-Agents/reg-cards-mockup-1125, card (c)): split "A. Boxes, as drawn"; an added line "1. Yes. approved as i add", "2. yes" after every line is approved, its own Add button "A", the window "Are you sure you want to add?"; blank Qty "it can be approved as blank", "saves as blank and then we update later on". Build approved in the n8n2 chat on 26 November 2026 ("Approve"). Reply formats agreed with the Requirements Gathering chat on 25 November 2026.
