@@ -6,6 +6,8 @@ const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = r
 const { cuePage } = require(path.join(__dirname, 'page.js'));   // the page joined from its parts, as doGet serves it
 const CODE = fs.readdirSync(path.join(__dirname, '..', 'src')).filter(f => /\.gs$/.test(f)).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');   // Apps Script's own load order
 const BRIDGE = vm.createContext({ console, JSON, Math, Date, Number, String, Object, Array, Error, RegExp });
+// Canvas V582: ZapBridge.gs names EML_ID_RE_ from EmailLessons.gs, which Apps Script loads before it (alphabetical order).
+vm.runInContext(String.raw`var EML_ID_RE_ = /^LSN-\d{4,6}$/;`, BRIDGE);
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'fixtures', 'ZapBridge.gs'), 'utf8'), BRIDGE);
 const bridgeCheck = (action, args) => { BRIDGE.__a = args; BRIDGE.__n = action; return vm.runInContext('zbValidate_(__a, ZB_ACTIONS_[__n].schema, "")', BRIDGE); };
 const URL = 'https://script.google.com/macros/s/AKfycbTEST_bridge-1/exec', SECRET = 'test-secret-not-real';

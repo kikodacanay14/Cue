@@ -94,7 +94,8 @@ function cueAgdHand_(h) {
     event: cueStr_(h.event, 200), client: cueStr_(h.client, 200),   // AGENT-CARD1-LAYOUT-2026-11-18: Event and Client on top of the card
     intake,   // EMAIL-INTAKE-CARD-2026-11-18
     route_decision: h.route_decision ? { message_id: cueStr_(h.route_decision.message_id, 77),
-      number: h.route_decision.number, status: h.route_decision.status,sender:cueStr_(h.route_decision.sender,300),subject:cueStr_(h.route_decision.subject,300),received_at:cueStr_(h.route_decision.received_at,100) } : null,
+      number: h.route_decision.number, status: h.route_decision.status,sender:cueStr_(h.route_decision.sender,300),subject:cueStr_(h.route_decision.subject,300),received_at:cueStr_(h.route_decision.received_at,100),
+      suggestions: cueEmailSuggestions_(h.route_decision.suggestions) } : null,   // EMAIL-ROUTE-HELD-2026-11-25
     project_inquiry: cueAgdProjectInquiry_(h.project_inquiry),
     image_review: cueAgdImageReview_(h.image_review), question: cueAgdQuestion_(h.question),   // PHASE1-CARDS-2026-11-25
     check: cueAgdCheck_(h.check) };   // AGENT-CHECK-CARD-2026-11-18
@@ -197,7 +198,8 @@ function cueAgdIntake_(h) {
     not_routed: Array.isArray(h.not_routed) ? h.not_routed.filter(ok).slice(0, 200).map(x => Object.assign(m(x), outcomes(x), {
       why: cueStr_(x.why, 300), decision_needed: x.decision_needed === true,
       eligible_roles: Array.isArray(x.eligible_roles) ? x.eligible_roles
-        .filter(role => ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'].includes(role)) : []
+        .filter(role => ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'].includes(role)) : [],
+      suggestions: cueEmailSuggestions_(x.suggestions)   // EMAIL-ROUTE-HELD-2026-11-25 (R-ER4)
     })) : [] };   // Kiko 05:47Z: no role fits, not routed
 }
 
@@ -233,14 +235,36 @@ function cueEmailRerouteKey_(mailbox, msgId) {
   return mailbox && msgId ? mailbox + ':' + msgId : '';
 }
 
+/* EMAIL-ROUTE-HELD-2026-11-25 (Kiko 25 Nov 2026, n8n2 chat; rules R-ER1 to R-ER8 "Approve all"; scope and design "Approve, ECII in";
+ * Canvas V582). Email Intake's suggestions from Kiko's lessons, newest first (R-ER4, R-ER6), and the Lessons list (R-ER7). */
+const CUE_EMAIL_ROLES_ = ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'];
+function cueEmailSuggestions_(list) {
+  return Array.isArray(list) ? list.filter(x => x && CUE_EMAIL_ROLES_.indexOf(x.agent) >= 0).slice(0, 5).map(x => ({ agent: x.agent,
+    rule: cueStr_(x.rule, 200), lesson_id: /^LSN-\d{4,6}$/.test(x.lesson_id || '') ? x.lesson_id : '', learned_at: cueStr_(x.learned_at, 40) })) : [];
+}
+function cueEmailLessons() {
+  cueOwner_();
+  const res = cueBridge_({ id: 'lsn-' + cueNow_().toString(36) }, 'email_lessons', {}) || {};
+  return { lessons: (Array.isArray(res.lessons) ? res.lessons : []).slice(0, 200).map(x => ({ lesson_id: cueStr_(x.lesson_id, 20), created: cueStr_(x.created, 30),
+    sender: cueStr_(x.sender, 300), subject: cueStr_(x.subject, 300), agent: CUE_EMAIL_ROLES_.indexOf(x.agent) >= 0 ? x.agent : '', reason: cueStr_(x.reason, 450),
+    rule: cueStr_(x.rule, 200), card_id: cueStr_(x.card_id, 20) })) };
+}
+function cueEmailLessonRemove(id) {
+  cueOwner_();
+  if (!/^LSN-\d{4,6}$/.test(String(id || ''))) throw new Error('That is not a lesson.');
+  const res = cueBridge_({ id: 'lsnrm-' + cueNow_().toString(36) }, 'email_lesson_remove', { request_id: cueStr_('lsn:' + id + ':' + Date.now(), 80), lesson_id: id }) || {};
+  if (res.ok === false) throw new Error(cueStr_(res.error || 'Canvas did not remove the lesson.', 300));
+  return cueEmailLessons();
+}
 function cueEmailExactReceipt_(reply, receipt) {
   if (!reply || !receipt || receipt.status !== 'received_by_email_intake' ||
       typeof receipt.received_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(receipt.received_at) ||
       !Number.isFinite(Date.parse(receipt.received_at)) ||
       !/^DRF-\d+$/.test(reply.card_id || '') || !/^DRF-\d+$/.test(reply.reply_id || '') ||
       !Number.isSafeInteger(reply.number) || reply.number < 1 ||
-      !Number.isSafeInteger(reply.revision) || reply.revision < 1 ||
-      !reply.msg_id || !reply.handoff_key || !reply.action || !reply.to_role) return false;
+      !Number.isSafeInteger(reply.revision) || !reply.msg_id || !reply.action || !reply.to_role ||
+      (reply.action === 'route' ? reply.revision !== 0 || reply.handoff_key !== ''   // EMAIL-ROUTE-HELD-2026-11-25: a held email's route
+        : reply.revision < 1 || !reply.handoff_key)) return false;
   return ['card_id','reply_id','number','msg_id','handoff_key','revision','action','to_role','decline_id','note']
     .every(key => reply[key] === receipt[key]);
 }
@@ -497,6 +521,7 @@ function cueAgdDecide_(id, o) {
   const s = L.s, a = s.agd;
   const args = { request_id: cueStr_('agd:' + s.id.replace(/^cue-/, '') + ':' + s.tries, 80), draft_id: a.draft_id, decision: dec };
   if (dec === 'reply' && o.route_correction) args.route_correction = o.route_correction;
+  if (dec === 'reply' && o.email_route) args.email_route = o.email_route;   // EMAIL-ROUTE-HELD-2026-11-25 (R-ER1, R-ER2)
   if (note) args.note = note;
   if (dec === 'send') { if (a.type !== 'fsa_send' && a.type !== 'ar_send') args.subject = a.subject; args.body = a.body; }
   if (dec === 'save') args.lines = (selectedForSave || a.lines).map(l => ({ item: l.item, description: l.description, qty: l.qty, occurrence: l.occurrence, unit_cost: l.unit_cost, section: l.section }));
