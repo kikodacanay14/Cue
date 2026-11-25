@@ -1,6 +1,6 @@
 ---
 name: stories-and-rules
-description: Use inside scope-then-design to break an approved ask into Epics and User Stories on the Delivery Board, and to pull every business rule out of them into the Rules register as Waiting for Kiko before anything is built.
+description: Use inside scope-then-design to break an approved ask into Epics and User Stories on the Feature Board, and to pull every business rule out of them into the Rules register as Waiting for Kiko before anything is built.
 ---
 
 # Stories and rules
@@ -10,15 +10,11 @@ and confirm process and business rules before building.
 
 ## Where things live
 
-- **Stories**: the Delivery Board, formerly the Feature Board (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP), mirrored in `work-board.md`. One
+- **Stories**: the Feature Board (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP), mirrored in `work-board.md`. One
   card is one User Story; its Epic is the card's `area` field (`work-board.md`, "Feature Board fields"). Never start a
   second tracker.
 - **Rules**: `docs/system-reference/` in CanvasWorkspace. A rule is locked only when its status is **Approved** there
   (`docs/system-reference/README.md`).
-- **Decisions**: the Delivery Board's Decisions tab (collection `decisions`). Read it before Step 3; each rule Kiko
-  approves gets one row there (Kiko, 25 Nov 2026).
-- **Test cases**: the app's Application QA File in its folder on the BSE Apps & Systems shared Drive. Write each story's
-  unit and edge-case test cases there during scoping (Kiko, 25 Nov 2026).
 
 ## Step 1: Epics
 
@@ -47,20 +43,17 @@ A rule is any block, guard, check, refusal, "can't" or "must first" condition, l
 (CLAUDE.md, "Never invent your own rules").
 
 1. List every rule each story needs, in plain words, with one example.
-2. Look each one up in the Delivery Board's Decisions tab, then in `docs/system-reference/generated/rules-register.md` and the page chapters.
+2. Look each one up in `docs/system-reference/generated/rules-register.md` and the page chapters.
    - **Approved**: cite it. Done.
    - **Waiting for Kiko / Not reviewed**: it is not usable yet. Add it to this ask's rule list.
    - **Not there**: it is new. Write it into the register as **Waiting for Kiko**, with the story ID that needs it.
 3. Ask Kiko about the open rules in one batch with `ask-kiko`, one card per rule, at most four cards at a time. Group
    rules by page so he answers related ones together.
-4. Record each answer in the register and as a Decisions tab row, with the date and his words: Approved, Kiko said remove, or changed wording.
-   Before writing a card's rules field, check every clause: it quotes Kiko or cites an Approved register row. A clause
-   that does neither (including wording you added to his, such as "only after Kiko approves" for his "Request for
-   approval") goes in as Waiting for Kiko (observation 0029).
+4. Record each answer in the register with the date and his words: Approved, Kiko said remove, or changed wording.
 5. A story whose rules are not all Approved stays in "For Scope Definition and Design". It never moves to
    "For Development".
 
 ## Step 4: Write it back
 
-Update each card on the Delivery Board and its row in `work-board.md` (through a docs-only PR, per the board's rules).
+Update each card on the Feature Board and its row in `work-board.md` (through a docs-only PR, per the board's rules).
 Nothing in this step lives only in chat.

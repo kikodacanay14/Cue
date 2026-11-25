@@ -1,6 +1,6 @@
 ---
 name: "scope-then-design"
-description: "Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work, or when picking the next item from the Delivery Board backlog — runs backlog pick, discovery, stress-test, stories and rules, mockups, spec and design, and plan in order, with a quality gate after each phase and Kiko's approval before any code."
+description: "Use at the start of any new task, feature, build or project for Canvas, Cue or Blank Space work, or when picking the next item from the Feature Board backlog — runs backlog pick, discovery, stress-test, stories and rules, mockups, spec and design, and plan in order, with a quality gate after each phase and Kiko's approval before any code."
 ---
 
 # Scope then design
@@ -9,7 +9,7 @@ One entry point for turning an ask into an approved design before anything is bu
 exist; it adds no new tooling. Kiko asked for it on 27 Oct 2026 ("a more structured way of defining requirements and
 understanding of the asks. Structurally design solutions before coding and implementing").
 
-Extended on 29 Oct 2026 at Kiko's request: epics and user stories on the Feature Board (now the Delivery Board), business rules confirmed before
+Extended on 29 Oct 2026 at Kiko's request: epics and user stories on the Feature Board, business rules confirmed before
 building, polished brand-locked mockups he approves screen by screen, plain-language spec explanations, a quality gate
 after every phase, and clear question cards so he always knows what is being asked.
 
@@ -18,21 +18,6 @@ Extended again on 29 Oct 2026 at Kiko's request: the `frontend-design` skill is 
 
 Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/SKILL.md`. The copy in
 `kikodacanay14/Cue` and the one saved to Kiko's Claude account mirror it. Change the canonical copy first, then the others.
-
-## BSE development instructions (Kiko, 25 Nov 2026)
-
-These apply in every phase. The full text is the "BSE development instructions" section of `AGENTS.md`.
-
-- Start by checking the app's folder on the BSE Apps & Systems shared Drive
-  (https://drive.google.com/drive/u/0/folders/0AE_qEZv4inXlUk9PVA) and its Application QA File.
-- Read the Delivery Board's Decisions tab (collection `decisions`) before building and before asking Kiko.
-- Questions and approvals go through `ask-kiko`, which sends them to Concord (`ask_codex`, then `check_handover`).
-- Write the plan with `superpowers:writing-plans`: executable steps, each with a check.
-- Write the unit and edge-case test cases into the Application QA File while scoping; write the failing tests once Kiko
-  approves the scope, before the build.
-- Upload every file this skill makes (spec, mockup, plan, QA file) to the app's Drive folder in the same turn, link it
-  from the card, and move the replaced old version to Drive's trash.
-- Use Impeccable for design work, within the brand lock below.
 
 ## Where it applies
 
@@ -78,43 +63,33 @@ take the bigger size. Kiko can change the size at any time.
 
 - Every question to Kiko goes through `ask-kiko` (question card at the end of the reply). Never bury a question in a long reply.
 - Run `stage-gate` as the size says. A **Stopped** gate means the next phase does not start.
-- Every output is written to the Delivery Board, `work-board.md`, the spec file or `docs/`, never only to chat.
+- Every output is written to the Feature Board, `work-board.md`, the spec file or `docs/`, never only to chat.
 
 ## Brand lock for Canvas and Cue screens
 
-Every screen, mockup and component in Canvas, Cue and the Delivery Board uses the Blank Space Events design system
-(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8), version 2.0 of 5 November 2026: its colour tokens, spacing, radii and
-the fonts below. Version 2.0 made the live Canvas "Website look" (Brand.html §13, picked by Kiko on 11 October 2026) the
-official brand (design system decision log: "5 Nov 2026: v2.0, the live Canvas look made official (Kiko, Question 1 = A)").
-It replaced version 1.0 of 29 October 2026 (Steagal and Quicksand, from the business card). When `frontend-design` pushes for
-a distinctive look, the brand wins: use its judgement for layout, hierarchy and restraint, never to pick new colours or new
-fonts.
+Every screen, mockup and component in Canvas, Cue and the Feature Board uses the Blank Space Events design system
+(https://claude.ai/artifact/4sHJEJj9Nin3eyh1bUgyo8): its colour tokens, spacing, radii and the fonts below. Canvas's
+current Brand.html styling is not the reference. When `frontend-design` pushes for a distinctive look, the brand wins:
+use its judgement for layout, hierarchy and restraint, never to pick new colours or new fonts.
 
 ### Fonts
 
 | Role | Font | Where | Rules |
 |---|---|---|---|
-| Display | Archivo Black | Display moments only: the Home greeting, announcements, document covers | One display line per screen. Never on buttons, labels, tables, forms or body text. |
-| UI and body | DM Sans | Everything else: page titles, navigation, buttons, labels, forms, tables, cards, messages | Page titles 34px/400. Section headers 16px/700 in purple (`highlight`). Body 14px at 400 to 500. Labels and buttons 700. Nothing smaller than 12px. |
-| Numbers, money, IDs | DM Sans with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. Kiko's table rule wins over the line in design system v2.0 that says money is right-aligned. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
-| Not used on app screens | Steagal, Steagal Rough | Print pieces and pattern artwork only | Never in Canvas, Cue or the Feature Board. Wherever they are used, credit "Fonts by OnlineWebFonts.com (CC BY 4.0)". |
+| Display | Steagal (W01 Regular) | Screen titles, page heroes, one big number on a dashboard | 24px or larger. One display line per screen. Never on buttons, labels, tables, forms or body text: it has one light weight. |
+| UI and body | Quicksand | Everything else: navigation, buttons, labels, forms, tables, cards, messages | Body 14 to 16px at weight 500; labels and buttons 600; section headings 700. Nothing smaller than 12px. |
+| Numbers, money, IDs | Quicksand with `font-variant-numeric: tabular-nums` | Amounts, CE lines, quantities, Project IDs (S-25506500TR), REQ/SCP/ENT IDs | In tables, centre number cells (money, counts, percents) and centre every header (Kiko, 29 Oct 2026 14:32Z: "UI rule - for tables where the table values are numbers - align center. Headers are always aligned center"). Kiko 14:51Z added "middle align tables for short columns and the headers": a column whose filled cells are all 12 characters or fewer (status, P-stage, date, yes/no, code) is centred too. Long text keeps its alignment. If the digits do not line up in the mockup, raise it with Kiko as a question card; do not swap in another font on your own. |
+| Not used in apps | Steagal Rough | Marketing, party themes and social posts only | Never in Canvas, Cue or the Feature Board. |
 
-Fallback stacks: display `"Archivo Black", "DM Sans", system-ui, sans-serif`; UI `"DM Sans", system-ui, -apple-system,
-"Segoe UI", Roboto, sans-serif`; email `'DM Sans', Arial, Helvetica, sans-serif` (Arial is the email-client fallback, not a
-brand font).
-
-### Colour and ground
-
-Use the design system's role tokens, not raw palette hexes: page ground `surface` #F6F2FC (lavender), cards `surface-raised`
-#FFFFFF, text `ink` #16151B, headings and table-header bands `highlight` #23006F, links and focus `accent` #2810DC, primary
-action ink #16151B with blue #2810DC on hover, selected menu item yellow #F4F12C with ink text. Pink, yellow and orange are
-decoration only. The version 1.0 colours (#2B0169, #261F62, #5B2271, #559FEF, #E9D151, #CD5023, #B00C98) are retired from app
-screens; #CD5023, #B00C98 and #E9D151 stay only as the Cue email tokens the design system names.
+Fallback stacks: display `Steagal, Quicksand, "Trebuchet MS", sans-serif`; UI `Quicksand, Nunito, "Trebuchet MS", sans-serif`.
 
 Loading:
 
-- DM Sans and Archivo Black: Google Fonts link in the page head (Canvas and Cue are Apps Script HtmlService apps; Google
-  Fonts loads there). Canvas pages get both through Brand.html.
+- Quicksand: Google Fonts link in the page head (Canvas is an Apps Script HtmlService app; Google Fonts loads there).
+- Steagal: embed the font file from the design system's `fonts/` folder as a base64 `@font-face` in the shared stylesheet
+  include. Never hotlink onlinewebfonts.com.
+- Credit: Steagal is CC BY 4.0 from OnlineWebFonts.com and needs credit. Put "Fonts by OnlineWebFonts.com (CC BY 4.0)" in
+  the app's footer or About panel.
 - Cue: any screen Cue renders itself (web view, approval page, email) follows the same table. Text Cue sends into
   ChatGPT or Claude cannot carry fonts; there only the wording and structure apply.
 
@@ -128,7 +103,7 @@ claude.ai). If a skill is not installed, do that phase by hand with the same out
 
 ### Phase 0: Backlog pick (only when Kiko asks what to work on next)
 
-Source: the Delivery Board's Backlog column. Kiko is the product manager and picks by need. Claude never picks.
+Source: the Feature Board's Backlog column. Kiko is the product manager and picks by need. Claude never picks.
 Rank up to four candidates and present them as one `ask-kiko` card: for each, the business need it meets, what it
 unblocks, its size (small, medium, large), and anything it waits on. Recommend one. Move the chosen card to
 "For Scope Definition and Design" and start Phase 1.
@@ -152,7 +127,7 @@ message. Stop until answered.
 
 ### Phase 3: Stories and rules
 
-Skill: stories-and-rules. Break the ask into Epics and User Stories on the Delivery Board, and pull every business rule
+Skill: stories-and-rules. Break the ask into Epics and User Stories on the Feature Board, and pull every business rule
 into the Rules register as Waiting for Kiko. Stop until every rule a story needs is Approved or Kiko has dropped it.
 
 ### Phase 4: Mockups
@@ -182,12 +157,6 @@ next to it, never only in chat.
 
 Present it with explain-spec. Stop. Kiko approves the design.
 
-The approval card for scope and design is its own card, asked once both are final, and says what the yes covers:
-"Approve this scope and design? Yes = Claude builds, tests, merges and ships it live without asking again" (Kiko's
-8 Nov 2026 rule in CanvasWorkspace CLAUDE.md "Deploying", confirmed by Kiko on a card 17 Nov 2026). Only a yes to that
-card starts the build. A yes to any earlier question (one design option, one numbered question) does not
-(observations 0090, 0092).
-
 ### Phase 7: Plan
 
 Skill: writing-plans (superpowers). Turn the approved design into ordered tasks with IDs and dependencies in the
@@ -197,8 +166,6 @@ the repo's CLAUDE.md.
 ## Rules this skill carries (all are Kiko's own)
 
 - No code before Kiko approves the spec (Cue CLAUDE.md, "Working style").
-- Kiko's yes to the scope-and-design approval card covers build, test, merge and live deploy (8 Nov 2026 rule,
-  confirmed 17 Nov 2026). The older 3 Nov rule that every build waits for a separate yes is superseded.
 - Discovery answer first, deliverable after his answers (Kiko's account preferences).
 - Never invent a new rule, guard or block; ask Kiko yes/no first (CanvasWorkspace CLAUDE.md, "Never").
 - Durable outputs go to shared files that Claude and ChatGPT/Codex both read, not chat.

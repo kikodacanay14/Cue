@@ -1,5 +1,50 @@
 # Cue decisions and unresolved differences
 
+## How decisions are documented (Kiko)
+
+Sources: Kiko's "BSE development instructions" (25 Nov 2026 04:04Z), his answers on 25 Nov 2026 (04:32Z, 04:35Z,
+05:54Z, 06:00Z), "never invent your own rules" (27 Oct 2026 14:35Z) and the decision-record rule (8 Nov 2026).
+
+The Delivery Board's Decisions tab (https://claude.ai/artifact/VDVXsxnpX36S91w8PXEauP, collection `decisions`) is the
+decision log. Kiko, 25 Nov 2026: "Same with Decision Log - all in the Delivery Board"; "theres Decisions tab now in
+Delivery Board". This file explains the steps and links to the rows; it is not a second log.
+
+Follow these steps in order.
+
+1. **Check first.** Before coding, and whenever a business-process question comes up, read the Decisions tab and the
+   card's Questions. Kiko: "Apply the latest applicable approved decision." "Check existing decisions before asking
+   Kiko."
+2. **Never invent a rule.** Kiko, 27 Oct 2026: "never invent your own rules. if you a rule it needs my approval". A rule
+   is any block, guard, check, refusal or policy. A rule already in the code that Kiko never approved goes to him too.
+3. **Ask through Concord.** Kiko, 25 Nov 2026 06:00Z ("these are strictly implemented"): "When you need Kiko's yes, use
+   concord-handover ask_codex with project [project], request_id [new UUID], and question starting "APPROVAL: [the
+   question, one line]", then a new line with what Approve and Reject each do and your recommendation. Later,
+   check_handover with the same request_id: the reply says Approved or Rejected by Kiko, plus a note. Don't act until it
+   says Approved."
+4. **Record the approved rule.** Kiko: record every business-rule or app-rule change "including the rule, affected app,
+   source decision, and evidence." One row in the Decisions tab:
+   - project: the affected app
+   - topic
+   - decision: the rule, in Kiko's words where he gave them
+   - status: Approved, Rejected or Superseded
+   - by: Kiko
+   - date: when he approved (UTC)
+   - source: the source decision (his message with date and time, or the Concord request_id)
+   - evidence: the link that proves it (Concord reply, thread message, PR)
+5. **Verify the saved entry.** Kiko: "Verify the saved entry." Read the row back and check every field.
+6. **Link it.** Link the row from the card it affects. Kiko: "Keep repository rule documentation and Feature Board
+   references where applicable." Add the row to "Decision index" below and update the repository's rule documents in the
+   same change. In CanvasWorkspace, also add the decision record (`docs/adr/`) and any new glossary term (Kiko, 8 Nov
+   2026).
+7. **Only then build** the behaviour the rule governs.
+8. **Keep history.** A replaced decision is marked Superseded, never deleted (Kiko, 8 Nov 2026). Quote Kiko only from his
+   own messages, never from a summary.
+9. **No private details** in the Decisions tab: anyone with the board's link can read it.
+
+## Decision index
+
+One line per Decisions tab row: date, topic, status, row link. Add the line in the same change that records the row.
+
 Status on main (checked 3 Nov 2026): brought onto main from PR #294 as written there. It reads Cue main (snapshot 3080b1c).
 Cue main and the live line have split: branch `claude/project-thread-y5l4x9-rel1285fix` (live, Version 191) has 256 commits main lacks,
 so a rule here can differ from what is live until main is reconciled with that line. The Canvas decisions file is

@@ -20,13 +20,13 @@ How hard to check follows the size set in `scope-then-design` (Kiko, 29 Oct 2026
 
 The next phase does not start until each is fixed or Kiko decides it:
 
-- A rule the work depends on is not **Approved** in the Delivery Board's Decisions tab or the Rules register.
+- A rule the work depends on is not **Approved** in the Rules register.
 - A required approval from Kiko is missing (spec, design, a mockup screen, a rule).
 - A business, operational or financial fact was guessed rather than taken from a canonical source.
 - Two sources disagree and the work silently picked one.
 - A story has no acceptance criteria, or a criterion cannot be checked by looking at the screen or sheet.
 - A screen in a story has no approved mockup, or a mockup screen maps to no story.
-- The work overlaps another project's card on the Delivery Board and Kiko has not said who owns it.
+- The work overlaps another project's card on the Feature Board and Kiko has not said who owns it.
 - The work changes something Kiko did not ask for.
 
 ## Small problems: note and continue
@@ -43,14 +43,14 @@ Fix small problems in place when the fix is within scope; list them in the gate 
 |---|---|
 | Discovery | Objective in two sentences; questions cover edge cases, users, constraints, missing data; Definition of Done drafted. |
 | Stress-test | Every gap found has an answer or an open `ask-kiko` card. |
-| Stories and rules | Every story has all fields from `stories-and-rules`; every rule has a register status; dependencies form no loop; the story's unit and edge-case test cases are in the app's Application QA File. |
+| Stories and rules | Every story has all fields from `stories-and-rules`; every rule has a register status; dependencies form no loop. |
 | Mockups | Every screen of every story has an approved mockup in `docs/mockups/<story-id>/`; brand lock respected. |
 | Spec and design | Every requirement traces to a story; the `explain-spec` explanation exists; Kiko's approval is recorded. |
 | Plan | Every task traces to a story and has an ID, dependencies and a check. |
 
 ## Gate record
 
-Write the result on the story cards (Delivery Board) or next to the spec file, never only in chat:
+Write the result on the story cards (Feature Board) or next to the spec file, never only in chat:
 date, phase, **Pass** or **Stopped**, each big problem with what it needs, each small problem with whether it was fixed.
 
 When stopped, tell Kiko only what needs him, as `ask-kiko` cards: the exact blocker, the decision needed, the impact of

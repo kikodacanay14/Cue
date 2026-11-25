@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Cue: rules for Claude
 
 Cue is Kiko's personal command center: one Google Apps Script web app (`src/`), a Chrome bubble (`extension/`) and local

@@ -22,21 +22,12 @@ do. Every question to him follows this card. No exceptions, including one-line y
 
 1. In the chat, in full, as the last part of the reply, under a bold headline, so he sees it where he is reading.
    Nothing else comes after it.
-2. Send it to Concord (Kiko, 25 Nov 2026 05:08Z: "For any approval needed or questions - message Concord"; 06:00Z:
-   "these are strictly implemented"): call `concord-handover` `ask_codex` with the project, a new request_id (UUID) and
-   the question. An approval starts "APPROVAL: <the question, one line>", then a new line with what Approve and Reject
-   each do and your recommendation. Later call `check_handover` with the same request_id; the reply says Approved or
-   Rejected by Kiko, plus a note. Don't act until it says Approved. If Concord can't be reached, say so in the chat and
-   keep the card there.
-3. When the question belongs to a Delivery Board card (formerly the Feature Board), also put it on that card, so it shows
-   up in his "Questions for Kiko" chat (skill `questions-for-kiko`): add `{q, a: "", s: "Open"}` to the card's `qa` list
-   and set `doer` to `"Kiko"` (`work-board.md`, "Feature Board fields").
-4. Before drafting any card, read the Delivery Board's Decisions tab (collection `decisions`). A question it already
-   answers is not asked again. When Kiko approves a rule change, record it there as one row (project, topic, decision,
-   status, by, date, source) and read the row back.
+2. When the question belongs to a Feature Board card, also put it on that card, so it shows up in his
+   "Questions for Kiko" chat (skill `questions-for-kiko`): add `{q, a: "", s: "Open"}` to the card's `qa` list and set
+   `doer` to `"Kiko"` (`work-board.md`, "Feature Board fields").
 
 (Kiko had the side panel and the pinned Questions page removed on 29 Oct 2026; neither worked for him. He chose a
-regular Questions chat that reads the Delivery Board instead.)
+regular Questions chat that reads the Feature Board instead.)
 
 ## Rules
 
@@ -48,7 +39,7 @@ regular Questions chat that reads the Delivery Board instead.)
   question for Kiko, however small the tap: Kiko takes no such tasks. Write the exact steps for IT in HANDOVER and
   carry on (observation 0093).
 - Ask about an action Claude would take for him as "May Claude do X? You don't do anything. Yes = Claude does it.
-  No = nothing changes." (Feature Board rule, now the Delivery Board, Kiko 27 Oct 2026.)
+  No = nothing changes." (Feature Board rule, Kiko 27 Oct 2026.)
 - One idea per question. Never fold two decisions into one question. A design choice and a go-ahead never share a
   card: an option label or consequence about scope or design never says "I build it". An approval card's label names
   the exact action it approves (observations 0090, 0092).
