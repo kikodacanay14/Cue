@@ -118,12 +118,17 @@ the Decisions Log / update Feature Board / log Bugs, Issues".
   changed, and the PR or deployment link. Read the saved form back. If the form has no release-details field yet, put
   the same details in the form's notes and say so.
 - **Questions and approvals go to Concord (Kiko, 25 Nov 2026 05:08Z: "For any approval needed or questions - message
-  Concord"; 05:09Z: "just message Concord"; 05:13Z he chose "Concord handover tool on KKD").** Message Concord with every
-  question or approval for Kiko through Concord's handover tool on KKD (`concord-handover`, `ask_codex` with the project
-  name and the question; keep its request id and read the answer with `check_handover`). When KKD cannot be reached, put
-  the question on the Delivery Board card it belongs to instead (the card's Questions, status Open, card assigned to
-  Kiko), read the saved card back, and say which route was used. Keep the ALL CAPS flag in the chat too (the needs-flag
-  rule): Concord is an extra place to see it, not a replacement.
+  Concord"; 05:09Z: "just message Concord"; 05:15Z, the Concord approvals plan: "Claude projects post requests on a new
+  Approvals tab on the board. Codex sends through its handover connector, and the hourly sync copies those onto the
+  board").** Every question or approval for Kiko goes to Concord:
+  - Claude chats post it on the Delivery Board's **Approvals** tab and read Kiko's Approve or Reject answer there.
+  - Codex chats send it through Concord's handover connector on KKD (`concord-handover`, `ask_codex` with the project
+    name and the question), keep the request id and read the answer with `check_handover`. The hourly sync copies it to
+    the board, so a Codex request can take up to an hour to reach Kiko.
+  - Until the Approvals tab exists, Claude chats put the question on the Delivery Board card it belongs to instead (the
+    card's Questions, status Open, card assigned to Kiko).
+  Read the saved request back and say which route was used. Keep the ALL CAPS flag in the chat too (the needs-flag rule):
+  Concord is an extra place to see it, not a replacement.
 - Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
   `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
   the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
