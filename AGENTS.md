@@ -58,6 +58,10 @@ Where things live:
   `check_messages`. Moving a card to For Testing (live), For Release or Done needs a proof link. No deletes, and no
   changes to the Approvals, Decisions or Projects tabs. Bugs and incidents also go to the "Dev Ops" chat with
   `report_issue`. If the tools are missing, fully restart the app.
+- **`docs/communication-routes.md`** (kikodacanay14/Concord,
+  https://github.com/kikodacanay14/Concord/blob/main/docs/communication-routes.md): how to reach every other chat and
+  platform, and which Concord tool to use for each job. Read its "How to use this" section before you message another
+  chat, hand over work, report a bug, ask Kiko for approval or change the Delivery Board.
 - **`HANDOVER.md`**: what the next chat must know ("Handover rules").
 - **`docs/decisions.md`**: how a decision is checked, asked, recorded and read back ("How decisions are documented").
 - **`PROJECT.md`** (kikodacanay14/bse-apps): files, the Delivery Board, the shared Drive folders and their structure, and

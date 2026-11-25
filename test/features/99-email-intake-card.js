@@ -14,8 +14,9 @@ function eicView(h) {
 }
 function eicGrab() {
   const page = cuePage(), grab = name => { const a = page.indexOf('  function ' + name + '('); return a < 0 ? '' : page.slice(a, page.indexOf('\n  }\n', a) + 4); };
-  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {} }; vm.createContext(ctx);
-  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdIntakeHtml', 'agdUpdHtml', 'cardLabel'].map(grab).join('\n'), ctx);
+  // EMAIL-ROUTE-HELD-2026-11-25: the held-row editor, its saved-route lookup and the Lessons list sit beside the card.
+  const ctx = { editing: {}, agdRows: {}, agdRowOpen: {}, agdTick: {}, AGD_EMAIL_ROLES: ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'], agdLessonsOpen: {}, agdLessonList: null }; vm.createContext(ctx);
+  vm.runInContext(['esc', 'agKv', 'agdLabel', 'agdRowsHtml', 'agdCheck', 'agdCkSum', 'agdEmailRouteSaved', 'agdEmailRouteEditor', 'agdLessonsHtml', 'agdIntakeHtml', 'agdUpdHtml', 'cardLabel'].map(grab).join('\n'), ctx);
   return ctx;
 }
 // LIVE-SYNC-2026-11-25: the card was redesigned on live Cue (Apps Script versions 280 to 284, 24 Nov 2026) as one table of every email
@@ -60,7 +61,7 @@ test('EIC4 mail no role fits is not routed and shown as its own row with a warni
     routed: [{ msg_id: 'c1', from: 'Ana Reyes', subject: 'Gate pass S-00000001', received_at: '2026-11-17T01:00:00Z', routed_to: 'ECI', why: 'project code S-00000001; best fit: event operations words ("gate pass")', project_id: 'S-00000001' }],
     not_routed: [{ msg_id: 'u1', from: 'Lito Cruz', subject: 'Hello', received_at: '2026-11-17T02:00:00Z', why: 'no role fits', attachments: ['x'] }] });
   assert.deepStrictEqual(Object.keys(v.agd.handover.intake.not_routed[0]).sort((a, b) => a.localeCompare(b)),
-    ['decision_needed', 'dispatch', 'eligible_roles', 'from', 'msg_id', 'number', 'receipt', 'received_at', 'source_body', 'subject', 'wake', 'why'], 'no attachments');
+    ['decision_needed', 'dispatch', 'eligible_roles', 'from', 'msg_id', 'number', 'receipt', 'received_at', 'source_body', 'subject', 'suggestions', 'wake', 'why'], 'no attachments');
   const ctx = eicGrab(), html = ctx.agdUpdHtml(v);
   assert.ok(/<strong>Hello<\/strong><span class="cue-email-from">Lito Cruz<\/span><\/td><td><span class="cue-email-pill warn">Not routed<\/span><\/td><td>Not routed<\/td>/.test(html), 'not routed mail has its own row and a warning status');
   assert.ok(/<span class="cue-email-pill good">Routed<\/span><\/td><td>Event Specialist<\/td>/.test(html), 'ECI shows as Event Specialist');

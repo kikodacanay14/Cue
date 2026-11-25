@@ -1,5 +1,18 @@
 # Changelog
 
+## Cue 1.28.112: route held emails, Email Intake lessons, slimmer Email Intake card (not deployed)
+
+Asked by Kiko on 25 November 2026 in the n8n2 session: "shouldnt i be able to reroute?", "and it should learn why"; answers "A / C / A"; rules R-ER1 to R-ER8 "Approve all"; scope and design "Approve, ECII in". Then, at 8:43 PM Manila with a screenshot of the card: "can we make the card slimmer? like 75% of the size". Needs Canvas V582 (live 25 Nov 2026 12:23Z).
+
+- A held email (Not routed or Needs Verification) in the Email Intake card opens to "Route to" and an optional reason. The list holds the agents Email Intake named for it, or all six (ECII included) when it named none. Save sends one route to Canvas (`email_route`), and the row shows "Saved in Cue, waiting for Email Intake", then "Received by Email Intake".
+- Email Intake's suggestions from Kiko's lessons show above it: "Suggested: <agent>", the lesson's rule, and a one-tap "Route to <agent>". A suggestion never routes by itself.
+- The Needs Verification card gets the same Route to beside Approve and Reject.
+- "Lessons" on the Email Intake card opens the list of what Email Intake learned (rule, agent, learned from, when) with Remove.
+- The Email Intake card is slimmer: header about 60% of its old height, tighter rows and buttons; headers stay 14px bold and values 13px.
+- Test copy of the Canvas bridge refreshed to V582.
+
+Tests: `node test/cue.test.js` 1,040 passed (5 new in `test/features/99-email-route-held.js`). The Email Intake (n8n) part that writes suggestions and rules is not built yet.
+
 ## Cue 1.28.110: Project Intake Phase 1 cards (not deployed)
 
 Asked by Kiko on 25 Nov 2026: the mockups were approved over several rounds that day (the image review card "2. A", the window

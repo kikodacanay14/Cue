@@ -970,6 +970,34 @@
   // 05:32:00Z, mockup https://claude.ai/artifact/Xb3X3eXTnSnS2AB3GB2wyk). One card per run: noise skipped and listed, every other message
   // routed with where and why. A routed row opens to show sender, time and project. Correcting a route stays unavailable until Email
   // Intake provides a receiver handoff; the card never claims a disconnected correction was saved.
+  var AGD_EMAIL_ROLES = ['AS', 'ECII', 'FINANCE', 'ADMIN', 'ECI', 'MULTIMEDIA'], agdLessonsOpen = {}, agdLessonList = null;
+  function agdEmailRouteSaved(A, msgId, number) {
+    return (A.replies || []).find(function (reply) { var c = reply.route_correction;
+      return c && c.action === 'route' && c.card_id === A.draft_id && c.msg_id === msgId && c.number === number; }) || null;
+  }
+  // Suggestions from lessons (R-ER4: they only suggest, newest first R-ER6), then Route to and an optional reason (R-ER2).
+  function agdEmailRouteEditor(id, msgId, options, suggestions) {
+    var sug = (suggestions || []).filter(function (x) { return options.indexOf(x.agent) >= 0; }).map(function (x) {
+      return '<div class="cue-email-suggest"><b>Suggested: ' + esc(agdLabel(x.agent)) + '</b><button class="btn" type="button" data-act="agd-email-route" data-id="' + id +
+        '" data-row="' + esc(msgId) + '" data-to="' + esc(x.agent) + '">Route to ' + esc(agdLabel(x.agent)) + '</button>' +
+        (x.rule ? '<p class="why">Lesson: "' + esc(x.rule) + '"' + (x.learned_at ? ' From your route on ' + esc(x.learned_at) + '.' : '') + '</p>' : '') + '</div>';
+    }).join('');
+    return sug + '<div data-correction-editor><label>Route to<select><option value="">Choose a destination</option>'
+      + options.map(function (role) { return '<option value="' + esc(role) + '">' + esc(agdLabel(role)) + '</option>'; }).join('')
+      + '</select></label><label>Reason (optional)<textarea maxlength="450" placeholder="Why this agent? Email Intake learns from it."></textarea></label>'
+      + '<button class="btn cue-email-save" disabled data-act="agd-email-route" data-id="' + id + '" data-row="' + esc(msgId) + '">Save route</button></div>';
+  }
+  // R-ER7: the lessons Email Intake learned from Kiko's routes, with Remove.
+  function agdLessonsHtml(id) {
+    if (!agdLessonsOpen[id]) return '';
+    if (!agdLessonList) return '<p class="muted">Loading lessons…</p>';
+    if (!agdLessonList.length) return '<div class="cue-lessons"><p>No lessons yet. Every route you pick becomes one.</p></div>';
+    return '<div class="cue-lessons agit"><table><thead><tr><th>Rule</th><th>Agent</th><th>Learned from</th><th>When</th><th></th></tr></thead><tbody>'
+      + agdLessonList.map(function (l) { return '<tr><td>' + esc(l.rule || l.reason || '') + (l.rule ? '' : l.reason ? ' <span class="cue-email-from">(rule not written yet)</span>' : '') + '</td>'
+        + '<td class="c">' + esc(agdLabel(l.agent)) + '</td><td>' + esc(l.sender) + (l.subject ? ', "' + esc(l.subject) + '"' : '') + '</td><td class="c">' + esc(l.created) + '</td>'
+        + '<td class="c"><button class="rm" type="button" data-act="agd-lesson-remove" data-id="' + id + '" data-lesson="' + esc(l.lesson_id) + '">Remove</button></td></tr>'; }).join('')
+      + '</tbody></table></div>';
+  }
   function agdIntakeHtml(r, canReply, unread) {
     var A = r.agd || {}, I = (A.handover || {}).intake || {}, id = esc(r.id);
     var missing = 'Not given';
@@ -985,12 +1013,16 @@
         : outcomes.some(function (o) { return o.dispatch === 'Dispatch failed'; }) ? 'Dispatch failed' : 'Routed';
       var tone = status === 'Routed' ? 'good' : status === 'Skipped' ? 'quiet' : status === 'Dispatch failed' ? 'bad' : 'warn';
       var destinations = outcomes.map(function (o) { return esc(agdLabel(o.routed_to)); }).join('<br>') || 'Not routed';
-      var options = x.correction ? x.correction.eligible_roles.filter(function (role) { return role !== 'ECII'; }) : [];
-      var saved = x.correction && (A.replies || []).find(function (reply) {
+      // EMAIL-ROUTE-HELD-2026-11-25 (Kiko 25 Nov 2026, R-ER1 to R-ER8, "Approve, ECII in"): a held row gets Route to, from its
+      // eligible agents or all six, and Email Intake's suggestions; the route goes through the same receipt chain as a correction.
+      var heldRow = entry.kind === 'held';
+      var options = x.correction ? x.correction.eligible_roles.filter(function (role) { return role !== 'ECII'; })
+        : heldRow ? ((x.eligible_roles || []).length ? x.eligible_roles : AGD_EMAIL_ROLES) : [];
+      var saved = x.correction ? (A.replies || []).find(function (reply) {
         var c = reply.route_correction;
         return c && c.card_id === A.draft_id && c.msg_id === k && c.number === x.number &&
           c.handoff_key === x.correction.handoff_key && c.revision === x.correction.revision;
-      });
+      }) : heldRow ? agdEmailRouteSaved(A, k, x.number) : null;
       var correction = saved && saved.route_correction;
       var replacement = saved && saved.replacement_outcome;
       if (!replacement || !replacement.replacement_handoff_key || replacement.replacement_handoff_key === correction.handoff_key ||
@@ -1009,7 +1041,8 @@
       var editor = saved && saved.correction_receipt
         ? '<p class="cue-email-receipt" role="status"><strong>Received by Email Intake</strong><br>' +
           esc(agdLabel(saved.route_correction.to_role)) + ' · ' + esc(saved.correction_receipt.received_at) + '</p>'
-        : saved ? '<p role="status"><strong>Saved in Cue, waiting for Email Intake</strong></p>' : options.length
+        : saved ? '<p role="status"><strong>Saved in Cue, waiting for Email Intake</strong></p>'
+        : heldRow ? agdEmailRouteEditor(id, k, options, x.suggestions) : options.length
         ? '<div data-correction-editor><label>Route to<select><option value="">Choose a destination</option>'
           + options.map(function (role) { return '<option value="' + esc(role) + '">' + esc(agdLabel(role)) + '</option>'; }).join('')
           + '</select></label><label>Reason for correction (optional)<textarea maxlength="450"></textarea></label>'
@@ -1036,6 +1069,14 @@
       + '.cue-email-report .cue-email-toggle{border:0;background:transparent;color:#5432a2;cursor:pointer;padding:4px 7px}.cue-email-pill{display:inline-block;background:#eee6fa;color:#48258a;border-radius:20px;padding:3px 9px;font-weight:700;font-size:12px;white-space:nowrap}.cue-email-pill.good,.cue-email-receipt{background:#e3f3e6;color:#17552e}.cue-email-pill.warn{background:#fff0d1;color:#6a4300}.cue-email-pill.bad{background:#fde5ea;color:#8b1734}'
       + '.cue-email-report .cue-email-detail-row td{padding:0}.cue-email-detail{padding:14px;background:#f8f5fb;overflow-wrap:anywhere}.cue-email-detail p{margin:0 0 10px}.cue-email-detail label{display:block;margin-top:10px;font-weight:700}.cue-email-detail select,.cue-email-detail textarea{display:block;width:auto;max-width:100%;box-sizing:border-box;margin-top:5px;padding:8px 10px;border:1px solid #c9bed9;border-radius:8px;background:#fff;color:#20163a;font:inherit}.cue-email-detail textarea{width:100%;min-height:58px;resize:vertical}'
       + '.cue-email-report .cue-email-save{margin-top:8px;padding:9px 12px;border:0;border-radius:8px;background:#5432a2;color:#fff;font:700 14px var(--font,system-ui);cursor:pointer}.cue-email-report .cue-email-save:disabled{opacity:.5;cursor:not-allowed}.cue-email-report :focus-visible{outline:2px solid #744cbe;outline-offset:2px}'
+      + '.cue-email-suggest{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px;padding:10px 12px;border:1px solid #d9cff0;border-radius:10px;background:#fff}.cue-email-suggest b{color:#23006F}.cue-email-suggest .why{flex-basis:100%;font-size:13px;color:#625675;margin:0}'
+      + '.card.cue-email-report .cue-lessons th{text-align:center}.cue-lessons table{width:100%;border-collapse:collapse}.cue-lessons td{font-size:13px;vertical-align:middle}.cue-lessons td.c{text-align:center;white-space:nowrap}.cue-lessons .rm{padding:5px 10px;border:1px solid #d9d1e6;border-radius:9999px;background:#fff;font:700 12px var(--font,system-ui);cursor:pointer}.cue-email-report .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}'
+      // CUE-EMAIL-SLIM-2026-11-25 (Kiko 25 Nov 2026 8:43 PM, n8n2 chat: "can we make the card slimmer? like 75% of the size"): about three
+      // quarters of the height; headers stay 14px bold and values 13px (Cue UI rules), nothing under 12px.
+      + '.card.cue-email-report{font-size:13px;border-radius:14px}.cue-email-report .cue-email-hero{padding:12px 16px}.cue-email-report .cue-email-hero h2{font-size:24px}.cue-email-report .cue-email-hero p{font-size:13px;margin-top:3px}'
+      + '.cue-email-report .cue-email-body{padding:12px 16px}.cue-email-report .cue-email-run{margin-bottom:6px}.cue-email-report th{font-size:14px}.cue-email-report th,.cue-email-report td{padding:6px 8px}'
+      + '.cue-email-report .cue-email-toggle{padding:2px 5px}.cue-email-report .cue-email-detail{padding:10px 12px}.cue-email-report .cue-email-detail p{margin-bottom:6px}.cue-email-report .cue-email-save{padding:6px 10px;font-size:13px}'
+      + '.card.cue-email-report .btn{padding:6px 14px;font-size:13px}.cue-email-report .actions{margin-top:8px}'
       + '.cue-email-report [hidden]{display:none!important}.cue-email-outcome{margin:8px 0}.cue-email-outcome dl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0}.cue-email-outcome dt{font-size:12px;color:#625675}.cue-email-outcome dd{margin:0}.cue-email-receipt{padding:8px;border-radius:7px}'
       + '@media(max-width:600px){.cue-email-body,.cue-email-hero{padding:14px}.cue-email-report .cue-intake-routes table,.cue-email-report .cue-intake-routes tbody{display:block}.cue-email-report thead{display:none}.cue-email-report .agrow{display:grid;grid-template-columns:24px minmax(0,1fr);padding:7px 0;border-bottom:1px solid #e7e0ef}.cue-email-report .agrow td{display:block;width:auto;min-width:0;border:0;padding:3px}.cue-email-report .agrow td:nth-child(n+3){grid-column:2}.cue-email-report .agrow td:nth-child(4)::before{content:"Destination: ";font-weight:700}.cue-email-report .cue-email-detail-row,.cue-email-report .cue-email-detail-row td{display:block;width:100%;max-width:none;box-sizing:border-box}}</style>';
     return style + '<div class="card cue-email-report" data-card="' + id +
@@ -1046,8 +1087,9 @@
       '</span><span>' + esc([I.status,A.draft_id].filter(Boolean).join(' · ')) + '</span></div>' +
       (rows.length ? '<div class="agit cue-intake-routes"><table><thead><tr><th aria-label="Expand"></th><th>Email</th><th>Status</th><th>Destination</th></tr></thead><tbody>' +
         rendered + '</tbody></table></div>' : '<p>No emails in this run.</p>') +
-      (r.error ? '<p role="alert">' + esc(r.error) + '</p>' : '') +
-      (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '') + '</div></div>';
+      (r.error ? '<p role="alert">' + esc(r.error) + '</p>' : '') + agdLessonsHtml(r.id) +
+      '<div class="actions"><button class="btn ghost" type="button" data-act="agd-lessons" data-id="' + id + '">' + (agdLessonsOpen[r.id] ? 'Hide lessons' : 'Lessons') + '</button>' +
+      (unread ? '<button class="btn" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '') + '</div></div></div>';
   }
   // AGENT-CHECK-CARD-2026-11-18 (Kiko 18 Nov 2026 05:27:45Z "I expect separate reports - Admin Check and Finance Check"; 05:32:00Z "tha
   // main table expands and shows details of the FSAs / ARs / Suppliers. same thing with Finance"; approved 06:06:51Z, mockup cards 3a/3b
@@ -1541,6 +1583,12 @@
         + '</dd><dt>Received time</dt><dd>' + esc(routeDecision.received_at || 'Not provided')
         + '</dd><dt>Email ID</dt><dd>' + esc(routeDecision.message_id) + '</dd><dt>Scan row</dt><dd>'
         + esc(routeDecision.number) + '</dd></dl>'
+        + (function () {   // EMAIL-ROUTE-HELD-2026-11-25 (R-ER1): route this email from the card
+          var sv = agdEmailRouteSaved(A, routeDecision.message_id, routeDecision.number);
+          if (sv) return sv.correction_receipt ? '<p class="cue-email-receipt" role="status"><strong>Received by Email Intake</strong><br>' + esc(agdLabel(sv.route_correction.to_role)) + ' · ' + esc(sv.correction_receipt.received_at) + '</p>'
+            : '<p role="status"><strong>Saved in Cue, waiting for Email Intake</strong> · ' + esc(agdLabel(sv.route_correction.to_role)) + '</p>';
+          return '<div class="cue-email-detail">' + agdEmailRouteEditor(id, routeDecision.message_id, AGD_EMAIL_ROLES, routeDecision.suggestions) + '</div>';
+        })()
         + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
         + ((A.status === 'Unread' || A.status === 'Read') && r.status !== 'Sending'
           ? (agdAsk[r.id] && agdAsk[r.id].m ? agdActsHtml(r) :
@@ -2319,7 +2367,7 @@
       var Q = agdAsk[x.getAttribute('data-agd-mod') || x.getAttribute('data-agd-rej')]; if (Q) Q.v = x.value; }; });
     document.querySelectorAll('[data-correction-editor] select').forEach(function (select) {
       select.onchange = function () {
-        select.closest('[data-correction-editor]').querySelector('[data-act="agd-route-correction"]').disabled = !select.value;
+        select.closest('[data-correction-editor]').querySelector('.cue-email-save').disabled = !select.value;
       };
     });
     document.querySelectorAll('[data-act]').forEach(function (b) {
@@ -2343,6 +2391,29 @@
           return call('cueApprove', [id, xe], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
         if (act === 'approve-cec') { var xc = collectCec(id, scope); b.disabled = true; running[id] = 1; schedule();
           return call('cueApprove', [id, xc], function () { delete running[id]; refresh(); }, function (e) { delete running[id]; b.disabled = false; alertErr(e, id); refresh(); }); }
+        if (act === 'agd-email-route') {   // EMAIL-ROUTE-HELD-2026-11-25 (R-ER1, R-ER2): one tap, no extra window
+          if (running[id]) return;
+          var held = agdOf(id).handover || {}, msgId = b.getAttribute('data-row'), box = b.closest('.cue-email-detail') || b.closest('td') || document;
+          var hrow = ((held.intake || {}).not_routed || []).find(function (x) { return x.msg_id === msgId; })
+            || (held.route_decision && held.route_decision.message_id === msgId ? held.route_decision : null);
+          var ed = box.querySelector('[data-correction-editor]'), to = b.getAttribute('data-to') || (ed && ed.querySelector('select').value);
+          if (!hrow) return alertErr(new Error('Reload this report before saving.'), id);
+          if (!to) return alertErr(new Error('Choose where this email goes.'), id);
+          b.disabled = true; running[id] = 1;
+          return call('cueAgdDecide', [id, {decision:'reply',note:'Email route',email_route:{number:hrow.number,msg_id:msgId,to_role:to,
+            note:ed ? ed.querySelector('textarea').value : ''}}], function () { delete running[id]; refresh(); },
+            function (e) { delete running[id]; b.disabled = false; alertErr(e,id); refresh(); });
+        }
+        if (act === 'agd-lessons') {   // R-ER7
+          agdLessonsOpen[id] = !agdLessonsOpen[id]; render();
+          if (agdLessonsOpen[id]) call('cueEmailLessons', [], function (res) { agdLessonList = res.lessons || []; render(); }, function (e) { alertErr(e, id); });
+          return;
+        }
+        if (act === 'agd-lesson-remove') {
+          b.disabled = true;
+          return call('cueEmailLessonRemove', [b.getAttribute('data-lesson')], function (res) { agdLessonList = res.lessons || []; render(); },
+            function (e) { b.disabled = false; alertErr(e, id); });
+        }
         if (act === 'agd-route-correction') {
           if (running[id]) return;
           var panel = b.closest('[data-correction-editor]');

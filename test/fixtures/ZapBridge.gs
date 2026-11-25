@@ -668,13 +668,15 @@ const ZB_ACTIONS_ = {
     kind: 'write', needsProject: true, retrySafe: false,
     schema: { lines: { type: 'array', required: true, minItems: 1, maxItems: 100, items: {
       item: { type: 'string', required: true, nonBlank: true, max: 200 }, description: { type: 'string', max: 2000 },
-      unit_cost: { type: 'number', min: 0 }, discounted: { type: 'number', min: 0 }, qty: { type: 'number', required: true, positive: true },
+      unit_cost: { type: 'number', min: 0 }, discounted: { type: 'number', min: 0 }, qty: { type: 'number', positive: true },
       occurrence: { type: 'number', positive: true }, price: { type: 'number', min: 0 }, section: { type: 'string', max: 100 }
     } } },
+    // REQ-BLANK-QTY-2026-11-25 (Kiko: a line "can be approved as blank", "saves as blank and then we update later on"; "yes" to
+    // building it, n8n2 chat 25 Nov 2026): qty may be left out, and the Quantity cell is then saved blank, never 1.
     run: (r, proj) => {
       const t = proj.title || proj.name || '';
       const rows = r.args.lines.map(l => [r.project_id, t, '', l.item, l.description || '', zbNum_(l.unit_cost), zbNum_(l.discounted),
-        l.qty, zbNum_(l.occurrence, 1), zbNum_(l.price), l.section || '']);
+        l.qty == null ? '' : l.qty, zbNum_(l.occurrence, 1), zbNum_(l.price), l.section || '']);
       return addRequirementLines(rows, rows.map(() => null), rows.map(() => []));
     },
     check: (r, res) => (res && res.reqIds && res.reqIds.length === r.args.lines.length)
@@ -3224,11 +3226,13 @@ ZB_ACTIONS_.agent_update = {
         routed_to: { type: 'string', required: true, nonBlank: true, max: 60 } } } } },
     not_routed: { type: 'array', maxItems: 200, items: { ...ZB_EMAIL_SCAN_ROW_, ...ZB_EMAIL_SCAN_HANDOVER_,
       why: { type: 'string', max: 300 }, decision_needed: { type: 'boolean' },
-      eligible_roles: { type: 'array', maxItems: 6 } } },
+      eligible_roles: { type: 'array', maxItems: 6 },
+      suggestions: { type: 'array', maxItems: 5, items: { agent: { type: 'string', required: true, oneOf: ['AS','ECII','FINANCE','ADMIN','ECI','MULTIMEDIA'] }, rule: { type: 'string', max: 200 }, lesson_id: { type: 'string', re: /^LSN-\d{4,6}$/ }, learned_at: { type: 'string', max: 40 } } } } },   // EMAIL-ROUTE-HELD-2026-11-25: Email Intake's suggestions from Kiko's lessons (R-ER4)
     route_decision: { type: 'object', fields: {
       message_id: { type: 'string', required: true, max: 77, re: /^[A-Za-z0-9_.-]{1,77}$/ },sender:{type:'string',max:300},subject:{type:'string',max:300},received_at:{type:'string',max:100},
       number: { type: 'number', required: true, min: 1 },
-      status: { type: 'string', required: true, oneOf: ['needs_verification'] } } },
+      status: { type: 'string', required: true, oneOf: ['needs_verification'] },
+      suggestions: { type: 'array', maxItems: 5, items: { agent: { type: 'string', required: true, oneOf: ['AS','ECII','FINANCE','ADMIN','ECI','MULTIMEDIA'] }, rule: { type: 'string', max: 200 }, lesson_id: { type: 'string', re: /^LSN-\d{4,6}$/ }, learned_at: { type: 'string', max: 40 } } } } },
     project_inquiry: { type: 'object', fields: {
       stage: { type: 'string', required: true, oneOf: ['review', 'register'] },
       handoff_key: { type: 'string', required: true, re: /^[A-Za-z0-9:_.-]{1,150}$/ },
@@ -3320,10 +3324,34 @@ ZB_ACTIONS_.agent_draft_decide = {
       revision: { type: 'number', required: true, min: 1 },
       to_role: { type: 'string', required: true, oneOf: ['AS','FINANCE','ADMIN','ECI','MULTIMEDIA'] },
       note: { type: 'string', max: 450 } } },
+    // EMAIL-ROUTE-HELD-2026-11-25 (Kiko "Approve, ECII in"): route a held email; ECII is one of the six (R-ER1). EmailLessons.gs.
+    email_route: { type: 'object', fields: {
+      number: { type: 'number', required: true, min: 1 },
+      msg_id: { type: 'string', required: true, nonBlank: true, max: 100 },
+      to_role: { type: 'string', required: true, oneOf: ['AS','ECII','FINANCE','ADMIN','ECI','MULTIMEDIA'] },
+      note: { type: 'string', max: 450 } } },
     subject: { type: 'string', max: 250 }, body: { type: 'string', max: 6000 }, note: { type: 'string', max: 6000 },   // AGENT-CARD-EDIT-2026-11-18: 6,000 for a decision with approved values
     lines: { type: 'array', minItems: 1, maxItems: 100, items: ZB_AGD_LINE_ } },   // a requirements list as Kiko edited it on the card
   run: (r) => agdDecide_(r.args)
 };
+// EMAIL-ROUTE-HELD-2026-11-25 (EmailLessons.gs, rules R-ER3 to R-ER8): Email Intake lessons. email_lessons is read by Cue and by
+// Email Intake; email_lesson_rule is Email Intake's reading of Kiko's reason; email_lesson_remove is Kiko's, from Cue only.
+ZB_ACTIONS_.email_lessons = {
+  kind: 'read', needsProject: false, schema: { include_removed: { type: 'boolean' } },
+  run: (r) => ({ lessons: emlList_(r.args.include_removed === true) })
+};
+ZB_ACTIONS_.email_lesson_rule = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { lesson_id: { type: 'string', required: true, re: EML_ID_RE_ }, rule: { type: 'string', required: true, nonBlank: true, max: 200 } },
+  run: (r) => emlRule_(r.args.lesson_id, r.args.rule),
+  check: (r, res) => res && res.refused ? { ok: false, rejected: true, error: res.refused } : { ok: true, evidence: { lesson: res && res.lesson } }
+};
+ZB_ACTIONS_.email_lesson_remove = {
+  kind: 'queue', needsProject: false,
+  schema: { request_id: { type: 'string', required: true, re: /^[A-Za-z0-9:_-]{8,80}$/ }, lesson_id: { type: 'string', required: true, re: EML_ID_RE_ } },
+  run: (r) => emlRemove_(r.args.lesson_id)
+};
+ZB_GPT_ACTIONS_.push('email_lessons', 'email_lesson_rule');
 // AGENT-REPLIES-2026-11-14 (AgentDrafts.gs agdMessage_): Kiko's line in an agent's Cue thread, saved once for that agent. Cue only.
 ZB_ACTIONS_.agent_message = {
   kind: 'queue', needsProject: false,
@@ -3707,6 +3735,209 @@ ZB_ACTIONS_.supplier_contact_add = {
 };
 ZB_GPT_ACTIONS_.push('supplier_contact_add');
 ZB_GPT_ONLY_.push('supplier_contact_add');   // never through a signed Cue call
+
+/* CONNECTOR-BANK-COLLECTIONS-2026-11-25 (Kiko 25 Nov 2026 09:44:22Z: "need to add in the connector a way to write bank details,
+ * write collections as well"; answers "B A A A A" 09:52:10Z; "Yes, build and ship" 09:55:11Z; project files
+ * connector-bank-collections/discovery.md; card connector-bank-collections; ADR-0259; rules R-CBC1 to R-CBC9).
+ * - request_bank_set (R-CBC1 to R-CBC4): a one-time account for one unpaid payment request, written on the request's own Bank,
+ *   Account Name and Account Number cells (the second "Bank" cell is cleared, so the card and Finance read the new account first).
+ *   The supplier's authorization file is required and goes to the project's Admin folder › Payment Authorizations; its link,
+ *   "ChatGPT, <date>" and a blank confirmation go in ALT ACCOUNT PROOF / SAVED / CONFIRMED (added at the end of the tab on first
+ *   use). A request with any paid transfer is refused. When the request already shows an account, from_last4 must match it.
+ *   The supplier's own account in the Supplier Database is never touched. Kiko marks the phone check on the card (payAltConfirm).
+ * - payee_bank_fill (R-CBC5): fills a freelancer's or supplier's own bank, account name and account number only when all three
+ *   are blank; any value on file refuses it, so every change of an existing account stays in Canvas.
+ * - collection_add (R-CBC6, R-CBC7): one PA row through Finance Desk's own appendPaRow (same duplicate check). The proof file is
+ *   optional and goes to the project's Admin folder › Collection Proofs, linked in a PROOF column added after the PA tab's last
+ *   column. Add only: no edits or deletes.
+ * All three: ChatGPT door only (R-CBC8: never Cue's signed bridge, never the read-only key), each through ChatGPT's Approve tap,
+ * read back after saving, logged in Activity. Answers never carry a full account number: last 4 digits only (R-CBC9). */
+const ZB_BC_FILES_ = { type: 'array', maxItems: 1, items: { name: { type: 'string', required: true, nonBlank: true, max: 150 },
+  mime: { type: 'string', required: true, oneOf: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'] },
+  data: { type: 'string', required: true, nonBlank: true, max: 14000000, re: /^[A-Za-z0-9+/=]+$/ } } };
+const ZB_BC_ALT_ = { proof: 'ALT ACCOUNT PROOF', saved: 'ALT ACCOUNT SAVED', confirmed: 'ALT ACCOUNT CONFIRMED' };
+const zbBcLast4_ = v => { const d = zbDigits_(v); return d.length >= 4 ? d.slice(-4) : ''; };
+const zbBcView_ = (bank, name, no) => ({ bank: String(bank || '').replace(/\d{5,}/g, '').trim(), account_name: String(name || '').trim(),
+  account_last4: zbBcLast4_(no) ? '•••• ' + zbBcLast4_(no) : '' });
+const zbBcDay_ = d => Utilities.formatDate(d || new Date(), Session.getScriptTimeZone(), 'd MMM yyyy');
+const zbBcIso_ = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : ''; };
+/** The project's Admin folder › sub (crFolder_'s way: the Directory's admin folder, else the project folders are made). */
+function zbBcFolder_(pid, sub) {
+  let admin = null;
+  try { const D = sheet_(SRC.ADMIN, 'Directory'); if (D.head.indexOf(norm_('admin folder')) >= 0) admin = pfFolder_(D.v[pfRow_(D, pid)][D.col('admin folder')]); } catch (e) { /* made below */ }
+  if (!admin) admin = pfEnsure_(pid).admin;
+  return childFolder_(admin, sub);
+}
+function zbBcSaveFile_(pid, sub, f, label) {
+  const bytes = Utilities.base64Decode(String(f.data || ''));
+  if (!bytes.length) throw new Error('The file is empty. Nothing was saved.');
+  if (bytes.length > ZB_GPT_MAX_FILE_) throw new Error('The file is over 10 MB. Save it to Drive and send its link instead. Nothing was saved.');
+  const name = pid + ' · ' + label + ' · ' + String(f.name || 'file').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 120);
+  const file = zbBcFolder_(pid, sub).createFile(Utilities.newBlob(bytes, f.mime, name));
+  try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* the domain may not allow it */ }
+  return { url: file.getUrl(), name: file.getName() };
+}
+/** Adds a header after the last column of a sheet_ read when it is missing; answers its 0-based index. */
+function zbBcEnsureCol_(S, header) {
+  const i = S.head.indexOf(norm_(header)); if (i >= 0) return i;
+  const sh = S.sh, c = Math.max(sh.getLastColumn(), S.head.length) + 1;
+  if (c > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), c - sh.getMaxColumns());
+  sh.getRange(S.hr + 1, c).setValue(header); S.head[c - 1] = norm_(header);
+  return c - 1;
+}
+/** The request's rows on Payment Request and the account its card shows now (finBank_, as the card and Finance read it). */
+function zbBcRequest_(pid, rid) {
+  const PR = sheet0_(SRC.SCOPES, 'Payment Request'), cP = PR.head.indexOf('project id'), cR = PR.head.indexOf('request id');
+  if (cP < 0 || cR < 0) throw new Error('The Payment Request tab has no Project ID or Request ID column. Nothing was saved.');
+  const proj = getProjects().find(p => norm_(p.id) === norm_(pid)) || {};
+  const cE = PR.head.indexOf('event name');
+  const rows = [];
+  for (let r = PR.hr + 1; r < PR.v.length; r++) {
+    const v = PR.v[r];
+    if (String(v[cR]).trim() !== rid) continue;
+    if (norm_(v[cP]) === norm_(pid) || (cE >= 0 && proj.name && String(v[cE]).trim() === proj.name)) rows.push(r + 1);
+  }
+  const q = {}; if (rows.length) { const v = PR.v[rows[0] - 1], at = h => { const i = PR.head.indexOf(h); return i < 0 ? '' : v[i]; };
+    q[rid] = { supplier: at("supplier's name"), payee: at('payee') }; finBank_({ head: PR.head, rows: rows.map(n => PR.v[n - 1]) }, q); }
+  const banks = (q[rid] && q[rid].banks) || [], own = banks.filter(b => b.used)[0] || null, shown = own || banks[0] || null;
+  return { PR, rows, proj, shown, own, supplier: q[rid] ? String(q[rid].supplier || q[rid].payee || '').trim() : '' };
+}
+ZB_ACTIONS_.request_bank_set = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { payment_request_id: { type: 'string', required: true, re: /^AP-[A-Za-z0-9•-]{3,40}$/ },
+    bank: { type: 'string', required: true, nonBlank: true, max: 100 }, account_name: { type: 'string', required: true, nonBlank: true, max: 150 },
+    account_number: { type: 'string', required: true, nonBlank: true, max: 60 }, from_last4: { type: 'string', re: /^\d{4}$/ },
+    files: Object.assign({}, ZB_BC_FILES_, { required: true, minItems: 1 }) },
+  run: (r, proj) => { try { return zbBcRequestBank_(r, proj); } catch (e) { return zbGptRefusal_(e); } },
+  check: (r, res) => zbRefusedOr_(res, () => res && res.saved && res.now && res.now.account_last4 === '•••• ' + zbBcLast4_(r.args.account_number)
+    ? { ok: true, evidence: { payment_request_id: res.payment_request_id, rows: res.rows, proof: res.proof } } : { ok: false, error: 'the account did not read back' })
+};
+function zbBcRequestBank_(r, proj) {
+  const a = r.args, pid = proj.id, rid = String(a.payment_request_id).trim(), no = zbDigits_(a.account_number);
+  const fail = m => ({ refused: m + ' Nothing was saved.' });
+  if (no.length < 6) return fail('Send the full account number (6 digits or more).');
+  return locked_(() => {
+    const PB = paidByRequest_();
+    if (paidOf_(PB, rid).rows.length) return fail(rid + ' already has a paid transfer, so its account can\'t change.');
+    let X = zbBcRequest_(pid, rid);
+    if (!X.rows.length) return fail(rid + ' is not a payment request of ' + pid + '.');
+    const PR = X.PR, sh = PR.sh, bankCols = PR.head.map((h, j) => h === 'bank' ? j : -1).filter(j => j >= 0);
+    const cName = PR.head.indexOf('account name'), cNo = PR.head.indexOf('account number');
+    if (!bankCols.length || cName < 0 || cNo < 0) return fail('The Payment Request tab has no Bank, Account Name or Account Number column.');
+    if (bankCols.concat([cName, cNo]).some(c => PR.owned.has(c))) return fail('Bank details on the Payment Request tab are filled by a formula there.');
+    // A repeat (the request already holds this account and its authorization) saves nothing again.
+    const proofAt = PR.head.indexOf(norm_(ZB_BC_ALT_.proof));
+    if (X.own && zbDigits_(X.own.no) === no && proofAt >= 0 && String(PR.v[X.rows[0] - 1][proofAt] || '').trim())
+      return { saved: true, repeat: true, payment_request_id: rid, rows: X.rows.length, now: zbBcView_(X.own.bank, X.own.name, X.own.no), proof: String(PR.v[X.rows[0] - 1][proofAt]).trim() };
+    const was = X.shown ? zbBcView_(X.shown.bank, X.shown.name, X.shown.no) : null;
+    if (X.shown && zbBcLast4_(X.shown.no)) {   // R-GPT-LOCK1: the was-value must be what the caller read
+      if (!a.from_last4) return fail(rid + ' shows an account ending ' + zbBcLast4_(X.shown.no) + '. Send from_last4 to replace it.');
+      if (a.from_last4 !== zbBcLast4_(X.shown.no)) return fail(rid + ' shows an account ending ' + zbBcLast4_(X.shown.no) + ', not ' + a.from_last4 + '. Read it again.');
+    }
+    const fx = {}; X.rows.forEach(n => { fx[n] = sh.getRange(n, 1, 1, Math.max(PR.head.length, 1)).getFormulas()[0]; });
+    if (X.rows.some(n => bankCols.concat([cName, cNo]).some(c => fx[n][c]))) return fail(rid + '\'s bank cells hold a formula.');
+    const f = a.files[0], up = zbBcSaveFile_(pid, 'Payment Authorizations', f, rid + ' authorization');
+    const cProof = zbBcEnsureCol_(PR, ZB_BC_ALT_.proof), cSaved = zbBcEnsureCol_(PR, ZB_BC_ALT_.saved), cConf = zbBcEnsureCol_(PR, ZB_BC_ALT_.confirmed);
+    const cRid = PR.head.indexOf('request id'), saved = 'ChatGPT, ' + zbBcDay_();
+    X.rows.forEach(n => auditEdit_(sh, n));
+    const put = (n, c, v) => sh.getRange(n, c + 1).setValue(v);
+    X.rows.forEach(n => {
+      bankCols.forEach((c, i) => put(n, c, i === 0 ? safe_(a.bank) : ''));
+      put(n, cName, safe_(a.account_name)); put(n, cNo, "'" + no);
+      put(n, cProof, up.url); put(n, cSaved, saved); put(n, cConf, '');
+    });
+    SpreadsheetApp.flush();
+    // The Request ID is a formula over the row in places; a write that renumbers it is put back (editPaymentRequest's check).
+    if (X.rows.some(n => String(sh.getRange(n, cRid + 1).getDisplayValue()).trim() !== rid)) {
+      X.rows.forEach(n => { const old = PR.v[n - 1]; bankCols.concat([cName, cNo]).forEach(c => put(n, c, fx[n][c] || old[c])); });
+      SpreadsheetApp.flush();
+      return fail('That change would give ' + rid + ' a new Request ID in the sheet, so it was put back.');
+    }
+    X = zbBcRequest_(pid, rid);
+    const now = X.own ? zbBcView_(X.own.bank, X.own.name, X.own.no) : null;
+    try { logScope_('Alternate account saved', pid, '', rid + ': ' + [now && now.bank, now && now.account_last4].filter(Boolean).join(' ') + ' from ChatGPT; authorization ' + up.url); } catch (e) { /* logging never blocks */ }
+    return { saved: true, payment_request_id: rid, rows: X.rows.length, was, now, proof: up.url, supplier: X.supplier,
+      note: 'This request only. The supplier\'s own account is unchanged. Confirm the account by phone with ' + (X.supplier || 'the supplier') + ' before paying; Kiko marks it confirmed on the payment card.' };
+  });
+}
+
+// payee_bank_fill (R-CBC5): fill only when bank, account name and account number are all blank.
+const ZB_BC_PAYEE_ = { freelancers: { bank: 'Preferred Bank', name: 'Account Name:', no: 'Account Number' },
+  suppliers: { bank: 'Bank', name: 'Account Name', no: 'AccountNumber' } };
+ZB_ACTIONS_.payee_bank_fill = {
+  kind: 'write', needsProject: false, retrySafe: true,
+  schema: { raketeer_no: { type: 'string', max: 40 }, supplier_id: { type: 'string', max: 40 },
+    bank: { type: 'string', required: true, nonBlank: true, max: 100 }, account_name: { type: 'string', required: true, nonBlank: true, max: 150 },
+    account_number: { type: 'string', required: true, nonBlank: true, max: 60 } },
+  run: (r) => { try { return zbBcPayeeFill_(r.args); } catch (e) { const m = zbErr_(e); return { refused: /Nothing was saved\.?\s*$/.test(m) ? m : m + ' Nothing was saved.' }; } },
+  check: (r, res) => zbRefusedOr_(res, () => res && res.saved && res.now && res.now.account_last4 === '•••• ' + zbBcLast4_(r.args.account_number)
+    ? { ok: true, evidence: { payee: res.payee, id: res.id } } : { ok: false, error: 'the account did not read back' })
+};
+function zbBcPayeeFill_(a) {
+  const fl = String(a.raketeer_no || '').trim(), sp = String(a.supplier_id || '').trim(), no = zbDigits_(a.account_number);
+  if (!!fl === !!sp) return { refused: 'Send raketeer_no or supplier_id, not both. Nothing was saved.' };
+  if (no.length < 6) return { refused: 'Send the full account number (6 digits or more). Nothing was saved.' };
+  const entity = fl ? 'freelancers' : 'suppliers', H = ZB_BC_PAYEE_[entity];
+  const read = () => {
+    const d = getEntityData(entity), at = h => d.headers.indexOf(h), key = fl ? 'Raketeer #' : d.keyHeader, want = (fl || sp).toUpperCase();
+    const row = d.rows.filter(x => String(x.values[at(key)] == null ? '' : x.values[at(key)]).trim().toUpperCase() === want)[0];
+    const val = h => row && at(h) >= 0 ? String(row.values[at(h)] == null ? '' : row.values[at(h)]).trim() : '';
+    return { d, row, val };
+  };
+  const T = read();
+  if (!T.row) return { refused: (fl ? 'No freelancer with Raketeer # ' + fl : 'No supplier with Supplier ID # ' + sp) + '. Nothing was saved.' };
+  if ([H.bank, H.name, H.no].some(h => T.d.headers.indexOf(h) < 0)) return { refused: 'The ' + entity + ' sheet has no bank columns. Nothing was saved.' };
+  const name = T.val(T.d.nameHeader), id = fl || sp;
+  const have = { bank: T.val(H.bank), name: T.val(H.name), no: T.val(H.no) };
+  if (zbDigits_(have.no) === no && have.bank && have.name) return { saved: true, repeat: true, payee: name, id, now: zbBcView_(have.bank, have.name, have.no) };
+  if (have.bank || have.name || have.no) return { refused: name + ' already has bank details on file (' + [zbBcView_(have.bank).bank, zbBcLast4_(have.no) ? 'ending ' + zbBcLast4_(have.no) : ''].filter(Boolean).join(', ') +
+    '). The connector only fills blank ones; change an account in Canvas. Nothing was saved.' };
+  const rec = {}; rec[H.bank] = String(a.bank).trim(); rec[H.name] = String(a.account_name).trim(); rec[H.no] = "'" + no;
+  getConfig_(entity).requiredHeaders.forEach(h => { if (!(h in rec)) rec[h] = T.val(h); });   // saveRecord_ checks them; they keep their value
+  saveRecord(entity, T.row.row, rec, name);
+  const B = read(), now = zbBcView_(B.val(H.bank), B.val(H.name), B.val(H.no));
+  try { logEvent('Bank details filled', 'ChatGPT', name + ' (' + id + '): ' + now.bank + ' ' + now.account_last4); } catch (e) { /* logging never blocks */ }
+  return { saved: true, payee: name, id, now };
+}
+
+// collection_add (R-CBC6, R-CBC7): one PA row, Finance Desk's own save.
+const ZB_BC_DAY_ = { type: 'string', re: /^\d{4}-\d{2}-\d{2}$/ };
+ZB_ACTIONS_.collection_add = {
+  kind: 'write', needsProject: true, retrySafe: true,
+  schema: { net: { type: 'number', required: true, positive: true }, wht: { type: 'number', min: 0 },
+    invoice_ref: { type: 'string', max: 120 }, clearing_ref: { type: 'string', max: 120 }, clearing_date: ZB_BC_DAY_, received_date: ZB_BC_DAY_,
+    status: { type: 'string', oneOf: ['Paid', 'For Clearing', 'Pending'] }, company: { type: 'string', max: 160 },
+    currency: { type: 'string', oneOf: ['PHP'] }, files: ZB_BC_FILES_ },
+  run: (r, proj) => { try { return zbBcCollection_(r, proj); } catch (e) {
+    const m = zbErr_(e); if (/^PA row \d+ already has this payment/.test(m)) return { refused: m + '. Nothing was saved.' }; return zbGptRefusal_(e); } },
+  check: (r, res) => zbRefusedOr_(res, () => res && res.saved && res.row ? { ok: true, evidence: { pa_row: res.row, url: res.url } } : { ok: false, error: 'the PA row did not read back' })
+};
+function zbBcCollection_(r, proj) {
+  const a = r.args, pid = proj.id, p = getProjects().find(x => norm_(x.id) === norm_(pid)) || {};
+  const net = Math.round(a.net * 100) / 100, wht = Math.round((a.wht || 0) * 100) / 100;
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const row = [pid, safe_(p.name || proj.name || ''), safe_(a.invoice_ref || 'NO BI'), safe_(a.clearing_ref || ''), zbBcIso_(a.clearing_date),
+    (net + wht).toFixed(2), wht ? wht.toFixed(2) : '', net.toFixed(2), a.currency || 'PHP', '', '', safe_(a.company || p.account || ''),
+    a.status || 'Paid', zbBcIso_(a.received_date || today)];
+  const f = (a.files || [])[0];
+  return locked_(() => {
+    const out = appendPaRow(row);   // throws "PA row N already has this payment ..." on a repeat
+    let proof = '';
+    if (f) {
+      const up = zbBcSaveFile_(pid, 'Collection Proofs', f, 'collection ' + (a.clearing_ref || a.invoice_ref || net.toFixed(2)));
+      const S = sheet0_(TRACKER_ID, 'PA'), c = zbBcEnsureCol_(S, 'PROOF');
+      S.sh.getRange(out.row, c + 1).setValue(up.url); proof = up.url;
+    }
+    SpreadsheetApp.flush();
+    const back = book_(TRACKER_ID).getSheetByName('PA').getRange(out.row, 1, 1, 14).getDisplayValues()[0];
+    const ok = String(back[0]).trim() === pid && Math.abs(num_(back[7]) - net) < 0.005;
+    try { logEvent('Collection added', 'ChatGPT', pid + ': net ' + net.toFixed(2) + ', PA row ' + out.row + (proof ? ', proof ' + proof : '')); } catch (e) { /* logging never blocks */ }
+    return ok ? { saved: true, row: out.row, url: out.url, proof, project_id: pid, gross: (net + wht).toFixed(2), wht: wht.toFixed(2), net: net.toFixed(2), status: row[12] }
+      : { saved: false, row: out.row, error: 'PA row ' + out.row + ' reads back differently' };
+  });
+}
+ZB_GPT_ACTIONS_.push('request_bank_set', 'payee_bank_fill', 'collection_add');
+ZB_GPT_ONLY_.push('request_bank_set', 'payee_bank_fill', 'collection_add');   // R-CBC8: never through a signed Cue call
 
 (function () {   // save_ce_requirements: optional from per line
   const a = ZB_ACTIONS_.save_ce_requirements, item = a.schema.lines.items, set = item.set.fields, from = {};
