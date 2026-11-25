@@ -1069,6 +1069,10 @@
   // CUE-ONE-BAR-2026-11-25: a decision tapped on the Project Intake Request card (Approve, Reject, Use this project) is recorded on the card as "Saved",
   // so its command text is not drawn again as Kiko's chat bubble.
   function agentDecisionEcho(r, x) {
+    var H = (r && r.agd && r.agd.handover) || {}, t = String((x && x.text) || '');
+    // PHASE1-CARDS-2026-11-25: the image review card and the question card show the answer themselves, too.
+    if (H.image_review) return /^(Approve image review \S+ \S+ round \d+|Send back image review \S+ \S+ round \d+: [\s\S]*|Design source \S+ \S+: (new|keep))$/.test(t);
+    if (H.question) return /^(Answer|Approve client message) \S+ \S+:[\s\S]*$/.test(t);
     return !!(r && r.agd && r.agd.handover && r.agd.handover.project_inquiry) && /^(Confirm new project [a-f0-9]{8}|New project|Register project|Reject intake|Use project \S+)$/.test(String((x && x.text) || ''));
   }
   function threadCat(t) {

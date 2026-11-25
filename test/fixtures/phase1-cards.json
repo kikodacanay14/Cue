@@ -1,0 +1,81 @@
+{
+  "_note": "Synthetic sample data for test/features/99-phase1-cards.js and the browser renders. Shapes follow the Multimedia hand-off contract (request_key, revision, round, image_version, findings with value, unit and source, or a gap). No real client, email or project.",
+  "findings1": [
+    { "measurement": "Booth footprint", "value": "6 × 3", "unit": "m", "source": "Diagram, page 1" },
+    { "measurement": "Open sides", "value": "1", "unit": "side", "source": "Email text" },
+    { "measurement": "Back wall height", "value": "2.4", "unit": "m", "source": "Diagram, page 1" },
+    { "measurement": "Counter length", "value": "2.4", "unit": "m", "source": "Diagram, page 2" },
+    { "measurement": "Counter height", "gap": "not on the diagram or in the email" },
+    { "measurement": "Shelves", "gap": "the email says \"shelves\", no number" }
+  ],
+  "findings2": [
+    { "measurement": "Booth footprint", "value": "6 × 3", "unit": "m", "source": "Diagram, page 1" },
+    { "measurement": "Open sides", "value": "1", "unit": "side", "source": "Email text" },
+    { "measurement": "Back wall height", "value": "2.4", "unit": "m", "source": "Diagram, page 1" },
+    { "measurement": "Counter length", "value": "2.4", "unit": "m", "source": "Diagram, page 2" },
+    { "measurement": "Counter height", "value": "0.95", "unit": "m", "source": "Reference photo, read against the 2.4 m length (estimate)" },
+    { "measurement": "Shelves", "gap": "the email says \"shelves\", no number" }
+  ],
+  "source": { "subject": "Booth fabrication for Manila Coffee Festival 2027 (with our diagram)", "sender": "Bea Villanueva · bea@kapeisla.example", "received": "Wed, 25 Nov 2026, 9:42 AM", "message_id": "19ab12cd34ef5a01" },
+  "images": [
+    { "name": "KapeIsla_booth_diagram_p1.png", "mime_type": "image/png" },
+    { "name": "counter_reference.jpg", "mime_type": "image/jpeg" },
+    { "name": "logo_lockup.png", "mime_type": "image/png" }
+  ],
+  "imageReviewFirst": {
+    "status": "waiting", "request_key": "AS:pre:a1b2c3d4e5f60718:mm-check", "revision": "r1", "loop": "pre_registration", "mm_case": "Fabrication I",
+    "round": 1, "image_version": 1, "title": "Original images attached", "made_from": { "name": "the original email, 3 attachments" },
+    "gaps_note": "2 gaps: counter height, number of shelves."
+  },
+  "imageReviewSecond": {
+    "status": "waiting", "request_key": "AS:S-2027BSE0031:BSE-2027-0031-R02:mm", "revision": "r1", "loop": "requirement", "mm_case": "Fabrication II",
+    "round": 2, "image_version": 2, "made_with": "Blender", "title": "Multimedia's booth draft",
+    "project": { "id": "BSE-2027-0031", "name": "Kape Isla Booth - Manila Coffee Festival 2027" },
+    "requirement": { "id": "BSE-2027-0031-R02", "name": "Serving counter" },
+    "images": [ { "name": "counter_draft_v2.png", "file_id": "1AbCdEfGhIjKlMnOpQrStUvWxYz012345" }, { "name": "counter_reference.jpg (client)", "file_id": "1ZyXwVuTsRqPoNmLkJiHgFeDcBa987654" } ],
+    "made_from": { "name": "KapeIsla_booth_diagram.pdf, revision 1", "file_id": "1QwErTyUiOpAsDfGhJkLzXcVbNm135790" },
+    "files_note": "Saved as new files beside the client's diagram. The diagram itself is unchanged.",
+    "findings": [
+      { "measurement": "Counter length", "value": "2.4", "unit": "m", "source": "Client's measurements, email of 25 Nov" },
+      { "measurement": "Counter depth", "value": "0.6", "unit": "m", "source": "Client's measurements, email of 25 Nov" },
+      { "measurement": "Counter height", "value": "0.95", "unit": "m", "source": "Your comment, round 1" },
+      { "measurement": "Shelves", "gap": "the email says \"shelves\", no number" }
+    ],
+    "gaps_note": "1 gap left: number of shelves.",
+    "earlier_rounds": [ { "n": 1, "at": "25 Nov, 10:05 AM", "answer": "sent_back", "comment": "Counter height is missing. Use standard bar height, 0.95 m." } ]
+  },
+  "imageReviewStopped": {
+    "status": "stopped", "request_key": "AS:S-2027BSE0031:BSE-2027-0031-R02:mm", "revision": "r1", "loop": "requirement", "mm_case": "Fabrication II", "round": 2, "image_version": 2,
+    "project": { "id": "BSE-2027-0031", "name": "Kape Isla Booth - Manila Coffee Festival 2027" },
+    "requirement": { "id": "BSE-2027-0031-R02", "name": "Serving counter" },
+    "changed": [ { "name": "KapeIsla_booth_diagram.pdf", "before": "Revision 1 · 24 Nov, 4:10 PM", "now": "Changed · 25 Nov, 2:32 PM" } ]
+  },
+  "questionText": {
+    "request_key": "AS:S-2027BSE0031:BSE-2027-0031-R05:q1", "revision": "r1", "question": "Does the organiser supply power, or do we bring a distribution box?",
+    "waits_label": "Line that waits", "waits": "BSE-2027-0031-R05 · Lighting and power", "project": "BSE-2027-0031 · Kape Isla Booth - Manila Coffee Festival 2027",
+    "source": "Client email, 25 Nov 2026: \"one side open to the aisle\". Nothing on power.", "note": "Only this line waits. The other 5 requirements can be approved now.",
+    "client_message": { "to": "Bea Villanueva · bea@kapeisla.example", "body": "Hi Bea,\n\nOne question on the booth: does the festival organiser supply power to your space, and how many outlets? If not, we will bring a distribution box.\n\nThank you,\nKiko" }
+  },
+  "questionCase": {
+    "request_key": "AS:pre:a1b2c3d4e5f60718:mm-check", "revision": "r1", "kind": "mm_case", "question": "Which Multimedia case is this inquiry?",
+    "waits_label": "Waits", "waits": "Multimedia's check of the client's files",
+    "source": "Email \"Booth and launch concept for Lakbay Travel Expo\" · Paolo Reyes · 25 Nov 2026, 1:15 PM", "note": "Account Specialist could not tell the case from the email, so it sent none.",
+    "options": [
+      { "value": "Fabrication I", "label": "Fabrication I: the client asks if we can produce it and gives a diagram" },
+      { "value": "Fabrication II", "label": "Fabrication II: the client asks us to design a booth and gives measurements" },
+      { "value": "Event I", "label": "Event I: we propose the concept" },
+      { "value": "Event II", "label": "Event II: the concept is already identified" }
+    ]
+  },
+  "inquiry": {
+    "stage": "review", "handoff_key": "EI:19ab12cd34ef5a01", "revision": 1, "card_version": "2d55a58c", "source_channel": "Email", "source_message_id": "19ab12cd34ef5a01",
+    "source_subject": "Booth fabrication for Manila Coffee Festival 2027 (with our diagram)", "received": "Wed, 25 Nov 2026, 9:42 AM",
+    "source_body": "Hi Kiko,\n\nWe are joining Manila Coffee Festival on 12 to 14 March 2027 at the World Trade Center. Can Blank Space build our booth from the attached diagram? Space is 6 m x 3 m, one side open to the aisle. We need a serving counter, a back wall with our logo and shelves for retail bags.\n\nThanks,\nBea Villanueva\nKape Isla Coffee Roasters",
+    "contact": { "name": "Bea Villanueva" }, "source_files": [ { "name": "KapeIsla_booth_diagram.pdf", "mime_type": "application/pdf" }, { "name": "counter_reference.jpg", "mime_type": "image/jpeg" } ],
+    "event_date_iso": "2027-03-12", "client": "Kape Isla Coffee Roasters", "event": "Kape Isla Booth - Manila Coffee Festival 2027", "venue": "World Trade Center",
+    "categories": ["Fabrication"], "can_register": true, "registration_context_verified": true, "matches": [],
+    "multimedia": { "mm_case": "Fabrication I", "checked": "the client's own files, unchanged", "approved_at": "25 Nov, 10:52 AM", "round": 2, "image_version": 2,
+      "review_card_id": "DRF-0052", "gaps_note": "number of shelves is not given." }
+  },
+  "registered": "Registered: S-2027BSE0031 · Kape Isla Booth - Manila Coffee Festival 2027. All eight folders checked."
+}

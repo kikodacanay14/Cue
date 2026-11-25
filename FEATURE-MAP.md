@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 86 server files, 1729 top-level names, 43 task kinds, 36 word checks before the
+Counts: 86 server files, 1735 top-level names, 45 task kinds, 36 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 116 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -18,12 +18,14 @@ Page checks count the kind's remaining `kind === ...` checks in the page.
 | `accred` | Page only (not in the command list) |  | Info | none | none | 3 |
 | `admin` | Page only (not in the command list) |  |  | none | none | 1 |
 | `agentdraft` | Page only (not in the command list) |  | Draft and send | none | none | 2 |
-| `approve` | Page only (not in the command list) |  |  | none | none | 1 |
+| `approve` | Page only (not in the command list) |  |  | none | none | 2 |
 | `ar` | ARs | ARs | Draft and send | `CueAr.gs` | `CueAr.gs` | 6 |
 | `avoid` | Page only (not in the command list) |  |  | none | none | 1 |
+| `back` | Page only (not in the command list) |  |  | none | none | 1 |
 | `bids` | Bid check |  | Info | `CueBids.gs` | intake (default) | 3 |
 | `cecost` | CE cost update |  | Approve | `CueCeCost.gs` | `CueCeCost.gs` | 4 |
 | `change` | Change request | Project intake | Draft and send | `CueIntake.gs` | `CueChange.gs` | 2 |
+| `client` | Page only (not in the command list) |  |  | none | none | 1 |
 | `email` | Email | Email | Draft and send | `CueMail.gs` | `CueMail.gs` | 4 |
 | `example` | Page only (not in the command list) |  |  | none | none | 2 |
 | `expense` | Project expense |  | Approve | `CueIntake.gs` (default) | `CueExpense.gs` | 3 |
