@@ -5,7 +5,7 @@ Cue main and the live line have split: branch `claude/project-thread-y5l4x9-rel1
 so a rule here can differ from what is live until main is reconciled with that line. The Canvas decisions file is
 CanvasWorkspace `docs/decisions.md`.
 
-This is the repository evidence/decision snapshot, not a second operational question queue. The existing Feature Board is the required operational register for its stories. No Google Sheet is planned unless Kiko explicitly requests one later. Board access and actual card mapping remain unverified; the findings below are unsynced proposals, not saved board records.
+This is the repository evidence/decision snapshot, not a second operational question queue. The existing Delivery Board (formerly the Feature Board) is the required operational register for its stories; since 25 Nov 2026 each approved rule change is also one row on its Decisions tab (collection `decisions`). No Google Sheet is planned unless Kiko explicitly requests one later. Board access and actual card mapping remain unverified; the findings below are unsynced proposals, not saved board records.
 
 **2026-11-03 correction:** The initial findings and proposed board mapping below refer to older main. Read the newer-release reconciliation at the end before acting, especially historical CUE-D10/028 (HubSpot removed in the newer release). No existing answers are overwritten and no Feature Board records were changed.
 
