@@ -112,6 +112,11 @@ the Decisions Log / update Feature Board / log Bugs, Issues".
 
 - The Delivery Board is the tracker. The Superpowers plan tracks steps inside a chat; move the card in the same turn
   its status changes. Record blockers and continue independent work.
+- **Release details (Kiko, 25 Nov 2026 04:59Z: "Please include updating Delivery Board - Project Release Details every
+  after Release").** After every release, in the same turn, update the project's release details on the Delivery Board's
+  Projects tab (collection `projects`, the project's own form): the release name or version, when it went live, what
+  changed, and the PR or deployment link. Read the saved form back. If the form has no release-details field yet, put
+  the same details in the form's notes and say so.
 - Record every business-rule or app-rule change as one row in the Delivery Board's Decisions tab (collection
   `decisions`: project, topic, decision, status, by, date, source), only after Kiko has approved the rule. Link it from
   the card it affects, read the saved row back, and keep the repository's rule documents in step. No private or personal
