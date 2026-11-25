@@ -1412,10 +1412,16 @@
   }
   // The pictures on an image review card. A Drive file shows through Drive; a file on the card's own email is read the way the
   // Project Intake Request card reads it (cueInquiryThumb). Each opens in the same zoom viewer.
+  // Kiko 25 Nov 2026 ("its a broken image. if image was made from blender - embed it"): when Drive's small picture does not load, Cue
+  // reads the file itself (the same read the viewer uses) and puts the picture in the card. If that fails too, the name is a link.
+  window.cueMmThumb = function (im, fileId, id, at) {
+    im.onerror = null;
+    imgData(fileId, function (u) { im.src = u; }, function () { agdInquiryPics[id + '|' + at] = 'none'; render(); });
+  };
   function agdMmPics(r, V, mailUrl) {
     var id = esc(r.id);
     return (V.images || []).map(function (file, at) {
-      var drive = file.file_id ? 'https://drive.google.com/thumbnail?id=' + esc(file.file_id) + '&amp;sz=w320" referrerpolicy="no-referrer' : '', have = agdInquiryPics[r.id + '|' + at];
+      var drive = file.file_id ? 'https://drive.google.com/thumbnail?id=' + esc(file.file_id) + '&amp;sz=w320" referrerpolicy="no-referrer" onerror="cueMmThumb(this,\'' + esc(file.file_id) + '\',\'' + id + '\',' + at + ')' : '', have = agdInquiryPics[r.id + '|' + at];
       var open = file.file_id ? 'https://drive.google.com/file/d/' + esc(file.file_id) + '/view' : mailUrl ? esc(mailUrl) : '';   // a picture Cue cannot show still opens, as on the intake card
       if ((!drive && !mailUrl) || have === 'none') return '<li class="cue-r1-file">' + (open ? '<a href="' + open + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>' : esc(file.name)) + '</li>';
       return '<li class="cue-r1-pic"><button type="button" class="cue-r1-thumb" data-inquiry-pic="' + at + '" data-id="' + id + '" data-name="' + esc(file.name)

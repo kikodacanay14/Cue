@@ -120,6 +120,16 @@ test('P1C6 image review, second loop: project and requirement replace the email 
   assert.ok(!/Email subject|Sender<\/b>/.test(h), 'no email details once it is a project');
   assert.ok(h.includes('src="https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOpQrStUvWxYz012345&amp;sz=w320"') && h.includes('<a href="https://drive.google.com/file/d/1QwErTyUiOpAsDfGhJkLzXcVbNm135790/view" target="_blank" rel="noopener">KapeIsla_booth_diagram.pdf, revision 1</a>'));
   assert.ok(p1Text(P.agdImageReviewHtml(p1Card({ image_review: Object.assign({}, P1.imageReviewSecond, { status: 'approved' }) }), true, false)).includes('Approved work went to Account Specialist for this requirement.'));
+  // Kiko 25 Nov 2026, on a picture that showed as a broken icon: "its a broken image. if image was made from blender - embed it".
+  // When Drive's small picture does not load, Cue reads the file itself and shows it in the card; only if that fails too is it a link.
+  assert.ok(h.includes('sz=w320" referrerpolicy="no-referrer" onerror="cueMmThumb(this,\'1AbCdEfGhIjKlMnOpQrStUvWxYz012345\',\'cue-p1-1\',0)">'), 'a Drive picture that fails to load is fetched another way');
+  const im = { src: 'drive', onerror: 1 }; let drew = 0; P.render = () => { drew++; };
+  P.imgData = (fid, ok) => ok('data:image/png;base64,AAAA'); P.window.cueMmThumb(im, '1AbCdEfGhIjKlMnOpQrStUvWxYz012345', 'cue-p1-1', 0);
+  deq([im.src, im.onerror, drew], ['data:image/png;base64,AAAA', null, 0], 'the picture itself is put in the card');
+  P.imgData = (fid, ok, bad) => bad(); P.window.cueMmThumb({ src: 'drive' }, '1ZyXwVuTsRqPoNmLkJiHgFeDcBa987654', 'cue-p1-1', 1);
+  assert.strictEqual(drew, 1);
+  const lost = p1Body(P.agdImageReviewHtml(p1Card({ image_review: P1.imageReviewSecond }), true, false));
+  assert.ok(lost.includes('<li class="cue-r1-file"><a href="https://drive.google.com/file/d/1ZyXwVuTsRqPoNmLkJiHgFeDcBa987654/view" target="_blank" rel="noopener">counter_reference.jpg (client)</a></li>') && (lost.match(/class="cue-r1-thumb"/g) || []).length === 1, 'never a broken picture: the one that cannot be read becomes a link');
   const s = P.agdImageReviewHtml(p1Card({ image_review: P1.imageReviewStopped }), true, false);
   assert.ok(/<span class="tag crit">Stopped<\/span>/.test(s) && /What changed/.test(s) && /Which file is the design source\?/.test(s));
   assert.ok(/<input type="radio" name="src-cue-p1-1" value="new">/.test(s) && /<input type="radio" name="src-cue-p1-1" value="keep">/.test(s));
