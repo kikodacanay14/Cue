@@ -46,7 +46,9 @@ test('OB7 General: each labelled message has a 4px colour stripe on its left and
 test('OB8 the Project Intake Request card shows one grey "Saved" with Reopen inside it; the decision is not repeated as a chat bubble', () => {
   const cards = OB.src('IndexCards.html'), th = OB.src('IndexThreads.html');
   assert.ok(!/Saved decision: /.test(cards) && !/This card now shows your saved edits/.test(cards), 'the two extra notices are gone');
-  assert.ok(cards.includes(`(settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'`), 'Saved and Reopen on one line in the card');
+  // CUE-INTAKE-FOOT-SAVED-2026-11-26 (Kiko 26 Nov 2026 "Reopen is misplaced"): Saved and Reopen sit in the card's bottom bar, after the original message.
+  assert.ok(cards.includes(`var savedFoot = settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p>' + (CLOSED[r.status] ? '<button type="button" class="btn ghost" data-act="reopen" data-id="' + id + '">Reopen</button>' : '')`), 'Saved and Reopen together in the card');
+  assert.ok(cards.includes(`'</div><div class="actions">' + savedFoot + editButtons`) && /\.cue-r1-inquiry \.actions \.cue-r1-saved\{margin:0 auto 0 0/.test(cards), 'in the bottom bar, Saved on the left');
   assert.ok(/\.cue-r1-inquiry \.cue-r1-saved\{display:flex;[^}]*color:var\(--muted,#5B5766\);font-weight:600\}/.test(cards) && !/\.cue-r1-saved\{[^}]*(border:1px|background:#f1faf5)/.test(cards), 'grey text, no green box');
   assert.ok(th.includes(`h.indexOf('data-act="reopen" data-id="' + esc(lastR.id) + '"') < 0`), 'the thread adds Reopen only when no card drew it');
   const a = OB.page.indexOf('  function agentDecisionEcho('), ctx = {}; vm.createContext(ctx);
@@ -66,7 +68,9 @@ test('OB10 the intake request card and the Email Intake card: Canvas font, a 4px
   const cards = OB.src('IndexCards.html');
   assert.ok(!/font:[^;}']*\d(px)?[^;}']* system-ui/.test(cards), 'no card style names system-ui as its font');
   assert.ok(/\.card\.cue-r1-inquiry\{border-inline-start:4px solid #C8106E\}\.card\.cue-email-report\{border-inline-start:4px solid #23006F\}/.test(cards));
-  assert.ok(cards.includes("'</h2>' + cardLabel('intake') + '</header>") && cards.includes("<h2>Email Intake</h2>' + cardLabel('email') + '</div>"), 'label inside each header');
+  assert.ok(cards.includes("'</h2>' + cardLabel('intake') + '</header>"), 'label inside the intake request header');
+  // CUE-EMAIL-NOLABEL-2026-11-26 (Kiko 26 Nov 2026, screenshot of the Email Intake card on his phone: "remove label"): no label there.
+  assert.ok(cards.includes("<h2>Email Intake</h2></div>") && !cards.includes("cardLabel('email')"), 'no label on the Email Intake card');
   assert.ok(/\.cue-r1-inquiry \.cue-r1-head\{display:flex;align-items:center;justify-content:space-between;/.test(cards), 'title left, label right');
 });
 // CUE-BAR-IN-CANVAS-2026-11-25 (Kiko 25 Nov 2026, Canvas bar approved "2. A"): the breadcrumb moves into Canvas's purple bar.
@@ -98,4 +102,9 @@ test('OB12 the bar\'s messages come only from Canvas: cueBar hides Cue\'s own br
   assert.ok(chat.includes("if (d.canvasWs === 'cueNav' && e.source === CUE_HOST.canvas) { if (d.to === 'list') showList(); else if (d.to === 'general') goGeneral(); cueWhereTell(); return; }"));
   assert.ok(/body\.bar-in-canvas \.crumb \{ display:none; \} body\.bar-in-canvas #ptabs:not\(:has\(\.ibtn\)\) \{ display:none; \}/.test(css), 'Cue hides its copy, and an empty channel header');
   assert.ok(th.includes("setHtml($('ptabs'), h); cueWhereTell();") && chat.includes("document.body.classList.add('ch-list'); cueWhereTell(); }"), 'told on every view change');
+});
+test('OB11 phone width guard (Kiko 26 Nov 2026, answer B): the page, images and message text never make Cue wider than the screen', () => {
+  const st = OB.src('IndexStyle.html');
+  assert.ok(st.includes('html { overflow:hidden; max-width:100vw; } body { max-width:100vw; } img, video { max-width:100%; } .msg { overflow-wrap:break-word; }'), 'the guard is in the stylesheet');
+  assert.ok(st.indexOf('CUE-PHONE-WIDTH-GUARD-2026-11-26') < st.indexOf('body { margin:0;'), 'before the body rule, which keeps overflow:hidden');
 });
