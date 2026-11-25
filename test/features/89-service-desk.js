@@ -35,3 +35,9 @@ test('SD3 nothing new: no chat line; the job is listed and the read is allowed i
   assert.ok(b.t.ctx.cueJobs_().some(j => j.fn === 'cueSdTick_'), 'listed in the background jobs');
   assert.ok(/CUE_CHECK_READS_ = \[[^\]]*'service_desk_new'/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'CueCheck.gs'), 'utf8')), 'a read the cloud check may run');
 });
+test('SD4 the line names the Application first when Canvas sends one (BUG-FORM-APP-2026-11-25)', () => {
+  const b = sdBox(() => [sdItem(5, { app: 'Charter', expected: 'It saves.' })]);
+  assert.strictEqual(b.t.ctx.cueSdTick_(), 1);
+  const L = b.lines();
+  assert.ok(/^New bug report BUG-0005 from \S+ \(Charter, Projects, S-6133716KI\): Save on the Scope tab/.test(L[0]), L[0]);
+});

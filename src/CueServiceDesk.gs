@@ -4,6 +4,8 @@
  * every 15 minutes it reads Canvas's newest reports through the bridge (service_desk_new, read only) and posts one line per
  * report it has not told him about, with an Open in Canvas button for that report. It remembers the highest report number it
  * told (script property CUE_SD_STATE), so a report is told once. No AI call, no email, nothing written to Canvas.
+ * BUG-FORM-APP-2026-11-25 (Kiko 25 Nov 2026, Canvas bug form mockup "yes build A" 09:15:10Z): the line names the report's
+ * Application first, for example "(Cue, Projects)". Reports from before Canvas asked for it have none and read as before.
  */
 const CUE_SD_ = { every_min: 15, prop: 'CUE_SD_STATE', text: 300 };
 
@@ -12,7 +14,7 @@ function cueSdSave_(st) { PropertiesService.getScriptProperties().setProperty(CU
 
 /** One chat line for one report. Pure: the tests call it. */
 function cueSdLine_(x) {
-  const where = [x.page, x.project].filter(Boolean).join(', ');
+  const where = [x.app, x.page, x.project].filter(Boolean).join(', ');
   const t = String(x.text || '').replace(/\s+/g, ' ').trim();
   return 'New bug report ' + x.id + ' from ' + (x.by || 'someone') + (where ? ' (' + where + ')' : '') + ': '
     + (t.length > CUE_SD_.text ? t.slice(0, CUE_SD_.text - 1) + '…' : t)
