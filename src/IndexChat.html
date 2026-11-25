@@ -91,6 +91,11 @@
     window.addEventListener('message', function (e) {
       var d = e.data; if (!d || CUE_HOST.foreign || !cueAncestor(e.source)) return;
       if (d.canvasWs === 'cueHost' && !CUE_HOST.canvas) { CUE_HOST.canvas = e.source; document.body.classList.add('in-canvas'); cueCover(''); teamCueBtn(); return; }
+      /* CUE-BAR-IN-CANVAS-2026-11-25 (Kiko 25 Nov 2026: "the '<Channels Account Specialist' Should be at the same bar as the Cue icon"; Canvas bar
+         approved "2. A"): Canvas says it draws the breadcrumb in its own purple bar ("cueBar"), so Cue hides its copy and tells Canvas where it
+         is ("cueWhere"). A click on the bar's Cue or Channels comes back as "cueNav". An older Canvas never says cueBar, and Cue keeps its own. */
+      if (d.canvasWs === 'cueBar' && e.source === CUE_HOST.canvas) { document.body.classList.add('bar-in-canvas'); cueWhereSent = ''; cueWhereTell(); return; }
+      if (d.canvasWs === 'cueNav' && e.source === CUE_HOST.canvas) { if (d.to === 'list') showList(); else if (d.to === 'general') goGeneral(); cueWhereTell(); return; }
       if (d.canvasWs === 'cueThread' && e.source === CUE_HOST.canvas && d.thread) goThread(String(d.thread).slice(0, 120));
       if (d.canvasWs === 'cueRows' && e.source === CUE_HOST.canvas && Array.isArray(d.rows)) { canvasRowsSet(d.rows); canvasTodaySet(d.today); renderChat(); }
       // RFQ-RFP-INTAKE (Kiko 29 Oct 15:13Z): Start intake on Canvas's Emails waiting card. Cue reads that email in Kiko's Gmail, opens the task and runs it.
@@ -172,9 +177,20 @@
     try { localStorage.setItem('cue.pane', JSON.stringify({ tabs: ptabs, active: pactive })); } catch (e) {}
     lastThread = -1; renderChat();
   }
+  var cueWhereSent = '';
+  function cueWhereNow() {
+    if (document.body.classList.contains('ch-list')) return { canvasWs: 'cueWhere', view: 'list', name: '' };
+    var t = openThread ? document.querySelector('#ptabs .crumb .t') : null;
+    return openThread ? { canvasWs: 'cueWhere', view: 'thread', name: String((t && t.textContent) || 'Thread').slice(0, 120) } : { canvasWs: 'cueWhere', view: 'general', name: '' };
+  }
+  function cueWhereTell() {
+    if (!CUE_HOST.canvas || !document.body.classList.contains('bar-in-canvas')) return;
+    var m = cueWhereNow(), key = m.view + '|' + m.name; if (key === cueWhereSent) return;
+    cueWhereSent = key; try { CUE_HOST.canvas.postMessage(m, '*'); } catch (e) {}
+  }
   function goGeneral() { paneClose(); showConv(); }
-  function showList() { document.body.classList.add('ch-list'); }
-  function showConv() { document.body.classList.remove('ch-list'); var sc = $('scroller'); if (!openThread && sc._pin !== false) sc.scrollTop = sc.scrollHeight; }
+  function showList() { document.body.classList.add('ch-list'); cueWhereTell(); }
+  function showConv() { document.body.classList.remove('ch-list'); cueWhereTell(); var sc = $('scroller'); if (!openThread && sc._pin !== false) sc.scrollTop = sc.scrollHeight; }
   if (window.matchMedia && matchMedia('(max-width: 640px)').matches) showList();
   function previewUrl(u) {
     var m = /^https:\/\/(drive|docs)\.google\.com\/(?:file|document|spreadsheets|presentation)\/d\/([\w-]{10,})/.exec(u || '') || /^https:\/\/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([\w-]{10,})/.exec(u || '');

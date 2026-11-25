@@ -42,6 +42,9 @@
   .phead .pico { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--panel); color:var(--act); flex:none; }
   .phead .pname { font:700 17px var(--font); color:var(--white); }
   .phead .pcount { display:inline-block; min-width:22px; padding:1px 7px; border-radius:6px; background:var(--act); color:#fff; font:800 14px var(--font); text-align:center; }
+  /* CUE-BAR-IN-CANVAS-2026-11-25: when Canvas draws the breadcrumb in its own bar, Cue's copy is hidden; a channel header left with no button is hidden too. */
+  body.bar-in-canvas .crumb { display:none; } body.bar-in-canvas #ptabs:not(:has(.ibtn)) { display:none; }
+  body.bar-in-canvas .lhead, body.bar-in-canvas .left nav, body.bar-in-canvas #ptabs { justify-content:flex-end; }
   /* CUE-ONE-BAR-2026-11-25: the same breadcrumb sits in the list header, General's header and a channel's header. */
   .crumb { flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:16px; color:var(--white); }
   .crumb button { all:unset; cursor:pointer; padding:4px 6px; border-radius:6px; color:var(--text); text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--line2); flex:none; }

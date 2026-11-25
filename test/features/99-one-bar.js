@@ -69,3 +69,33 @@ test('OB10 the intake request card and the Email Intake card: Canvas font, a 4px
   assert.ok(cards.includes("'</h2>' + cardLabel('intake') + '</header>") && cards.includes("<h2>Email Intake</h2>' + cardLabel('email') + '</div>"), 'label inside each header');
   assert.ok(/\.cue-r1-inquiry \.cue-r1-head\{display:flex;align-items:center;justify-content:space-between;/.test(cards), 'title left, label right');
 });
+// CUE-BAR-IN-CANVAS-2026-11-25 (Kiko 25 Nov 2026, Canvas bar approved "2. A"): the breadcrumb moves into Canvas's purple bar.
+function obWhere(over) {
+  const chat = OB.src('IndexChat.html'), a = chat.indexOf("  var cueWhereSent = '';"), b = chat.indexOf('  function goGeneral() {');
+  const posts = [], cls = new Set(over.cls || []);
+  const ctx = { CUE_HOST: { canvas: over.noCanvas ? null : { postMessage: m => posts.push(JSON.parse(JSON.stringify(m))) } }, openThread: over.thread || '',
+    document: { body: { classList: { contains: k => cls.has(k) } }, querySelector: () => (over.name == null ? null : { textContent: over.name }) } };
+  vm.createContext(ctx); vm.runInContext(chat.slice(a, b), ctx);
+  return { ctx, posts, cls };
+}
+test('OB11 inside Canvas, once Canvas says it draws the bar, Cue tells it where it is: the list, General, or a channel by name; once per change', () => {
+  const g = obWhere({ cls: ['bar-in-canvas'] }); g.ctx.cueWhereTell(); g.ctx.cueWhereTell();
+  assert.deepStrictEqual(g.posts, [{ canvasWs: 'cueWhere', view: 'general', name: '' }], 'General, sent once');
+  g.cls.add('ch-list'); g.ctx.cueWhereTell();
+  assert.deepStrictEqual(g.posts[1], { canvasWs: 'cueWhere', view: 'list', name: '' });
+  const t = obWhere({ cls: ['bar-in-canvas'], thread: 'cue-1', name: 'Account Specialist' }); t.ctx.cueWhereTell();
+  assert.deepStrictEqual(t.posts, [{ canvasWs: 'cueWhere', view: 'thread', name: 'Account Specialist' }]);
+  const long = obWhere({ cls: ['bar-in-canvas'], thread: 'cue-1', name: 'x'.repeat(300) }); long.ctx.cueWhereTell();
+  assert.strictEqual(long.posts[0].name.length, 120);
+  const old = obWhere({ cls: [] }); old.ctx.cueWhereTell();
+  assert.deepStrictEqual(old.posts, [], 'an older Canvas that never said cueBar gets nothing');
+  const alone = obWhere({ cls: ['bar-in-canvas'], noCanvas: true }); alone.ctx.cueWhereTell();
+  assert.deepStrictEqual(alone.posts, [], 'Cue on its own tells nobody');
+});
+test('OB12 the bar\'s messages come only from Canvas: cueBar hides Cue\'s own breadcrumb, cueNav goes to the list or General', () => {
+  const chat = OB.src('IndexChat.html'), css = OB.src('IndexStyle.html'), th = OB.src('IndexThreads.html');
+  assert.ok(chat.includes("if (d.canvasWs === 'cueBar' && e.source === CUE_HOST.canvas) { document.body.classList.add('bar-in-canvas'); cueWhereSent = ''; cueWhereTell(); return; }"));
+  assert.ok(chat.includes("if (d.canvasWs === 'cueNav' && e.source === CUE_HOST.canvas) { if (d.to === 'list') showList(); else if (d.to === 'general') goGeneral(); cueWhereTell(); return; }"));
+  assert.ok(/body\.bar-in-canvas \.crumb \{ display:none; \} body\.bar-in-canvas #ptabs:not\(:has\(\.ibtn\)\) \{ display:none; \}/.test(css), 'Cue hides its copy, and an empty channel header');
+  assert.ok(th.includes("setHtml($('ptabs'), h); cueWhereTell();") && chat.includes("document.body.classList.add('ch-list'); cueWhereTell(); }"), 'told on every view change');
+});
