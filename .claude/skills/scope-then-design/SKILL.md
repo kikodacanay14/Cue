@@ -24,6 +24,20 @@ Canonical copy: `kikodacanay14/CanvasWorkspace/.claude/skills/scope-then-design/
 - A new task, feature, build or project in Canvas, Cue or Blank Space operations.
 - Not for: a quick question, a bug with a known cause, or work whose spec Kiko has already approved (go to Resume).
 
+## Triage first (Kiko, 25 Nov 2026, ADR-0241)
+
+Before Phase 0 or 1, label the ask Bug or Feature (rules R-TRI1 to R-TRI9 in CanvasWorkspace `docs/business-rules.md`).
+Ask one thing: does an approved source (approved spec, business rule, approved mockup, design system v2.0, Kiko's UI rules,
+or the behaviour that was live before) say how this should already work?
+
+- **Yes, and it now does something else: Bug.** Not for this skill. Set the card's `type` to Bug, `severity` P1/P2/P3 (P1:
+  money, a client, crew or an event is blocked, or data is lost or wrong, and Kiko is told at once; P2: wrong with a
+  workaround; P3: cosmetic) and `triage.why` naming the source. Start it in For Development and fix it end to end without
+  asking (answer 2 = A).
+- **No approved source, works as built but wanted different, or the fix needs a new rule: Feature.** Set `type` to Feature,
+  start it in For Scope Definition and Design, and run every phase below. A new rule always goes to Kiko as a yes/no.
+- Plain tasks (record a payment, send a file, answer a question) are not triaged and get no card.
+
 ## Resume first
 
 Before Phase 1, look for this ask's existing spec, design or plan: the repo's `work-board.md` row, `handoffs/`, the

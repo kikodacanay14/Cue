@@ -48,6 +48,14 @@ Kiko's words: "fix the Feature board - i expect every development will update th
 - Every piece of development work, bug fixes included, has a card, and the work is not done until the card shows where it
   stands. Move it in the same turn its status changes. A release that goes live moves its card to **For Testing (live)**
   with `liveAt` and `ref` (for example `Cue 1.28.3, Version 189`); no card yet means make one.
+- **Triage first (Kiko, 25 Nov 2026: "implement a ticketing system after a triage - to identity if bug or for new feature";
+  answers 1A to 5A).** Before writing a card for any software change, label it Bug or Feature (rules R-TRI1 to R-TRI9 in
+  CanvasWorkspace `docs/business-rules.md`, ADR-0241). Bug = an approved source (spec, business rule, approved mockup,
+  design system v2.0, Kiko's UI rules, earlier live behaviour) says how it should work and it does not; it gets `severity`
+  P1/P2/P3 (P1 is told to Kiko at once), starts in For Development and needs no scope approval (the release steps under "How code reaches Kiko" still apply). Anything else,
+  including "works as built but want it different" and anything that needs a new rule, is a Feature: it starts in For Scope
+  Definition and Design and Kiko approves the spec first. Set `type` and `triage` {by, at, why} on the card. Plain tasks get
+  no card.
 - Every PR fills in the "Feature Board" line of `.github/pull_request_template.md`, or says why no card applies.
 
 ## Working style
