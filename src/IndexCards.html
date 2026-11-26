@@ -1387,8 +1387,9 @@
       + (review ? 'Project Intake Request' : 'New project registration') + '</h2>' + cardLabel('intake') + '</header><div class="cue-r1-body">'
       + editForm
       // CUE-ONE-BAR-2026-11-25 (Kiko 25 Nov 2026 "Remove the 3 Save confirmation use 1 only"; "Reopen should be in the same card"; "Remove the Green Box";
-      // "Update copy. 'Saved' only"; "Make Saved colored gray"): one grey "Saved". After a saved decision it carries Reopen.
-      + (settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'
+      // "Update copy. 'Saved' only"; "Make Saved colored gray"): one grey "Saved". Reopen sits in the footer at the bottom of the card
+      // (Kiko 26 Nov 2026 11:03Z: "The Reopen button needs to be at the bottom of the card").
+      + (settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p>'
         : agdIntakeSaved[r.id] ? '<p class="cue-r1-saved" role="status"><span>' + (agdIntakeSaved[r.id] === I.card_version ? 'Saved' : 'Saved. Refreshing this card…') + '</span></p>' : '')
       // PHASE1-CARDS-2026-11-25: after registration the result is an action note on this card (Kiko: "not as a label as an action note").
       + (settled && A.action_note ? '<p class="cue-r1-note"><b>Action note</b><span>' + esc(A.action_note) + '</span></p>' : '')
@@ -1399,7 +1400,7 @@
         checking ? '<p>Checking whether your decision was saved. Refresh Cue if this message stays here.</p>' :
         !current ? '<p>This request is out of date. Ask Account Specialist for the current card.</p>' : '')
       + (r.error ? '<div class="err">' + esc(r.error) + '</div>' : '')
-      + '</div><div class="actions">' + editButtons + actions + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
+      + '</div><div class="actions">' + editButtons + actions + (settled && CLOSED[r.status] ? '<button type="button" class="btn ghost" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + (unread ? '<button class="btn ghost" data-act="agd-read" data-id="' + id + '">Mark read</button>' : '')
       + '</div></div>';
   }
   // PHASE1-CARDS-2026-11-25 (Project Intake, Sub Process 1; Kiko approved the mockups on 25 Nov 2026 and said "go" to the build). The image
