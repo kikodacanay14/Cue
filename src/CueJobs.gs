@@ -22,7 +22,7 @@ function cueJobs_() {
     { job: 'FSA and AR Send later', fn: 'cueArDue_' },              // CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later
     { job: 'Emails waiting check', fn: 'cueMaTick_' },              // CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes
     { job: 'Project log', fn: 'cuePlogFlush_' },                    // CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs
-    { job: 'Messenger inbox', fn: 'cueMsgrPull_' },                   // CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI
+    { job: 'Messenger inbox', fn: 'cueMsgrPullJob_' },                   // CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI
     { job: 'Messenger sign links', fn: 'cueMsgrTick_' },              // CUE-MSGR-2026-11-02: unsigned FSA and AR links on Messenger, every 15 min, no AI
     { job: 'Release notes at 8 PM', fn: 'cueRnDue_' },              // CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM
     { job: 'CRM email log', fn: 'cueCrmLogTick_' },                 // CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly
@@ -53,11 +53,14 @@ function cueJobRun_(j, rows) {
   let out, err = '';
   try { out = run(); }
   catch (e) { err = String((e && e.message) || e).split('\n')[0].slice(0, 300); console.error(j.job + ': ' + e); }
+  if (out === CUE_JOB_SKIPPED_) return;   // MSGR-SKIP-2026-11-26: the job did not run this tick (no row; the alert state stays)
   const count = typeof out === 'number' ? out : Array.isArray(out) ? out.length : out && typeof out.added === 'number' ? out.added : '';
   rows.push([started.toISOString(), new Date(cueNow_()).toISOString(), j.job, err ? 'Failed' : 'OK', err, count]);
   if (typeof globalThis.cueAlertJobRun_ === 'function') cueAlertJobRun_(j.job, err);   // CUE-ALERTS-2026-11-16: Failed job alert (never throws)
 }
 
+/** A job returns this when it did not run this tick (another run of it was busy). */
+const CUE_JOB_SKIPPED_ = Object.freeze({ skipped: true });
 const CUE_JOB_KEEP_DAYS_ = 30;   // Kiko 28 Oct 2026 06:08Z: "Yes, keep 30 days"
 
 /** One write per tick for all its rows, then the daily trim. Logging never stops a job: a failure goes to the Apps Script log only. */

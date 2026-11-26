@@ -554,10 +554,15 @@ function cueMsgrSaid_(c) {
 /** CUE-MSGR-FAST-2026-11-05 (Kiko 5 Nov 04:30Z "5 minuites is not good"): the pull also runs from the 1-minute trigger
  * (cueRfpKick), so a reply goes out within about a minute. A short lease (CUE_MSGR_PULL_RUN) keeps the 1-minute and 5-minute
  * runs from collecting the same events twice. Returns how many were handled, or 0 while another run holds the lease. */
-function cueMsgrPull_() {
+function cueMsgrPull_() { const n = cueMsgrPullRun_(); return n === null ? 0 : n; }
+/* MSGR-SKIP-2026-11-26: the 5-minute job. When the 1-minute run already holds the lease, this tick did not reach the relay, so it
+ * is skipped (no Job Runs row) rather than logged OK. An OK row there reset the failed-job alert, so a relay answering 403 sent
+ * Kiko a new alert after almost every skip (21 to 26 Nov 2026). */
+function cueMsgrPullJob_() { const n = cueMsgrPullRun_(); return n === null ? CUE_JOB_SKIPPED_ : n; }
+function cueMsgrPullRun_() {   // null: another run is collecting
   const P = PropertiesService.getScriptProperties(), l = LockService.getScriptLock(), now = cueNow_();
-  if (!l.tryLock(5000)) return 0;
-  try { if (Number(P.getProperty('CUE_MSGR_PULL_RUN') || 0) > now) return 0; P.setProperty('CUE_MSGR_PULL_RUN', String(now + 4 * 60 * 1000)); }
+  if (!l.tryLock(5000)) return null;
+  try { if (Number(P.getProperty('CUE_MSGR_PULL_RUN') || 0) > now) return null; P.setProperty('CUE_MSGR_PULL_RUN', String(now + 4 * 60 * 1000)); }
   finally { l.releaseLock(); }
   try { return cueMsgrPullOnce_(); } finally { P.deleteProperty('CUE_MSGR_PULL_RUN'); }
 }

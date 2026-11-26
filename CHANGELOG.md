@@ -1,13 +1,14 @@
 # Changelog
 
-## Cue 1.28.114: failed-job alerts show the real error code (not deployed)
+## Cue 1.28.114: failed-job alerts show the real error code, and a failing Messenger relay alerts once (not deployed)
 
 Asked by Kiko on 25 November 2026 ("I keep getting this error", phone alerts "Job failed: Messenger sign links / Canvas did not answer msgr_due (HTTan amount)"), sent by the Dev Ops coordinator. A bug fix: the alert text is wrong, no business rule changes.
 
 - The alert cleaner took the "P 500" in "HTTP 500" for a peso amount, so "Canvas did not answer msgr_due (HTTP 500)" reached the phone as "(HTTan amount)". A peso sign "P" now counts only when it starts a word, so "HTTP 500" stays and "P500" or "P 1,200" still come out as "an amount".
 - What the alerts were: Cue's Job Runs tab shows msgr_due and read_rows each failed once (05:23Z and 05:20Z on 25 Nov), inside a window from 00:38Z to 06:14Z when Canvas answered several jobs with HTTP 500 or timed out. Every run of both jobs since then passed (last checked 19:58Z).
+- Messenger inbox alerts (Kiko 26 Nov 2026: "The messenger is frequent not a one time blip"): since 21 Nov 16:46Z the Messenger relay answers 403 to every collection, because the key Cue holds no longer matches the relay's (fixed by Connect Facebook, then Finish, in Settings › Connections › Messenger). The alert should sound once per outage, but the 5-minute tick that found the 1-minute run already collecting wrote an OK row without reaching the relay, which reset the alert, so the next failure alerted again. That tick is now skipped (no row), so a failing relay alerts once until a real collection works.
 
-Tests: `node test/cue.test.js` 1,045 passed (1 new, PA4b in `test/features/99-phone-alerts.js`; it failed before the change).
+Tests: `node test/cue.test.js` 1,046 passed (2 new: MS10i in `test/features/80-messenger.js` and PA4b in `test/features/99-phone-alerts.js`; both failed before the change).
 
 ## Cue 1.28.113: add a requirement, split into scopes as boxes, blank Qty on the requirement list (not deployed)
 

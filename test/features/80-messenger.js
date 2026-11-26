@@ -528,3 +528,19 @@ test('MS21 one person on Messenger is one line in the main chat (Kiko 5 Nov 13:0
   assert.ok(/^Messenger: new message from someone not linked as crew: "Hi"/.test(ptr[0][2]));
   assert.ok(!('told' in JSON.parse(t.props.MSGR_TRI_2002)), 'pointed once');
 });
+
+test('MS10i a 5-minute tick that finds the 1-minute run already collecting is skipped: no OK row, so a failing relay alerts once, not after every skip (26 Nov 2026)', () => {
+  const { t } = msgrSandbox();
+  t.props.MSGR_RELAY_KEY = 'mr_' + 'f'.repeat(64);   // Cue holds a key the relay no longer takes: every call answers 403
+  const job = t.ctx.cueJobs_().filter(j => j.job === 'Messenger inbox')[0];
+  const alerts = []; t.ctx.cueAlertJob_ = (j, e) => { alerts.push([j, e]); return 'sent'; };
+  const tick = () => { const rows = []; t.ctx.cueJobRun_(job, rows); return rows; };
+  const first = tick();
+  deq(first.map(r => [r[3], r[4]]), [['Failed', 'Messenger relay answered 403']]);
+  t.props.CUE_MSGR_PULL_RUN = String(t.ctx.cueNow_() + 60000);   // the 1-minute run holds the lease
+  deq(tick(), [], 'a skipped tick writes no row');
+  delete t.props.CUE_MSGR_PULL_RUN;
+  deq(tick().map(r => r[3]), ['Failed']);
+  deq(alerts, [['Messenger inbox', 'Messenger relay answered 403']], 'one alert for the whole outage');
+  t.props.MSGR_RELAY_KEY = MSGR_KEY; deq(tick().map(r => r[3]), ['OK'], 'a real collection is OK again');
+});
