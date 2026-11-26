@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 86 server files, 1739 top-level names, 45 task kinds, 36 word checks before the
+Counts: 86 server files, 1742 top-level names, 45 task kinds, 36 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 118 page-to-server functions, 95 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -127,7 +127,7 @@ Last, `talk.start_intake` starts a project intake (or a supplier registration).
 | 4 | FSA and AR Send later | `cueArDue_` | `CueAr.gs` | CREW-DOCS-2026-10-26: FSAs and ARs Kiko chose to Send later |
 | 5 | Emails waiting check | `cueMaTick_` | `CueMailAlerts.gs` | CUE-MAIL-ALERTS-2026-10-27: Emails waiting file for Canvas, every 10 minutes |
 | 6 | Project log | `cuePlogFlush_` | `CueProjectLog.gs` | CUE-PROJECT-LOG-2026-10-27: emails, task summaries and chasers to the project logs |
-| 7 | Messenger inbox | `cueMsgrPull_` | `CueMessenger.gs` | CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI |
+| 7 | Messenger inbox | `cueMsgrPullJob_` | `CueMessenger.gs` | CUE-MSGR-2026-11-02: crew messages held by the Messenger relay, every 5 min, no AI |
 | 8 | Messenger sign links | `cueMsgrTick_` | `CueMessenger.gs` | CUE-MSGR-2026-11-02: unsigned FSA and AR links on Messenger, every 15 min, no AI |
 | 9 | Release notes at 8 PM | `cueRnDue_` | `CueRelnotes.gs` | CUE-RELNOTES-2026-10-27: release notes Kiko approved before 8 PM |
 | 10 | CRM email log | `cueCrmLogTick_` | `CueCrmLog.gs` | CUE-CRM-EMAIL-LOG-2026-10-26: client emails to Accounts › Activity, hourly |

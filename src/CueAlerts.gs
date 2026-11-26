@@ -37,7 +37,7 @@ function cueAlertClean_(t, n) {
   let s = String(t == null ? '' : t)
     .replace(/https?:\/\/\S+/gi, '')
     .replace(/\S+\.(pdf|docx?|xlsx?|csv|pptx?|jpe?g|png|heic|zip)\b/gi, 'a file')
-    .replace(/(₱|PHP|Php|P(?=\s?\d)|US\$|\$)\s?\d[\d,]*(\.\d+)?(?:\s?[kKmM]\b)?/g, 'an amount')
+    .replace(/(₱|PHP|Php|\bP(?=\s?\d)|US\$|\$)\s?\d[\d,]*(\.\d+)?(?:\s?[kKmM]\b)?/g, 'an amount')   // \bP: the P of "HTTP 500" is not a peso sign (25 Nov 2026)
     .replace(/\d[\d,]*(\.\d+)?\s?(pesos|php)\b/gi, 'an amount')
     .replace(/\b(account|acct|a\/c|iban|card)\s*(no\.?|number|#)?\s*[:#]?\s*[\dXx*•](?:[\s-]?[\dXx*•]){3,}/gi, '$1 …')
     .replace(/\b\d(?:[\s-]?\d){9,}\b/g, '…')

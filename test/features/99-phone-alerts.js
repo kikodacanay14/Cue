@@ -67,6 +67,13 @@ test('PA4 alert text never carries bank details, amounts or files', () => {
   assert.strictEqual(p.sent[0].body.body, 'Paid an amount to card …');
 });
 
+test('PA4b an HTTP status code is not a peso amount (alerts read "HTTan amount", 25 Nov 2026)', () => {
+  const t = sandbox(), c = s => t.ctx.cueAlertClean_(s);
+  assert.strictEqual(c('Canvas did not answer msgr_due (HTTP 500)'), 'Canvas did not answer msgr_due (HTTP 500)');
+  assert.strictEqual(c('Canvas did not answer read_rows (HTTP 500)'), 'Canvas did not answer read_rows (HTTP 500)');
+  assert.strictEqual(c('Pay P500 now, or P 1,200 later'), 'Pay an amount now, or an amount later', 'a peso amount still comes out');
+});
+
 test('PA5 a failed send never stops the caller; a failing job alerts once until it runs OK again', () => {
   const d = paBox({ down: true });
   assert.strictEqual(d.ctx.cueAlert_('am', 'cue-1', '8 AM update', 'x'), 'failed');
