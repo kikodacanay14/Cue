@@ -155,7 +155,11 @@ test('P1C8 the intake card shows Multimedia findings above the original message;
   ['Multimedia findings', 'Case: Fabrication I', "Checked: the client's own files, unchanged", 'Approved by you: 25 Nov, 10:52 AM (round 2, image version 2)', 'Measurement', '0.95 m', 'Gap: number of shelves is not given.'].forEach(x => assert.ok(p1Text(block).includes(x), x));
   assert.ok(/<button type="button" class="cue-mm-open" data-agd-goto="DRF-0052">Open the image review card<\/button>/.test(block));
   const settled = P.agdInquiryHtml(p1IntakeCard(withMm, { r: { status: 'Done' }, agd: { status: 'Replied', replies: [{ text: 'Confirm new project 2d55a58c' }] } }), true, false);
-  assert.ok(/class="cue-mmfind"/.test(settled) && /<span>Saved<\/span><button type="button" data-act="reopen"/.test(settled), 'the findings stay readable after the decision');
+  assert.ok(/class="cue-mmfind"/.test(settled) && /<span>Saved<\/span><\/p>/.test(settled), 'the findings stay readable after the decision');
+  // Kiko 26 Nov 2026 11:03Z: Reopen is at the bottom of the card, in its footer, below the original message.
+  const reo = settled.indexOf('data-act="reopen"');
+  assert.ok(reo > settled.indexOf('class="cue-r1-source"') && reo > settled.lastIndexOf('<div class="actions">'), 'Reopen in the footer, below the original message');
+  assert.ok(/<div class="actions"><button type="button" class="btn ghost" data-act="reopen" data-id="cue-p1-1">Reopen<\/button><\/div><\/div>$/.test(settled), 'Reopen is the last thing on the card');
 });
 
 test('P1C9 Approve and Reject on the intake card still carry the same decision texts, and now ask "Are you sure...?" first', () => {

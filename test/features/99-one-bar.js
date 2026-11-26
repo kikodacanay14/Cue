@@ -43,10 +43,12 @@ test('OB7 General: each labelled message has a 4px colour stripe on its left and
   assert.ok(/body\.cue-stream #msgs > \.msg\.cue:has\(\.stream-pill\) \{ border-inline-start:4px solid var\(--stream-magenta\); \}/.test(css));
   assert.ok(/body\.cue-stream #msgs > \.msg > \.stream-label-control, body\.cue-stream #msgs > \.msg > \.stream-pill \{ float:right; margin:0 0 4px 12px; \}/.test(css));
 });
-test('OB8 the Project Intake Request card shows one grey "Saved" with Reopen inside it; the decision is not repeated as a chat bubble', () => {
+test('OB8 the Project Intake Request card shows one grey "Saved"; Reopen sits at the bottom of the card; the decision is not repeated as a chat bubble', () => {
   const cards = OB.src('IndexCards.html'), th = OB.src('IndexThreads.html');
   assert.ok(!/Saved decision: /.test(cards) && !/This card now shows your saved edits/.test(cards), 'the two extra notices are gone');
-  assert.ok(cards.includes(`(settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span>' + (CLOSED[r.status] ? '<button type="button" data-act="reopen" data-id="' + id + '">Reopen</button>' : '') + '</p>'`), 'Saved and Reopen on one line in the card');
+  // Kiko 26 Nov 2026 11:03Z: "The Reopen button needs to be at the bottom of the card."
+  assert.ok(cards.includes(`(settled ? '<p class="cue-r1-saved" role="status"><span>Saved</span></p>'`), 'the Saved line carries no button');
+  assert.ok(cards.includes(`'</div><div class="actions">' + editButtons + actions + (settled && CLOSED[r.status] ? '<button type="button" class="btn ghost" data-act="reopen" data-id="' + id + '">Reopen</button>' : '')`), 'Reopen is in the card footer, at the bottom');
   assert.ok(/\.cue-r1-inquiry \.cue-r1-saved\{display:flex;[^}]*color:var\(--muted,#5B5766\);font-weight:600\}/.test(cards) && !/\.cue-r1-saved\{[^}]*(border:1px|background:#f1faf5)/.test(cards), 'grey text, no green box');
   assert.ok(th.includes(`h.indexOf('data-act="reopen" data-id="' + esc(lastR.id) + '"') < 0`), 'the thread adds Reopen only when no card drew it');
   const a = OB.page.indexOf('  function agentDecisionEcho('), ctx = {}; vm.createContext(ctx);
