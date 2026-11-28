@@ -1455,6 +1455,20 @@
   function agentSays(r) {
     var A = r.agd || {}, H = A.handover || {}, rows = H.rows || [], proj = A.project ? ' (' + A.project + ')' : '';
     if (A.type === 'update') {
+      // Finance scan detail stays in its existing Details card, not repeated in the thread bubble.
+      var scan = agdLabel(A.agent) === 'Finance' && /^Finance summary \d{4}-\d{2}-\d{2}T\d{2}$/.test(H.handover_ref || A.item || '')
+        && /^Finance run\b/.test(H.summary || '');
+      if (scan) {
+        var found = H.summary.match(/\b(\d+) files found in \d+ folders/), read = H.summary.match(/\bGemini OCR read (\d+) files/);
+        var review = H.summary.match(/\b(\d+) payment links for you to confirm/), short = [];
+        if (found) short.push(found[1] + ' listed');
+        if (read) short.push(read[1] + ' OCR read');
+        if (review && Number(review[1])) short.push(review[1] + ' to review');
+        if (/\bcoverage incomplete\b/.test(H.summary)) short.push('Listing incomplete');
+        else if (H.gaps && (!review || Number(review[1]) === 0)) short.push('See details');
+        return 'Finance scan' + (short.length ? ': ' + short.join(' · ') : ' · See details');
+      }
+
       var need = rows.filter(function (x) { return x && x.needs_kiko; }).length;
       return [rows.length ? (A.item || 'Requirements') + proj + ': ' + rows.length + ' requirement' + (rows.length === 1 ? '' : 's') + (need ? ', ' + need + ' need you.' : '.') : '',
         H.summary || A.body || (rows.length ? '' : (A.item || '') + proj),

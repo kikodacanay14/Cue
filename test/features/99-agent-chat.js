@@ -40,3 +40,13 @@ test('AGC3 Kiko replies become his bubbles; Cue announcement lines are left out;
   assert.ok(/t\.lines\.forEach\(function \(m\) \{ if \(agT && agentEcho\(m\)\) return;/.test(AGC_SRC));
   assert.ok(/var min = !agT && !!cardMin\[t\.root\]/.test(AGC_SRC), 'bubbles are never folded away');
 });
+
+test('AGC Finance scan stays compact in Messages and retains the existing Details card', () => {
+  const r={id:'fin-old',agd:{agent:'Finance',type:'update',status:'Unread',item:'Finance summary 2026-11-28T22',
+    handover:{summary:'Finance run 2026-11-28T22: 1923 files found in 309 folders (coverage complete; 4 without content hash), Gemini OCR read 5 files (0 failed), 1 payment links for you to confirm.',
+      gaps:'Long file details and proof links',next_action:'Confirm',state:'Blocked'}}};
+  assert.strictEqual(AGC.agentSays(r),'Finance scan: 1923 listed · 5 OCR read · 1 to review');
+  assert.ok(!AGC.agentBubble(r).includes('Long file details'));
+  AGC.agdOpen[r.id]=true;
+  assert.ok(AGC.agentBubble(r).includes('CARD fin-old'));
+});
