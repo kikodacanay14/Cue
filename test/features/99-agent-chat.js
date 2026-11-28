@@ -1,6 +1,6 @@
 // Part of test/cue.test.js. Feature: AGENT-CHAT-2026-11-16 (src/IndexThreads.html agentSays, agentReplies, agentEcho, agentBubble,
 // renderThread). Kiko 16 Nov 2026 15:55:49Z "A CONVERSATI0N - I SAID MESSAGES RIGHT?": an agent's thread reads as a conversation.
-const AGC_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8');
+const AGC_SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'IndexThreads.html'), 'utf8').replace(/\r\n/g, '\n');
 const AGC = (() => {
   const a = AGC_SRC.indexOf('  var agdOpen = {};'), b = AGC_SRC.indexOf("  $('tmsgs').addEventListener('click', function (e) {\n    var b = e.target.closest && e.target.closest('[data-agd-open]')");
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

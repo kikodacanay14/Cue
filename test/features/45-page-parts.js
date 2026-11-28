@@ -2,7 +2,7 @@
 /* ---------- STRUCTURE-PHASE-2 item 2.4 (Kiko 28 Oct 2026 04:21Z; story Cue #141): the page in parts ----------
  * src/Index.html holds the markup and puts each part in its place; doGet serves it as a template (cueInclude_ in Cue.gs).
  * Joined, the page is the 3,156-line file from before the split plus one blank line where the note on the parts sits. */
-const PG_PARTS = ['IndexStyle', 'IndexChat', 'IndexViewer', 'IndexThreads', 'IndexPages', 'IndexCards'];
+const PG_PARTS = ['IndexStyle', 'IndexChat', 'IndexViewer', 'IndexThreads', 'IndexPages', 'IndexFinanceReview', 'IndexCards'];
 
 test('PG1 every part is put in exactly once, in order, and each one is a file in src/', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'src', 'Index.html'), 'utf8');

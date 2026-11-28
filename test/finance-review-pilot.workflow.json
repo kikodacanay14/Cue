@@ -1,0 +1,47 @@
+{
+  "id": "BseCueFinancePilot01",
+  "name": "BSE Cue Finance Pilot - ISOLATED",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "assemble",
+      "name": "Assemble Finance report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "function cueFinOptions_(evidence, projectId, stages, recordedRequestIds) {\n  if (!evidence || !projectId || !evidence.project || evidence.project.id !== projectId)\n    return { status:'project_unverified', options:[] };\n  if (!Array.isArray(recordedRequestIds)) return { status:'recording_unverified', options:[] };\n  if (recordedRequestIds.length) return { status:'already_recorded', options:[] };\n  const indexed = rows => new Map((Array.isArray(rows) ? rows : []).map(x => [x.id,x]));\n  const reqs=indexed(evidence.requests), scopes=indexed(evidence.scopes), requirements=indexed(evidence.requirements);\n  const seen = new Set(), options = [];\n  let incomplete = false;\n  for (const m of (Array.isArray(evidence.matches) ? evidence.matches : [])) {\n    if (!m || m.pid !== projectId || typeof m.id !== 'string' || seen.has(m.id)) continue;\n    seen.add(m.id);\n    const req = reqs.get(m.id);\n    const ids = [...new Set(String(req && req.scopes || '').split(',').map(s => s.trim()).filter(Boolean))];\n    const pairs = ids.map(id => {\n      const s = scopes.get(id), p = s && requirements.get(s.requirement_id);\n      return p ? { requirement_id:p.id, scope_id:s.id, requirement:String(p.category || p.id).slice(0,100),\n        scope:String(s.category || s.description || s.id).slice(0,100) } : null;\n    });\n    if (!req || !pairs.length || pairs.length > 5 || pairs.includes(null)) { incomplete=true; continue; }\n    const amount = typeof req.amount === 'number' ? Math.round(req.amount*100) : null;\n    options.push({ request_id:req.id, supplier:String(req.supplier || req.payee || '').slice(0,100),\n      stage:String(stages && Object.prototype.hasOwnProperty.call(stages,req.id) ? stages[req.id] || '' : '').slice(0,60),\n      amount:Number.isSafeInteger(amount) && amount>=0 ? amount : null, pairs });\n  }\n  return { status:incomplete ? 'incomplete_coverage' : options.length > 3 ? 'more_candidates' : options.length ? 'choices' : 'no_verified_match',\n    options: options.slice(0,3) };\n}\n\r\n\r\n\nconst when='2026-11-28T13:00:00.000Z';\nconst pair={id:'REQ-QA1',category:'Logistics'};\nconst evidence={project:{id:'PILOT'}, matches:[{id:'AP-OTHER',pid:'OTHER'},{id:'AP-QA1',pid:'PILOT'}],\n  requests:[{id:'AP-QA1',scopes:'SCP-QA1',supplier:'QA Logistics',amount:2500}],\n  requirements:[pair],scopes:[{id:'SCP-QA1',requirement_id:pair.id,category:'Delivery'}]};\nconst proposed=cueFinOptions_(evidence,'PILOT',{'AP-QA1':'Initial deposit'},[]);\nif(proposed.status!=='choices'||proposed.options.length!==1)throw new Error('Bad mapping');\nconst report={version:1,run_id:'finance-isolated-pilot',finished_at:when,found:2,selected:2,read:2,cards:[\n {evidence_id:'evidence-qa1',project:'QA project',kind:'Receipt',date:'2026-11-28',amount:250000,file_id:'',file_name:'Sample.jpg',options:proposed.options},\n {evidence_id:'evidence-qa2',project:'QA project',kind:'Bank confirmation',date:'2026-11-28',amount:null,file_id:'',file_name:'Sample.pdf',options:[]}]};\nreturn [{json:report}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual": {
+      "main": [
+        [
+          {
+            "node": "Assemble Finance report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

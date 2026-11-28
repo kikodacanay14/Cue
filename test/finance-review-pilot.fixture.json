@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "run_id": "finance-isolated-pilot",
+  "finished_at": "2026-11-28T13:00:00.000Z",
+  "found": 2,
+  "selected": 2,
+  "read": 2,
+  "cards": [
+    {
+      "evidence_id": "evidence-qa1",
+      "project": "QA project",
+      "kind": "Receipt",
+      "date": "2026-11-28",
+      "amount": 250000,
+      "file_id": "",
+      "file_name": "Sample.jpg",
+      "options": [
+        {
+          "request_id": "AP-QA1",
+          "supplier": "QA Logistics",
+          "stage": "Initial deposit",
+          "amount": 250000,
+          "pairs": [
+            {
+              "requirement_id": "REQ-QA1",
+              "scope_id": "SCP-QA1",
+              "requirement": "Logistics",
+              "scope": "Delivery"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "evidence_id": "evidence-qa2",
+      "project": "QA project",
+      "kind": "Bank confirmation",
+      "date": "2026-11-28",
+      "amount": null,
+      "file_id": "",
+      "file_name": "Sample.pdf",
+      "options": []
+    }
+  ]
+}

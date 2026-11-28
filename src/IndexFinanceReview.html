@@ -1,0 +1,67 @@
+(function () {
+  const $ = id => document.getElementById(id);
+  const open = $('fin-notifications-open'), dialog = $('fin-notifications'), area = $('fin-notifications-body');
+  if (!open || !window.google || !google.script || !google.script.run) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const shortDay = new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',dateStyle:'medium'});
+  const shortTime = new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',timeStyle:'short'});
+  const money = n => n === null ? 'Amount unknown' : (n/100).toLocaleString('en-PH',{style:'currency',currency:'PHP'});
+  const fail = () => { area.innerHTML = '<p role="alert">Finance reviews could not load. Close and reopen Notifications to retry.</p>'; };
+  function review(record) {
+    const cards = record.run.cards;
+    area.innerHTML = '<button type="button" class="btn ghost" data-fin-back>Back to notifications</button><h3 tabindex="-1">Finance review</h3>' +
+      (cards.length ? cards.map((c, i) => {
+        const d=record.decisions.find(x=>x.evidence_id===c.evidence_id);
+        const proof=/^[\w-]{10,100}$/.test(c.file_id) ? '<p><a target="_blank" rel="noopener" href="https://drive.google.com/file/d/'+esc(c.file_id)+'/view">Open proof</a></p>' : '';
+        const title=c.options.length?'Transaction Confirmation Request':'Transaction Review';
+        return '<article class="card"><b>'+title+'</b><p>Project: '+esc(c.project || 'Not confirmed')+'</p><p>'+esc([c.kind,money(c.amount),c.date].filter(Boolean).join(' · '))+'</p>'+proof+
+          (c.options.length ? '<form data-fin-card="'+i+'"><fieldset><legend>Possible matches</legend>'+
+             c.options.map((o,j)=>'<label style="display:block;margin:8px 0"><input type="radio" name="match" value="'+j+'" required'+(d&&d.request_id===o.request_id?' checked':'')+(d?' disabled':'')+'> '+
+             ' <strong>'+String.fromCharCode(65+j)+'. '+esc(o.request_id)+'</strong> '+esc(o.stage)+'<br>'+
+             o.pairs.map(p=>esc(p.requirement)+' → '+esc(p.scope)).join('<br>')+'<br>'+esc(o.supplier)+' · Requested '+esc(money(o.amount))+'</label>').join('')+
+             '<label><input type="radio" name="match" value="neither" required'+(d&&d.request_id===null?' checked':'')+(d?' disabled':'')+'> Neither</label></fieldset>'+
+             (d?'':'<button class="btn" type="submit">Confirm match</button>')+
+             '<p role="status">'+(d?(d.request_id?'Match confirmed. No payment posted.':'Left unmatched.'):'')+'</p></form>' : '<p>No verified match.</p>')+'</article>';
+      }).join('') : '<p>No transactions need review.</p>');
+    area.querySelector('h3').focus();
+    area.querySelector('[data-fin-back]').onclick = load;
+    for(const f of area.querySelectorAll('form')) f.onsubmit = e => {
+      e.preventDefault();
+      const card=cards[Number(f.dataset.finCard)], selected=f.querySelector('input[name="match"]:checked'), button=f.querySelector('button');
+      if(!selected || !button || button.disabled) return;
+      const option=selected.value==='neither'?null:card.options[Number(selected.value)];
+      if(option===undefined) return;
+      button.disabled=true;
+      google.script.run.withSuccessHandler(decision=>{
+        record.decisions.push(decision);
+        const field=f.querySelector('fieldset');
+        field.disabled=true;
+        f.querySelector('[role="status"]').textContent=decision.request_id?'Match confirmed. No payment posted.':'Left unmatched.';
+        button.hidden=true;
+      }).withFailureHandler(()=>{
+        button.disabled=false;
+        f.querySelector('[role="status"]').textContent='Could not verify the save. Try again.';
+      }).cueFinReviewConfirm(record.run.run_id,card.evidence_id,option&&option.request_id);
+    };
+  }
+  function list(view) {
+    if(!dialog.open) return;
+    let day='', html='';
+    for (const [i,r] of view.records.entries()) {
+      const when = new Date(r.run.finished_at), next = shortDay.format(when);
+      const needed=r.run.cards.filter(c=>c.options.length&&!r.decisions.some(d=>d.evidence_id===c.evidence_id)).length;
+      if(next!==day) {day=next;html+='<h3>Finance · '+esc(next)+'</h3>';}
+      html+='<button class="card" type="button" data-fin-run="'+i+'" style="display:block;width:100%;text-align:left"><b>'+esc((needed?'◉':'✓')+' Finance run · '+shortTime.format(when))+
+        '</b><br><span>'+esc(r.run.found+' found · '+r.run.read+' read · '+needed+' to confirm'+(r.run.selected!==r.run.read||r.run.selected!==r.run.found?' · Partial coverage':''))+'</span></button>';
+    }
+    area.innerHTML=html||'<p>No Finance notifications yet.</p>';
+    for(const b of area.querySelectorAll('[data-fin-run]')) b.onclick=()=>review(view.records[Number(b.dataset.finRun)]);
+    area.focus();
+  }
+  function load() {
+    area.innerHTML='<p role="status">Loading.</p>';
+    google.script.run.withSuccessHandler(list).withFailureHandler(fail).cueFinReviewInbox();
+  }
+  open.onclick=()=>{dialog.showModal();load();};
+  google.script.run.withSuccessHandler(v=>{open.hidden=!v.enabled;}).withFailureHandler(()=>{}).cueFinReviewInbox();
+})();

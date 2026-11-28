@@ -1,0 +1,7 @@
+{
+  "about": "Synthetic n8n output only. The named project is an existing test harness constraint, not an input to this check.",
+  "project_id": "S-25506500TR",
+  "project_name": "Trick or Treat - Manila",
+  "send": false,
+  "mail": "^kikodacanay\\+[a-z0-9-]+@blankspaceevent\\.com$"
+}
