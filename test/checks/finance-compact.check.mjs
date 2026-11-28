@@ -2,7 +2,7 @@
 import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const {cuePage} = require('../page.js');
-const sample = {id:'FIN-COMPACT-QA', kind:'agd', status:'Done', created:'2026-11-28T14:20:00Z', text:'',
+const sample = {id:'FIN-COMPACT-QA', kind:'agentdraft', status:'Needs you', created:'2026-11-28T14:20:00Z', text:'',
   agd:{agent:'Finance', type:'update', status:'Unread', item:'Finance summary 2026-11-28T22',
     handover:{summary:'Finance run 2026-11-28T22: 1923 files found in 309 folders (coverage complete), Gemini OCR read 5 files (0 failed), 1 payment links for you to confirm.',
       gaps:'QA legacy proof detail', next_action:'Confirm', state:'Blocked'}}};
