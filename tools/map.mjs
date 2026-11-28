@@ -11,8 +11,8 @@ import { createRequire } from 'module';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'src'), OUT = path.join(ROOT, 'FEATURE-MAP.md');
 const files = fs.readdirSync(SRC).filter(f => f.endsWith('.gs')).sort();
-const src = Object.fromEntries(files.map(f => [f, fs.readFileSync(path.join(SRC, f), 'utf8')]));
-const page = createRequire(import.meta.url)(path.join(ROOT, 'test', 'page.js')).cuePage();   // Index.html joined from its parts
+const src = Object.fromEntries(files.map(f => [f, fs.readFileSync(path.join(SRC, f), 'utf8').replace(/\r\n/g, '\n')]));
+const page = createRequire(import.meta.url)(path.join(ROOT, 'test', 'page.js')).cuePage().replace(/\r\n/g, '\n');   // Index.html joined from its parts
 
 // Where each top-level name is defined.
 const def = {};
@@ -29,7 +29,7 @@ for (const f of files) for (const m of src[f].matchAll(/\b(cue[A-Za-z0-9_]+|CUE_
 }
 
 // Bridge action names from the schema copy of Canvas src/ZapBridge.gs.
-const zb = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'ZapBridge.gs'), 'utf8');
+const zb = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'ZapBridge.gs'), 'utf8').replace(/\r\n/g, '\n');
 // No line counts anywhere: the map changes only when connections change, so parallel PRs rarely clash on it.
 const zbBlock = zb.slice(zb.indexOf('ZB_ACTIONS_'));
 const actions = new Set([...zbBlock.matchAll(/^ {2}([a-z][a-z0-9_]+): \{/gm)].map(m => m[1]));

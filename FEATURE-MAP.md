@@ -3,7 +3,7 @@
 Made from the code by `node tools/map.mjs` (structure review phase 1, item 1.1). Do not edit by hand: change the code and run
 the script again. `test/cue.test.js` fails when this file is out of date.
 
-Counts: 87 server files, 1735 top-level names, 40 task kinds, 42 word checks before the
+Counts: 87 server files, 1735 top-level names, 40 task kinds, 36 word checks before the
 chat call, 19 background jobs in the 5-minute trigger, 113 page-to-server functions, 70 bridge actions in the Canvas bridge copy.
 
 ## 1. Commands (task kinds)
@@ -97,12 +97,6 @@ If none answers, the AI chat call reads the message, and its answer starts the f
 34. `bids-intake`: "do intake for <bid>". Checks `cueBidsFor_` in `CueBids.gs`; starts `cueBidsIntake_` in `CueBids.gs`.
 35. `bids`: Bid check. Checks `cueBidsAsked_` in `CueBids.gs`; starts `cueBidsStart_` in `CueBids.gs`.
 36. `recost`: "cost them", "re-cost" in a thread with a read. Checks `cueRecostStart_` in `Cue.gs`.
-37. `workflow`: Workflow map. Checks nothing; starts `cueWorkflowStart_` in `CueWorkflow.gs`.
-38. `readiness`: Readiness check. Checks nothing; starts `cueReadyStart_` in `CueReady.gs`.
-39. `start_ar`: ARs. Checks nothing; starts `cueArStart_` in `CueAr.gs`.
-40. `email`: Email. Checks nothing; starts `cueMailStart_` in `CueMail.gs`.
-41. `vendor`: Supplier search. Checks nothing; starts `cueVendorStart_` in `CueVendor.gs`.
-42. `canvas_edit`: Canvas edit. Checks nothing; starts `cueEditStart_` in `CueEdit.gs`.
 
 Then a supplier to register (`cueIsSupplier_` in `CueSupplier.gs`) skips the chat call. Otherwise the chat call (`cueTalk_`) answers, and it starts, in this order:
 
