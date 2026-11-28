@@ -568,3 +568,9 @@ notification) / FSA Reminder - Automatic: Start - 3 days after initial, (when do
 
 Evidence: `test/features/20-signature-chasers.js` G6. Built: Cue 1.28.72 (live as Version 251, 16 Nov 2026 03:58Z). Manual gap: no
 live reminder seen yet.
+
+### CUE-059: Legacy Finance scan messages have a short line; proof stays in Details
+
+Kiko flagged the long Finance scan card and asked to publish the rollout on 28 Nov 2026. For an existing hourly Finance scan update, show counts for listing, OCR and nonzero pending matches in the collapsed message. Keep an incomplete coverage notice visible. Leave the original report and proof links in Details; compact copy does not assert an acknowledgement, approval or successful payment. No change to other messages.
+
+Acceptance: `test/features/99-agent-chat.js` exercises the compact copy and Details fallback; `finance-compact` checks the actual Cue renderer and expands/collapses the original Details card in the test browser.
