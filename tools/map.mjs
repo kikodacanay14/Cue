@@ -146,7 +146,7 @@ L.push('');
 
 const out = L.join('\n');
 if (process.argv.includes('--check')) {
-  const now = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
+  const now = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
   if (now !== out) { console.error('FEATURE-MAP.md is out of date. Run: node tools/map.mjs'); process.exit(1); }
   console.log('FEATURE-MAP.md is current.');
 } else {
